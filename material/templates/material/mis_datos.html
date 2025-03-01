@@ -1,0 +1,62 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>Mis datos</h1>
+
+    <!-- Mostrar mensajes -->
+    {% if messages %}
+        {% for message in messages %}
+            <!-- Modal para mostrar el mensaje -->
+            <div class="modal fade" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="messageModalLabel">Mensaje</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            {{ message }}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Aceptar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            {{ form.username.label_tag }} {{ form.username }}
+        </div>
+        <div class="mb-3">
+            {{ form.first_name.label_tag }} {{ form.first_name }}
+        </div>
+        <div class="mb-3">
+            {{ form.last_name.label_tag }} {{ form.last_name }}
+        </div>
+        <div class="mb-3">
+            {{ form.email.label_tag }} {{ form.email }}
+        </div>
+        <!-- Mostrar el campo de rol solo si el usuario es administrador -->
+        {% if is_admin %}
+            <div class="mb-3">
+                {{ form.role.label_tag }} {{ form.role }}
+            </div>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        <a href="{% url 'material:index' %}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+
+<!-- Script para mostrar el modal automáticamente si hay mensajes -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var messageModal = new bootstrap.Modal(document.getElementById('messageModal'));
+        messageModal.show();
+    });
+</script>
+{% endblock %}

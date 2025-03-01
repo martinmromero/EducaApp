@@ -1,0 +1,12 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>¿Estás seguro de que deseas eliminar a {{ user.username }}?</h1>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger w-100">Sí, eliminar</button>
+        <a href="{% url 'material:user_list' %}" class="btn btn-secondary w-100 mt-2">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

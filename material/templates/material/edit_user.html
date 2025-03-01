@@ -1,0 +1,33 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>Editar Usuario: {{ user.username }}</h1>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            {{ form.username.label_tag }} {{ form.username }}
+        </div>
+        <div class="mb-3">
+            {{ form.first_name.label_tag }} {{ form.first_name }}
+        </div>
+        <div class="mb-3">
+            {{ form.last_name.label_tag }} {{ form.last_name }}
+        </div>
+        <div class="mb-3">
+            {{ form.email.label_tag }} {{ form.email }}
+        </div>
+        <div class="mb-3">
+            {{ form.is_active.label_tag }} {{ form.is_active }}
+        </div>
+        <!-- Mostrar el campo de rol solo si el usuario que edita es administrador -->
+        {% if request.user.profile.role == 'admin' %}
+            <div class="mb-3">
+                {{ form.role.label_tag }} {{ form.role }}
+            </div>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        <a href="{% url 'material:user_list' %}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

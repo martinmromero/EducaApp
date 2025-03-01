@@ -1,0 +1,11 @@
+{% extends 'material/base.html' %}
+{% block content %}
+<div class="container">
+    <h1>Bienvenido a EducaApp</h1>
+    <p>Una aplicación para cargar material educativo y generar preguntas automáticamente.</p>
+    <div class="d-grid gap-2 d-md-block">
+        <a href="{% url 'material:upload_material' %}" class="btn btn-primary btn-lg">Subir Material</a>
+        <a href="{% url 'material:create_exam' %}" class="btn btn-secondary btn-lg">Crear Examen</a>
+    </div>
+</div>
+{% endblock %}

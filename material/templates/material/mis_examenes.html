@@ -1,0 +1,30 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>Mis Exámenes</h1>
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Título</th>
+                    <th>Fecha de creación</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for examen in examenes %}
+                <tr>
+                    <td>{{ examen.title }}</td>
+                    <td>{{ examen.created_at }}</td>
+                    <td>
+                        <a href="#" class="btn btn-sm btn-primary">Ver</a>
+                        <a href="#" class="btn btn-sm btn-danger">Eliminar</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

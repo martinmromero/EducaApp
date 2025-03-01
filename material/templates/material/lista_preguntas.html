@@ -1,0 +1,31 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>Lista de Preguntas</h1>
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Pregunta</th>
+                    <th>Respuesta</th>
+                    <th>Tema</th>
+                    <th>Subtema</th>
+                    <th>Página</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pregunta in preguntas %}
+                <tr>
+                    <td>{{ pregunta.question_text }}</td>
+                    <td>{{ pregunta.answer_text }}</td>
+                    <td>{{ pregunta.topic }}</td>
+                    <td>{{ pregunta.subtopic }}</td>
+                    <td>{{ pregunta.source_page }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

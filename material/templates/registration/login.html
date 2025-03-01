@@ -1,0 +1,15 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Iniciar sesión</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            {{ form.as_p }}
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Iniciar sesión</button>
+    </form>
+    <p class="mt-3">¿No tienes una cuenta? <a href="{% url 'material:signup' %}">Regístrate aquí</a>.</p>
+</div>
+{% endblock %}
