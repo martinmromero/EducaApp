@@ -10,6 +10,7 @@ urlpatterns = [
     path('review-questions/<int:material_id>/', views.review_questions, name='review_questions'),
     path('save-questions/<int:material_id>/', views.save_selected_questions, name='save_selected_questions'),
     path('create-exam/', views.create_exam, name='create_exam'),
+    path('create-exam-template/', views.create_exam_template, name='create_exam_template'),
     path('signup/', views.signup, name='signup'),
     path('users/', views.user_list, name='user_list'),
     path('users/edit/<int:user_id>/', views.edit_user, name='edit_user'),
@@ -21,4 +22,7 @@ urlpatterns = [
     path('delete-material/', views.delete_material, name='delete_material'),
     path('upload-questions/', views.upload_questions, name='upload_questions'),
     path('download-template/<str:format>/', views.download_template, name='download_template'),
+    path('create-exam-template/', views.create_exam_template, name='create_exam_template'),
+    path('preview-exam-template/<int:template_id>/', views.preview_exam_template, name='preview_exam_template'),
+    path('list-exam-templates/', views.list_exam_templates, name='list_exam_templates'),
 ]

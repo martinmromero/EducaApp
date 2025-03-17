@@ -3,8 +3,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib import messages
-from .models import Material, Question, Exam, Profile
-from .forms import MaterialForm, ExamForm, UserEditForm, CustomLoginForm, QuestionForm
+from .models import Material, Question, Exam, Profile, ExamTemplate
+from .forms import MaterialForm, ExamForm, UserEditForm, CustomLoginForm, QuestionForm, ExamTemplateForm
 from .ia_processor import generate_questions_from_text, extract_text_from_file
 from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView
@@ -15,15 +15,12 @@ import json
 # Función para verificar si el usuario es administrador
 def is_admin(user):
     try:
-        # Verificar si el usuario tiene un perfil y si su rol es 'admin'
         return user.profile.role == 'admin'
     except Profile.DoesNotExist:
-        # Si el usuario no tiene perfil, no es administrador
         return False
 
 @login_required
 def index(request):
-    # Pasar el valor de is_admin al contexto
     context = {
         'is_admin': is_admin(request.user)
     }
@@ -46,30 +43,20 @@ def upload_material(request):
 @login_required
 def generate_questions(request, material_id):
     material = Material.objects.get(id=material_id)
-    
-    # Obtener el número de preguntas desde el formulario o usar 20 por defecto
     num_questions = int(request.POST.get('num_questions', 20))
-    
-    # Extraer texto del archivo
     try:
         text = extract_text_from_file(material.file.path)
     except ValueError as e:
         messages.error(request, str(e))
         return redirect('material:mis_materiales')
-    
-    # Generar preguntas y respuestas usando IA
     questions_text = generate_questions_from_text(text, num_questions)
-    
-    # Guardar las preguntas en la sesión para revisión
     request.session['generated_questions'] = questions_text.split('\n')
-    
     return redirect('material:review_questions', material_id=material.id)
 
 @login_required
 def review_questions(request, material_id):
     material = Material.objects.get(id=material_id)
     questions_list = request.session.get('generated_questions', [])
-    
     return render(request, 'material/review_questions.html', {
         'material': material,
         'questions': questions_list
@@ -81,8 +68,6 @@ def save_selected_questions(request, material_id):
         material = Material.objects.get(id=material_id)
         selected_questions = request.POST.getlist('selected_questions')
         questions_list = request.session.get('generated_questions', [])
-        
-        # Guardar solo las preguntas seleccionadas
         for i, question in enumerate(questions_list):
             if str(i) in selected_questions:
                 Question.objects.create(
@@ -93,14 +78,10 @@ def save_selected_questions(request, material_id):
                     subtopic="Subtema generado por IA",
                     source_page=1
                 )
-        
-        # Limpiar la sesión
         if 'generated_questions' in request.session:
             del request.session['generated_questions']
-        
         messages.success(request, 'Preguntas seleccionadas guardadas correctamente.')
         return redirect('material:mis_preguntas')
-    
     return redirect('material:review_questions', material_id=material_id)
 
 @login_required
@@ -116,6 +97,31 @@ def create_exam(request):
     else:
         form = ExamForm()
     return render(request, 'material/create_exam.html', {'form': form, 'questions': questions})
+
+@login_required
+def create_exam_template(request):
+    if request.method == 'POST':
+        form = ExamTemplateForm(request.POST, request.FILES)
+        if form.is_valid():
+            exam_template = form.save(commit=False)
+            exam_template.created_by = request.user
+            exam_template.save()
+            messages.success(request, 'La plantilla de examen se ha creado correctamente.')
+            return redirect('material:list_exam_templates')  # Redirigir a la lista de templates
+    else:
+        form = ExamTemplateForm()
+    return render(request, 'material/create_exam_template.html', {'form': form})
+
+@login_required
+def preview_exam_template(request, template_id):
+    exam_template = get_object_or_404(ExamTemplate, id=template_id)
+    return render(request, 'material/preview_exam_template.html', {'exam_template': exam_template})
+
+@login_required
+def list_exam_templates(request):
+    # Obtener todos los templates de exámenes creados por el usuario actual
+    exam_templates = ExamTemplate.objects.filter(created_by=request.user)
+    return render(request, 'material/list_exam_templates.html', {'exam_templates': exam_templates})
 
 def signup(request):
     if request.method == 'POST':
@@ -169,13 +175,12 @@ def mis_datos(request):
         form = UserEditForm(request.POST, instance=user)
         if form.is_valid():
             if form.has_changed():
-                # Guardar los cambios sin modificar el estado is_active
                 user.username = form.cleaned_data['username']
                 user.first_name = form.cleaned_data['first_name']
                 user.last_name = form.cleaned_data['last_name']
                 user.email = form.cleaned_data['email']
                 user.save()
-                update_session_auth_hash(request, user)  # Actualiza la sesión para evitar cierre de sesión
+                update_session_auth_hash(request, user)
                 messages.success(request, 'Sus cambios fueron guardados.')
             else:
                 messages.info(request, 'No se realizaron cambios.')
@@ -206,16 +211,13 @@ def delete_material(request):
         if not material_ids:
             messages.error(request, 'No se seleccionó ningún documento para borrar.')
             return redirect('material:mis_materiales')
-
         materiales = Material.objects.filter(id__in=material_ids, uploaded_by=request.user)
         count = materiales.count()
         materiales.delete()
-
         if count == 1:
             messages.success(request, 'El documento ha sido borrado correctamente.')
         else:
             messages.success(request, f'Los {count} documentos han sido borrados correctamente.')
-
     return redirect('material:mis_materiales')
 
 @login_required
@@ -224,7 +226,6 @@ def upload_questions(request):
         form = QuestionForm(request.POST, request.FILES)
         if form.is_valid():
             upload_type = form.cleaned_data['upload_type']
-            # Crear un material por defecto si no existe
             default_material, created = Material.objects.get_or_create(
                 title="Material por Defecto",
                 defaults={
@@ -232,7 +233,6 @@ def upload_questions(request):
                 }
             )
             if upload_type == QuestionForm.SINGLE:
-                # Guardar una sola pregunta
                 Question.objects.create(
                     material=default_material,
                     question_text=form.cleaned_data['question_text'],
@@ -244,11 +244,9 @@ def upload_questions(request):
                 )
                 messages.success(request, 'Pregunta subida correctamente.')
             else:
-                # Procesar archivo de múltiples preguntas
                 if 'file' in request.FILES:
                     file = request.FILES['file']
                     if file.name.endswith('.csv'):
-                        # Procesar CSV
                         decoded_file = file.read().decode('utf-8').splitlines()
                         reader = csv.DictReader(decoded_file)
                         for row in reader:
@@ -263,7 +261,6 @@ def upload_questions(request):
                             )
                         messages.success(request, 'Preguntas subidas correctamente desde el archivo CSV.')
                     elif file.name.endswith('.json'):
-                        # Procesar JSON
                         data = json.loads(file.read().decode('utf-8'))
                         for item in data:
                             Question.objects.create(
@@ -277,7 +274,6 @@ def upload_questions(request):
                             )
                         messages.success(request, 'Preguntas subidas correctamente desde el archivo JSON.')
                     elif file.name.endswith('.txt'):
-                        # Procesar TXT
                         lines = file.read().decode('utf-8').splitlines()
                         question_data = {}
                         for line in lines:
@@ -285,7 +281,6 @@ def upload_questions(request):
                                 key, value = line.split(':', 1)
                                 question_data[key.strip().lower()] = value.strip()
                             else:
-                                # Guardar la pregunta cuando se encuentra una línea vacía
                                 Question.objects.create(
                                     material=default_material,
                                     question_text=question_data.get('pregunta', ''),
@@ -295,8 +290,7 @@ def upload_questions(request):
                                     source_page=int(question_data.get('página', 0)),
                                     chapter=question_data.get('capítulo', ''),
                                 )
-                                question_data = {}  # Reiniciar para la siguiente pregunta
-                        # Guardar la última pregunta si no hay una línea vacía al final
+                                question_data = {}
                         if question_data:
                             Question.objects.create(
                                 material=default_material,
@@ -311,7 +305,6 @@ def upload_questions(request):
                     else:
                         messages.error(request, 'Formato de archivo no soportado.')
                 else:
-                    # Procesar datos de la grilla
                     grid_data = request.POST.get('grid_data')
                     if grid_data:
                         data = json.loads(grid_data)
@@ -331,7 +324,6 @@ def upload_questions(request):
         form = QuestionForm()
     return render(request, 'material/upload_questions.html', {'form': form})
 
-# Nueva vista para descargar plantillas
 def download_template(request, format):
     if format == 'csv':
         response = HttpResponse(content_type='text/csv')

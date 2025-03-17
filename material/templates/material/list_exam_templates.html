@@ -1,0 +1,39 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<h2>Plantillas de Examen Guardadas</h2>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Institución</th>
+            <th>Carrera</th>
+            <th>Materia</th>
+            <th>Profesor</th>
+            <th>Año</th>
+            <th>Tipo de Examen</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for template in exam_templates %}
+        <tr>
+            <td>{{ template.institution_name }}</td>
+            <td>{{ template.career_name }}</td>
+            <td>{{ template.subject_name }}</td>
+            <td>{{ template.professor_name }}</td>
+            <td>{{ template.year }}</td>
+            <td>{{ template.get_exam_type_display }}</td>
+            <td>
+                <a href="{% url 'material:preview_exam_template' template.id %}" class="btn btn-primary btn-sm">Ver</a>
+                <a href="#" class="btn btn-danger btn-sm">Eliminar</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="7" class="text-center">No hay plantillas guardadas.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<a href="{% url 'material:create_exam_template' %}" class="btn btn-success">Crear Nueva Plantilla</a>
+{% endblock %}

@@ -1,17 +1,17 @@
 from django import forms
 from django.contrib.auth.models import User
-from .models import Material, Question, Exam, Profile
+from .models import Material, Question, Exam, Profile, ExamTemplate
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 
 class MaterialForm(forms.ModelForm):
-    file = forms.FileField(widget=forms.ClearableFileInput())  # Permitir un solo archivo
+    file = forms.FileField(widget=forms.ClearableFileInput())
 
     class Meta:
         model = Material
         fields = ['title', 'file']
         widgets = {
-            'title': forms.TextInput(attrs={'required': False}),  # Hacemos que el campo no sea obligatorio
+            'title': forms.TextInput(attrs={'required': False}),
         }
 
 class ExamForm(forms.ModelForm):
@@ -19,8 +19,20 @@ class ExamForm(forms.ModelForm):
         model = Exam
         fields = ['title', 'topics', 'questions']
 
+class ExamTemplateForm(forms.ModelForm):
+    class Meta:
+        model = ExamTemplate
+        fields = [
+            'institution_logo', 'institution_name', 'career_name', 'subject_name', 
+            'professor_name', 'year', 'exam_type', 'exam_mode', 
+            'notes_and_recommendations', 'topics_to_evaluate'
+        ]
+        widgets = {
+            'notes_and_recommendations': forms.Textarea(attrs={'rows': 4}),
+            'topics_to_evaluate': forms.Textarea(attrs={'rows': 4}),
+        }
+
 class UserEditForm(forms.ModelForm):
-    # Campo para el rol del usuario
     role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, label="Rol")
 
     class Meta:
@@ -29,7 +41,6 @@ class UserEditForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Establecer el valor inicial del campo 'role' desde el perfil del usuario
         if self.instance and hasattr(self.instance, 'profile'):
             self.initial['role'] = self.instance.profile.role
 
@@ -37,7 +48,6 @@ class UserEditForm(forms.ModelForm):
         user = super().save(commit=False)
         if commit:
             user.save()
-            # Guardar el rol en el perfil del usuario
             if hasattr(user, 'profile'):
                 user.profile.role = self.cleaned_data['role']
                 user.profile.save()
@@ -54,13 +64,10 @@ class CustomLoginForm(AuthenticationForm):
                 if not user.is_active:
                     raise ValidationError("El usuario está desactivado. Póngase en contacto con su administrador.")
             except User.DoesNotExist:
-                # Si el usuario no existe, dejamos que el formulario de autenticación maneje el error
                 pass
 
-        # Llamamos al método clean de la clase padre para realizar la autenticación
         return super().clean()
 
-# Nuevo formulario para subir preguntas
 class QuestionForm(forms.Form):
     SINGLE = 'single'
     MULTIPLE = 'multiple'
@@ -76,7 +83,6 @@ class QuestionForm(forms.Form):
         label="Tipo de subida"
     )
 
-    # Campos para subir una sola pregunta
     question_text = forms.CharField(
         label="Texto de la pregunta",
         widget=forms.Textarea(attrs={'rows': 3}),
@@ -107,7 +113,6 @@ class QuestionForm(forms.Form):
         required=False
     )
 
-    # Campo para subir múltiples preguntas
     file = forms.FileField(
         label="Archivo de preguntas (CSV, JSON o TXT)",
         required=False
@@ -119,7 +124,6 @@ class QuestionForm(forms.Form):
         file = cleaned_data.get('file')
 
         if upload_type == self.SINGLE:
-            # Validar que los campos de una sola pregunta estén completos
             if not all([
                 cleaned_data.get('question_text'),
                 cleaned_data.get('answer_text'),
@@ -130,10 +134,8 @@ class QuestionForm(forms.Form):
             ]):
                 raise ValidationError("Todos los campos son obligatorios para subir una sola pregunta.")
         elif upload_type == self.MULTIPLE:
-            # Validar que se haya subido un archivo
             if not file:
                 raise ValidationError("Debes subir un archivo para cargar múltiples preguntas.")
-            # Validar el tipo de archivo
             if not file.name.endswith(('.csv', '.json', '.txt')):
                 raise ValidationError("El archivo debe ser un CSV, JSON o TXT.")
 

@@ -1,0 +1,139 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<h2>Previsualización de la Plantilla de Examen</h2>
+<div class="preview-container">
+    <div class="exam-template">
+        <!-- Encabezado del examen -->
+        <div class="header">
+            <div class="institution-logo">
+                {% if exam_template.institution_logo %}
+                    <img src="{{ exam_template.institution_logo.url }}" alt="Logo de la institución" style="max-width: 100px; max-height: 100px;">
+                {% endif %}
+            </div>
+            <div class="institution-info">
+                <h3>{{ exam_template.institution_name }}</h3>
+                <p><strong>Carrera:</strong> {{ exam_template.career_name }}</p>
+                <p><strong>Materia:</strong> {{ exam_template.subject_name }}</p>
+                <p><strong>Profesor:</strong> {{ exam_template.professor_name }}</p>
+                <p><strong>Año:</strong> {{ exam_template.year }}</p>
+            </div>
+        </div>
+
+        <!-- Detalles del examen en tabla -->
+        <table class="exam-details">
+            <tr>
+                <th>Tipo de Examen</th>
+                <td>{{ exam_template.get_exam_type_display }}</td>
+            </tr>
+            <tr>
+                <th>Modalidad</th>
+                <td>{{ exam_template.get_exam_mode_display }}</td>
+            </tr>
+            <tr>
+                <th>Fecha</th>
+                <td>{{ exam_template.created_at|date:"d/m/Y" }}</td>
+            </tr>
+            <tr>
+                <th>Tiempo de Resolución</th>
+                <td>[Tiempo]</td>
+            </tr>
+        </table>
+
+        <!-- Notas y recomendaciones -->
+        <div class="notes">
+            <h4>Notas y Recomendaciones:</h4>
+            <p>{{ exam_template.notes_and_recommendations }}</p>
+        </div>
+
+        <!-- Temas a evaluar -->
+        <div class="topics">
+            <h4>Temas a Evaluar:</h4>
+            <p>{{ exam_template.topics_to_evaluate }}</p>
+        </div>
+
+        <!-- Espacio para preguntas -->
+        <div class="questions">
+            <h4>Preguntas:</h4>
+            <div>
+                <!-- Aquí se mostrarán las preguntas cuando se rellene el examen -->
+                <p>1. [Pregunta 1]</p>
+                <p>2. [Pregunta 2]</p>
+                <!-- Más preguntas... -->
+            </div>
+        </div>
+    </div>
+</div>
+<a href="{% url 'material:create_exam_template' %}" class="btn btn-primary">Volver al Formulario</a>
+
+<!-- Estilos para la previsualización -->
+<style>
+    .preview-container {
+        margin-top: 20px;
+        border: 2px solid black; /* Recuadro negro */
+        padding: 20px;
+        background-color: white;
+        width: 210mm; /* Ancho de una hoja A4 */
+        min-height: 297mm; /* Alto de una hoja A4 */
+        margin: 0 auto;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .exam-template {
+        width: 100%;
+    }
+
+    .header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .institution-logo {
+        flex: 1;
+        text-align: center;
+    }
+
+    .institution-info {
+        flex: 3;
+        margin-left: 20px;
+    }
+
+    .exam-details {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+
+    .exam-details th, .exam-details td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+
+    .exam-details th {
+        background-color: #f2f2f2;
+    }
+
+    .notes, .topics, .questions {
+        margin-bottom: 20px;
+    }
+
+    .notes h4, .topics h4, .questions h4 {
+        margin-bottom: 10px;
+    }
+
+    .questions p {
+        margin: 5px 0;
+    }
+
+    /* Estilos para impresión */
+    @media print {
+        .preview-container {
+            border: none; /* Eliminar el recuadro negro al imprimir */
+            box-shadow: none;
+            padding: 0;
+        }
+    }
+</style>
+{% endblock %}
