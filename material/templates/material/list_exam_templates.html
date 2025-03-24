@@ -2,38 +2,83 @@
 
 {% block content %}
 <h2>Plantillas de Examen Guardadas</h2>
-<table class="table table-bordered">
-    <thead>
-        <tr>
-            <th>Institución</th>
-            <th>Carrera</th>
-            <th>Materia</th>
-            <th>Profesor</th>
-            <th>Año</th>
-            <th>Tipo de Examen</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for template in exam_templates %}
-        <tr>
-            <td>{{ template.institution_name }}</td>
-            <td>{{ template.career_name }}</td>
-            <td>{{ template.subject_name }}</td>
-            <td>{{ template.professor_name }}</td>
-            <td>{{ template.year }}</td>
-            <td>{{ template.get_exam_type_display }}</td>
-            <td>
-                <a href="{% url 'material:preview_exam_template' template.id %}" class="btn btn-primary btn-sm">Ver</a>
-                <a href="#" class="btn btn-danger btn-sm">Eliminar</a>
-            </td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="7" class="text-center">No hay plantillas guardadas.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+
+<!-- Mostrar mensajes relacionados con plantillas -->
+{% if messages %}
+    {% for message in messages %}
+        {% if "exam_template" in message.tags %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+<!-- Formulario para eliminar plantillas seleccionadas -->
+<form method="post" action="{% url 'material:delete_exam_template' %}" id="deleteForm">
+    {% csrf_token %}
+    <!-- Tabla de plantillas de examen -->
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Seleccionar</th>
+                <th>Institución</th>
+                <th>Carrera</th>
+                <th>Materia</th>
+                <th>Profesor</th>
+                <th>Año</th>
+                <th>Tipo de Examen</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for template in exam_templates %}
+            <tr>
+                <td>
+                    <input type="checkbox" name="template_ids" value="{{ template.id }}">
+                </td>
+                <td>{{ template.institution_name }}</td>
+                <td>{{ template.career_name }}</td>
+                <td>{{ template.subject_name }}</td>
+                <td>{{ template.professor_name }}</td>
+                <td>{{ template.year }}</td>
+                <td>{{ template.get_exam_type_display }}</td>
+                <td>
+                    <!-- Botón para ver la plantilla -->
+                    <a href="{% url 'material:preview_exam_template' template.id %}" class="btn btn-primary btn-sm">Ver</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center">No hay plantillas guardadas.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Botón para eliminar plantillas seleccionadas -->
+    <button type="button" class="btn btn-danger" onclick="confirmDelete()">Eliminar Seleccionadas</button>
+</form>
+</br>
+<!-- Botón para crear una nueva plantilla -->
 <a href="{% url 'material:create_exam_template' %}" class="btn btn-success">Crear Nueva Plantilla</a>
+
+<!-- Script para manejar la confirmación de eliminación -->
+<script>
+    function confirmDelete() {
+        const selectedTemplates = document.querySelectorAll('input[name="template_ids"]:checked');
+        if (selectedTemplates.length === 0) {
+            alert("Por favor, selecciona al menos una plantilla para eliminar.");
+            return;
+        }
+
+        const confirmMessage = selectedTemplates.length === 1 ?
+            "¿Estás seguro de que deseas eliminar esta plantilla?" :
+            "¿Estás seguro de que deseas eliminar las plantillas seleccionadas?";
+
+        if (confirm(confirmMessage)) {
+            document.getElementById('deleteForm').submit();
+        }
+    }
+</script>
 {% endblock %}

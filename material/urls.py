@@ -25,4 +25,6 @@ urlpatterns = [
     path('create-exam-template/', views.create_exam_template, name='create_exam_template'),
     path('preview-exam-template/<int:template_id>/', views.preview_exam_template, name='preview_exam_template'),
     path('list-exam-templates/', views.list_exam_templates, name='list_exam_templates'),
+    path('delete-exam-template/', views.delete_exam_template, name='delete_exam_template'),
+
 ]

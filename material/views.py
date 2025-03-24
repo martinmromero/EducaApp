@@ -101,15 +101,22 @@ def create_exam(request):
 @login_required
 def create_exam_template(request):
     if request.method == 'POST':
+        # Procesar el formulario cuando se envía
         form = ExamTemplateForm(request.POST, request.FILES)
         if form.is_valid():
+            # Guardar la plantilla de examen
             exam_template = form.save(commit=False)
-            exam_template.created_by = request.user
+            exam_template.created_by = request.user  # Asignar el usuario actual
             exam_template.save()
+            # Mostrar mensaje de éxito
             messages.success(request, 'La plantilla de examen se ha creado correctamente.')
-            return redirect('material:list_exam_templates')  # Redirigir a la lista de templates
+            # Redirigir a la lista de plantillas
+            return redirect('material:list_exam_templates')
     else:
+        # Mostrar el formulario vacío para crear una nueva plantilla
         form = ExamTemplateForm()
+    
+    # Renderizar la plantilla con el formulario
     return render(request, 'material/create_exam_template.html', {'form': form})
 
 @login_required
@@ -375,3 +382,18 @@ Capítulo: Capítulo 2: Literatura Latinoamericana"""
     else:
         messages.error(request, 'Formato de plantilla no soportado.')
         return redirect('material:upload_questions')
+    
+@login_required
+def delete_exam_template(request):
+    if request.method == 'POST':
+        # Obtener la lista de IDs de plantillas seleccionadas
+        template_ids = request.POST.getlist('template_ids')
+        
+        # Eliminar las plantillas seleccionadas
+        ExamTemplate.objects.filter(id__in=template_ids, created_by=request.user).delete()
+        
+        # Mostrar mensaje de éxito
+        messages.success(request, 'Las plantillas seleccionadas se han eliminado correctamente.', extra_tags='exam_template')
+    
+    # Redirigir a la lista de plantillas
+    return redirect('material:list_exam_templates')

@@ -4,15 +4,18 @@
 <div class="container">
     <h1>Mis Materiales</h1>
 
-    <!-- Mostrar mensajes de éxito o error -->
+    <!-- Mostrar mensajes de éxito o error (solo los relacionados con materiales) -->
     {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-success" role="alert">
-                {{ message }}
-            </div>
+            {% if "material" in message.tags %}  <!-- Filtra mensajes con la etiqueta "material" -->
+                <div class="alert alert-{{ message.tags }}" role="alert">
+                    {{ message }}
+                </div>
+            {% endif %}
         {% endfor %}
     {% endif %}
 
+    <!-- Formulario para eliminar materiales seleccionados -->
     <form method="post" action="{% url 'material:delete_material' %}" id="deleteForm">
         {% csrf_token %}
         <div class="table-responsive">
