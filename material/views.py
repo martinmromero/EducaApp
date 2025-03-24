@@ -397,3 +397,16 @@ def delete_exam_template(request):
     
     # Redirigir a la lista de plantillas
     return redirect('material:list_exam_templates')
+
+def lista_preguntas(request):
+    preguntas = Question.objects.all().order_by('materia', 'topic', 'subtopic')
+    materias_unicas = Question.objects.values_list('materia', flat=True).distinct()
+    temas_unicos = Question.objects.values_list('topic', flat=True).distinct()
+    subtemas_unicos = Question.objects.values_list('subtopic', flat=True).distinct()
+
+    return render(request, 'material/lista_preguntas.html', {
+        'preguntas': preguntas,
+        'materias_unicas': materias_unicas,
+        'temas_unicos': temas_unicos,
+        'subtemas_unicos': subtemas_unicos
+    })

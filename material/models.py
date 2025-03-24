@@ -3,17 +3,28 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+class Materia(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.nombre
+
+
 class Material(models.Model):
     title = models.CharField(max_length=255)
     file = models.FileField(upload_to='materials/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    materia = models.CharField(max_length=100, default='General')  # Nuevo campo 
+
+
 
     def __str__(self):
-        return self.title
+        return f"{self.materia} - {self.title}"
 
 class Question(models.Model):
     material = models.ForeignKey(Material, on_delete=models.CASCADE)
+    materia = models.ForeignKey(Materia, on_delete=models.SET_DEFAULT, default=1)  # Relación con Materia
     question_text = models.TextField()
     answer_text = models.TextField()
     topic = models.CharField(max_length=255)
@@ -21,18 +32,22 @@ class Question(models.Model):
     source_page = models.IntegerField()
     chapter = models.TextField(blank=True, null=True)
 
+    class Meta:
+        ordering = ['materia', 'topic', 'subtopic']  # Orden por defecto
+
     def __str__(self):
-        return self.question_text
+        return f"{self.materia} - {self.topic}: {self.question_text[:50]}..."
 
 class Exam(models.Model):
     title = models.CharField(max_length=255)
+    materia = models.CharField(max_length=100)  # Nuevo campo
     topics = models.TextField()
     questions = models.ManyToManyField(Question)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return self.title
+        return f"{self.materia} - {self.title}"
 
 class ExamTemplate(models.Model):
     EXAM_TYPE_CHOICES = [

@@ -1,157 +1,10 @@
+{% load static %}  <!-- Línea añadida -->
 <!DOCTYPE html>
 <html>
 <head>
     <title>EducaApp</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        /* Estilos para el menú lateral */
-        .sidebar {
-            height: 100%;
-            width: 250px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            background-color: #f8f9fa;
-            padding-top: 20px;
-            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-            z-index: 1000; /* Asegura que el menú esté por encima del contenido */
-            transition: transform 0.3s ease-in-out;
-            display: flex;
-            flex-direction: column;
-        }
-        .sidebar.collapsed {
-            transform: translateX(-250px);
-        }
-        .sidebar a {
-            padding: 10px 15px;
-            text-decoration: none;
-            font-size: 18px;
-            color: #333;
-            display: block;
-        }
-        .sidebar a:hover {
-            background-color: #ddd;
-        }
-        .sidebar .user-info {
-            padding: 10px 15px;
-            font-size: 18px;
-            font-weight: bold;
-            color: #333;
-            border-bottom: 1px solid #ddd;
-        }
-        .sidebar .bottom-links {
-            margin-top: auto; /* Empuja los enlaces hacia la parte inferior */
-            border-top: 1px solid #ddd;
-            padding: 10px 0; /* Espacio adicional en la parte inferior */
-        }
-        .sidebar .bottom-links .logout-button {
-            padding: 10px 15px;
-            font-size: 18px;
-            color: #333;
-            text-align: left;
-            width: 100%;
-            background: none;
-            border: none;
-            cursor: pointer;
-        }
-        .sidebar .bottom-links .logout-button:hover {
-            background-color: #ddd;
-        }
-        .main-content {
-            margin-left: 250px; /* Ajuste para el menú lateral */
-            padding: 20px;
-            transition: margin-left 0.3s ease-in-out;
-        }
-        .main-content.expanded {
-            margin-left: 0;
-        }
-        .navbar-toggler {
-            margin-right: 10px;
-        }
-
-        /* Estilos para pantallas pequeñas */
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-250px); /* Menú oculto por defecto en móviles */
-            }
-            .sidebar.collapsed {
-                transform: translateX(0); /* Menú visible cuando no está colapsado */
-            }
-            .main-content {
-                margin-left: 0; /* El contenido principal ocupa toda la pantalla en móviles */
-            }
-            .main-content.expanded {
-                margin-left: 250px; /* Desplaza el contenido cuando el menú está visible */
-            }
-        }
-
-        /* Estilos para el modo oscuro */
-        body.dark-mode {
-            background-color: #121212;
-            color: #ffffff;
-        }
-        .dark-mode .sidebar {
-            background-color: #1e1e1e;
-            color: #ffffff;
-        }
-        .dark-mode .sidebar a {
-            color: #ffffff;
-        }
-        .dark-mode .sidebar a:hover {
-            background-color: #333;
-        }
-        .dark-mode .sidebar .user-info {
-            color: #ffffff;
-            border-bottom-color: #333;
-        }
-        .dark-mode .sidebar .bottom-links {
-            border-top-color: #333;
-        }
-        .dark-mode .sidebar .logout-button {
-            color: #ffffff;
-        }
-        .dark-mode .sidebar .logout-button:hover {
-            background-color: #333;
-        }
-        .dark-mode .sidebar .menu-item {
-            color: #ffffff;
-        }
-        .dark-mode .sidebar .menu-item:hover {
-            background-color: #333;
-        }
-        .dark-mode .sidebar .submenu a {
-            color: #ffffff;
-        }
-
-        /* Estilos para el menú de dos niveles */
-        .sidebar .menu-item {
-            padding: 10px 15px;
-            font-size: 18px;
-            color: #333;
-            display: block;
-            cursor: pointer;
-        }
-        .sidebar .menu-item:hover {
-            background-color: #ddd;
-        }
-        .sidebar .submenu {
-            padding-left: 20px;
-            display: none;
-        }
-        .sidebar .submenu a {
-            padding: 8px 15px;
-            font-size: 16px;
-        }
-        .sidebar .menu-item.active .submenu {
-            display: block;
-        }
-
-        /* Estilos para el botón de modo oscuro */
-        .mode-toggle-button {
-            width: 120px; /* Ancho fijo para evitar cambios de tamaño */
-            text-align: center;
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 </head>
 <body>
     <!-- Menú lateral -->
@@ -183,7 +36,7 @@
             <div class="submenu">
                 <a href="{% url 'material:create_exam' %}">Crear Exámenes</a>
                 <a href="{% url 'material:create_exam_template' %}">Crear Plantilla de Examen</a>
-                <a href="{% url 'material:list_exam_templates' %}">Plantillas Guardadas</a> <!-- Nuevo enlace -->
+                <a href="{% url 'material:list_exam_templates' %}">Plantillas Guardadas</a>
                 <a href="{% url 'material:mis_examenes' %}">Mis Exámenes</a>
             </div>
         </div>

@@ -5,39 +5,97 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 
 class MaterialForm(forms.ModelForm):
-    file = forms.FileField(widget=forms.ClearableFileInput())
+    file = forms.FileField(widget=forms.ClearableFileInput(attrs={'class': 'form-control'}))
+    materia = forms.CharField(
+        max_length=100,
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        label="Materia"
+    )
 
     class Meta:
         model = Material
-        fields = ['title', 'file']
+        fields = ['materia', 'title', 'file']
         widgets = {
-            'title': forms.TextInput(attrs={'required': False}),
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'title': 'Título del Material',
+        }
+
+class QuestionForm(forms.ModelForm):
+    class Meta:
+        model = Question
+        fields = ['materia', 'topic', 'subtopic', 'question_text', 'answer_text', 'source_page', 'chapter']
+        widgets = {
+            'materia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Matemáticas'}),
+            'topic': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Álgebra'}),
+            'subtopic': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Ecuaciones cuadráticas'}),
+            'question_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Texto de la pregunta'}),
+            'answer_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Texto de la respuesta'}),
+            'source_page': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Número de página'}),
+            'chapter': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Capítulo o sección'}),
+        }
+        labels = {
+            'materia': 'Materia',
+            'topic': 'Tema',
+            'subtopic': 'Subtema',
+            'question_text': 'Pregunta',
+            'answer_text': 'Respuesta',
+            'source_page': 'Página de referencia',
+            'chapter': 'Capítulo',
         }
 
 class ExamForm(forms.ModelForm):
+    materia = forms.CharField(
+        max_length=100,
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        label="Materia"
+    )
+
     class Meta:
         model = Exam
-        fields = ['title', 'topics', 'questions']
+        fields = ['materia', 'title', 'topics', 'questions']
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'topics': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'questions': forms.SelectMultiple(attrs={'class': 'form-control'}),
+        }
 
 class ExamTemplateForm(forms.ModelForm):
     class Meta:
         model = ExamTemplate
         fields = [
-            'institution_logo', 'institution_name', 'career_name', 'subject_name', 
-            'professor_name', 'year', 'exam_type', 'exam_mode', 
+            'institution_logo', 'institution_name', 'career_name', 'subject_name',
+            'professor_name', 'year', 'exam_type', 'exam_mode',
             'notes_and_recommendations', 'topics_to_evaluate'
         ]
         widgets = {
-            'notes_and_recommendations': forms.Textarea(attrs={'rows': 4}),
-            'topics_to_evaluate': forms.Textarea(attrs={'rows': 4}),
+            'institution_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'career_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'subject_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'professor_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'year': forms.NumberInput(attrs={'class': 'form-control'}),
+            'exam_type': forms.Select(attrs={'class': 'form-control'}),
+            'exam_mode': forms.Select(attrs={'class': 'form-control'}),
+            'notes_and_recommendations': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'topics_to_evaluate': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
         }
 
 class UserEditForm(forms.ModelForm):
-    role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, label="Rol")
+    role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, label="Rol", widget=forms.Select(attrs={'class': 'form-control'}))
 
     class Meta:
         model = User
         fields = ['username', 'first_name', 'last_name', 'email', 'is_active', 'role']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -54,89 +112,55 @@ class UserEditForm(forms.ModelForm):
         return user
 
 class CustomLoginForm(AuthenticationForm):
+    username = forms.CharField(
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Usuario'})
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Contraseña'})
+    )
+
     def clean(self):
-        username = self.cleaned_data.get('username')
-        password = self.cleaned_data.get('password')
+        cleaned_data = super().clean()
+        username = cleaned_data.get('username')
+        password = cleaned_data.get('password')
 
         if username is not None and password:
             try:
                 user = User.objects.get(username=username)
                 if not user.is_active:
-                    raise ValidationError("El usuario está desactivado. Póngase en contacto con su administrador.")
+                    raise ValidationError("El usuario está desactivado. Contacta al administrador.")
             except User.DoesNotExist:
                 pass
+        return cleaned_data
 
-        return super().clean()
-
-class QuestionForm(forms.Form):
-    SINGLE = 'single'
-    MULTIPLE = 'multiple'
+class BulkQuestionUploadForm(forms.Form):
     UPLOAD_TYPE_CHOICES = [
-        (SINGLE, 'Subir una sola pregunta'),
-        (MULTIPLE, 'Subir múltiples preguntas (CSV, JSON o TXT)'),
+        ('csv', 'Archivo CSV'),
+        ('json', 'Archivo JSON'),
     ]
-
+    
     upload_type = forms.ChoiceField(
         choices=UPLOAD_TYPE_CHOICES,
-        widget=forms.RadioSelect,
-        initial=SINGLE,
-        label="Tipo de subida"
+        widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
+        initial='csv',
+        label="Formato del archivo"
     )
-
-    question_text = forms.CharField(
-        label="Texto de la pregunta",
-        widget=forms.Textarea(attrs={'rows': 3}),
-        required=False
-    )
-    answer_text = forms.CharField(
-        label="Texto de la respuesta",
-        widget=forms.Textarea(attrs={'rows': 3}),
-        required=False
-    )
-    topic = forms.CharField(
-        label="Tema",
-        max_length=255,
-        required=False
-    )
-    subtopic = forms.CharField(
-        label="Subtema",
-        max_length=255,
-        required=False
-    )
-    source_page = forms.IntegerField(
-        label="Página de referencia",
-        required=False
-    )
-    chapter = forms.CharField(
-        label="Capítulo",
-        widget=forms.Textarea(attrs={'rows': 2}),
-        required=False
-    )
-
     file = forms.FileField(
-        label="Archivo de preguntas (CSV, JSON o TXT)",
+        label="Archivo de preguntas",
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control'}),
+        help_text="Formatos soportados: CSV o JSON. Estructura requerida: materia, topic, subtopic, question_text, answer_text, source_page, chapter"
+    )
+    material = forms.ModelChoiceField(
+        queryset=Material.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label="Material asociado",
         required=False
     )
 
-    def clean(self):
-        cleaned_data = super().clean()
-        upload_type = cleaned_data.get('upload_type')
-        file = cleaned_data.get('file')
-
-        if upload_type == self.SINGLE:
-            if not all([
-                cleaned_data.get('question_text'),
-                cleaned_data.get('answer_text'),
-                cleaned_data.get('topic'),
-                cleaned_data.get('subtopic'),
-                cleaned_data.get('source_page'),
-                cleaned_data.get('chapter'),
-            ]):
-                raise ValidationError("Todos los campos son obligatorios para subir una sola pregunta.")
-        elif upload_type == self.MULTIPLE:
-            if not file:
-                raise ValidationError("Debes subir un archivo para cargar múltiples preguntas.")
-            if not file.name.endswith(('.csv', '.json', '.txt')):
-                raise ValidationError("El archivo debe ser un CSV, JSON o TXT.")
-
-        return cleaned_data
+    def clean_file(self):
+        file = self.cleaned_data.get('file')
+        if file:
+            ext = file.name.split('.')[-1].lower()
+            if ext not in ['csv', 'json']:
+                raise ValidationError("Solo se permiten archivos CSV o JSON.")
+        return file

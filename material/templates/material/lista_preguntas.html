@@ -1,31 +1,102 @@
 {% extends 'material/base.html' %}
+{% load static %}
 
 {% block content %}
-<div class="container">
-    <h1>Lista de Preguntas</h1>
+<div class="container mt-4">
+    <h1 class="mb-4">Lista de Preguntas</h1>
+    
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label for="filtroMateria" class="form-label">Materia</label>
+                    <select id="filtroMateria" class="form-select">
+                        <option value="">Todas</option>
+                        {% for materia in materias_unicas %}
+                            <option value="{{ materia }}">{{ materia }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="filtroTema" class="form-label">Tema</label>
+                    <select id="filtroTema" class="form-select">
+                        <option value="">Todos</option>
+                        {% for tema in temas_unicos %}
+                            <option value="{{ tema }}">{{ tema }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="filtroSubtema" class="form-label">Subtema</label>
+                    <select id="filtroSubtema" class="form-select">
+                        <option value="">Todos</option>
+                        {% for subtema in subtemas_unicos %}
+                            <option value="{{ subtema }}">{{ subtema }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla -->
     <div class="table-responsive">
-        <table class="table table-striped">
+        <table class="table table-striped" id="tablaPreguntas">
             <thead>
                 <tr>
-                    <th>Pregunta</th>
-                    <th>Respuesta</th>
+                    <th>Materia</th>
                     <th>Tema</th>
                     <th>Subtema</th>
-                    <th>Página</th>
+                    <th>Pregunta</th>
+                    <th>Respuesta</th>
                 </tr>
             </thead>
             <tbody>
                 {% for pregunta in preguntas %}
                 <tr>
-                    <td>{{ pregunta.question_text }}</td>
-                    <td>{{ pregunta.answer_text }}</td>
+                    <td>{{ pregunta.materia }}</td>
                     <td>{{ pregunta.topic }}</td>
                     <td>{{ pregunta.subtopic }}</td>
-                    <td>{{ pregunta.source_page }}</td>
+                    <td>{{ pregunta.question_text }}</td>
+                    <td>{{ pregunta.answer_text }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+<!-- Script para filtros -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const filtroMateria = document.getElementById('filtroMateria');
+        const filtroTema = document.getElementById('filtroTema');
+        const filtroSubtema = document.getElementById('filtroSubtema');
+        const tabla = document.getElementById('tablaPreguntas');
+
+        function filtrar() {
+            const valorMateria = filtroMateria.value.toLowerCase();
+            const valorTema = filtroTema.value.toLowerCase();
+            const valorSubtema = filtroSubtema.value.toLowerCase();
+
+            Array.from(tabla.querySelectorAll('tbody tr')).forEach(fila => {
+                const materia = fila.cells[0].textContent.toLowerCase();
+                const tema = fila.cells[1].textContent.toLowerCase();
+                const subtema = fila.cells[2].textContent.toLowerCase();
+
+                const muestraFila = 
+                    (valorMateria === '' || materia.includes(valorMateria)) &&
+                    (valorTema === '' || tema.includes(valorTema)) &&
+                    (valorSubtema === '' || subtema.includes(valorSubtema));
+
+                fila.style.display = muestraFila ? '' : 'none';
+            });
+        }
+
+        filtroMateria.addEventListener('change', filtrar);
+        filtroTema.addEventListener('change', filtrar);
+        filtroSubtema.addEventListener('change', filtrar);
+    });
+</script>
 {% endblock %}
