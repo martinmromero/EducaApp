@@ -6,16 +6,16 @@ from django.core.exceptions import ValidationError
 
 class MaterialForm(forms.ModelForm):
     file = forms.FileField(widget=forms.ClearableFileInput(attrs={'class': 'form-control'}))
-    materia = forms.CharField(
+    subject = forms.CharField(
         max_length=100,
         required=True,
         widget=forms.TextInput(attrs={'class': 'form-control'}),
-        label="Materia"
+        label="Subject"
     )
 
     class Meta:
         model = Material
-        fields = ['materia', 'title', 'file']
+        fields = ['subject', 'title', 'file']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
         }
@@ -26,9 +26,9 @@ class MaterialForm(forms.ModelForm):
 class QuestionForm(forms.ModelForm):
     class Meta:
         model = Question
-        fields = ['materia', 'topic', 'subtopic', 'question_text', 'answer_text', 'source_page', 'chapter']
+        fields = ['subject', 'topic', 'subtopic', 'question_text', 'answer_text', 'source_page', 'chapter']
         widgets = {
-            'materia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Matemáticas'}),
+            'subject': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Matemáticas'}),
             'topic': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Álgebra'}),
             'subtopic': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Ecuaciones cuadráticas'}),
             'question_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Texto de la pregunta'}),
@@ -37,7 +37,7 @@ class QuestionForm(forms.ModelForm):
             'chapter': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Capítulo o sección'}),
         }
         labels = {
-            'materia': 'Materia',
+            'subject': 'Subject',
             'topic': 'Tema',
             'subtopic': 'Subtema',
             'question_text': 'Pregunta',
@@ -47,16 +47,16 @@ class QuestionForm(forms.ModelForm):
         }
 
 class ExamForm(forms.ModelForm):
-    materia = forms.CharField(
+    subject = forms.CharField(
         max_length=100,
         required=True,
         widget=forms.TextInput(attrs={'class': 'form-control'}),
-        label="Materia"
+        label="Subject"
     )
 
     class Meta:
         model = Exam
-        fields = ['materia', 'title', 'topics', 'questions']
+        fields = ['subject', 'title', 'topics', 'questions']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
             'topics': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
@@ -148,7 +148,7 @@ class BulkQuestionUploadForm(forms.Form):
     file = forms.FileField(
         label="Archivo de preguntas",
         widget=forms.ClearableFileInput(attrs={'class': 'form-control'}),
-        help_text="Formatos soportados: CSV o JSON. Estructura requerida: materia, topic, subtopic, question_text, answer_text, source_page, chapter"
+        help_text="Formatos soportados: CSV o JSON. Estructura requerida: subject, topic, subtopic, question_text, answer_text, source_page, chapter"
     )
     material = forms.ModelChoiceField(
         queryset=Material.objects.all(),

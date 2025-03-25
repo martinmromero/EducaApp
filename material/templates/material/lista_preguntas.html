@@ -2,101 +2,169 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1 class="mb-4">Lista de Preguntas</h1>
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">Mis Preguntas</h1>
     
     <!-- Filtros -->
-    <div class="card mb-4">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Filtros</h6>
+        </div>
         <div class="card-body">
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <label for="filtroMateria" class="form-label">Materia</label>
-                    <select id="filtroMateria" class="form-select">
-                        <option value="">Todas</option>
-                        {% for materia in materias_unicas %}
-                            <option value="{{ materia }}">{{ materia }}</option>
-                        {% endfor %}
-                    </select>
+            <form method="get" id="filter-form">
+                <div class="form-row">
+                    <!-- Filtro por Materia (Subject) -->
+                    <div class="form-group col-md-4">
+                        <label for="subject">Materia</label>
+                        <select name="subject" id="subject" class="form-control select-filter">
+                            <option value="">Todas las materias</option>
+                            {% for subject in subjects_unicos %}
+                                <option value="{{ subject.id }}" 
+                                    {% if selected_subject == subject.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ subject.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro por Tema -->
+                    <div class="form-group col-md-4">
+                        <label for="topic">Tema</label>
+                        <select name="topic" id="topic" class="form-control select-filter" 
+                            {% if not topics_unicos %}disabled{% endif %}>
+                            <option value="">Todos los temas</option>
+                            {% for topic in topics_unicos %}
+                                <option value="{{ topic }}"
+                                    {% if selected_topic == topic %}selected{% endif %}>
+                                    {{ topic }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro por Subtema -->
+                    <div class="form-group col-md-4">
+                        <label for="subtopic">Subtema</label>
+                        <select name="subtopic" id="subtopic" class="form-control select-filter" 
+                            {% if not subtopics_unicos %}disabled{% endif %}>
+                            <option value="">Todos los subtemas</option>
+                            {% for subtopic in subtopics_unicos %}
+                                <option value="{{ subtopic }}"
+                                    {% if selected_subtopic == subtopic %}selected{% endif %}>
+                                    {{ subtopic }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
-                <div class="col-md-3">
-                    <label for="filtroTema" class="form-label">Tema</label>
-                    <select id="filtroTema" class="form-select">
-                        <option value="">Todos</option>
-                        {% for tema in temas_unicos %}
-                            <option value="{{ tema }}">{{ tema }}</option>
-                        {% endfor %}
-                    </select>
+                
+                <!-- Botón de limpiar filtros -->
+                <div class="text-right">
+                    <a href="{% url 'material:lista_preguntas' %}" class="btn btn-secondary">
+                        <i class="fas fa-undo"></i> Limpiar filtros
+                    </a>
                 </div>
-                <div class="col-md-3">
-                    <label for="filtroSubtema" class="form-label">Subtema</label>
-                    <select id="filtroSubtema" class="form-select">
-                        <option value="">Todos</option>
-                        {% for subtema in subtemas_unicos %}
-                            <option value="{{ subtema }}">{{ subtema }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
+            </form>
         </div>
     </div>
 
-    <!-- Tabla -->
-    <div class="table-responsive">
-        <table class="table table-striped" id="tablaPreguntas">
-            <thead>
-                <tr>
-                    <th>Materia</th>
-                    <th>Tema</th>
-                    <th>Subtema</th>
-                    <th>Pregunta</th>
-                    <th>Respuesta</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for pregunta in preguntas %}
-                <tr>
-                    <td>{{ pregunta.materia }}</td>
-                    <td>{{ pregunta.topic }}</td>
-                    <td>{{ pregunta.subtopic }}</td>
-                    <td>{{ pregunta.question_text }}</td>
-                    <td>{{ pregunta.answer_text }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Lista de preguntas -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Listado de Preguntas</h6>
+            <span class="badge badge-primary">
+                {{ preguntas.count }} pregunta{{ preguntas.count|pluralize }}
+            </span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Materia</th>
+                            <th>Tema</th>
+                            <th>Subtema</th>
+                            <th>Pregunta</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pregunta in preguntas %}
+                        <tr>
+                            <td>{{ pregunta.subject.name }}</td>
+                            <td>{{ pregunta.topic }}</td>
+                            <td>{{ pregunta.subtopic }}</td>
+                            <td>{{ pregunta.question_text|truncatechars:100 }}</td>
+                            <td>
+                                <a href="{% url 'material:editar_pregunta' pregunta.id %}" 
+                                   class="btn btn-sm btn-circle btn-primary"
+                                   title="Editar">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </a>
+                                <a href="{% url 'material:eliminar_pregunta' pregunta.id %}" 
+                                   class="btn btn-sm btn-circle btn-danger"
+                                   title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">
+                                No hay preguntas que coincidan con los filtros
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Paginación -->
+            {% if is_paginated %}
+            <div class="pagination mt-4">
+                <span class="step-links">
+                    {% if page_obj.has_previous %}
+                        <a href="?page=1{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_topic %}&topic={{ selected_topic }}{% endif %}{% if selected_subtopic %}&subtopic={{ selected_subtopic }}{% endif %}" 
+                           class="btn btn-sm btn-outline-primary">&laquo; Primera</a>
+                        <a href="?page={{ page_obj.previous_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_topic %}&topic={{ selected_topic }}{% endif %}{% if selected_subtopic %}&subtopic={{ selected_subtopic }}{% endif %}" 
+                           class="btn btn-sm btn-outline-primary">Anterior</a>
+                    {% endif %}
+                    
+                    <span class="current">
+                        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.
+                    </span>
+                    
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_topic %}&topic={{ selected_topic }}{% endif %}{% if selected_subtopic %}&subtopic={{ selected_subtopic }}{% endif %}" 
+                           class="btn btn-sm btn-outline-primary">Siguiente</a>
+                        <a href="?page={{ page_obj.paginator.num_pages }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_topic %}&topic={{ selected_topic }}{% endif %}{% if selected_subtopic %}&subtopic={{ selected_subtopic }}{% endif %}" 
+                           class="btn btn-sm btn-outline-primary">Última &raquo;</a>
+                    {% endif %}
+                </span>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
+{% endblock %}
 
-<!-- Script para filtros -->
+{% block javascript %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const filtroMateria = document.getElementById('filtroMateria');
-        const filtroTema = document.getElementById('filtroTema');
-        const filtroSubtema = document.getElementById('filtroSubtema');
-        const tabla = document.getElementById('tablaPreguntas');
-
-        function filtrar() {
-            const valorMateria = filtroMateria.value.toLowerCase();
-            const valorTema = filtroTema.value.toLowerCase();
-            const valorSubtema = filtroSubtema.value.toLowerCase();
-
-            Array.from(tabla.querySelectorAll('tbody tr')).forEach(fila => {
-                const materia = fila.cells[0].textContent.toLowerCase();
-                const tema = fila.cells[1].textContent.toLowerCase();
-                const subtema = fila.cells[2].textContent.toLowerCase();
-
-                const muestraFila = 
-                    (valorMateria === '' || materia.includes(valorMateria)) &&
-                    (valorTema === '' || tema.includes(valorTema)) &&
-                    (valorSubtema === '' || subtema.includes(valorSubtema));
-
-                fila.style.display = muestraFila ? '' : 'none';
-            });
-        }
-
-        filtroMateria.addEventListener('change', filtrar);
-        filtroTema.addEventListener('change', filtrar);
-        filtroSubtema.addEventListener('change', filtrar);
+$(document).ready(function() {
+    // Actualización dinámica de los filtros
+    $('.select-filter').change(function() {
+        $('#filter-form').submit();
     });
+
+    // Inicializar DataTables (opcional)
+    $('#dataTable').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.20/i18n/Spanish.json"
+        },
+        "columnDefs": [
+            { "orderable": false, "targets": [4] } // Deshabilitar orden en columna Acciones
+        ]
+    });
+});
 </script>
 {% endblock %}

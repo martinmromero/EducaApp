@@ -26,5 +26,7 @@ urlpatterns = [
     path('preview-exam-template/<int:template_id>/', views.preview_exam_template, name='preview_exam_template'),
     path('list-exam-templates/', views.list_exam_templates, name='list_exam_templates'),
     path('delete-exam-template/', views.delete_exam_template, name='delete_exam_template'),
+    path('preguntas/<int:pk>/editar/', views.editar_pregunta, name='editar_pregunta'),
+    path('preguntas/<int:pk>/eliminar/', views.eliminar_pregunta, name='eliminar_pregunta'),
 
 ]

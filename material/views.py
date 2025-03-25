@@ -3,16 +3,16 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib import messages
-from .models import Material, Question, Exam, Profile, ExamTemplate
+from .models import Material, Question, Exam, Profile, ExamTemplate, Subject
 from .forms import MaterialForm, ExamForm, UserEditForm, CustomLoginForm, QuestionForm, ExamTemplateForm
 from .ia_processor import generate_questions_from_text, extract_text_from_file
 from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView
 from django.http import HttpResponse
+from django.core.paginator import Paginator
 import csv
 import json
 
-# Función para verificar si el usuario es administrador
 def is_admin(user):
     try:
         return user.profile.role == 'admin'
@@ -72,6 +72,7 @@ def save_selected_questions(request, material_id):
             if str(i) in selected_questions:
                 Question.objects.create(
                     material=material,
+                    subject="Tema generado por IA",
                     question_text=question,
                     answer_text="Respuesta generada por IA",
                     topic="Tema generado por IA",
@@ -101,22 +102,15 @@ def create_exam(request):
 @login_required
 def create_exam_template(request):
     if request.method == 'POST':
-        # Procesar el formulario cuando se envía
         form = ExamTemplateForm(request.POST, request.FILES)
         if form.is_valid():
-            # Guardar la plantilla de examen
             exam_template = form.save(commit=False)
-            exam_template.created_by = request.user  # Asignar el usuario actual
+            exam_template.created_by = request.user
             exam_template.save()
-            # Mostrar mensaje de éxito
             messages.success(request, 'La plantilla de examen se ha creado correctamente.')
-            # Redirigir a la lista de plantillas
             return redirect('material:list_exam_templates')
     else:
-        # Mostrar el formulario vacío para crear una nueva plantilla
         form = ExamTemplateForm()
-    
-    # Renderizar la plantilla con el formulario
     return render(request, 'material/create_exam_template.html', {'form': form})
 
 @login_required
@@ -126,7 +120,6 @@ def preview_exam_template(request, template_id):
 
 @login_required
 def list_exam_templates(request):
-    # Obtener todos los templates de exámenes creados por el usuario actual
     exam_templates = ExamTemplate.objects.filter(created_by=request.user)
     return render(request, 'material/list_exam_templates.html', {'exam_templates': exam_templates})
 
@@ -203,8 +196,100 @@ def mis_examenes(request):
 
 @login_required
 def lista_preguntas(request):
-    preguntas = Question.objects.all()
-    return render(request, 'material/lista_preguntas.html', {'preguntas': preguntas})
+    # Query base - solo preguntas del usuario actual
+    base_query = Question.objects.filter(material__uploaded_by=request.user)
+    
+    # Obtener parámetros de filtro
+    subject_id = request.GET.get('subject')
+    topic_filter = request.GET.get('topic')
+    subtopic_filter = request.GET.get('subtopic')
+    
+    # Aplicar filtros en cascada
+    filtered_query = base_query
+    if subject_id:
+        filtered_query = filtered_query.filter(subject_id=subject_id)
+        if topic_filter:
+            filtered_query = filtered_query.filter(topic=topic_filter)
+            if subtopic_filter:
+                filtered_query = filtered_query.filter(subtopic=subtopic_filter)
+    
+    # Obtener opciones para los dropdowns (optimizado)
+    subjects_unicos = Subject.objects.filter(
+        question__material__uploaded_by=request.user
+    ).distinct().order_by('Nombre')
+    
+    topics_unicos = []
+    if subject_id:
+        topics_unicos = base_query.filter(subject_id=subject_id)\
+                                .values_list('topic', flat=True)\
+                                .distinct()\
+                                .order_by('topic')
+    
+    subtopics_unicos = []
+    if subject_id and topic_filter:
+        subtopics_unicos = base_query.filter(
+            subject_id=subject_id,
+            topic=topic_filter
+        ).values_list('subtopic', flat=True)\
+         .distinct()\
+         .order_by('subtopic')
+    
+    # Paginación (25 items por página)
+    paginator = Paginator(filtered_query, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'subjects_unicos': subjects_unicos,
+        'topics_unicos': topics_unicos,
+        'subtopics_unicos': subtopics_unicos,
+        'selected_subject': subject_id,
+        'selected_topic': topic_filter,
+        'selected_subtopic': subtopic_filter,
+        'filter_params': {
+            'subject': subject_id,
+            'topic': topic_filter,
+            'subtopic': subtopic_filter,
+        }
+    }
+    
+    return render(request, 'material/lista_preguntas.html', context)
+
+
+@login_required
+def editar_pregunta(request, pk):
+    pregunta = get_object_or_404(Question, pk=pk, material__uploaded_by=request.user)
+    
+    if request.method == 'POST':
+        form = QuestionForm(request.POST, instance=pregunta)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Pregunta actualizada correctamente')
+            return redirect('material:lista_preguntas')
+    else:
+        form = QuestionForm(instance=pregunta)
+    
+    return render(request, 'material/editar_pregunta.html', {
+        'form': form,
+        'pregunta': pregunta
+    })
+
+
+@login_required
+def eliminar_pregunta(request, pk):
+    pregunta = get_object_or_404(Question, pk=pk, material__uploaded_by=request.user)
+    
+    if request.method == 'POST':
+        pregunta.delete()
+        messages.success(request, 'Pregunta eliminada correctamente')
+        return redirect('material:lista_preguntas')
+    
+    return render(request, 'material/confirmar_eliminar.html', {
+        'pregunta': pregunta
+    })
+
+
 
 @login_required
 def mis_materiales(request):
@@ -232,75 +317,54 @@ def upload_questions(request):
     if request.method == 'POST':
         form = QuestionForm(request.POST, request.FILES)
         if form.is_valid():
-            upload_type = form.cleaned_data['upload_type']
             default_material, created = Material.objects.get_or_create(
                 title="Material por Defecto",
                 defaults={
                     'uploaded_by': request.user,
                 }
             )
-            if upload_type == QuestionForm.SINGLE:
-                Question.objects.create(
-                    material=default_material,
-                    question_text=form.cleaned_data['question_text'],
-                    answer_text=form.cleaned_data['answer_text'],
-                    topic=form.cleaned_data['topic'],
-                    subtopic=form.cleaned_data['subtopic'],
-                    source_page=form.cleaned_data['source_page'],
-                    chapter=form.cleaned_data['chapter'],
-                )
-                messages.success(request, 'Pregunta subida correctamente.')
-            else:
-                if 'file' in request.FILES:
-                    file = request.FILES['file']
-                    if file.name.endswith('.csv'):
-                        decoded_file = file.read().decode('utf-8').splitlines()
-                        reader = csv.DictReader(decoded_file)
-                        for row in reader:
+            if 'file' in request.FILES:
+                file = request.FILES['file']
+                if file.name.endswith('.csv'):
+                    decoded_file = file.read().decode('utf-8').splitlines()
+                    reader = csv.DictReader(decoded_file)
+                    for row in reader:
+                        Question.objects.create(
+                            material=default_material,
+                            subject=row['subject'],
+                            question_text=row['question_text'],
+                            answer_text=row['answer_text'],
+                            topic=row['topic'],
+                            subtopic=row['subtopic'],
+                            source_page=int(row['source_page']),
+                            chapter=row['chapter'],
+                        )
+                    messages.success(request, 'Preguntas subidas correctamente desde el archivo CSV.')
+                elif file.name.endswith('.json'):
+                    data = json.loads(file.read().decode('utf-8'))
+                    for item in data:
+                        Question.objects.create(
+                            material=default_material,
+                            subject=item['subject'],
+                            question_text=item['question_text'],
+                            answer_text=item['answer_text'],
+                            topic=item['topic'],
+                            subtopic=item['subtopic'],
+                            source_page=int(item['source_page']),
+                            chapter=item['chapter'],
+                        )
+                    messages.success(request, 'Preguntas subidas correctamente desde el archivo JSON.')
+                elif file.name.endswith('.txt'):
+                    lines = file.read().decode('utf-8').splitlines()
+                    question_data = {}
+                    for line in lines:
+                        if line.strip():
+                            key, value = line.split(':', 1)
+                            question_data[key.strip().lower()] = value.strip()
+                        else:
                             Question.objects.create(
                                 material=default_material,
-                                question_text=row['question_text'],
-                                answer_text=row['answer_text'],
-                                topic=row['topic'],
-                                subtopic=row['subtopic'],
-                                source_page=int(row['source_page']),
-                                chapter=row['chapter'],
-                            )
-                        messages.success(request, 'Preguntas subidas correctamente desde el archivo CSV.')
-                    elif file.name.endswith('.json'):
-                        data = json.loads(file.read().decode('utf-8'))
-                        for item in data:
-                            Question.objects.create(
-                                material=default_material,
-                                question_text=item['question_text'],
-                                answer_text=item['answer_text'],
-                                topic=item['topic'],
-                                subtopic=item['subtopic'],
-                                source_page=int(item['source_page']),
-                                chapter=item['chapter'],
-                            )
-                        messages.success(request, 'Preguntas subidas correctamente desde el archivo JSON.')
-                    elif file.name.endswith('.txt'):
-                        lines = file.read().decode('utf-8').splitlines()
-                        question_data = {}
-                        for line in lines:
-                            if line.strip():
-                                key, value = line.split(':', 1)
-                                question_data[key.strip().lower()] = value.strip()
-                            else:
-                                Question.objects.create(
-                                    material=default_material,
-                                    question_text=question_data.get('pregunta', ''),
-                                    answer_text=question_data.get('respuesta', ''),
-                                    topic=question_data.get('tema', ''),
-                                    subtopic=question_data.get('subtema', ''),
-                                    source_page=int(question_data.get('página', 0)),
-                                    chapter=question_data.get('capítulo', ''),
-                                )
-                                question_data = {}
-                        if question_data:
-                            Question.objects.create(
-                                material=default_material,
+                                subject=question_data.get('subject', ''),
                                 question_text=question_data.get('pregunta', ''),
                                 answer_text=question_data.get('respuesta', ''),
                                 topic=question_data.get('tema', ''),
@@ -308,24 +372,37 @@ def upload_questions(request):
                                 source_page=int(question_data.get('página', 0)),
                                 chapter=question_data.get('capítulo', ''),
                             )
-                        messages.success(request, 'Preguntas subidas correctamente desde el archivo TXT.')
-                    else:
-                        messages.error(request, 'Formato de archivo no soportado.')
+                            question_data = {}
+                    if question_data:
+                        Question.objects.create(
+                            material=default_material,
+                            subject=question_data.get('subject', ''),
+                            question_text=question_data.get('pregunta', ''),
+                            answer_text=question_data.get('respuesta', ''),
+                            topic=question_data.get('tema', ''),
+                            subtopic=question_data.get('subtema', ''),
+                            source_page=int(question_data.get('página', 0)),
+                            chapter=question_data.get('capítulo', ''),
+                        )
+                    messages.success(request, 'Preguntas subidas correctamente desde el archivo TXT.')
                 else:
-                    grid_data = request.POST.get('grid_data')
-                    if grid_data:
-                        data = json.loads(grid_data)
-                        for item in data:
-                            Question.objects.create(
-                                material=default_material,
-                                question_text=item['question_text'],
-                                answer_text=item['answer_text'],
-                                topic=item['topic'],
-                                subtopic=item['subtopic'],
-                                source_page=int(item['source_page']),
-                                chapter=item['chapter'],
-                            )
-                        messages.success(request, 'Preguntas subidas correctamente desde la grilla.')
+                    messages.error(request, 'Formato de archivo no soportado.')
+            else:
+                grid_data = request.POST.get('grid_data')
+                if grid_data:
+                    data = json.loads(grid_data)
+                    for item in data:
+                        Question.objects.create(
+                            material=default_material,
+                            subject=item['subject'],
+                            question_text=item['question_text'],
+                            answer_text=item['answer_text'],
+                            topic=item['topic'],
+                            subtopic=item['subtopic'],
+                            source_page=int(item['source_page']),
+                            chapter=item['chapter'],
+                        )
+                    messages.success(request, 'Preguntas subidas correctamente desde la grilla.')
             return redirect('material:upload_questions')
     else:
         form = QuestionForm()
@@ -336,13 +413,14 @@ def download_template(request, format):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="template.csv"'
         writer = csv.writer(response)
-        writer.writerow(['question_text', 'answer_text', 'topic', 'subtopic', 'source_page', 'chapter'])
-        writer.writerow(['¿Cuál es la capital de Francia?', 'París', 'Geografía', 'Capitales', 1, 'Capítulo 1: Introducción'])
-        writer.writerow(['¿Quién escribió "Cien años de soledad"?', 'Gabriel García Márquez', 'Literatura', 'Autores', 2, 'Capítulo 2: Literatura Latinoamericana'])
+        writer.writerow(['subject', 'question_text', 'answer_text', 'topic', 'subtopic', 'source_page', 'chapter'])
+        writer.writerow(['Matemáticas', '¿Cuál es la capital de Francia?', 'París', 'Geografía', 'Capitales', 1, 'Capítulo 1: Introducción'])
+        writer.writerow(['Literatura', '¿Quién escribió "Cien años de soledad"?', 'Gabriel García Márquez', 'Literatura', 'Autores', 2, 'Capítulo 2: Literatura Latinoamericana'])
         return response
     elif format == 'json':
         data = [
             {
+                "subject": "Matemáticas",
                 "question_text": "¿Cuál es la capital de Francia?",
                 "answer_text": "París",
                 "topic": "Geografía",
@@ -351,6 +429,7 @@ def download_template(request, format):
                 "chapter": "Capítulo 1: Introducción"
             },
             {
+                "subject": "Literatura",
                 "question_text": "¿Quién escribió 'Cien años de soledad'?",
                 "answer_text": "Gabriel García Márquez",
                 "topic": "Literatura",
@@ -363,13 +442,15 @@ def download_template(request, format):
         response['Content-Disposition'] = 'attachment; filename="template.json"'
         return response
     elif format == 'txt':
-        content = """Pregunta: ¿Cuál es la capital de Francia?
+        content = """Subject: Matemáticas
+Pregunta: ¿Cuál es la capital de Francia?
 Respuesta: París
 Tema: Geografía
 Subtema: Capitales
 Página: 1
 Capítulo: Capítulo 1: Introducción
 
+Subject: Literatura
 Pregunta: ¿Quién escribió 'Cien años de soledad'?
 Respuesta: Gabriel García Márquez
 Tema: Literatura
@@ -382,31 +463,11 @@ Capítulo: Capítulo 2: Literatura Latinoamericana"""
     else:
         messages.error(request, 'Formato de plantilla no soportado.')
         return redirect('material:upload_questions')
-    
+
 @login_required
 def delete_exam_template(request):
     if request.method == 'POST':
-        # Obtener la lista de IDs de plantillas seleccionadas
         template_ids = request.POST.getlist('template_ids')
-        
-        # Eliminar las plantillas seleccionadas
         ExamTemplate.objects.filter(id__in=template_ids, created_by=request.user).delete()
-        
-        # Mostrar mensaje de éxito
         messages.success(request, 'Las plantillas seleccionadas se han eliminado correctamente.', extra_tags='exam_template')
-    
-    # Redirigir a la lista de plantillas
     return redirect('material:list_exam_templates')
-
-def lista_preguntas(request):
-    preguntas = Question.objects.all().order_by('materia', 'topic', 'subtopic')
-    materias_unicas = Question.objects.values_list('materia', flat=True).distinct()
-    temas_unicos = Question.objects.values_list('topic', flat=True).distinct()
-    subtemas_unicos = Question.objects.values_list('subtopic', flat=True).distinct()
-
-    return render(request, 'material/lista_preguntas.html', {
-        'preguntas': preguntas,
-        'materias_unicas': materias_unicas,
-        'temas_unicos': temas_unicos,
-        'subtemas_unicos': subtemas_unicos
-    })
