@@ -14,6 +14,34 @@ class Subject(models.Model):
         verbose_name = "Subject"
         verbose_name_plural = "Subjects"
 
+class Topic(models.Model):
+    name = models.CharField(max_length=255, verbose_name="Nombre del Tema")
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        verbose_name="Asignatura relacionada"
+    )
+
+    def __str__(self):
+        return f"{self.subject.Nombre} - {self.name}"
+
+    class Meta:
+        unique_together = ('name', 'subject')
+
+class Subtopic(models.Model):
+    name = models.CharField(max_length=255, verbose_name="Nombre del Subtema")
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.CASCADE,
+        verbose_name="Tema relacionado"
+    )
+
+    def __str__(self):
+        return f"{self.topic} → {self.name}"
+
+    class Meta:
+        unique_together = ('name', 'topic')
+
 class Material(models.Model):
     title = models.CharField(max_length=255)
     file = models.FileField(upload_to='materials/')
@@ -22,7 +50,7 @@ class Material(models.Model):
     subject = models.ForeignKey(
         Subject,
         on_delete=models.SET_DEFAULT,
-        default=1,  # ID del subject "General"
+        default=1,
         verbose_name="Subject"
     )
 
@@ -31,35 +59,41 @@ class Material(models.Model):
 
 class Question(models.Model):
     material = models.ForeignKey(
-        'Material', 
+        Material, 
         on_delete=models.CASCADE,
         verbose_name='Material relacionado'
     )
     subject = models.ForeignKey(
-        'Subject',
+        Subject,
         on_delete=models.SET_DEFAULT,
         default=1,
         verbose_name='Asignatura'
     )
-    
-    # CAMPO NUEVO - Configuración temporal para la migración
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Tema principal'
+    )
+    subtopic = models.ForeignKey(
+        Subtopic,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Subtema'
+    )
+    question_text = models.TextField(verbose_name='Texto de la pregunta')
+    answer_text = models.TextField(verbose_name='Texto de la respuesta')
+    source_page = models.IntegerField(verbose_name='Página de referencia')
+    chapter = models.TextField(blank=True, null=True, verbose_name='Capítulo')
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         verbose_name='Usuario asignado',
-        help_text='Usuario responsable de esta pregunta',
-        null=True,       # Permite valores nulos temporalmente
-        blank=True,      # Permite omitir en formularios
-        default=None     # No asigna valor por defecto
+        null=True,
+        blank=True
     )
-    
-    # ... (mantener todos tus otros campos existentes igual)
-    question_text = models.TextField(verbose_name='Texto de la pregunta')
-    answer_text = models.TextField(verbose_name='Texto de la respuesta')
-    topic = models.CharField(max_length=255, verbose_name='Tema principal')
-    subtopic = models.CharField(max_length=255, verbose_name='Subtema')
-    source_page = models.IntegerField(verbose_name='Página de referencia')
-    chapter = models.TextField(blank=True, null=True, verbose_name='Capítulo')
 
     class Meta:
         ordering = ['subject', 'topic', 'subtopic']
@@ -67,8 +101,7 @@ class Question(models.Model):
         verbose_name_plural = 'Preguntas'
         
     def __str__(self):
-        return f"{self.subject} - {self.topic}: {self.question_text[:50]}..."
-
+        return f"{self.subject} - {self.topic.name if self.topic else 'Sin tema'}: {self.question_text[:50]}..."
 
 class Exam(models.Model):
     title = models.CharField(max_length=255)

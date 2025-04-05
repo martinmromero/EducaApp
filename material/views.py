@@ -1,17 +1,52 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login, update_session_auth_hash
-from django.contrib import messages
-from .models import Material, Question, Exam, Profile, ExamTemplate, Subject
-from .forms import MaterialForm, ExamForm, UserEditForm, CustomLoginForm, QuestionForm, ExamTemplateForm
-from .ia_processor import generate_questions_from_text, extract_text_from_file
-from django.contrib.auth.models import User
-from django.contrib.auth.views import LoginView
-from django.http import HttpResponse
-from django.core.paginator import Paginator
+# Standard library imports
 import csv
 import json
+import logging
+
+# Django core imports
+from django.contrib import messages
+from django.contrib.auth import login, update_session_auth_hash
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
+from django.contrib.auth.views import LoginView
+from django.core.paginator import Paginator
+from django.db import models
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+
+# Local application imports
+from .forms import (
+    CustomLoginForm,
+    ExamForm,
+    ExamTemplateForm,
+    MaterialForm,
+    QuestionForm,
+    UserEditForm
+)
+from .ia_processor import extract_text_from_file, generate_questions_from_text
+from .models import Exam, ExamTemplate, Material, Profile, Question, Subject,Topic, Subtopic
+
+
+
+
+
+# Logger configuration
+logger = logging.getLogger(__name__)
+
+def get_topics(request):
+    subject_id = request.GET.get('subject_id')
+    topics = Topic.objects.filter(subject_id=subject_id).values('id', 'name')
+    return JsonResponse(list(topics), safe=False)
+
+def get_subtopics(request):
+    topic_id = request.GET.get('topic_id')
+    subtopics = Subtopic.objects.filter(topic_id=topic_id).values('id', 'name')
+    return JsonResponse(list(subtopics), safe=False)
+
+
+
+
 
 def is_admin(user):
     try:
@@ -196,66 +231,53 @@ def mis_examenes(request):
 
 @login_required
 def lista_preguntas(request):
-    # Query base - solo preguntas del usuario actual
-    base_query = Question.objects.filter(material__uploaded_by=request.user)
-    
-    # Obtener parámetros de filtro
-    subject_id = request.GET.get('subject')
-    topic_filter = request.GET.get('topic')
-    subtopic_filter = request.GET.get('subtopic')
-    
-    # Aplicar filtros en cascada
-    filtered_query = base_query
-    if subject_id:
-        filtered_query = filtered_query.filter(subject_id=subject_id)
-        if topic_filter:
-            filtered_query = filtered_query.filter(topic=topic_filter)
-            if subtopic_filter:
-                filtered_query = filtered_query.filter(subtopic=subtopic_filter)
-    
-    # Obtener opciones para los dropdowns (optimizado)
-    subjects_unicos = Subject.objects.filter(
-        question__material__uploaded_by=request.user
+    # Query base
+    preguntas = Question.objects.filter(
+        models.Q(material__uploaded_by=request.user) | 
+        models.Q(user=request.user)
+    ).select_related('subject', 'topic', 'subtopic')
+
+    # Filtros con validación
+    subject_id = request.GET.get('subject', '')
+    topic_id = request.GET.get('topic', '')
+    subtopic_id = request.GET.get('subtopic', '')
+
+    # Aplicar filtros solo si tienen valor numérico
+    if subject_id.isdigit():
+        preguntas = preguntas.filter(subject_id=int(subject_id))
+    if topic_id.isdigit():
+        preguntas = preguntas.filter(topic_id=int(topic_id))
+    if subtopic_id.isdigit():
+        preguntas = preguntas.filter(subtopic_id=int(subtopic_id))
+
+    # Obtener opciones para dropdowns
+    subjects = Subject.objects.filter(
+        question__in=preguntas
     ).distinct().order_by('Nombre')
-    
-    topics_unicos = []
-    if subject_id:
-        topics_unicos = base_query.filter(subject_id=subject_id)\
-                                .values_list('topic', flat=True)\
-                                .distinct()\
-                                .order_by('topic')
-    
-    subtopics_unicos = []
-    if subject_id and topic_filter:
-        subtopics_unicos = base_query.filter(
-            subject_id=subject_id,
-            topic=topic_filter
-        ).values_list('subtopic', flat=True)\
-         .distinct()\
-         .order_by('subtopic')
-    
-    # Paginación (25 items por página)
-    paginator = Paginator(filtered_query, 25)
+
+    topics = Topic.objects.filter(
+        subject__question__in=preguntas
+    ).distinct().order_by('name') if subject_id.isdigit() else Topic.objects.none()
+
+    subtopics = Subtopic.objects.filter(
+        topic__subject__question__in=preguntas
+    ).distinct().order_by('name') if topic_id.isdigit() else Subtopic.objects.none()
+
+    # Paginación
+    paginator = Paginator(preguntas, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
-    context = {
-        'page_obj': page_obj,
-        'subjects_unicos': subjects_unicos,
-        'topics_unicos': topics_unicos,
-        'subtopics_unicos': subtopics_unicos,
-        'selected_subject': subject_id,
-        'selected_topic': topic_filter,
-        'selected_subtopic': subtopic_filter,
-        'filter_params': {
-            'subject': subject_id,
-            'topic': topic_filter,
-            'subtopic': subtopic_filter,
-        }
-    }
-    
-    return render(request, 'material/lista_preguntas.html', context)
 
+    context = {
+        'preguntas': page_obj,
+        'subjects_unicos': subjects,
+        'topics_unicos': topics,
+        'subtopics_unicos': subtopics,
+        'selected_subject': subject_id if subject_id.isdigit() else '',
+        'selected_topic': topic_id if topic_id.isdigit() else '',
+        'selected_subtopic': subtopic_id if subtopic_id.isdigit() else '',
+    }
+    return render(request, 'material/lista_preguntas.html', context)
 
 @login_required
 def editar_pregunta(request, pk):

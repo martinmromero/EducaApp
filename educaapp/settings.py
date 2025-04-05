@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'material.apps.MaterialConfig',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
