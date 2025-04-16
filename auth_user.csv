@@ -1,0 +1,4 @@
+id,password,last_login,is_superuser,username,last_name,email,is_staff,is_active,date_joined,first_name
+3,pbkdf2_sha256$720000$museAOJCrz0ccXcSrr4DU0$puqfdcSqBG9vm0EAA7pXwbCnImDrsBw3yxEUYHFqy7U=,2025-03-25 03:08:31.397541,0,pepe,mujica,pepechorro@gma.crttom,1,1,2025-02-12 21:00:39.228926,joselitx
+4,pbkdf2_sha256$600000$S7rqmxQLzbE44rD7gIVLhf$JcPgOaAHzgatxQLHukaEk0p6haSo6Q/vRe7OlITSNwo=,2025-04-05 23:46:20.856935,1,romi,dfgdsf,tintiti@ho.com,1,1,2025-02-14 00:25:02.685941,saadf
+5,pbkdf2_sha256$720000$Y3koXDZUThYi8VUqWhACsY$dVx3R/lymqAZbyB7fqldjDW8GyN7NMIbij8Mq0hkbRE=,2025-03-25 04:22:21.985423,1,martin,boletal,martin@example.com,1,1,2025-02-16 00:13:32.350337,pibes333

@@ -1,4 +1,4 @@
-from transformers import pipeline
+# from transformers import pipeline
 import PyPDF2
 from docx import Document
 from pptx import Presentation

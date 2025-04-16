@@ -1,0 +1,14 @@
+name,seq
+django_migrations,26
+django_admin_log,0
+django_content_type,14
+auth_permission,56
+auth_group,0
+auth_user,5
+material_material,38
+material_profile,4
+material_exam,2
+material_exam_questions,5
+material_examtemplate,8
+material_subjects,1
+material_question,42
