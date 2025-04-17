@@ -17,14 +17,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from .models import Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, Subtopic
 # Local application imports
 from .forms import (
-    CustomLoginForm,
-    ExamForm,
-    ExamTemplateForm,
-    QuestionForm,
-    UserEditForm,
-    ContenidoForm  
-    
-)
+    CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, UserEditForm, ContenidoForm  
+    )
 from .ia_processor import extract_text_from_file, generate_questions_from_text
 
 
@@ -46,6 +40,16 @@ def is_admin(user):
         return user.profile.role == 'admin'
     except Profile.DoesNotExist:
         return False
+    
+
+class CustomLoginView(LoginView):
+    form_class = CustomLoginForm
+    template_name = 'registration/login.html'
+
+    def form_valid(self, form):
+        """Garantiza el login sin validaciones extra"""
+        return super().form_valid(form)
+    
 
 @login_required
 def index(request):
@@ -164,9 +168,7 @@ def signup(request):
         form = UserCreationForm()
     return render(request, 'registration/signup.html', {'form': form})
 
-class CustomLoginView(LoginView):
-    form_class = CustomLoginForm
-    template_name = 'registration/login.html'
+
 
 @login_required
 @user_passes_test(is_admin, login_url='/')

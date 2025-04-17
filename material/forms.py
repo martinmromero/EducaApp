@@ -134,19 +134,21 @@ class UserEditForm(forms.ModelForm):
 
 class CustomLoginForm(AuthenticationForm):
     username = forms.CharField(
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Usuario'})
+        widget=forms.TextInput(attrs={'class': 'form-control'})
     )
     password = forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Contraseña'})
+        widget=forms.PasswordInput(attrs={'class': 'form-control'})
     )
 
     def confirm_login_allowed(self, user):
-        """Sobrescribe el método para solo verificar is_active"""
+        """Solo verifica is_active, sin restricciones adicionales"""
         if not user.is_active:
-            raise ValidationError(
-                "El usuario está desactivado. Contacta al administrador.",
+            raise forms.ValidationError(
+                "Cuenta inactiva. Contacta al administrador.",
                 code='inactive',
             )
+        # Permite explícitamente staff/superusers
+
 
 class BulkQuestionUploadForm(forms.Form):
     UPLOAD_TYPE_CHOICES = [

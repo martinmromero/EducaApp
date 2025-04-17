@@ -94,13 +94,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Authentication settings
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',  # Backend por defecto para todos los usuarios
+    'django.contrib.auth.backends.ModelBackend' 
 ]
 
 # Login/Logout settings
-LOGIN_URL = '/accounts/login/'  # Coincide con tu URL en urls.py
-LOGIN_REDIRECT_URL = '/'  # Redirige al home después del login
-LOGOUT_REDIRECT_URL = '/accounts/login/'  # Redirige al login después del logout
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # Email settings (para desarrollo)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
@@ -125,3 +125,9 @@ if not DEBUG:
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]  # Para archivos durante desarrollo
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Nueva línea añadida
+
+
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+]
