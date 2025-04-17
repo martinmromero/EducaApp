@@ -140,19 +140,13 @@ class CustomLoginForm(AuthenticationForm):
         widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Contraseña'})
     )
 
-    def clean(self):
-        cleaned_data = super().clean()
-        username = cleaned_data.get('username')
-        password = cleaned_data.get('password')
-
-        if username is not None and password:
-            try:
-                user = User.objects.get(username=username)
-                if not user.is_active:
-                    raise ValidationError("El usuario está desactivado. Contacta al administrador.")
-            except User.DoesNotExist:
-                pass
-        return cleaned_data
+    def confirm_login_allowed(self, user):
+        """Sobrescribe el método para solo verificar is_active"""
+        if not user.is_active:
+            raise ValidationError(
+                "El usuario está desactivado. Contacta al administrador.",
+                code='inactive',
+            )
 
 class BulkQuestionUploadForm(forms.Form):
     UPLOAD_TYPE_CHOICES = [

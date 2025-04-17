@@ -27,4 +27,5 @@ urlpatterns = [
     path('delete-exam-template/', views.delete_exam_template, name='delete_exam_template'),
     path('preguntas/<int:pk>/editar/', views.editar_pregunta, name='editar_pregunta'),
     path('preguntas/<int:pk>/eliminar/', views.eliminar_pregunta, name='eliminar_pregunta'),
+    path('login/', views.CustomLoginView.as_view(), name='login')
 ]

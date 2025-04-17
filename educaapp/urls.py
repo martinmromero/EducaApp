@@ -10,6 +10,7 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('accounts/login/', CustomLoginView.as_view(), name='login'),  # Usar la vista personalizada de login
     path('', include('material.urls')),
+
 ]
 
 # Solo agregamos las rutas de archivos multimedia si estamos en modo DEBUG
