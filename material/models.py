@@ -42,9 +42,9 @@ class Subtopic(models.Model):
     class Meta:
         unique_together = ('name', 'topic')
 
-class Material(models.Model):
+class Contenido(models.Model):
     title = models.CharField(max_length=255)
-    file = models.FileField(upload_to='materials/')
+    file = models.FileField(upload_to='contenidos/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     subject = models.ForeignKey(
@@ -58,10 +58,10 @@ class Material(models.Model):
         return f"{self.subject} - {self.title}"
 
 class Question(models.Model):
-    material = models.ForeignKey(
-        Material, 
+    contenido = models.ForeignKey(
+        Contenido, 
         on_delete=models.CASCADE,
-        verbose_name='Material relacionado'
+        verbose_name='Contenido relacionado'
     )
     subject = models.ForeignKey(
         Subject,

@@ -20,16 +20,12 @@ from .forms import (
     CustomLoginForm,
     ExamForm,
     ExamTemplateForm,
-    MaterialForm,
+    ContenidoForm,
     QuestionForm,
     UserEditForm
 )
 from .ia_processor import extract_text_from_file, generate_questions_from_text
-from .models import Exam, ExamTemplate, Material, Profile, Question, Subject,Topic, Subtopic
-
-
-
-
+from .models import Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, Subtopic
 
 # Logger configuration
 logger = logging.getLogger(__name__)
@@ -43,10 +39,6 @@ def get_subtopics(request):
     topic_id = request.GET.get('topic_id')
     subtopics = Subtopic.objects.filter(topic_id=topic_id).values('id', 'name')
     return JsonResponse(list(subtopics), safe=False)
-
-
-
-
 
 def is_admin(user):
     try:
@@ -62,51 +54,51 @@ def index(request):
     return render(request, 'material/index.html', context)
 
 @login_required
-def upload_material(request):
+def upload_contenido(request):
     if request.method == 'POST':
-        form = MaterialForm(request.POST, request.FILES)
+        form = ContenidoForm(request.POST, request.FILES)
         if form.is_valid():
-            material = form.save(commit=False)
-            material.uploaded_by = request.user
-            material.save()
+            contenido = form.save(commit=False)
+            contenido.uploaded_by = request.user
+            contenido.save()
             messages.success(request, 'Los archivos se subieron correctamente.')
-            return redirect('material:mis_materiales')
+            return redirect('material:mis_contenidos')
     else:
-        form = MaterialForm()
+        form = ContenidoForm()
     return render(request, 'material/upload.html', {'form': form})
 
 @login_required
-def generate_questions(request, material_id):
-    material = Material.objects.get(id=material_id)
+def generate_questions(request, contenido_id):
+    contenido = Contenido.objects.get(id=contenido_id)
     num_questions = int(request.POST.get('num_questions', 20))
     try:
-        text = extract_text_from_file(material.file.path)
+        text = extract_text_from_file(contenido.file.path)
     except ValueError as e:
         messages.error(request, str(e))
-        return redirect('material:mis_materiales')
+        return redirect('material:mis_contenidos')
     questions_text = generate_questions_from_text(text, num_questions)
     request.session['generated_questions'] = questions_text.split('\n')
-    return redirect('material:review_questions', material_id=material.id)
+    return redirect('material:review_questions', contenido_id=contenido.id)
 
 @login_required
-def review_questions(request, material_id):
-    material = Material.objects.get(id=material_id)
+def review_questions(request, contenido_id):
+    contenido = Contenido.objects.get(id=contenido_id)
     questions_list = request.session.get('generated_questions', [])
     return render(request, 'material/review_questions.html', {
-        'material': material,
+        'contenido': contenido,
         'questions': questions_list
     })
 
 @login_required
-def save_selected_questions(request, material_id):
+def save_selected_questions(request, contenido_id):
     if request.method == 'POST':
-        material = Material.objects.get(id=material_id)
+        contenido = Contenido.objects.get(id=contenido_id)
         selected_questions = request.POST.getlist('selected_questions')
         questions_list = request.session.get('generated_questions', [])
         for i, question in enumerate(questions_list):
             if str(i) in selected_questions:
                 Question.objects.create(
-                    material=material,
+                    contenido=contenido,
                     subject="Tema generado por IA",
                     question_text=question,
                     answer_text="Respuesta generada por IA",
@@ -118,7 +110,7 @@ def save_selected_questions(request, material_id):
             del request.session['generated_questions']
         messages.success(request, 'Preguntas seleccionadas guardadas correctamente.')
         return redirect('material:mis_preguntas')
-    return redirect('material:review_questions', material_id=material_id)
+    return redirect('material:review_questions', contenido_id=contenido_id)
 
 @login_required
 def create_exam(request):
@@ -127,6 +119,7 @@ def create_exam(request):
         form = ExamForm(request.POST)
         if form.is_valid():
             exam = form.save(commit=False)
+            exam.created_by = request.user  # <-- Asegurar asignación de usuario
             exam.save()
             exam.questions.set(request.POST.getlist('questions'))
             return redirect('material:index')
@@ -233,7 +226,7 @@ def mis_examenes(request):
 def lista_preguntas(request):
     # Query base
     preguntas = Question.objects.filter(
-        models.Q(material__uploaded_by=request.user) | 
+        models.Q(contenido__uploaded_by=request.user) | 
         models.Q(user=request.user)
     ).select_related('subject', 'topic', 'subtopic')
 
@@ -281,7 +274,7 @@ def lista_preguntas(request):
 
 @login_required
 def editar_pregunta(request, pk):
-    pregunta = get_object_or_404(Question, pk=pk, material__uploaded_by=request.user)
+    pregunta = get_object_or_404(Question, pk=pk, contenido__uploaded_by=request.user)
     
     if request.method == 'POST':
         form = QuestionForm(request.POST, instance=pregunta)
@@ -297,10 +290,9 @@ def editar_pregunta(request, pk):
         'pregunta': pregunta
     })
 
-
 @login_required
 def eliminar_pregunta(request, pk):
-    pregunta = get_object_or_404(Question, pk=pk, material__uploaded_by=request.user)
+    pregunta = get_object_or_404(Question, pk=pk, contenido__uploaded_by=request.user)
     
     if request.method == 'POST':
         pregunta.delete()
@@ -311,36 +303,34 @@ def eliminar_pregunta(request, pk):
         'pregunta': pregunta
     })
 
-
+@login_required
+def mis_contenidos(request):
+    contenidos = Contenido.objects.filter(uploaded_by=request.user)
+    return render(request, 'material/mis_contenidos.html', {'contenidos': contenidos})
 
 @login_required
-def mis_materiales(request):
-    materiales = Material.objects.filter(uploaded_by=request.user)
-    return render(request, 'material/mis_materiales.html', {'materiales': materiales})
-
-@login_required
-def delete_material(request):
+def delete_contenido(request):
     if request.method == 'POST':
-        material_ids = request.POST.getlist('material_ids')
-        if not material_ids:
+        contenido_ids = request.POST.getlist('contenido_ids')
+        if not contenido_ids:
             messages.error(request, 'No se seleccionó ningún documento para borrar.')
-            return redirect('material:mis_materiales')
-        materiales = Material.objects.filter(id__in=material_ids, uploaded_by=request.user)
-        count = materiales.count()
-        materiales.delete()
+            return redirect('material:mis_contenidos')
+        contenidos = Contenido.objects.filter(id__in=contenido_ids, uploaded_by=request.user)
+        count = contenidos.count()
+        contenidos.delete()
         if count == 1:
             messages.success(request, 'El documento ha sido borrado correctamente.')
         else:
             messages.success(request, f'Los {count} documentos han sido borrados correctamente.')
-    return redirect('material:mis_materiales')
+    return redirect('material:mis_contenidos')
 
 @login_required
 def upload_questions(request):
     if request.method == 'POST':
         form = QuestionForm(request.POST, request.FILES)
         if form.is_valid():
-            default_material, created = Material.objects.get_or_create(
-                title="Material por Defecto",
+            default_contenido, created = Contenido.objects.get_or_create(
+                title="Contenido por Defecto",
                 defaults={
                     'uploaded_by': request.user,
                 }
@@ -352,7 +342,7 @@ def upload_questions(request):
                     reader = csv.DictReader(decoded_file)
                     for row in reader:
                         Question.objects.create(
-                            material=default_material,
+                            contenido=default_contenido,
                             subject=row['subject'],
                             question_text=row['question_text'],
                             answer_text=row['answer_text'],
@@ -366,7 +356,7 @@ def upload_questions(request):
                     data = json.loads(file.read().decode('utf-8'))
                     for item in data:
                         Question.objects.create(
-                            material=default_material,
+                            contenido=default_contenido,
                             subject=item['subject'],
                             question_text=item['question_text'],
                             answer_text=item['answer_text'],
@@ -385,7 +375,7 @@ def upload_questions(request):
                             question_data[key.strip().lower()] = value.strip()
                         else:
                             Question.objects.create(
-                                material=default_material,
+                                contenido=default_contenido,
                                 subject=question_data.get('subject', ''),
                                 question_text=question_data.get('pregunta', ''),
                                 answer_text=question_data.get('respuesta', ''),
@@ -397,7 +387,7 @@ def upload_questions(request):
                             question_data = {}
                     if question_data:
                         Question.objects.create(
-                            material=default_material,
+                            contenido=default_contenido,
                             subject=question_data.get('subject', ''),
                             question_text=question_data.get('pregunta', ''),
                             answer_text=question_data.get('respuesta', ''),
@@ -415,7 +405,7 @@ def upload_questions(request):
                     data = json.loads(grid_data)
                     for item in data:
                         Question.objects.create(
-                            material=default_material,
+                            contenido=default_contenido,
                             subject=item['subject'],
                             question_text=item['question_text'],
                             answer_text=item['answer_text'],

@@ -1,10 +1,10 @@
 from django import forms
 from django.contrib.auth.models import User
-from .models import Material, Question, Exam, Profile, ExamTemplate
+from .models import Contenido, Question, Exam, Profile, ExamTemplate
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 
-class MaterialForm(forms.ModelForm):
+class ContenidoForm(forms.ModelForm):
     file = forms.FileField(widget=forms.ClearableFileInput(attrs={'class': 'form-control'}))
     subject = forms.CharField(
         max_length=100,
@@ -14,13 +14,13 @@ class MaterialForm(forms.ModelForm):
     )
 
     class Meta:
-        model = Material
+        model = Contenido
         fields = ['subject', 'title', 'file']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
         }
         labels = {
-            'title': 'Título del Material',
+            'title': 'Título del Contenido',
         }
 
 class QuestionForm(forms.ModelForm):
@@ -150,10 +150,10 @@ class BulkQuestionUploadForm(forms.Form):
         widget=forms.ClearableFileInput(attrs={'class': 'form-control'}),
         help_text="Formatos soportados: CSV o JSON. Estructura requerida: subject, topic, subtopic, question_text, answer_text, source_page, chapter"
     )
-    material = forms.ModelChoiceField(
-        queryset=Material.objects.all(),
+    contenido = forms.ModelChoiceField(
+        queryset=Contenido.objects.all(),
         widget=forms.Select(attrs={'class': 'form-control'}),
-        label="Material asociado",
+        label="Contenido asociado",
         required=False
     )
 
