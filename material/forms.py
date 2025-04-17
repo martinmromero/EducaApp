@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User
-from .models import Contenido, Question, Exam, Profile, ExamTemplate
+from .models import Contenido, Question, Exam, Profile, ExamTemplate, Subject, Topic 
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 
@@ -47,21 +47,42 @@ class QuestionForm(forms.ModelForm):
         }
 
 class ExamForm(forms.ModelForm):
-    subject = forms.CharField(
-        max_length=100,
-        required=True,
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        label="Subject"
+    subject = forms.ModelChoiceField(
+        queryset=Subject.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label="Asignatura"
+    )
+    topics = forms.ModelMultipleChoiceField(
+        queryset=Topic.objects.none(),  # Se actualiza dinámicamente en el __init__
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
+        required=False,
+        label="Temas evaluados"
+    )
+    questions = forms.ModelMultipleChoiceField(
+        queryset=Question.objects.all(),
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
+        label="Preguntas"
     )
 
     class Meta:
         model = Exam
-        fields = ['subject', 'title', 'topics', 'questions']
+        fields = ['title', 'subject', 'topics', 'questions', 'instructions', 'duration_minutes']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
-            'topics': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'questions': forms.SelectMultiple(attrs={'class': 'form-control'}),
+            'instructions': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'duration_minutes': forms.NumberInput(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'subject' in self.data:
+            try:
+                subject_id = int(self.data.get('subject'))
+                self.fields['topics'].queryset = Topic.objects.filter(subject_id=subject_id)
+            except (ValueError, TypeError):
+                pass
+        elif self.instance.pk:
+            self.fields['topics'].queryset = self.instance.subject.topic_set.all()
 
 class ExamTemplateForm(forms.ModelForm):
     class Meta:

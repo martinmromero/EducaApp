@@ -2,21 +2,19 @@
 
 {% block content %}
 <div class="container">
-    <h1>Mis Materiales</h1>
+    <h1>Mis Contenidos</h1>
 
-    <!-- Mostrar mensajes de éxito o error (solo los relacionados con materiales) -->
+    <!-- Mostrar todos los mensajes -->
     {% if messages %}
         {% for message in messages %}
-            {% if "material" in message.tags %}  <!-- Filtra mensajes con la etiqueta "material" -->
-                <div class="alert alert-{{ message.tags }}" role="alert">
-                    {{ message }}
-                </div>
-            {% endif %}
+            <div class="alert alert-{{ message.tags }}" role="alert">
+                {{ message }}
+            </div>
         {% endfor %}
     {% endif %}
 
-    <!-- Formulario para eliminar materiales seleccionados -->
-    <form method="post" action="{% url 'material:delete_material' %}" id="deleteForm">
+    <!-- Formulario para eliminar contenidos seleccionados -->
+    <form method="post" action="{% url 'material:delete_contenido' %}" id="deleteForm">
         {% csrf_token %}
         <div class="table-responsive">
             <table class="table table-striped">
@@ -30,16 +28,16 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for material in materiales %}
+                    {% for contenido in contenidos %}
                     <tr>
                         <td>
-                            <input type="checkbox" name="material_ids" value="{{ material.id }}">
+                            <input type="checkbox" name="contenido_ids" value="{{ contenido.id }}">
                         </td>
-                        <td>{{ material.title }}</td>
-                        <td>{{ material.file.name }}</td>
-                        <td>{{ material.uploaded_at }}</td>
+                        <td>{{ contenido.title }}</td>
+                        <td>{{ contenido.file.name }}</td>
+                        <td>{{ contenido.uploaded_at }}</td>
                         <td>
-                            <form method="post" action="{% url 'material:generate_questions' material.id %}" style="display:inline;">
+                            <form method="post" action="{% url 'material:generate_questions' contenido.id %}" style="display:inline;">
                                 {% csrf_token %}
                                 <div class="input-group">
                                     <input type="number" name="num_questions" class="form-control" value="20" min="1" max="50" style="width: 100px;">
@@ -47,6 +45,10 @@
                                 </div>
                             </form>
                         </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5">No hay contenidos subidos aún.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -56,6 +58,7 @@
         <!-- Botones de acción -->
         <div class="mt-3">
             <button type="button" class="btn btn-danger" onclick="confirmDelete()">Borrar seleccionados</button>
+            <a href="{% url 'material:upload_contenido' %}" class="btn btn-primary">Subir nuevo contenido</a>
         </div>
     </form>
 
@@ -68,13 +71,13 @@
 <!-- Script para manejar la confirmación de borrado -->
 <script>
     function confirmDelete() {
-        const selectedMaterials = document.querySelectorAll('input[name="material_ids"]:checked');
-        if (selectedMaterials.length === 0) {
+        const selectedContents = document.querySelectorAll('input[name="contenido_ids"]:checked');
+        if (selectedContents.length === 0) {
             alert("Por favor, selecciona al menos un documento para borrar.");
             return;
         }
 
-        const confirmMessage = selectedMaterials.length === 1 ?
+        const confirmMessage = selectedContents.length === 1 ?
             "¿Estás seguro de que deseas borrar este documento?" :
             "¿Estás seguro de que deseas borrar los documentos seleccionados?";
 

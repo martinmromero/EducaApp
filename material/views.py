@@ -14,18 +14,19 @@ from django.core.paginator import Paginator
 from django.db import models
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
-
+from .models import Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, Subtopic
 # Local application imports
 from .forms import (
     CustomLoginForm,
     ExamForm,
     ExamTemplateForm,
-    ContenidoForm,
     QuestionForm,
-    UserEditForm
+    UserEditForm,
+    ContenidoForm  
+    
 )
 from .ia_processor import extract_text_from_file, generate_questions_from_text
-from .models import Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, Subtopic
+
 
 # Logger configuration
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ def index(request):
     return render(request, 'material/index.html', context)
 
 @login_required
-def upload_contenido(request):
+def upload_contenido(request):  # Antes upload_material
     if request.method == 'POST':
         form = ContenidoForm(request.POST, request.FILES)
         if form.is_valid():
@@ -89,43 +90,44 @@ def review_questions(request, contenido_id):
         'questions': questions_list
     })
 
+# Corregir save_selected_questions
 @login_required
 def save_selected_questions(request, contenido_id):
     if request.method == 'POST':
         contenido = Contenido.objects.get(id=contenido_id)
         selected_questions = request.POST.getlist('selected_questions')
         questions_list = request.session.get('generated_questions', [])
+        default_subject = Subject.objects.get_or_create(Nombre="Generado por IA")[0]
+        default_topic = Topic.objects.get_or_create(name="Generado por IA", subject=default_subject)[0]
+        
         for i, question in enumerate(questions_list):
             if str(i) in selected_questions:
                 Question.objects.create(
                     contenido=contenido,
-                    subject="Tema generado por IA",
+                    subject=default_subject,  # Objeto, no string
                     question_text=question,
                     answer_text="Respuesta generada por IA",
-                    topic="Tema generado por IA",
-                    subtopic="Subtema generado por IA",
-                    source_page=1
+                    topic=default_topic,  # Objeto, no string
+                    subtopic=None,
+                    user=request.user
                 )
-        if 'generated_questions' in request.session:
-            del request.session['generated_questions']
-        messages.success(request, 'Preguntas seleccionadas guardadas correctamente.')
-        return redirect('material:mis_preguntas')
-    return redirect('material:review_questions', contenido_id=contenido_id)
+        messages.success(request, 'Preguntas guardadas correctamente.')
+        return redirect('material:lista_preguntas')  # Corregido redirección
 
 @login_required
 def create_exam(request):
-    questions = Question.objects.all()
     if request.method == 'POST':
         form = ExamForm(request.POST)
         if form.is_valid():
             exam = form.save(commit=False)
-            exam.created_by = request.user  # <-- Asegurar asignación de usuario
+            exam.created_by = request.user
             exam.save()
-            exam.questions.set(request.POST.getlist('questions'))
-            return redirect('material:index')
+            form.save_m2m()  # Guardar relaciones ManyToMany (topics/questions)
+            messages.success(request, 'Examen creado correctamente.')
+            return redirect('material:mis_examenes')
     else:
         form = ExamForm()
-    return render(request, 'material/create_exam.html', {'form': form, 'questions': questions})
+    return render(request, 'material/create_exam.html', {'form': form})
 
 @login_required
 def create_exam_template(request):
@@ -304,12 +306,12 @@ def eliminar_pregunta(request, pk):
     })
 
 @login_required
-def mis_contenidos(request):
+def mis_contenidos(request):  # Antes mis_materiales
     contenidos = Contenido.objects.filter(uploaded_by=request.user)
     return render(request, 'material/mis_contenidos.html', {'contenidos': contenidos})
 
 @login_required
-def delete_contenido(request):
+def delete_contenido(request):  # Antes delete_material
     if request.method == 'POST':
         contenido_ids = request.POST.getlist('contenido_ids')
         if not contenido_ids:

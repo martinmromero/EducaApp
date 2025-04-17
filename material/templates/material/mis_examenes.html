@@ -8,6 +8,7 @@
             <thead>
                 <tr>
                     <th>Título</th>
+                    <th>Contenido base</th>
                     <th>Fecha de creación</th>
                     <th>Acciones</th>
                 </tr>
@@ -16,6 +17,13 @@
                 {% for examen in examenes %}
                 <tr>
                     <td>{{ examen.title }}</td>
+                    <td>
+                        {% if examen.contenido %}
+                            {{ examen.contenido.title }}
+                        {% else %}
+                            Varios contenidos
+                        {% endif %}
+                    </td>
                     <td>{{ examen.created_at }}</td>
                     <td>
                         <a href="#" class="btn btn-sm btn-primary">Ver</a>

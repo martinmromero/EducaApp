@@ -27,29 +27,29 @@
                         </select>
                     </div>
                     
-                    <!-- Filtro por Tema -->
+                    <!-- Filtro por Contenido -->
                     <div class="form-group col-md-4">
-                        <label for="topic">Tema</label>
-                        <select name="topic" id="topic" class="form-control" {% if not topics_unicos %}disabled{% endif %}>
-                            <option value="">Todos los temas</option>
-                            {% for topic in topics_unicos %}
-                                <option value="{{ topic.id }}"
-                                    {% if selected_topic == topic.id|stringformat:"s" %}selected{% endif %}>
-                                    {{ topic.name }}
+                        <label for="contenido">Contenido</label>
+                        <select name="contenido" id="contenido" class="form-control">
+                            <option value="">Todos los contenidos</option>
+                            {% for cont in contenidos_unicos %}
+                                <option value="{{ cont.id }}"
+                                    {% if selected_contenido == cont.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ cont.title }}
                                 </option>
                             {% endfor %}
                         </select>
                     </div>
                     
-                    <!-- Filtro por Subtema -->
+                    <!-- Filtro por Tipo de Pregunta -->
                     <div class="form-group col-md-4">
-                        <label for="subtopic">Subtema</label>
-                        <select name="subtopic" id="subtopic" class="form-control" {% if not subtopics_unicos %}disabled{% endif %}>
-                            <option value="">Todos los subtemas</option>
-                            {% for subtopic in subtopics_unicos %}
-                                <option value="{{ subtopic.id }}"
-                                    {% if selected_subtopic == subtopic.id|stringformat:"s" %}selected{% endif %}>
-                                    {{ subtopic.name }}
+                        <label for="question_type">Tipo</label>
+                        <select name="question_type" id="question_type" class="form-control">
+                            <option value="">Todos los tipos</option>
+                            {% for type in question_types %}
+                                <option value="{{ type.0 }}"
+                                    {% if selected_question_type == type.0 %}selected{% endif %}>
+                                    {{ type.1 }}
                                 </option>
                             {% endfor %}
                         </select>
@@ -79,8 +79,8 @@
                     <thead class="thead-light">
                         <tr>
                             <th>Materia</th>
-                            <th>Tema</th>
-                            <th>Subtema</th>
+                            <th>Contenido</th>
+                            <th>Tipo</th>
                             <th>Pregunta</th>
                             <th>Acciones</th>
                         </tr>
@@ -89,8 +89,8 @@
                         {% for pregunta in preguntas %}
                         <tr>
                             <td>{{ pregunta.subject.Nombre }}</td>
-                            <td>{{ pregunta.topic.name }}</td>
-                            <td>{{ pregunta.subtopic.name }}</td>
+                            <td>{{ pregunta.contenido.title|default:"-" }}</td>
+                            <td>{{ pregunta.get_question_type_display }}</td>
                             <td>{{ pregunta.question_text|truncatechars:100 }}</td>
                             <td>
                                 <a href="{% url 'material:editar_pregunta' pregunta.id %}" 
@@ -121,9 +121,9 @@
             <div class="pagination mt-4">
                 <span class="step-links">
                     {% if preguntas.has_previous %}
-                        <a href="?page=1{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_topic %}&topic={{ selected_topic }}{% endif %}{% if selected_subtopic %}&subtopic={{ selected_subtopic }}{% endif %}" 
+                        <a href="?page=1{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">&laquo; Primera</a>
-                        <a href="?page={{ preguntas.previous_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_topic %}&topic={{ selected_topic }}{% endif %}{% if selected_subtopic %}&subtopic={{ selected_subtopic }}{% endif %}" 
+                        <a href="?page={{ preguntas.previous_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">Anterior</a>
                     {% endif %}
                     
@@ -132,9 +132,9 @@
                     </span>
                     
                     {% if preguntas.has_next %}
-                        <a href="?page={{ preguntas.next_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_topic %}&topic={{ selected_topic }}{% endif %}{% if selected_subtopic %}&subtopic={{ selected_subtopic }}{% endif %}" 
+                        <a href="?page={{ preguntas.next_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">Siguiente</a>
-                        <a href="?page={{ preguntas.paginator.num_pages }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_topic %}&topic={{ selected_topic }}{% endif %}{% if selected_subtopic %}&subtopic={{ selected_subtopic }}{% endif %}" 
+                        <a href="?page={{ preguntas.paginator.num_pages }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">Última &raquo;</a>
                     {% endif %}
                 </span>
@@ -160,35 +160,10 @@ $(document).ready(function() {
         }
     });
 
-    // Función para actualizar selects dependientes
-    function updateSelects() {
-        const subjectSelected = $('#subject').val() !== '';
-        const topicSelected = $('#topic').val() !== '';
-        
-        $('#topic').prop('disabled', !subjectSelected);
-        $('#subtopic').prop('disabled', !(subjectSelected && topicSelected));
-    }
-
     // Manejar cambios en los selects
-    $('#subject').change(function() {
-        $('#topic').val('');
-        $('#subtopic').val('');
-        updateSelects();
+    $('#subject, #contenido, #question_type').change(function() {
         $('#filter-form').submit();
     });
-
-    $('#topic').change(function() {
-        $('#subtopic').val('');
-        updateSelects();
-        $('#filter-form').submit();
-    });
-
-    $('#subtopic').change(function() {
-        $('#filter-form').submit();
-    });
-
-    // Inicializar estados al cargar
-    updateSelects();
 });
 </script>
 {% endblock %}
