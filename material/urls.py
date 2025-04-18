@@ -29,7 +29,6 @@ urlpatterns = [
     path('preguntas/<int:pk>/eliminar/', views.eliminar_pregunta, name='eliminar_pregunta'),
     path('login/', views.CustomLoginView.as_view(), name='login'),
     path('instituciones/', views.manage_institutions, name='manage_institutions'),
-    path('facultades/', views.manage_faculties, name='manage_faculties'),
     path('resultados-aprendizaje/', views.manage_learning_outcomes, name='manage_learning_outcomes'),
     path('instituciones/editar/<int:pk>/', views.edit_institution, name='edit_institution'),
     path('instituciones/eliminar/<int:pk>/', views.delete_institution, name='delete_institution'),

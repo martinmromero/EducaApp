@@ -8,7 +8,14 @@ import json
 class Institution(models.Model):
     name = models.CharField(max_length=255)
     logo = models.ImageField(upload_to='institution_logos/')
-    campuses = models.TextField(blank=True, help_text="Lista de sedes, separadas por comas")
+    campuses = models.TextField(
+        blank=True, 
+        help_text="Lista de sedes, separadas por comas"
+    )
+    faculties = models.TextField(
+        blank=True,
+        help_text="Lista de facultades, separadas por comas"
+    )
     owner = models.ForeignKey(
         User, 
         on_delete=models.CASCADE,
@@ -16,27 +23,12 @@ class Institution(models.Model):
     )
     
     class Meta:
-        unique_together = ('name', 'owner')  # Mismo nombre solo por usuario
+        unique_together = ('name', 'owner')
+        verbose_name = "Institución"
+        verbose_name_plural = "Instituciones"
     
     def __str__(self):
         return self.name
-
-    class Meta:
-        verbose_name = "Institución"
-        verbose_name_plural = "Instituciones"
-
-class Faculty(models.Model):
-    name = models.CharField(max_length=255)
-    institution = models.ForeignKey(Institution, on_delete=models.CASCADE)
-    description = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return f"{self.institution.name} - {self.name}"
-
-    class Meta:
-        verbose_name = "Facultad"
-        verbose_name_plural = "Facultades"
-        unique_together = ('name', 'institution')
 
 class Subject(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Nombre")
@@ -292,6 +284,8 @@ class Exam(models.Model):
     def total_points(self):
         return sum(q.difficulty for q in self.questions.all())
 
+# ... (código anterior se mantiene igual hasta ExamTemplate)
+
 class ExamTemplate(models.Model):
     EXAM_TYPE_CHOICES = [
         ('final', 'Final'),
@@ -324,11 +318,11 @@ class ExamTemplate(models.Model):
         blank=True,
         verbose_name="Institución"
     )
-    faculty = models.ForeignKey(
-        Faculty,
-        on_delete=models.SET_NULL,
-        null=True,
+    # Eliminamos la referencia a Faculty y reemplazamos con un CharField
+    faculty_name = models.CharField(
+        max_length=255,
         blank=True,
+        null=True,
         verbose_name="Facultad"
     )
     career_name = models.CharField(max_length=255, verbose_name="Carrera")
@@ -417,6 +411,7 @@ class ExamTemplate(models.Model):
             exam_name += f" {self.get_partial_number_display()}"
         return f"{self.subject} - {exam_name} ({self.year})"
 
+# ... (el resto del código se mantiene igual)
 class Profile(models.Model):
     ROLE_CHOICES = [
         ('admin', 'Administrador'),
@@ -429,11 +424,6 @@ class Profile(models.Model):
         Institution,
         blank=True,
         verbose_name="Instituciones"
-    )
-    faculties = models.ManyToManyField(
-        Faculty,
-        blank=True,
-        verbose_name="Facultades"
     )
 
     def __str__(self):

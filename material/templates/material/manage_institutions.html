@@ -9,7 +9,7 @@
             </h3>
         </div>
         <div class="card-body">
-            <form method="post" enctype="multipart/form-data" class="mb-4">
+            <form method="post" enctype="multipart/form-data" id="institutionForm" class="mb-4">
                 {% csrf_token %}
                 <div class="row g-3">
                     {{ form.non_field_errors }}
@@ -25,12 +25,31 @@
                         {{ form.logo.errors }}
                         <small class="form-text text-muted">Formatos: .jpg, .png (máx. 2MB)</small>
                     </div>
+                    
+                    <!-- Sedes -->
                     <div class="col-12">
-                        <label for="{{ form.campuses.id_for_label }}" class="form-label">Sedes</label>
-                        {{ form.campuses }}
-                        <small class="form-text text-muted">{{ form.campuses.help_text }}</small>
-                        {{ form.campuses.errors }}
+                        <label class="form-label">Sedes</label>
+                        <div class="input-group mb-2">
+                            {{ form.campuses_input }}
+                            <button class="btn btn-outline-secondary" type="button" id="addCampus">
+                                <i class="fas fa-plus"></i> Agregar
+                            </button>
+                        </div>
+                        <div id="campusesBadges" class="d-flex flex-wrap gap-2 mb-3"></div>
                     </div>
+
+                    <!-- Facultades -->
+                    <div class="col-12">
+                        <label class="form-label">Facultades</label>
+                        <div class="input-group mb-2">
+                            {{ form.faculties_input }}
+                            <button class="btn btn-outline-secondary" type="button" id="addFaculty">
+                                <i class="fas fa-plus"></i> Agregar
+                            </button>
+                        </div>
+                        <div id="facultiesBadges" class="d-flex flex-wrap gap-2 mb-3"></div>
+                    </div>
+
                     <div class="col-12 mt-3">
                         <button type="submit" class="btn btn-success">
                             <i class="fas fa-save me-1"></i> Guardar Institución
@@ -49,6 +68,7 @@
                             <th width="80px">Logo</th>
                             <th>Nombre</th>
                             <th>Sedes</th>
+                            <th>Facultades</th>
                             <th width="120px" class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -80,6 +100,20 @@
                                 <span class="text-muted">No especificado</span>
                                 {% endif %}
                             </td>
+                            <td>
+                                {% if institution.faculties %}
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for faculty in institution.faculties.split|slice:":3" %}
+                                    <span class="badge bg-info">{{ faculty }}</span>
+                                    {% endfor %}
+                                    {% if institution.faculties.split|length > 3 %}
+                                    <span class="badge bg-light text-dark">+{{ institution.faculties.split|length|add:"-3" }} más</span>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <span class="text-muted">No especificado</span>
+                                {% endif %}
+                            </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
                                     <a href="{% url 'material:edit_institution' institution.id %}" 
@@ -99,7 +133,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="text-center py-4">
+                            <td colspan="5" class="text-center py-4">
                                 <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
                                 <h5 class="text-muted">No hay instituciones registradas</h5>
                                 <p class="text-muted">Use el formulario superior para agregar una nueva institución</p>
@@ -116,10 +150,84 @@
 <script>
 // Activar tooltips
 document.addEventListener('DOMContentLoaded', function() {
+    // Tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
-})
+    });
+
+    // Función para agregar items
+    function addItem(inputId, badgesContainerId, badgeClass) {
+        const input = document.querySelector(`#${inputId}`);
+        const badgesContainer = document.querySelector(`#${badgesContainerId}`);
+        
+        if (input.value.trim()) {
+            const value = input.value.trim();
+            if (!Array.from(document.querySelectorAll(`#${badgesContainerId} input`)).some(i => i.value === value)) {
+                const badge = document.createElement('span');
+                badge.className = `badge ${badgeClass}`;
+                badge.innerHTML = `
+                    ${value}
+                    <input type="hidden" name="${badgesContainerId.replace('Badges', '')}" value="${value}">
+                    <button type="button" class="btn-close btn-close-white btn-sm ms-1 remove-item" aria-label="Remove"></button>
+                `;
+                badgesContainer.appendChild(badge);
+                input.value = '';
+            } else {
+                alert('Esta sede/facultad ya fue agregada');
+            }
+        }
+    }
+
+    // Permitir agregar con Enter
+    function setupInputEvents(inputId, addButtonId) {
+        const input = document.querySelector(`#${inputId}`);
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.querySelector(`#${addButtonId}`).click();
+            }
+        });
+    }
+
+    // Event listeners para botones
+    document.getElementById('addCampus').addEventListener('click', () => {
+        addItem('id_campuses_input', 'campusesBadges', 'bg-secondary');
+    });
+
+    document.getElementById('addFaculty').addEventListener('click', () => {
+        addItem('id_faculties_input', 'facultiesBadges', 'bg-info');
+    });
+
+    // Configurar eventos Enter
+    setupInputEvents('id_campuses_input', 'addCampus');
+    setupInputEvents('id_faculties_input', 'addFaculty');
+
+    // Eliminar items
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-item')) {
+            e.target.closest('.badge').remove();
+        }
+    });
+
+    // Manejar submit del formulario
+    document.getElementById('institutionForm').addEventListener('submit', function(e) {
+        const campuses = Array.from(document.querySelectorAll('input[name="campuses"]')).map(i => i.value);
+        const faculties = Array.from(document.querySelectorAll('input[name="faculties"]')).map(i => i.value);
+        
+        // Crear campos ocultos con los valores concatenados
+        const campusesField = document.createElement('input');
+        campusesField.type = 'hidden';
+        campusesField.name = 'campuses';
+        campusesField.value = campuses.join(',');
+        this.appendChild(campusesField);
+
+        const facultiesField = document.createElement('input');
+        facultiesField.type = 'hidden';
+        facultiesField.name = 'faculties';
+        facultiesField.value = faculties.join(',');
+        this.appendChild(facultiesField);
+    });
+});
 </script>
 {% endblock %}

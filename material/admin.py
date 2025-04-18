@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
     Subject, Contenido, Question, Exam, ExamTemplate, Profile,
-    Topic, Subtopic, Institution, Faculty, LearningOutcome
+    Topic, Subtopic, Institution, LearningOutcome
 )
 
 @admin.register(Institution)
@@ -10,7 +10,7 @@ class InstitutionAdmin(admin.ModelAdmin):
     list_display = ('name', 'owner', 'logo_preview', 'campuses_short')
     search_fields = ('name', 'campuses', 'owner__username')
     list_filter = ('owner',)
-    fields = ('name', 'logo', 'logo_preview', 'campuses', 'owner')
+    fields = ('name', 'logo', 'logo_preview', 'campuses', 'faculties', 'owner')
     readonly_fields = ('logo_preview',)
     raw_id_fields = ('owner',)  # Para mejor rendimiento con muchos usuarios
 
@@ -48,16 +48,6 @@ class InstitutionAdmin(admin.ModelAdmin):
             obj.owner = request.user
         super().save_model(request, obj, form, change)
         
-@admin.register(Faculty)
-class FacultyAdmin(admin.ModelAdmin):
-    list_display = ('name', 'institution', 'description_short')
-    search_fields = ('name', 'institution__name')
-    list_filter = ('institution',)
-    raw_id_fields = ('institution',)
-
-    def description_short(self, obj):
-        return f"{obj.description[:50]}..." if obj.description else "Sin descripción"
-    description_short.short_description = 'Descripción'
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
@@ -98,13 +88,13 @@ class ExamTemplateAdmin(admin.ModelAdmin):
     list_display = ('subject', 'exam_type', 'year', 'created_by')
     list_filter = ('exam_type', 'year', 'subject')
     search_fields = ('subject__name', 'career_name')
-    raw_id_fields = ('institution', 'faculty', 'subject', 'professor', 'created_by')
+    raw_id_fields = ('institution', 'subject', 'professor', 'created_by')  # Eliminado 'faculty'
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'role', 'institutions_list')
     list_filter = ('role',)
-    filter_horizontal = ('institutions', 'faculties')
+    filter_horizontal = ('institutions',)  # Eliminado 'faculties'
 
     def institutions_list(self, obj):
         return ", ".join([i.name for i in obj.institutions.all()])

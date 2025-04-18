@@ -17,12 +17,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from .models import Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, Subtopic
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
-    UserEditForm, ContenidoForm, InstitutionForm, FacultyForm, 
+    UserEditForm, ContenidoForm, InstitutionForm, 
     LearningOutcomeForm, ProfileForm
 )
 from .ia_processor import extract_text_from_file, generate_questions_from_text
-from .models import Institution, Faculty, LearningOutcome
-from .forms import InstitutionForm, FacultyForm, LearningOutcomeForm, ProfileForm
+from .models import Institution, LearningOutcome
+from .forms import InstitutionForm, LearningOutcomeForm, ProfileForm
 
 # Logger configuration
 logger = logging.getLogger(__name__)
@@ -96,7 +96,6 @@ def review_questions(request, contenido_id):
         'questions': questions_list
     })
 
-# Corregir save_selected_questions
 @login_required
 def save_selected_questions(request, contenido_id):
     if request.method == 'POST':
@@ -110,15 +109,15 @@ def save_selected_questions(request, contenido_id):
             if str(i) in selected_questions:
                 Question.objects.create(
                     contenido=contenido,
-                    subject=default_subject,  # Objeto, no string
+                    subject=default_subject,
                     question_text=question,
                     answer_text="Respuesta generada por IA",
-                    topic=default_topic,  # Objeto, no string
+                    topic=default_topic,
                     subtopic=None,
                     user=request.user
                 )
         messages.success(request, 'Preguntas guardadas correctamente.')
-        return redirect('material:lista_preguntas')  # Corregido redirección
+        return redirect('material:lista_preguntas')
 
 @login_required
 def create_exam(request):
@@ -128,14 +127,13 @@ def create_exam(request):
             exam = form.save(commit=False)
             exam.created_by = request.user
             exam.save()
-            form.save_m2m()  # Guardar relaciones ManyToMany
+            form.save_m2m()
             messages.success(request, 'Examen creado correctamente.')
             return redirect('material:mis_examenes')
     else:
         form = ExamForm()
     return render(request, 'material/create_exam.html', {'form': form})
 
-# Actualización de create_exam_template
 @login_required
 def create_exam_template(request):
     if request.method == 'POST':
@@ -144,13 +142,12 @@ def create_exam_template(request):
             exam_template = form.save(commit=False)
             exam_template.created_by = request.user
             exam_template.save()
-            form.save_m2m()  # Para learning_outcomes
+            form.save_m2m()
             messages.success(request, 'Plantilla de examen creada correctamente.')
             return redirect('material:list_exam_templates')
     else:
         form = ExamTemplateForm()
     return render(request, 'material/create_exam_template.html', {'form': form})
-
 
 @login_required
 def preview_exam_template(request, template_id):
@@ -172,8 +169,6 @@ def signup(request):
     else:
         form = UserCreationForm()
     return render(request, 'registration/signup.html', {'form': form})
-
-
 
 @login_required
 @user_passes_test(is_admin, login_url='/')
@@ -221,7 +216,6 @@ def mis_datos(request):
                 profile.role = form.cleaned_data['role']
                 profile.save()
                 profile.institutions.set(form.cleaned_data['institutions'])
-                profile.faculties.set(form.cleaned_data['faculties'])
                 update_session_auth_hash(request, user)
                 messages.success(request, 'Sus cambios fueron guardados.')
             else:
@@ -231,14 +225,12 @@ def mis_datos(request):
         initial_data = {
             'role': user.profile.role,
             'institutions': user.profile.institutions.all(),
-            'faculties': user.profile.faculties.all(),
         }
         form = UserEditForm(instance=user, initial=initial_data)
     return render(request, 'material/mis_datos.html', {
         'form': form,
         'is_admin': is_admin(request.user)
     })
-
 
 @login_required
 def mis_examenes(request):
@@ -247,18 +239,15 @@ def mis_examenes(request):
 
 @login_required
 def lista_preguntas(request):
-    # Query base
     preguntas = Question.objects.filter(
         models.Q(contenido__uploaded_by=request.user) | 
         models.Q(user=request.user)
     ).select_related('subject', 'topic', 'subtopic')
 
-    # Filtros con validación
     subject_id = request.GET.get('subject', '')
     topic_id = request.GET.get('topic', '')
     subtopic_id = request.GET.get('subtopic', '')
 
-    # Aplicar filtros solo si tienen valor numérico
     if subject_id.isdigit():
         preguntas = preguntas.filter(subject_id=int(subject_id))
     if topic_id.isdigit():
@@ -266,7 +255,6 @@ def lista_preguntas(request):
     if subtopic_id.isdigit():
         preguntas = preguntas.filter(subtopic_id=int(subtopic_id))
 
-    # Obtener opciones para dropdowns
     subjects = Subject.objects.filter(
         question__in=preguntas
     ).distinct().order_by('Nombre')
@@ -279,7 +267,6 @@ def lista_preguntas(request):
         topic__subject__question__in=preguntas
     ).distinct().order_by('name') if topic_id.isdigit() else Subtopic.objects.none()
 
-    # Paginación
     paginator = Paginator(preguntas, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -327,12 +314,12 @@ def eliminar_pregunta(request, pk):
     })
 
 @login_required
-def mis_contenidos(request):  # Antes mis_materiales
+def mis_contenidos(request):
     contenidos = Contenido.objects.filter(uploaded_by=request.user)
     return render(request, 'material/mis_contenidos.html', {'contenidos': contenidos})
 
 @login_required
-def delete_contenido(request):  # Antes delete_material
+def delete_contenido(request):
     if request.method == 'POST':
         contenido_ids = request.POST.getlist('contenido_ids')
         if not contenido_ids:
@@ -508,22 +495,6 @@ def delete_exam_template(request):
     return redirect('material:list_exam_templates')
 
 @login_required
-def manage_faculties(request):
-    faculties = Faculty.objects.all()
-    if request.method == 'POST':
-        form = FacultyForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Facultad guardada correctamente.')
-            return redirect('material:manage_faculties')
-    else:
-        form = FacultyForm()
-    return render(request, 'material/manage_faculties.html', {
-        'faculties': faculties,
-        'form': form
-    })
-
-@login_required
 def manage_learning_outcomes(request):
     outcomes = LearningOutcome.objects.all()
     if request.method == 'POST':
@@ -541,8 +512,6 @@ def manage_learning_outcomes(request):
 
 @login_required
 def manage_institutions(request):
-    institutions = Institution.objects.filter(owner=request.user)
-    
     if request.method == 'POST':
         form = InstitutionForm(request.POST, request.FILES)
         if form.is_valid():
@@ -554,9 +523,10 @@ def manage_institutions(request):
     else:
         form = InstitutionForm()
     
+    institutions = Institution.objects.filter(owner=request.user)
     return render(request, 'material/manage_institutions.html', {
-        'institutions': institutions,
-        'form': form
+        'form': form,
+        'institutions': institutions
     })
 
 @login_required
@@ -566,7 +536,7 @@ def edit_institution(request, pk):
     if request.method == 'POST':
         form = InstitutionForm(request.POST, request.FILES, instance=institution)
         if form.is_valid():
-            form.save()
+            institution = form.save()
             messages.success(request, 'Institución actualizada correctamente')
             return redirect('material:manage_institutions')
     else:

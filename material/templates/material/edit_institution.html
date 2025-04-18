@@ -30,6 +30,12 @@
                         <small class="form-text text-muted">{{ form.campuses.help_text }}</small>
                         {{ form.campuses.errors }}
                     </div>
+                    <div class="col-12">
+                        <label for="{{ form.faculties.id_for_label }}" class="form-label">Facultades</label>
+                        {{ form.faculties }}
+                        <small class="form-text text-muted">{{ form.faculties.help_text }}</small>
+                        {{ form.faculties.errors }}
+                    </div>
                     <div class="col-12 mt-3">
                         <button type="submit" class="btn btn-primary me-2">
                             <i class="fas fa-save me-1"></i> Guardar

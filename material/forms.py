@@ -4,45 +4,34 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
-    Subject, Topic, Institution, Faculty, LearningOutcome
+    Subject, Topic, Institution, LearningOutcome
 )
 
 class InstitutionForm(forms.ModelForm):
-    campuses = forms.CharField(
-        widget=forms.Textarea(attrs={
+    campuses_input = forms.CharField(
+        widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'rows': 3,
-            'placeholder': 'Ingrese sedes, separadas por comas'
+            'placeholder': 'Ingrese una sede'
         }),
         required=False,
-        help_text="Ingrese las sedes separadas por comas"
+        label="Agregar sede"
+    )
+    
+    faculties_input = forms.CharField(
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ingrese una facultad'
+        }),
+        required=False,
+        label="Agregar facultad"
     )
 
     class Meta:
         model = Institution
-        fields = ['name', 'logo', 'campuses']
+        fields = ['name', 'logo']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'logo': forms.ClearableFileInput(attrs={'class': 'form-control'}),
-            'campuses': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 3,
-                'placeholder': 'Ingrese sedes separadas por comas'
-            }),
-        }
-        
-    def clean_campuses(self):
-        data = self.cleaned_data['campuses']
-        return data  # Ahora se guarda como texto plano separado por comas
-
-class FacultyForm(forms.ModelForm):
-    class Meta:
-        model = Faculty
-        fields = '__all__'
-        widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'institution': forms.Select(attrs={'class': 'form-control'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
 class LearningOutcomeForm(forms.ModelForm):
@@ -152,11 +141,6 @@ class ExamTemplateForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-control'}),
         required=False
     )
-    faculty = forms.ModelChoiceField(
-        queryset=Faculty.objects.none(),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        required=False
-    )
     subject = forms.ModelChoiceField(
         queryset=Subject.objects.all(),
         widget=forms.Select(attrs={'class': 'form-control'}),
@@ -171,7 +155,7 @@ class ExamTemplateForm(forms.ModelForm):
     class Meta:
         model = ExamTemplate
         fields = [
-            'institution', 'faculty', 'career_name', 'subject', 'professor',
+            'institution', 'career_name', 'subject', 'professor',
             'year', 'exam_type', 'partial_number', 'exam_mode', 'exam_group',
             'campus', 'shift', 'resolution_time', 'topics_to_evaluate',
             'notes_and_recommendations', 'learning_outcomes'
@@ -191,25 +175,13 @@ class ExamTemplateForm(forms.ModelForm):
             'learning_outcomes': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if 'institution' in self.data:
-            try:
-                institution_id = int(self.data.get('institution'))
-                self.fields['faculty'].queryset = Faculty.objects.filter(institution_id=institution_id)
-            except (ValueError, TypeError):
-                pass
-        elif self.instance.pk and self.instance.institution:
-            self.fields['faculty'].queryset = Faculty.objects.filter(institution=self.instance.institution)
-
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ['role', 'institutions', 'faculties']
+        fields = ['role', 'institutions']
         widgets = {
             'role': forms.Select(attrs={'class': 'form-control'}),
             'institutions': forms.SelectMultiple(attrs={'class': 'form-control'}),
-            'faculties': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
 
 class CustomLoginForm(AuthenticationForm):
@@ -228,7 +200,6 @@ class CustomLoginForm(AuthenticationForm):
                 code='inactive',
             )
 
-
 class UserEditForm(forms.ModelForm):
     role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, label="Rol", widget=forms.Select(attrs={'class': 'form-control'}))
     institutions = forms.ModelMultipleChoiceField(
@@ -236,15 +207,10 @@ class UserEditForm(forms.ModelForm):
         widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
         required=False
     )
-    faculties = forms.ModelMultipleChoiceField(
-        queryset=Faculty.objects.all(),
-        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
-        required=False
-    )
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'is_active', 'role', 'institutions', 'faculties']
+        fields = ['username', 'first_name', 'last_name', 'email', 'is_active', 'role', 'institutions']
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control'}),
             'first_name': forms.TextInput(attrs={'class': 'form-control'}),
@@ -258,7 +224,6 @@ class UserEditForm(forms.ModelForm):
         if self.instance and hasattr(self.instance, 'profile'):
             self.initial['role'] = self.instance.profile.role
             self.initial['institutions'] = self.instance.profile.institutions.all()
-            self.initial['faculties'] = self.instance.profile.faculties.all()
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -268,7 +233,4 @@ class UserEditForm(forms.ModelForm):
                 user.profile.role = self.cleaned_data['role']
                 user.profile.save()
                 user.profile.institutions.set(self.cleaned_data['institutions'])
-                user.profile.faculties.set(self.cleaned_data['faculties'])
         return user
-
-# Resto de los formularios existentes (CustomLoginForm, BulkQuestionUploadForm) permanecen igual
