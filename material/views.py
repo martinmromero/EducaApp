@@ -15,12 +15,14 @@ from django.db import models
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, Subtopic
-# Local application imports
 from .forms import (
-    CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, UserEditForm, ContenidoForm  
-    )
+    CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
+    UserEditForm, ContenidoForm, InstitutionForm, FacultyForm, 
+    LearningOutcomeForm, ProfileForm
+)
 from .ia_processor import extract_text_from_file, generate_questions_from_text
-
+from .models import Institution, Faculty, LearningOutcome
+from .forms import InstitutionForm, FacultyForm, LearningOutcomeForm, ProfileForm
 
 # Logger configuration
 logger = logging.getLogger(__name__)
@@ -126,13 +128,14 @@ def create_exam(request):
             exam = form.save(commit=False)
             exam.created_by = request.user
             exam.save()
-            form.save_m2m()  # Guardar relaciones ManyToMany (topics/questions)
+            form.save_m2m()  # Guardar relaciones ManyToMany
             messages.success(request, 'Examen creado correctamente.')
             return redirect('material:mis_examenes')
     else:
         form = ExamForm()
     return render(request, 'material/create_exam.html', {'form': form})
 
+# Actualización de create_exam_template
 @login_required
 def create_exam_template(request):
     if request.method == 'POST':
@@ -141,11 +144,13 @@ def create_exam_template(request):
             exam_template = form.save(commit=False)
             exam_template.created_by = request.user
             exam_template.save()
-            messages.success(request, 'La plantilla de examen se ha creado correctamente.')
+            form.save_m2m()  # Para learning_outcomes
+            messages.success(request, 'Plantilla de examen creada correctamente.')
             return redirect('material:list_exam_templates')
     else:
         form = ExamTemplateForm()
     return render(request, 'material/create_exam_template.html', {'form': form})
+
 
 @login_required
 def preview_exam_template(request, template_id):
@@ -212,14 +217,28 @@ def mis_datos(request):
                 user.last_name = form.cleaned_data['last_name']
                 user.email = form.cleaned_data['email']
                 user.save()
+                profile = user.profile
+                profile.role = form.cleaned_data['role']
+                profile.save()
+                profile.institutions.set(form.cleaned_data['institutions'])
+                profile.faculties.set(form.cleaned_data['faculties'])
                 update_session_auth_hash(request, user)
                 messages.success(request, 'Sus cambios fueron guardados.')
             else:
                 messages.info(request, 'No se realizaron cambios.')
             return redirect('material:mis_datos')
     else:
-        form = UserEditForm(instance=user)
-    return render(request, 'material/mis_datos.html', {'form': form, 'is_admin': is_admin(request.user)})
+        initial_data = {
+            'role': user.profile.role,
+            'institutions': user.profile.institutions.all(),
+            'faculties': user.profile.faculties.all(),
+        }
+        form = UserEditForm(instance=user, initial=initial_data)
+    return render(request, 'material/mis_datos.html', {
+        'form': form,
+        'is_admin': is_admin(request.user)
+    })
+
 
 @login_required
 def mis_examenes(request):
@@ -487,3 +506,82 @@ def delete_exam_template(request):
         ExamTemplate.objects.filter(id__in=template_ids, created_by=request.user).delete()
         messages.success(request, 'Las plantillas seleccionadas se han eliminado correctamente.', extra_tags='exam_template')
     return redirect('material:list_exam_templates')
+
+
+@login_required
+def manage_institutions(request):
+    institutions = Institution.objects.all()
+    if request.method == 'POST':
+        form = InstitutionForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Institución guardada correctamente.')
+            return redirect('material:manage_institutions')
+    else:
+        form = InstitutionForm()
+    return render(request, 'material/manage_institutions.html', {
+        'institutions': institutions,
+        'form': form
+    })
+
+@login_required
+def manage_faculties(request):
+    faculties = Faculty.objects.all()
+    if request.method == 'POST':
+        form = FacultyForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Facultad guardada correctamente.')
+            return redirect('material:manage_faculties')
+    else:
+        form = FacultyForm()
+    return render(request, 'material/manage_faculties.html', {
+        'faculties': faculties,
+        'form': form
+    })
+
+@login_required
+def manage_learning_outcomes(request):
+    outcomes = LearningOutcome.objects.all()
+    if request.method == 'POST':
+        form = LearningOutcomeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Resultado de aprendizaje guardado correctamente.')
+            return redirect('material:manage_learning_outcomes')
+    else:
+        form = LearningOutcomeForm()
+    return render(request, 'material/manage_learning_outcomes.html', {
+        'outcomes': outcomes,
+        'form': form
+    })
+
+@login_required
+@user_passes_test(lambda u: u.profile.role == 'admin')
+def edit_institution(request, pk):
+    institution = get_object_or_404(Institution, pk=pk)
+    if request.method == 'POST':
+        form = InstitutionForm(request.POST, request.FILES, instance=institution)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Institución actualizada correctamente')
+            return redirect('material:manage_institutions')
+    else:
+        form = InstitutionForm(instance=institution)
+    return render(request, 'material/edit_institution.html', {
+        'form': form,
+        'institution': institution
+    })
+
+@login_required
+@user_passes_test(lambda u: u.profile.role == 'admin')
+def delete_institution(request, pk):
+    institution = get_object_or_404(Institution, pk=pk)
+    if request.method == 'POST':
+        institution.delete()
+        messages.success(request, f'Institución "{institution.name}" eliminada')
+        return redirect('material:manage_institutions')
+    return render(request, 'material/confirm_delete.html', {
+        'object': institution,
+        'back_url': 'material:manage_institutions'
+    })

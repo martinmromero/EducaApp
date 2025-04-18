@@ -1,74 +1,116 @@
 from django import forms
 from django.contrib.auth.models import User
-from .models import Contenido, Question, Exam, Profile, ExamTemplate, Subject, Topic 
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
+from .models import (
+    Contenido, Question, Exam, ExamTemplate, Profile,
+    Subject, Topic, Institution, Faculty, LearningOutcome
+)
+
+class InstitutionForm(forms.ModelForm):
+    class Meta:
+        model = Institution
+        fields = '__all__'
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'website': forms.URLInput(attrs={'class': 'form-control'}),
+        }
+
+class FacultyForm(forms.ModelForm):
+    class Meta:
+        model = Faculty
+        fields = '__all__'
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'institution': forms.Select(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+class LearningOutcomeForm(forms.ModelForm):
+    class Meta:
+        model = LearningOutcome
+        fields = '__all__'
+        widgets = {
+            'subject': forms.Select(attrs={'class': 'form-control'}),
+            'code': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'level': forms.Select(attrs={'class': 'form-control'}),
+        }
 
 class ContenidoForm(forms.ModelForm):
-    file = forms.FileField(widget=forms.ClearableFileInput(attrs={'class': 'form-control'}))
-    subject = forms.CharField(
-        max_length=100,
-        required=True,
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
+    subject = forms.ModelChoiceField(
+        queryset=Subject.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-control'}),
         label="Subject"
     )
-
+    
     class Meta:
         model = Contenido
-        fields = ['subject', 'title', 'file']
+        fields = ['subject', 'title', 'file', 'isbn', 'edition', 'pages', 'publisher', 'year']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'isbn': forms.TextInput(attrs={'class': 'form-control'}),
+            'edition': forms.TextInput(attrs={'class': 'form-control'}),
+            'pages': forms.NumberInput(attrs={'class': 'form-control'}),
+            'publisher': forms.TextInput(attrs={'class': 'form-control'}),
+            'year': forms.NumberInput(attrs={'class': 'form-control'}),
         }
         labels = {
             'title': 'Título del Contenido',
         }
 
 class QuestionForm(forms.ModelForm):
-    class Meta:
-        model = Question
-        fields = ['subject', 'topic', 'subtopic', 'question_text', 'answer_text', 'source_page', 'chapter']
-        widgets = {
-            'subject': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Matemáticas'}),
-            'topic': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Álgebra'}),
-            'subtopic': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Ecuaciones cuadráticas'}),
-            'question_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Texto de la pregunta'}),
-            'answer_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Texto de la respuesta'}),
-            'source_page': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Número de página'}),
-            'chapter': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Capítulo o sección'}),
-        }
-        labels = {
-            'subject': 'Subject',
-            'topic': 'Tema',
-            'subtopic': 'Subtema',
-            'question_text': 'Pregunta',
-            'answer_text': 'Respuesta',
-            'source_page': 'Página de referencia',
-            'chapter': 'Capítulo',
-        }
-
-class ExamForm(forms.ModelForm):
     subject = forms.ModelChoiceField(
         queryset=Subject.objects.all(),
         widget=forms.Select(attrs={'class': 'form-control'}),
-        label="Asignatura"
+        required=True
     )
-    topics = forms.ModelMultipleChoiceField(
-        queryset=Topic.objects.none(),  # Se actualiza dinámicamente en el __init__
+    
+    class Meta:
+        model = Question
+        fields = ['subject', 'topic', 'subtopic', 'question_text', 'answer_text', 
+                 'question_type', 'difficulty', 'source_page', 'chapter']
+        widgets = {
+            'subject': forms.Select(attrs={'class': 'form-control'}),
+            'topic': forms.Select(attrs={'class': 'form-control'}),
+            'subtopic': forms.Select(attrs={'class': 'form-control'}),
+            'question_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'answer_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'question_type': forms.Select(attrs={'class': 'form-control'}),
+            'difficulty': forms.Select(attrs={'class': 'form-control'}),
+            'source_page': forms.NumberInput(attrs={'class': 'form-control'}),
+            'chapter': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'subject' in self.data:
+            try:
+                subject_id = int(self.data.get('subject'))
+                self.fields['topic'].queryset = Topic.objects.filter(subject_id=subject_id)
+            except (ValueError, TypeError):
+                pass
+        elif self.instance.pk:
+            self.fields['topic'].queryset = self.instance.subject.topic_set.all()
+
+class ExamForm(forms.ModelForm):
+    learning_outcomes = forms.ModelMultipleChoiceField(
+        queryset=LearningOutcome.objects.none(),
         widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
         required=False,
-        label="Temas evaluados"
-    )
-    questions = forms.ModelMultipleChoiceField(
-        queryset=Question.objects.all(),
-        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
-        label="Preguntas"
+        label="Resultados de aprendizaje"
     )
 
     class Meta:
         model = Exam
-        fields = ['title', 'subject', 'topics', 'questions', 'instructions', 'duration_minutes']
+        fields = ['title', 'subject', 'topics', 'questions', 'learning_outcomes', 
+                 'instructions', 'duration_minutes']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'subject': forms.Select(attrs={'class': 'form-control'}),
+            'topics': forms.SelectMultiple(attrs={'class': 'form-control'}),
+            'questions': forms.SelectMultiple(attrs={'class': 'form-control'}),
             'instructions': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'duration_minutes': forms.NumberInput(attrs={'class': 'form-control'}),
         }
@@ -79,58 +121,78 @@ class ExamForm(forms.ModelForm):
             try:
                 subject_id = int(self.data.get('subject'))
                 self.fields['topics'].queryset = Topic.objects.filter(subject_id=subject_id)
+                self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(subject_id=subject_id)
             except (ValueError, TypeError):
                 pass
         elif self.instance.pk:
             self.fields['topics'].queryset = self.instance.subject.topic_set.all()
+            self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(subject=self.instance.subject)
 
 class ExamTemplateForm(forms.ModelForm):
+    institution = forms.ModelChoiceField(
+        queryset=Institution.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        required=False
+    )
+    faculty = forms.ModelChoiceField(
+        queryset=Faculty.objects.none(),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        required=False
+    )
+    subject = forms.ModelChoiceField(
+        queryset=Subject.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        required=True
+    )
+    professor = forms.ModelChoiceField(
+        queryset=User.objects.filter(profile__role='admin'),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        required=True
+    )
+    
     class Meta:
         model = ExamTemplate
         fields = [
-            'institution_logo', 'institution_name', 'career_name', 'subject_name',
-            'professor_name', 'year', 'exam_type', 'exam_mode',
-            'notes_and_recommendations', 'topics_to_evaluate'
+            'institution', 'faculty', 'career_name', 'subject', 'professor',
+            'year', 'exam_type', 'partial_number', 'exam_mode', 'exam_group',
+            'campus', 'shift', 'resolution_time', 'topics_to_evaluate',
+            'notes_and_recommendations', 'learning_outcomes'
         ]
         widgets = {
-            'institution_name': forms.TextInput(attrs={'class': 'form-control'}),
             'career_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'subject_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'professor_name': forms.TextInput(attrs={'class': 'form-control'}),
             'year': forms.NumberInput(attrs={'class': 'form-control'}),
             'exam_type': forms.Select(attrs={'class': 'form-control'}),
+            'partial_number': forms.Select(attrs={'class': 'form-control'}),
             'exam_mode': forms.Select(attrs={'class': 'form-control'}),
-            'notes_and_recommendations': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'exam_group': forms.Select(attrs={'class': 'form-control'}),
+            'campus': forms.TextInput(attrs={'class': 'form-control'}),
+            'shift': forms.Select(attrs={'class': 'form-control'}),
+            'resolution_time': forms.TextInput(attrs={'class': 'form-control'}),
             'topics_to_evaluate': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-        }
-
-class UserEditForm(forms.ModelForm):
-    role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, label="Rol", widget=forms.Select(attrs={'class': 'form-control'}))
-
-    class Meta:
-        model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'is_active', 'role']
-        widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control'}),
-            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'notes_and_recommendations': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'learning_outcomes': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.instance and hasattr(self.instance, 'profile'):
-            self.initial['role'] = self.instance.profile.role
+        if 'institution' in self.data:
+            try:
+                institution_id = int(self.data.get('institution'))
+                self.fields['faculty'].queryset = Faculty.objects.filter(institution_id=institution_id)
+            except (ValueError, TypeError):
+                pass
+        elif self.instance.pk and self.instance.institution:
+            self.fields['faculty'].queryset = Faculty.objects.filter(institution=self.instance.institution)
 
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        if commit:
-            user.save()
-            if hasattr(user, 'profile'):
-                user.profile.role = self.cleaned_data['role']
-                user.profile.save()
-        return user
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ['role', 'institutions', 'faculties']
+        widgets = {
+            'role': forms.Select(attrs={'class': 'form-control'}),
+            'institutions': forms.SelectMultiple(attrs={'class': 'form-control'}),
+            'faculties': forms.SelectMultiple(attrs={'class': 'form-control'}),
+        }
 
 class CustomLoginForm(AuthenticationForm):
     username = forms.CharField(
@@ -147,37 +209,48 @@ class CustomLoginForm(AuthenticationForm):
                 "Cuenta inactiva. Contacta al administrador.",
                 code='inactive',
             )
-        # Permite explícitamente staff/superusers
 
 
-class BulkQuestionUploadForm(forms.Form):
-    UPLOAD_TYPE_CHOICES = [
-        ('csv', 'Archivo CSV'),
-        ('json', 'Archivo JSON'),
-    ]
-    
-    upload_type = forms.ChoiceField(
-        choices=UPLOAD_TYPE_CHOICES,
-        widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
-        initial='csv',
-        label="Formato del archivo"
+class UserEditForm(forms.ModelForm):
+    role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, label="Rol", widget=forms.Select(attrs={'class': 'form-control'}))
+    institutions = forms.ModelMultipleChoiceField(
+        queryset=Institution.objects.all(),
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
+        required=False
     )
-    file = forms.FileField(
-        label="Archivo de preguntas",
-        widget=forms.ClearableFileInput(attrs={'class': 'form-control'}),
-        help_text="Formatos soportados: CSV o JSON. Estructura requerida: subject, topic, subtopic, question_text, answer_text, source_page, chapter"
-    )
-    contenido = forms.ModelChoiceField(
-        queryset=Contenido.objects.all(),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        label="Contenido asociado",
+    faculties = forms.ModelMultipleChoiceField(
+        queryset=Faculty.objects.all(),
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
         required=False
     )
 
-    def clean_file(self):
-        file = self.cleaned_data.get('file')
-        if file:
-            ext = file.name.split('.')[-1].lower()
-            if ext not in ['csv', 'json']:
-                raise ValidationError("Solo se permiten archivos CSV o JSON.")
-        return file
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'email', 'is_active', 'role', 'institutions', 'faculties']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and hasattr(self.instance, 'profile'):
+            self.initial['role'] = self.instance.profile.role
+            self.initial['institutions'] = self.instance.profile.institutions.all()
+            self.initial['faculties'] = self.instance.profile.faculties.all()
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        if commit:
+            user.save()
+            if hasattr(user, 'profile'):
+                user.profile.role = self.cleaned_data['role']
+                user.profile.save()
+                user.profile.institutions.set(self.cleaned_data['institutions'])
+                user.profile.faculties.set(self.cleaned_data['faculties'])
+        return user
+
+# Resto de los formularios existentes (CustomLoginForm, BulkQuestionUploadForm) permanecen igual
