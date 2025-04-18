@@ -507,23 +507,6 @@ def delete_exam_template(request):
         messages.success(request, 'Las plantillas seleccionadas se han eliminado correctamente.', extra_tags='exam_template')
     return redirect('material:list_exam_templates')
 
-
-@login_required
-def manage_institutions(request):
-    institutions = Institution.objects.all()
-    if request.method == 'POST':
-        form = InstitutionForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Institución guardada correctamente.')
-            return redirect('material:manage_institutions')
-    else:
-        form = InstitutionForm()
-    return render(request, 'material/manage_institutions.html', {
-        'institutions': institutions,
-        'form': form
-    })
-
 @login_required
 def manage_faculties(request):
     faculties = Faculty.objects.all()
@@ -557,9 +540,29 @@ def manage_learning_outcomes(request):
     })
 
 @login_required
-@user_passes_test(lambda u: u.profile.role == 'admin')
+def manage_institutions(request):
+    institutions = Institution.objects.filter(owner=request.user)
+    
+    if request.method == 'POST':
+        form = InstitutionForm(request.POST, request.FILES)
+        if form.is_valid():
+            institution = form.save(commit=False)
+            institution.owner = request.user
+            institution.save()
+            messages.success(request, 'Institución guardada correctamente.')
+            return redirect('material:manage_institutions')
+    else:
+        form = InstitutionForm()
+    
+    return render(request, 'material/manage_institutions.html', {
+        'institutions': institutions,
+        'form': form
+    })
+
+@login_required
 def edit_institution(request, pk):
-    institution = get_object_or_404(Institution, pk=pk)
+    institution = get_object_or_404(Institution, pk=pk, owner=request.user)
+    
     if request.method == 'POST':
         form = InstitutionForm(request.POST, request.FILES, instance=institution)
         if form.is_valid():
@@ -568,19 +571,21 @@ def edit_institution(request, pk):
             return redirect('material:manage_institutions')
     else:
         form = InstitutionForm(instance=institution)
+    
     return render(request, 'material/edit_institution.html', {
         'form': form,
         'institution': institution
     })
 
 @login_required
-@user_passes_test(lambda u: u.profile.role == 'admin')
 def delete_institution(request, pk):
-    institution = get_object_or_404(Institution, pk=pk)
+    institution = get_object_or_404(Institution, pk=pk, owner=request.user)
+    
     if request.method == 'POST':
         institution.delete()
         messages.success(request, f'Institución "{institution.name}" eliminada')
         return redirect('material:manage_institutions')
+    
     return render(request, 'material/confirm_delete.html', {
         'object': institution,
         'back_url': 'material:manage_institutions'

@@ -8,14 +8,32 @@ from .models import (
 )
 
 class InstitutionForm(forms.ModelForm):
+    campuses = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Ingrese sedes, separadas por comas'
+        }),
+        required=False,
+        help_text="Ingrese las sedes separadas por comas"
+    )
+
     class Meta:
         model = Institution
-        fields = '__all__'
+        fields = ['name', 'logo', 'campuses']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'website': forms.URLInput(attrs={'class': 'form-control'}),
+            'logo': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'campuses': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Ingrese sedes separadas por comas'
+            }),
         }
+        
+    def clean_campuses(self):
+        data = self.cleaned_data['campuses']
+        return data  # Ahora se guarda como texto plano separado por comas
 
 class FacultyForm(forms.ModelForm):
     class Meta:

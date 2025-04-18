@@ -1,107 +1,137 @@
 from django.contrib import admin
+from django.utils.html import format_html
 from .models import (
     Subject, Contenido, Question, Exam, ExamTemplate, Profile,
     Topic, Subtopic, Institution, Faculty, LearningOutcome
 )
 
+@admin.register(Institution)
 class InstitutionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'website')
-    search_fields = ('name', 'address')
+    list_display = ('name', 'owner', 'logo_preview', 'campuses_short')
+    search_fields = ('name', 'campuses', 'owner__username')
+    list_filter = ('owner',)
+    fields = ('name', 'logo', 'logo_preview', 'campuses', 'owner')
+    readonly_fields = ('logo_preview',)
+    raw_id_fields = ('owner',)  # Para mejor rendimiento con muchos usuarios
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(owner=request.user)
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        if not request.user.is_superuser:
+            # Para usuarios normales, establecer el owner automáticamente
+            form.base_fields['owner'].disabled = True
+            form.base_fields['owner'].initial = request.user
+        return form
+
+    def logo_preview(self, obj):
+        if obj.logo:
+            return format_html('<img src="{}" style="max-height: 100px; max-width: 100px;" />', obj.logo.url)
+        return "No logo disponible"
+    logo_preview.short_description = 'Vista previa'
+
+    def campuses_short(self, obj):
+        if obj.campuses:
+            campuses = [c.strip() for c in obj.campuses.split(',') if c.strip()]
+            if len(campuses) > 3:
+                return f"{', '.join(campuses[:3])}... (+{len(campuses)-3})"
+            return ', '.join(campuses)
+        return "No especificado"
+    campuses_short.short_description = 'Sedes'
+
+    def save_model(self, request, obj, form, change):
+        if not obj.owner_id:  # Si es nueva institución
+            obj.owner = request.user
+        super().save_model(request, obj, form, change)
+        
+@admin.register(Faculty)
 class FacultyAdmin(admin.ModelAdmin):
-    list_display = ('name', 'institution')
-    list_filter = ('institution',)
+    list_display = ('name', 'institution', 'description_short')
     search_fields = ('name', 'institution__name')
+    list_filter = ('institution',)
+    raw_id_fields = ('institution',)
 
-class LearningOutcomeAdmin(admin.ModelAdmin):
-    list_display = ('code', 'subject', 'level')
-    list_filter = ('subject', 'level')
-    search_fields = ('code', 'description')
+    def description_short(self, obj):
+        return f"{obj.description[:50]}..." if obj.description else "Sin descripción"
+    description_short.short_description = 'Descripción'
 
-class QuestionInline(admin.TabularInline):
-    model = Question
-    extra = 0
-    fields = ('question_text', 'difficulty', 'topic', 'subtopic')
-    show_change_link = True
+@admin.register(Subject)
+class SubjectAdmin(admin.ModelAdmin):
+    list_display = ('name', 'learning_outcomes_count')
+    search_fields = ('name',)
 
-class TopicAdmin(admin.ModelAdmin):
-    list_display = ('name', 'subject', 'importance')
-    list_filter = ('subject', 'importance')
-    search_fields = ('name', 'subject__name')
-    inlines = [QuestionInline]
+    def learning_outcomes_count(self, obj):
+        return obj.outcomes.count()
+    learning_outcomes_count.short_description = 'Resultados'
 
-class SubtopicAdmin(admin.ModelAdmin):
-    list_display = ('name', 'topic')
-    list_filter = ('topic__subject', 'topic')
-    search_fields = ('name', 'topic__name')
-
+@admin.register(Contenido)
 class ContenidoAdmin(admin.ModelAdmin):
     list_display = ('title', 'subject', 'uploaded_by', 'uploaded_at')
     list_filter = ('subject', 'uploaded_by')
-    search_fields = ('title', 'subject__name', 'isbn')
-    readonly_fields = ('uploaded_at',)
-
-class QuestionAdmin(admin.ModelAdmin):
-    list_display = ('short_question_text', 'subject', 'difficulty', 'topic')
-    list_filter = ('subject', 'topic', 'difficulty')
-    search_fields = ('question_text', 'subject__name', 'topic__name')
-    filter_horizontal = ('exams',)
-
-    def short_question_text(self, obj):
-        return obj.question_text[:50] + '...' if len(obj.question_text) > 50 else obj.question_text
-    short_question_text.short_description = 'Pregunta'
-
-class ExamAdmin(admin.ModelAdmin):
-    list_display = ('title', 'subject', 'created_by', 'created_at', 'is_published')
-    list_filter = ('subject', 'created_at', 'is_published')
     search_fields = ('title', 'subject__name')
-    filter_horizontal = ('topics', 'questions', 'learning_outcomes')
-    fieldsets = (
-        (None, {
-            'fields': ('title', 'subject', 'topics', 'questions', 'learning_outcomes')
-        }),
-        ('Configuración', {
-            'fields': ('instructions', 'duration_minutes', 'is_published'),
-            'classes': ('collapse',)
-        }),
-    )
+    date_hierarchy = 'uploaded_at'
+    raw_id_fields = ('uploaded_by', 'subject')
 
+@admin.register(Question)
+class QuestionAdmin(admin.ModelAdmin):
+    list_display = ('question_short', 'subject', 'difficulty', 'question_type')
+    list_filter = ('subject', 'difficulty', 'question_type')
+    search_fields = ('question_text', 'answer_text')
+    raw_id_fields = ('contenido', 'subject', 'topic', 'subtopic', 'user')
+
+    def question_short(self, obj):
+        return f"{obj.question_text[:50]}..."
+    question_short.short_description = 'Pregunta'
+
+@admin.register(Exam)
+class ExamAdmin(admin.ModelAdmin):
+    list_display = ('title', 'subject', 'created_by', 'created_at')
+    filter_horizontal = ('questions', 'topics', 'learning_outcomes')
+    raw_id_fields = ('created_by', 'subject')
+
+@admin.register(ExamTemplate)
 class ExamTemplateAdmin(admin.ModelAdmin):
-    list_display = ('subject', 'exam_type_display', 'year', 'created_by')
-    list_filter = ('exam_type', 'exam_mode', 'year', 'subject')
-    search_fields = ('subject__name', 'career_name', 'professor__username')
-    filter_horizontal = ('learning_outcomes',)
-    
-    def exam_type_display(self, obj):
-        display = obj.get_exam_type_display()
-        if obj.exam_type == 'parcial' and obj.partial_number:
-            display += f" ({obj.get_partial_number_display()})"
-        return display
-    exam_type_display.short_description = 'Tipo de Examen'
+    list_display = ('subject', 'exam_type', 'year', 'created_by')
+    list_filter = ('exam_type', 'year', 'subject')
+    search_fields = ('subject__name', 'career_name')
+    raw_id_fields = ('institution', 'faculty', 'subject', 'professor', 'created_by')
 
+@admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'role_display', 'institutions_list')
+    list_display = ('user', 'role', 'institutions_list')
     list_filter = ('role',)
-    search_fields = ('user__username', 'user__email')
     filter_horizontal = ('institutions', 'faculties')
-
-    def role_display(self, obj):
-        return obj.get_role_display()
-    role_display.short_description = 'Rol'
 
     def institutions_list(self, obj):
         return ", ".join([i.name for i in obj.institutions.all()])
     institutions_list.short_description = 'Instituciones'
 
-# Registros
-admin.site.register(Institution, InstitutionAdmin)
-admin.site.register(Faculty, FacultyAdmin)
-admin.site.register(LearningOutcome, LearningOutcomeAdmin)
-admin.site.register(Subject)
-admin.site.register(Topic, TopicAdmin)
-admin.site.register(Subtopic, SubtopicAdmin)
-admin.site.register(Contenido, ContenidoAdmin)
-admin.site.register(Question, QuestionAdmin)
-admin.site.register(Exam, ExamAdmin)
-admin.site.register(ExamTemplate, ExamTemplateAdmin)
-admin.site.register(Profile, ProfileAdmin)
+@admin.register(Topic)
+class TopicAdmin(admin.ModelAdmin):
+    list_display = ('name', 'subject', 'importance')
+    list_filter = ('subject', 'importance')
+    search_fields = ('name', 'subject__name')
+
+@admin.register(Subtopic)
+class SubtopicAdmin(admin.ModelAdmin):
+    list_display = ('name', 'topic', 'subject')
+    list_filter = ('topic',)
+    search_fields = ('name', 'topic__name')
+
+    def subject(self, obj):
+        return obj.topic.subject
+    subject.short_description = 'Asignatura'
+
+@admin.register(LearningOutcome)
+class LearningOutcomeAdmin(admin.ModelAdmin):
+    list_display = ('code', 'subject', 'level', 'description_short')
+    list_filter = ('subject', 'level')
+    search_fields = ('code', 'description')
+
+    def description_short(self, obj):
+        return f"{obj.description[:50]}..."
+    description_short.short_description = 'Descripción'

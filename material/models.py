@@ -6,11 +6,18 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 import json
 
 class Institution(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     logo = models.ImageField(upload_to='institution_logos/')
-    address = models.TextField(blank=True, null=True)
-    website = models.URLField(blank=True, null=True)
-
+    campuses = models.TextField(blank=True, help_text="Lista de sedes, separadas por comas")
+    owner = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE,
+        related_name='institutions'
+    )
+    
+    class Meta:
+        unique_together = ('name', 'owner')  # Mismo nombre solo por usuario
+    
     def __str__(self):
         return self.name
 
