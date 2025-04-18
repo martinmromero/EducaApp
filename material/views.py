@@ -48,9 +48,10 @@ class CustomLoginView(LoginView):
     form_class = CustomLoginForm
     template_name = 'registration/login.html'
 
-    def form_valid(self, form):
-        """Garantiza el login sin validaciones extra"""
-        return super().form_valid(form)
+    def form_invalid(self, form):
+        """Maneja intentos fallidos de login"""
+        messages.error(self.request, "Credenciales inválidas. Intente nuevamente.")
+        return super().form_invalid(form)
     
 
 @login_required
@@ -517,7 +518,8 @@ def manage_institutions(request):
         if form.is_valid():
             institution = form.save(commit=False)
             institution.owner = request.user
-            institution.save()
+            institution.save()  # Guarda primero la instancia base
+            form.save_m2m()  # ¡Crucial! Guarda las relaciones ManyToMany (sedes, facultades)
             messages.success(request, 'Institución guardada correctamente.')
             return redirect('material:manage_institutions')
     else:

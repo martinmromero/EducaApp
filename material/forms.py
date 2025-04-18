@@ -8,31 +8,39 @@ from .models import (
 )
 
 class InstitutionForm(forms.ModelForm):
-    campuses_input = forms.CharField(
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Ingrese una sede'
-        }),
+    # Campos para relaciones ManyToMany (sedes y facultades)
+    campuses = forms.ModelMultipleChoiceField(
+        queryset=Campus.objects.all(),
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
         required=False,
-        label="Agregar sede"
+        label="Sedes"
     )
     
-    faculties_input = forms.CharField(
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Ingrese una facultad'
-        }),
+    faculties = forms.ModelMultipleChoiceField(
+        queryset=Faculty.objects.all(),
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
         required=False,
-        label="Agregar facultad"
+        label="Facultades"
     )
 
     class Meta:
         model = Institution
-        fields = ['name', 'logo']
+        fields = ['name', 'logo', 'campuses', 'faculties']
+        labels = {
+            'name': 'Nombre de la Institución',
+            'logo': 'Logo (Opcional)',
+        }
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'logo': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'logo': forms.ClearableFileInput(attrs={'class': 'form-control-file'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Personalizar querysets si es necesario (ej: filtrar por usuario)
+        if self.instance.pk:
+            self.fields['campuses'].initial = self.instance.campuses.all()
+            self.fields['faculties'].initial = self.instance.faculties.all()
 
 class LearningOutcomeForm(forms.ModelForm):
     class Meta:
