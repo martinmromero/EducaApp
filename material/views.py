@@ -511,15 +511,33 @@ def manage_learning_outcomes(request):
         'form': form
     })
 
-@login_required
+@login_required  
 def manage_institutions(request):
     if request.method == 'POST':
         form = InstitutionForm(request.POST, request.FILES)
         if form.is_valid():
             institution = form.save(commit=False)
             institution.owner = request.user
-            institution.save()  # Guarda primero la instancia base
-            form.save_m2m()  # ¡Crucial! Guarda las relaciones ManyToMany (sedes, facultades)
+            institution.save()
+
+            # Procesar sedes (campuses)
+            campuses = request.POST.getlist('campuses')
+            for campus_name in campuses:
+                if campus_name.strip():
+                    Campus.objects.get_or_create(
+                        name=campus_name.strip(),
+                        institution=institution
+                    )
+
+            # Procesar facultades (faculties)  # <<< CORRECCIÓN AQUÍ
+            faculties = request.POST.getlist('faculties')
+            for faculty_name in faculties:  # <<< SE ELIMINÓ INDENTACIÓN EXTRA
+                if faculty_name.strip():
+                    Faculty.objects.get_or_create(
+                        name=faculty_name.strip(),
+                        institution=institution
+                    )
+
             messages.success(request, 'Institución guardada correctamente.')
             return redirect('material:manage_institutions')
     else:

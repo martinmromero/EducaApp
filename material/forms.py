@@ -4,43 +4,89 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
-    Subject, Topic, Institution, LearningOutcome
+    Subject, Topic, Institution, LearningOutcome, Campus, Faculty
 )
 
-class InstitutionForm(forms.ModelForm):
-    # Campos para relaciones ManyToMany (sedes y facultades)
-    campuses = forms.ModelMultipleChoiceField(
-        queryset=Campus.objects.all(),
-        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
-        required=False,
-        label="Sedes"
-    )
-    
-    faculties = forms.ModelMultipleChoiceField(
-        queryset=Faculty.objects.all(),
-        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
-        required=False,
-        label="Facultades"
-    )
+from django import forms  
+from .models import Institution, Campus, Faculty  
 
-    class Meta:
-        model = Institution
-        fields = ['name', 'logo', 'campuses', 'faculties']
-        labels = {
-            'name': 'Nombre de la Institución',
-            'logo': 'Logo (Opcional)',
-        }
-        widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'logo': forms.ClearableFileInput(attrs={'class': 'form-control-file'}),
-        }
+class InstitutionForm(forms.ModelForm):  
+    # Campos temporales para migración (se eliminarán luego)  
+    campuses_legacy = forms.CharField(  
+        required=False,  
+        widget=forms.Textarea(attrs={'rows': 2}),  
+        label="Sedes (legado)",  
+        help_text="Separar por comas. Este campo desaparecerá en futuras versiones."  
+    )  
+    faculties_legacy = forms.CharField(  
+        required=False,  
+        widget=forms.Textarea(attrs={'rows': 2}),  
+        label="Facultades (legado)",  
+        help_text="Separar por comas. Este campo desaparecerá en futuras versiones."  
+    )  
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Personalizar querysets si es necesario (ej: filtrar por usuario)
-        if self.instance.pk:
-            self.fields['campuses'].initial = self.instance.campuses.all()
-            self.fields['faculties'].initial = self.instance.faculties.all()
+    class Meta:  
+        model = Institution  
+        fields = ['name', 'logo', 'owner']  
+        widgets = {  
+            'owner': forms.HiddenInput(),  
+            'name': forms.TextInput(attrs={'class': 'form-control'}),  
+            'logo': forms.FileInput(attrs={'class': 'form-control'})  
+        }  
+
+    def __init__(self, *args, **kwargs):  
+        super().__init__(*args, **kwargs)  
+        if self.instance.pk:  
+            # Precargar datos legacy para edición  
+            self.fields['campuses_legacy'].initial = ', '.join(  
+                self.instance.campuses.values_list('name', flat=True)  
+            )  
+            self.fields['faculties_legacy'].initial = ', '.join(  
+                self.instance.faculties.values_list('name', flat=True)  
+            )  
+
+    def save(self, commit=True):  
+        institution = super().save(commit=False)  
+        if commit:  
+            institution.save()  
+            # Migrar datos de TextField a modelos nuevos  
+            if self.cleaned_data.get('campuses_legacy'):  
+                for campus in self.cleaned_data['campuses_legacy'].split(','):  
+                    if campus.strip():  
+                        Campus.objects.create(  
+                            name=campus.strip(),  
+                            institution=institution  
+                        )  
+            if self.cleaned_data.get('faculties_legacy'):  
+                for faculty in self.cleaned_data['faculties_legacy'].split(','):  
+                    if faculty.strip():  
+                        Faculty.objects.create(  
+                            name=faculty.strip(),  
+                            institution=institution  
+                        )  
+        return institution  
+
+# Formularios para los nuevos modelos  
+class CampusForm(forms.ModelForm):  
+    class Meta:  
+        model = Campus  
+        fields = ['name', 'address', 'institution']  
+        widgets = {  
+            'institution': forms.HiddenInput(),  
+            'name': forms.TextInput(attrs={'class': 'form-control'}),  
+            'address': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'})  
+        }  
+
+class FacultyForm(forms.ModelForm):  
+    class Meta:  
+        model = Faculty  
+        fields = ['name', 'code', 'institution']  
+        widgets = {  
+            'institution': forms.HiddenInput(),  
+            'name': forms.TextInput(attrs={'class': 'form-control'}),  
+            'code': forms.TextInput(attrs={'class': 'form-control'})  
+        }  
+
 
 class LearningOutcomeForm(forms.ModelForm):
     class Meta:

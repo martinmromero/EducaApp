@@ -5,30 +5,23 @@ from django.dispatch import receiver
 from django.core.validators import MinValueValidator, MaxValueValidator  
 import json
 
-class Institution(models.Model):
-    name = models.CharField(max_length=255)
-    logo = models.ImageField(upload_to='institution_logos/')
-    campuses = models.TextField(
-        blank=True, 
-        help_text="Lista de sedes, separadas por comas"
-    )
-    faculties = models.TextField(
-        blank=True,
-        help_text="Lista de facultades, separadas por comas"
-    )
-    owner = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE,
-        related_name='institutions'
-    )
-    
-    class Meta:
-        unique_together = ('name', 'owner')
-        verbose_name = "Institución"
-        verbose_name_plural = "Instituciones"
-    
-    def __str__(self):
-        return self.name
+class Institution(models.Model):  
+    name = models.CharField(max_length=255, verbose_name="Nombre")  
+    logo = models.ImageField(upload_to='institution_logos/', verbose_name="Logo")  
+    owner = models.ForeignKey(  
+        User,  
+        on_delete=models.CASCADE,  
+        related_name='institutions',  
+        verbose_name="Propietario"  
+    )  
+
+    class Meta:  
+        unique_together = ('name', 'owner')  
+        verbose_name = "Institución"  
+        verbose_name_plural = "Instituciones"  
+
+    def __str__(self):  
+        return self.name  
 
 class Subject(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Nombre")
@@ -284,134 +277,141 @@ class Exam(models.Model):
     def total_points(self):
         return sum(q.difficulty for q in self.questions.all())
 
-# ... (código anterior se mantiene igual hasta ExamTemplate)
+class ExamTemplate(models.Model):  
+    EXAM_TYPE_CHOICES = [  
+        ('final', 'Final'),  
+        ('parcial', 'Parcial'),  
+    ]  
+    EXAM_MODE_CHOICES = [  
+        ('oral', 'Oral'),  
+        ('escrito', 'Escrito'),  
+    ]  
+    EXAM_PARTIAL_CHOICES = [  
+        ('1ro', 'Primer Parcial'),  
+        ('2do', 'Segundo Parcial'),  
+        ('3ro', 'Tercer Parcial'),  
+        ('4to', 'Cuarto Parcial'),  
+    ]  
+    EXAM_GROUP_CHOICES = [  
+        ('individual', 'Individual'),  
+        ('grupal', 'Grupal'),  
+    ]  
+    SHIFT_CHOICES = [  
+        ('mañana', 'Mañana'),  
+        ('tarde', 'Tarde'),  
+        ('noche', 'Noche'),  
+    ]  
 
-class ExamTemplate(models.Model):
-    EXAM_TYPE_CHOICES = [
-        ('final', 'Final'),
-        ('parcial', 'Parcial'),
-    ]
-    EXAM_MODE_CHOICES = [
-        ('oral', 'Oral'),
-        ('escrito', 'Escrito'),
-    ]
-    EXAM_PARTIAL_CHOICES = [
-        ('1ro', 'Primer Parcial'),
-        ('2do', 'Segundo Parcial'),
-        ('3ro', 'Tercer Parcial'),
-        ('4to', 'Cuarto Parcial'),
-    ]
-    EXAM_GROUP_CHOICES = [
-        ('individual', 'Individual'),
-        ('grupal', 'Grupal'),
-    ]
-    SHIFT_CHOICES = [
-        ('mañana', 'Mañana'),
-        ('tarde', 'Tarde'),
-        ('noche', 'Noche'),
-    ]
+    institution = models.ForeignKey(  
+        'Institution',  
+        on_delete=models.SET_NULL,  
+        null=True,  
+        blank=True,  
+        verbose_name="Institución"  
+    )  
+    faculty = models.ForeignKey(  
+        'Faculty',  
+        on_delete=models.SET_NULL,  
+        null=True,  
+        blank=True,  
+        verbose_name="Facultad"  
+    )  
+    campus = models.ForeignKey(  
+        'Campus',  
+        on_delete=models.SET_NULL,  
+        null=True,  
+        blank=True,  
+        verbose_name="Sede"  
+    )  
+    career_name = models.CharField(max_length=255, verbose_name="Carrera")  
+    subject = models.ForeignKey(  
+        'Subject',  
+        on_delete=models.SET_NULL,  
+        null=True,  
+        blank=True,  
+        verbose_name="Materia"  
+    )  
+    professor = models.ForeignKey(  
+        User,  
+        on_delete=models.SET_NULL,  
+        null=True,  
+        blank=True,  
+        verbose_name="Profesor"  
+    )  
+    year = models.IntegerField(verbose_name="Año")  
+    exam_type = models.CharField(  
+        max_length=10,  
+        choices=EXAM_TYPE_CHOICES,  
+        verbose_name="Tipo de examen"  
+    )  
+    partial_number = models.CharField(  
+        max_length=10,  
+        choices=EXAM_PARTIAL_CHOICES,  
+        blank=True,  
+        null=True,  
+        verbose_name="Número de parcial"  
+    )  
+    exam_mode = models.CharField(  
+        max_length=10,  
+        choices=EXAM_MODE_CHOICES,  
+        verbose_name="Modalidad de examen"  
+    )  
+    exam_group = models.CharField(  
+        max_length=10,  
+        choices=EXAM_GROUP_CHOICES,  
+        default='individual',  
+        verbose_name="Modalidad grupal"  
+    )  
+    shift = models.CharField(  
+        max_length=10,  
+        choices=SHIFT_CHOICES,  
+        blank=True,  
+        null=True,  
+        verbose_name="Turno"  
+    )  
+    resolution_time = models.CharField(  
+        max_length=50,  
+        blank=True,  
+        null=True,  
+        verbose_name="Tiempo de resolución"  
+    )  
+    topics_to_evaluate = models.TextField(  
+        blank=True,  
+        null=True,  
+        verbose_name="Temas a evaluar"  
+    )  
+    notes_and_recommendations = models.TextField(  
+        blank=True,  
+        null=True,  
+        verbose_name="Notas y recomendaciones"  
+    )  
+    learning_outcomes = models.ManyToManyField(  
+        'LearningOutcome',  
+        blank=True,  
+        verbose_name="Resultados de aprendizaje"  
+    )  
+    created_by = models.ForeignKey(  
+        User,  
+        on_delete=models.CASCADE,  
+        related_name='exam_templates'  
+    )  
+    created_at = models.DateTimeField(auto_now_add=True)  
 
-    institution = models.ForeignKey(
-        Institution,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="Institución"
-    )
-    # Eliminamos la referencia a Faculty y reemplazamos con un CharField
-    faculty_name = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        verbose_name="Facultad"
-    )
-    career_name = models.CharField(max_length=255, verbose_name="Carrera")
-    subject = models.ForeignKey(
-        Subject,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="Materia"
-    )
-    professor = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="Profesor"
-    )
-    year = models.IntegerField(verbose_name="Año")
-    exam_type = models.CharField(
-        max_length=10,
-        choices=EXAM_TYPE_CHOICES,
-        verbose_name="Tipo de examen"
-    )
-    partial_number = models.CharField(
-        max_length=10,
-        choices=EXAM_PARTIAL_CHOICES,
-        blank=True,
-        null=True,
-        verbose_name="Número de parcial"
-    )
-    exam_mode = models.CharField(
-        max_length=10,
-        choices=EXAM_MODE_CHOICES,
-        verbose_name="Modalidad de examen"
-    )
-    exam_group = models.CharField(
-        max_length=10,
-        choices=EXAM_GROUP_CHOICES,
-        default='individual',
-        verbose_name="Modalidad grupal"
-    )
-    campus = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name="Sede"
-    )
-    shift = models.CharField(
-        max_length=10,
-        choices=SHIFT_CHOICES,
-        blank=True,
-        null=True,
-        verbose_name="Turno"
-    )
-    resolution_time = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-        verbose_name="Tiempo de resolución"
-    )
-    topics_to_evaluate = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="Temas a evaluar"
-    )
-    notes_and_recommendations = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="Notas y recomendaciones"
-    )
-    learning_outcomes = models.ManyToManyField(
-        LearningOutcome,
-        blank=True,
-        verbose_name="Resultados de aprendizaje"
-    )
-    created_by = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='exam_templates'
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
+    def __str__(self):  
+        exam_name = f"{self.get_exam_type_display()}"  
+        if self.exam_type == 'parcial' and self.partial_number:  
+            exam_name += f" {self.get_partial_number_display()}"  
+        return f"{self.subject} - {exam_name} ({self.year})"  
 
-    def __str__(self):
-        exam_name = f"{self.get_exam_type_display()}"
-        if self.exam_type == 'parcial' and self.partial_number:
-            exam_name += f" {self.get_partial_number_display()}"
-        return f"{self.subject} - {exam_name} ({self.year})"
+    class Meta:  
+        verbose_name = "Plantilla de Examen"  
+        verbose_name_plural = "Plantillas de Examen"  
+        ordering = ["-created_at"]  
+        indexes = [  
+            models.Index(fields=["exam_type", "year"]),  
+            models.Index(fields=["subject"]),  
+        ]  
 
-# ... (el resto del código se mantiene igual)
 class Profile(models.Model):
     ROLE_CHOICES = [
         ('admin', 'Administrador'),
@@ -428,6 +428,43 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
+
+class Campus(models.Model):  
+    name = models.CharField(max_length=100, verbose_name="Nombre de la sede")  
+    address = models.TextField(blank=True, verbose_name="Dirección")  
+    institution = models.ForeignKey(  
+        'Institution',  
+        on_delete=models.CASCADE,  
+        related_name='campuses',  
+        verbose_name="Institución"  
+    )  
+
+    class Meta:  
+        verbose_name = "Sede"  
+        verbose_name_plural = "Sedes"  
+        unique_together = ('name', 'institution')  
+
+    def __str__(self):  
+        return f"{self.institution.name} - {self.name}"  
+
+class Faculty(models.Model):  
+    name = models.CharField(max_length=100, verbose_name="Nombre de la facultad")  
+    code = models.CharField(max_length=10, blank=True, verbose_name="Código")  
+    institution = models.ForeignKey(  
+        'Institution',  
+        on_delete=models.CASCADE,  
+        related_name='faculties',  
+        verbose_name="Institución"  
+    )  
+
+    class Meta:  
+        verbose_name = "Facultad"  
+        verbose_name_plural = "Facultades"  
+        unique_together = ('name', 'institution')  
+
+    def __str__(self):  
+        return f"{self.institution.name} - {self.name}" 
+
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

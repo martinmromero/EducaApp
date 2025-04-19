@@ -1,160 +1,135 @@
 {% extends 'material/base.html' %}
+{% load static %}
 
 {% block content %}
 <div class="container mt-4">
-    <div class="card">
-        <div class="card-header bg-primary text-white">
-            <h3 class="mb-0">
-                <i class="fas fa-university me-2"></i>Gestión de Instituciones
-            </h3>
+    <h2>Gestionar Institución</h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <!-- Campos básicos del formulario -->
+        <div class="mb-3">
+            <label for="id_name" class="form-label">Nombre de la Institución</label>
+            {{ form.name }}
         </div>
-        <div class="card-body">
-            <form method="post" enctype="multipart/form-data" id="institutionForm" class="mb-4">
-                {% csrf_token %}
-                <div class="row g-3">
-                    {{ form.non_field_errors }}
-                    <div class="col-md-6">
-                        <label for="{{ form.name.id_for_label }}" class="form-label">Nombre*</label>
-                        {{ form.name }}
-                        {{ form.name.errors }}
-                        <small class="form-text text-muted">Nombre completo de la institución</small>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="{{ form.logo.id_for_label }}" class="form-label">Logo</label>
-                        {{ form.logo }}
-                        {{ form.logo.errors }}
-                        <small class="form-text text-muted">Formatos: .jpg, .png (máx. 2MB)</small>
-                    </div>
-                    
-                    <!-- Sedes - Usando el widget estándar de Django -->
-                    <div class="col-12">
-                        <label for="{{ form.campuses.id_for_label }}" class="form-label">Sedes</label>
-                        {{ form.campuses }}
-                        {{ form.campuses.errors }}
-                        <small class="form-text text-muted">Seleccione una o más sedes</small>
-                    </div>
+        
+        <div class="mb-3">
+            <label for="id_logo" class="form-label">Logo (opcional)</label>
+            {{ form.logo }}
+        </div>
 
-                    <!-- Facultades - Usando el widget estándar de Django -->
-                    <div class="col-12">
-                        <label for="{{ form.faculties.id_for_label }}" class="form-label">Facultades</label>
-                        {{ form.faculties }}
-                        {{ form.faculties.errors }}
-                        <small class="form-text text-muted">Seleccione una o más facultades</small>
-                    </div>
-
-                    <div class="col-12 mt-3">
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-save me-1"></i> Guardar Institución
-                        </button>
-                        <a href="{% url 'material:manage_institutions' %}" class="btn btn-outline-secondary ms-2">
-                            <i class="fas fa-times me-1"></i> Cancelar
-                        </a>
+        <!-- Sección para Sedes (Campus) -->
+        <div class="card mt-3">
+            <div class="card-header bg-light">
+                <h5>Sedes</h5>
+            </div>
+            <div class="card-body">
+                <div id="campuses-container">
+                    {% if form.instance.pk %}
+                        {% for campus in form.instance.campuses.all %}
+                            <div class="mb-2">
+                                <input 
+                                    type="text" 
+                                    name="campuses" 
+                                    value="{{ campus.name }}" 
+                                    class="form-control" 
+                                    placeholder="Nombre de la sede"
+                                >
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    <div class="mb-2">
+                        <input 
+                            type="text" 
+                            name="campuses" 
+                            class="form-control" 
+                            placeholder="Agregar sede (ej: Sede Central)"
+                        >
                     </div>
                 </div>
-            </form>
-
-            <div class="table-responsive">
-                <table class="table table-striped table-hover align-middle">
-                    <thead class="table-dark">
-                        <tr>
-                            <th width="80px">Logo</th>
-                            <th>Nombre</th>
-                            <th>Sedes</th>
-                            <th>Facultades</th>
-                            <th width="120px" class="text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for institution in institutions %}
-                        <tr>
-                            <td>
-                                {% if institution.logo %}
-                                <img src="{{ institution.logo.url }}" 
-                                     alt="{{ institution.name }}" 
-                                     class="img-thumbnail" 
-                                     style="max-height: 50px; max-width: 70px;">
-                                {% else %}
-                                <span class="text-muted">Sin logo</span>
-                                {% endif %}
-                            </td>
-                            <td class="fw-bold">{{ institution.name }}</td>
-                            <td>
-                                {% if institution.campuses.all %}
-                                <div class="d-flex flex-wrap gap-1">
-                                    {% for campus in institution.campuses.all|slice:":3" %}
-                                    <span class="badge bg-secondary">{{ campus.name }}</span>
-                                    {% endfor %}
-                                    {% if institution.campuses.all|length > 3 %}
-                                    <span class="badge bg-light text-dark">+{{ institution.campuses.all|length|add:"-3" }} más</span>
-                                    {% endif %}
-                                </div>
-                                {% else %}
-                                <span class="text-muted">No especificado</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if institution.faculties.all %}
-                                <div class="d-flex flex-wrap gap-1">
-                                    {% for faculty in institution.faculties.all|slice:":3" %}
-                                    <span class="badge bg-info">{{ faculty.name }}</span>
-                                    {% endfor %}
-                                    {% if institution.faculties.all|length > 3 %}
-                                    <span class="badge bg-light text-dark">+{{ institution.faculties.all|length|add:"-3" }} más</span>
-                                    {% endif %}
-                                </div>
-                                {% else %}
-                                <span class="text-muted">No especificado</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-center">
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <a href="{% url 'material:edit_institution' institution.id %}" 
-                                       class="btn btn-warning"
-                                       data-bs-toggle="tooltip" 
-                                       title="Editar">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="{% url 'material:delete_institution' institution.id %}" 
-                                       class="btn btn-danger"
-                                       data-bs-toggle="tooltip" 
-                                       title="Eliminar">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center py-4">
-                                <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
-                                <h5 class="text-muted">No hay instituciones registradas</h5>
-                                <p class="text-muted">Use el formulario superior para agregar una nueva institución</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                <button 
+                    type="button" 
+                    class="btn btn-sm btn-outline-secondary mt-2" 
+                    id="add-campus"
+                >
+                    + Agregar otra sede
+                </button>
             </div>
         </div>
-    </div>
+
+        <!-- Sección para Facultades -->
+        <div class="card mt-3">
+            <div class="card-header bg-light">
+                <h5>Facultades</h5>
+            </div>
+            <div class="card-body">
+                <div id="faculties-container">
+                    {% if form.instance.pk %}
+                        {% for faculty in form.instance.faculties.all %}
+                            <div class="mb-2">
+                                <input 
+                                    type="text" 
+                                    name="faculties" 
+                                    value="{{ faculty.name }}" 
+                                    class="form-control" 
+                                    placeholder="Nombre de la facultad"
+                                >
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    <div class="mb-2">
+                        <input 
+                            type="text" 
+                            name="faculties" 
+                            class="form-control" 
+                            placeholder="Agregar facultad (ej: Ingeniería)"
+                        >
+                    </div>
+                </div>
+                <button 
+                    type="button" 
+                    class="btn btn-sm btn-outline-secondary mt-2" 
+                    id="add-faculty"
+                >
+                    + Agregar otra facultad
+                </button>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary mt-3">Guardar</button>
+    </form>
 </div>
 
 <script>
-// Activar tooltips
-document.addEventListener('DOMContentLoaded', function() {
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
+    // Dinámicamente agregar más campos
+    document.getElementById('add-campus').addEventListener('click', function() {
+        const container = document.getElementById('campuses-container');
+        const newInput = document.createElement('div');
+        newInput.className = 'mb-2';
+        newInput.innerHTML = `
+            <input 
+                type="text" 
+                name="campuses" 
+                class="form-control" 
+                placeholder="Otra sede"
+            >
+        `;
+        container.appendChild(newInput);
     });
 
-    // Mejorar visualización de selects múltiples
-    const styleSelects = () => {
-        document.querySelectorAll('select[multiple]').forEach(select => {
-            select.classList.add('form-select');
-            select.size = Math.min(select.options.length, 5);
-        });
-    };
-    styleSelects();
-});
+    document.getElementById('add-faculty').addEventListener('click', function() {
+        const container = document.getElementById('faculties-container');
+        const newInput = document.createElement('div');
+        newInput.className = 'mb-2';
+        newInput.innerHTML = `
+            <input 
+                type="text" 
+                name="faculties" 
+                class="form-control" 
+                placeholder="Otra facultad"
+            >
+        `;
+        container.appendChild(newInput);
+    });
 </script>
 {% endblock %}
