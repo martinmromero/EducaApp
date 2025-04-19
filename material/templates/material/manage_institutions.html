@@ -3,133 +3,284 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Gestionar Institución</h2>
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        
-        <!-- Campos básicos del formulario -->
-        <div class="mb-3">
-            <label for="id_name" class="form-label">Nombre de la Institución</label>
-            {{ form.name }}
-        </div>
-        
-        <div class="mb-3">
-            <label for="id_logo" class="form-label">Logo (opcional)</label>
-            {{ form.logo }}
-        </div>
+    <h2 class="mb-4">Gestión de Instituciones</h2>
 
-        <!-- Sección para Sedes (Campus) -->
-        <div class="card mt-3">
-            <div class="card-header bg-light">
-                <h5>Sedes</h5>
-            </div>
-            <div class="card-body">
-                <div id="campuses-container">
-                    {% if form.instance.pk %}
-                        {% for campus in form.instance.campuses.all %}
-                            <div class="mb-2">
-                                <input 
-                                    type="text" 
-                                    name="campuses" 
-                                    value="{{ campus.name }}" 
-                                    class="form-control" 
-                                    placeholder="Nombre de la sede"
-                                >
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                    <div class="mb-2">
-                        <input 
-                            type="text" 
-                            name="campuses" 
-                            class="form-control" 
-                            placeholder="Agregar sede (ej: Sede Central)"
-                        >
+    <!-- Mensajes -->
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Formulario principal -->
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">
+                {{ form.instance.pk|yesno:"Editar Institución,Nueva Institución" }}
+            </h4>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data" id="institution-form">
+                {% csrf_token %}
+                
+                <!-- Campos básicos -->
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Nombre de la Institución*</label>
+                        <input type="text" name="name" class="form-control" 
+                               value="{{ form.instance.name }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Logo</label>
+                        <input type="file" name="logo" class="form-control">
+                        {% if form.instance.logo %}
+                        <div class="mt-2">
+                            <img src="{{ form.instance.logo.url }}" alt="Logo" 
+                                 style="max-height: 50px;" class="img-thumbnail">
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
-                <button 
-                    type="button" 
-                    class="btn btn-sm btn-outline-secondary mt-2" 
-                    id="add-campus"
-                >
-                    + Agregar otra sede
-                </button>
-            </div>
-        </div>
 
-        <!-- Sección para Facultades -->
-        <div class="card mt-3">
-            <div class="card-header bg-light">
-                <h5>Facultades</h5>
-            </div>
-            <div class="card-body">
-                <div id="faculties-container">
-                    {% if form.instance.pk %}
-                        {% for faculty in form.instance.faculties.all %}
-                            <div class="mb-2">
-                                <input 
-                                    type="text" 
-                                    name="faculties" 
-                                    value="{{ faculty.name }}" 
-                                    class="form-control" 
-                                    placeholder="Nombre de la facultad"
-                                >
+                <!-- Sección de Sedes -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Sedes</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="campuses-container">
+                            {% for campus in form.instance.campus_set.all %}
+                            <div class="mb-2 campus-item">
+                                <div class="input-group">
+                                    <input type="text" name="campuses" 
+                                           value="{{ campus.name }}" 
+                                           class="form-control" required>
+                                    <input type="hidden" name="campus_ids" 
+                                           value="{{ campus.id }}">
+                                    <button type="button" 
+                                            class="btn btn-danger remove-item">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </div>
-                        {% endfor %}
-                    {% endif %}
-                    <div class="mb-2">
-                        <input 
-                            type="text" 
-                            name="faculties" 
-                            class="form-control" 
-                            placeholder="Agregar facultad (ej: Ingeniería)"
-                        >
+                            {% empty %}
+                            <div class="mb-2 campus-item">
+                                <div class="input-group">
+                                    <input type="text" name="campuses" 
+                                           class="form-control" 
+                                           placeholder="Nombre de sede" required>
+                                    <button type="button" 
+                                            class="btn btn-danger remove-item">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" class="btn btn-primary mt-2" 
+                                id="add-campus">
+                            <i class="bi bi-plus-circle"></i> Agregar Sede
+                        </button>
                     </div>
                 </div>
-                <button 
-                    type="button" 
-                    class="btn btn-sm btn-outline-secondary mt-2" 
-                    id="add-faculty"
-                >
-                    + Agregar otra facultad
-                </button>
-            </div>
-        </div>
 
-        <button type="submit" class="btn btn-primary mt-3">Guardar</button>
-    </form>
+                <!-- Sección de Facultades -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Facultades</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="faculties-container">
+                            {% for faculty in form.instance.faculty_set.all %}
+                            <div class="mb-2 faculty-item">
+                                <div class="input-group">
+                                    <input type="text" name="faculties" 
+                                           value="{{ faculty.name }}" 
+                                           class="form-control" required>
+                                    <input type="hidden" name="faculty_ids" 
+                                           value="{{ faculty.id }}">
+                                    <button type="button" 
+                                            class="btn btn-danger remove-item">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="mb-2 faculty-item">
+                                <div class="input-group">
+                                    <input type="text" name="faculties" 
+                                           class="form-control" 
+                                           placeholder="Nombre de facultad" required>
+                                    <button type="button" 
+                                            class="btn btn-danger remove-item">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" class="btn btn-primary mt-2" 
+                                id="add-faculty">
+                            <i class="bi bi-plus-circle"></i> Agregar Facultad
+                        </button>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end mt-4">
+                    <a href="{% url 'material:manage_institutions' %}" 
+                       class="btn btn-secondary me-2">
+                        Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Listado de instituciones -->
+    <div class="card shadow mt-4">
+        <div class="card-header bg-light">
+            <h4 class="mb-0">Instituciones Registradas</h4>
+        </div>
+        <div class="card-body">
+            {% if institutions %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Sedes</th>
+                            <th>Facultades</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for institution in institutions %}
+                        <tr>
+                            <td>
+                                {% if institution.logo %}
+                                <img src="{{ institution.logo.url }}" 
+                                     alt="Logo" 
+                                     style="height:30px; margin-right:10px;">
+                                {% endif %}
+                                {{ institution.name }}
+                            </td>
+                            <td>
+                                {% if institution.campus_set.all %}
+                                <ul class="list-unstyled mb-0">
+                                    {% for campus in institution.campus_set.all %}
+                                    <li>{{ campus.name }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if institution.faculty_set.all %}
+                                <ul class="list-unstyled mb-0">
+                                    {% for faculty in institution.faculty_set.all %}
+                                    <li>{{ faculty.name }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'material:edit_institution' institution.pk %}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'material:delete_institution' institution.pk %}" 
+                                       class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="bi bi-building" style="font-size: 3rem; color: #6c757d;"></i>
+                <h5 class="mt-3 text-muted">No hay instituciones registradas</h5>
+                <p class="text-muted">Comience agregando una nueva institución</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
+<!-- JavaScript -->
 <script>
-    // Dinámicamente agregar más campos
+document.addEventListener('DOMContentLoaded', function() {
+    // Agregar sede
     document.getElementById('add-campus').addEventListener('click', function() {
         const container = document.getElementById('campuses-container');
-        const newInput = document.createElement('div');
-        newInput.className = 'mb-2';
-        newInput.innerHTML = `
-            <input 
-                type="text" 
-                name="campuses" 
-                class="form-control" 
-                placeholder="Otra sede"
-            >
+        const newItem = document.createElement('div');
+        newItem.className = 'mb-2 campus-item';
+        newItem.innerHTML = `
+            <div class="input-group">
+                <input type="text" name="campuses" class="form-control" required>
+                <button type="button" class="btn btn-danger remove-item">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
         `;
-        container.appendChild(newInput);
+        container.appendChild(newItem);
     });
 
+    // Agregar facultad
     document.getElementById('add-faculty').addEventListener('click', function() {
         const container = document.getElementById('faculties-container');
-        const newInput = document.createElement('div');
-        newInput.className = 'mb-2';
-        newInput.innerHTML = `
-            <input 
-                type="text" 
-                name="faculties" 
-                class="form-control" 
-                placeholder="Otra facultad"
-            >
+        const newItem = document.createElement('div');
+        newItem.className = 'mb-2 faculty-item';
+        newItem.innerHTML = `
+            <div class="input-group">
+                <input type="text" name="faculties" class="form-control" required>
+                <button type="button" class="btn btn-danger remove-item">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
         `;
-        container.appendChild(newInput);
+        container.appendChild(newItem);
     });
+
+    // Eliminar items
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-item')) {
+            const container = e.target.closest('.campus-item, .faculty-item').parentElement;
+            if (container.querySelectorAll('.campus-item, .faculty-item').length > 1) {
+                e.target.closest('.campus-item, .faculty-item').remove();
+            } else {
+                alert('Debe mantener al menos un elemento');
+            }
+        }
+    });
+});
 </script>
+
+<!-- Estilos -->
+<style>
+.remove-item {
+    transition: transform 0.2s;
+}
+.remove-item:hover {
+    transform: scale(1.1);
+}
+.table img {
+    max-height: 30px;
+    max-width: 30px;
+    object-fit: contain;
+}
+</style>
 {% endblock %}

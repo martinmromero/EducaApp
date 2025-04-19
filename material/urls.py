@@ -32,4 +32,5 @@ urlpatterns = [
     path('resultados-aprendizaje/', views.manage_learning_outcomes, name='manage_learning_outcomes'),
     path('instituciones/editar/<int:pk>/', views.edit_institution, name='edit_institution'),
     path('instituciones/eliminar/<int:pk>/', views.delete_institution, name='delete_institution'),
+    
 ]
