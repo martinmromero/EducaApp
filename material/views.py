@@ -515,82 +515,50 @@ def manage_learning_outcomes(request):
 @login_required
 @transaction.atomic
 def manage_institutions(request):
-    """
-    Vista principal para gestionar instituciones
-    """
     try:
-        institutions = Institution.objects.filter(owner=request.user).prefetch_related('campus_set', 'faculty_set')
+        institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
         
         if request.method == 'POST':
             form = InstitutionForm(request.POST, request.FILES)
-            
             if form.is_valid():
-                try:
-                    institution = form.save(commit=False)
-                    institution.owner = request.user
-                    institution.save()
-                    
-                    # Procesar sedes
-                    campuses = request.POST.getlist('campuses', [])
-                    campus_ids = request.POST.getlist('campus_ids', [])
-                    
-                    current_campus_ids = []
-                    for campus_name, campus_id in zip(campuses, campus_ids):
-                        if campus_name.strip():
-                            campus, _ = Campus.objects.update_or_create(
-                                id=campus_id if campus_id else None,
-                                defaults={
-                                    'name': campus_name.strip(),
-                                    'institution': institution
-                                }
-                            )
-                            current_campus_ids.append(campus.id)
-                    
-                    institution.campus_set.exclude(id__in=current_campus_ids).delete()
-                    
-                    # Procesar facultades
-                    faculties = request.POST.getlist('faculties', [])
-                    faculty_ids = request.POST.getlist('faculty_ids', [])
-                    
-                    current_faculty_ids = []
-                    for faculty_name, faculty_id in zip(faculties, faculty_ids):
-                        if faculty_name.strip():
-                            faculty, _ = Faculty.objects.update_or_create(
-                                id=faculty_id if faculty_id else None,
-                                defaults={
-                                    'name': faculty_name.strip(),
-                                    'institution': institution
-                                }
-                            )
-                            current_faculty_ids.append(faculty.id)
-                    
-                    institution.faculty_set.exclude(id__in=current_faculty_ids).delete()
-                    
-                    messages.success(request, 'Institución guardada correctamente!')
-                    return redirect('material:manage_institutions')
-                
-                except Exception as e:
-                    logger.error(f"Error al guardar: {str(e)}", exc_info=True)
-                    messages.error(request, 'Error al procesar los datos')
-            else:
-                error_msg = "Errores en el formulario:<br>" + "<br>".join(
-                    [f"{field}: {', '.join(errors)}" 
-                     for field, errors in form.errors.items()]
-                )
-                messages.error(request, error_msg)
+                # Guardar institución
+                institution = form.save(commit=False)
+                institution.owner = request.user
+                institution.save()
+
+                # Procesar SEDES (campuses)
+                campuses = request.POST.getlist('campuses')
+                for campus_name in campuses:
+                    if campus_name.strip():  # Ignorar campos vacíos
+                        Campus.objects.get_or_create(
+                            name=campus_name.strip(),
+                            institution=institution
+                        )
+
+                # Procesar FACULTADES (faculties)
+                faculties = request.POST.getlist('faculties')
+                for faculty_name in faculties:
+                    if faculty_name.strip():  # Ignorar campos vacíos
+                        Faculty.objects.get_or_create(
+                            name=faculty_name.strip(),
+                            institution=institution
+                        )
+
+                messages.success(request, 'Institución y relaciones guardadas correctamente!')
+                return redirect('material:manage_institutions')
+
         else:
             form = InstitutionForm()
-        
+
         return render(request, 'material/manage_institutions.html', {
             'form': form,
-            'institutions': institutions or []
+            'institutions': institutions
         })
-    
+
     except Exception as e:
-        logger.critical(f"Error inesperado: {str(e)}", exc_info=True)
-        messages.error(request, 'Error del sistema')
+        logger.error(f"Error en manage_institutions: {str(e)}", exc_info=True)
+        messages.error(request, 'Error al guardar los datos')
         return redirect('material:index')
-    
     
 @login_required
 def edit_institution(request, pk):

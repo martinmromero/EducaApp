@@ -55,6 +55,15 @@
             </div>
         </div>
 
+        <!-- Nuevo ítem para Instituciones -->
+        <div class="menu-item" onclick="toggleSubmenu(this)">
+            <i class="bi bi-building me-2"></i> Instituciones
+            <div class="submenu">
+                <a href="{% url 'material:manage_institutions' %}"><i class="bi bi-gear me-2"></i>Gestión</a>
+                <a href="{% url 'material:manage_learning_outcomes' %}"><i class="bi bi-book me-2"></i>Resultados de Aprendizaje</a>
+            </div>
+        </div>
+
         <!-- Menú de Administración (solo para administradores) -->
         {% if is_admin %}
             <div class="menu-item" onclick="toggleSubmenu(this)">
