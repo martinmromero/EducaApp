@@ -515,50 +515,65 @@ def manage_learning_outcomes(request):
 @login_required
 @transaction.atomic
 def manage_institutions(request):
-    try:
-        institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    
+    if request.method == 'POST':
+        form = InstitutionForm(request.POST, request.FILES)
+        if form.is_valid():
+            institution = form.save(commit=False)
+            institution.owner = request.user
+            institution.save()
+
+            # Procesar Sedes
+            campuses = request.POST.getlist('campuses')
+            for campus_name in campuses:
+                if campus_name.strip():
+                    Campus.objects.get_or_create(
+                        name=campus_name.strip(),
+                        institution=institution
+                    )
+
+            # Procesar Facultades
+            faculties = request.POST.getlist('faculties')
+            for faculty_name in faculties:
+                if faculty_name.strip():
+                    Faculty.objects.get_or_create(
+                        name=faculty_name.strip(),
+                        institution=institution
+                    )
+
+            if is_ajax:
+                # Obtener TODAS las instituciones actualizadas
+                institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
+                return JsonResponse({
+                    'success': True,
+                    'html': render_to_string('material/institution_row.html', {
+                        'institutions': institutions  # Pasar todas las instituciones
+                    })
+                })
+            messages.success(request, 'Institución creada correctamente')
+            return redirect('material:manage_institutions')
         
-        if request.method == 'POST':
-            form = InstitutionForm(request.POST, request.FILES)
-            if form.is_valid():
-                # Guardar institución
-                institution = form.save(commit=False)
-                institution.owner = request.user
-                institution.save()
-
-                # Procesar SEDES (campuses)
-                campuses = request.POST.getlist('campuses')
-                for campus_name in campuses:
-                    if campus_name.strip():  # Ignorar campos vacíos
-                        Campus.objects.get_or_create(
-                            name=campus_name.strip(),
-                            institution=institution
-                        )
-
-                # Procesar FACULTADES (faculties)
-                faculties = request.POST.getlist('faculties')
-                for faculty_name in faculties:
-                    if faculty_name.strip():  # Ignorar campos vacíos
-                        Faculty.objects.get_or_create(
-                            name=faculty_name.strip(),
-                            institution=institution
-                        )
-
-                messages.success(request, 'Institución y relaciones guardadas correctamente!')
-                return redirect('material:manage_institutions')
-
-        else:
-            form = InstitutionForm()
-
-        return render(request, 'material/manage_institutions.html', {
-            'form': form,
+        if is_ajax:
+            return JsonResponse({
+                'success': False, 
+                'errors': form.errors.as_json()
+            }, status=400)
+    
+    # GET request
+    institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
+    form = InstitutionForm()
+    
+    if is_ajax:
+        html = render_to_string('material/institution_row.html', {
             'institutions': institutions
         })
-
-    except Exception as e:
-        logger.error(f"Error en manage_institutions: {str(e)}", exc_info=True)
-        messages.error(request, 'Error al guardar los datos')
-        return redirect('material:index')
+        return JsonResponse({'html': html})
+    
+    return render(request, 'material/manage_institutions.html', {
+        'form': form,
+        'institutions': institutions
+    })
     
 @login_required
 def edit_institution(request, pk):

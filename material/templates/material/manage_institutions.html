@@ -5,7 +5,10 @@
 <div class="container mt-4">
     <h2 class="mb-4">Gestión de Instituciones</h2>
 
-    <!-- Mensajes -->
+    <!-- Contenedor para mensajes AJAX -->
+    <div id="ajax-messages"></div>
+
+    <!-- Mensajes del servidor -->
     {% if messages %}
         {% for message in messages %}
         <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
@@ -15,66 +18,259 @@
         {% endfor %}
     {% endif %}
 
-    <!-- Formulario simple -->
+    <!-- Formulario de Institución -->
     <div class="card shadow mb-4">
         <div class="card-header bg-primary text-white">
             <h4 class="mb-0">Nueva Institución</h4>
         </div>
         <div class="card-body">
-            <form method="post" enctype="multipart/form-data">
+            <form id="institution-form" method="post" enctype="multipart/form-data">
                 {% csrf_token %}
+                
+                <!-- Campo Nombre -->
                 <div class="mb-3">
                     <label class="form-label">Nombre*</label>
                     <input type="text" name="name" class="form-control" required>
                 </div>
-                <button type="submit" class="btn btn-success">
-                    <i class="bi bi-check-circle"></i> Guardar
-                </button>
+
+                <!-- Sección Sedes -->
+                <div class="mb-3">
+                    <label class="form-label">Sedes</label>
+                    <div id="campuses-container">
+                        <!-- Campos dinámicos aparecerán aquí -->
+                    </div>
+                    <button type="button" id="add-campus" class="btn btn-sm btn-outline-primary mt-2">
+                        <i class="bi bi-plus-circle"></i> Agregar Sede
+                    </button>
+                </div>
+
+                <!-- Sección Facultades -->
+                <div class="mb-3">
+                    <label class="form-label">Facultades</label>
+                    <div id="faculties-container">
+                        <!-- Campos dinámicos aparecerán aquí -->
+                    </div>
+                    <button type="button" id="add-faculty" class="btn btn-sm btn-outline-primary mt-2">
+                        <i class="bi bi-plus-circle"></i> Agregar Facultad
+                    </button>
+                </div>
+
+                <!-- Campo Logo -->
+                <div class="mb-3">
+                    <label class="form-label">Logo (Opcional)</label>
+                    <input type="file" name="logo" class="form-control">
+                </div>
+
+                <!-- Botón de Submit -->
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <button type="submit" class="btn btn-success">
+                        <span id="submit-text"><i class="bi bi-save"></i> Guardar</span>
+                        <span id="submit-spinner" class="spinner-border spinner-border-sm d-none"></span>
+                    </button>
+                </div>
             </form>
         </div>
     </div>
 
-    <!-- Tabla de datos existentes (SOLO LECTURA) -->
+    <!-- Tabla de Instituciones -->
     <div class="card shadow">
         <div class="card-header bg-light">
-            <h4 class="mb-0">Instituciones Registradas</h4>
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">Instituciones Registradas</h4>
+                <span class="badge bg-primary rounded-pill">{{ institutions.count }}</span>
+            </div>
         </div>
         <div class="card-body">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Sedes</th>
-                        <th>Facultades</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for institution in institutions %}
-                    <tr>
-                        <td>{{ institution.name }}</td>
-                        <td>
-                            {% for campus in institution.campuses.all %}
-                                <span class="badge bg-secondary">{{ campus.name }}</span>
-                            {% empty %}
-                                <span class="text-muted">Ninguna</span>
-                            {% endfor %}
-                        </td>
-                        <td>
-                            {% for faculty in institution.faculties.all %}
-                                <span class="badge bg-info">{{ faculty.name }}</span>
-                            {% empty %}
-                                <span class="text-muted">Ninguna</span>
-                            {% endfor %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="3" class="text-center text-muted">No hay instituciones registradas</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Sedes</th>
+                            <th>Facultades</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="institutions-table-body">
+                        {% include 'material/institution_row.html' %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Modal de Confirmación -->
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                ¿Estás seguro de que deseas eliminar esta institución?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Templates
+    const fieldTemplate = (type) => `
+    <div class="input-group mb-2 ${type}-item">
+        <input type="text" name="${type}" class="form-control" required>
+        <button type="button" class="btn btn-outline-success confirm-btn">
+            <i class="bi bi-check-lg"></i>
+        </button>
+        <button type="button" class="btn btn-outline-danger remove-btn">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>`;
+
+    // Agregar campos dinámicos
+    document.getElementById('add-campus').addEventListener('click', () => {
+        document.getElementById('campuses-container').insertAdjacentHTML('beforeend', fieldTemplate('campuses'));
+    });
+
+    document.getElementById('add-faculty').addEventListener('click', () => {
+        document.getElementById('faculties-container').insertAdjacentHTML('beforeend', fieldTemplate('faculties'));
+    });
+
+    // Delegación de eventos para campos dinámicos
+    document.addEventListener('click', function(e) {
+        const item = e.target.closest('.campus-item, .faculty-item');
+        if (!item) return;
+
+        // Confirmar campo
+        if (e.target.closest('.confirm-btn')) {
+            const input = item.querySelector('input');
+            input.readOnly = true;
+            e.target.closest('.confirm-btn').disabled = true;
+            e.target.closest('.confirm-btn').classList.replace('btn-outline-success', 'btn-outline-secondary');
+        }
+        
+        // Eliminar campo
+        if (e.target.closest('.remove-btn')) {
+            item.remove();
+        }
+    });
+
+    // Envío del formulario
+    document.getElementById('institution-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const submitText = document.getElementById('submit-text');
+        const spinner = document.getElementById('submit-spinner');
+        
+        // Estado de carga
+        submitBtn.disabled = true;
+        submitText.textContent = 'Guardando...';
+        spinner.classList.remove('d-none');
+
+        try {
+            const formData = new FormData(this);
+            const response = await fetch('', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.errors || 'Error en el servidor');
+            }
+
+            if (data.success) {
+                // Actualizar tabla completa
+                document.getElementById('institutions-table-body').innerHTML = data.html;
+                
+                // Resetear formulario
+                this.reset();
+                document.getElementById('campuses-container').innerHTML = '';
+                document.getElementById('faculties-container').innerHTML = '';
+                
+                // Mostrar mensaje
+                showAlert('success', 'Institución guardada correctamente');
+            } else {
+                throw new Error(JSON.stringify(data.errors));
+            }
+        } catch (error) {
+            showAlert('danger', 'Error: ' + error.message);
+            console.error('Error:', error);
+        } finally {
+            submitBtn.disabled = false;
+            submitText.innerHTML = '<i class="bi bi-save"></i> Guardar';
+            spinner.classList.add('d-none');
+        }
+    });
+
+    // Manejo de eliminación
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-btn')) {
+            const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+            const deleteUrl = e.target.closest('.delete-btn').dataset.url;
+            
+            document.getElementById('confirm-delete').onclick = async function() {
+                try {
+                    const response = await fetch(deleteUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        document.getElementById('institutions-table-body').innerHTML = data.html;
+                        showAlert('success', 'Institución eliminada correctamente');
+                    } else {
+                        showAlert('danger', 'Error al eliminar: ' + data.error);
+                    }
+                } catch (error) {
+                    showAlert('danger', 'Error de conexión: ' + error.message);
+                } finally {
+                    modal.hide();
+                }
+            };
+            
+            modal.show();
+        }
+    });
+
+    // Función para mostrar alertas
+    function showAlert(type, message) {
+        const alertHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show">
+            <i class="bi ${type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>`;
+        
+        const messagesContainer = document.getElementById('ajax-messages');
+        messagesContainer.innerHTML = alertHTML;
+        
+        // Auto-ocultar después de 5 segundos
+        setTimeout(() => {
+            const alert = messagesContainer.querySelector('.alert');
+            if (alert) {
+                alert.classList.add('fade');
+                setTimeout(() => alert.remove(), 150);
+            }
+        }, 5000);
+    }
+});
+</script>
 {% endblock %}
