@@ -194,66 +194,72 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Envío del formulario principal
-    document.getElementById('institution-form').addEventListener('submit', async function(e) {
-        e.preventDefault();
+
+ // Envío del formulario principal - Versión mejorada
+document.getElementById('institution-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const form = this;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const submitText = document.getElementById('submit-text');
+    const spinner = document.getElementById('submit-spinner');
+    
+    submitBtn.disabled = true;
+    submitText.textContent = 'Guardando...';
+    spinner.classList.remove('d-none');
+
+    try {
+        const formData = new FormData(form);
         
-        if (!validateForm()) return;
-
-        const form = this;
-        const submitBtn = form.querySelector('button[type="submit"]');
-        const submitText = document.getElementById('submit-text');
-        const spinner = document.getElementById('submit-spinner');
+        // Agregar campos dinámicos
+        document.querySelectorAll('#campuses-container input').forEach(input => {
+            if (input.value.trim()) formData.append('campuses', input.value.trim());
+        });
         
-        submitBtn.disabled = true;
-        submitText.textContent = 'Guardando...';
-        spinner.classList.remove('d-none');
+        document.querySelectorAll('#faculties-container input').forEach(input => {
+            if (input.value.trim()) formData.append('faculties', input.value.trim());
+        });
 
-        try {
-            const formData = new FormData(form);
-            
-            // Agregar campos dinámicos
-            document.querySelectorAll('#campuses-container input').forEach(input => {
-                if (input.value.trim()) formData.append('campuses', input.value.trim());
-            });
-            
-            document.querySelectorAll('#faculties-container input').forEach(input => {
-                if (input.value.trim()) formData.append('faculties', input.value.trim());
-            });
-
-            const response = await fetch('', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                }
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.errors || 'Error en el servidor');
+        const response = await fetch('', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             }
+        });
 
-            const data = await response.json();
-            
-            if (data.success) {
-                document.getElementById('institutions-table-body').innerHTML = data.html;
-                form.reset();
-                document.getElementById('campuses-container').innerHTML = '';
-                document.getElementById('faculties-container').innerHTML = '';
-                showAlert('success', 'Institución guardada correctamente');
-            } else {
-                throw new Error(data.errors || 'Error al guardar');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showAlert('danger', 'Error al guardar: ' + error.message);
-        } finally {
-            submitBtn.disabled = false;
-            submitText.innerHTML = '<i class="bi bi-save"></i> Guardar';
-            spinner.classList.add('d-none');
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(
+                data.errors ? 
+                Object.values(data.errors).flat().join(', ') : 
+                'Error en el servidor'
+            );
         }
-    });
+
+        if (data.success) {
+            document.getElementById('institutions-table-body').innerHTML = data.html;
+            form.reset();
+            document.getElementById('campuses-container').innerHTML = '';
+            document.getElementById('faculties-container').innerHTML = '';
+            showAlert('success', 'Institución guardada correctamente');
+        } else {
+            throw new Error(
+                data.errors ? 
+                Object.values(data.errors).flat().join(', ') : 
+                'Error al guardar'
+            );
+        }
+    } catch (error) {
+        showAlert('danger', error.message);
+    } finally {
+        submitBtn.disabled = false;
+        submitText.innerHTML = '<i class="bi bi-save"></i> Guardar';
+        spinner.classList.add('d-none');
+    }
+});   
 
     // Manejo de edición
     document.addEventListener('click', function(e) {

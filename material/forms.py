@@ -37,13 +37,13 @@ class InstitutionForm(forms.ModelForm):
         return name
 
     def clean_logo(self):
-        logo = self.cleaned_data.get('logo', False)
-        if logo:
-            if logo.size > 2 * 1024 * 1024:  # 2MB
+        logo = self.cleaned_data.get('logo')
+        if logo:  # Solo validar si hay logo (campo opcional)
+            if logo.size > 2 * 1024 * 1024:
                 raise ValidationError("El logo no debe exceder 2MB")
             if not logo.content_type in ['image/jpeg', 'image/png', 'image/svg+xml']:
                 raise ValidationError("Formato de imagen no válido (solo JPG, PNG, SVG)")
-        return logo
+        return logo  # Retorna None si no hay logo (válido)
 
 class CampusForm(forms.ModelForm):  
     class Meta:  

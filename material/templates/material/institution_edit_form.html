@@ -1,165 +1,246 @@
-<div class="modal-body">
-    <form id="edit-institution-form" method="post" action="{% url 'material:edit_institution' institution.pk %}" enctype="multipart/form-data">
-        {% csrf_token %}
-        
-        <input type="hidden" name="institution_id" value="{{ institution.pk }}">
-        
-        <div class="mb-3">
-            <label class="form-label">Nombre*</label>
-            <input type="text" name="name" class="form-control" value="{{ institution.name }}" required>
-            <div class="invalid-feedback">Por favor ingrese un nombre válido</div>
-        </div>
+{% extends 'material/base.html' %}
+{% load static %}
 
-        <div class="mb-3">
-            <label class="form-label">Sedes (Opcional)</label>
-            <div id="edit-campuses-container">
-                {% for campus in institution.campuses.all %}
-                <div class="input-group mb-2 campuses-item">
-                    <input type="text" name="campuses" class="form-control" value="{{ campus.name }}">
-                    <button type="button" class="btn btn-outline-danger remove-btn">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-                {% endfor %}
+{% block content %}
+<div class="modal fade" id="editInstitutionModal" tabindex="-1" aria-labelledby="editInstitutionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="editInstitutionModalLabel">
+                    <i class="bi bi-building me-2"></i>Editar Institución
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <button type="button" id="edit-add-campus" class="btn btn-sm btn-outline-primary mt-2">
-                <i class="bi bi-plus-circle"></i> Agregar Sede
-            </button>
-        </div>
+            <div class="modal-body">
+                <form id="edit-institution-form" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" name="institution_id" value="{{ institution.id }}">
+                    
+                    <div class="mb-3">
+                        <label for="edit-name" class="form-label">Nombre*</label>
+                        <input type="text" id="edit-name" name="name" class="form-control" value="{{ institution.name }}" required minlength="3">
+                        <div class="invalid-feedback">El nombre debe tener al menos 3 caracteres</div>
+                    </div>
 
-        <div class="mb-3">
-            <label class="form-label">Facultades (Opcional)</label>
-            <div id="edit-faculties-container">
-                {% for faculty in institution.faculties.all %}
-                <div class="input-group mb-2 faculties-item">
-                    <input type="text" name="faculties" class="form-control" value="{{ faculty.name }}">
-                    <button type="button" class="btn btn-outline-danger remove-btn">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-                {% endfor %}
+                    <div class="mb-3">
+                        <label class="form-label">Sedes</label>
+                        <div id="edit-campuses-container">
+                            {% for campus in institution.campuses.all %}
+                            <div class="input-group mb-2 campus-item">
+                                <input type="text" name="campuses" class="form-control" value="{{ campus.name }}" maxlength="100">
+                                <button type="button" class="btn btn-outline-danger remove-btn">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" id="edit-add-campus" class="btn btn-sm btn-outline-primary mt-2">
+                            <i class="bi bi-plus-circle"></i> Agregar Sede
+                        </button>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Facultades</label>
+                        <div id="edit-faculties-container">
+                            {% for faculty in institution.faculties.all %}
+                            <div class="input-group mb-2 faculty-item">
+                                <input type="text" name="faculty_names" class="form-control" value="{{ faculty.name }}" maxlength="100">
+                                <input type="text" name="faculty_codes" class="form-control" placeholder="Código" value="{{ faculty.code }}" maxlength="10">
+                                <button type="button" class="btn btn-outline-danger remove-btn">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" id="edit-add-faculty" class="btn btn-sm btn-outline-primary mt-2">
+                            <i class="bi bi-plus-circle"></i> Agregar Facultad
+                        </button>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit-logo" class="form-label">Logo</label>
+                        <input type="file" id="edit-logo" name="logo" class="form-control" accept=".jpg,.jpeg,.png,.svg">
+                        {% if institution.logo %}
+                        <div class="mt-2 d-flex align-items-center">
+                            <img src="{{ institution.logo.url }}" alt="Logo actual" class="img-thumbnail me-3" width="80">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="logo-clear" id="logo-clear">
+                                <label class="form-check-label" for="logo-clear">Eliminar logo actual</label>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="edit-save-btn">
+                            <span id="edit-submit-text"><i class="bi bi-save me-1"></i> Guardar cambios</span>
+                            <span id="edit-submit-spinner" class="spinner-border spinner-border-sm d-none"></span>
+                        </button>
+                    </div>
+                </form>
             </div>
-            <button type="button" id="edit-add-faculty" class="btn btn-sm btn-outline-primary mt-2">
-                <i class="bi bi-plus-circle"></i> Agregar Facultad
-            </button>
         </div>
-
-        <div class="mb-3">
-            <label class="form-label">Logo (Opcional)</label>
-            <input type="file" name="logo" class="form-control" accept=".jpg,.jpeg,.png,.svg">
-            {% if institution.logo %}
-            <div class="mt-2">
-                <img src="{{ institution.logo.url }}" alt="Logo actual" class="img-thumbnail" width="100">
-                <div class="form-check mt-2">
-                    <input class="form-check-input" type="checkbox" name="logo-clear" id="logo-clear">
-                    <label class="form-check-label" for="logo-clear">Eliminar logo actual</label>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" id="edit-save-btn" class="btn btn-primary">
-                <span id="edit-submit-text">Guardar cambios</span>
-                <span id="edit-submit-spinner" class="spinner-border spinner-border-sm d-none"></span>
-            </button>
-        </div>
-    </form>
+    </div>
 </div>
 
 <script>
-// Script específico para el modal de edición
-function initEditHandlers() {
-    // Template para campos dinámicos en edición
-    const editFieldTemplate = (type) => `
-    <div class="input-group mb-2 ${type}-item">
-        <input type="text" name="${type}" class="form-control">
+document.addEventListener('DOMContentLoaded', function() {
+    // Templates para campos dinámicos
+    const campusTemplate = `
+    <div class="input-group mb-2 campus-item">
+        <input type="text" name="campuses" class="form-control" maxlength="100" required>
         <button type="button" class="btn btn-outline-danger remove-btn">
             <i class="bi bi-trash"></i>
         </button>
     </div>`;
 
-    // Agregar campos en edición
+    const facultyTemplate = `
+    <div class="input-group mb-2 faculty-item">
+        <input type="text" name="faculty_names" class="form-control" maxlength="100" required>
+        <input type="text" name="faculty_codes" class="form-control" placeholder="Código" maxlength="10">
+        <button type="button" class="btn btn-outline-danger remove-btn">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>`;
+
+    // Agregar campos dinámicos
     document.getElementById('edit-add-campus')?.addEventListener('click', () => {
-        document.getElementById('edit-campuses-container').insertAdjacentHTML('beforeend', editFieldTemplate('campuses'));
+        document.getElementById('edit-campuses-container').insertAdjacentHTML('beforeend', campusTemplate);
     });
 
     document.getElementById('edit-add-faculty')?.addEventListener('click', () => {
-        document.getElementById('edit-faculties-container').insertAdjacentHTML('beforeend', editFieldTemplate('faculties'));
+        document.getElementById('edit-faculties-container').insertAdjacentHTML('beforeend', facultyTemplate);
     });
 
-    // Validación para edición
-    function validateEditForm(formData) {
-        if (!formData.get('name')?.trim()) {
-            throw new Error('El nombre es requerido');
+    // Eliminar campos
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('.remove-btn')) {
+            e.target.closest('.input-group').remove();
         }
+    });
+
+    // Validación del formulario
+    function validateEditForm() {
+        let isValid = true;
+        const nameInput = document.getElementById('edit-name');
         
-        const logoFile = formData.get('logo');
-        if (logoFile && logoFile.size > 0) {
-            if (logoFile.size > 2 * 1024 * 1024) {
-                throw new Error('El logo no debe exceder 2MB');
-            }
-            const validTypes = ['image/jpeg', 'image/png', 'image/svg+xml'];
-            if (!validTypes.includes(logoFile.type)) {
-                throw new Error('Formato de imagen no válido');
-            }
+        // Validar nombre
+        if (nameInput.value.trim().length < 3) {
+            nameInput.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            nameInput.classList.remove('is-invalid');
         }
-        return true;
+
+        // Validar sedes/facultades duplicadas
+        const campuses = new Set();
+        document.querySelectorAll('#edit-campuses-container input[name="campuses"]').forEach(input => {
+            const val = input.value.trim();
+            if (val) {
+                if (campuses.has(val)) {
+                    input.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    campuses.add(val);
+                    input.classList.remove('is-invalid');
+                }
+            }
+        });
+
+        const faculties = new Set();
+        document.querySelectorAll('#edit-faculties-container input[name="faculty_names"]').forEach(input => {
+            const val = input.value.trim();
+            if (val) {
+                if (faculties.has(val)) {
+                    input.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    faculties.add(val);
+                    input.classList.remove('is-invalid');
+                }
+            }
+        });
+
+        return isValid;
     }
 
-    // Guardar cambios en edición
-    document.getElementById('edit-save-btn')?.addEventListener('click', async function() {
-        const form = document.getElementById('edit-institution-form');
-        const submitBtn = this;
+    // Envío del formulario
+    document.getElementById('edit-institution-form')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!validateEditForm()) {
+            alert('Por favor corrija los errores en el formulario');
+            return;
+        }
+
+        const form = this;
+        const submitBtn = document.getElementById('edit-save-btn');
         const submitText = document.getElementById('edit-submit-text');
         const spinner = document.getElementById('edit-submit-spinner');
         
         submitBtn.disabled = true;
-        submitText.textContent = 'Guardando...';
+        submitText.innerHTML = 'Guardando...';
         spinner.classList.remove('d-none');
 
         try {
             const formData = new FormData(form);
             
-            // Validación
-            validateEditForm(formData);
+            // Agregar CSRF token manualmente
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            formData.append('csrfmiddlewaretoken', csrfToken);
             
             // Agregar campos dinámicos
-            document.querySelectorAll('#edit-campuses-container input').forEach(input => {
+            document.querySelectorAll('#edit-campuses-container input[name="campuses"]').forEach(input => {
                 if (input.value.trim()) formData.append('campuses', input.value.trim());
             });
             
-            document.querySelectorAll('#edit-faculties-container input').forEach(input => {
-                if (input.value.trim()) formData.append('faculties', input.value.trim());
+            document.querySelectorAll('#edit-faculties-container input[name="faculty_names"]').forEach(input => {
+                if (input.value.trim()) {
+                    formData.append('faculty_names', input.value.trim());
+                    const codeInput = input.nextElementSibling;
+                    formData.append('faculty_codes', codeInput.value.trim());
+                }
             });
 
-            const response = await fetch(form.action, {
+            const response = await fetch("{% url 'material:edit_institution' institution.pk %}", {
                 method: 'POST',
                 body: formData,
                 headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
             });
 
             const data = await response.json();
             
             if (data.success) {
-                document.getElementById('institutions-table-body').innerHTML = data.html;
+                // Cerrar modal y recargar
                 bootstrap.Modal.getInstance(document.getElementById('editInstitutionModal')).hide();
-                showAlert('success', 'Institución actualizada correctamente');
+                window.location.reload();
             } else {
-                throw new Error(data.errors || 'Error al guardar cambios');
+                const errorMsg = data.error || Object.values(data.errors || {}).flat().join('\n') || 'Error al guardar cambios';
+                alert(errorMsg);
             }
         } catch (error) {
             console.error('Error:', error);
-            showAlert('danger', 'Error: ' + error.message);
+            alert('Error de conexión: ' + error.message);
         } finally {
             submitBtn.disabled = false;
-            submitText.textContent = 'Guardar cambios';
+            submitText.innerHTML = '<i class="bi bi-save me-1"></i> Guardar cambios';
             spinner.classList.add('d-none');
         }
     });
-}
+
+    // Validación en tiempo real
+    document.getElementById('edit-name')?.addEventListener('input', function() {
+        if (this.value.trim().length < 3 && this.value.trim().length > 0) {
+            this.classList.add('is-invalid');
+        } else {
+            this.classList.remove('is-invalid');
+        }
+    });
+});
 </script>
+{% endblock %}

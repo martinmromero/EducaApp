@@ -529,8 +529,9 @@ def manage_institutions(request):
                 institution.owner = request.user
                 institution.save()
 
-                # Procesar Sedes (opcional)
+                # Procesar Sedes
                 campuses = request.POST.getlist('campuses', [])
+                Campus.objects.filter(institution=institution).delete()  # Limpiar existentes
                 for campus_name in campuses:
                     if campus_name.strip():
                         Campus.objects.create(
@@ -538,8 +539,9 @@ def manage_institutions(request):
                             institution=institution
                         )
 
-                # Procesar Facultades (opcional)
+                # Procesar Facultades
                 faculties = request.POST.getlist('faculties', [])
+                Faculty.objects.filter(institution=institution).delete()  # Limpiar existentes
                 for faculty_name in faculties:
                     if faculty_name.strip():
                         Faculty.objects.create(
@@ -547,28 +549,38 @@ def manage_institutions(request):
                             institution=institution
                         )
 
-                institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
+                institutions = Institution.objects.filter(owner=request.user).prefetch_related(
+                    'campuses', 'faculties'
+                )
                 response_data.update({
                     'success': True,
-                    'html': render_to_string('material/institution_row.html', {'institutions': institutions})
+                    'html': render_to_string('material/institution_row.html', {
+                        'institutions': institutions
+                    })
                 })
             else:
-                # Convertir errores de Django a formato simple
-                errors = []
-                for field, field_errors in form.errors.items():
-                    errors.extend(field_errors)
-                response_data['errors'] = errors
+                response_data['errors'] = list(form.errors.values())
                 return JsonResponse(response_data, status=400)
                 
         except Exception as e:
-            response_data['error'] = str(e)
+            logger.error(f"Error saving institution: {str(e)}")
+            response_data['error'] = "Error interno al guardar"
             return JsonResponse(response_data, status=500)
         
         return JsonResponse(response_data)
 
     # GET request
-    institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
+    institutions = Institution.objects.filter(owner=request.user).prefetch_related(
+        'campuses', 'faculties'
+    )
     form = InstitutionForm()
+    
+    if is_ajax:
+        return JsonResponse({
+            'html': render_to_string('material/institution_row.html', {
+                'institutions': institutions
+            })
+        })
     
     return render(request, 'material/manage_institutions.html', {
         'form': form,
@@ -579,75 +591,96 @@ def manage_institutions(request):
 @transaction.atomic
 def edit_institution(request, pk):
     institution = get_object_or_404(Institution, pk=pk, owner=request.user)
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-
-    if request.method == 'POST':
-        form = InstitutionForm(request.POST, request.FILES, instance=institution)
-        response_data = {'success': False}
-
-        try:
-            if form.is_valid():
-                institution = form.save()
-
-                # Procesar Sedes (eliminar solo si hay nuevas)
-                if 'campuses' in request.POST:
-                    institution.campuses.all().delete()
-                    campuses = request.POST.getlist('campuses', [])
-                    for campus_name in campuses:
-                        if campus_name and campus_name.strip():
-                            Campus.objects.create(
-                                name=campus_name.strip(),
-                                institution=institution
+    
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        if request.method == 'POST':
+            form = InstitutionForm(request.POST, request.FILES, instance=institution)
+            try:
+                if form.is_valid():
+                    with transaction.atomic():
+                        # Guardar institución
+                        institution = form.save()
+                        
+                        # Procesar sedes
+                        existing_campuses = {c.name: c for c in institution.campuses.all()}
+                        new_campuses = []
+                        
+                        for i, name in enumerate(request.POST.getlist('campuses', [])):
+                            name = name.strip()
+                            if name:
+                                if name in existing_campuses:
+                                    campus = existing_campuses.pop(name)
+                                else:
+                                    campus = Campus(institution=institution)
+                                campus.name = name
+                                campus.save()
+                                new_campuses.append(campus.id)
+                        
+                        # Eliminar sedes no usadas
+                        institution.campuses.exclude(id__in=new_campuses).delete()
+                        
+                        # Procesar facultades
+                        existing_faculties = {f.name: f for f in institution.faculties.all()}
+                        new_faculties = []
+                        
+                        for i, name in enumerate(request.POST.getlist('faculty_names', [])):
+                            name = name.strip()
+                            if name:
+                                code = request.POST.getlist('faculty_codes', [])[i].strip()
+                                if name in existing_faculties:
+                                    faculty = existing_faculties.pop(name)
+                                else:
+                                    faculty = Faculty(institution=institution)
+                                faculty.name = name
+                                faculty.code = code
+                                faculty.save()
+                                new_faculties.append(faculty.id)
+                        
+                        # Eliminar facultades no usadas
+                        institution.faculties.exclude(id__in=new_faculties).delete()
+                        
+                        return JsonResponse({
+                            'success': True,
+                            'html': render_to_string(
+                                'material/institution_row.html',
+                                {'institutions': Institution.objects.filter(owner=request.user)
+                                    .prefetch_related('campuses', 'faculties')},
+                                request=request  # ¡Importante para el CSRF!
                             )
-
-                # Procesar Facultades (eliminar solo si hay nuevas)
-                if 'faculties' in request.POST:
-                    institution.faculties.all().delete()
-                    faculties = request.POST.getlist('faculties', [])
-                    for faculty_name in faculties:
-                        if faculty_name and faculty_name.strip():
-                            Faculty.objects.create(
-                                name=faculty_name.strip(),
-                                institution=institution
-                            )
-
-                # Manejar eliminación de logo
-                if 'logo-clear' in request.POST and request.POST['logo-clear'] == 'on':
-                    institution.logo.delete(save=True)
-
-                institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
-                response_data.update({
-                    'success': True,
-                    'html': render_to_string('material/institution_row.html', {'institutions': institutions})
-                })
-            else:
-                response_data['errors'] = form.errors.get_json_data()
-                return JsonResponse(response_data, status=400)
-
-        except Exception as e:
-            response_data['error'] = str(e)
-            return JsonResponse(response_data, status=500)
-
-        return JsonResponse(response_data)
-
-    # GET request
-    form = InstitutionForm(instance=institution)
-    campuses = institution.campuses.all()
-    faculties = institution.faculties.all()
-
-    if is_ajax:
+                        })
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'errors': form.errors
+                    }, status=400)
+                    
+            except IntegrityError as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Nombre de sede/facultad duplicado. Por favor use nombres únicos.'
+                }, status=400)
+            except Exception as e:
+                logger.error(f"Error saving institution: {str(e)}")
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Error interno del servidor'
+                }, status=500)
+        
+        # GET para AJAX
         return JsonResponse({
-            'form_html': render_to_string('material/institution_edit_form.html', {
-                'institution': institution,
-                'campuses': campuses,
-                'faculties': faculties
-            })
+            'form_html': render_to_string(
+                'material/institution_edit_form.html',
+                {
+                    'institution': institution,
+                    'campuses': institution.campuses.all(),
+                    'faculties': institution.faculties.all()
+                },
+                request=request  # ¡Importante para el CSRF!
+            )
         })
-
-    return render(request, 'material/manage_institutions.html', {
-        'form': form,
-        'institutions': Institution.objects.filter(owner=request.user)
-    })
+    
+    # GET normal (no AJAX)
+    return redirect('material:manage_institutions')
 
 @login_required
 @require_http_methods(["POST"])
