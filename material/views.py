@@ -10,6 +10,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView
+from django.template.loader import render_to_string
+from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
 from django.db import models, transaction
 from django.http import HttpResponse, JsonResponse
@@ -519,94 +521,160 @@ def manage_institutions(request):
     
     if request.method == 'POST':
         form = InstitutionForm(request.POST, request.FILES)
-        if form.is_valid():
-            institution = form.save(commit=False)
-            institution.owner = request.user
-            institution.save()
-
-            # Procesar Sedes
-            campuses = request.POST.getlist('campuses')
-            for campus_name in campuses:
-                if campus_name.strip():
-                    Campus.objects.get_or_create(
-                        name=campus_name.strip(),
-                        institution=institution
-                    )
-
-            # Procesar Facultades
-            faculties = request.POST.getlist('faculties')
-            for faculty_name in faculties:
-                if faculty_name.strip():
-                    Faculty.objects.get_or_create(
-                        name=faculty_name.strip(),
-                        institution=institution
-                    )
-
-            if is_ajax:
-                # Obtener TODAS las instituciones actualizadas
-                institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
-                return JsonResponse({
-                    'success': True,
-                    'html': render_to_string('material/institution_row.html', {
-                        'institutions': institutions  # Pasar todas las instituciones
-                    })
-                })
-            messages.success(request, 'Institución creada correctamente')
-            return redirect('material:manage_institutions')
+        response_data = {'success': False}
         
-        if is_ajax:
-            return JsonResponse({
-                'success': False, 
-                'errors': form.errors.as_json()
-            }, status=400)
-    
+        try:
+            if form.is_valid():
+                institution = form.save(commit=False)
+                institution.owner = request.user
+                institution.save()
+
+                # Procesar Sedes (opcional)
+                campuses = request.POST.getlist('campuses', [])
+                for campus_name in campuses:
+                    if campus_name.strip():
+                        Campus.objects.create(
+                            name=campus_name.strip(),
+                            institution=institution
+                        )
+
+                # Procesar Facultades (opcional)
+                faculties = request.POST.getlist('faculties', [])
+                for faculty_name in faculties:
+                    if faculty_name.strip():
+                        Faculty.objects.create(
+                            name=faculty_name.strip(),
+                            institution=institution
+                        )
+
+                institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
+                response_data.update({
+                    'success': True,
+                    'html': render_to_string('material/institution_row.html', {'institutions': institutions})
+                })
+            else:
+                # Convertir errores de Django a formato simple
+                errors = []
+                for field, field_errors in form.errors.items():
+                    errors.extend(field_errors)
+                response_data['errors'] = errors
+                return JsonResponse(response_data, status=400)
+                
+        except Exception as e:
+            response_data['error'] = str(e)
+            return JsonResponse(response_data, status=500)
+        
+        return JsonResponse(response_data)
+
     # GET request
     institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
     form = InstitutionForm()
-    
-    if is_ajax:
-        html = render_to_string('material/institution_row.html', {
-            'institutions': institutions
-        })
-        return JsonResponse({'html': html})
     
     return render(request, 'material/manage_institutions.html', {
         'form': form,
         'institutions': institutions
     })
-    
+
 @login_required
+@transaction.atomic
 def edit_institution(request, pk):
-    """
-    Vista para editar una institución existente
-    """
     institution = get_object_or_404(Institution, pk=pk, owner=request.user)
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     if request.method == 'POST':
         form = InstitutionForm(request.POST, request.FILES, instance=institution)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Institución actualizada correctamente')
-            return redirect('material:manage_institutions')
-    else:
-        form = InstitutionForm(instance=institution)
-    
+        response_data = {'success': False}
+
+        try:
+            if form.is_valid():
+                institution = form.save()
+
+                # Procesar Sedes (eliminar solo si hay nuevas)
+                if 'campuses' in request.POST:
+                    institution.campuses.all().delete()
+                    campuses = request.POST.getlist('campuses', [])
+                    for campus_name in campuses:
+                        if campus_name and campus_name.strip():
+                            Campus.objects.create(
+                                name=campus_name.strip(),
+                                institution=institution
+                            )
+
+                # Procesar Facultades (eliminar solo si hay nuevas)
+                if 'faculties' in request.POST:
+                    institution.faculties.all().delete()
+                    faculties = request.POST.getlist('faculties', [])
+                    for faculty_name in faculties:
+                        if faculty_name and faculty_name.strip():
+                            Faculty.objects.create(
+                                name=faculty_name.strip(),
+                                institution=institution
+                            )
+
+                # Manejar eliminación de logo
+                if 'logo-clear' in request.POST and request.POST['logo-clear'] == 'on':
+                    institution.logo.delete(save=True)
+
+                institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
+                response_data.update({
+                    'success': True,
+                    'html': render_to_string('material/institution_row.html', {'institutions': institutions})
+                })
+            else:
+                response_data['errors'] = form.errors.get_json_data()
+                return JsonResponse(response_data, status=400)
+
+        except Exception as e:
+            response_data['error'] = str(e)
+            return JsonResponse(response_data, status=500)
+
+        return JsonResponse(response_data)
+
+    # GET request
+    form = InstitutionForm(instance=institution)
+    campuses = institution.campuses.all()
+    faculties = institution.faculties.all()
+
+    if is_ajax:
+        return JsonResponse({
+            'form_html': render_to_string('material/institution_edit_form.html', {
+                'institution': institution,
+                'campuses': campuses,
+                'faculties': faculties
+            })
+        })
+
     return render(request, 'material/manage_institutions.html', {
         'form': form,
         'institutions': Institution.objects.filter(owner=request.user)
     })
 
 @login_required
+@require_http_methods(["POST"])
 def delete_institution(request, pk):
-    """
-    Vista para eliminar una institución
-    """
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     institution = get_object_or_404(Institution, pk=pk, owner=request.user)
-    if request.method == 'POST':
-        institution.delete()
-        messages.success(request, 'Institución eliminada correctamente')
-        return redirect('material:manage_institutions')
     
-    return render(request, 'material/confirm_delete.html', {
-        'object': institution,
-        'back_url': 'material:manage_institutions'
-    })
+    try:
+        with transaction.atomic():
+            institution.delete()
+            institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
+            
+            if is_ajax:
+                return JsonResponse({
+                    'success': True,
+                    'html': render_to_string('material/institution_row.html', {'institutions': institutions})
+                })
+            
+            messages.success(request, 'Institución eliminada correctamente')
+            return redirect('material:manage_institutions')
+    
+    except Exception as e:
+        if is_ajax:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+        
+        messages.error(request, f'Error al eliminar: {str(e)}')
+        return redirect('material:manage_institutions')

@@ -10,6 +10,10 @@ from .models import (
 from django import forms  
 from .models import Institution, Campus, Faculty  
 
+from django import forms
+from .models import Institution
+from django.core.exceptions import ValidationError
+
 class InstitutionForm(forms.ModelForm):
     class Meta:
         model = Institution
@@ -17,23 +21,29 @@ class InstitutionForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
-                'required': 'required'
+                'required': 'required',
+                'minlength': '3'
             }),
             'logo': forms.FileInput(attrs={
-                'class': 'form-control'
+                'class': 'form-control',
+                'accept': '.jpg,.jpeg,.png,.svg'
             })
         }
-        labels = {
-            'name': 'Nombre de la Institución',
-            'logo': 'Logo (Opcional)'
-        }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['owner'] = forms.CharField(
-            widget=forms.HiddenInput(),
-            required=False
-        )
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if len(name) < 3:
+            raise ValidationError("El nombre debe tener al menos 3 caracteres")
+        return name
+
+    def clean_logo(self):
+        logo = self.cleaned_data.get('logo', False)
+        if logo:
+            if logo.size > 2 * 1024 * 1024:  # 2MB
+                raise ValidationError("El logo no debe exceder 2MB")
+            if not logo.content_type in ['image/jpeg', 'image/png', 'image/svg+xml']:
+                raise ValidationError("Formato de imagen no válido (solo JPG, PNG, SVG)")
+        return logo
 
 class CampusForm(forms.ModelForm):  
     class Meta:  
