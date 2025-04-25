@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
-            const response = await fetch("{% url 'material:edit_institution' institution.pk %}", {
+            const response = await fetch(`/instituciones/editar/${formData.get('institution_id')}/`, {
                 method: 'POST',
                 body: formData,
                 headers: {

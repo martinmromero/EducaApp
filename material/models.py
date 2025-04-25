@@ -430,47 +430,30 @@ class Profile(models.Model):
         return f"{self.user.username} - {self.get_role_display()}"
 
 class Campus(models.Model):
-    name = models.CharField(max_length=100, verbose_name="Nombre de la sede")
-    address = models.TextField(blank=True, verbose_name="Dirección")
-    institution = models.ForeignKey(
-        'Institution',
-        on_delete=models.CASCADE,
-        related_name='campuses',
-        verbose_name="Institución"
-    )
+    name = models.CharField(max_length=100)
+    address = models.TextField(blank=True)
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE)
 
     class Meta:
-        verbose_name = "Sede"
-        verbose_name_plural = "Sedes"
         constraints = [
             models.UniqueConstraint(
                 fields=['name', 'institution'],
-                name='unique_campus_per_institution',
-                violation_error_message="Ya existe una sede con este nombre en la institución"
+                name='unique_campus_per_institution'
             )
         ]
 
-    def __str__(self):
-        return f"{self.institution.name} - {self.name}"
-    
-class Faculty(models.Model):  
-    name = models.CharField(max_length=100, verbose_name="Nombre de la facultad")  
-    code = models.CharField(max_length=10, blank=True, verbose_name="Código")  
-    institution = models.ForeignKey(  
-        'Institution',  
-        on_delete=models.CASCADE,  
-        related_name='faculties',  
-        verbose_name="Institución"  
-    )  
+class Faculty(models.Model):
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=10, blank=True)
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE)
 
-    class Meta:  
-        verbose_name = "Facultad"  
-        verbose_name_plural = "Facultades"  
-        unique_together = ('name', 'institution')  
-
-    def __str__(self):  
-        return f"{self.institution.name} - {self.name}" 
-
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['name', 'institution'],
+                name='unique_faculty_per_institution'
+            )
+        ]
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

@@ -30,7 +30,7 @@ urlpatterns = [
     path('login/', views.CustomLoginView.as_view(), name='login'),
     path('instituciones/', views.manage_institutions, name='manage_institutions'),
     path('resultados-aprendizaje/', views.manage_learning_outcomes, name='manage_learning_outcomes'),
-    path('instituciones/editar/<int:pk>/', views.edit_institution, name='edit_institution'),
     path('instituciones/eliminar/<int:pk>/', views.delete_institution, name='delete_institution'),
+    path('instituciones/editar/<int:pk>/', views.edit_institution, name='edit_institution'),
     
 ]

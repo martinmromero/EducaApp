@@ -587,100 +587,25 @@ def manage_institutions(request):
         'institutions': institutions
     })
 
-@login_required
-@transaction.atomic
 def edit_institution(request, pk):
-    institution = get_object_or_404(Institution, pk=pk, owner=request.user)
+    institution = get_object_or_404(Institution, pk=pk)  # Validación de existencia
     
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        if request.method == 'POST':
-            form = InstitutionForm(request.POST, request.FILES, instance=institution)
-            try:
-                if form.is_valid():
-                    with transaction.atomic():
-                        # Guardar institución
-                        institution = form.save()
-                        
-                        # Procesar sedes
-                        existing_campuses = {c.name: c for c in institution.campuses.all()}
-                        new_campuses = []
-                        
-                        for i, name in enumerate(request.POST.getlist('campuses', [])):
-                            name = name.strip()
-                            if name:
-                                if name in existing_campuses:
-                                    campus = existing_campuses.pop(name)
-                                else:
-                                    campus = Campus(institution=institution)
-                                campus.name = name
-                                campus.save()
-                                new_campuses.append(campus.id)
-                        
-                        # Eliminar sedes no usadas
-                        institution.campuses.exclude(id__in=new_campuses).delete()
-                        
-                        # Procesar facultades
-                        existing_faculties = {f.name: f for f in institution.faculties.all()}
-                        new_faculties = []
-                        
-                        for i, name in enumerate(request.POST.getlist('faculty_names', [])):
-                            name = name.strip()
-                            if name:
-                                code = request.POST.getlist('faculty_codes', [])[i].strip()
-                                if name in existing_faculties:
-                                    faculty = existing_faculties.pop(name)
-                                else:
-                                    faculty = Faculty(institution=institution)
-                                faculty.name = name
-                                faculty.code = code
-                                faculty.save()
-                                new_faculties.append(faculty.id)
-                        
-                        # Eliminar facultades no usadas
-                        institution.faculties.exclude(id__in=new_faculties).delete()
-                        
-                        return JsonResponse({
-                            'success': True,
-                            'html': render_to_string(
-                                'material/institution_row.html',
-                                {'institutions': Institution.objects.filter(owner=request.user)
-                                    .prefetch_related('campuses', 'faculties')},
-                                request=request  # ¡Importante para el CSRF!
-                            )
-                        })
-                else:
-                    return JsonResponse({
-                        'success': False,
-                        'errors': form.errors
-                    }, status=400)
-                    
-            except IntegrityError as e:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Nombre de sede/facultad duplicado. Por favor use nombres únicos.'
-                }, status=400)
-            except Exception as e:
-                logger.error(f"Error saving institution: {str(e)}")
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Error interno del servidor'
-                }, status=500)
-        
-        # GET para AJAX
-        return JsonResponse({
-            'form_html': render_to_string(
-                'material/institution_edit_form.html',
-                {
-                    'institution': institution,
-                    'campuses': institution.campuses.all(),
-                    'faculties': institution.faculties.all()
-                },
-                request=request  # ¡Importante para el CSRF!
-            )
-        })
+    if request.method == 'POST':
+        form = InstitutionForm(request.POST, request.FILES, instance=institution)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Institución actualizada correctamente.')  # Feedback al usuario
+            return redirect('material:manage_institutions')  # Namespace + nombre de URL
+        else:
+            messages.error(request, 'Error al actualizar. Verifica los datos.')  # Feedback de error
+    else:
+        form = InstitutionForm(instance=institution)
     
-    # GET normal (no AJAX)
-    return redirect('material:manage_institutions')
+    context = {
+        'form': form,
+        'institution': institution,  # ¡Asegúrate de pasar el objeto al template!
+    }
+    return render(request, 'material/edit_institution.html', context)
 
 @login_required
 @require_http_methods(["POST"])

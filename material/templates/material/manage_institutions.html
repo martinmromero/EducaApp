@@ -261,29 +261,61 @@ document.getElementById('institution-form').addEventListener('submit', async fun
     }
 });   
 
-    // Manejo de edición
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.edit-btn')) {
-            const editUrl = e.target.closest('.edit-btn').dataset.url;
-            const modal = new bootstrap.Modal(document.getElementById('editInstitutionModal'));
-            
-            fetch(editUrl, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
+    // Manejo de edición - Versión corregida
+document.addEventListener('click', function(e) {
+    const editBtn = e.target.closest('.edit-btn');
+    if (editBtn) {
+        const institutionId = editBtn.dataset.institutionId;
+        
+        // Validación del ID
+        if (!institutionId || isNaN(institutionId)) {
+            showAlert('danger', 'ID de institución no válido');
+            return;
+        }
+
+        const editUrl = `/instituciones/editar/${institutionId}/`;
+        const modal = new bootstrap.Modal(document.getElementById('editInstitutionModal'));
+        
+        // Mostrar loader durante la carga
+        document.getElementById('edit-modal-body').innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Cargando formulario...</p>
+            </div>`;
+
+        fetch(editUrl, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.form_html) {
                 document.getElementById('edit-modal-body').innerHTML = data.form_html;
                 modal.show();
                 initEditHandlers();
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('danger', 'Error al cargar formulario de edición');
-            });
-        }
-    });
+            } else {
+                throw new Error('Formulario no recibido');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('edit-modal-body').innerHTML = `
+                <div class="alert alert-danger">
+                    Error al cargar el formulario: ${error.message}
+                </div>`;
+            modal.show();
+        });
+    }
+});
 
     // Inicializar handlers para el modal de edición
     function initEditHandlers() {
