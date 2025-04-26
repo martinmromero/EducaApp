@@ -5,24 +5,40 @@ from django.dispatch import receiver
 from django.core.validators import MinValueValidator, MaxValueValidator  
 import json
 
-class Institution(models.Model):  
-    name = models.CharField(max_length=255, verbose_name="Nombre")  
-    logo = models.ImageField(upload_to='institution_logos/', verbose_name="Logo")  
-    owner = models.ForeignKey(  
-        User,  
-        on_delete=models.CASCADE,  
-        related_name='institutions',  
-        verbose_name="Propietario"  
-    )  
+class Institution(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    logo = models.ImageField(upload_to='institution_logos/', null=True, blank=True)
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='institutions'
+    )
 
-    class Meta:  
-        unique_together = ('name', 'owner')  
-        verbose_name = "Institución"  
-        verbose_name_plural = "Instituciones"  
+    def clean(self):
+        # Validación pre-guardado
+        if not self.name.strip():
+            raise ValidationError("El nombre no puede estar vacío")
+        if Institution.objects.filter(name=self.name).exclude(id=self.id).exists():
+            raise ValidationError("Nombre ya existe")
 
-    def __str__(self):  
-        return self.name  
+    def save(self, *args, **kwargs):
+        self.full_clean()  # Ejecuta clean() antes de guardar
+        super().save(*args, **kwargs)
 
+    class Meta:
+        constraints = [
+            # Garantiza que el nombre no sea vacío a nivel de BD
+            models.CheckConstraint(
+                check=models.Q(name__gt=''),
+                name="non_empty_name"
+            ),
+            # Evita duplicados por owner (opcional)
+            models.UniqueConstraint(
+                fields=['name', 'owner'],
+                name='unique_institution_owner'
+            )
+        ]
+        
 class Subject(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Nombre")
     learning_outcomes = models.TextField(blank=True, null=True, verbose_name="Resultados de aprendizaje")

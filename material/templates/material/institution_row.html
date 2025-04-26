@@ -1,251 +1,43 @@
 {% load static %}
-<tr id="institution-row-{{ institution.id }}">
-    <td class="align-middle">
+{% if institution.id or debug_mode %}  <!-- Mostrar en debug aunque falle -->
+<tr id="inst-{{ institution.id|default:'unknown' }}" 
+    {% if not institution.id %}class="bg-warning"{% endif %}>
+
+    <!-- Columna Nombre -->
+    <td>
         {% if institution.logo %}
-        <img src="{{ institution.logo.url }}" alt="{{ institution.name }} logo" class="img-thumbnail" style="max-height: 50px;">
-        {% else %}
-        <img src="{% static 'images/default_institution.png' %}" alt="Default logo" class="img-thumbnail" style="max-height: 50px;">
+        <img src="{{ institution.logo.url }}" alt="Logo" class="img-thumbnail" width="50">
+        {% endif %}
+        {{ institution.name|default:"Nombre no disponible" }}
+        {% if not institution.id %}
+        <span class="badge bg-danger">DEBUG: Sin ID</span>
         {% endif %}
     </td>
-    <td class="align-middle">{{ institution.name }}</td>
-    <td class="align-middle">
-        <span class="badge bg-primary rounded-pill">
-            {{ institution.campus_set.count }} Sedes
-        </span>
-        <span class="badge bg-success rounded-pill ms-1">
-            {{ institution.faculty_set.count }} Facultades
-        </span>
-    </td>
-    <td class="align-middle text-end">
-        <div class="btn-group" role="group">
-            <button class="btn btn-sm btn-outline-primary edit-btn" 
-                    data-institution-id="{{ institution.id }}"
-                    data-bs-toggle="modal" 
-                    data-bs-target="#editModal-{{ institution.id }}">
-                <i class="bi bi-pencil-square"></i> Editar
-            </button>
-            <button class="btn btn-sm btn-outline-danger" 
-                    data-bs-toggle="modal" 
-                    data-bs-target="#deleteModal-{{ institution.id }}">
-                <i class="bi bi-trash"></i> Eliminar
-            </button>
+
+    <!-- Columna Acciones -->
+    <td class="text-end">
+        {% if institution.id %}
+        <div class="btn-group">
+            <!-- Botón Editar -->
+            <a href="{% url 'material:edit_institution' pk=institution.id %}"
+               class="btn btn-sm btn-outline-primary"
+               data-test="edit-btn">
+               <i class="bi bi-pencil"></i>
+            </a>
+            
+            <!-- Botón Eliminar (con confirmación) -->
+            <form method="post" action="{% url 'material:delete_institution' pk=institution.id %}"
+                  class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('¿Eliminar {{ institution.name }}?')">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </form>
         </div>
+        {% elif debug_mode %}
+        <span class="text-danger">Acciones deshabilitadas</span>
+        {% endif %}
     </td>
 </tr>
-
-
-<!-- Modal de Edición -->
-<div class="modal fade" id="editModal-{{ institution.id }}" tabindex="-1" aria-labelledby="editModalLabel-{{ institution.id }}" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="editModalLabel-{{ institution.id }}">Editar Institución</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="debug-alert mb-3" style="color: red; font-weight: bold;">
-                    DEBUG INSTITUTION ID: {{ institution.id|default:"VARIABLE_INSTITUTION_NO_EXISTE" }}
-                </div>
-            
-                <form id="editForm-{{ institution.id }}" 
-                      action="{% url 'material:edit_institution' pk=institution.id %}" 
-                      method="post" 
-                      enctype="multipart/form-data">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="name-{{ institution.id }}" class="form-label">Nombre</label>
-                        <input type="text" class="form-control" id="name-{{ institution.id }}" 
-                               name="name" value="{{ institution.name }}" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="logo-{{ institution.id }}" class="form-label">Logo</label>
-                        <input class="form-control" type="file" id="logo-{{ institution.id }}" name="logo">
-                        {% if institution.logo %}
-                        <div class="mt-2">
-                            <img src="{{ institution.logo.url }}" alt="Current logo" style="max-height: 100px;">
-                        </div>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Sección de Sedes -->
-                    <div class="card mb-3">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span>Sedes</span>
-                            <button type="button" class="btn btn-sm btn-outline-primary add-campus-btn">
-                                <i class="bi bi-plus-lg"></i> Agregar Sede
-                            </button>
-                        </div>
-                        <div class="card-body campuses-container">
-                            {% for campus in institution.campus_set.all %}
-                            <div class="campus-item mb-2" data-campus-id="{{ campus.id }}">
-                                <div class="input-group">
-                                    <input type="text" class="form-control campus-name" 
-                                           name="campuses" value="{{ campus.name }}" 
-                                           placeholder="Nombre de la sede" required>
-                                    <input type="text" class="form-control campus-address" 
-                                           name="addresses" value="{{ campus.address }}" 
-                                           placeholder="Dirección">
-                                    <button type="button" class="btn btn-outline-danger remove-campus-btn">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    
-                    <!-- Sección de Facultades -->
-                    <div class="card mb-3">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span>Facultades</span>
-                            <button type="button" class="btn btn-sm btn-outline-primary add-faculty-btn">
-                                <i class="bi bi-plus-lg"></i> Agregar Facultad
-                            </button>
-                        </div>
-                        <div class="card-body faculties-container">
-                            {% for faculty in institution.faculty_set.all %}
-                            <div class="faculty-item mb-2" data-faculty-id="{{ faculty.id }}">
-                                <div class="input-group">
-                                    <input type="text" class="form-control faculty-name" 
-                                           name="faculties" value="{{ faculty.name }}" 
-                                           placeholder="Nombre de la facultad" required>
-                                    <input type="text" class="form-control faculty-code" 
-                                           name="codes" value="{{ faculty.code }}" 
-                                           placeholder="Código (opcional)">
-                                    <button type="button" class="btn btn-outline-danger remove-faculty-btn">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de Eliminación -->
-<div class="modal fade" id="deleteModal-{{ institution.id }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ institution.id }}" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalLabel-{{ institution.id }}">Confirmar Eliminación</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>¿Está seguro que desea eliminar la institución <strong>"{{ institution.name }}"</strong>?</p>
-                <p class="text-danger">Esta acción no se puede deshacer y eliminará todas las sedes y facultades asociadas.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <form action="{% url 'delete_institution' pk=institution.id %}" method="post">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-danger">Eliminar</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Manejo de sedes
-    document.querySelectorAll('.add-campus-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const container = this.closest('.card').querySelector('.campuses-container');
-            const newItem = document.createElement('div');
-            newItem.className = 'campus-item mb-2';
-            newItem.innerHTML = `
-                <div class="input-group">
-                    <input type="text" class="form-control campus-name" 
-                           name="campuses" placeholder="Nombre de la sede" required>
-                    <input type="text" class="form-control campus-address" 
-                           name="addresses" placeholder="Dirección">
-                    <button type="button" class="btn btn-outline-danger remove-campus-btn">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            `;
-            container.appendChild(newItem);
-            addRemoveListeners(newItem.querySelector('.remove-campus-btn'));
-        });
-    });
-
-    // Manejo de facultades
-    document.querySelectorAll('.add-faculty-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const container = this.closest('.card').querySelector('.faculties-container');
-            const newItem = document.createElement('div');
-            newItem.className = 'faculty-item mb-2';
-            newItem.innerHTML = `
-                <div class="input-group">
-                    <input type="text" class="form-control faculty-name" 
-                           name="faculties" placeholder="Nombre de la facultad" required>
-                    <input type="text" class="form-control faculty-code" 
-                           name="codes" placeholder="Código (opcional)">
-                    <button type="button" class="btn btn-outline-danger remove-faculty-btn">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            `;
-            container.appendChild(newItem);
-            addRemoveListeners(newItem.querySelector('.remove-faculty-btn'));
-        });
-    });
-
-    // Función para manejar la eliminación de items
-    function addRemoveListeners(btn) {
-        btn.addEventListener('click', function() {
-            this.closest('.campus-item, .faculty-item').remove();
-        });
-    }
-
-    // Configuración inicial de listeners para elementos existentes
-    document.querySelectorAll('.remove-campus-btn, .remove-faculty-btn').forEach(btn => {
-        addRemoveListeners(btn);
-    });
-
-    // Manejo del guardado via AJAX
-    document.querySelectorAll('.save-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const formId = this.getAttribute('data-form-id');
-            const form = document.getElementById(formId);
-            const institutionId = form.getAttribute('data-institution-id');
-            const formData = new FormData(form);
-            
-            fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Cerrar modal y actualizar la fila
-                    bootstrap.Modal.getInstance(document.getElementById(`editModal-${institutionId}`)).hide();
-                    // Aquí deberías actualizar la fila con los nuevos datos
-                    // Esto dependerá de cómo manejes la actualización en tu aplicación
-                    location.reload(); // Solución temporal
-                } else {
-                    // Mostrar errores
-                    alert('Error al guardar: ' + JSON.stringify(data.errors));
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Ocurrió un error al guardar los cambios.');
-            });
-        });
-    });
-});
-</script>
+{% endif %}

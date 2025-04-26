@@ -5,451 +5,90 @@
 <div class="container mt-4">
     <h2 class="mb-4">Gestión de Instituciones</h2>
 
+    <!-- Mensajes -->
     <div id="ajax-messages">
-        {% if messages %}
-            {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-            {% endfor %}
-        {% endif %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
     </div>
 
+    <!-- Formulario -->
     <div class="card shadow mb-4">
         <div class="card-header bg-primary text-white">
             <h4 class="mb-0">Nueva Institución</h4>
         </div>
         <div class="card-body">
-            <form id="institution-form" method="post" enctype="multipart/form-data" novalidate>
+            <form id="institution-form" method="post" enctype="multipart/form-data">
                 {% csrf_token %}
-                
                 <div class="mb-3">
-                    <label for="institution-name" class="form-label">Nombre*</label>
-                    <input type="text" id="institution-name" name="name" class="form-control" required minlength="3">
-                    <div class="invalid-feedback">El nombre debe tener al menos 3 caracteres</div>
+                    <label class="form-label">Nombre*</label>
+                    <input type="text" name="name" class="form-control" required minlength="3">
                 </div>
-
+                <!-- Campos dinámicos para sedes/facultades -->
                 <div class="mb-3">
-                    <label class="form-label">Sedes (Opcional)</label>
-                    <div id="campuses-container"></div>
-                    <button type="button" id="add-campus" class="btn btn-sm btn-outline-primary mt-2">
+                    <button type="button" id="add-campus" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-plus-circle"></i> Agregar Sede
                     </button>
-                    <div class="form-text">Máximo 100 caracteres por sede</div>
+                    <div id="campuses-container"></div>
                 </div>
-
                 <div class="mb-3">
-                    <label class="form-label">Facultades (Opcional)</label>
-                    <div id="faculties-container"></div>
-                    <button type="button" id="add-faculty" class="btn btn-sm btn-outline-primary mt-2">
+                    <button type="button" id="add-faculty" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-plus-circle"></i> Agregar Facultad
                     </button>
-                    <div class="form-text">Máximo 100 caracteres por facultad</div>
+                    <div id="faculties-container"></div>
                 </div>
-
                 <div class="mb-3">
-                    <label for="institution-logo" class="form-label">Logo (Opcional)</label>
-                    <input type="file" id="institution-logo" name="logo" class="form-control" accept=".jpg,.jpeg,.png,.svg">
-                    <div class="form-text">Formatos: JPG, PNG, SVG (max 2MB)</div>
+                    <label class="form-label">Logo</label>
+                    <input type="file" name="logo" class="form-control" accept="image/*">
                 </div>
-
-                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                    <button type="submit" class="btn btn-success">
-                        <span id="submit-text"><i class="bi bi-save"></i> Guardar</span>
-                        <span id="submit-spinner" class="spinner-border spinner-border-sm d-none"></span>
-                    </button>
-                </div>
+                <button type="submit" class="btn btn-primary">Guardar</button>
             </form>
         </div>
     </div>
 
+    <!-- Tabla -->
     <div class="card shadow">
         <div class="card-header bg-light">
-            <div class="d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">Instituciones Registradas</h4>
-                <span class="badge bg-primary rounded-pill">{{ institutions.count }}</span>
-            </div>
+            <h4 class="mb-0">Instituciones Registradas</h4>
         </div>
         <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Sedes</th>
-                            <th>Facultades</th>
-                            <th class="text-end">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="institutions-table-body">
-                        {% include 'material/institution_row.html' %}
-                    </tbody>
-                </table>
-            </div>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="institutions-table-body">
+                    {% include 'material/institution_row.html' %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
-<!-- Modal de Edición -->
-<div class="modal fade" id="editInstitutionModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Editar Institución</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="edit-modal-body">
-                <!-- Contenido cargado dinámicamente -->
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de Confirmación -->
-<div class="modal fade" id="confirmationModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirmar Eliminación</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                ¿Estás seguro de que deseas eliminar esta institución?
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" id="confirm-delete">Eliminar</button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Modales -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true"></div>
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true"></div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Templates para campos dinámicos
-    const fieldTemplate = (type) => `
-    <div class="input-group mb-2 ${type}-item">
-        <input type="text" name="${type}" class="form-control" maxlength="100">
-        <button type="button" class="btn btn-outline-danger remove-btn">
-            <i class="bi bi-trash"></i>
-        </button>
-    </div>`;
-
-    // Agregar campos dinámicos
+    // Lógica JS simplificada
     document.getElementById('add-campus').addEventListener('click', () => {
-        document.getElementById('campuses-container').insertAdjacentHTML('beforeend', fieldTemplate('campuses'));
+        document.getElementById('campuses-container').insertAdjacentHTML('beforeend', `
+            <div class="input-group mb-2">
+                <input type="text" name="campuses" class="form-control" required>
+                <button type="button" class="btn btn-outline-danger remove-item">&times;</button>
+            </div>
+        `);
     });
 
-    document.getElementById('add-faculty').addEventListener('click', () => {
-        document.getElementById('faculties-container').insertAdjacentHTML('beforeend', fieldTemplate('faculties'));
-    });
-
-    // Eliminar campos dinámicos
     document.addEventListener('click', (e) => {
-        if (e.target.closest('.remove-btn')) {
+        if (e.target.classList.contains('remove-item')) {
             e.target.closest('.input-group').remove();
-        }
-    });
-
-    // Validación del formulario
-    function validateForm() {
-        let isValid = true;
-        const nameInput = document.getElementById('institution-name');
-        const logoInput = document.getElementById('institution-logo');
-
-        // Validar nombre
-        if (nameInput.value.trim().length < 3) {
-            nameInput.classList.add('is-invalid');
-            isValid = false;
-        } else {
-            nameInput.classList.remove('is-invalid');
-        }
-
-        // Validar logo
-        if (logoInput.files.length > 0) {
-            const logo = logoInput.files[0];
-            const validTypes = ['image/jpeg', 'image/png', 'image/svg+xml'];
-            
-            if (!validTypes.includes(logo.type)) {
-                showAlert('danger', 'Formato de imagen no válido (solo JPG, PNG, SVG)');
-                isValid = false;
-            }
-            
-            if (logo.size > 2 * 1024 * 1024) {
-                showAlert('danger', 'El logo no debe exceder 2MB');
-                isValid = false;
-            }
-        }
-
-        // Validar campos dinámicos
-        document.querySelectorAll('#campuses-container input, #faculties-container input').forEach(input => {
-            if (input.value.length > 100) {
-                showAlert('danger', 'Los campos no deben exceder 100 caracteres');
-                isValid = false;
-            }
-        });
-
-        return isValid;
-    }
-
-    // Envío del formulario principal
-
- // Envío del formulario principal - Versión mejorada
-document.getElementById('institution-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const form = this;
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const submitText = document.getElementById('submit-text');
-    const spinner = document.getElementById('submit-spinner');
-    
-    submitBtn.disabled = true;
-    submitText.textContent = 'Guardando...';
-    spinner.classList.remove('d-none');
-
-    try {
-        const formData = new FormData(form);
-        
-        // Agregar campos dinámicos
-        document.querySelectorAll('#campuses-container input').forEach(input => {
-            if (input.value.trim()) formData.append('campuses', input.value.trim());
-        });
-        
-        document.querySelectorAll('#faculties-container input').forEach(input => {
-            if (input.value.trim()) formData.append('faculties', input.value.trim());
-        });
-
-        const response = await fetch('', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            }
-        });
-
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(
-                data.errors ? 
-                Object.values(data.errors).flat().join(', ') : 
-                'Error en el servidor'
-            );
-        }
-
-        if (data.success) {
-            document.getElementById('institutions-table-body').innerHTML = data.html;
-            form.reset();
-            document.getElementById('campuses-container').innerHTML = '';
-            document.getElementById('faculties-container').innerHTML = '';
-            showAlert('success', 'Institución guardada correctamente');
-        } else {
-            throw new Error(
-                data.errors ? 
-                Object.values(data.errors).flat().join(', ') : 
-                'Error al guardar'
-            );
-        }
-    } catch (error) {
-        showAlert('danger', error.message);
-    } finally {
-        submitBtn.disabled = false;
-        submitText.innerHTML = '<i class="bi bi-save"></i> Guardar';
-        spinner.classList.add('d-none');
-    }
-});   
-
-    // Manejo de edición - Versión corregida
-document.addEventListener('click', function(e) {
-    const editBtn = e.target.closest('.edit-btn');
-    if (editBtn) {
-        const institutionId = editBtn.dataset.institutionId;
-        
-        // Validación del ID
-        if (!institutionId || isNaN(institutionId)) {
-            showAlert('danger', 'ID de institución no válido');
-            return;
-        }
-
-        const editUrl = `/instituciones/editar/${institutionId}/`;
-        const modal = new bootstrap.Modal(document.getElementById('editInstitutionModal'));
-        
-        // Mostrar loader durante la carga
-        document.getElementById('edit-modal-body').innerHTML = `
-            <div class="text-center py-4">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Cargando...</span>
-                </div>
-                <p class="mt-2">Cargando formulario...</p>
-            </div>`;
-
-        fetch(editUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            }
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.form_html) {
-                document.getElementById('edit-modal-body').innerHTML = data.form_html;
-                modal.show();
-                initEditHandlers();
-            } else {
-                throw new Error('Formulario no recibido');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('edit-modal-body').innerHTML = `
-                <div class="alert alert-danger">
-                    Error al cargar el formulario: ${error.message}
-                </div>`;
-            modal.show();
-        });
-    }
-});
-
-    // Inicializar handlers para el modal de edición
-    function initEditHandlers() {
-        const editFieldTemplate = (type) => `
-        <div class="input-group mb-2 ${type}-item">
-            <input type="text" name="${type}" class="form-control" maxlength="100">
-            <button type="button" class="btn btn-outline-danger remove-btn">
-                <i class="bi bi-trash"></i>
-            </button>
-        </div>`;
-
-        // Agregar campos en edición
-        document.getElementById('edit-add-campus')?.addEventListener('click', () => {
-            document.getElementById('edit-campuses-container').insertAdjacentHTML('beforeend', editFieldTemplate('campuses'));
-        });
-
-        document.getElementById('edit-add-faculty')?.addEventListener('click', () => {
-            document.getElementById('edit-faculties-container').insertAdjacentHTML('beforeend', editFieldTemplate('faculties'));
-        });
-
-        // Guardar cambios en edición
-        document.getElementById('edit-save-btn')?.addEventListener('click', async function() {
-            const form = document.getElementById('edit-institution-form');
-            const submitBtn = this;
-            const submitText = document.getElementById('edit-submit-text');
-            const spinner = document.getElementById('edit-submit-spinner');
-            
-            submitBtn.disabled = true;
-            submitText.textContent = 'Guardando...';
-            spinner.classList.remove('d-none');
-
-            try {
-                const formData = new FormData(form);
-                
-                // Agregar campos dinámicos
-                document.querySelectorAll('#edit-campuses-container input').forEach(input => {
-                    if (input.value.trim()) formData.append('campuses', input.value.trim());
-                });
-                
-                document.querySelectorAll('#edit-faculties-container input').forEach(input => {
-                    if (input.value.trim()) formData.append('faculties', input.value.trim());
-                });
-
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                    }
-                });
-
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('institutions-table-body').innerHTML = data.html;
-                    bootstrap.Modal.getInstance(document.getElementById('editInstitutionModal')).hide();
-                    showAlert('success', 'Institución actualizada correctamente');
-                } else {
-                    throw new Error(data.errors || 'Error al guardar cambios');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showAlert('danger', 'Error: ' + error.message);
-            } finally {
-                submitBtn.disabled = false;
-                submitText.textContent = 'Guardar cambios';
-                spinner.classList.add('d-none');
-            }
-        });
-    }
-
-    // Manejo de eliminación
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.delete-btn')) {
-            const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
-            const deleteUrl = e.target.closest('.delete-btn').dataset.url;
-            
-            document.getElementById('confirm-delete').onclick = async function() {
-                try {
-                    const response = await fetch(deleteUrl, {
-                        method: 'POST',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                        }
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        document.getElementById('institutions-table-body').innerHTML = data.html;
-                        showAlert('success', 'Institución eliminada correctamente');
-                    } else {
-                        throw new Error(data.error || 'Error al eliminar');
-                    }
-                } catch (error) {
-                    showAlert('danger', 'Error de conexión: ' + error.message);
-                } finally {
-                    modal.hide();
-                }
-            };
-            
-            modal.show();
-        }
-    });
-
-    // Función para mostrar alertas
-    function showAlert(type, message) {
-        const alertHTML = `
-        <div class="alert alert-${type} alert-dismissible fade show">
-            <i class="bi ${type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2"></i>
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>`;
-        
-        const messagesContainer = document.getElementById('ajax-messages');
-        messagesContainer.innerHTML = alertHTML;
-        
-        setTimeout(() => {
-            const alert = messagesContainer.querySelector('.alert');
-            if (alert) {
-                alert.classList.add('fade');
-                setTimeout(() => alert.remove(), 150);
-            }
-        }, 5000);
-    }
-
-    // Validación en tiempo real
-    document.getElementById('institution-name').addEventListener('input', function() {
-        if (this.value.trim().length < 3 && this.value.trim().length > 0) {
-            this.classList.add('is-invalid');
-        } else {
-            this.classList.remove('is-invalid');
         }
     });
 });
