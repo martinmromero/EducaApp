@@ -1,9 +1,8 @@
 {% load static %}
-{% if institution.id or debug_mode %}  <!-- Mostrar en debug aunque falle -->
+{% if institution.id or debug_mode %}
 <tr id="inst-{{ institution.id|default:'unknown' }}" 
     {% if not institution.id %}class="bg-warning"{% endif %}>
 
-    <!-- Columna Nombre -->
     <td>
         {% if institution.logo %}
         <img src="{{ institution.logo.url }}" alt="Logo" class="img-thumbnail" width="50">
@@ -14,18 +13,15 @@
         {% endif %}
     </td>
 
-    <!-- Columna Acciones -->
     <td class="text-end">
         {% if institution.id %}
         <div class="btn-group">
-            <!-- Botón Editar -->
-            <a href="{% url 'material:edit_institution' pk=institution.id %}"
-               class="btn btn-sm btn-outline-primary"
-               data-test="edit-btn">
+            <button class="btn btn-sm btn-outline-primary edit-btn"
+                    data-url="{% url 'material:edit_institution' pk=institution.id %}"
+                    data-test="edit-btn">
                <i class="bi bi-pencil"></i>
-            </a>
+            </button>
             
-            <!-- Botón Eliminar (con confirmación) -->
             <form method="post" action="{% url 'material:delete_institution' pk=institution.id %}"
                   class="d-inline">
                 {% csrf_token %}

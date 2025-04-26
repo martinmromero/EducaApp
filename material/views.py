@@ -4,6 +4,7 @@ import json
 import logging
 
 # Django core imports
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -515,64 +516,70 @@ def manage_learning_outcomes(request):
     })
 
 @login_required
-@transaction.atomic
 def manage_institutions(request):
-    try:
-        # QuerySet con prefetch y validación de owner
-        institutions = Institution.objects.filter(
-            owner=request.user
-        ).select_related('owner').prefetch_related('campuses', 'faculties')
-        
-        # Debug proactivo (registra en consola)
-        if institutions.filter(id__isnull=True).exists():
-            logger.error(f"Instituciones sin ID para el usuario {request.user.id}")
-            institutions = institutions.exclude(id__isnull=True)
-        
-        # Validación de seguridad adicional
-        if not institutions.exists():
-            logger.info(f"No hay instituciones para {request.user.username}")
-
-        return render(request, 'material/manage_institutions.html', {
-            'institutions': institutions,
-            'debug_mode': settings.DEBUG  # Opcional: para mostrar info de debug
-        })
-
-    except Exception as e:
-        logger.critical(f"Error en manage_institutions: {str(e)}", exc_info=True)
-        raise SuspiciousOperation("Error al cargar instituciones")
-    
-@login_required
-@transaction.atomic
-def edit_institution(request, pk):
-    try:
-        # Validación reforzada (owner + existencia)
-        institution = get_object_or_404(
-            Institution.objects.select_related('owner'),
-            pk=pk,
-            owner=request.user
-        )
-        
-        # Chequeo explícito de ID (redundante pero segura)
-        if not institution.id:
-            raise Http404("Institución corrupta (sin ID)")
-        
-        if request.method == 'POST':
-            form = InstitutionForm(request.POST, request.FILES, instance=institution)
+    if request.method == 'POST':
+        try:
+            form = InstitutionForm(request.POST, request.FILES)
             if form.is_valid():
-                with transaction.atomic():
-                    institution = form.save()
-                    # Lógica para sedes/facultades aquí
+                institution = form.save(commit=False)
+                institution.owner = request.user
+                institution.save()
                 return JsonResponse({'success': True})
-            else:
-                return JsonResponse({'errors': form.errors}, status=400)
-        
-        return render(request, 'material/edit_institution.html', {
-            'institution': institution
-        })
+            return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+        except Exception as e:
+            logger.error(f"Error al guardar institución: {str(e)}")
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
-    except Exception as e:
-        logger.error(f"Error editando institución {pk}: {str(e)}")
-        raise Http404("Error en el servidor")
+    institutions = Institution.objects.filter(owner=request.user)
+    return render(request, 'material/manage_institutions.html', {
+        'institutions': institutions
+    })
+
+@login_required
+def edit_institution(request, pk):
+    institution = get_object_or_404(Institution, pk=pk, owner=request.user)
+    
+    if request.method == 'POST':
+        form = InstitutionForm(request.POST, request.FILES, instance=institution)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    # Guardar institución
+                    institution = form.save()
+                    
+                    # Procesar sedes
+                    Campus.objects.filter(institution=institution).delete()
+                    campuses = request.POST.getlist('campuses')
+                    for campus_name in campuses:
+                        if campus_name.strip():
+                            Campus.objects.create(
+                                name=campus_name.strip(),
+                                institution=institution
+                            )
+                    
+                    # Procesar facultades
+                    Faculty.objects.filter(institution=institution).delete()
+                    faculty_names = request.POST.getlist('faculty_names')
+                    faculty_codes = request.POST.getlist('faculty_codes')
+                    for name, code in zip(faculty_names, faculty_codes):
+                        if name.strip():
+                            Faculty.objects.create(
+                                name=name.strip(),
+                                code=code.strip(),
+                                institution=institution
+                            )
+                    
+                    return JsonResponse({'success': True})
+            except Exception as e:
+                logger.error(f"Error al editar institución: {str(e)}")
+                return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        
+        return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+    
+    # Renderizar página completa de edición
+    return render(request, 'material/edit_institution.html', {
+        'institution': institution
+    })
 
 @login_required
 @require_http_methods(["POST"])

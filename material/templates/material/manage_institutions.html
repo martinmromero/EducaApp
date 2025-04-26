@@ -15,41 +15,52 @@
         {% endfor %}
     </div>
 
-    <!-- Formulario -->
+    <!-- Formulario principal -->
     <div class="card shadow mb-4">
         <div class="card-header bg-primary text-white">
             <h4 class="mb-0">Nueva Institución</h4>
         </div>
         <div class="card-body">
-            <form id="institution-form" method="post" enctype="multipart/form-data">
+            <form id="institution-form" method="post" enctype="multipart/form-data" action="{% url 'material:manage_institutions' %}">
                 {% csrf_token %}
                 <div class="mb-3">
                     <label class="form-label">Nombre*</label>
                     <input type="text" name="name" class="form-control" required minlength="3">
                 </div>
-                <!-- Campos dinámicos para sedes/facultades -->
+                
+                <!-- Sección Sedes -->
                 <div class="mb-3">
-                    <button type="button" id="add-campus" class="btn btn-sm btn-outline-primary">
+                    <label class="form-label">Sedes</label>
+                    <div id="campuses-container">
+                        <!-- Campos dinámicos irán aquí -->
+                    </div>
+                    <button type="button" id="add-campus" class="btn btn-sm btn-outline-primary mt-2">
                         <i class="bi bi-plus-circle"></i> Agregar Sede
                     </button>
-                    <div id="campuses-container"></div>
                 </div>
+                
+                <!-- Sección Facultades -->
                 <div class="mb-3">
-                    <button type="button" id="add-faculty" class="btn btn-sm btn-outline-primary">
+                    <label class="form-label">Facultades</label>
+                    <div id="faculties-container">
+                        <!-- Campos dinámicos irán aquí -->
+                    </div>
+                    <button type="button" id="add-faculty" class="btn btn-sm btn-outline-primary mt-2">
                         <i class="bi bi-plus-circle"></i> Agregar Facultad
                     </button>
-                    <div id="faculties-container"></div>
                 </div>
+                
                 <div class="mb-3">
                     <label class="form-label">Logo</label>
                     <input type="file" name="logo" class="form-control" accept="image/*">
                 </div>
+                
                 <button type="submit" class="btn btn-primary">Guardar</button>
             </form>
         </div>
     </div>
 
-    <!-- Tabla -->
+    <!-- Tabla de instituciones -->
     <div class="card shadow">
         <div class="card-header bg-light">
             <h4 class="mb-0">Instituciones Registradas</h4>
@@ -63,34 +74,113 @@
                     </tr>
                 </thead>
                 <tbody id="institutions-table-body">
-                    {% include 'material/institution_row.html' %}
+                    {% for institution in institutions %}
+                        <tr id="inst-{{ institution.id }}">
+                            <td>
+                                {% if institution.logo %}
+                                <img src="{{ institution.logo.url }}" alt="Logo" class="img-thumbnail" width="50">
+                                {% endif %}
+                                {{ institution.name }}
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-group">
+                                    <a href="{% url 'material:edit_institution' pk=institution.id %}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <form method="post" action="{% url 'material:delete_institution' pk=institution.id %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                onclick="return confirm('¿Eliminar esta institución?')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center">No hay instituciones registradas</td>
+                        </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 
-<!-- Modales -->
-<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true"></div>
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true"></div>
-
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Lógica JS simplificada
-    document.getElementById('add-campus').addEventListener('click', () => {
-        document.getElementById('campuses-container').insertAdjacentHTML('beforeend', `
-            <div class="input-group mb-2">
-                <input type="text" name="campuses" class="form-control" required>
-                <button type="button" class="btn btn-outline-danger remove-item">&times;</button>
-            </div>
-        `);
-    });
-
-    document.addEventListener('click', (e) => {
-        if (e.target.classList.contains('remove-item')) {
-            e.target.closest('.input-group').remove();
+    document.addEventListener('DOMContentLoaded', function() {
+        // Templates para campos dinámicos
+        const campusTemplate = `
+        <div class="input-group mb-2">
+            <input type="text" name="campuses" class="form-control" placeholder="Nombre de sede" required>
+            <button type="button" class="btn btn-outline-danger remove-item">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>`;
+    
+        const facultyTemplate = `
+        <div class="input-group mb-2">
+            <input type="text" name="faculty_names" class="form-control" placeholder="Nombre de facultad" required>
+            <input type="text" name="faculty_codes" class="form-control" placeholder="Código (opcional)">
+            <button type="button" class="btn btn-outline-danger remove-item">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>`;
+    
+        // Agregar campos
+        document.getElementById('add-campus')?.addEventListener('click', function() {
+            document.getElementById('campuses-container').insertAdjacentHTML('beforeend', campusTemplate);
+        });
+    
+        document.getElementById('add-faculty')?.addEventListener('click', function() {
+            document.getElementById('faculties-container').insertAdjacentHTML('beforeend', facultyTemplate);
+        });
+    
+        // Eliminar campos
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-item')) {
+                e.target.closest('.input-group').remove();
+            }
+        });
+    
+        // Manejo del formulario principal (conserva este código si ya existe)
+        const form = document.getElementById('institution-form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const submitBtn = form.querySelector('button[type="submit"]');
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
+    
+                fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + (data.error || 'Datos inválidos'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error de conexión');
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Guardar';
+                });
+            });
         }
     });
-});
-</script>
+    </script>
+    
 {% endblock %}

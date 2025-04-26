@@ -1,52 +1,174 @@
 {% extends 'material/base.html' %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="card">
-        <div class="card-header bg-warning text-white">
-            <h3>
-                <i class="fas fa-edit me-2"></i>
-                Editar Institución: {{ institution.name }}
-            </h3>
-        </div>
-        <div class="card-body">
-            <form method="post" enctype="multipart/form-data">
-                {% csrf_token %}
-                <div class="row g-3">
-                    {{ form.non_field_errors }}
-                    <div class="col-md-6">
-                        <label for="{{ form.name.id_for_label }}" class="form-label">Nombre</label>
-                        {{ form.name }}
-                        {{ form.name.errors }}
+<div class="modal fade" id="editInstitutionModal" tabindex="-1" aria-labelledby="editInstitutionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="editInstitutionModalLabel">
+                    <i class="bi bi-building me-2"></i>Editar Institución: {{ institution.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-institution-form" method="post" enctype="multipart/form-data" 
+                      action="{% url 'material:edit_institution' pk=institution.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="institution_id" value="{{ institution.id }}">
+                    
+                    <div class="mb-3">
+                        <label for="edit-name" class="form-label">Nombre*</label>
+                        <input type="text" id="edit-name" name="name" class="form-control" 
+                               value="{{ institution.name }}" required minlength="3">
                     </div>
-                    <div class="col-md-6">
-                        <label for="{{ form.logo.id_for_label }}" class="form-label">Logo</label>
-                        {{ form.logo }}
-                        {{ form.logo.errors }}
-                    </div>
-                    <div class="col-12">
-                        <label for="{{ form.campuses.id_for_label }}" class="form-label">Sedes</label>
-                        {{ form.campuses }}
-                        <small class="form-text text-muted">{{ form.campuses.help_text }}</small>
-                        {{ form.campuses.errors }}
-                    </div>
-                    <div class="col-12">
-                        <label for="{{ form.faculties.id_for_label }}" class="form-label">Facultades</label>
-                        {{ form.faculties }}
-                        <small class="form-text text-muted">{{ form.faculties.help_text }}</small>
-                        {{ form.faculties.errors }}
-                    </div>
-                    <div class="col-12 mt-3">
-                        <button type="submit" class="btn btn-primary me-2">
-                            <i class="fas fa-save me-1"></i> Guardar
+
+                    <div class="mb-3">
+                        <label class="form-label">Sedes</label>
+                        <div id="edit-campuses-container">
+                            {% for campus in institution.campuses.all %}
+                            <div class="input-group mb-2">
+                                <input type="text" name="campuses" class="form-control" 
+                                       value="{{ campus.name }}" required>
+                                <button type="button" class="btn btn-outline-danger remove-campus">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" id="add-campus-edit" class="btn btn-sm btn-outline-primary mt-2">
+                            <i class="bi bi-plus-circle"></i> Agregar Sede
                         </button>
-                        <a href="{% url 'material:manage_institutions' %}" class="btn btn-secondary">
-                            <i class="fas fa-times me-1"></i> Cancelar
-                        </a>
                     </div>
-                </div>
-            </form>
+
+                    <div class="mb-3">
+                        <label class="form-label">Facultades</label>
+                        <div id="edit-faculties-container">
+                            {% for faculty in institution.faculties.all %}
+                            <div class="input-group mb-2">
+                                <input type="text" name="faculty_names" class="form-control" 
+                                       value="{{ faculty.name }}" required>
+                                <input type="text" name="faculty_codes" class="form-control" 
+                                       placeholder="Código" value="{{ faculty.code }}">
+                                <button type="button" class="btn btn-outline-danger remove-faculty">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" id="add-faculty-edit" class="btn btn-sm btn-outline-primary mt-2">
+                            <i class="bi bi-plus-circle"></i> Agregar Facultad
+                        </button>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit-logo" class="form-label">Logo</label>
+                        <input type="file" id="edit-logo" name="logo" class="form-control" accept=".jpg,.jpeg,.png,.svg">
+                        {% if institution.logo %}
+                        <div class="mt-2 d-flex align-items-center">
+                            <img src="{{ institution.logo.url }}" alt="Logo actual" class="img-thumbnail me-3" width="80">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="logo-clear" id="logo-clear">
+                                <label class="form-check-label" for="logo-clear">Eliminar logo actual</label>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="edit-save-btn">
+                            <span id="edit-submit-text"><i class="bi bi-save me-1"></i> Guardar cambios</span>
+                            <span id="edit-submit-spinner" class="spinner-border spinner-border-sm d-none"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Templates para campos dinámicos
+    const campusTemplate = `
+    <div class="input-group mb-2">
+        <input type="text" name="campuses" class="form-control" required>
+        <button type="button" class="btn btn-outline-danger remove-campus">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>`;
+
+    const facultyTemplate = `
+    <div class="input-group mb-2">
+        <input type="text" name="faculty_names" class="form-control" required>
+        <input type="text" name="faculty_codes" class="form-control" placeholder="Código">
+        <button type="button" class="btn btn-outline-danger remove-faculty">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>`;
+
+    // Agregar sedes
+    document.getElementById('add-campus-edit')?.addEventListener('click', function() {
+        document.getElementById('edit-campuses-container').insertAdjacentHTML('beforeend', campusTemplate);
+    });
+
+    // Agregar facultades
+    document.getElementById('add-faculty-edit')?.addEventListener('click', function() {
+        document.getElementById('edit-faculties-container').insertAdjacentHTML('beforeend', facultyTemplate);
+    });
+
+    // Eliminar elementos
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-campus')) {
+            e.target.closest('.input-group').remove();
+        }
+        if (e.target.closest('.remove-faculty')) {
+            e.target.closest('.input-group').remove();
+        }
+    });
+
+    // Envío del formulario
+    const editForm = document.getElementById('edit-institution-form');
+    if (editForm) {
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('edit-save-btn');
+            const submitText = document.getElementById('edit-submit-text');
+            const spinner = document.getElementById('edit-submit-spinner');
+            
+            submitBtn.disabled = true;
+            submitText.textContent = 'Guardando...';
+            spinner.classList.remove('d-none');
+
+            fetch(editForm.action, {
+                method: 'POST',
+                body: new FormData(editForm),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || JSON.stringify(data.errors)));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error de conexión');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitText.innerHTML = '<i class="bi bi-save me-1"></i> Guardar cambios';
+                spinner.classList.add('d-none');
+            });
+        });
+    }
+});
+</script>
 {% endblock %}
