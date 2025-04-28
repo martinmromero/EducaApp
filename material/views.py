@@ -576,9 +576,15 @@ def edit_institution(request, pk):
         
         return JsonResponse({'success': False, 'errors': form.errors}, status=400)
     
-    # Renderizar página completa de edición
+    # GET request - Preparar datos para el template
+    campuses = institution.campuses.all()
+    faculties = institution.faculties.all()
+    
     return render(request, 'material/edit_institution.html', {
-        'institution': institution
+        'institution': institution,
+        'campuses': campuses,
+        'faculties': faculties,
+        'form': InstitutionForm(instance=institution)
     })
 
 @login_required
