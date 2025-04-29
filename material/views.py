@@ -524,13 +524,43 @@ def manage_institutions(request):
                 institution = form.save(commit=False)
                 institution.owner = request.user
                 institution.save()
-                return JsonResponse({'success': True})
-            return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+                
+                # Procesar sedes
+                for campus_name in request.POST.getlist('campuses'):
+                    if campus_name.strip():
+                        Campus.objects.create(
+                            name=campus_name.strip(),
+                            institution=institution
+                        )
+                
+                # Procesar facultades
+                for name, code in zip(
+                    request.POST.getlist('faculty_names'),
+                    request.POST.getlist('faculty_codes')
+                ):
+                    if name.strip():
+                        Faculty.objects.create(
+                            name=name.strip(),
+                            code=code.strip(),
+                            institution=institution
+                        )
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Institución creada correctamente'
+                })
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors
+            }, status=400)
         except Exception as e:
             logger.error(f"Error al guardar institución: {str(e)}")
-            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
 
-    institutions = Institution.objects.filter(owner=request.user)
+    institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
     return render(request, 'material/manage_institutions.html', {
         'institutions': institutions
     })
@@ -544,39 +574,74 @@ def edit_institution(request, pk):
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    # Guardar institución
+                    # Procesar logo
+                    if 'logo-clear' in request.POST:
+                        institution.logo.delete(save=False)
+                    if 'logo' in request.FILES:
+                        institution.logo = request.FILES['logo']
+                    
                     institution = form.save()
                     
-                    # Procesar sedes
-                    Campus.objects.filter(institution=institution).delete()
-                    campuses = request.POST.getlist('campuses')
-                    for campus_name in campuses:
+                    # Sincronizar sedes
+                    existing_campuses = list(institution.campuses.all())
+                    submitted_campuses = []
+                    
+                    for campus_name in request.POST.getlist('campuses'):
                         if campus_name.strip():
-                            Campus.objects.create(
-                                name=campus_name.strip(),
-                                institution=institution
-                            )
+                            campus = next((c for c in existing_campuses if c.name == campus_name.strip()), None)
+                            if not campus:
+                                campus = Campus.objects.create(
+                                    name=campus_name.strip(),
+                                    institution=institution
+                                )
+                            submitted_campuses.append(campus.id)
                     
-                    # Procesar facultades
-                    Faculty.objects.filter(institution=institution).delete()
-                    faculty_names = request.POST.getlist('faculty_names')
-                    faculty_codes = request.POST.getlist('faculty_codes')
-                    for name, code in zip(faculty_names, faculty_codes):
+                    # Eliminar sedes no enviadas
+                    Campus.objects.filter(
+                        institution=institution
+                    ).exclude(id__in=submitted_campuses).delete()
+                    
+                    # Sincronizar facultades
+                    existing_faculties = list(institution.faculties.all())
+                    submitted_faculties = []
+                    
+                    for name, code in zip(
+                        request.POST.getlist('faculty_names'),
+                        request.POST.getlist('faculty_codes')
+                    ):
                         if name.strip():
-                            Faculty.objects.create(
-                                name=name.strip(),
-                                code=code.strip(),
-                                institution=institution
-                            )
+                            faculty = next((f for f in existing_faculties if f.name == name.strip()), None)
+                            if not faculty:
+                                faculty = Faculty.objects.create(
+                                    name=name.strip(),
+                                    code=code.strip(),
+                                    institution=institution
+                                )
+                            submitted_faculties.append(faculty.id)
                     
-                    return JsonResponse({'success': True})
+                    # Eliminar facultades no enviadas
+                    Faculty.objects.filter(
+                        institution=institution
+                    ).exclude(id__in=submitted_faculties).delete()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Cambios guardados correctamente'
+                    })
+            
             except Exception as e:
-                logger.error(f"Error al editar institución: {str(e)}")
-                return JsonResponse({'success': False, 'error': str(e)}, status=500)
+                logger.error(f"Error en edit_institution: {str(e)}", exc_info=True)
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Error al procesar los cambios'
+                }, status=500)
         
-        return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+        return JsonResponse({
+            'success': False,
+            'errors': form.errors
+        }, status=400)
     
-    # GET request - Preparar datos para el template
+    # GET request
     campuses = institution.campuses.all()
     faculties = institution.faculties.all()
     
@@ -590,29 +655,26 @@ def edit_institution(request, pk):
 @login_required
 @require_http_methods(["POST"])
 def delete_institution(request, pk):
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     institution = get_object_or_404(Institution, pk=pk, owner=request.user)
-    
     try:
         with transaction.atomic():
+            # Eliminar relaciones primero para evitar problemas de integridad
+            institution.campuses.all().delete()
+            institution.faculties.all().delete()
             institution.delete()
-            institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
             
-            if is_ajax:
-                return JsonResponse({
-                    'success': True,
-                    'html': render_to_string('material/institution_row.html', {'institutions': institutions})
-                })
-            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True})
             messages.success(request, 'Institución eliminada correctamente')
             return redirect('material:manage_institutions')
-    
+            
     except Exception as e:
-        if is_ajax:
+        logger.error(f"Error eliminando institución: {str(e)}", exc_info=True)
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': 'Error al eliminar la institución'
             }, status=500)
-        
-        messages.error(request, f'Error al eliminar: {str(e)}')
+        messages.error(request, 'Error al eliminar la institución')
         return redirect('material:manage_institutions')
+    
