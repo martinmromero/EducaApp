@@ -22,11 +22,11 @@
                     <label class="form-label">Sedes</label>
                     <div id="campuses-container">
                         {% for campus in campuses %}
-                        <div class="input-group mb-2">
-                            <input type="hidden" name="campus_id_{{ forloop.counter0 }}" value="{{ campus.id }}">
+                        <div class="input-group mb-2 campus-item" data-id="{{ campus.id }}">
                             <input type="text" name="campuses" class="form-control" 
                                    value="{{ campus.name }}" required>
-                            <button type="button" class="btn btn-outline-danger remove-campus">
+                            <button type="button" class="btn btn-outline-danger remove-campus" 
+                                    data-id="{{ campus.id }}">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
@@ -41,13 +41,13 @@
                     <label class="form-label">Facultades</label>
                     <div id="faculties-container">
                         {% for faculty in faculties %}
-                        <div class="input-group mb-2">
-                            <input type="hidden" name="faculty_id_{{ forloop.counter0 }}" value="{{ faculty.id }}">
+                        <div class="input-group mb-2 faculty-item" data-id="{{ faculty.id }}">
                             <input type="text" name="faculty_names" class="form-control" 
                                    value="{{ faculty.name }}" required>
                             <input type="text" name="faculty_codes" class="form-control" 
                                    placeholder="Código" value="{{ faculty.code }}">
-                            <button type="button" class="btn btn-outline-danger remove-faculty">
+                            <button type="button" class="btn btn-outline-danger remove-faculty"
+                                    data-id="{{ faculty.id }}">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
@@ -87,49 +87,63 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Templates mejorados con IDs únicos
+        // Contadores para IDs únicos
         let campusCounter = {{ campuses.count }};
         let facultyCounter = {{ faculties.count }};
     
-        const campusTemplate = `
-        <div class="input-group mb-2">
-            <input type="hidden" name="campus_ids" value="new-${Date.now()}">
+        // Templates mejorados
+        const campusTemplate = (id) => `
+        <div class="input-group mb-2 campus-item" data-id="new-${id}">
             <input type="text" name="campuses" class="form-control" required>
-            <button type="button" class="btn btn-outline-danger remove-campus">
+            <button type="button" class="btn btn-outline-danger remove-campus" 
+                    data-id="new-${id}">
                 <i class="bi bi-trash"></i>
             </button>
         </div>`;
     
-        const facultyTemplate = `
-        <div class="input-group mb-2">
-            <input type="hidden" name="faculty_ids" value="new-${Date.now()}">
+        const facultyTemplate = (id) => `
+        <div class="input-group mb-2 faculty-item" data-id="new-${id}">
             <input type="text" name="faculty_names" class="form-control" required>
             <input type="text" name="faculty_codes" class="form-control" placeholder="Código">
-            <button type="button" class="btn btn-outline-danger remove-faculty">
+            <button type="button" class="btn btn-outline-danger remove-faculty"
+                    data-id="new-${id}">
                 <i class="bi bi-trash"></i>
             </button>
         </div>`;
     
-        // Agregar campos
+        // Agregar campos dinámicos con IDs únicos
         document.getElementById('add-campus')?.addEventListener('click', function() {
-            const container = document.getElementById('campuses-container');
-            container.insertAdjacentHTML('beforeend', campusTemplate.replace('new-', `new-${campusCounter++}-`));
+            const id = `campus-${Date.now()}-${campusCounter++}`;
+            document.getElementById('campuses-container').insertAdjacentHTML('beforeend', campusTemplate(id));
         });
     
         document.getElementById('add-faculty')?.addEventListener('click', function() {
-            const container = document.getElementById('faculties-container');
-            container.insertAdjacentHTML('beforeend', facultyTemplate.replace('new-', `new-${facultyCounter++}-`));
+            const id = `faculty-${Date.now()}-${facultyCounter++}`;
+            document.getElementById('faculties-container').insertAdjacentHTML('beforeend', facultyTemplate(id));
         });
     
-        // Eliminar campos
+        // Eliminar campos con confirmación
         document.addEventListener('click', function(e) {
             const removeBtn = e.target.closest('.remove-campus') || e.target.closest('.remove-faculty');
             if (removeBtn) {
-                removeBtn.closest('.input-group').remove();
+                if (confirm('¿Eliminar este elemento permanentemente?')) {
+                    const itemId = removeBtn.dataset.id;
+                    if (itemId.startsWith('new-')) {
+                        removeBtn.closest('.input-group').remove();
+                    } else {
+                        // Marcar para eliminación en backend
+                        const hiddenInput = document.createElement('input');
+                        hiddenInput.type = 'hidden';
+                        hiddenInput.name = itemId.includes('campus') ? 'delete_campuses' : 'delete_faculties';
+                        hiddenInput.value = itemId;
+                        document.getElementById('edit-institution-form').appendChild(hiddenInput);
+                        removeBtn.closest('.input-group').remove();
+                    }
+                }
             }
         });
     
-        // Envío del formulario
+        // Envío del formulario con feedback mejorado
         const form = document.getElementById('edit-institution-form');
         if (form) {
             form.addEventListener('submit', async function(e) {
@@ -149,18 +163,15 @@
                         }
                     });
     
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-    
                     const data = await response.json();
+                    
                     if (data.success) {
                         window.location.href = "{% url 'material:manage_institutions' %}";
                     } else {
-                        throw new Error(data.error || 'Error al guardar');
+                        const errorMsg = data.errors ? Object.values(data.errors).join(', ') : 'Error al guardar';
+                        throw new Error(errorMsg);
                     }
                 } catch (error) {
-                    console.error('Error:', error);
                     alert(error.message);
                 } finally {
                     submitBtn.disabled = false;
@@ -169,6 +180,6 @@
             });
         }
     });
-    </script>
+</script>
 
 {% endblock content %}

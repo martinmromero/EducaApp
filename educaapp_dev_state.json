@@ -1,0 +1,355 @@
+{
+  "metadata": {
+    "description": "Solo para desarrollo - No usar en producci\u00f3n",
+    "fecha": "2024-06-20",
+    "total_usuarios": 3
+  },
+  "institutions": [
+    {
+      "model": "material.institution",
+      "pk": 1,
+      "fields": {
+        "name": "UAI",
+        "logo": "institution_logos/mariachi.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 2,
+      "fields": {
+        "name": "uba",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-15_094446_eFscPxE.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 3,
+      "fields": {
+        "name": "uni9",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-15_135452_AjxXSgV.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 4,
+      "fields": {
+        "name": "Universidad Ejemplo",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-15_135452_Eh0JQfs.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 5,
+      "fields": {
+        "name": "udesa",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-01_120816_zfGOTCf.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 6,
+      "fields": {
+        "name": "uni6",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-15_135452_UKugZ9w.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 8,
+      "fields": {
+        "name": "Universidad Ejemplo99",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-15_094446_I2EX5zm.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 10,
+      "fields": {
+        "name": "UAI5",
+        "logo": "institution_logos/Imagen_de_WhatsApp_2025-04-24_a_las_19.03.18_a7cf8138_MjCkkPb.jpg",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 11,
+      "fields": {
+        "name": "fdgsdfg",
+        "logo": "institution_logos/Imagen_de_WhatsApp_2025-04-24_a_las_19.03.18_a7cf8138_W8UzVV0.jpg",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 12,
+      "fields": {
+        "name": "UAI88",
+        "logo": "institution_logos/Captura_de_pantalla_2025-04-25_110021.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 13,
+      "fields": {
+        "name": "UAI877",
+        "logo": "",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 14,
+      "fields": {
+        "name": "UP325",
+        "logo": "",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 15,
+      "fields": {
+        "name": "test1",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-15_094446_17a3QgL.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 16,
+      "fields": {
+        "name": "UP78",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-01_120816_zbdIUVL.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 17,
+      "fields": {
+        "name": "UAI456456",
+        "logo": "",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 18,
+      "fields": {
+        "name": "UAI23454",
+        "logo": "",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 19,
+      "fields": {
+        "name": "uba234r24f",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-15_161512_iyazlpi.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 20,
+      "fields": {
+        "name": "UAI5664",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-22_131536.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 21,
+      "fields": {
+        "name": "test3",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-16_122635_oWszuFF.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 22,
+      "fields": {
+        "name": "UAI3535",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-01_120816_PoU7bFF.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 23,
+      "fields": {
+        "name": "UP988gh89g8",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-16_122635_FWlTeiS.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 24,
+      "fields": {
+        "name": "unam",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-15_135452_r5qPeTh.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 25,
+      "fields": {
+        "name": "uba343f34f33",
+        "logo": "institution_logos/Captura_de_pantalla_2024-02-15_094446_AgM0xph.png",
+        "owner": 3
+      }
+    },
+    {
+      "model": "material.institution",
+      "pk": 26,
+      "fields": {
+        "name": "UAIfgg87g8",
+        "logo": "",
+        "owner": 3
+      }
+    }
+  ],
+  "campuses": [
+    {
+      "model": "material.campus",
+      "pk": 9,
+      "fields": {
+        "name": "dsfsadfa",
+        "address": "",
+        "institution": 1
+      }
+    },
+    {
+      "model": "material.campus",
+      "pk": 10,
+      "fields": {
+        "name": "centro",
+        "address": "",
+        "institution": 13
+      }
+    },
+    {
+      "model": "material.campus",
+      "pk": 11,
+      "fields": {
+        "name": "centro",
+        "address": "",
+        "institution": 6
+      }
+    },
+    {
+      "model": "material.campus",
+      "pk": 12,
+      "fields": {
+        "name": "centro",
+        "address": "",
+        "institution": 22
+      }
+    },
+    {
+      "model": "material.campus",
+      "pk": 13,
+      "fields": {
+        "name": "centro",
+        "address": "",
+        "institution": 23
+      }
+    },
+    {
+      "model": "material.campus",
+      "pk": 14,
+      "fields": {
+        "name": "centro",
+        "address": "",
+        "institution": 24
+      }
+    },
+    {
+      "model": "material.campus",
+      "pk": 15,
+      "fields": {
+        "name": "Campus Central",
+        "address": "",
+        "institution": 25
+      }
+    }
+  ],
+  "faculties": [
+    {
+      "model": "material.faculty",
+      "pk": 7,
+      "fields": {
+        "name": "fwfwfwef",
+        "code": "33",
+        "institution": 1
+      }
+    },
+    {
+      "model": "material.faculty",
+      "pk": 8,
+      "fields": {
+        "name": "medicina",
+        "code": "",
+        "institution": 3
+      }
+    },
+    {
+      "model": "material.faculty",
+      "pk": 9,
+      "fields": {
+        "name": "medicina",
+        "code": "",
+        "institution": 6
+      }
+    },
+    {
+      "model": "material.faculty",
+      "pk": 10,
+      "fields": {
+        "name": "medicina",
+        "code": "",
+        "institution": 22
+      }
+    },
+    {
+      "model": "material.faculty",
+      "pk": 11,
+      "fields": {
+        "name": "medicina",
+        "code": "",
+        "institution": 23
+      }
+    },
+    {
+      "model": "material.faculty",
+      "pk": 12,
+      "fields": {
+        "name": "turismo",
+        "code": "",
+        "institution": 24
+      }
+    },
+    {
+      "model": "material.faculty",
+      "pk": 13,
+      "fields": {
+        "name": "turismo",
+        "code": "",
+        "institution": 25
+      }
+    }
+  ]
+}

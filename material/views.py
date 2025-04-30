@@ -545,20 +545,34 @@ def manage_institutions(request):
                             institution=institution
                         )
                 
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': True,
+                        'html': render_to_string('material/institution_row.html', {
+                            'institution': institution
+                        })
+                    })
+                messages.success(request, 'Institución creada correctamente')
+                return redirect('material:manage_institutions')
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
-                    'success': True,
-                    'message': 'Institución creada correctamente'
-                })
-            return JsonResponse({
-                'success': False,
-                'errors': form.errors
-            }, status=400)
+                    'success': False,
+                    'errors': form.errors
+                }, status=400)
+            
+            messages.error(request, 'Error en el formulario')
+            return redirect('material:manage_institutions')
+            
         except Exception as e:
             logger.error(f"Error al guardar institución: {str(e)}")
-            return JsonResponse({
-                'success': False,
-                'error': str(e)
-            }, status=500)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e)
+                }, status=500)
+            messages.error(request, 'Error al procesar la solicitud')
+            return redirect('material:manage_institutions')
 
     institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
     return render(request, 'material/manage_institutions.html', {

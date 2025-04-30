@@ -5,7 +5,6 @@
 <div class="container mt-4">
     <h2 class="mb-4">Gestión de Instituciones</h2>
 
-    <!-- Mensajes mejorados -->
     <div id="ajax-messages">
         {% for message in messages %}
         <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
@@ -15,7 +14,6 @@
         {% endfor %}
     </div>
 
-    <!-- Formulario principal -->
     <div class="card shadow mb-4">
         <div class="card-header bg-primary text-white">
             <h4 class="mb-0">Nueva Institución</h4>
@@ -55,7 +53,6 @@
         </div>
     </div>
 
-    <!-- Tabla mejorada -->
     <div class="card shadow">
         <div class="card-header bg-light">
             <h4 class="mb-0">Instituciones Registradas</h4>
@@ -73,48 +70,7 @@
                     </thead>
                     <tbody id="institutions-table-body">
                         {% for institution in institutions %}
-                        <tr id="inst-{{ institution.id }}">
-                            <td>
-                                {% if institution.logo %}
-                                <img src="{{ institution.logo.url }}" alt="Logo" class="img-thumbnail" width="50">
-                                {% endif %}
-                                {{ institution.name }}
-                            </td>
-                            <td>
-                                <ul class="list-unstyled mb-0">
-                                    {% for campus in institution.campuses.all %}
-                                    <li>{{ campus.name }}</li>
-                                    {% empty %}
-                                    <li class="text-muted">Sin sedes</li>
-                                    {% endfor %}
-                                </ul>
-                            </td>
-                            <td>
-                                <ul class="list-unstyled mb-0">
-                                    {% for faculty in institution.faculties.all %}
-                                    <li>{{ faculty.name }} ({{ faculty.code|default:"Sin código" }})</li>
-                                    {% empty %}
-                                    <li class="text-muted">Sin facultades</li>
-                                    {% endfor %}
-                                </ul>
-                            </td>
-                            <td class="text-end">
-                                <div class="btn-group">
-                                    <a href="{% url 'material:edit_institution' pk=institution.id %}" 
-                                       class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                    <form method="post" action="{% url 'material:delete_institution' pk=institution.id %}" 
-                                          class="d-inline">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-outline-danger"
-                                                onclick="return confirm('¿Eliminar esta institución?')">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
+                        {% include 'material/institution_row.html' with institution=institution %}
                         {% empty %}
                         <tr>
                             <td colspan="4" class="text-center">No hay instituciones registradas</td>
@@ -129,7 +85,6 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Templates para campos dinámicos
         const campusTemplate = `
         <div class="input-group mb-2">
             <input type="text" name="campuses" class="form-control" placeholder="Nombre de sede" required>
@@ -147,7 +102,6 @@
             </button>
         </div>`;
     
-        // Función para mostrar alertas
         const showAlert = (type, message) => {
             const alertDiv = document.createElement('div');
             alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
@@ -159,7 +113,6 @@
             setTimeout(() => alertDiv.remove(), 5000);
         };
     
-        // Agregar campos dinámicos
         document.getElementById('add-campus')?.addEventListener('click', () => {
             document.getElementById('campuses-container').insertAdjacentHTML('beforeend', campusTemplate);
         });
@@ -168,14 +121,12 @@
             document.getElementById('faculties-container').insertAdjacentHTML('beforeend', facultyTemplate);
         });
     
-        // Eliminar campos dinámicos
         document.addEventListener('click', (e) => {
             if (e.target.closest('.remove-item')) {
                 e.target.closest('.input-group').remove();
             }
         });
     
-        // Manejo del formulario principal
         const mainForm = document.getElementById('institution-form');
         if (mainForm) {
             mainForm.addEventListener('submit', function(e) {
@@ -189,7 +140,8 @@
                     method: 'POST',
                     body: new FormData(this),
                     headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': this.querySelector('[name=csrfmiddlewaretoken]').value
                     }
                 })
                 .then(response => {
@@ -201,9 +153,13 @@
                 })
                 .then(data => {
                     if (data?.success) {
-                        window.location.reload();
+                        document.getElementById('institutions-table-body').insertAdjacentHTML('afterbegin', data.html);
+                        showAlert('success', 'Institución creada correctamente');
+                        mainForm.reset();
+                        document.getElementById('campuses-container').innerHTML = '';
+                        document.getElementById('faculties-container').innerHTML = '';
                     } else {
-                        throw new Error(data?.error || 'Error al guardar');
+                        throw new Error(data?.errors ? Object.values(data.errors).join(', ') : 'Error al guardar');
                     }
                 })
                 .catch(error => {
@@ -216,36 +172,29 @@
             });
         }
     
-        // Manejo de eliminación de instituciones
-        document.querySelectorAll('form[action*="delete_institution"]').forEach(form => {
-            form.addEventListener('submit', function(e) {
+        document.addEventListener('submit', function(e) {
+            if (e.target.matches('form[action*="delete_institution"]')) {
                 e.preventDefault();
                 
                 if (!confirm('¿Está seguro que desea eliminar esta institución permanentemente?')) {
                     return;
                 }
     
-                const deleteBtn = this.querySelector('button[type="submit"]');
+                const deleteBtn = e.target.querySelector('button[type="submit"]');
                 deleteBtn.disabled = true;
                 deleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Eliminando...';
     
-                fetch(this.action, {
+                fetch(e.target.action, {
                     method: 'POST',
                     headers: {
-                        'X-CSRFToken': this.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'X-CSRFToken': e.target.querySelector('[name=csrfmiddlewaretoken]').value,
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 })
-                .then(response => {
-                    if (response.redirected) {
-                        window.location.href = response.url;
-                        return;
-                    }
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
                     if (data?.success) {
-                        this.closest('tr').remove();
+                        e.target.closest('tr').remove();
                         showAlert('success', 'Institución eliminada correctamente');
                     } else {
                         throw new Error(data?.error || 'Error al eliminar');
@@ -258,9 +207,9 @@
                     deleteBtn.disabled = false;
                     deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
                 });
-            });
+            }
         });
     });
-    </script>
+</script>
 
 {% endblock %}
