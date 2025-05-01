@@ -2,9 +2,11 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
+from .models import InstitutionV2 
 from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
-    Subject, Topic, Institution, LearningOutcome, Campus, Faculty
+    Subject, Topic, Institution, LearningOutcome, Campus, Faculty,InstitutionV2,
+    CampusV2,FacultyV2,UserInstitution
 )
 
 from django import forms  
@@ -13,6 +15,8 @@ from .models import Institution, Campus, Faculty
 from django import forms
 from .models import Institution
 from django.core.exceptions import ValidationError
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Submit
 
 class InstitutionForm(forms.ModelForm):
     class Meta:
@@ -266,3 +270,66 @@ class UserEditForm(forms.ModelForm):
                 user.profile.save()
                 user.profile.institutions.set(self.cleaned_data['institutions'])
         return user
+    
+
+    # material/forms.py - Agregar al final del archivo
+class InstitutionV2Form(forms.ModelForm):
+    class Meta:
+        model = InstitutionV2
+        fields = ['name', 'logo']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nombre de la institución',
+                'required': 'required',
+                'minlength': '3'
+            }),
+            'logo': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': '.jpg,.jpeg,.png,.svg'
+            })
+        }
+
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if InstitutionV2.objects.filter(name=name).exists():
+            raise ValidationError("Una institución con este nombre ya existe")
+        return name
+
+class CampusV2Form(forms.ModelForm):
+    class Meta:
+        model = CampusV2
+        fields = ['name', 'address']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nombre de la sede',
+                'required': 'required'
+            }),
+            'address': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': 'Dirección completa'
+            })
+        }
+
+class FacultyV2Form(forms.ModelForm):
+    class Meta:
+        model = FacultyV2
+        fields = ['name', 'code']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nombre de la facultad',
+                'required': 'required'
+            }),
+            'code': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Código (opcional)'
+            })
+        }
+
+class FavoriteInstitutionForm(forms.ModelForm):
+    class Meta:
+        model = UserInstitution
+        fields = ['is_favorite']

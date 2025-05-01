@@ -27,6 +27,11 @@ from .forms import (
 from .ia_processor import extract_text_from_file, generate_questions_from_text
 
 from .forms import InstitutionForm, LearningOutcomeForm, ProfileForm
+# Modelos
+from .models import InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog
+
+# Formularios
+from .forms import InstitutionV2Form, CampusV2Form, FacultyV2Form, FavoriteInstitutionForm
 
 # Logger configuration
 logger = logging.getLogger(__name__)
@@ -691,4 +696,203 @@ def delete_institution(request, pk):
             }, status=500)
         messages.error(request, 'Error al eliminar la institución')
         return redirect('material:manage_institutions')
+
+
+# material/views.py - Agregar al final del archivo
+@login_required
+def list_institutions_v2(request):
+    institutions = InstitutionV2.objects.filter(
+        userinstitution__user=request.user
+    ).annotate(
+        is_favorite=models.Case(
+            models.When(
+                userinstitution__user=request.user,
+                userinstitution__is_favorite=True,
+                then=True
+            ),
+            default=False,
+            output_field=models.BooleanField()
+        )
+    ).order_by('-userinstitution__is_favorite', 'name')
+
+    # Filtros
+    name_query = request.GET.get('name')
+    favorite_only = request.GET.get('favorites') == 'true'
+
+    if name_query:
+        institutions = institutions.filter(name__icontains=name_query)
+    if favorite_only:
+        institutions = institutions.filter(userinstitution__is_favorite=True)
+
+    paginator = Paginator(institutions, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'material/institutions_v2/list.html', {
+        'institutions': page_obj,
+        'name_query': name_query or '',
+        'favorite_only': favorite_only
+    })
+
+@login_required
+def create_institution_v2(request):
+    if request.method == 'POST':
+        form = InstitutionV2Form(request.POST, request.FILES)
+        if form.is_valid():
+            with transaction.atomic():
+                institution = form.save()
+                UserInstitution.objects.create(
+                    user=request.user,
+                    institution=institution,
+                    is_favorite=False
+                )
+                InstitutionLog.objects.create(
+                    institution=institution,
+                    user=request.user,
+                    action='create',
+                    details={'name': institution.name}
+                )
+                messages.success(request, 'Institución creada correctamente')
+                return redirect('material:list_institutions_v2')
+    else:
+        form = InstitutionV2Form()
+
+    return render(request, 'material/institutions_v2/create.html', {'form': form})
+
+@login_required
+def edit_institution_v2(request, pk):
+    institution = get_object_or_404(
+        InstitutionV2,
+        pk=pk,
+        userinstitution__user=request.user
+    )
     
+    if request.method == 'POST':
+        form = InstitutionV2Form(request.POST, request.FILES, instance=institution)
+        if form.is_valid():
+            old_name = institution.name
+            institution = form.save()
+            
+            if old_name != institution.name:
+                InstitutionLog.objects.create(
+                    institution=institution,
+                    user=request.user,
+                    action='update',
+                    details={
+                        'field': 'name',
+                        'old_value': old_name,
+                        'new_value': institution.name
+                    }
+                )
+            
+            messages.success(request, 'Institución actualizada correctamente')
+            return redirect('material:list_institutions_v2')
+    else:
+        form = InstitutionV2Form(instance=institution)
+
+    return render(request, 'material/institutions_v2/edit.html', {
+        'form': form,
+        'institution': institution
+    })
+
+@login_required
+def delete_institution_v2(request, pk):
+    institution = get_object_or_404(
+        InstitutionV2,
+        pk=pk,
+        userinstitution__user=request.user
+    )
+    
+    if request.method == 'POST':
+        if request.POST.get('confirmation') == 'CONFIRMAR':
+            with transaction.atomic():
+                InstitutionLog.objects.create(
+                    institution=institution,
+                    user=request.user,
+                    action='delete',
+                    details={'name': institution.name}
+                )
+                institution.is_active = False
+                institution.save()
+                messages.success(request, 'Institución desactivada correctamente')
+                return redirect('material:list_institutions_v2')
+        else:
+            messages.error(request, 'Confirmación incorrecta')
+            return redirect('material:delete_institution_v2', pk=pk)
+
+    return render(request, 'material/institutions_v2/confirm_delete.html', {
+        'institution': institution
+    })
+
+@login_required
+@require_http_methods(["POST"])
+def toggle_favorite_institution(request, pk):
+    institution = get_object_or_404(
+        InstitutionV2,
+        pk=pk,
+        userinstitution__user=request.user
+    )
+    
+    user_institution, created = UserInstitution.objects.get_or_create(
+        user=request.user,
+        institution=institution,
+        defaults={'is_favorite': True}
+    )
+    
+    if not created:
+        user_institution.is_favorite = not user_institution.is_favorite
+        user_institution.save()
+    
+    action = 'favorite' if user_institution.is_favorite else 'unfavorite'
+    InstitutionLog.objects.create(
+        institution=institution,
+        user=request.user,
+        action=action,
+        details={}
+    )
+    
+    return JsonResponse({
+        'success': True,
+        'is_favorite': user_institution.is_favorite
+    })
+
+@login_required
+def institution_v2_detail(request, pk):
+    institution = get_object_or_404(
+        InstitutionV2,
+        pk=pk,
+        userinstitution__user=request.user
+    )
+    
+    return render(request, 'material/institutions_v2/detail.html', {
+        'institution': institution,
+        'is_favorite': institution.userinstitution_set.filter(
+            user=request.user,
+            is_favorite=True
+        ).exists()
+    })
+
+@login_required
+def institution_v2_logs(request, pk):
+    institution = get_object_or_404(
+        InstitutionV2,
+        pk=pk,
+        userinstitution__user=request.user
+    )
+    
+    logs = InstitutionLog.objects.filter(institution=institution).order_by('-created_at')
+    
+    return render(request, 'material/institutions_v2/logs.html', {
+        'institution': institution,
+        'logs': logs
+    })
+
+
+# Agregar al final de views.py
+@login_required
+def count_favorite_institutions(request):
+    count = UserInstitution.objects.filter(
+        user=request.user,
+        is_favorite=True
+    ).count()
+    return JsonResponse({'count': count})

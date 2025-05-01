@@ -1,0 +1,75 @@
+<!-- material/templates/institutions_v2/logs.html -->
+{% extends "material/base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>
+                <i class="bi bi-clock-history me-2"></i>Historial de Cambios
+                <small class="text-muted">{{ institution.name }}</small>
+            </h2>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'material:institution_v2_detail' institution.pk %}" 
+               class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left me-1"></i>Volver al detalle
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            {% if logs %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Acción</th>
+                            <th>Detalles</th>
+                            <th>Usuario</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>
+                                <span class="badge 
+                                    {% if log.action == 'create' %}bg-success
+                                    {% elif log.action == 'update' %}bg-primary
+                                    {% elif log.action == 'delete' %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ log.get_action_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if log.action == 'update' %}
+                                    Campo <strong>{{ log.details.field }}</strong> cambiado de 
+                                    "{{ log.details.old_value }}" a "{{ log.details.new_value }}"
+                                {% elif log.action == 'create' %}
+                                    Institución creada: {{ log.details.name }}
+                                {% elif log.action == 'delete' %}
+                                    Institución eliminada: {{ log.details.name }}
+                                {% elif log.action == 'favorite' %}
+                                    Marcada como favorita
+                                {% else %}
+                                    {{ log.details }}
+                                {% endif %}
+                            </td>
+                            <td>{{ log.user.username|default:"Sistema" }}</td>
+                            <td>{{ log.created_at|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info text-center">
+                <i class="bi bi-info-circle me-2"></i> No hay registros de actividad para esta institución.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

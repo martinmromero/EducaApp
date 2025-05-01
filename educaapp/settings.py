@@ -19,7 +19,14 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'material.apps.MaterialConfig',
     'django_extensions',
+    'rest_framework', 
+    'crispy_forms',
+    'crispy_bootstrap5',
+
 ]
+
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"  # Si usas Bootstrap
+CRISPY_TEMPLATE_PACK = "bootstrap5"  # Si usas Bootstrap
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -36,7 +43,7 @@ ROOT_URLCONF = 'educaapp.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'DIRS': [os.path.join(BASE_DIR, 'material/templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

@@ -3,7 +3,86 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.validators import MinValueValidator, MaxValueValidator  
+from django.core.exceptions import ValidationError
 import json
+
+# --- MODELOS V2 PRIMERO (para evitar referencias circulares) ---
+
+class InstitutionV2(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    logo = models.ImageField(upload_to='institution_logos_v2/', null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        app_label = 'material'  # Añadir esto explícitamente
+    
+    def __str__(self):
+        return self.name
+
+# UserInstitution DEBE estar inmediatamente después
+class UserInstitution(models.Model):
+    user = models.ForeignKey('auth.User', on_delete=models.CASCADE)
+    institution = models.ForeignKey('material.InstitutionV2', on_delete=models.CASCADE)  # Usar string reference
+    is_favorite = models.BooleanField(default=False)
+    
+    class Meta:
+        app_label = 'material'
+        unique_together = ('user', 'institution')
+
+
+
+
+
+
+
+class CampusV2(models.Model):
+    name = models.CharField(max_length=100)
+    address = models.TextField(blank=True)
+    institution = models.ForeignKey(InstitutionV2, on_delete=models.CASCADE, related_name='campuses')
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Sede V2"
+        verbose_name_plural = "Sedes V2"
+        constraints = [
+            models.UniqueConstraint(fields=['name', 'institution'], name='unique_campusv2_per_institution')
+        ]
+
+class FacultyV2(models.Model):
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=10, blank=True)
+    institution = models.ForeignKey(InstitutionV2, on_delete=models.CASCADE, related_name='faculties')
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Facultad V2"
+        verbose_name_plural = "Facultades V2"
+        constraints = [
+            models.UniqueConstraint(fields=['name', 'institution'], name='unique_facultyv2_per_institution')
+        ]
+
+class InstitutionLog(models.Model):
+    ACTION_CHOICES = [
+        ('create', 'Creación'),
+        ('update', 'Actualización'),
+        ('delete', 'Eliminación'),
+        ('favorite', 'Favorito'),
+    ]
+
+    institution = models.ForeignKey(InstitutionV2, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    details = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Log de Institución"
+        verbose_name_plural = "Logs de Instituciones"
+
+# --- MODELOS ORIGINALES (se mantienen igual) ---
 
 class Institution(models.Model):
     name = models.CharField(max_length=255, unique=True)
@@ -620,6 +699,8 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
+
+
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

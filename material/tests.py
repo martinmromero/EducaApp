@@ -3,7 +3,8 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
-from .models import Institution, Campus, Faculty
+from django.contrib.auth.models import User
+from .models import Institution, Campus, Faculty,InstitutionV2, UserInstitution,CampusV2,FacultyV2,InstitutionLog 
 from .forms import InstitutionForm
 
 User = get_user_model()

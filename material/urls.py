@@ -1,5 +1,12 @@
 from django.urls import path
 from . import views
+from material.views import (
+    list_institutions_v2,
+    create_institution_v2,
+    edit_institution_v2,
+    # ... otras vistas V2
+)
+from .serializers import InstitutionV2Serializer
 
 app_name = 'material'
 
@@ -32,5 +39,14 @@ urlpatterns = [
     path('resultados-aprendizaje/', views.manage_learning_outcomes, name='manage_learning_outcomes'),
     path('instituciones/eliminar/<int:pk>/', views.delete_institution, name='delete_institution'),
     path('instituciones/editar/<int:pk>/', views.edit_institution, name='edit_institution'),
-    
+
+
+    path('instituciones-v2/', views.list_institutions_v2, name='list_institutions_v2'),
+    path('instituciones-v2/crear/', views.create_institution_v2, name='create_institution_v2'),
+    path('instituciones-v2/editar/<int:pk>/', views.edit_institution_v2, name='edit_institution_v2'),
+    path('instituciones-v2/eliminar/<int:pk>/', views.delete_institution_v2, name='delete_institution_v2'),
+    path('instituciones-v2/favorito/<int:pk>/', views.toggle_favorite_institution, name='toggle_favorite_institution'),
+    path('instituciones-v2/detalle/<int:pk>/', views.institution_v2_detail, name='institution_v2_detail'),
+    path('instituciones-v2/logs/<int:pk>/', views.institution_v2_logs, name='institution_v2_logs'),
+    path('instituciones-v2/count-favorites/', views.count_favorite_institutions, name='count_favorite_institutions'),
 ]

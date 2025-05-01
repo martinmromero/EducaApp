@@ -145,3 +145,12 @@ body.dark-mode {
     width: 120px;
     text-align: center;
 }
+
+/* Estilos para las instituciones favoritas */
+.favorite-star {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.favorite-star:hover {
+    transform: scale(1.2);
+}

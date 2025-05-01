@@ -6,4 +6,4 @@ class MaterialConfig(AppConfig):
 
     def ready(self):
         # Importar las señales para asegurar que se registren
-        import material.signals
+        from . import signals
