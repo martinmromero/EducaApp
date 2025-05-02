@@ -154,3 +154,12 @@ body.dark-mode {
 .favorite-star:hover {
     transform: scale(1.2);
 }
+
+.faculty-entry {
+    display: flex;
+    gap: 5px;
+}
+.img-thumbnail {
+    max-width: 150px;
+    display: block;
+}

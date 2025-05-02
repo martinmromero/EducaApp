@@ -2,41 +2,38 @@
 {% extends "material/base.html" %}
 {% load static %}
 
+
+
 {% block content %}
-<div class="container">
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <h2><i class="bi bi-buildings me-2"></i>Mis Instituciones</h2>
-        </div>
-        <div class="col-md-6 text-end">
-            <a href="{% url 'material:create_institution_v2' %}" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-1"></i>Nueva Institución
-            </a>
-        </div>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Mis Instituciones</h1>
+        <a href="{% url 'material:create_institution_v2' %}" class="btn btn-primary">
+            + Nueva Institución
+        </a>
     </div>
 
     <!-- Filtros -->
     <div class="card mb-4">
         <div class="card-body">
             <form method="get" class="row g-3">
-                <div class="col-md-5">
-                    <input type="text" name="name" class="form-control" placeholder="Buscar por nombre..." 
-                           value="{{ name_query }}">
+                <div class="col-md-6">
+                    <input type="text" name="name" value="{{ name_query }}" 
+                           class="form-control" placeholder="Buscar por nombre">
                 </div>
                 <div class="col-md-4">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="favorites" name="favorites" 
-                               value="true" {% if favorite_only %}checked{% endif %}>
-                        <label class="form-check-label" for="favorites">Solo favoritos</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="favorites" 
+                               id="favorites" {% if favorite_only %}checked{% endif %}>
+                        <label class="form-check-label" for="favorites">
+                            Solo favoritos ({{ favorite_count }})
+                        </label>
                     </div>
                 </div>
-                <div class="col-md-3 text-end">
-                    <button type="submit" class="btn btn-outline-primary me-2">
-                        <i class="bi bi-funnel"></i> Filtrar
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-secondary w-100">
+                        Filtrar
                     </button>
-                    <a href="{% url 'material:list_institutions_v2' %}" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                    </a>
                 </div>
             </form>
         </div>
@@ -45,7 +42,6 @@
     <!-- Listado -->
     <div class="card">
         <div class="card-body">
-            {% if institutions %}
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
@@ -60,31 +56,52 @@
                         {% for institution in institutions %}
                         <tr>
                             <td>
-                                <a href="{% url 'material:institution_v2_detail' institution.pk %}">
-                                    {{ institution.name }}
-                                </a>
+                                {{ institution.name }}
                                 {% if institution.is_favorite %}
-                                    <i class="bi bi-star-fill text-warning ms-1"></i>
+                                <span class="badge bg-warning ms-2">Favorita</span>
                                 {% endif %}
                             </td>
-                            <td>{{ institution.campuses.count }}</td>
-                            <td>{{ institution.faculties.count }}</td>
                             <td>
-                                <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-secondary toggle-favorite" 
-                                            data-institution-id="{{ institution.pk }}"
-                                            title="{{ institution.is_favorite|yesno:'Quitar de favoritos,Agregar a favoritos' }}">
-                                        <i class="bi bi-star{% if institution.is_favorite %}-fill text-warning{% endif %}"></i>
-                                    </button>
-                                    <a href="{% url 'material:edit_institution_v2' institution.pk %}" 
-                                       class="btn btn-outline-primary" title="Editar">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                    <a href="{% url 'material:delete_institution_v2' institution.pk %}" 
-                                       class="btn btn-outline-danger" title="Eliminar">
-                                        <i class="bi bi-trash"></i>
-                                    </a>
-                                </div>
+                                {% if institution.campuses.all %}
+                                <ul class="mb-0">
+                                    {% for campus in institution.campuses.all %}
+                                    <li>{{ campus.name }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <span class="text-muted">Sin sedes</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if institution.faculties.all %}
+                                <ul class="mb-0">
+                                    {% for faculty in institution.faculties.all %}
+                                    <li>{{ faculty.name }} ({{ faculty.code|default:"Sin código" }})</li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <span class="text-muted">Sin facultades</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-nowrap">
+                                <a href="{% url 'material:institution_v2_detail' institution.pk %}" 
+                                   class="btn btn-sm btn-outline-primary" title="Ver">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'material:edit_institution_v2' institution.pk %}" 
+                                   class="btn btn-sm btn-outline-warning" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'material:delete_institution_v2' institution.pk %}" 
+                                   class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">
+                                No hay instituciones registradas
                             </td>
                         </tr>
                         {% endfor %}
@@ -93,92 +110,36 @@
             </div>
 
             <!-- Paginación -->
+            {% if institutions.paginator.num_pages > 1 %}
             <nav aria-label="Page navigation">
-                <ul class="pagination justify-content-center">
-                    {% if page_obj.has_previous %}
+                <ul class="pagination justify-content-center mt-4">
+                    {% if institutions.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page=1{% if name_query %}&name={{ name_query }}{% endif %}{% if favorite_only %}&favorites=true{% endif %}">
-                            <i class="bi bi-chevron-double-left"></i>
-                        </a>
+                        <a class="page-link" href="?page=1">&laquo; Primera</a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if name_query %}&name={{ name_query }}{% endif %}{% if favorite_only %}&favorites=true{% endif %}">
-                            <i class="bi bi-chevron-left"></i>
-                        </a>
+                        <a class="page-link" href="?page={{ institutions.previous_page_number }}">Anterior</a>
                     </li>
                     {% endif %}
 
-                    <li class="page-item disabled">
+                    <li class="page-item active">
                         <span class="page-link">
-                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                            Página {{ institutions.number }} de {{ institutions.paginator.num_pages }}
                         </span>
                     </li>
 
-                    {% if page_obj.has_next %}
+                    {% if institutions.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if name_query %}&name={{ name_query }}{% endif %}{% if favorite_only %}&favorites=true{% endif %}">
-                            <i class="bi bi-chevron-right"></i>
-                        </a>
+                        <a class="page-link" href="?page={{ institutions.next_page_number }}">Siguiente</a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if name_query %}&name={{ name_query }}{% endif %}{% if favorite_only %}&favorites=true{% endif %}">
-                            <i class="bi bi-chevron-double-right"></i>
-                        </a>
+                        <a class="page-link" href="?page={{ institutions.paginator.num_pages }}">Última &raquo;</a>
                     </li>
                     {% endif %}
                 </ul>
             </nav>
-            {% else %}
-            <div class="alert alert-info text-center">
-                <i class="bi bi-info-circle me-2"></i> No hay instituciones registradas.
-            </div>
             {% endif %}
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Manejar favoritos con HTMX
-    document.querySelectorAll('.toggle-favorite').forEach(button => {
-        button.addEventListener('click', function() {
-            const institutionId = this.getAttribute('data-institution-id');
-            fetch(`/instituciones-v2/favorito/${institutionId}/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const icon = this.querySelector('i');
-                    if (data.is_favorite) {
-                        icon.classList.replace('bi-star', 'bi-star-fill');
-                        icon.classList.add('text-warning');
-                        this.setAttribute('title', 'Quitar de favoritos');
-                    } else {
-                        icon.classList.replace('bi-star-fill', 'bi-star');
-                        icon.classList.remove('text-warning');
-                        this.setAttribute('title', 'Agregar a favoritos');
-                    }
-                    // Actualizar contador en el sidebar
-                    fetch('/instituciones-v2/count-favorites/')
-                        .then(response => response.json())
-                        .then(data => {
-                            const badge = document.getElementById('favorites-badge');
-                            if (data.count > 0) {
-                                badge.textContent = data.count;
-                                badge.style.display = 'inline-block';
-                            } else {
-                                badge.style.display = 'none';
-                            }
-                        });
-                }
-            });
-        });
-    });
-});
-</script>
 {% endblock %}

@@ -1,0 +1,80 @@
+{% extends "material/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>Editar Institución</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <!-- Mostrar logo actual -->
+                {% if form.instance.logo %}
+                <div class="mb-3">
+                    <label class="form-label">Logo actual:</label>
+                    <img src="{{ form.instance.logo.url }}" alt="Logo" style="max-height: 100px;" class="img-thumbnail">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" name="logo-clear" id="logo-clear">
+                        <label class="form-check-label" for="logo-clear">Eliminar logo</label>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {{ form|crispy }}
+                
+                <!-- Campos para sedes -->
+                <div class="mb-3">
+                    <label class="form-label">Sedes</label>
+                    <div id="campuses-container">
+                        {% for campus in form.instance.campuses.all %}
+                        <input type="text" name="campuses" value="{{ campus.name }}" class="form-control mb-2">
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addCampusField()">+ Añadir Sede</button>
+                </div>
+                
+                <!-- Campos para facultades -->
+                <div class="mb-3">
+                    <label class="form-label">Facultades</label>
+                    <div id="faculties-container">
+                        {% for faculty in form.instance.faculties.all %}
+                        <div class="faculty-entry mb-2">
+                            <input type="text" name="faculty_names" value="{{ faculty.name }}" class="form-control d-inline-block w-75" placeholder="Nombre">
+                            <input type="text" name="faculty_codes" value="{{ faculty.code }}" class="form-control d-inline-block w-20" placeholder="Código">
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addFacultyField()">+ Añadir Facultad</button>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function addCampusField() {
+    const container = document.getElementById('campuses-container');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.name = 'campuses';
+    input.className = 'form-control mb-2';
+    container.appendChild(input);
+}
+
+function addFacultyField() {
+    const container = document.getElementById('faculties-container');
+    const div = document.createElement('div');
+    div.className = 'faculty-entry mb-2';
+    div.innerHTML = `
+        <input type="text" name="faculty_names" class="form-control d-inline-block w-75" placeholder="Nombre">
+        <input type="text" name="faculty_codes" class="form-control d-inline-block w-20" placeholder="Código">
+    `;
+    container.appendChild(div);
+}
+</script>
+{% endblock %}
