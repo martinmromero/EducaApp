@@ -8,19 +8,78 @@ import json
 
 # --- MODELOS V2 PRIMERO (para evitar referencias circulares) ---
 
-class InstitutionV2(models.Model):
-    name = models.CharField(max_length=255, unique=True)
-    logo = models.ImageField(upload_to='institution_logos_v2/', null=True, blank=True)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        app_label = 'material'  # Añadir esto explícitamente
-    
-    def __str__(self):
-        return self.name
+from django.db import models
+from django.core.exceptions import ValidationError
 
+# educaapp/material/models.py
+class InstitutionV2(models.Model):
+    name = models.CharField(
+        max_length=255,
+        verbose_name="Nombre",
+        help_text="Nombre completo de la institución"
+    )
+    logo = models.ImageField(
+        upload_to='institution_logos_v2/',
+        null=True,
+        blank=True,
+        verbose_name="Logo",
+        help_text="Subir imagen del logo institucional"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Activa",
+        help_text="Indica si la institución está activa en el sistema"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de creación"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Última actualización"
+    )
+
+    class Meta:
+        verbose_name = "Institución V2"
+        verbose_name_plural = "Instituciones V2"
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['name'],
+                name='unique_active_institution_name',
+                condition=models.Q(is_active=True)
+            )
+        ]
+        indexes = [
+            models.Index(fields=['name']),
+            models.Index(fields=['is_active'])
+        ]
+
+    def __str__(self):
+        status = " (Inactiva)" if not self.is_active else ""
+        return f"{self.name}{status}"
+
+    def clean(self):
+        if len(self.name.strip()) < 3:
+            raise ValidationError("El nombre debe tener al menos 3 caracteres")
+
+        if self.is_active and InstitutionV2.objects.filter(
+            name__iexact=self.name,
+            is_active=True
+        ).exclude(pk=self.pk).exists():
+            raise ValidationError("Ya existe una institución activa con este nombre")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """
+        Sobrescribe el delete para hacer eliminación lógica
+        """
+        self.is_active = False
+        self.save()
+        
 # UserInstitution DEBE estar inmediatamente después
 class UserInstitution(models.Model):
     user = models.ForeignKey('auth.User', on_delete=models.CASCADE)

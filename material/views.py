@@ -25,7 +25,7 @@ from .forms import (
     LearningOutcomeForm, ProfileForm
 )
 from .ia_processor import extract_text_from_file, generate_questions_from_text
-
+from django.utils import timezone  # Añadir al inicio del archivo
 from .forms import InstitutionForm, LearningOutcomeForm, ProfileForm
 # Modelos
 from .models import InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog
@@ -745,93 +745,135 @@ def list_institutions_v2(request):
 @login_required
 def create_institution_v2(request):
     if request.method == 'POST':
-        form = InstitutionV2Form(request.POST, request.FILES)  # Asegúrate de incluir request.FILES
-        if form.is_valid():
-            institution = form.save()
-            
-            # Procesar sedes
-            campuses = request.POST.getlist('campuses')
-            for campus_name in campuses:
-                if campus_name.strip():
+        # Crear formulario sin validación inicial
+        form = InstitutionV2Form(request.POST, request.FILES)
+        
+        # Validación manual mínima
+        if request.POST.get('name'):
+            with transaction.atomic():
+                institution = InstitutionV2.objects.create(
+                    name=request.POST['name'],
+                    logo=request.FILES.get('logo')
+                )
+
+                # Procesar sedes (opcional)
+                campuses = [name.strip() for name in request.POST.getlist('campuses') if name.strip()]
+                for name in campuses:
                     CampusV2.objects.create(
-                        name=campus_name.strip(),
-                        institution=institution
+                        name=name,
+                        institution=institution,
+                        is_active=True
                     )
-            
-            # Procesar facultades
-            faculty_names = request.POST.getlist('faculty_names')
-            faculty_codes = request.POST.getlist('faculty_codes')
-            for name, code in zip(faculty_names, faculty_codes):
-                if name.strip():
+
+                # Procesar facultades (opcional)
+                faculty_names = [name.strip() for name in request.POST.getlist('faculty_names') if name.strip()]
+                faculty_codes = request.POST.getlist('faculty_codes')
+                for name, code in zip(faculty_names, faculty_codes[:len(faculty_names)]):
                     FacultyV2.objects.create(
-                        name=name.strip(),
+                        name=name,
                         code=code.strip(),
-                        institution=institution
+                        institution=institution,
+                        is_active=True
                     )
-            
-            messages.success(request, 'Institución creada correctamente')
-            return redirect('material:list_institutions_v2')
+
+                messages.success(request, 'Institución creada correctamente')
+                return redirect('material:institution_v2_detail', pk=institution.pk)
+        else:
+            form.add_error('name', 'El nombre es obligatorio')
+
     else:
         form = InstitutionV2Form()
     
-    return render(request, 'material/institutions_v2/create.html', {'form': form})
+    return render(request, 'material/institutions_v2/create.html', {
+        'form': form,
+        'disable_validation': True  # Variable para deshabilitar validación en template
+    })
 
 @login_required
 def edit_institution_v2(request, pk):
-    institution = get_object_or_404(InstitutionV2, pk=pk)
+    institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
     
     if request.method == 'POST':
         form = InstitutionV2Form(request.POST, request.FILES, instance=institution)
         if form.is_valid():
-            # Procesar logo
-            if 'logo-clear' in request.POST:
-                institution.logo.delete(save=False)
-            elif 'logo' in request.FILES:
-                institution.logo = request.FILES['logo']
+            try:
+                with transaction.atomic():
+                    # Procesar logo
+                    if 'logo-clear' in request.POST:
+                        institution.logo.delete(save=False)
+                    elif 'logo' in request.FILES:
+                        institution.logo = request.FILES['logo']
+                    
+                    # Guardar institución
+                    institution = form.save()
+                    
+                    # Procesar sedes
+                    submitted_campuses = request.POST.getlist('campuses[]')
+                    existing_campuses = institution.campuses.all()
+                    
+                    # Crear/actualizar sedes
+                    campus_ids_to_keep = []
+                    for campus_name in submitted_campuses:
+                        if campus_name.strip():
+                            campus, created = CampusV2.objects.get_or_create(
+                                name=campus_name.strip(),
+                                institution=institution,
+                                defaults={'is_active': True}
+                            )
+                            if not created:
+                                campus.is_active = True
+                                campus.save()
+                            campus_ids_to_keep.append(campus.id)
+                    
+                    # Desactivar sedes no enviadas (eliminación lógica)
+                    institution.campuses.exclude(id__in=campus_ids_to_keep).update(is_active=False)
+                    
+                    # Procesar facultades
+                    faculty_names = request.POST.getlist('faculty_names[]')
+                    faculty_codes = request.POST.getlist('faculty_codes[]')
+                    existing_faculties = institution.faculties.all()
+                    
+                    # Crear/actualizar facultades
+                    faculty_ids_to_keep = []
+                    for name, code in zip(faculty_names, faculty_codes):
+                        if name.strip():
+                            faculty, created = FacultyV2.objects.get_or_create(
+                                name=name.strip(),
+                                institution=institution,
+                                defaults={
+                                    'code': code.strip(),
+                                    'is_active': True
+                                }
+                            )
+                            if not created:
+                                faculty.code = code.strip()
+                                faculty.is_active = True
+                                faculty.save()
+                            faculty_ids_to_keep.append(faculty.id)
+                    
+                    # Desactivar facultades no enviadas (eliminación lógica)
+                    institution.faculties.exclude(id__in=faculty_ids_to_keep).update(is_active=False)
+                    
+                    # Registrar acción en logs
+                    InstitutionLog.objects.create(
+                        institution=institution,
+                        user=request.user,
+                        action='update',
+                        details={
+                            'fields_updated': ['campuses', 'faculties'],
+                            'new_campuses': submitted_campuses,
+                            'new_faculties': list(zip(faculty_names, faculty_codes))
+                        }
+                    )
+                    
+                    messages.success(request, 'Institución actualizada correctamente')
+                    return redirect('material:institution_v2_detail', pk=institution.pk)
             
-            # Guardar institución
-            institution = form.save()
-            
-            # Procesar sedes
-            existing_campuses = list(institution.campuses.all())
-            submitted_campuses = []
-            
-            for campus_name in request.POST.getlist('campuses'):
-                if campus_name.strip():
-                    campus = next((c for c in existing_campuses if c.name == campus_name.strip()), None)
-                    if not campus:
-                        campus = CampusV2.objects.create(
-                            name=campus_name.strip(),
-                            institution=institution
-                        )
-                    submitted_campuses.append(campus.id)
-            
-            # Eliminar sedes no enviadas
-            CampusV2.objects.filter(institution=institution).exclude(id__in=submitted_campuses).delete()
-            
-            # Procesar facultades
-            existing_faculties = list(institution.faculties.all())
-            submitted_faculties = []
-            
-            for name, code in zip(
-                request.POST.getlist('faculty_names'),
-                request.POST.getlist('faculty_codes')
-            ):
-                if name.strip():
-                    faculty = next((f for f in existing_faculties if f.name == name.strip()), None)
-                    if not faculty:
-                        faculty = FacultyV2.objects.create(
-                            name=name.strip(),
-                            code=code.strip(),
-                            institution=institution
-                        )
-                    submitted_faculties.append(faculty.id)
-            
-            # Eliminar facultades no enviadas
-            FacultyV2.objects.filter(institution=institution).exclude(id__in=submitted_faculties).delete()
-            
-            messages.success(request, 'Institución actualizada correctamente')
-            return redirect('list_institutions_v2')
+            except Exception as e:
+                logger.error(f"Error al editar institución: {str(e)}", exc_info=True)
+                messages.error(request, 'Error al guardar los cambios. Por favor intente nuevamente.')
+        else:
+            messages.error(request, 'Por favor corrija los errores en el formulario.')
     else:
         form = InstitutionV2Form(instance=institution)
     
@@ -842,13 +884,34 @@ def edit_institution_v2(request, pk):
 
 @login_required
 def delete_institution_v2(request, pk):
-    institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
+    institution = get_object_or_404(
+        InstitutionV2,
+        pk=pk,
+        userinstitution__user=request.user,
+        is_active=True  # Solo buscar instituciones activas
+    )
     
     if request.method == 'POST':
-        institution.is_active = False
-        institution.save()
-        messages.success(request, 'Institución desactivada correctamente')
-        return redirect('list_institutions_v2')
+        try:
+            with transaction.atomic():
+                # Eliminación lógica
+                institution.is_active = False
+                institution.save()
+                
+                # Registrar en logs
+                InstitutionLog.objects.create(
+                    institution=institution,
+                    user=request.user,
+                    action='delete',
+                    details={'name': institution.name}
+                )
+                
+                messages.success(request, 'Institución eliminada correctamente')
+                return redirect('material:list_institutions_v2')
+        
+        except Exception as e:
+            logger.error(f"Error al eliminar: {str(e)}")
+            messages.error(request, 'Error al eliminar la institución')
     
     return render(request, 'material/institutions_v2/confirm_delete.html', {
         'institution': institution

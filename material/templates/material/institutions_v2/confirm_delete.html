@@ -7,11 +7,31 @@
             <h2>Confirmar Eliminación</h2>
         </div>
         <div class="card-body">
-            <p>¿Está seguro que desea eliminar la institución "{{ institution.name }}"?</p>
-            <form method="post">
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                ¿Está seguro que desea eliminar la institución "{{ institution.name }}"?
+            </div>
+            
+            <div class="mb-4">
+                <h5>Detalles:</h5>
+                <ul>
+                    <li><strong>Sedes:</strong> {{ institution.campuses.count }} serán desactivadas</li>
+                    <li><strong>Facultades:</strong> {{ institution.faculties.count }} serán desactivadas</li>
+                    <li><strong>Esta acción es irreversible</strong></li>
+                </ul>
+            </div>
+            
+            <form method="post" action="{% url 'material:delete_institution_v2' institution.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-danger">Confirmar Eliminación</button>
-                <a href="{% url 'list_institutions_v2' %}" class="btn btn-secondary">Cancelar</a>
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'material:institution_v2_detail' institution.pk %}" 
+                       class="btn btn-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i> Confirmar Eliminación
+                    </button>
+                </div>
             </form>
         </div>
     </div>

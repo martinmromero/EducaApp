@@ -275,17 +275,35 @@ class UserEditForm(forms.ModelForm):
     # material/forms.py - Agregar al final del archivo
 
 class InstitutionV2Form(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Desactivar todas las validaciones automáticas
+        for field in self.fields:
+            self.fields[field].required = False
+            self.fields[field].widget.attrs.pop('required', None)
+            self.fields[field].widget.attrs.pop('minlength', None)
+            self.fields[field].widget.attrs.pop('data-required', None)
+
     class Meta:
         model = InstitutionV2
         fields = ['name', 'logo']
-        
-    def clean_name(self):
-        name = self.cleaned_data.get('name')
-        if InstitutionV2.objects.filter(name=name).exists():
-            if not self.instance.pk:  # Solo para creación nueva
-                raise forms.ValidationError("Ya existe una institución con este nombre")
-        return name
-    
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nombre de la institución'
+            }),
+            'logo': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': '.jpg,.jpeg,.png,.svg'
+            })
+        }
+
+    def clean(self):
+        """Validación mínima - solo verifica que haya un nombre"""
+        cleaned_data = super().clean()
+        if not cleaned_data.get('name'):
+            self.add_error('name', 'Este campo es obligatorio')
+        return cleaned_data
 
 class CampusV2Form(forms.ModelForm):
     class Meta:
