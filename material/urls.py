@@ -40,7 +40,9 @@ urlpatterns = [
     path('instituciones/eliminar/<int:pk>/', views.delete_institution, name='delete_institution'),
     path('instituciones/editar/<int:pk>/', views.edit_institution, name='edit_institution'),
 
-
+    path('instituciones-v2/<int:institution_id>/campus/<int:campus_id>/edit/', views.edit_campus_v2, name='edit_campus_v2'),
+    path('instituciones-v2/<int:institution_id>/facultad/create/', views.create_faculty_v2, name='create_faculty_v2'),
+    path('instituciones-v2/<int:institution_id>/campus/create/', views.create_campus_v2, name='create_campus_v2'),
     path('instituciones-v2/', views.list_institutions_v2, name='list_institutions_v2'),
     path('instituciones-v2/crear/', views.create_institution_v2, name='create_institution_v2'),
     path('instituciones-v2/editar/<int:pk>/', views.edit_institution_v2, name='edit_institution_v2'),

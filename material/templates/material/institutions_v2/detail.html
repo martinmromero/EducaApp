@@ -14,7 +14,7 @@
         </div>
         <div class="col-md-4 text-end">
             <div class="btn-group">
-                <button class="btn btn-outline-secondary toggle-favorite" 
+                <button class="btn btn-outline-secondary toggle-favorite"
                         data-institution-id="{{ institution.pk }}"
                         title="{{ is_favorite|yesno:'Quitar de favoritos,Agregar a favoritos' }}">
                     <i class="bi bi-star{% if is_favorite %}-fill text-warning{% endif %}"></i>
@@ -30,130 +30,97 @@
     </div>
 
     <div class="row">
-        <div class="col-md-4">
+        <div class="col-md-6">
             <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
+                <div class="card-header bg-light">
                     <i class="bi bi-info-circle me-2"></i>Información General
                 </div>
                 <div class="card-body">
+                    <p><strong>Nombre:</strong> {{ institution.name }}</p>
                     {% if institution.logo %}
-                    <div class="text-center mb-3">
-                        <img src="{{ institution.logo.url }}" alt="Logo {{ institution.name }}" 
-                             class="img-fluid rounded" style="max-height: 150px;">
-                    </div>
+                        <img src="{{ institution.logo.url }}" alt="Logo" class="img-fluid mb-3">
                     {% endif %}
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-calendar me-2"></i>Creado:</span>
-                            <span>{{ institution.created_at|date:"d/m/Y H:i" }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-arrow-repeat me-2"></i>Actualizado:</span>
-                            <span>{{ institution.updated_at|date:"d/m/Y H:i" }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-check-circle me-2"></i>Estado:</span>
-                            <span class="badge bg-{% if institution.is_active %}success{% else %}danger{% endif %}">
-                                {{ institution.is_active|yesno:"Activo,Inactivo" }}
-                            </span>
-                        </li>
-                    </ul>
+                    <p><strong>Creada:</strong> {{ institution.created_at|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Actualizada:</strong> {{ institution.updated_at|date:"d/m/Y H:i" }}</p>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-8">
-            <ul class="nav nav-tabs" id="institutionTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="campuses-tab" data-bs-toggle="tab" 
-                            data-bs-target="#campuses" type="button" role="tab">
-                        <i class="bi bi-geo-alt me-1"></i>Sedes ({{ institution.campuses.count }})
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <i class="bi bi-geo-alt me-2"></i>Sedes
+                    <button type="button" class="btn btn-sm btn-outline-success float-end"
+                            onclick="window.location.href='{% url 'material:create_campus_v2' institution.pk %}'">
+                        <i class="bi bi-plus-circle"></i> Agregar
                     </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="faculties-tab" data-bs-toggle="tab" 
-                            data-bs-target="#faculties" type="button" role="tab">
-                        <i class="bi bi-building me-1"></i>Facultades ({{ institution.faculties.count }})
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="logs-tab" data-bs-toggle="tab" 
-                            data-bs-target="#logs" type="button" role="tab">
-                        <i class="bi bi-clock-history me-1"></i>Historial
-                    </button>
-                </li>
-            </ul>
-
-            <div class="tab-content p-3 border border-top-0 rounded-bottom" id="institutionTabsContent">
-                <div class="tab-pane fade show active" id="campuses" role="tabpanel">
-                    {% if institution.campuses.all %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Nombre</th>
-                                    <th>Dirección</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for campus in institution.campuses.all %}
-                                <tr>
-                                    <td>{{ campus.name }}</td>
-                                    <td>{{ campus.address|default:"-" }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                </div>
+                <div class="card-body">
+                    {% if institution.active_campuses %}
+                        <ul>
+                            {% for campus in institution.active_campuses %}
+                                <li>
+                                    {{ campus.name }} ({{ campus.address }})
+                                    <a href="{% url 'material:edit_campus_v2' institution.pk campus.pk %}"
+                                       class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                                    <a href="{% url 'material:delete_campus_v2' institution.pk campus.pk %}"
+                                       class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                                </li>
+                            {% endfor %}
+                        </ul>
                     {% else %}
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle me-2"></i> No hay sedes registradas.
-                    </div>
+                        <p>No hay sedes activas.</p>
                     {% endif %}
                 </div>
+            </div>
 
-                <div class="tab-pane fade" id="faculties" role="tabpanel">
-                    {% if institution.faculties.all %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Nombre</th>
-                                    <th>Código</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for faculty in institution.faculties.all %}
-                                <tr>
-                                    <td>{{ faculty.name }}</td>
-                                    <td>{{ faculty.code|default:"-" }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <i class="bi bi-mortarboard me-2"></i>Facultades
+                    <button type="button" class="btn btn-sm btn-outline-success float-end"
+                            onclick="window.location.href='{% url 'material:create_faculty_v2' institution.pk %}'">
+                        <i class="bi bi-plus-circle"></i> Agregar
+                    </button>
+                </div>
+                <div class="card-body">
+                    {% if institution.active_faculties %}
+                        <ul>
+                            {% for faculty in institution.active_faculties %}
+                                <li>
+                                    {{ faculty.name }} ({{ faculty.code }})
+                                    <a href="{% url 'material:edit_faculty_v2' institution.pk faculty.pk %}"
+                                       class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                                    <a href="{% url 'material:delete_faculty_v2' institution.pk faculty.pk %}"
+                                       class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                                </li>
+                            {% endfor %}
+                        </ul>
                     {% else %}
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle me-2"></i> No hay facultades registradas.
-                    </div>
+                        <p>No hay facultades activas.</p>
                     {% endif %}
                 </div>
+            </div>
+        </div>
+    </div>
 
-                <div class="tab-pane fade" id="logs" role="tabpanel">
-                    <a href="{% url 'material:institution_v2_logs' institution.pk %}" 
-                       class="btn btn-outline-primary mb-3">
-                        <i class="bi bi-clock-history me-1"></i>Ver historial completo
-                    </a>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <i class="bi bi-clock-history me-2"></i>Historial de Cambios
+                    <a href="{% url 'material:institution_v2_logs' institution.pk %}"
+                       class="btn btn-sm btn-outline-secondary float-end">Ver historial completo</a>
+                </div>
+                <div class="card-body">
                     {% with logs=institution.institutionlog_set.all|slice:":5" %}
                         {% if logs %}
-                        <div class="list-group">
+                        <div class="list-group list-group-flush">
                             {% for log in logs %}
-                            <div class="list-group-item">
+                            <div class="list-group-item list-group-item-action">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">
-                                        {{ log.get_action_display }}
                                         {% if log.user %}
-                                        por {{ log.user.username }}
+                                            Cambio realizado por {{ log.user.username }}
                                         {% endif %}
                                     </h6>
                                     <small>{{ log.created_at|timesince }} ago</small>

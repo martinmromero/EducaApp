@@ -11,7 +11,6 @@ import json
 from django.db import models
 from django.core.exceptions import ValidationError
 
-# educaapp/material/models.py
 class InstitutionV2(models.Model):
     name = models.CharField(
         max_length=255,
@@ -46,40 +45,14 @@ class InstitutionV2(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['name'],
-                name='unique_active_institution_name',
-                condition=models.Q(is_active=True)
+                condition=models.Q(is_active=True),
+                name='unique_active_institution_name'
             )
-        ]
-        indexes = [
-            models.Index(fields=['name']),
-            models.Index(fields=['is_active'])
         ]
 
     def __str__(self):
-        status = " (Inactiva)" if not self.is_active else ""
-        return f"{self.name}{status}"
+        return self.name
 
-    def clean(self):
-        if len(self.name.strip()) < 3:
-            raise ValidationError("El nombre debe tener al menos 3 caracteres")
-
-        if self.is_active and InstitutionV2.objects.filter(
-            name__iexact=self.name,
-            is_active=True
-        ).exclude(pk=self.pk).exists():
-            raise ValidationError("Ya existe una institución activa con este nombre")
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        """
-        Sobrescribe el delete para hacer eliminación lógica
-        """
-        self.is_active = False
-        self.save()
-        
 # UserInstitution DEBE estar inmediatamente después
 class UserInstitution(models.Model):
     user = models.ForeignKey('auth.User', on_delete=models.CASCADE)
@@ -90,37 +63,72 @@ class UserInstitution(models.Model):
         app_label = 'material'
         unique_together = ('user', 'institution')
 
-
-
-
-
-
-
 class CampusV2(models.Model):
-    name = models.CharField(max_length=100)
-    address = models.TextField(blank=True)
-    institution = models.ForeignKey(InstitutionV2, on_delete=models.CASCADE, related_name='campuses')
-    is_active = models.BooleanField(default=True)
+    institution = models.ForeignKey(
+        InstitutionV2,
+        on_delete=models.CASCADE,
+        related_name='campusv2_set',
+        verbose_name="Institución"
+    )
+    name = models.CharField(
+        max_length=255,
+        verbose_name="Nombre de la Sede",
+        help_text="Nombre de la sede"
+    )
+    address = models.TextField(
+        verbose_name="Dirección",
+        help_text="Dirección completa de la sede",
+        blank=True,
+        null=True
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Activa",
+        help_text="Indica si la sede está activa"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Sede V2"
         verbose_name_plural = "Sedes V2"
-        constraints = [
-            models.UniqueConstraint(fields=['name', 'institution'], name='unique_campusv2_per_institution')
-        ]
+
+    def __str__(self):
+        return self.name
 
 class FacultyV2(models.Model):
-    name = models.CharField(max_length=100)
-    code = models.CharField(max_length=10, blank=True)
-    institution = models.ForeignKey(InstitutionV2, on_delete=models.CASCADE, related_name='faculties')
-    is_active = models.BooleanField(default=True)
+    institution = models.ForeignKey(
+        InstitutionV2,
+        on_delete=models.CASCADE,
+        related_name='facultyv2_set',
+        verbose_name="Institución"
+    )
+    name = models.CharField(
+        max_length=255,
+        verbose_name="Nombre de la Facultad",
+        help_text="Nombre de la facultad"
+    )
+    code = models.CharField(
+        max_length=20,
+        verbose_name="Código",
+        help_text="Código de la facultad (opcional)",
+        blank=True,
+        null=True
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Activa",
+        help_text="Indica si la facultad está activa"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Facultad V2"
         verbose_name_plural = "Facultades V2"
-        constraints = [
-            models.UniqueConstraint(fields=['name', 'institution'], name='unique_facultyv2_per_institution')
-        ]
+
+    def __str__(self):
+        return self.name
 
 class InstitutionLog(models.Model):
     ACTION_CHOICES = [
