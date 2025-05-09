@@ -764,74 +764,71 @@ def institution_v2_detail(request, pk):
     })
 
 @login_required
+@transaction.atomic
 def edit_institution_v2(request, pk):
-    institution = get_object_or_404(
-        InstitutionV2.objects.prefetch_related('campusv2_set', 'facultyv2_set'),
-        pk=pk,
-        userinstitution__user=request.user
-    )
+    institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
 
     if request.method == 'POST':
         form = InstitutionV2Form(request.POST, request.FILES, instance=institution)
         if form.is_valid():
-            form.save()  # Guarda los cambios en la institución
+            form.save()
 
-            # -- Manejo de Sedes --
-            existing_campus_ids = set(request.POST.getlist('campus_ids'))  # IDs existentes en el form
-            submitted_campuses = [] # Para almacenar los campus enviados en el formulario
-            for campus_name, campus_address, campus_id in zip(
-                request.POST.getlist('campuses[]'),
-                request.POST.getlist('campus_addresses', [''] * len(request.POST.getlist('campuses[]'))),
-                request.POST.getlist('campus_ids', [''] * len(request.POST.getlist('campuses[]'))) # Incluir los IDs
-            ):
-                if campus_name.strip() == '':
-                    continue  # Evitar sedes vacías
-                submitted_campuses.append({'name': campus_name, 'address': campus_address, 'id': campus_id})
+            # Manejar sedes
+            existing_campus_ids = set(request.POST.getlist('campus_ids'))
+            existing_campuses = {c.id: c for c in institution.campusv2_set.all()}
 
-            existing_campuses = {c.id: c for c in institution.campusv2_set.all()} # Diccionario de campus existentes
-
-            for submitted_campus in submitted_campuses:
-                campus_id = submitted_campus['id']
-                if campus_id and campus_id.isdigit() and int(campus_id) in existing_campuses:
-                    # Actualizar sede existente
-                    campus = existing_campuses[int(campus_id)]
-                    campus.name = submitted_campus['name']
-                    campus.address = submitted_campus['address']
+            for campus_id, campus_name in zip(request.POST.getlist('campus_ids'), request.POST.getlist('campus_names')):
+                campus_id = int(campus_id)
+                if campus_id in existing_campuses:
+                    campus = existing_campuses[campus_id]
+                    campus.name = campus_name
+                    campus.is_active = True  # Reactivar si es necesario
                     campus.save()
+                    existing_campuses.pop(campus_id)  # Eliminar del diccionario
                 else:
-                    # Crear nueva sede
-                    CampusV2.objects.create(institution=institution, name=submitted_campus['name'], address=submitted_campus['address'])
+                    CampusV2.objects.create(institution=institution, name=campus_name, is_active=True)
 
-            # -- Manejo de Facultades --
+            # Desactivar sedes eliminadas
+            for campus in existing_campuses.values():
+                campus.is_active = False
+                campus.save()
+
+            # Manejar facultades
             existing_faculty_ids = set(request.POST.getlist('faculty_ids'))
-            submitted_faculties = []
-            for faculty_name, faculty_code, faculty_id in zip(
-                request.POST.getlist('faculty_names[]'),
-                request.POST.getlist('faculty_codes', [''] * len(request.POST.getlist('faculty_names[]'))),
-                request.POST.getlist('faculty_ids', [''] * len(request.POST.getlist('faculty_names[]'))) # Incluir los IDs
-            ):
-                if faculty_name.strip() == '':
-                    continue  # Evitar facultades vacías
-                submitted_faculties.append({'name': faculty_name, 'code': faculty_code, 'id': faculty_id})
-
             existing_faculties = {f.id: f for f in institution.facultyv2_set.all()}
 
-            for submitted_faculty in submitted_faculties:
-                faculty_id = submitted_faculty['id']
-                if faculty_id and faculty_id.isdigit() and int(faculty_id) in existing_faculties:
-                    # Actualizar facultad existente
-                    faculty = existing_faculties[int(faculty_id)]
-                    faculty.name = submitted_faculty['name']
-                    faculty.code = submitted_faculty['code']
+            for faculty_id, faculty_name, faculty_code in zip(
+                request.POST.getlist('faculty_ids'),
+                request.POST.getlist('faculty_names'),
+                request.POST.getlist('faculty_codes')
+            ):
+                faculty_id = int(faculty_id)
+                if faculty_id in existing_faculties:
+                    faculty = existing_faculties[faculty_id]
+                    faculty.name = faculty_name
+                    faculty.code = faculty_code
+                    faculty.is_active = True  # Reactivar si es necesario
                     faculty.save()
+                    existing_faculties.pop(faculty_id)
                 else:
-                    # Crear nueva facultad
-                    FacultyV2.objects.create(institution=institution, name=submitted_faculty['name'], code=submitted_faculty['code'])
+                    FacultyV2.objects.create(institution=institution, name=faculty_name, code=faculty_code, is_active=True)
 
-            messages.success(request, 'Institución actualizada con éxito.')
+            # Desactivar facultades eliminadas
+            for faculty in existing_faculties.values():
+                faculty.is_active = False
+                faculty.save()
+
+            # Manejar nuevas sedes
+            for campus_name in request.POST.getlist('new_campuses'):
+                if campus_name:
+                    CampusV2.objects.create(institution=institution, name=campus_name, is_active=True)
+
+            # Manejar nuevas facultades
+            for faculty_name, faculty_code in zip(request.POST.getlist('new_faculty_names'), request.POST.getlist('new_faculty_codes')):
+                if faculty_name:
+                    FacultyV2.objects.create(institution=institution, name=faculty_name, code=faculty_code, is_active=True)
+
             return redirect('material:institution_v2_detail', pk=institution.pk)
-        else:
-            messages.error(request, 'Por favor, corrija los errores del formulario.')
     else:
         form = InstitutionV2Form(instance=institution)
 
@@ -854,7 +851,6 @@ def toggle_favorite_institution(request, pk):
     user_institution.is_favorite = not user_institution.is_favorite
     user_institution.save()
     return redirect('material:institution_v2_detail', pk=pk)
-
 
 @login_required
 def institution_v2_logs(request, pk):
@@ -911,6 +907,17 @@ def edit_campus_v2(request, institution_id, campus_id):
     else:
         form = CampusV2Form(instance=campus)
     return render(request, 'material/campuses_v2/edit.html', {'form': form, 'institution': institution})
+
+@login_required
+def delete_campus_v2(request, institution_id, campus_id):
+    institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)
+    campus = get_object_or_404(CampusV2, pk=campus_id, institution=institution)
+    if request.method == 'POST':
+        campus.is_active = False  # Desactivar en lugar de eliminar
+        campus.save()
+        messages.success(request, 'Sede desactivada con éxito.')
+        return redirect('material:institution_v2_detail', pk=institution.pk)
+    return render(request, 'material/campuses_v2/confirm_delete.html', {'campus': campus, 'institution': institution})
 
 # Agregar al final de views.py
 @login_required

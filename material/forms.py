@@ -273,22 +273,34 @@ class UserEditForm(forms.ModelForm):
     
 
     # material/forms.py - Agregar al final del archivo
-
-class InstitutionV2Form(forms.ModelForm):
+class InstitutionV2Form(forms.ModelForm):  # Cambiado a InstitutionV2Form
     class Meta:
-        model = InstitutionV2
+        model = InstitutionV2  # Cambiado a InstitutionV2
         fields = ['name', 'logo']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Nombre de la institución',
-                'required': 'required'
+                'required': 'required',
+                'minlength': '2'  # Cambiado a 2
             }),
             'logo': forms.FileInput(attrs={
                 'class': 'form-control',
                 'accept': '.jpg,.jpeg,.png,.svg'
             })
         }
+
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if len(name) < 2:  # Cambiado a 2
+            raise ValidationError("El nombre debe tener al menos 2 caracteres")
+        return name
+
+    def clean_logo(self):
+        logo = self.cleaned_data.get('logo')
+        # No se realiza ninguna validación específica para el logo,
+        # por lo que puede ser None (no requerido).
+        return logo
+
 
 class CampusV2Form(forms.ModelForm):
     class Meta:
@@ -306,6 +318,7 @@ class CampusV2Form(forms.ModelForm):
             })
         }
 
+
 class FacultyV2Form(forms.ModelForm):
     class Meta:
         model = FacultyV2
@@ -321,7 +334,11 @@ class FacultyV2Form(forms.ModelForm):
             })
         }
 
+
 class FavoriteInstitutionForm(forms.ModelForm):
+    class Meta:
+        model = InstitutionV2
+        fields = ['is_favorite']
     class Meta:
         model = UserInstitution
         fields = ['is_favorite']

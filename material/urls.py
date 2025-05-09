@@ -40,9 +40,7 @@ urlpatterns = [
     path('instituciones/eliminar/<int:pk>/', views.delete_institution, name='delete_institution'),
     path('instituciones/editar/<int:pk>/', views.edit_institution, name='edit_institution'),
 
-    path('instituciones-v2/<int:institution_id>/campus/<int:campus_id>/edit/', views.edit_campus_v2, name='edit_campus_v2'),
-    path('instituciones-v2/<int:institution_id>/facultad/create/', views.create_faculty_v2, name='create_faculty_v2'),
-    path('instituciones-v2/<int:institution_id>/campus/create/', views.create_campus_v2, name='create_campus_v2'),
+    
     path('instituciones-v2/', views.list_institutions_v2, name='list_institutions_v2'),
     path('instituciones-v2/crear/', views.create_institution_v2, name='create_institution_v2'),
     path('instituciones-v2/editar/<int:pk>/', views.edit_institution_v2, name='edit_institution_v2'),
@@ -51,4 +49,9 @@ urlpatterns = [
     path('instituciones-v2/detalle/<int:pk>/', views.institution_v2_detail, name='institution_v2_detail'),
     path('instituciones-v2/logs/<int:pk>/', views.institution_v2_logs, name='institution_v2_logs'),
     path('instituciones-v2/count-favorites/', views.count_favorite_institutions, name='count_favorite_institutions'),
+    path('instituciones-v2/<int:institution_id>/campus/<int:campus_id>/edit/', views.edit_campus_v2, name='edit_campus_v2'),
+    path('instituciones-v2/<int:institution_id>/campus/<int:campus_id>/delete/', views.delete_campus_v2, name='delete_campus_v2'),
+    path('instituciones-v2/<int:institution_id>/campus/create/', views.create_campus_v2, name='create_campus_v2'),
+   
+
 ]

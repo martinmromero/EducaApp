@@ -33,57 +33,76 @@
 
                 {{ form|crispy }}
 
-                <div class="mb-4">
-                    <h5>Sedes</h5>
+                <div class="form-group mt-4">
+                    <h5><i class="bi bi-geo-alt me-2"></i>Sedes</h5>
                     <div id="campuses-container">
-                        {% for campus in form.instance.campusv2_set.all %}
-                        <div class="input-group mb-2">
-                            <input type="text" name="campuses[]" class="form-control" value="{{ campus.name }}" required>
-                            <input type="text" name="campus_addresses[]" class="form-control" value="{{ campus.address }}">
-                            <input type="hidden" name="campus_ids[]" value="{{ campus.id }}">  <button type="button" class="btn btn-outline-danger remove-campus" onclick="this.closest('.input-group').remove()">
+                        {% for campus in institution.campusv2_set.all %}
+                            <div class="input-group mb-3 campus-entry">
+                                <input type="hidden" name="campus_ids" value="{{ campus.id }}">
+                                <input type="text" name="campus_names" value="{{ campus.name }}" class="form-control" required>
+                                <button type="button" class="btn btn-outline-danger remove-campus">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        {% endfor %}
+                        <div class="input-group mb-3 new-campus-entry">
+                            <input type="text" name="new_campuses" class="form-control" placeholder="Nueva sede" >
+                            <button type="button" class="btn btn-outline-danger remove-new-campus">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
-                    {% endfor %}
-                        <button type="button" id="add-campus" class="btn btn-sm btn-outline-primary mt-2">
-                            <i class="bi bi-plus-circle me-1"></i>Agregar otra sede
-                        </button>
                     </div>
+                    <button type="button" id="add-campus" class="btn btn-sm btn-outline-primary mt-2">
+                        <i class="bi bi-plus-circle me-1"></i>Agregar Sede
+                    </button>
                 </div>
 
-                <div class="mb-4">
-                    <h5>Facultades</h5>
+                <div class="form-group mt-4">
+                    <h5><i class="bi bi-mortarboard me-2"></i>Facultades</h5>
                     <div id="faculties-container">
-                        {% for faculty in form.instance.facultyv2_set.all %}
-                        <div class="faculty-entry mb-2">
+                        {% for faculty in institution.facultyv2_set.all %}
+                            <div class="faculty-entry mb-2">
+                                <div class="row g-2">
+                                    <div class="col-md-5">
+                                        <input type="hidden" name="faculty_ids" value="{{ faculty.id }}">
+                                        <input type="text" name="faculty_names" value="{{ faculty.name }}" class="form-control" placeholder="Nombre" >
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" name="faculty_codes" value="{{ faculty.code }}" class="form-control" placeholder="Código (opcional)">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-outline-danger w-100 remove-faculty">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        <div class="faculty-entry mb-2 new-faculty-entry">
                             <div class="row g-2">
-                                <div class="col-md-8">
-                                    <input type="text" name="faculty_names[]" class="form-control" value="{{ faculty.name }}" placeholder="Nombre (opcional)">
-                                    <input type="hidden" name="faculty_ids[]" value="{{ faculty.id }}">  </div>
-                                <div class="col-md-4">
-                                    <input type="text" name="faculty_codes[]" class="form-control" value="{{ faculty.code }}" placeholder="Código (opcional)">
+                                <div class="col-md-5">
+                                    <input type="text" name="new_faculty_names" class="form-control" placeholder="Nombre (opcional)">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="text" name="new_faculty_codes" class="form-control" placeholder="Código (opcional)">
                                 </div>
                                 <div class="col-md-2">
-                                    <button type="button" class="btn btn-outline-danger w-100 remove-faculty" onclick="this.closest('.faculty-entry').remove()">
+                                    <button type="button" class="btn btn-outline-danger w-100 remove-new-faculty">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
                             </div>
                         </div>
-                    {% endfor %}
-                        <button type="button" id="add-faculty" class="btn btn-sm btn-outline-primary mt-2">
-                            <i class="bi bi-plus-circle me-1"></i>Agregar otra facultad
-                        </button>
                     </div>
+                    <button type="button" id="add-faculty" class="btn btn-sm btn-outline-primary mt-2">
+                        <i class="bi bi-plus-circle me-1"></i>Agregar Facultad
+                    </button>
                 </div>
 
-
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-save me-1"></i>Guardar Cambios
-                </button>
-                <a href="{% url 'material:institution_v2_detail' form.instance.pk %}" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left me-1"></i>Cancelar
-                </a>
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-2"></i>Guardar Cambios</button>
+                    <a href="{% url 'material:institution_v2_detail' institution.pk %}" class="btn btn-secondary"><i class="bi bi-x-circle me-2"></i>Cancelar</a>
+                </div>
             </form>
         </div>
     </div>
@@ -93,65 +112,71 @@
     document.addEventListener('DOMContentLoaded', function() {
         const addCampusButton = document.getElementById('add-campus');
         const addFacultyButton = document.getElementById('add-faculty');
+        const campusesContainer = document.getElementById('campuses-container');
+        const facultiesContainer = document.getElementById('faculties-container');
 
-        if (addCampusButton) {
-            addCampusButton.addEventListener('click', addCampusField);
-        }
-        if (addFacultyButton) {
-            addFacultyButton.addEventListener('click', addFacultyField);
-        }
-
-        // Función para agregar campos de sede
-        function addCampusField() {
-            const container = document.getElementById('campuses-container');
-            const div = document.createElement('div');
-            div.className = 'input-group mb-2';
-            div.innerHTML = `
-                <input type="text" name="campuses[]" class="form-control" required>
-                <button type="button" class="btn btn-outline-danger remove-campus"
-                        onclick="this.closest('.input-group').remove()">
+        addCampusButton.addEventListener('click', function() {
+            const newCampusDiv = document.createElement('div');
+            newCampusDiv.classList.add('input-group', 'mb-3', 'new-campus-entry');
+            newCampusDiv.innerHTML = `
+                <input type="text" name="new_campuses" class="form-control" placeholder="Nueva sede">
+                <button type="button" class="btn btn-outline-danger remove-new-campus">
                     <i class="bi bi-trash"></i>
                 </button>
             `;
-            container.appendChild(div);
-        }
+            campusesContainer.appendChild(newCampusDiv);
+        });
 
-        // Función para agregar campos de facultad (sin required)
-        function addFacultyField() {
-            const container = document.getElementById('faculties-container');
-            const div = document.createElement('div');
-            div.className = 'faculty-entry mb-2';
-            div.innerHTML = `
+        addFacultyButton.addEventListener('click', function() {
+            const newFacultyDiv = document.createElement('div');
+            newFacultyDiv.classList.add('faculty-entry', 'mb-2', 'new-faculty-entry');
+            newFacultyDiv.innerHTML = `
                 <div class="row g-2">
-                    <div class="col-md-8">
-                        <input type="text" name="faculty_names[]" class="form-control" placeholder="Nombre (opcional)">
+                    <div class="col-md-5">
+                        <input type="text" name="new_faculty_names" class="form-control" placeholder="Nombre (opcional)">
                     </div>
-                    <div class="col-md-4">
-                        <input type="text" name="faculty_codes[]" class="form-control" placeholder="Código (opcional)">
+                    <div class="col-md-3">
+                        <input type="text" name="new_faculty_codes" class="form-control" placeholder="Código (opcional)">
                     </div>
                     <div class="col-md-2">
-                        <button type="button" class="btn btn-outline-danger w-100 remove-faculty"
-                                onclick="this.closest('.faculty-entry').remove()">
+                        <button type="button" class="btn btn-outline-danger w-100 remove-new-faculty">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
                 </div>
             `;
-            container.appendChild(div);
-        }
+            facultiesContainer.appendChild(newFacultyDiv);
+        });
+
+        campusesContainer.addEventListener('click', function(event) {
+            if (event.target.classList.contains('remove-campus')) {
+                event.target.closest('.campus-entry').remove();
+            }
+            if (event.target.classList.contains('remove-new-campus')) {
+                event.target.closest('.new-campus-entry').remove();
+            }
+        });
+
+        facultiesContainer.addEventListener('click', function(event) {
+            if (event.target.classList.contains('remove-faculty')) {
+                event.target.closest('.faculty-entry').remove();
+            }
+            if (event.target.classList.contains('remove-new-faculty')) {
+                event.target.closest('.new-faculty-entry').remove();
+            }
+        });
     });
 </script>
 
 <style>
-.faculty-entry, .input-group {
-    transition: all 0.3s ease;
-}
-.remove-campus, .remove-faculty {
-    transition: opacity 0.2s ease;
-}
-.remove-campus:hover, .remove-faculty:hover {
-    opacity: 0.7;
-}
+    .faculty-entry, .input-group {
+        transition: all 0.3s ease;
+    }
+    .remove-campus, .remove-faculty, .remove-new-campus, .remove-new-faculty {
+        transition: opacity 0.2s ease;
+    }
+    .remove-campus:hover, .remove-faculty:hover, .remove-new-campus:hover, .remove-new-faculty:hover {
+        opacity: 0.7;
+    }
 </style>
-
 {% endblock %}
