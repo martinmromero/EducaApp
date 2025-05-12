@@ -1,4 +1,3 @@
-<!-- material/templates/institutions_v2/logs.html -->
 {% extends "material/base.html" %}
 
 {% block content %}
@@ -37,10 +36,14 @@
                             <td>
                                 <span class="badge 
                                     {% if log.action == 'create' %}bg-success
-                                    {% elif log.action == 'update' %}bg-primary
+                                    {% elif log.action == 'update' %}bg-warning
                                     {% elif log.action == 'delete' %}bg-danger
-                                    {% else %}bg-secondary{% endif %}">
-                                    {{ log.get_action_display }}
+                                    {% endif %}
+                                    text-white">
+                                    {% if log.action == 'create' %}Creada
+                                    {% elif log.action == 'update' %}Actualizada
+                                    {% elif log.action == 'delete' %}Eliminada
+                                    {% endif %}
                                 </span>
                             </td>
                             <td>
@@ -51,10 +54,6 @@
                                     Institución creada: {{ log.details.name }}
                                 {% elif log.action == 'delete' %}
                                     Institución eliminada: {{ log.details.name }}
-                                {% elif log.action == 'favorite' %}
-                                    Marcada como favorita
-                                {% else %}
-                                    {{ log.details }}
                                 {% endif %}
                             </td>
                             <td>{{ log.user.username|default:"Sistema" }}</td>

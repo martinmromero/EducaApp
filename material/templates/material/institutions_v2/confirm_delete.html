@@ -24,7 +24,7 @@
             <form method="post" action="{% url 'material:delete_institution_v2' institution.pk %}">
                 {% csrf_token %}
                 <div class="d-flex justify-content-between">
-                    <a href="{% url 'material:institution_v2_detail' institution.pk %}" 
+                    <a href="{% url 'material:institution_v2_list' %}" 
                        class="btn btn-secondary">
                         <i class="bi bi-arrow-left me-1"></i> Cancelar
                     </a>

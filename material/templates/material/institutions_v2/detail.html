@@ -1,4 +1,3 @@
-<!-- material/templates/institutions_v2/detail.html -->
 {% extends "material/base.html" %}
 
 {% block content %}
@@ -7,18 +6,10 @@
         <div class="col-md-8">
             <h2>
                 <i class="bi bi-building me-2"></i>{{ institution.name }}
-                {% if is_favorite %}
-                    <i class="bi bi-star-fill text-warning"></i>
-                {% endif %}
             </h2>
         </div>
         <div class="col-md-4 text-end">
             <div class="btn-group">
-                <button class="btn btn-outline-secondary toggle-favorite"
-                        data-institution-id="{{ institution.pk }}"
-                        title="{{ is_favorite|yesno:'Quitar de favoritos,Agregar a favoritos' }}">
-                    <i class="bi bi-star{% if is_favorite %}-fill text-warning{% endif %}"></i>
-                </button>
                 <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-outline-primary">
                     <i class="bi bi-pencil me-1"></i>Editar
                 </a>
@@ -31,125 +22,65 @@
 
     <div class="row">
         <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-header bg-light">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
                     <i class="bi bi-info-circle me-2"></i>Información General
                 </div>
                 <div class="card-body">
                     <p><strong>Nombre:</strong> {{ institution.name }}</p>
                     {% if institution.logo %}
-                        <img src="{{ institution.logo.url }}" alt="Logo" class="img-fluid mb-3">
+                    <img src="{{ institution.logo.url }}" alt="Logo" class="img-fluid mb-3">
                     {% endif %}
-                    <p><strong>Creada:</strong> {{ institution.created_at|date:"d/m/Y H:i" }}</p>
-                    <p><strong>Actualizada:</strong> {{ institution.updated_at|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Creada el:</strong> {{ institution.created_at|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Última actualización:</strong> {{ institution.updated_at|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Estado:</strong> {% if institution.is_active %}Activa{% else %}Inactiva{% endif %}</p>
                 </div>
             </div>
         </div>
 
         <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-header bg-light">
-                    <i class="bi bi-geo-alt me-2"></i>Sedes
-                    <button type="button" class="btn btn-sm btn-outline-success float-end"
-                            onclick="window.location.href='{% url 'material:create_campus_v2' institution.pk %}'">
-                        <i class="bi bi-plus-circle"></i> Agregar
-                    </button>
-                </div>
-                <div class="card-body">
-                    {% if institution.active_campuses %}
-                        <ul>
-                            {% for campus in institution.active_campuses %}
-                                <li>
-                                    {{ campus.name }} ({{ campus.address }})
-                                    <a href="{% url 'material:edit_campus_v2' institution.pk campus.pk %}"
-                                       class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
-                                    <a href="{% url 'material:delete_campus_v2' institution.pk campus.pk %}"
-                                       class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p>No hay sedes activas.</p>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="card mb-4">
-                <div class="card-header bg-light">
-                    <i class="bi bi-mortarboard me-2"></i>Facultades
-                    <button type="button" class="btn btn-sm btn-outline-success float-end"
-                            onclick="window.location.href='{% url 'material:create_faculty_v2' institution.pk %}'">
-                        <i class="bi bi-plus-circle"></i> Agregar
-                    </button>
-                </div>
-                <div class="card-body">
-                    {% if institution.active_faculties %}
-                        <ul>
-                            {% for faculty in institution.active_faculties %}
-                                <li>
-                                    {{ faculty.name }} ({{ faculty.code }})
-                                    <a href="{% url 'material:edit_faculty_v2' institution.pk faculty.pk %}"
-                                       class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
-                                    <a href="{% url 'material:delete_faculty_v2' institution.pk faculty.pk %}"
-                                       class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p>No hay facultades activas.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-md-12">
             <div class="card">
-                <div class="card-header bg-light">
-                    <i class="bi bi-clock-history me-2"></i>Historial de Cambios
-                    <a href="{% url 'material:institution_v2_logs' institution.pk %}"
-                       class="btn btn-sm btn-outline-secondary float-end">Ver historial completo</a>
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-geo-alt me-2"></i>Sedes
                 </div>
                 <div class="card-body">
-                    {% with logs=institution.institutionlog_set.all|slice:":5" %}
-                        {% if logs %}
-                        <div class="list-group list-group-flush">
-                            {% for log in logs %}
-                            <div class="list-group-item list-group-item-action">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">
-                                        {% if log.user %}
-                                            Cambio realizado por {{ log.user.username }}
-                                        {% endif %}
-                                    </h6>
-                                    <small>{{ log.created_at|timesince }} ago</small>
-                                </div>
-                                <p class="mb-1">
-                                    {% if log.action == 'update' %}
-                                        Cambió {{ log.details.field }} de "{{ log.details.old_value }}" a "{{ log.details.new_value }}"
-                                    {% elif log.action == 'create' %}
-                                        Institución creada: {{ log.details.name }}
-                                    {% elif log.action == 'delete' %}
-                                        Institución eliminada: {{ log.details.name }}
-                                    {% endif %}
-                                </p>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        {% else %}
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i> No hay registros de actividad.
-                        </div>
-                        {% endif %}
-                    {% endwith %}
+                    {% if institution.campusv2_set.all %}
+                    <ul class="list-group list-group-flush">
+                        {% for campus in institution.campusv2_set.all %}
+                        <li class="list-group-item">
+                            {{ campus.name }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i> No hay sedes registradas.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header bg-warning text-white">
+                    <i class="bi bi-mortarboard me-2"></i>Facultades
+                </div>
+                <div class="card-body">
+                    {% if institution.facultyv2_set.all %}
+                    <ul class="list-group list-group-flush">
+                        {% for faculty in institution.facultyv2_set.all %}
+                        <li class="list-group-item">
+                            {{ faculty.name }} ({{ faculty.code }})
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i> No hay facultades registradas.
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-// Mismo script para manejar favoritos que en list.html
-</script>
 {% endblock %}

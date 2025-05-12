@@ -297,9 +297,12 @@ class InstitutionV2Form(forms.ModelForm):  # Cambiado a InstitutionV2Form
 
     def clean_logo(self):
         logo = self.cleaned_data.get('logo')
-        # No se realiza ninguna validación específica para el logo,
-        # por lo que puede ser None (no requerido).
-        return logo
+        if logo:  # Check if logo is not None (a new file was uploaded)
+            # No se realiza ninguna validación específica para el logo,
+            # por lo que puede ser None (no requerido).
+            return logo
+        else:
+            return None  # or return self.instance.logo if you want to keep the old logo
 
 
 class CampusV2Form(forms.ModelForm):
