@@ -709,17 +709,31 @@ def institution_v2_list(request):
     name_query = request.GET.get('name', '')
     favorite_only = request.GET.get('favorites') == 'on'
 
-    institutions = InstitutionV2.objects.filter(userinstitution__user=request.user)
+    # Filtrar solo instituciones activas (is_active=True)
+    institutions = InstitutionV2.objects.filter(
+        userinstitution__user=request.user,
+        is_active=True  # Solo mostrar instituciones activas
+    )
 
     if name_query:
         institutions = institutions.filter(name__icontains=name_query)
 
     if favorite_only:
-        institutions = institutions.filter(userinstitution__user=request.user, userinstitution__is_favorite=True)
+        institutions = institutions.filter(
+            userinstitution__user=request.user, 
+            userinstitution__is_favorite=True
+        )
 
-    institutions = institutions.prefetch_related('campusv2_set', 'facultyv2_set').distinct()
+    institutions = institutions.prefetch_related(
+        'campusv2_set', 
+        'facultyv2_set'
+    ).distinct()
 
-    favorite_count = UserInstitution.objects.filter(user=request.user, is_favorite=True).count()
+    favorite_count = UserInstitution.objects.filter(
+        user=request.user, 
+        is_favorite=True,
+        institution__is_active=True  # Contar solo favoritos activos
+    ).count()
 
     paginator = Paginator(institutions, 10)
     page_number = request.GET.get('page')
@@ -820,16 +834,49 @@ def edit_institution_v2(request, pk):
         'faculty_formset': faculty_formset,
     })
 
-
 @login_required
 def delete_institution_v2(request, pk):
-    institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
+    """Elimina físicamente la institución y sus relaciones"""
+    institution = get_object_or_404(
+        InstitutionV2, 
+        pk=pk,
+        userinstitution__user=request.user  # Solo el dueño puede eliminar
+    )
+    
     if request.method == 'POST':
-        institution.is_active = False  # Desactivar en lugar de eliminar
-        institution.save()
-        messages.success(request, 'Institución desactivada con éxito.')
-        return redirect('material:list_institution_v2')
-    return render(request, 'material/confirm_delete.html', {'institution': institution})
+        try:
+            with transaction.atomic():  # Transacción atómica
+                # 1. Eliminar relación UserInstitution primero
+                UserInstitution.objects.filter(
+                    institution=institution,
+                    user=request.user
+                ).delete()
+                
+                # 2. Eliminar campus y facultades
+                CampusV2.objects.filter(institution=institution).delete()
+                FacultyV2.objects.filter(institution=institution).delete()
+                
+                # 3. Eliminar logs asociados
+                InstitutionLog.objects.filter(institution=institution).delete()
+                
+                # 4. Finalmente eliminar la institución
+                institution_name = institution.name
+                institution.delete()
+                
+                messages.success(request, f'Institución "{institution_name}" eliminada permanentemente.')
+                return redirect('material:institution_v2_list')
+                
+        except Exception as e:
+            logger.error(f"Error eliminando institución: {str(e)}")
+            messages.error(request, 'Ocurrió un error al eliminar la institución.')
+            return redirect('material:institution_v2_detail', pk=pk)
+    
+    # Mostrar confirmación
+    return render(request, 'material/institutions_v2/confirm_delete.html', {
+        'institution': institution,
+        'campuses_count': institution.campusv2_set.count(),
+        'faculties_count': institution.facultyv2_set.count()
+    })
 
 @login_required
 def toggle_favorite_institution(request, pk):

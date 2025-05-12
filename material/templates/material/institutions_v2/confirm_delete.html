@@ -2,34 +2,41 @@
 
 {% block content %}
 <div class="container mt-4">
-    <div class="card">
+    <div class="card border-danger">
         <div class="card-header bg-danger text-white">
-            <h2>Confirmar Eliminación</h2>
+            <h2><i class="bi bi-exclamation-triangle me-2"></i>Confirmar Eliminación Permanente</h2>
         </div>
         <div class="card-body">
-            <div class="alert alert-warning">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                ¿Está seguro que desea eliminar la institución "{{ institution.name }}"?
+            <div class="alert alert-danger">
+                <h4 class="alert-heading">¡Atención!</h4>
+                <p>Está a punto de eliminar permanentemente la institución <strong>"{{ institution.name }}"</strong> y todos sus elementos asociados.</p>
+                <hr>
+                <p class="mb-0">Esta acción <strong>no puede deshacerse</strong> y eliminará:</p>
             </div>
-            
-            <div class="mb-4">
-                <h5>Detalles:</h5>
-                <ul>
-                    <li><strong>Sedes:</strong> {{ institution.campuses.count }} serán desactivadas</li>
-                    <li><strong>Facultades:</strong> {{ institution.faculties.count }} serán desactivadas</li>
-                    <li><strong>Esta acción es irreversible</strong></li>
-                </ul>
-            </div>
-            
+
+            <ul class="list-group mb-4">
+                <li class="list-group-item list-group-item-danger">
+                    <i class="bi bi-building me-2"></i> La institución completa
+                </li>
+                <li class="list-group-item list-group-item-danger">
+                    <i class="bi bi-geo-alt me-2"></i> {{ campuses_count }} sedes asociadas
+                </li>
+                <li class="list-group-item list-group-item-danger">
+                    <i class="bi bi-mortarboard me-2"></i> {{ faculties_count }} facultades asociadas
+                </li>
+                <li class="list-group-item list-group-item-danger">
+                    <i class="bi bi-clock-history me-2"></i> Todos los registros históricos
+                </li>
+            </ul>
+
             <form method="post" action="{% url 'material:delete_institution_v2' institution.pk %}">
                 {% csrf_token %}
                 <div class="d-flex justify-content-between">
-                    <a href="{% url 'material:institution_v2_list' %}" 
-                       class="btn btn-secondary">
+                    <a href="{% url 'material:institution_v2_detail' institution.pk %}" class="btn btn-secondary">
                         <i class="bi bi-arrow-left me-1"></i> Cancelar
                     </a>
                     <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash me-1"></i> Confirmar Eliminación
+                        <i class="bi bi-trash3 me-1"></i> Confirmar Eliminación Permanente
                     </button>
                 </div>
             </form>
