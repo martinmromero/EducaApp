@@ -780,52 +780,83 @@ def create_institution_v2(request):
         form = InstitutionV2Form()
     return render(request, 'material/institutions_v2/create.html', {'form': form})
 
-
 @login_required
 def edit_institution_v2(request, pk):
     institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
-
-    CampusFormSet = modelformset_factory(CampusV2, form=CampusV2Form, extra=0, can_delete=True)
-    FacultyFormSet = modelformset_factory(FacultyV2, form=FacultyV2Form, extra=0, can_delete=True)
+    
+    CampusFormSet = modelformset_factory(
+        CampusV2,
+        form=CampusV2Form,
+        extra=1,
+        can_delete=True,
+        min_num=0,  # Hacer completamente opcional
+        validate_min=False
+    )
+    
+    FacultyFormSet = modelformset_factory(
+        FacultyV2,
+        form=FacultyV2Form,
+        extra=1,
+        can_delete=True,
+        min_num=0,  # Hacer completamente opcional
+        validate_min=False
+    )
 
     if request.method == 'POST':
-        form = InstitutionForm(request.POST, request.FILES, instance=institution)
-        campus_formset = CampusFormSet(request.POST, queryset=institution.campusv2_set.all(), prefix='campus')
-        faculty_formset = FacultyFormSet(request.POST, queryset=institution.facultyv2_set.all(), prefix='faculty')
+        form = InstitutionV2Form(request.POST, request.FILES, instance=institution)
+        campus_formset = CampusFormSet(
+            request.POST,
+            queryset=institution.campusv2_set.all(),
+            prefix='campus'
+        )
+        faculty_formset = FacultyFormSet(
+            request.POST,
+            queryset=institution.facultyv2_set.all(),
+            prefix='faculty'
+        )
 
-        if form.is_valid() and campus_formset.is_valid() and faculty_formset.is_valid():
-            with transaction.atomic():  # Ensure atomicity
-                # Handle logo deletion
-                if request.POST.get('logo-clear'):
-                    institution.logo.delete(save=False)
-                    institution.logo = None
-                form.save()  # Save the institution itself
+        if all([form.is_valid(), campus_formset.is_valid(), faculty_formset.is_valid()]):
+            try:
+                with transaction.atomic():
+                    # Guardar institución (maneja logo automáticamente)
+                    institution = form.save()
 
-                # Save campuses
-                for campus_form in campus_formset:
-                    if campus_form.cleaned_data:
-                        campus = campus_form.save(commit=False)
-                        campus.institution = institution
-                        campus.save()
-                for deleted_campus_form in campus_formset.deleted_objects:
-                    deleted_campus_form.delete()
+                    # Procesar campus
+                    for campus_form in campus_formset:
+                        if campus_form.cleaned_data and not campus_form.cleaned_data.get('DELETE', False):
+                            campus = campus_form.save(commit=False)
+                            campus.institution = institution
+                            campus.save()
+                        elif campus_form.cleaned_data.get('DELETE', False) and campus_form.instance.pk:
+                            campus_form.instance.delete()
 
-                # Save faculties
-                for faculty_form in faculty_formset:
-                    if faculty_form.cleaned_data:
-                        faculty = faculty_form.save(commit=False)
-                        faculty.institution = institution
-                        faculty.save()
-                for deleted_faculty_form in faculty_formset.deleted_objects:
-                    deleted_faculty_form.delete()
+                    # Procesar facultades
+                    for faculty_form in faculty_formset:
+                        if faculty_form.cleaned_data and not faculty_form.cleaned_data.get('DELETE', False):
+                            faculty = faculty_form.save(commit=False)
+                            faculty.institution = institution
+                            faculty.save()
+                        elif faculty_form.cleaned_data.get('DELETE', False) and faculty_form.instance.pk:
+                            faculty_form.instance.delete()
 
-            return redirect('material:institution_v2_detail', pk=institution.pk)
+                    messages.success(request, 'Institución actualizada correctamente')
+                    return redirect('material:institution_v2_detail', pk=institution.pk)
+
+            except Exception as e:
+                messages.error(request, f'Error al guardar los cambios: {str(e)}')
         else:
-            print("Form errors:", form.errors, campus_formset.errors, faculty_formset.errors) # Log errors
+            messages.error(request, 'Por favor corrija los errores en el formulario')
+
     else:
-        form = InstitutionForm(instance=institution)
-        campus_formset = CampusFormSet(queryset=institution.campusv2_set.all(), prefix='campus')
-        faculty_formset = FacultyFormSet(queryset=institution.facultyv2_set.all(), prefix='faculty')
+        form = InstitutionV2Form(instance=institution)
+        campus_formset = CampusFormSet(
+            queryset=institution.campusv2_set.all(),
+            prefix='campus'
+        )
+        faculty_formset = FacultyFormSet(
+            queryset=institution.facultyv2_set.all(),
+            prefix='faculty'
+        )
 
     return render(request, 'material/institutions_v2/edit.html', {
         'form': form,

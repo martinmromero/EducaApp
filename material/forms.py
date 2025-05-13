@@ -273,15 +273,16 @@ class UserEditForm(forms.ModelForm):
     
 
     # material/forms.py - Agregar al final del archivo
-class InstitutionV2Form(forms.ModelForm):  # Cambiado a InstitutionV2Form
+
+class InstitutionV2Form(forms.ModelForm):
     class Meta:
-        model = InstitutionV2  # Cambiado a InstitutionV2
+        model = InstitutionV2
         fields = ['name', 'logo']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'required': 'required',
-                'minlength': '2'  # Cambiado a 2
+                'minlength': '2'
             }),
             'logo': forms.FileInput(attrs={
                 'class': 'form-control',
@@ -289,20 +290,35 @@ class InstitutionV2Form(forms.ModelForm):  # Cambiado a InstitutionV2Form
             })
         }
 
-    def clean_name(self):
-        name = self.cleaned_data.get('name')
-        if len(name) < 2:  # Cambiado a 2
-            raise ValidationError("El nombre debe tener al menos 2 caracteres")
-        return name
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['logo'].required = False
 
     def clean_logo(self):
-        logo = self.cleaned_data.get('logo')
-        if logo:  # Check if logo is not None (a new file was uploaded)
-            # No se realiza ninguna validación específica para el logo,
-            # por lo que puede ser None (no requerido).
+        logo = self.cleaned_data.get('logo', None)
+        
+        # Si se marcó para eliminar el logo existente
+        if self.cleaned_data.get('logo-clear'):
+            if self.instance and self.instance.logo:
+                self.instance.logo.delete()
+            return None
+            
+        # Si no se subió ningún archivo nuevo
+        if logo is None:
+            return self.instance.logo if self.instance else None
+            
+        # Si es un nuevo archivo subido (InMemoryUploadedFile o TemporaryUploadedFile)
+        if hasattr(logo, 'content_type'):
+            # Validar tamaño
+            if logo.size > 2 * 1024 * 1024:  # 2MB
+                raise ValidationError("El logo no debe exceder 2MB")
+            # Validar tipo de contenido
+            if logo.content_type not in ['image/jpeg', 'image/png', 'image/svg+xml']:
+                raise ValidationError("Formato de imagen no válido (solo JPG, PNG, SVG)")
             return logo
-        else:
-            return None  # or return self.instance.logo if you want to keep the old logo
+            
+        # Para cualquier otro caso (incluyendo cuando logo es ImageFieldFile)
+        return logo
 
 
 class CampusV2Form(forms.ModelForm):

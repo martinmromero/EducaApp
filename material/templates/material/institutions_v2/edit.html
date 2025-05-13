@@ -73,57 +73,53 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const addCampusButton = document.getElementById('add-campus');
-        const campusesContainer = document.getElementById('campuses-container');
-        let campusFormCount = "{{ campus_formset.total_form_count }}";
+document.addEventListener('DOMContentLoaded', function() {
+    // Manejo de sedes
+    const campusesContainer = document.getElementById('campuses-container');
+    const addCampusBtn = document.getElementById('add-campus');
+    
+    // Manejo de facultades
+    const facultiesContainer = document.getElementById('faculties-container');
+    const addFacultyBtn = document.getElementById('add-faculty');
 
-        const addFacultyButton = document.getElementById('add-faculty');
-        const facultiesContainer = document.getElementById('faculties-container');
-        let facultyFormCount = "{{ faculty_formset.total_form_count }}";
-
-        addCampusButton.addEventListener('click', function() {
-            const formTemplate = document.querySelector('#campuses-container .campus-entry').cloneNode(true);
-            formTemplate.innerHTML = formTemplate.innerHTML.replace(/__prefix__/g, campusFormCount);
-            formTemplate.querySelectorAll('input, select, textarea').forEach(el => {
-                if (el.id) el.id = el.id.replace(/__prefix__/g, campusFormCount);
-                if (el.name) el.name = el.name.replace(/__prefix__/g, campusFormCount);
-                if (el.id.includes('address')) el.id = el.id.replace(/__prefix__/g, campusFormCount); // Address field
-                el.value = '';  // Clear values
-            });
-            formTemplate.querySelector('input[type="checkbox"]').checked = false; // Uncheck DELETE
-            campusesContainer.appendChild(formTemplate);
-            campusFormCount++;
-            document.querySelector('#id_campus-TOTAL_FORMS').value = campusFormCount;
+    // Función para clonar y actualizar formularios
+    function addForm(container, prefix, templateSelector) {
+        const totalForms = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+        const formCount = parseInt(totalForms.value);
+        const template = document.querySelector(templateSelector).cloneNode(true);
+        
+        template.innerHTML = template.innerHTML.replace(/__prefix__/g, formCount);
+        template.querySelectorAll('[name]').forEach(el => {
+            el.name = el.name.replace(/__prefix__/g, formCount);
+            el.id = el.id.replace(/__prefix__/g, formCount);
+            if (!el.dataset.keepValue) el.value = '';
         });
+        
+        template.querySelector('.delete-checkbox').checked = false;
+        container.insertBefore(template, container.lastElementChild);
+        totalForms.value = formCount + 1;
+        return template;
+    }
 
-        addFacultyButton.addEventListener('click', function() {
-            const formTemplate = document.querySelector('#faculties-container .faculty-entry').cloneNode(true);
-            formTemplate.innerHTML = formTemplate.innerHTML.replace(/__prefix__/g, facultyFormCount);
-            formTemplate.querySelectorAll('input, select, textarea').forEach(el => {
-                if (el.id) el.id = el.id.replace(/__prefix__/g, facultyFormCount);
-                if (el.name) el.name = el.name.replace(/__prefix__/g, facultyFormCount);
-                if (el.id.includes('code')) el.id = el.id.replace(/__prefix__/g, facultyFormCount); // Code field
-                el.value = '';
-            });
-            formTemplate.querySelector('input[type="checkbox"]').checked = false;
-            facultiesContainer.appendChild(formTemplate);
-            facultyFormCount++;
-            document.querySelector('#id_faculty-TOTAL_FORMS').value = facultyFormCount;
-        });
-
-        campusesContainer.addEventListener('click', function(event) {
-            if (event.target.classList.contains('remove-campus')) {
-                event.target.closest('.campus-entry').remove();
-            }
-        });
-
-        facultiesContainer.addEventListener('click', function(event) {
-            if (event.target.classList.contains('remove-faculty')) {
-                event.target.closest('.faculty-entry').remove();
-            }
-        });
+    // Delegación de eventos para marcar elementos a eliminar
+    document.addEventListener('change', function(e) {
+        if (e.target.matches('.delete-checkbox')) {
+            const form = e.target.closest('.formset-form');
+            form.classList.toggle('to-delete', e.target.checked);
+        }
     });
+
+    // Eventos para agregar nuevos elementos
+    addCampusBtn.addEventListener('click', () => {
+        const newForm = addForm(campusesContainer, 'campus-TOTAL_FORMS', '.campus-entry');
+        newForm.scrollIntoView({behavior: 'smooth'});
+    });
+
+    addFacultyBtn.addEventListener('click', () => {
+        const newForm = addForm(facultiesContainer, 'faculty-TOTAL_FORMS', '.faculty-entry');
+        newForm.scrollIntoView({behavior: 'smooth'});
+    });
+});
 </script>
 
 <style>
@@ -135,6 +131,25 @@
     }
     .remove-campus:hover, .remove-faculty:hover, .remove-new-campus:hover, .remove-new-faculty:hover {
         opacity: 1;
+    }
+     .to-delete {
+        background-color: #fff3f3;
+        border-left: 3px solid #dc3545;
+    }
+    .formset-form {
+        position: relative;
+        padding: 15px;
+        margin-bottom: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+    }
+    .delete-checkbox {
+        position: absolute;
+        right: 15px;
+        top: 15px;
+    }
+    .add-row {
+        margin-top: 10px;
     }
 </style>
 
