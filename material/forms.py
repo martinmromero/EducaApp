@@ -295,31 +295,20 @@ class InstitutionV2Form(forms.ModelForm):
         self.fields['logo'].required = False
 
     def clean_logo(self):
-        logo = self.cleaned_data.get('logo', None)
+        logo = self.cleaned_data.get('logo')
         
-        # Si se marcó para eliminar el logo existente
-        if self.cleaned_data.get('logo-clear'):
-            if self.instance and self.instance.logo:
-                self.instance.logo.delete()
-            return None
-            
-        # Si no se subió ningún archivo nuevo
-        if logo is None:
-            return self.instance.logo if self.instance else None
-            
-        # Si es un nuevo archivo subido (InMemoryUploadedFile o TemporaryUploadedFile)
-        if hasattr(logo, 'content_type'):
-            # Validar tamaño
-            if logo.size > 2 * 1024 * 1024:  # 2MB
+        # Validación solo si hay un logo nuevo
+        if logo and hasattr(logo, 'content_type'):
+            # Validar tamaño (2MB máximo)
+            if logo.size > 2 * 1024 * 1024:
                 raise ValidationError("El logo no debe exceder 2MB")
-            # Validar tipo de contenido
-            if logo.content_type not in ['image/jpeg', 'image/png', 'image/svg+xml']:
-                raise ValidationError("Formato de imagen no válido (solo JPG, PNG, SVG)")
-            return logo
             
-        # Para cualquier otro caso (incluyendo cuando logo es ImageFieldFile)
+            # Validar tipo de archivo
+            valid_types = ['image/jpeg', 'image/png', 'image/svg+xml']
+            if logo.content_type not in valid_types:
+                raise ValidationError("Adjunte una imagen válida (JPG, PNG o SVG)")
+        
         return logo
-
 
 class CampusV2Form(forms.ModelForm):
     class Meta:

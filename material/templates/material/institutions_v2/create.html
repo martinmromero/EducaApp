@@ -2,143 +2,197 @@
 {% load crispy_forms_tags %}
 
 {% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-md-8 mx-auto">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h3><i class="bi bi-plus-circle me-2"></i>Nueva Institución</h3>
-                </div>
-                <div class="card-body">
-                    <form method="post" enctype="multipart/form-data" id="create-form">
-                        {% csrf_token %}
-                        {{ form|crispy }}
-                        
-                        <div class="form-group mt-4">
-                            <h5><i class="bi bi-geo-alt me-2"></i>Sedes</h5>
-                            <div id="campuses-container">
-                                <div class="input-group mb-3">
-                                    <input type="text" name="campuses[]" class="form-control" required>
-                                    <button type="button" class="btn btn-outline-danger remove-campus">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <button type="button" id="add-campus" class="btn btn-sm btn-outline-primary mt-2">
-                                <i class="bi bi-plus-circle me-1"></i>Agregar Sede
-                            </button>
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h2><i class="bi bi-plus-circle me-2"></i>Nueva Institución</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data" id="institution-form">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <!-- Columna Izquierda -->
+                    <div class="col-md-6">
+                        <!-- Nombre -->
+                        <div class="mb-4">
+                            {{ form.name|as_crispy_field }}
                         </div>
-
-                        <div class="form-group mt-4">
-                            <h5><i class="bi bi-building me-2"></i>Facultades</h5>
-                            <div id="faculties-container">
-                                <div class="faculty-form mb-3">
-                                    <div class="row g-2">
-                                        <div class="col-md-6">
-                                            <input type="text" name="faculty_names[]" class="form-control" required>
+                        
+                        <!-- Sedes -->
+                        <div id="campuses-container" class="mb-4">
+                            <h5><i class="bi bi-geo-alt me-2"></i>Sedes (opcional)</h5>
+                            {{ campus_formset.management_form }}
+                            {% for campus_form in campus_formset.forms %}
+                                <div class="campus-entry formset-form mb-3 p-3 border rounded">
+                                    {{ campus_form.id }}
+                                    <div class="row align-items-center">
+                                        <div class="col-10">
+                                            {{ campus_form.name|as_crispy_field }}
                                         </div>
-                                        <div class="col-md-4">
-                                            <input type="text" name="faculty_codes[]" class="form-control">
-                                        </div>
-                                        <div class="col-md-2">
-                                            <button type="button" class="btn btn-outline-danger w-100 remove-faculty">
+                                        <div class="col-2 text-end">
+                                            <button type="button" class="btn btn-outline-danger remove-campus">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </div>
                                     </div>
                                 </div>
+                            {% endfor %}
+                            <button type="button" id="add-campus" class="btn btn-sm btn-outline-primary mt-2">
+                                <i class="bi bi-plus-circle me-1"></i>Agregar Sede
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Columna Derecha -->
+                    <div class="col-md-6">
+                        <!-- Logo -->
+                        <div class="mb-4">
+                            <div id="logo-container">
+                                <div class="form-group">
+                                    <label for="id_logo" class="form-label">Subir logo (opcional)</label>
+                                    <input type="file" name="logo" class="form-control" id="id_logo"
+                                           accept=".jpg,.jpeg,.png,.svg">
+                                    <small class="form-text text-muted">Formatos aceptados: JPG, PNG, SVG (Máx. 2MB)</small>
+                                </div>
                             </div>
+                        </div>
+                        
+                        <!-- Facultades -->
+                        <div id="faculties-container" class="mb-4">
+                            <h5><i class="bi bi-building me-2"></i>Facultades (opcional)</h5>
+                            {{ faculty_formset.management_form }}
+                            {% for faculty_form in faculty_formset.forms %}
+                                <div class="faculty-entry formset-form mb-3 p-3 border rounded">
+                                    {{ faculty_form.id }}
+                                    <div class="row align-items-center">
+                                        <div class="col-10">
+                                            {{ faculty_form.name|as_crispy_field }}
+                                        </div>
+                                        <div class="col-2 text-end">
+                                            <button type="button" class="btn btn-outline-danger remove-faculty">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
                             <button type="button" id="add-faculty" class="btn btn-sm btn-outline-primary mt-2">
                                 <i class="bi bi-plus-circle me-1"></i>Agregar Facultad
                             </button>
                         </div>
-
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                            <a href="{% url 'material:institution_v2_list' %}" class="btn btn-secondary me-md-2">
-                                <i class="bi bi-x-circle me-1"></i>Cancelar
-                            </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-save me-1"></i>Guardar
-                            </button>
-                        </div>
-                    </form>
+                    </div>
                 </div>
-            </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url 'material:institution_v2_list' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i> Crear Institución
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Eliminar atributos required de todos los inputs
-        document.querySelectorAll('input, select, textarea').forEach(input => {
-            input.removeAttribute('required');
-            input.removeAttribute('data-required');
-            input.removeAttribute('aria-required');
-        });
-    
-        // Función para agregar campus
-        document.getElementById('add-campus').addEventListener('click', function() {
-            const container = document.getElementById('campuses-container');
-            const div = document.createElement('div');
-            div.className = 'input-group mb-3';
-            div.innerHTML = `
-                <input type="text" name="campuses" class="form-control" placeholder="Nombre (opcional)">
-                <button type="button" class="btn btn-outline-danger remove-campus">
-                    <i class="bi bi-trash"></i>
-                </button>
-            `;
-            container.appendChild(div);
-        });
-    
-        // Función para agregar facultades
-        document.getElementById('add-faculty').addEventListener('click', function() {
-            const container = document.getElementById('faculties-container');
-            const div = document.createElement('div');
-            div.className = 'faculty-form mb-3';
-            div.innerHTML = `
-                <div class="row g-2">
-                    <div class="col-md-8">
-                        <input type="text" name="faculty_names" class="form-control" placeholder="Nombre (opcional)">
-                    </div>
-                    <div class="col-md-4">
-                        <input type="text" name="faculty_codes" class="form-control" placeholder="Código (opcional)">
-                    </div>
-                    <div class="col-md-2">
-                        <button type="button" class="btn btn-outline-danger w-100 remove-faculty">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-            container.appendChild(div);
-        });
-    
-        // Desactivar validación del formulario
-        document.getElementById('create-form').addEventListener('submit', function(e) {
-            // Convertir campos vacíos a disabled para que no se envíen
-            document.querySelectorAll('input[name="campuses"]').forEach(input => {
-                if (input.value.trim() === '') input.disabled = true;
-            });
-            document.querySelectorAll('input[name="faculty_names"]').forEach(input => {
-                if (input.value.trim() === '') input.disabled = true;
-            });
-            document.querySelectorAll('input[name="faculty_codes"]').forEach(input => {
-                if (input.value.trim() === '') input.disabled = true;
-            });
-            return true;
-        });
-    
-        // Delegación de eventos para eliminar elementos
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('remove-campus')) {
-                e.target.closest('.input-group').remove();
-            }
-            if (e.target.classList.contains('remove-faculty')) {
-                e.target.closest('.faculty-form').remove();
-            }
-        });
-    });
-    </script>
+<style>
+    .formset-form {
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    .remove-campus, .remove-faculty {
+        transition: all 0.2s ease;
+    }
+    .logo-error {
+        margin-top: 0.5rem;
+    }
+    #id_logo.is-invalid {
+        border-color: #dc3545;
+    }
+</style>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Manejo de errores en logo
+    const logoInput = document.getElementById('id_logo');
+    if (logoInput) {
+        logoInput.addEventListener('change', function() {
+            const errorDiv = document.querySelector('.logo-error');
+            if (this.files[0]) {
+                const validTypes = ['image/jpeg', 'image/png', 'image/svg+xml'];
+                if (!validTypes.includes(this.files[0].type)) {
+                    showLogoError('Formato no válido (solo JPG, PNG, SVG)');
+                } 
+                else if (this.files[0].size > 2 * 1024 * 1024) {
+                    showLogoError('El tamaño máximo es 2MB');
+                } 
+                else {
+                    if (errorDiv) errorDiv.remove();
+                    this.classList.remove('is-invalid');
+                }
+            }
+        });
+    }
+
+    function showLogoError(message) {
+        const container = document.getElementById('logo-container');
+        let errorDiv = document.querySelector('.logo-error');
+        
+        if (!errorDiv) {
+            container.insertAdjacentHTML('beforeend', 
+                `<div class="alert alert-danger logo-error">${message}</div>`);
+        } else {
+            errorDiv.textContent = message;
+        }
+        
+        document.getElementById('id_logo').classList.add('is-invalid');
+    }
+
+    // Formsets dinámicos
+    function setupFormset(prefix, containerId, addButtonId) {
+        const container = document.getElementById(containerId);
+        const addButton = document.getElementById(addButtonId);
+        const totalForms = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+        let formCount = parseInt(totalForms.value);
+
+        // Eliminar elementos
+        container.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-' + prefix)) {
+                const form = e.target.closest('.formset-form');
+                if (form.querySelector('[name$="-name"]').value === '' || confirm('¿Eliminar esta entrada?')) {
+                    form.remove();
+                    updateFormIndices(prefix);
+                }
+            }
+        });
+
+        // Agregar nuevos elementos
+        addButton.addEventListener('click', function() {
+            const formCount = parseInt(totalForms.value);
+            const newForm = container.querySelector('.formset-form').cloneNode(true);
+            newForm.innerHTML = newForm.innerHTML.replace(new RegExp(`${prefix}-\\d+-`, 'g'), `${prefix}-${formCount}-`);
+            newForm.querySelector('[name$="-name"]').value = '';
+            container.insertBefore(newForm, addButton);
+            totalForms.value = formCount + 1;
+        });
+    }
+
+    function updateFormIndices(prefix) {
+        const forms = document.querySelectorAll(`.${prefix}-entry`);
+        forms.forEach((form, index) => {
+            form.querySelectorAll('input, select').forEach(input => {
+                input.name = input.name.replace(new RegExp(`${prefix}-\\d+-`), `${prefix}-${index}-`);
+                input.id = input.id.replace(new RegExp(`${prefix}-\\d+-`), `${prefix}-${index}-`);
+            });
+        });
+        document.getElementById(`id_${prefix}-TOTAL_FORMS`).value = forms.length;
+    }
+
+    // Inicializar formsets
+    setupFormset('campus', 'campuses-container', 'add-campus');
+    setupFormset('faculty', 'faculties-container', 'add-faculty');
+});
+</script>
 {% endblock %}

@@ -748,37 +748,47 @@ def institution_v2_list(request):
 
 @login_required
 def create_institution_v2(request):
+    CampusFormSet = formset_factory(CampusV2Form, extra=1)
+    FacultyFormSet = formset_factory(FacultyV2Form, extra=1)
+
     if request.method == 'POST':
         form = InstitutionV2Form(request.POST, request.FILES)
-        if form.is_valid():
-            institution = form.save(commit=False)
-            institution.save()
-            UserInstitution.objects.create(user=request.user, institution=institution)
+        campus_formset = CampusFormSet(request.POST, prefix='campus')
+        faculty_formset = FacultyFormSet(request.POST, prefix='faculty')
 
-            campuses_data = request.POST.getlist('campuses[]')
-            if campuses_data:
-                for campus_name in campuses_data:
-                    if campus_name.strip():
-                        CampusV2.objects.create(institution=institution, name=campus_name.strip())
+        if all([form.is_valid(), campus_formset.is_valid(), faculty_formset.is_valid()]):
+            with transaction.atomic():
+                institution = form.save()
+                UserInstitution.objects.create(user=request.user, institution=institution)
 
-            faculty_names = request.POST.getlist('faculty_names[]')
-            faculty_codes = request.POST.getlist('faculty_codes[]')
-            if faculty_names:
-                for i in range(len(faculty_names)):
-                    if faculty_names[i].strip():
-                        FacultyV2.objects.create(
+                # Procesar sedes
+                for campus_form in campus_formset:
+                    if campus_form.cleaned_data.get('name'):
+                        CampusV2.objects.create(
                             institution=institution,
-                            name=faculty_names[i].strip(),
-                            code=faculty_codes[i].strip()
+                            name=campus_form.cleaned_data['name']
                         )
 
-            messages.success(request, 'Institución creada con éxito.')
-            return redirect('material:institution_v2_list')
-        else:
-            messages.error(request, 'Por favor, corrija los errores del formulario.')
+                # Procesar facultades
+                for faculty_form in faculty_formset:
+                    if faculty_form.cleaned_data.get('name'):
+                        FacultyV2.objects.create(
+                            institution=institution,
+                            name=faculty_form.cleaned_data['name']
+                        )
+
+                messages.success(request, 'Institución creada con éxito.')
+                return redirect('material:institution_v2_detail', pk=institution.pk)
     else:
         form = InstitutionV2Form()
-    return render(request, 'material/institutions_v2/create.html', {'form': form})
+        campus_formset = CampusFormSet(prefix='campus')
+        faculty_formset = FacultyFormSet(prefix='faculty')
+
+    return render(request, 'material/institutions_v2/create.html', {
+        'form': form,
+        'campus_formset': campus_formset,
+        'faculty_formset': faculty_formset,
+    })
 
 @login_required
 def edit_institution_v2(request, pk):

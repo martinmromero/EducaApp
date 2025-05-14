@@ -5,7 +5,7 @@
 <div class="container mt-4">
     <div class="card">
         <div class="card-header">
-            <h2>Editar Institución</h2>
+            <h2><i class="bi bi-pencil-square me-2"></i>Editar Institución</h2>
         </div>
         <div class="card-body">
             <form method="post" enctype="multipart/form-data" id="institution-form">
@@ -26,32 +26,39 @@
                             </button>
                         </div>
                         {% endif %}
-                    </div>
-                    <div class="form-group">
-                        <label for="id_logo" class="form-label">{% if form.instance.logo %}Cambiar{% else %}Subir{% endif %} logo (opcional)</label>
-                        <input type="file" name="logo" class="form-control" id="id_logo"
-                               accept=".jpg,.jpeg,.png,.svg">
+                        <div class="form-group">
+                            <label for="id_logo" class="form-label">{% if form.instance.logo %}Cambiar{% else %}Subir{% endif %} logo (opcional)</label>
+                            <input type="file" name="logo" class="form-control" id="id_logo"
+                                   accept=".jpg,.jpeg,.png,.svg">
+                            <small class="form-text text-muted">Formatos aceptados: JPG, PNG, SVG (Máx. 2MB)</small>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Resto del formulario (secciones de nombre, sedes y facultades se mantienen igual) -->
                 {{ form.name|as_crispy_field }}
 
+                <!-- Sección de Sedes -->
                 <div id="campuses-container" class="mb-4">
-                    <h5>Sedes (opcional)</h5>
+                    <h5><i class="bi bi-geo-alt me-2"></i>Sedes (opcional)</h5>
                     {{ campus_formset.management_form }}
                     {% for campus_form in campus_formset.forms %}
-                        <div class="campus-entry formset-form mb-3 p-3 border rounded">
+                        <div class="campus-entry formset-form mb-3 p-3 border rounded {% if campus_form.DELETE.value %}d-none{% endif %}">
                             {{ campus_form.id }}
-                            <div class="row">
+                            <div class="row align-items-center">
                                 <div class="col-10">
                                     {{ campus_form.name|as_crispy_field }}
                                 </div>
                                 <div class="col-2 text-end">
                                     {% if campus_form.instance.pk %}
-                                    <div class="form-check">
-                                        {{ campus_form.DELETE|as_crispy_field }}
-                                    </div>
+                                    <button type="button" class="btn btn-outline-danger delete-campus" 
+                                            data-target="#{{ campus_form.DELETE.id_for_label }}">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
+                                    <input type="hidden" name="{{ campus_form.DELETE.html_name }}" id="{{ campus_form.DELETE.id_for_label }}" {% if campus_form.DELETE.value %}value="{{ campus_form.DELETE.value }}"{% endif %}>
+                                    {% else %}
+                                    <button type="button" class="btn btn-outline-danger remove-campus">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
                                     {% endif %}
                                 </div>
                             </div>
@@ -62,21 +69,28 @@
                     </button>
                 </div>
 
+                <!-- Sección de Facultades -->
                 <div id="faculties-container" class="mb-4">
-                    <h5>Facultades (opcional)</h5>
+                    <h5><i class="bi bi-building me-2"></i>Facultades (opcional)</h5>
                     {{ faculty_formset.management_form }}
                     {% for faculty_form in faculty_formset.forms %}
-                        <div class="faculty-entry formset-form mb-3 p-3 border rounded">
+                        <div class="faculty-entry formset-form mb-3 p-3 border rounded {% if faculty_form.DELETE.value %}d-none{% endif %}">
                             {{ faculty_form.id }}
-                            <div class="row">
+                            <div class="row align-items-center">
                                 <div class="col-10">
                                     {{ faculty_form.name|as_crispy_field }}
                                 </div>
                                 <div class="col-2 text-end">
                                     {% if faculty_form.instance.pk %}
-                                    <div class="form-check">
-                                        {{ faculty_form.DELETE|as_crispy_field }}
-                                    </div>
+                                    <button type="button" class="btn btn-outline-danger delete-faculty" 
+                                            data-target="#{{ faculty_form.DELETE.id_for_label }}">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
+                                    <input type="hidden" name="{{ faculty_form.DELETE.html_name }}" id="{{ faculty_form.DELETE.id_for_label }}" {% if faculty_form.DELETE.value %}value="{{ faculty_form.DELETE.value }}"{% endif %}>
+                                    {% else %}
+                                    <button type="button" class="btn btn-outline-danger remove-faculty">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
                                     {% endif %}
                                 </div>
                             </div>
@@ -112,6 +126,15 @@
     #current-logo {
         transition: all 0.3s ease;
     }
+    .logo-error {
+        margin-top: 0.5rem;
+    }
+    #id_logo.is-invalid {
+        border-color: #dc3545;
+    }
+    .delete-campus, .delete-faculty, .remove-campus, .remove-faculty {
+        transition: all 0.2s ease;
+    }
 </style>
 
 <script>
@@ -145,8 +168,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <label for="id_logo" class="form-label">Subir nuevo logo (opcional)</label>
                                 <input type="file" name="logo" class="form-control" id="id_logo"
                                        accept=".jpg,.jpeg,.png,.svg">
+                                <small class="form-text text-muted">Formatos aceptados: JPG, PNG, SVG (Máx. 2MB)</small>
                             </div>
                         `;
+                        // Reconfigurar validación
+                        setupLogoValidation();
                     } else {
                         alert('Error al eliminar el logo: ' + (data.error || 'Error desconocido'));
                     }
@@ -157,47 +183,106 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Configuración de formsets (se mantiene igual)
-    function setupFormset(addButtonId, containerId, prefix) {
-        const addButton = document.getElementById(addButtonId);
-        const container = document.getElementById(containerId);
-        const totalForms = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
-        let formCount = parseInt(totalForms.value);
-        
-        addButton.addEventListener('click', function() {
-            const emptyForm = document.querySelector(`#${containerId} .empty-form`);
-            if (!emptyForm) return;
-            
-            const newForm = emptyForm.cloneNode(true);
-            newForm.classList.remove('empty-form');
-            newForm.style.display = 'block';
-            
-            newForm.innerHTML = newForm.innerHTML.replace(/__prefix__/g, formCount);
-            
-            newForm.querySelectorAll('input').forEach(input => {
-                if (input.name.includes('__prefix__')) {
-                    input.name = input.name.replace(/__prefix__/g, formCount);
-                }
-                if (input.id.includes('__prefix__')) {
-                    input.id = input.id.replace(/__prefix__/g, formCount);
-                }
-                if (input.type !== 'hidden' && !input.classList.contains('delete-checkbox')) {
-                    input.value = '';
-                }
-                if (input.classList.contains('delete-checkbox')) {
-                    input.checked = false;
+    // Validación de logo
+    function setupLogoValidation() {
+        const logoInput = document.getElementById('id_logo');
+        if (logoInput) {
+            logoInput.addEventListener('change', function() {
+                const errorDiv = document.querySelector('.logo-error');
+                if (this.files[0]) {
+                    // Validar tipo de archivo
+                    const validTypes = ['image/jpeg', 'image/png', 'image/svg+xml'];
+                    if (!validTypes.includes(this.files[0].type)) {
+                        showLogoError('Formato no válido (solo JPG, PNG, SVG)');
+                    } 
+                    // Validar tamaño (2MB)
+                    else if (this.files[0].size > 2 * 1024 * 1024) {
+                        showLogoError('El tamaño máximo es 2MB');
+                    } 
+                    else {
+                        if (errorDiv) errorDiv.remove();
+                        this.classList.remove('is-invalid');
+                    }
                 }
             });
+        }
+    }
+
+    function showLogoError(message) {
+        const container = document.getElementById('logo-container');
+        let errorDiv = document.querySelector('.logo-error');
+        
+        if (!errorDiv) {
+            container.insertAdjacentHTML('beforeend', 
+                `<div class="alert alert-danger logo-error">${message}</div>`);
+        } else {
+            errorDiv.textContent = message;
+        }
+        
+        document.getElementById('id_logo').classList.add('is-invalid');
+    }
+
+    // Configuración de formsets
+    function setupFormset(prefix, containerId, addButtonId) {
+        const container = document.getElementById(containerId);
+        const addButton = document.getElementById(addButtonId);
+        const totalForms = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+        const formRegex = new RegExp(`${prefix}-(\\d+)-`, 'g');
+        let formCount = parseInt(totalForms.value);
+
+        // Manejar eliminación
+        container.addEventListener('click', function(e) {
+            const deleteBtn = e.target.closest('.delete-' + prefix);
+            const removeBtn = e.target.closest('.remove-' + prefix);
             
-            container.insertBefore(newForm, addButton);
-            formCount++;
-            totalForms.value = formCount;
+            if (deleteBtn) {
+                const form = deleteBtn.closest('.formset-form');
+                const deleteCheckbox = document.querySelector(deleteBtn.dataset.target);
+                if (deleteCheckbox) {
+                    deleteCheckbox.value = 'on';
+                    form.classList.add('d-none');
+                }
+            }
+            
+            if (removeBtn) {
+                const form = removeBtn.closest('.formset-form');
+                if (form.querySelector('[name$="-name"]').value === '' || confirm('¿Eliminar esta entrada?')) {
+                    form.remove();
+                    updateFormIndices(prefix);
+                }
+            }
+        });
+
+        // Agregar nuevos elementos
+        addButton.addEventListener('click', function() {
+            const emptyForm = container.querySelector('.empty-form');
+            if (emptyForm) {
+                const newForm = emptyForm.cloneNode(true);
+                newForm.innerHTML = newForm.innerHTML.replace(formRegex, `${prefix}-${formCount}-`);
+                newForm.classList.remove('empty-form');
+                newForm.classList.add('formset-form');
+                container.insertBefore(newForm, addButton);
+                formCount++;
+                totalForms.value = formCount;
+            }
         });
     }
 
-    // Inicializar formsets
-    setupFormset('add-campus', 'campuses-container', 'campus');
-    setupFormset('add-faculty', 'faculties-container', 'faculty');
+    function updateFormIndices(prefix) {
+        const forms = document.querySelectorAll(`.${prefix}-entry:not(.empty-form)`);
+        forms.forEach((form, index) => {
+            form.querySelectorAll('input, select').forEach(input => {
+                input.name = input.name.replace(new RegExp(`${prefix}-\\d+-`), `${prefix}-${index}-`);
+                input.id = input.id.replace(new RegExp(`${prefix}-\\d+-`), `${prefix}-${index}-`);
+            });
+        });
+        document.getElementById(`id_${prefix}-TOTAL_FORMS`).value = forms.length;
+    }
+
+    // Inicializar
+    setupLogoValidation();
+    setupFormset('campus', 'campuses-container', 'add-campus');
+    setupFormset('faculty', 'faculties-container', 'add-faculty');
 });
 </script>
 {% endblock %}
