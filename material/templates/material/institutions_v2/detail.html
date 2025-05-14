@@ -22,14 +22,14 @@
 
     <div class="row">
         <div class="col-md-6">
-            <div class="card">
+            <div class="card mb-4">
                 <div class="card-header bg-primary text-white">
                     <i class="bi bi-info-circle me-2"></i>Información General
                 </div>
                 <div class="card-body">
                     <p><strong>Nombre:</strong> {{ institution.name }}</p>
                     {% if institution.logo %}
-                    <img src="{{ institution.logo.url }}" alt="Logo" class="img-fluid mb-3">
+                    <img src="{{ institution.logo.url }}" alt="Logo" class="img-fluid mb-3 rounded" style="max-height: 150px;">
                     {% endif %}
                     <p><strong>Creada el:</strong> {{ institution.created_at|date:"d/m/Y H:i" }}</p>
                     <p><strong>Última actualización:</strong> {{ institution.updated_at|date:"d/m/Y H:i" }}</p>
@@ -39,7 +39,8 @@
         </div>
 
         <div class="col-md-6">
-            <div class="card">
+            <!-- Sección de Sedes -->
+            <div class="card mb-4">
                 <div class="card-header bg-success text-white">
                     <i class="bi bi-geo-alt me-2"></i>Sedes
                 </div>
@@ -47,20 +48,24 @@
                     {% if institution.campusv2_set.all %}
                     <ul class="list-group list-group-flush">
                         {% for campus in institution.campusv2_set.all %}
-                        <li class="list-group-item">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
                             {{ campus.name }}
+                            <span class="badge bg-{% if campus.is_active %}success{% else %}secondary{% endif %}">
+                                {% if campus.is_active %}Activa{% else %}Inactiva{% endif %}
+                            </span>
                         </li>
                         {% endfor %}
                     </ul>
                     {% else %}
-                    <div class="alert alert-info">
+                    <div class="alert alert-info mb-0">
                         <i class="bi bi-info-circle me-2"></i> No hay sedes registradas.
                     </div>
                     {% endif %}
                 </div>
             </div>
 
-            <div class="card mt-4">
+            <!-- Sección de Facultades -->
+            <div class="card">
                 <div class="card-header bg-warning text-white">
                     <i class="bi bi-mortarboard me-2"></i>Facultades
                 </div>
@@ -68,13 +73,16 @@
                     {% if institution.facultyv2_set.all %}
                     <ul class="list-group list-group-flush">
                         {% for faculty in institution.facultyv2_set.all %}
-                        <li class="list-group-item">
-                            {{ faculty.name }} ({{ faculty.code }})
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ faculty.name }}
+                            <span class="badge bg-{% if faculty.is_active %}success{% else %}secondary{% endif %}">
+                                {% if faculty.is_active %}Activa{% else %}Inactiva{% endif %}
+                            </span>
                         </li>
                         {% endfor %}
                     </ul>
                     {% else %}
-                    <div class="alert alert-info">
+                    <div class="alert alert-info mb-0">
                         <i class="bi bi-info-circle me-2"></i> No hay facultades registradas.
                     </div>
                     {% endif %}

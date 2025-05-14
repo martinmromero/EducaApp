@@ -324,32 +324,24 @@ class InstitutionV2Form(forms.ModelForm):
 class CampusV2Form(forms.ModelForm):
     class Meta:
         model = CampusV2
-        fields = ['name', 'address']
+        fields = ['name']  # Solo mostramos el nombre
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Nombre de la sede'
-            }),
-            'address': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 2,
-                'placeholder': 'Dirección completa'
+                'placeholder': 'Nombre de la sede',
+                'required': False  # Hacer opcional
             })
         }
-
 
 class FacultyV2Form(forms.ModelForm):
     class Meta:
         model = FacultyV2
-        fields = ['name', 'code']
+        fields = ['name']  # Solo mostramos el nombre
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Nombre de la facultad'
-            }),
-            'code': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Código (opcional)'
+                'placeholder': 'Nombre de la facultad',
+                'required': False  # Hacer opcional
             })
         }
 

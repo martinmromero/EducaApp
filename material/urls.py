@@ -45,7 +45,7 @@ urlpatterns = [
     path('instituciones-v2/<int:institution_id>/facultad/create/', material_views.create_faculty_v2, name='create_faculty_v2'),
     path('instituciones-v2/<int:institution_id>/facultad/<int:faculty_id>/edit/', material_views.edit_faculty_v2, name='edit_faculty_v2'),
     path('instituciones-v2/<int:institution_id>/facultad/<int:faculty_id>/delete/', material_views.delete_faculty_v2, name='delete_faculty_v2'),
-
+    path('instituciones-v2/<int:pk>/eliminar-logo/', material_views.delete_institution_logo_v2, name='delete_institution_logo_v2'),
 
 path('instituciones/', material_views.manage_institutions, name='manage_institutions'),
 ]

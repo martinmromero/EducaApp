@@ -984,6 +984,17 @@ def create_faculty_v2(request, institution_id):
         form = FacultyV2Form()
     return render(request, 'material/faculties_v2/create.html', {'form': form, 'institution': institution})
 
+@login_required
+def delete_institution_logo_v2(request, pk):
+    institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
+    if request.method == 'POST':
+        try:
+            institution.logo.delete()
+            institution.save()
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
 
 @login_required
 def edit_campus_v2(request, institution_id, campus_id):
