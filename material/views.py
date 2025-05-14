@@ -701,7 +701,6 @@ def delete_institution(request, pk):
         messages.error(request, 'Error al eliminar la institución')
         return redirect('material:manage_institutions')
 
-
 # material/views.py - Agregar al final del archivo
 
 @login_required
