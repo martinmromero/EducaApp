@@ -35,7 +35,7 @@ from .forms import InstitutionForm, LearningOutcomeForm, ProfileForm
 from .models import InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog
 
 # Formularios
-from .forms import InstitutionV2Form, CampusV2Form, FacultyV2Form, FavoriteInstitutionForm, InstitutionForm
+from .forms import InstitutionV2Form, CampusV2Form, FacultyV2Form, InstitutionForm
 
 # Logger configuration
 logger = logging.getLogger(__name__)

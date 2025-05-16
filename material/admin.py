@@ -2,9 +2,12 @@ from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
     Subject, Contenido, Question, Exam, ExamTemplate, Profile,
-    Topic, Subtopic, Institution, LearningOutcome
+    Topic, Subtopic, Institution, InstitutionV2, LearningOutcome, Career
 )
+from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.models import User
 
+# --- Institution Admin ---
 @admin.register(Institution)
 class InstitutionAdmin(admin.ModelAdmin):
     list_display = ('name', 'owner', 'logo_preview', 'campuses_short')
@@ -47,20 +50,50 @@ class InstitutionAdmin(admin.ModelAdmin):
         if not obj.owner_id:  # Si es nueva institución
             obj.owner = request.user
         super().save_model(request, obj, form, change)
-        
+# --- End Institution Admin ---
+
+# --- InstitutionV2 Admin ---
+@admin.register(InstitutionV2)
+class InstitutionV2Admin(admin.ModelAdmin):
+    list_display = ('name', 'is_active', 'created_at', 'updated_at')
+    search_fields = ('name',)
+    list_filter = ('is_active',)
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        (None, {'fields': ('name', 'logo', 'is_active')}),
+    )
+# --- End InstitutionV2 Admin ---
+
+@admin.register(Career)
+class CareerAdmin(admin.ModelAdmin):
+    list_display = ('name', 'faculties_list', 'subjects_list')
+    search_fields = ('name',)
+    filter_horizontal = ('faculties', 'subjects', 'campus')
+
+    def faculties_list(self, obj):
+        return ", ".join([f.name for f in obj.faculties.all()])
+    faculties_list.short_description = 'Facultades'
+
+    def subjects_list(self, obj):
+        return ", ".join([s.name for s in obj.subjects.all()])
+    subjects_list.short_description = 'Materias'
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    list_display = ('name', 'learning_outcomes_count')
+    list_display = ('name', 'learning_outcomes_short', 'careers_list')
     search_fields = ('name',)
 
-    def learning_outcomes_count(self, obj):
-        return obj.outcomes.count()
-    learning_outcomes_count.short_description = 'Resultados'
+    def learning_outcomes_short(self, obj):
+        return f"{obj.learning_outcomes[:50]}..." if obj.learning_outcomes else ""
+    learning_outcomes_short.short_description = 'Resultados'
+
+    def careers_list(self, obj):
+        return ", ".join([c.name for c in obj.careers.all()])
+    careers_list.short_description = 'Carreras'
 
 @admin.register(Contenido)
 class ContenidoAdmin(admin.ModelAdmin):
-    list_display = ('title', 'subject', 'uploaded_by', 'uploaded_at')
+    list_display = ('title', 'subject', 'uploaded_by', 'uploaded_at', 'chapter')
     list_filter = ('subject', 'uploaded_by')
     search_fields = ('title', 'subject__name')
     date_hierarchy = 'uploaded_at'
@@ -68,7 +101,7 @@ class ContenidoAdmin(admin.ModelAdmin):
 
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
-    list_display = ('question_short', 'subject', 'difficulty', 'question_type')
+    list_display = ('question_short', 'subject', 'difficulty', 'question_type', 'contenido', 'source_page')
     list_filter = ('subject', 'difficulty', 'question_type')
     search_fields = ('question_text', 'answer_text')
     raw_id_fields = ('contenido', 'subject', 'topic', 'subtopic', 'user')
@@ -88,13 +121,13 @@ class ExamTemplateAdmin(admin.ModelAdmin):
     list_display = ('subject', 'exam_type', 'year', 'created_by')
     list_filter = ('exam_type', 'year', 'subject')
     search_fields = ('subject__name', 'career_name')
-    raw_id_fields = ('institution', 'subject', 'professor', 'created_by')  # Eliminado 'faculty'
+    raw_id_fields = ('institution', 'subject', 'professor', 'created_by')
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'role', 'institutions_list')
     list_filter = ('role',)
-    filter_horizontal = ('institutions',)  # Eliminado 'faculties'
+    filter_horizontal = ('institutions',)
 
     def institutions_list(self, obj):
         return ", ".join([i.name for i in obj.institutions.all()])

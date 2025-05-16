@@ -1,0 +1,14 @@
+{% extends 'material/base.html' %}  {% block title %}Confirmar Eliminar Facultad{% endblock %}
+
+{% block content %}
+    <h1>Confirmar Eliminar Facultad</h1>
+
+    <p>¿Estás seguro de que quieres eliminar la facultad "{{ faculty.name }}" de la institución "{{ institution.name }}"?</p>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Sí, Eliminar</button>
+        <a href="{% url 'material:institution_v2_detail' institution_id %}" class="btn btn-secondary">No, Cancelar</a>
+    </form>
+
+{% endblock %}

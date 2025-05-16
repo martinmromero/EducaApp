@@ -2,21 +2,14 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
-from .models import InstitutionV2 
 from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
-    Subject, Topic, Subtopic , Institution, LearningOutcome, Campus, Faculty,InstitutionV2,
-    CampusV2,FacultyV2,UserInstitution
+    Subject, Topic, Subtopic, Institution, LearningOutcome, Campus, Faculty,
+    InstitutionV2, CampusV2, FacultyV2, UserInstitution
 )
-
-from django import forms  
-from .models import Institution, Campus, Faculty  
-
-from django import forms
-from .models import Institution
-from django.core.exceptions import ValidationError
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
+
 
 class InstitutionForm(forms.ModelForm):
     class Meta:
@@ -42,32 +35,34 @@ class InstitutionForm(forms.ModelForm):
 
     def clean_logo(self):
         logo = self.cleaned_data.get('logo')
-        if logo:  # Solo validar si hay logo (campo opcional)
+        if logo:
             if logo.size > 2 * 1024 * 1024:
                 raise ValidationError("El logo no debe exceder 2MB")
             if not logo.content_type in ['image/jpeg', 'image/png', 'image/svg+xml']:
                 raise ValidationError("Formato de imagen no válido (solo JPG, PNG, SVG)")
-        return logo  # Retorna None si no hay logo (válido)
+        return logo
 
-class CampusForm(forms.ModelForm):  
-    class Meta:  
-        model = Campus  
-        fields = ['name', 'address', 'institution']  
-        widgets = {  
-            'institution': forms.HiddenInput(),  
-            'name': forms.TextInput(attrs={'class': 'form-control'}),  
-            'address': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'})  
-        }  
 
-class FacultyForm(forms.ModelForm):  
-    class Meta:  
-        model = Faculty  
-        fields = ['name', 'code', 'institution']  
-        widgets = {  
-            'institution': forms.HiddenInput(),  
-            'name': forms.TextInput(attrs={'class': 'form-control'}),  
-            'code': forms.TextInput(attrs={'class': 'form-control'})  
-        }  
+class CampusForm(forms.ModelForm):
+    class Meta:
+        model = Campus
+        fields = ['name', 'address', 'institution']
+        widgets = {
+            'institution': forms.HiddenInput(),
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'address': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'})
+        }
+
+
+class FacultyForm(forms.ModelForm):
+    class Meta:
+        model = Faculty
+        fields = ['name', 'code', 'institution']
+        widgets = {
+            'institution': forms.HiddenInput(),
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'code': forms.TextInput(attrs={'class': 'form-control'})
+        }
 
 
 class LearningOutcomeForm(forms.ModelForm):
@@ -81,13 +76,14 @@ class LearningOutcomeForm(forms.ModelForm):
             'level': forms.Select(attrs={'class': 'form-control'}),
         }
 
+
 class ContenidoForm(forms.ModelForm):
     subject = forms.ModelChoiceField(
         queryset=Subject.objects.all(),
         widget=forms.Select(attrs={'class': 'form-control'}),
         label="Subject"
     )
-    
+
     class Meta:
         model = Contenido
         fields = ['subject', 'title', 'file', 'isbn', 'edition', 'pages', 'publisher', 'year']
@@ -103,6 +99,7 @@ class ContenidoForm(forms.ModelForm):
             'title': 'Título del Contenido',
         }
 
+
 class QuestionForm(forms.ModelForm):
     subject = forms.ModelChoiceField(
         queryset=Subject.objects.all(),
@@ -113,9 +110,9 @@ class QuestionForm(forms.ModelForm):
         required=True,
         label="Materia"
     )
-    
+
     topic = forms.ModelChoiceField(
-        queryset=Topic.objects.none(),  # Se actualiza dinámicamente via JS
+        queryset=Topic.objects.none(),
         widget=forms.Select(attrs={
             'class': 'form-control',
             'data-dark-mode': 'bg-dark text-light'
@@ -123,9 +120,9 @@ class QuestionForm(forms.ModelForm):
         required=True,
         label="Tema principal"
     )
-    
+
     subtopic = forms.ModelChoiceField(
-        queryset=Subtopic.objects.none(),  # Se actualiza dinámicamente via JS
+        queryset=Subtopic.objects.none(),
         widget=forms.Select(attrs={
             'class': 'form-control',
             'data-dark-mode': 'bg-dark text-light',
@@ -160,7 +157,7 @@ class QuestionForm(forms.ModelForm):
         fields = [
             'subject', 'question_text', 'question_image',
             'answer_text', 'answer_image', 'topic', 'subtopic',
-            'unit', 'reference_book', 'source_page', 'chapter'
+            'unit', 'reference_book', 'source_page'
         ]
         widgets = {
             'question_text': forms.Textarea(attrs={
@@ -188,23 +185,16 @@ class QuestionForm(forms.ModelForm):
                 'placeholder': 'Ej: 145',
                 'data-dark-mode': 'bg-dark text-light'
             }),
-            'chapter': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Ej: Capítulo 5 - Derivadas',
-                'data-dark-mode': 'bg-dark text-light'
-            }),
         }
         labels = {
             'unit': 'Unidad (opcional)',
             'reference_book': 'Libro o documento de referencia (opcional)',
             'source_page': 'Página de referencia (opcional)',
-            'chapter': 'Capítulo (opcional)'
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        # Actualizar querysets si ya hay un subject/topic seleccionado
+
         if 'subject' in self.data:
             try:
                 subject_id = int(self.data.get('subject'))
@@ -219,18 +209,17 @@ class QuestionForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        
-        # Validar imágenes
+
         for field in ['question_image', 'answer_image']:
             if file := cleaned_data.get(field):
                 if not file.name.lower().endswith(('.jpg', '.jpeg', '.png', '.svg')):
                     self.add_error(field, 'Formato no soportado. Use JPG, PNG o SVG.')
-        
-        # Validar tema si subtema está presente
+
         if cleaned_data.get('subtopic') and not cleaned_data.get('topic'):
             self.add_error('topic', 'Seleccione un tema principal para asignar un subtema.')
-        
+
         return cleaned_data
+
 
 class ExamForm(forms.ModelForm):
     learning_outcomes = forms.ModelMultipleChoiceField(
@@ -242,7 +231,7 @@ class ExamForm(forms.ModelForm):
 
     class Meta:
         model = Exam
-        fields = ['title', 'subject', 'topics', 'questions', 'learning_outcomes', 
+        fields = ['title', 'subject', 'topics', 'questions', 'learning_outcomes',
                  'instructions', 'duration_minutes']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
@@ -264,7 +253,8 @@ class ExamForm(forms.ModelForm):
                 pass
         elif self.instance.pk:
             self.fields['topics'].queryset = self.instance.subject.topic_set.all()
-            self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(subject=self.instance.subject)
+            self.fields['learning_outcomes'].queryset = self.instance.subject.learningoutcome_set.all()
+
 
 class ExamTemplateForm(forms.ModelForm):
     institution = forms.ModelChoiceField(
@@ -282,7 +272,7 @@ class ExamTemplateForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-control'}),
         required=True
     )
-    
+
     class Meta:
         model = ExamTemplate
         fields = [
@@ -306,6 +296,7 @@ class ExamTemplateForm(forms.ModelForm):
             'learning_outcomes': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
 
+
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
@@ -314,6 +305,7 @@ class ProfileForm(forms.ModelForm):
             'role': forms.Select(attrs={'class': 'form-control'}),
             'institutions': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
+
 
 class CustomLoginForm(AuthenticationForm):
     username = forms.CharField(
@@ -324,15 +316,16 @@ class CustomLoginForm(AuthenticationForm):
     )
 
     def confirm_login_allowed(self, user):
-        """Solo verifica is_active, sin restricciones adicionales"""
         if not user.is_active:
             raise forms.ValidationError(
                 "Cuenta inactiva. Contacta al administrador.",
                 code='inactive',
             )
 
+
 class UserEditForm(forms.ModelForm):
-    role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, label="Rol", widget=forms.Select(attrs={'class': 'form-control'}))
+    role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, label="Rol",
+                            widget=forms.Select(attrs={'class': 'form-control'}))
     institutions = forms.ModelMultipleChoiceField(
         queryset=Institution.objects.all(),
         widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
@@ -365,9 +358,7 @@ class UserEditForm(forms.ModelForm):
                 user.profile.save()
                 user.profile.institutions.set(self.cleaned_data['institutions'])
         return user
-    
 
-    # material/forms.py - Agregar al final del archivo
 
 class InstitutionV2Form(forms.ModelForm):
     class Meta:
@@ -391,19 +382,20 @@ class InstitutionV2Form(forms.ModelForm):
 
     def clean_logo(self):
         logo = self.cleaned_data.get('logo')
-        
+
         # Validación solo si hay un logo nuevo
         if logo and hasattr(logo, 'content_type'):
             # Validar tamaño (2MB máximo)
             if logo.size > 2 * 1024 * 1024:
                 raise ValidationError("El logo no debe exceder 2MB")
-            
+
             # Validar tipo de archivo
             valid_types = ['image/jpeg', 'image/png', 'image/svg+xml']
             if logo.content_type not in valid_types:
                 raise ValidationError("Adjunte una imagen válida (JPG, PNG o SVG)")
-        
+
         return logo
+
 
 class CampusV2Form(forms.ModelForm):
     class Meta:
@@ -417,23 +409,8 @@ class CampusV2Form(forms.ModelForm):
             })
         }
 
+
 class FacultyV2Form(forms.ModelForm):
     class Meta:
         model = FacultyV2
-        fields = ['name']  # Solo mostramos el nombre
-        widgets = {
-            'name': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Nombre de la facultad',
-                'required': False  # Hacer opcional
-            })
-        }
-
-
-class FavoriteInstitutionForm(forms.ModelForm):
-    class Meta:
-        model = InstitutionV2
-        fields = ['is_favorite']
-    class Meta:
-        model = UserInstitution
-        fields = ['is_favorite']
+        fields = ['name']  # Solo mostramos

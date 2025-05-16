@@ -1,0 +1,18 @@
+{% extends 'material/base.html' %}  {% block title %}{% if form.instance.pk %}Editar Campus{% else %}Crear Campus{% endif %}{% endblock %}
+
+{% block content %}
+    <h1>{% if form.instance.pk %}Editar Campus{% else %}Crear Campus{% endif %}</h1>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}  <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{% url 'material:institution_v2_detail' institution_id %}" class="btn btn-secondary">Cancelar</a>
+    </form>
+
+    <p class="mt-3">
+        <small>
+        <strong>Nota:</strong>  El campus se asociará a la institución: {{ institution.name }}.
+        </small>
+    </p>
+
+{% endblock %}

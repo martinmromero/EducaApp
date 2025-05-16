@@ -223,7 +223,7 @@ class Faculty(models.Model):
 
 class Subject(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Nombre")
-    learning_outcomes = models.TextField(blank=True, null=True, verbose_name="Resultados de aprendizaje")
+    learning_outcomes = models.TextField(blank=True, null=True, verbose_name="Resultados de aprendizaje (opcional)")
 
     def __str__(self):
         return self.name
@@ -297,6 +297,12 @@ class Contenido(models.Model):
     pages = models.PositiveIntegerField(blank=True, null=True)
     publisher = models.CharField(max_length=100, blank=True, null=True)
     year = models.PositiveIntegerField(blank=True, null=True)
+    chapter = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='Capítulo (opcional)'
+    )
 
     def __str__(self):
         return f"{self.subject} - {self.title}"
@@ -371,13 +377,7 @@ class Question(models.Model):
     source_page = models.IntegerField(
         null=True,
         blank=True,
-        verbose_name='Página de referencia (opcional)'
-    )
-    chapter = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name='Capítulo (opcional)'
+        verbose_name='Página de referencia'
     )
     unit = models.CharField(
         max_length=100,
@@ -405,6 +405,7 @@ class Question(models.Model):
         ordering = ['subject', 'topic', 'subtopic', 'difficulty']
         verbose_name = 'Pregunta'
         verbose_name_plural = 'Preguntas'
+        unique_together = ('contenido', 'source_page')
 
     @property
     def options(self):
@@ -428,7 +429,6 @@ class Question(models.Model):
 
     def __str__(self):
         return f"{self.subject} - {self.question_text[:50]}..."
-
 
 class ExamTemplate(models.Model):
     EXAM_TYPE_CHOICES = [
@@ -796,7 +796,48 @@ class Profile(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
 
+class Career(models.Model):
+    name = models.CharField(
+        max_length=255,
+        verbose_name="Nombre de la Carrera",
+        unique=True,
+        help_text="Nombre completo de la carrera"
+    )
+    faculties = models.ManyToManyField(
+        FacultyV2,
+        blank=True,
+        verbose_name="Facultades",
+        related_name="careers"
+    )
+    subjects = models.ManyToManyField(
+        Subject,
+        blank=True,
+        verbose_name="Materias",
+        related_name="careers"
+    )
+    campus = models.ManyToManyField(
+        CampusV2,
+        blank=True,
+        verbose_name="Campus",
+        related_name="careers_campus"
+    )
 
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de creación"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Última actualización"
+    )
+
+    class Meta:
+        verbose_name = "Carrera"
+        verbose_name_plural = "Carreras"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
