@@ -320,13 +320,13 @@ class Question(models.Model):
         'Subject',
         on_delete=models.SET_DEFAULT,
         default=1,
-        verbose_name='Asignatura'
+        verbose_name='Materia'
     )
     topic = models.ForeignKey(
         'Topic',
         on_delete=models.SET_NULL,
         null=True,
-        blank=True,
+        blank=False,
         verbose_name='Tema principal'
     )
     subtopic = models.ForeignKey(
@@ -334,7 +334,7 @@ class Question(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        verbose_name='Subtema'
+        verbose_name='Subtema (opcional)'
     )
     question_type = models.CharField(
         max_length=20,
@@ -344,11 +344,24 @@ class Question(models.Model):
     )
     question_text = models.TextField(verbose_name='Texto de la pregunta')
     answer_text = models.TextField(verbose_name='Texto de la respuesta')
+    question_image = models.ImageField(
+        upload_to='questions/images/',
+        null=True,
+        blank=True,
+        verbose_name='Imagen de la pregunta (opcional)',
+        help_text='Formatos: JPG, PNG, SVG'
+    )
+    answer_image = models.ImageField(
+        upload_to='answers/images/',
+        null=True,
+        blank=True,
+        verbose_name='Imagen de la respuesta (opcional)',
+        help_text='Formatos: JPG, PNG, SVG'
+    )
     options_json = models.TextField(
         blank=True,
         null=True,
-        verbose_name='Opciones (JSON como texto)',
-        help_text='Formato: {"opciones": ["A", "B", "C"]}'
+        verbose_name='Opciones (JSON)'
     )
     difficulty = models.PositiveSmallIntegerField(
         default=1,
@@ -358,18 +371,30 @@ class Question(models.Model):
     source_page = models.IntegerField(
         null=True,
         blank=True,
-        verbose_name='Página de referencia'
+        verbose_name='Página de referencia (opcional)'
     )
     chapter = models.CharField(
         max_length=100,
         blank=True,
         null=True,
-        verbose_name='Capítulo'
+        verbose_name='Capítulo (opcional)'
+    )
+    unit = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='Unidad (opcional)'
+    )
+    reference_book = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name='Libro/Documento (opcional)'
     )
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        verbose_name='Usuario creador',
+        verbose_name='Usuario',
         null=True,
         blank=True
     )
@@ -380,10 +405,6 @@ class Question(models.Model):
         ordering = ['subject', 'topic', 'subtopic', 'difficulty']
         verbose_name = 'Pregunta'
         verbose_name_plural = 'Preguntas'
-        indexes = [
-            models.Index(fields=['subject', 'question_type']),
-            models.Index(fields=['contenido']),
-        ]
 
     @property
     def options(self):
@@ -398,8 +419,16 @@ class Question(models.Model):
     def options(self, value):
         self.options_json = json.dumps(value) if value else None
 
+    def clean(self):
+        super().clean()
+        for field_name in ['question_image', 'answer_image']:
+            image = getattr(self, field_name)
+            if image and not image.name.lower().endswith(('.jpg', '.jpeg', '.png', '.svg')):
+                raise ValidationError(f'Formato no válido para {field_name}. Use JPG, PNG o SVG.')
+
     def __str__(self):
         return f"{self.subject} - {self.question_text[:50]}..."
+
 
 class ExamTemplate(models.Model):
     EXAM_TYPE_CHOICES = [

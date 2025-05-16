@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from .models import InstitutionV2 
 from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
-    Subject, Topic, Institution, LearningOutcome, Campus, Faculty,InstitutionV2,
+    Subject, Topic, Subtopic , Institution, LearningOutcome, Campus, Faculty,InstitutionV2,
     CampusV2,FacultyV2,UserInstitution
 )
 
@@ -106,28 +106,105 @@ class ContenidoForm(forms.ModelForm):
 class QuestionForm(forms.ModelForm):
     subject = forms.ModelChoiceField(
         queryset=Subject.objects.all(),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        required=True
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+            'data-dark-mode': 'bg-dark text-light'
+        }),
+        required=True,
+        label="Materia"
     )
     
+    topic = forms.ModelChoiceField(
+        queryset=Topic.objects.none(),  # Se actualiza dinámicamente via JS
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+            'data-dark-mode': 'bg-dark text-light'
+        }),
+        required=True,
+        label="Tema principal"
+    )
+    
+    subtopic = forms.ModelChoiceField(
+        queryset=Subtopic.objects.none(),  # Se actualiza dinámicamente via JS
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+            'data-dark-mode': 'bg-dark text-light',
+            'disabled': 'disabled'
+        }),
+        required=False,
+        label="Subtema (opcional)"
+    )
+
+    question_image = forms.ImageField(
+        widget=forms.ClearableFileInput(attrs={
+            'class': 'form-control-file',
+            'accept': '.jpg,.jpeg,.png,.svg',
+            'data-dark-mode': 'text-light'
+        }),
+        required=False,
+        label="Imagen de la pregunta (opcional)"
+    )
+
+    answer_image = forms.ImageField(
+        widget=forms.ClearableFileInput(attrs={
+            'class': 'form-control-file',
+            'accept': '.jpg,.jpeg,.png,.svg',
+            'data-dark-mode': 'text-light'
+        }),
+        required=False,
+        label="Imagen de la respuesta (opcional)"
+    )
+
     class Meta:
         model = Question
-        fields = ['subject', 'topic', 'subtopic', 'question_text', 'answer_text', 
-                 'question_type', 'difficulty', 'source_page', 'chapter']
+        fields = [
+            'subject', 'question_text', 'question_image',
+            'answer_text', 'answer_image', 'topic', 'subtopic',
+            'unit', 'reference_book', 'source_page', 'chapter'
+        ]
         widgets = {
-            'subject': forms.Select(attrs={'class': 'form-control'}),
-            'topic': forms.Select(attrs={'class': 'form-control'}),
-            'subtopic': forms.Select(attrs={'class': 'form-control'}),
-            'question_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'answer_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'question_type': forms.Select(attrs={'class': 'form-control'}),
-            'difficulty': forms.Select(attrs={'class': 'form-control'}),
-            'source_page': forms.NumberInput(attrs={'class': 'form-control'}),
-            'chapter': forms.TextInput(attrs={'class': 'form-control'}),
+            'question_text': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'data-dark-mode': 'bg-dark text-light'
+            }),
+            'answer_text': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'data-dark-mode': 'bg-dark text-light'
+            }),
+            'unit': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Unidad 3 - Álgebra',
+                'data-dark-mode': 'bg-dark text-light'
+            }),
+            'reference_book': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Cálculo de Stewart - 8va Edición',
+                'data-dark-mode': 'bg-dark text-light'
+            }),
+            'source_page': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: 145',
+                'data-dark-mode': 'bg-dark text-light'
+            }),
+            'chapter': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Capítulo 5 - Derivadas',
+                'data-dark-mode': 'bg-dark text-light'
+            }),
+        }
+        labels = {
+            'unit': 'Unidad (opcional)',
+            'reference_book': 'Libro o documento de referencia (opcional)',
+            'source_page': 'Página de referencia (opcional)',
+            'chapter': 'Capítulo (opcional)'
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
+        # Actualizar querysets si ya hay un subject/topic seleccionado
         if 'subject' in self.data:
             try:
                 subject_id = int(self.data.get('subject'))
@@ -136,6 +213,24 @@ class QuestionForm(forms.ModelForm):
                 pass
         elif self.instance.pk:
             self.fields['topic'].queryset = self.instance.subject.topic_set.all()
+            if self.instance.topic:
+                self.fields['subtopic'].queryset = self.instance.topic.subtopic_set.all()
+                self.fields['subtopic'].widget.attrs.pop('disabled')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        
+        # Validar imágenes
+        for field in ['question_image', 'answer_image']:
+            if file := cleaned_data.get(field):
+                if not file.name.lower().endswith(('.jpg', '.jpeg', '.png', '.svg')):
+                    self.add_error(field, 'Formato no soportado. Use JPG, PNG o SVG.')
+        
+        # Validar tema si subtema está presente
+        if cleaned_data.get('subtopic') and not cleaned_data.get('topic'):
+            self.add_error('topic', 'Seleccione un tema principal para asignar un subtema.')
+        
+        return cleaned_data
 
 class ExamForm(forms.ModelForm):
     learning_outcomes = forms.ModelMultipleChoiceField(

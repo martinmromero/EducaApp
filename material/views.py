@@ -353,96 +353,141 @@ def upload_questions(request):
     if request.method == 'POST':
         form = QuestionForm(request.POST, request.FILES)
         if form.is_valid():
-            default_contenido, created = Contenido.objects.get_or_create(
+            # Crear contenido por defecto si no existe
+            default_contenido, _ = Contenido.objects.get_or_create(
                 title="Contenido por Defecto",
                 defaults={
                     'uploaded_by': request.user,
+                    'subject': Subject.objects.get(id=1)  # Asigna una materia por defecto
                 }
             )
+
+            # Procesar archivo CSV/TXT o pregunta individual
             if 'file' in request.FILES:
                 file = request.FILES['file']
-                if file.name.endswith('.csv'):
-                    decoded_file = file.read().decode('utf-8').splitlines()
-                    reader = csv.DictReader(decoded_file)
-                    for row in reader:
-                        Question.objects.create(
-                            contenido=default_contenido,
-                            subject=row['subject'],
-                            question_text=row['question_text'],
-                            answer_text=row['answer_text'],
-                            topic=row['topic'],
-                            subtopic=row['subtopic'],
-                            source_page=int(row['source_page']),
-                            chapter=row['chapter'],
-                        )
-                    messages.success(request, 'Preguntas subidas correctamente desde el archivo CSV.')
-                elif file.name.endswith('.json'):
-                    data = json.loads(file.read().decode('utf-8'))
-                    for item in data:
-                        Question.objects.create(
-                            contenido=default_contenido,
-                            subject=item['subject'],
-                            question_text=item['question_text'],
-                            answer_text=item['answer_text'],
-                            topic=item['topic'],
-                            subtopic=item['subtopic'],
-                            source_page=int(item['source_page']),
-                            chapter=item['chapter'],
-                        )
-                    messages.success(request, 'Preguntas subidas correctamente desde el archivo JSON.')
-                elif file.name.endswith('.txt'):
-                    lines = file.read().decode('utf-8').splitlines()
-                    question_data = {}
-                    for line in lines:
-                        if line.strip():
-                            key, value = line.split(':', 1)
-                            question_data[key.strip().lower()] = value.strip()
-                        else:
-                            Question.objects.create(
-                                contenido=default_contenido,
-                                subject=question_data.get('subject', ''),
-                                question_text=question_data.get('pregunta', ''),
-                                answer_text=question_data.get('respuesta', ''),
-                                topic=question_data.get('tema', ''),
-                                subtopic=question_data.get('subtema', ''),
-                                source_page=int(question_data.get('página', 0)),
-                                chapter=question_data.get('capítulo', ''),
-                            )
-                            question_data = {}
-                    if question_data:
-                        Question.objects.create(
-                            contenido=default_contenido,
-                            subject=question_data.get('subject', ''),
-                            question_text=question_data.get('pregunta', ''),
-                            answer_text=question_data.get('respuesta', ''),
-                            topic=question_data.get('tema', ''),
-                            subtopic=question_data.get('subtema', ''),
-                            source_page=int(question_data.get('página', 0)),
-                            chapter=question_data.get('capítulo', ''),
-                        )
-                    messages.success(request, 'Preguntas subidas correctamente desde el archivo TXT.')
-                else:
-                    messages.error(request, 'Formato de archivo no soportado.')
+                try:
+                    if file.name.endswith('.csv'):
+                        questions_created = process_csv_file(file, default_contenido, request.user)
+                        messages.success(request, f'{questions_created} preguntas creadas desde CSV.')
+                    elif file.name.endswith('.txt'):
+                        questions_created = process_txt_file(file, default_contenido, request.user)
+                        messages.success(request, f'{questions_created} preguntas creadas desde TXT.')
+                    else:
+                        messages.error(request, 'Formato no soportado. Use CSV o TXT.')
+                except Exception as e:
+                    logger.error(f"Error procesando archivo: {str(e)}")
+                    messages.error(request, f'Error al procesar el archivo: {str(e)}')
             else:
-                grid_data = request.POST.get('grid_data')
-                if grid_data:
-                    data = json.loads(grid_data)
-                    for item in data:
-                        Question.objects.create(
-                            contenido=default_contenido,
-                            subject=item['subject'],
-                            question_text=item['question_text'],
-                            answer_text=item['answer_text'],
-                            topic=item['topic'],
-                            subtopic=item['subtopic'],
-                            source_page=int(item['source_page']),
-                            chapter=item['chapter'],
-                        )
-                    messages.success(request, 'Preguntas subidas correctamente desde la grilla.')
+                # Guardar pregunta individual
+                question = form.save(commit=False)
+                question.contenido = default_contenido
+                question.user = request.user
+                question.save()
+                messages.success(request, 'Pregunta guardada correctamente.')
+            
             return redirect('material:upload_questions')
     else:
         form = QuestionForm()
-    return render(request, 'material/upload_questions.html', {'form': form})
+
+    return render(request, 'material/upload_questions.html', {
+        'form': form,
+        'dark_mode': request.session.get('dark_mode', False)
+    })
+
+# Funciones auxiliares para procesamiento de archivos
+def process_csv_file(file, contenido, user):
+    decoded_file = file.read().decode('utf-8').splitlines()
+    reader = csv.DictReader(decoded_file)
+    questions_created = 0
+
+    for row in reader:
+        try:
+            Question.objects.create(
+                contenido=contenido,
+                subject=Subject.objects.get_or_create(Nombre=row.get('materia', 'General'))[0],
+                question_text=row['pregunta'],
+                answer_text=row['respuesta'],
+                topic=Topic.objects.get_or_create(
+                    name=row.get('tema', 'General'),
+                    subject=Subject.objects.get_or_create(Nombre=row.get('materia', 'General'))[0]
+                )[0],
+                subtopic=Subtopic.objects.get_or_create(
+                    name=row.get('subtema'),
+                    topic=Topic.objects.get_or_create(
+                        name=row.get('tema', 'General'),
+                        subject=Subject.objects.get_or_create(Nombre=row.get('materia', 'General'))[0]
+                    )[0]
+                )[0] if row.get('subtema') else None,
+                unit=row.get('unidad'),
+                reference_book=row.get('libro_referencia'),
+                source_page=row.get('pagina'),
+                chapter=row.get('capitulo'),
+                user=user
+            )
+            questions_created += 1
+        except Exception as e:
+            logger.error(f"Error creando pregunta desde CSV: {str(e)}")
+            continue
+
+    return questions_created
+
+def process_txt_file(file, contenido, user):
+    lines = file.read().decode('utf-8').splitlines()
+    question_data = {}
+    questions_created = 0
+
+    for line in lines:
+        if line.strip():
+            if ':' in line:
+                key, value = line.split(':', 1)
+                question_data[key.strip().lower()] = value.strip()
+        else:
+            if question_data:
+                create_question_from_dict(question_data, contenido, user)
+                questions_created += 1
+                question_data = {}
+
+    if question_data:
+        create_question_from_dict(question_data, contenido, user)
+        questions_created += 1
+
+    return questions_created
+
+def create_question_from_dict(data, contenido, user):
+    # Obtener o crear Subject
+    subject, _ = Subject.objects.get_or_create(
+        Nombre=data.get('materia', 'General')
+    )
+    
+    # Obtener o crear Topic
+    topic, _ = Topic.objects.get_or_create(
+        name=data.get('tema', 'General'),
+        subject=subject
+    )
+    
+    # Obtener subtopic solo si existe en los datos
+    subtopic = None
+    if data.get('subtema'):
+        subtopic, _ = Subtopic.objects.get_or_create(
+            name=data.get('subtema'),
+            topic=topic
+        )
+    
+    # Crear la pregunta
+    Question.objects.create(
+        contenido=contenido,
+        subject=subject,
+        question_text=data.get('pregunta', ''),
+        answer_text=data.get('respuesta', ''),
+        topic=topic,
+        subtopic=subtopic,
+        unit=data.get('unidad'),
+        reference_book=data.get('libro_referencia'),
+        source_page=data.get('pagina'),
+        chapter=data.get('capitulo'),
+        user=user
+    )
+
 
 def download_template(request, format):
     if format == 'csv':

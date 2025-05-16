@@ -30,7 +30,15 @@ urlpatterns = [
     path('logros/', material_views.manage_learning_outcomes, name='manage_learning_outcomes'),
     path('instituciones/eliminar/<int:pk>/', material_views.delete_institution, name='delete_institution'),
     path('instituciones/editar/<int:pk>/', material_views.edit_institution, name='edit_institution'),
-   # path('instituciones-v2/', material_views.list_institutions_v2, name='list_institutions_v2'),
+
+#crud preguntas
+    path('get-topics/', material_views.get_topics, name='get_topics'),
+    path('get-subtopics/', material_views.get_subtopics, name='get_subtopics'),
+
+
+
+
+# instituciones v2
     path('instituciones-v2/', material_views.institution_v2_list, name='institution_v2_list'),
     path('instituciones-v2/crear/', material_views.create_institution_v2, name='create_institution_v2'),
     path('instituciones-v2/editar/<int:pk>/', material_views.edit_institution_v2, name='edit_institution_v2'),
