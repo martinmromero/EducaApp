@@ -65,6 +65,31 @@
             </div>
         </div>
 
+<div class="menu-item" onclick="toggleSubmenu(this)">
+    <i class="bi bi-mortarboard-fill me-2"></i> Carreras
+    <div class="submenu">
+        <a href="{% url 'material:career_list' %}">
+            <i class="bi bi-list-ul me-2"></i>Listado
+        </a>
+        <a href="{% url 'material:career_create_simple' %}">
+            <i class="bi bi-plus-circle me-2"></i>Crear Nueva
+        </a>
+    </div>
+</div>
+
+<div class="menu-item" onclick="toggleSubmenu(this)">
+    <i class="bi bi-book me-2"></i> Materias
+    <div class="submenu">
+        <a href="{% url 'material:subject_list' %}">
+            <i class="bi bi-list-ul me-2"></i>Listado
+        </a>
+        <a href="{% url 'material:create_subject' %}">
+            <i class="bi bi-plus-circle me-2"></i>Crear Nueva
+        </a>
+    </div>
+</div>
+
+
         <!-- Nuevo ítem para Instituciones V2 -->
         <div class="menu-item" onclick="toggleSubmenu(this)">
             <i class="bi bi-buildings me-2"></i> Mis Instituciones

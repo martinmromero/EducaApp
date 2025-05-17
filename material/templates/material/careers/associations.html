@@ -1,0 +1,32 @@
+{% extends 'material/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Asociaciones para: {{ career.name }}</h2>
+    <div class="card">
+        <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#">Facultades y Campus</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'material:career_detail' pk=career.pk %}">Ver Detalles</a>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {{ form|crispy }}
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Guardar Asociaciones
+                </button>
+                <a href="{% url 'material:career_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Volver al Listado
+                </a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

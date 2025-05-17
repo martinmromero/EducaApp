@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
     Subject, Topic, Subtopic, Institution, LearningOutcome, Campus, Faculty,
-    InstitutionV2, CampusV2, FacultyV2, UserInstitution
+    InstitutionV2, CampusV2, FacultyV2, Career, InstitutionCareer, CareerSubject, UserInstitution
 )
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
@@ -414,3 +414,51 @@ class FacultyV2Form(forms.ModelForm):
     class Meta:
         model = FacultyV2
         fields = ['name']  # Solo mostramos
+
+class SubjectForm(forms.ModelForm):
+    class Meta:
+        model = Subject
+        fields = ['name', 'learning_outcomes']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nombre de la materia'
+            }),
+            'learning_outcomes': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Resultados de aprendizaje esperados...'
+            }),
+        }
+        labels = {
+            'name': 'Nombre',
+            'learning_outcomes': 'Resultados de Aprendizaje'
+        }
+        
+
+class CareerForm(forms.ModelForm):
+    class Meta:
+        model = Career
+        fields = ['name', 'faculties', 'campus', 'subjects']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'faculties': forms.SelectMultiple(attrs={'class': 'form-select'}),
+            'campus': forms.SelectMultiple(attrs={'class': 'form-select'}),
+            'subjects': forms.SelectMultiple(attrs={'class': 'form-select'}),
+        }
+
+class InstitutionCareerForm(forms.ModelForm):
+    class Meta:
+        model = InstitutionCareer
+        fields = ['institution', 'career']
+
+class CareerSimpleForm(forms.ModelForm):
+    class Meta:
+        model = Career
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nombre de la carrera'
+            })
+        }

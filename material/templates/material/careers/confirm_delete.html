@@ -1,0 +1,25 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <h2>Confirmar Eliminación</h2>
+        </div>
+        <div class="card-body">
+            <p>¿Estás seguro que deseas eliminar la carrera "{{ career.name }}"?</p>
+            <p class="text-danger">Esta acción no se puede deshacer.</p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Confirmar Eliminación
+                </button>
+                <a href="{% url 'material:career_detail' pk=career.pk %}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Cancelar
+                </a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>{{ career.name }}</h2>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h4>Facultades</h4>
+                    <ul>
+                        {% for faculty in career.faculties.all %}
+                        <li>{{ faculty.name }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h4>Campus</h4>
+                    <ul>
+                        {% for campus in career.campus.all %}
+                        <li>{{ campus.name }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            
+            <h4>Materias</h4>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for subject in career.subjects.all %}
+                        <tr>
+                            <td>{{ subject.name }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'material:edit_career' pk=career.pk %}" class="btn btn-warning">
+                <i class="fas fa-edit"></i> Editar
+            </a>
+            <a href="{% url 'material:delete_career' pk=career.pk %}" class="btn btn-danger">
+                <i class="fas fa-trash"></i> Eliminar
+            </a>
+            <a href="{% url 'material:career_list' %}" class="btn btn-secondary">
+                <i class="fas fa-list"></i> Volver a la lista
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

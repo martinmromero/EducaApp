@@ -809,12 +809,15 @@ class Career(models.Model):
         verbose_name="Facultades",
         related_name="careers"
     )
+ 
     subjects = models.ManyToManyField(
         Subject,
         blank=True,
         verbose_name="Materias",
         related_name="careers"
-    )
+
+    ) 
+ 
     campus = models.ManyToManyField(
         CampusV2,
         blank=True,
@@ -838,6 +841,120 @@ class Career(models.Model):
 
     def __str__(self):
         return self.name
+
+#nuevas clases para relacionar instituciones con carreras y materias.  falta ajustar carreras, materias e instituciones
+class InstitutionCareer(models.Model):
+    institution = models.ForeignKey(
+        InstitutionV2,
+        on_delete=models.CASCADE,
+        verbose_name="Institución",
+        related_name='institution_careers'
+    )
+    career = models.ForeignKey(
+        'Career',
+        on_delete=models.CASCADE,
+        verbose_name="Carrera",
+        related_name='career_institutions'
+    )
+    date_created = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de creación"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Activo"
+    )
+
+    class Meta:
+        unique_together = ('institution', 'career')
+        verbose_name = "Relación Institución-Carrera"
+        verbose_name_plural = "Relaciones Institución-Carreras"
+        ordering = ['-date_created']
+
+    def __str__(self):
+        return f"{self.institution.name} - {self.career.name}"
+
+class InstitutionSubject(models.Model):
+    institution = models.ForeignKey(
+        InstitutionV2,
+        on_delete=models.CASCADE,
+        verbose_name="Institución",
+        related_name='institution_subjects'
+    )
+    subject = models.ForeignKey(
+        'Subject',
+        on_delete=models.CASCADE,
+        verbose_name="Materia",
+        related_name='subject_institutions'
+    )
+    date_created = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de creación"
+    )
+    is_core = models.BooleanField(
+        default=True,
+        verbose_name="Materia troncal",
+        help_text="Indica si es una materia troncal/obligatoria"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Activo"
+    )
+
+    class Meta:
+        unique_together = ('institution', 'subject')
+        verbose_name = "Relación Institución-Materia"
+        verbose_name_plural = "Relaciones Institución-Materias"
+        ordering = ['-date_created']
+
+    def __str__(self):
+        return f"{self.institution.name} - {self.subject.name}"
+
+class CareerSubject(models.Model):
+    career = models.ForeignKey(
+        'Career',
+        on_delete=models.CASCADE,
+        verbose_name="Carrera",
+        related_name='career_subjects'
+    )
+    subject = models.ForeignKey(
+        'Subject',
+        on_delete=models.CASCADE,
+        verbose_name="Materia",
+        related_name='subject_careers'
+    )
+    semester = models.PositiveSmallIntegerField(
+        verbose_name="Semestre",
+        help_text="Semestre en que se cursa la materia",
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        null=True,
+        blank=True
+    )
+    is_optional = models.BooleanField(
+        default=False,
+        verbose_name="Optativa",
+        help_text="Indica si la materia es optativa"
+    )
+    workload_hours = models.PositiveSmallIntegerField(
+        verbose_name="Carga horaria",
+        help_text="Horas totales de la materia",
+        null=True,
+        blank=True
+    )
+    date_created = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de creación"
+    )
+
+    class Meta:
+        unique_together = ('career', 'subject')
+        verbose_name = "Relación Carrera-Materia"
+        verbose_name_plural = "Relaciones Carrera-Materias"
+        ordering = ['semester', 'subject__name']
+
+    def __str__(self):
+        optional_str = " (Optativa)" if self.is_optional else ""
+        return f"{self.career.name} - {self.subject.name} (Sem {self.semester}){optional_str}"
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

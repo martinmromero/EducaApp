@@ -1,0 +1,39 @@
+{% extends "material/base.html" %}
+{% block content %}
+<div class="card shadow">
+    <div class="card-header">
+        <h5 class="mb-0">{{ action }} Materia</h5>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                {{ form.name.label_tag }}
+                {{ form.name }}
+                {% if form.name.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.name.errors }}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="mb-3">
+                {{ form.learning_outcomes.label_tag }}
+                {{ form.learning_outcomes }}
+                {% if form.learning_outcomes.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.learning_outcomes.errors }}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'material:subject_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

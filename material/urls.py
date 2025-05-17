@@ -46,7 +46,7 @@ urlpatterns = [
     path('instituciones-v2/favorito/<int:pk>/', material_views.toggle_favorite_institution, name='toggle_favorite_institution'),
     path('instituciones-v2/detalle/<int:pk>/', material_views.institution_v2_detail, name='institution_v2_detail'),
     path('instituciones-v2/logs/<int:pk>/', material_views.institution_v2_logs, name='institution_v2_logs'),
-    path('instituciones-v2/count-favorites/', material_views.count_favorite_institutions, name='count_favorite_institutions'),
+    # path('instituciones-v2/count-favorites/', material_views.count_favorite_institutions, name='count_favorite_institutions'),
     path('instituciones-v2/<int:institution_id>/campus/create/', material_views.create_campus_v2, name='create_campus_v2'),
     path('instituciones-v2/<int:institution_id>/campus/<int:campus_id>/edit/', material_views.edit_campus_v2, name='edit_campus_v2'),
     path('instituciones-v2/<int:institution_id>/campus/<int:campus_id>/delete/', material_views.delete_campus_v2, name='delete_campus_v2'),
@@ -56,4 +56,21 @@ urlpatterns = [
     path('instituciones-v2/<int:pk>/eliminar-logo/', material_views.delete_institution_logo_v2, name='delete_institution_logo_v2'),
 
 path('instituciones/', material_views.manage_institutions, name='manage_institutions'),
+
+# Subjects CRUD
+path('subjects/', material_views.subject_list, name='subject_list'),
+path('subjects/create/', material_views.create_subject, name='create_subject'),
+path('subjects/<int:pk>/edit/', material_views.edit_subject, name='edit_subject'),
+path('subjects/<int:pk>/delete/', material_views.delete_subject, name='delete_subject'),
+path('subjects/<int:pk>/', material_views.SubjectDetailView.as_view(), name='subject_detail'),  
+
+# Careers CRUD
+# urls.py
+path('careers/', material_views.career_list, name='career_list'),
+path('careers/create/', material_views.career_create_simple, name='career_create_simple'),
+path('careers/<int:pk>/associations/', material_views.career_associations, name='career_associations'),
+path('careers/<int:pk>/edit/', material_views.edit_career, name='edit_career'),
+path('careers/<int:pk>/delete/', material_views.delete_career, name='delete_career'),
+path('careers/<int:pk>/', material_views.CareerDetailView.as_view(), name='career_detail'),
+
 ]

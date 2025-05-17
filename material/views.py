@@ -14,6 +14,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView
+from django.views.generic import DetailView
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
@@ -21,11 +22,11 @@ from django.db import models, transaction
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404, reverse
 from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, 
-    Subtopic,Institution, LearningOutcome, Campus, Faculty)
+    Subtopic,Institution, LearningOutcome, Campus, Faculty,Career)
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
     UserEditForm, ContenidoForm, InstitutionForm, 
-    LearningOutcomeForm, ProfileForm
+    LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm  
 )
 from django.db.models import Prefetch
 from .ia_processor import extract_text_from_file, generate_questions_from_text
@@ -1099,10 +1100,145 @@ def delete_faculty_v2(request, institution_id, faculty_id):
     return render(request, 'material/faculties_v2/confirm_delete.html', {'faculty': faculty, 'institution': institution})
 
 # Agregar al final de views.py
-@login_required
+""" @login_required
 def count_favorite_institutions(request):
-    count = UserInstitution.objects.filter(
+        count = UserInstitution.objects.filter(
         user=request.user,
         is_favorite=True
     ).count()
     return JsonResponse({'count': count})
+"""
+
+# Subjects CRUD 
+@login_required
+def subject_list(request):
+    subjects = Subject.objects.all()
+    return render(request, 'material/subjects/list.html', {'subjects': subjects})
+
+@login_required
+def create_subject(request):
+    if request.method == 'POST':
+        form = SubjectForm(request.POST)
+        if form.is_valid():
+            subject = form.save()
+            messages.success(request, 'Materia creada exitosamente')
+            return redirect('material:subject_list')
+    else:
+        form = SubjectForm()
+    return render(request, 'material/subjects/form.html', {'form': form, 'action': 'Crear'})
+
+@login_required
+def edit_subject(request, pk):
+    subject = get_object_or_404(Subject, pk=pk)
+    if request.method == 'POST':
+        form = SubjectForm(request.POST, instance=subject)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Materia actualizada exitosamente')
+            return redirect('material:subject_detail', pk=pk)
+    else:
+        form = SubjectForm(instance=subject)
+    return render(request, 'material/subjects/form.html', {'form': form, 'action': 'Editar'})
+
+@login_required
+def delete_subject(request, pk):
+    subject = get_object_or_404(Subject, pk=pk)
+    if request.method == 'POST':
+        subject.delete()
+        messages.success(request, 'Materia eliminada exitosamente')
+        return redirect('material:subject_list')
+    return render(request, 'material/subjects/confirm_delete.html', {'subject': subject})
+
+class SubjectDetailView(DetailView):
+    model = Subject
+    template_name = 'material/subjects/detail.html'
+    context_object_name = 'subject'
+
+# Careers CRUD (similar structure)
+@login_required
+def career_list(request):
+    careers = Career.objects.all().prefetch_related('faculties', 'campus', 'subjects')
+    return render(request, 'material/careers/list.html', {'careers': careers})
+
+@login_required
+def create_career(request):
+    if request.method == 'POST':
+        form = CareerForm(request.POST)
+        if form.is_valid():
+            career = form.save()
+            messages.success(request, 'Carrera creada exitosamente')
+            return redirect('material:career_list')
+    else:
+        form = CareerForm()
+    return render(request, 'material/careers/form.html', {
+        'form': form,
+        'action': 'Crear'
+    })
+
+@login_required
+def edit_career(request, pk):
+    career = get_object_or_404(Career, pk=pk)
+    if request.method == 'POST':
+        form = CareerForm(request.POST, instance=career)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Carrera actualizada exitosamente')
+            return redirect('material:career_detail', pk=pk)
+    else:
+        form = CareerForm(instance=career)
+    return render(request, 'material/careers/form.html', {
+        'form': form,
+        'action': 'Editar',
+        'career': career
+    })
+
+@login_required
+def delete_career(request, pk):
+    career = get_object_or_404(Career, pk=pk)
+    if request.method == 'POST':
+        career.delete()
+        messages.success(request, 'Carrera eliminada exitosamente')
+        return redirect('material:career_list')
+    return render(request, 'material/careers/confirm_delete.html', {'career': career})
+
+class CareerDetailView(DetailView):
+    model = Career
+    template_name = 'material/careers/detail.html'
+    context_object_name = 'career'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['related_subjects'] = self.object.subjects.all()
+        context['related_faculties'] = self.object.faculties.all()
+        context['related_campuses'] = self.object.campus.all()
+        return context
+
+@login_required
+def career_create_simple(request):
+    if request.method == 'POST':
+        form = CareerSimpleForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('material:career_list')  # Redirige a la lista de carreras
+    else:
+        form = CareerSimpleForm()
+
+    return render(request, 'material/careers/form.html', {'form': form})
+
+@login_required
+def career_associations(request, pk):
+    career = get_object_or_404(Career, pk=pk)
+    
+    if request.method == 'POST':
+        form = CareerForm(request.POST, instance=career)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Asociaciones actualizadas correctamente')
+            return redirect('material:career_detail', pk=pk)
+    else:
+        form = CareerForm(instance=career)
+    
+    return render(request, 'material/careers/associations.html', {
+        'form': form,
+        'career': career
+    })
