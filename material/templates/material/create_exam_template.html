@@ -1,190 +1,188 @@
 {% extends 'material/base.html' %}
+{% load static %}
 
 {% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<link rel="stylesheet" href="{% static 'material/css/create_exam_template.css' %}">
+
 <h2>Crear Plantilla de Examen</h2>
 <form method="post" enctype="multipart/form-data" id="examTemplateForm">
     {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">Guardar Plantilla</button>
-    <button type="button" onclick="previewExamTemplate()" class="btn btn-secondary">Previsualizar</button>
+
+    <div class="two-column-form">
+        <!-- Columna izquierda -->
+        <div class="form-column">
+            <!-- Institución -->
+            <div class="form-group">
+                <label for="{{ form.institution.id_for_label }}">{{ form.institution.label }}</label>
+                <div class="input-group">
+                    {{ form.institution }}
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                                data-target="institution" data-field="id_institution">
+                            <i class="fas fa-plus"></i> Nuevo
+                        </button>
+                    </div>
+                </div>
+                <input type="text" class="form-control dynamic-input" id="new_institution" placeholder="Nombre de la Institución">
+            </div>
+
+            <!-- Facultad -->
+            <div class="form-group">
+                <label for="{{ form.faculty.id_for_label }}">{{ form.faculty.label }}</label>
+                <div class="input-group">
+                    {{ form.faculty }}
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                                data-target="faculty" data-field="id_faculty" data-parent="id_institution">
+                            <i class="fas fa-plus"></i> Nuevo
+                        </button>
+                    </div>
+                </div>
+                <input type="text" class="form-control dynamic-input" id="new_faculty" placeholder="Nombre de la Facultad">
+            </div>
+
+            <!-- Carrera -->
+            <div class="form-group">
+                <label for="{{ form.career.id_for_label }}">{{ form.career.label }}</label>
+                <div class="input-group">
+                    {{ form.career }}
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                                data-target="career" data-field="id_career">
+                            <i class="fas fa-plus"></i> Nuevo
+                        </button>
+                    </div>
+                </div>
+                <input type="text" class="form-control dynamic-input" id="new_career" placeholder="Nombre de la Carrera">
+            </div>
+
+            <!-- Sede -->
+            <div class="form-group">
+                <label for="{{ form.campus.id_for_label }}">{{ form.campus.label }}</label>
+                <div class="input-group">
+                    {{ form.campus }}
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                                data-target="campus" data-field="id_campus" data-parent="id_institution">
+                            <i class="fas fa-plus"></i> Nuevo
+                        </button>
+                    </div>
+                </div>
+                <input type="text" class="form-control dynamic-input" id="new_campus" placeholder="Nombre de la Sede">
+            </div>
+
+            <!-- Año -->
+            <div class="form-group">
+                <label for="{{ form.year.id_for_label }}">{{ form.year.label }}</label>
+                {{ form.year }}
+            </div>
+
+            <!-- Turno -->
+            <div class="form-group">
+                <label for="{{ form.shift.id_for_label }}">{{ form.shift.label }}</label>
+                {{ form.shift }}
+            </div>
+        </div>
+
+        <!-- Columna derecha -->
+        <div class="form-column">
+            <!-- Materia -->
+            <div class="form-group">
+                <label for="{{ form.subject.id_for_label }}">{{ form.subject.label }}</label>
+                <div class="input-group">
+                    {{ form.subject }}
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                                data-target="subject" data-field="id_subject">
+                            <i class="fas fa-plus"></i> Nuevo
+                        </button>
+                    </div>
+                </div>
+                <input type="text" class="form-control dynamic-input" id="new_subject" placeholder="Nombre de la Materia">
+            </div>
+
+            <!-- Profesor -->
+            <div class="form-group">
+                <label for="{{ form.professor.id_for_label }}">{{ form.professor.label }}</label>
+                {{ form.professor }}
+            </div>
+
+            <!-- Tipo de Examen -->
+            <div class="form-group">
+                <label for="{{ form.exam_type.id_for_label }}">{{ form.exam_type.label }}</label>
+                {{ form.exam_type }}
+            </div>
+
+            <!-- Número de Parcial -->
+            <div class="form-group">
+                <label for="{{ form.partial_number.id_for_label }}">{{ form.partial_number.label }}</label>
+                {{ form.partial_number }}
+            </div>
+
+            <!-- Modalidad -->
+            <div class="form-group">
+                <label for="{{ form.exam_mode.id_for_label }}">{{ form.exam_mode.label }}</label>
+                {{ form.exam_mode }}
+            </div>
+
+            <!-- Tiempo de Resolución -->
+            <div class="form-group">
+                <label for="{{ form.resolution_time.id_for_label }}">{{ form.resolution_time.label }}</label>
+                {{ form.resolution_time }}
+            </div>
+
+            <!-- Grupo de Examen -->
+            <div class="form-group">
+                <label for="{{ form.exam_group.id_for_label }}">{{ form.exam_group.label }}</label>
+                {{ form.exam_group }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Campos de ancho completo -->
+    <div class="full-width-fields">
+        <!-- Resultados de Aprendizaje -->
+        <div class="form-group">
+            <label for="{{ form.learning_outcomes.id_for_label }}">{{ form.learning_outcomes.label }}</label>
+            {{ form.learning_outcomes }}
+        </div>
+
+        <!-- Notas y Recomendaciones -->
+        <div class="form-group">
+            <label for="{{ form.notes_and_recommendations.id_for_label }}">{{ form.notes_and_recommendations.label }}</label>
+            {{ form.notes_and_recommendations }}
+        </div>
+
+        <!-- Temas a Evaluar -->
+        <div class="form-group">
+            <label for="{{ form.topics_to_evaluate.id_for_label }}">{{ form.topics_to_evaluate.label }}</label>
+            {{ form.topics_to_evaluate }}
+        </div>
+
+        <!-- Logo de la Institución -->
+        <div class="form-group">
+            <label for="{{ form.institution_logo.id_for_label }}">{{ form.institution_logo.label }}</label>
+            {{ form.institution_logo }}
+        </div>
+
+        <!-- Modalidad -->
+        <div class="form-group">
+            <label for="{{ form.modality.id_for_label }}">{{ form.modality.label }}</label>
+            {{ form.modality }}
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Guardar Plantilla</button>
+        <button type="button" onclick="previewExamTemplate()" class="btn btn-secondary">Previsualizar</button>
+    </div>
 </form>
 
-<!-- Previsualización del examen -->
-<div id="preview" class="preview-container" style="display: none;">
-    <div class="exam-template">
-        <!-- Encabezado del examen -->
-        <div class="header">
-            <div class="institution-logo">
-                <img id="previewLogo" src="" alt="Logo de la institución" style="max-width: 100px; max-height: 100px;">
-            </div>
-            <div class="institution-info">
-                <h3 id="previewInstitutionName">[Nombre de la institución]</h3>
-                <p><strong>Carrera:</strong> <span id="previewCareerName">[Carrera]</span></p>
-                <p><strong>Materia:</strong> <span id="previewSubjectName">[Materia]</span></p>
-                <p><strong>Profesor:</strong> <span id="previewProfessorName">[Profesor]</span></p>
-                <p><strong>Año:</strong> <span id="previewYear">[Año]</span></p>
-            </div>
-        </div>
-
-        <!-- Detalles del examen en tabla -->
-        <table class="exam-details">
-            <tr>
-                <th>Tipo de Examen</th>
-                <td id="previewExamType">[Tipo de examen]</td>
-            </tr>
-            <tr>
-                <th>Modalidad</th>
-                <td id="previewExamMode">[Modalidad]</td>
-            </tr>
-            <tr>
-                <th>Fecha</th>
-                <td id="previewDate">[Fecha actual]</td>
-            </tr>
-            <tr>
-                <th>Tiempo de Resolución</th>
-                <td id="previewTime">[Tiempo]</td>
-            </tr>
-        </table>
-
-        <!-- Notas y recomendaciones -->
-        <div class="notes">
-            <h4>Notas y Recomendaciones:</h4>
-            <p id="previewNotes">[Notas y recomendaciones]</p>
-        </div>
-
-        <!-- Temas a evaluar -->
-        <div class="topics">
-            <h4>Temas a Evaluar:</h4>
-            <p id="previewTopics">[Temas a evaluar]</p>
-        </div>
-
-        <!-- Espacio para preguntas -->
-        <div class="questions">
-            <h4>Preguntas:</h4>
-            <div id="previewQuestions">
-                <!-- Aquí se mostrarán las preguntas cuando se rellene el examen -->
-                <p>1. [Pregunta 1]</p>
-                <p>2. [Pregunta 2]</p>
-                <!-- Más preguntas... -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Botón de Guardar debajo de la previsualización -->
-    <div class="text-center mt-4">
-        <button type="submit" form="examTemplateForm" class="btn btn-primary">Guardar Plantilla</button>
-    </div>
+<!-- Preview section -->
+<div id="preview" class="preview-container">
+    <!-- Contenido del preview se genera dinámicamente -->
 </div>
 
-<!-- Estilos para la previsualización -->
-<style>
-    .preview-container {
-        margin-top: 20px;
-        border: 2px solid black; /* Recuadro negro */
-        padding: 20px;
-        background-color: white;
-        width: 210mm; /* Ancho de una hoja A4 */
-        min-height: 297mm; /* Alto de una hoja A4 */
-        margin: 0 auto;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .exam-template {
-        width: 100%;
-    }
-
-    .header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-
-    .institution-logo {
-        flex: 1;
-        text-align: center;
-    }
-
-    .institution-info {
-        flex: 3;
-        margin-left: 20px;
-    }
-
-    .exam-details {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 20px;
-    }
-
-    .exam-details th, .exam-details td {
-        border: 1px solid #ddd;
-        padding: 8px;
-        text-align: left;
-    }
-
-    .exam-details th {
-        background-color: #f2f2f2;
-    }
-
-    .notes, .topics, .questions {
-        margin-bottom: 20px;
-    }
-
-    .notes h4, .topics h4, .questions h4 {
-        margin-bottom: 10px;
-    }
-
-    .questions p {
-        margin: 5px 0;
-    }
-
-    /* Estilos para impresión */
-    @media print {
-        .preview-container {
-            border: none; /* Eliminar el recuadro negro al imprimir */
-            box-shadow: none;
-            padding: 0;
-        }
-    }
-</style>
-
-<!-- Script para mostrar la previsualización y mover el foco -->
-<script>
-    function previewExamTemplate() {
-        // Capturar los valores del formulario
-        const form = document.getElementById('examTemplateForm');
-        const formData = new FormData(form);
-
-        // Actualizar la previsualización con los datos del formulario
-        document.getElementById('previewInstitutionName').textContent = formData.get('institution_name');
-        document.getElementById('previewCareerName').textContent = formData.get('career_name');
-        document.getElementById('previewSubjectName').textContent = formData.get('subject_name');
-        document.getElementById('previewProfessorName').textContent = formData.get('professor_name');
-        document.getElementById('previewYear').textContent = formData.get('year');
-        document.getElementById('previewExamType').textContent = formData.get('exam_type');
-        document.getElementById('previewExamMode').textContent = formData.get('exam_mode');
-        document.getElementById('previewNotes').textContent = formData.get('notes_and_recommendations');
-        document.getElementById('previewTopics').textContent = formData.get('topics_to_evaluate');
-
-        // Mostrar la previsualización
-        const preview = document.getElementById('preview');
-        preview.style.display = 'block';
-
-        // Mover el foco hacia la previsualización
-        preview.scrollIntoView({ behavior: 'smooth' });
-    }
-
-    // Manejar la selección del logo
-    const logoInput = document.querySelector('input[name="institution_logo"]');
-    logoInput.addEventListener('change', function (event) {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                // Actualizar la imagen en la previsualización
-                document.getElementById('previewLogo').src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-</script>
+<script src="{% static 'material/js/create_exam_template.js' %}"></script>
 {% endblock %}

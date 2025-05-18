@@ -23,6 +23,7 @@ from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404, reverse
 from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, 
     Subtopic,Institution, LearningOutcome, Campus, Faculty,Career)
+from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog)
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
     UserEditForm, ContenidoForm, InstitutionForm, 
@@ -33,13 +34,15 @@ from .ia_processor import extract_text_from_file, generate_questions_from_text
 from django.utils import timezone  # Añadir al inicio del archivo
 from .forms import InstitutionForm, LearningOutcomeForm, ProfileForm
 # Modelos
-from .models import InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog
+
 
 # Formularios
 from .forms import InstitutionV2Form, CampusV2Form, FacultyV2Form, InstitutionForm
 
 # Logger configuration
 logger = logging.getLogger(__name__)
+
+
 
 def get_topics(request):
     subject_id = request.GET.get('subject_id')
@@ -151,18 +154,154 @@ def create_exam(request):
 
 @login_required
 def create_exam_template(request):
+    # Cargar todas las materias para el filtro (Punto 7)
+    subjects = Subject.objects.all().select_related('institution')
+    
     if request.method == 'POST':
-        form = ExamTemplateForm(request.POST, request.FILES)
+        form = ExamTemplateForm(
+            request.POST, 
+            request.FILES, 
+            user=request.user
+        )
+        
         if form.is_valid():
-            exam_template = form.save(commit=False)
-            exam_template.created_by = request.user
-            exam_template.save()
-            form.save_m2m()
-            messages.success(request, 'Plantilla de examen creada correctamente.')
-            return redirect('material:list_exam_templates')
+            try:
+                with transaction.atomic():
+                    exam_template = form.save(commit=False)
+                    exam_template.created_by = request.user
+                    
+                    # Procesamiento adicional para Punto 4
+                    resolution_time = (
+                        f"{form.cleaned_data['resolution_time_number']} "
+                        f"{form.cleaned_data['resolution_time_unit']}"
+                    )
+                    exam_template.notes_and_recommendations += (
+                        f"\n\nDuración estimada: {resolution_time}"
+                    )
+                    
+                    exam_template.save()
+                    form.save_m2m()  # Para learning_outcomes (Punto 7)
+                    
+                    # Log de creación (opcional)
+                    InstitutionLog.objects.create(
+                        institution=exam_template.institution,
+                        user=request.user,
+                        action=f"Creó plantilla de examen: {exam_template}"
+                    )
+                    
+                    messages.success(
+                        request, 
+                        'Plantilla creada correctamente',
+                        extra_tags='exam_template'
+                    )
+                    return redirect('material:list_exam_templates')
+                    
+            except Exception as e:
+                logger.error(f"Error creating exam template: {str(e)}")
+                messages.error(
+                    request,
+                    'Error al guardar la plantilla. Detalles en logs.',
+                    extra_tags='danger'
+                )
     else:
-        form = ExamTemplateForm()
-    return render(request, 'material/create_exam_template.html', {'form': form})
+        initial_data = {}
+        
+        # Valores iniciales para Punto 4
+        initial_data.update({
+            'resolution_time_number': 60,
+            'resolution_time_unit': 'minutes'
+        })
+        
+        form = ExamTemplateForm(
+            initial=initial_data,
+            user=request.user
+        )
+    
+    # Contexto para el template (Punto 7)
+    context = {
+        'form': form,
+        'subjects': subjects,
+        'learning_outcomes': LearningOutcome.objects.filter(
+            institution__userinstitution__user=request.user
+        ).select_related('subject'),
+        'current_institution': request.GET.get('institution_id'),
+        'exam_modes': ExamTemplate.EXAM_MODE_CHOICES,  # Punto 5
+        'time_units': [  # Punto 4
+            {'value': 'minutes', 'label': 'Minutos'},
+            {'value': 'hours', 'label': 'Horas'},
+            {'value': 'days', 'label': 'Días'}
+        ]
+    }
+    
+    # Manejo de AJAX para filtrado (Punto 7)
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        institution_id = request.GET.get('institution_id')
+        if institution_id:
+            outcomes = LearningOutcome.objects.filter(
+                institution_id=institution_id
+            ).values('id', 'name', 'subject__name')
+            return JsonResponse(list(outcomes), safe=False)
+        return JsonResponse([], safe=False)
+    
+    return render(
+        request,
+        'material/create_exam_template.html',
+        context
+    )
+
+
+@login_required
+def preview_exam_template(request, template_id):
+    template = get_object_or_404(
+        ExamTemplate,
+        id=template_id,
+        institution__userinstitution__user=request.user
+    )
+    
+    # Cálculo de tiempo (Punto 4)
+    resolution_time = (
+        f"{template.resolution_time_number} "
+        f"{template.get_resolution_time_unit_display()}"
+    )
+    
+    return render(request, 'material/preview_exam_template.html', {
+        'exam_template': template,
+        'resolution_time': resolution_time,  # Punto 4
+        'learning_outcomes_grouped': template.learning_outcomes.all().order_by('subject__name'),  # Punto 7
+        'is_domiciliario': template.exam_mode == 'domiciliario'  # Punto 5
+    })
+
+
+@login_required
+def list_exam_templates(request):
+    templates = ExamTemplate.objects.filter(
+        created_by=request.user
+    ).select_related(
+        'institution', 'faculty', 'career', 'subject', 'professor'
+    ).prefetch_related('learning_outcomes')
+    
+    # Filtros adicionales (Punto 7)
+    subject_filter = request.GET.get('subject')
+    if subject_filter:
+        templates = templates.filter(subject_id=subject_filter)
+    
+    exam_mode_filter = request.GET.get('exam_mode')  # Punto 5
+    if exam_mode_filter:
+        templates = templates.filter(exam_mode=exam_mode_filter)
+    
+    # Paginación
+    paginator = Paginator(templates, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'material/list_exam_templates.html', {
+        'exam_templates': page_obj,
+        'subjects': Subject.objects.filter(
+            institution__userinstitution__user=request.user
+        ).distinct(),
+        'exam_modes': ExamTemplate.EXAM_MODE_CHOICES  # Punto 5
+    })
+
 
 @login_required
 def preview_exam_template(request, template_id):
@@ -1242,3 +1381,197 @@ def career_associations(request, pk):
         'form': form,
         'career': career
     })
+
+
+
+        # Agregar al final del archivo, antes de las funciones existentes de get_faculties_by_institution
+
+@login_required
+@require_http_methods(["POST"])
+def create_related_element(request):
+    """
+    Vista para crear elementos relacionados de forma atómica
+    Compatible con: institution, campus, faculty, career, subject
+    """
+    try:
+        data = json.loads(request.body)
+        model_type = data.get('type')
+        name = data.get('name', '').strip()
+        institution_id = data.get('institution_id')
+
+        if not model_type:
+            return JsonResponse({
+                'success': False,
+                'error': 'Tipo de elemento no especificado'
+            }, status=400)
+
+        if not name:
+            return JsonResponse({
+                'success': False, 
+                'error': 'El nombre no puede estar vacío'
+            }, status=400)
+
+        with transaction.atomic():
+            # INSTITUCIÓN
+            if model_type == 'institution':
+                if InstitutionV2.objects.filter(name__iexact=name).exists():
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Ya existe una institución con este nombre'
+                    }, status=400)
+
+                institution = InstitutionV2.objects.create(name=name)
+                UserInstitution.objects.create(
+                    user=request.user,
+                    institution=institution
+                )
+
+                return JsonResponse({
+                    'success': True,
+                    'id': institution.id,
+                    'name': institution.name
+                })
+
+            # CAMPUS
+            elif model_type == 'campus':
+                if not institution_id:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Se debe seleccionar una institución primero'
+                    }, status=400)
+
+                institution = get_object_or_404(
+                    InstitutionV2, 
+                    pk=institution_id,
+                    userinstitution__user=request.user
+                )
+
+                if CampusV2.objects.filter(
+                    institution=institution, 
+                    name__iexact=name
+                ).exists():
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Ya existe una sede con este nombre en la institución'
+                    }, status=400)
+
+                campus = CampusV2.objects.create(
+                    institution=institution,
+                    name=name
+                )
+
+                return JsonResponse({
+                    'success': True,
+                    'id': campus.id,
+                    'name': campus.name
+                })
+
+            # FACULTAD
+            elif model_type == 'faculty':
+                if not institution_id:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Se debe seleccionar una institución primero'
+                    }, status=400)
+
+                institution = get_object_or_404(
+                    InstitutionV2, 
+                    pk=institution_id,
+                    userinstitution__user=request.user
+                )
+
+                if FacultyV2.objects.filter(
+                    institution=institution,
+                    name__iexact=name
+                ).exists():
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Ya existe una facultad con este nombre en la institución'
+                    }, status=400)
+
+                faculty = FacultyV2.objects.create(
+                    institution=institution,
+                    name=name
+                )
+
+                return JsonResponse({
+                    'success': True,
+                    'id': faculty.id,
+                    'name': faculty.name
+                })
+
+            # CARRERA
+            elif model_type == 'career':
+                if Career.objects.filter(name__iexact=name).exists():
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Ya existe una carrera con este nombre'
+                    }, status=400)
+
+                career = Career.objects.create(name=name)
+                return JsonResponse({
+                    'success': True,
+                    'id': career.id,
+                    'name': career.name
+                })
+
+            # MATERIA
+            elif model_type == 'subject':
+                if Subject.objects.filter(name__iexact=name).exists():
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Ya existe una materia con este nombre'
+                    }, status=400)
+
+                subject = Subject.objects.create(name=name)
+                return JsonResponse({
+                    'success': True,
+                    'id': subject.id,
+                    'name': subject.name
+                })
+
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Tipo de elemento no válido: {model_type}'
+                }, status=400)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Formato de datos inválido'
+        }, status=400)
+
+    except Exception as e:
+        logger.error(f"Error creating {model_type}: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': f'Error interno del servidor: {str(e)}'
+        }, status=500)
+
+
+def get_faculties_by_institution(request, institution_id):
+    """
+    Devuelve las facultades asociadas a una institución en formato JSON.
+    """
+    print(f"get_faculties_by_institution called with institution_id: {institution_id}")  # DEBUG
+    try:
+        faculties = FacultyV2.objects.filter(institution_id=institution_id).values('id', 'name')
+        print(f"Faculties found: {faculties}")  # DEBUG
+        return JsonResponse({'faculties': list(faculties)})
+    except Exception as e:
+        print(f"Error in get_faculties_by_institution: {e}")  # DEBUG
+        return JsonResponse({'error': str(e)}, status=500)
+
+def get_campuses_by_institution(request, institution_id):
+    """
+    Devuelve las sedes (campus) asociadas a una institución en formato JSON.
+    """
+    print(f"get_campuses_by_institution called with institution_id: {institution_id}")  # DEBUG
+    try:
+        campuses = CampusV2.objects.filter(institution_id=institution_id).values('id', 'name')
+        print(f"Campuses found: {campuses}")  # DEBUG
+        return JsonResponse({'campuses': list(campuses)})
+    except Exception as e:
+        print(f"Error in get_campuses_by_institution: {e}")  # DEBUG
+        return JsonResponse({'error': str(e)}, status=500)

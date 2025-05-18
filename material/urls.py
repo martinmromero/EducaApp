@@ -54,7 +54,7 @@ urlpatterns = [
     path('instituciones-v2/<int:institution_id>/facultad/<int:faculty_id>/edit/', material_views.edit_faculty_v2, name='edit_faculty_v2'),
     path('instituciones-v2/<int:institution_id>/facultad/<int:faculty_id>/delete/', material_views.delete_faculty_v2, name='delete_faculty_v2'),
     path('instituciones-v2/<int:pk>/eliminar-logo/', material_views.delete_institution_logo_v2, name='delete_institution_logo_v2'),
-
+    path('api/create-related-element/', material_views.create_related_element, name='create_related_element'),
 path('instituciones/', material_views.manage_institutions, name='manage_institutions'),
 
 # Subjects CRUD
@@ -72,5 +72,8 @@ path('careers/<int:pk>/associations/', material_views.career_associations, name=
 path('careers/<int:pk>/edit/', material_views.edit_career, name='edit_career'),
 path('careers/<int:pk>/delete/', material_views.delete_career, name='delete_career'),
 path('careers/<int:pk>/', material_views.CareerDetailView.as_view(), name='career_detail'),
+
+path('get_faculties_by_institution/<int:institution_id>/', material_views.get_faculties_by_institution, name='get_faculties_by_institution'),
+path('get_campuses_by_institution/<int:institution_id>/', material_views.get_campuses_by_institution, name='get_campuses_by_institution'),
 
 ]

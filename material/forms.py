@@ -4,7 +4,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
-    Subject, Topic, Subtopic, Institution, LearningOutcome, Campus, Faculty,
+    Subject, Topic, Subtopic, Institution, LearningOutcome, Campus, Faculty, User,
     InstitutionV2, CampusV2, FacultyV2, Career, InstitutionCareer, CareerSubject, UserInstitution
 )
 from crispy_forms.helper import FormHelper
@@ -256,47 +256,7 @@ class ExamForm(forms.ModelForm):
             self.fields['learning_outcomes'].queryset = self.instance.subject.learningoutcome_set.all()
 
 
-class ExamTemplateForm(forms.ModelForm):
-    institution = forms.ModelChoiceField(
-        queryset=Institution.objects.all(),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        required=False
-    )
-    subject = forms.ModelChoiceField(
-        queryset=Subject.objects.all(),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        required=True
-    )
-    professor = forms.ModelChoiceField(
-        queryset=User.objects.filter(profile__role='admin'),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        required=True
-    )
-
-    class Meta:
-        model = ExamTemplate
-        fields = [
-            'institution', 'career_name', 'subject', 'professor',
-            'year', 'exam_type', 'partial_number', 'exam_mode', 'exam_group',
-            'campus', 'shift', 'resolution_time', 'topics_to_evaluate',
-            'notes_and_recommendations', 'learning_outcomes'
-        ]
-        widgets = {
-            'career_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'year': forms.NumberInput(attrs={'class': 'form-control'}),
-            'exam_type': forms.Select(attrs={'class': 'form-control'}),
-            'partial_number': forms.Select(attrs={'class': 'form-control'}),
-            'exam_mode': forms.Select(attrs={'class': 'form-control'}),
-            'exam_group': forms.Select(attrs={'class': 'form-control'}),
-            'campus': forms.TextInput(attrs={'class': 'form-control'}),
-            'shift': forms.Select(attrs={'class': 'form-control'}),
-            'resolution_time': forms.TextInput(attrs={'class': 'form-control'}),
-            'topics_to_evaluate': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'notes_and_recommendations': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'learning_outcomes': forms.SelectMultiple(attrs={'class': 'form-control'}),
-        }
-
-
+   
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
@@ -306,6 +266,56 @@ class ProfileForm(forms.ModelForm):
             'institutions': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
 
+
+class ExamTemplateForm(forms.ModelForm):
+    class Meta:
+        model = ExamTemplate
+        fields = [
+            'institution', 'faculty', 'career', 'subject', 'campus', 'professor',
+            'year', 'exam_type', 'partial_number', 'exam_mode', 'exam_group',
+            'shift', 'resolution_time_number', 'resolution_time_unit',  # Cambiados
+            'learning_outcomes', 'notes_and_recommendations', 'topics_to_evaluate'
+        ]
+        widgets = {
+            'resolution_time_number': forms.NumberInput(attrs={
+                'min': 1,
+                'class': 'form-control',
+                'placeholder': 'Ej: 90'
+            }),
+            'resolution_time_unit': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'exam_mode': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+        # Configuración inicial de querysets
+        if user:
+            self.fields['institution'].queryset = InstitutionV2.objects.filter(
+                userinstitution__user=user, 
+                is_active=True
+            )
+        else:
+            self.fields['institution'].queryset = InstitutionV2.objects.none()
+
+        self.fields['faculty'].queryset = FacultyV2.objects.none()
+        self.fields['campus'].queryset = CampusV2.objects.none()
+
+        # Configuración del campo profesor
+        self.fields['professor'].queryset = User.objects.filter(is_active=True)
+        self.fields['professor'].label_from_instance = lambda obj: f"{obj.first_name} {obj.last_name} ({obj.username})"
+        
+        # Punto 7 - Mejora para learning_outcomes
+        self.fields['learning_outcomes'].queryset = LearningOutcome.objects.all()
+        self.fields['learning_outcomes'].widget = forms.CheckboxSelectMultiple(
+            attrs={'class': 'learning-outcomes-checkbox'}
+        )
+        
 
 class CustomLoginForm(AuthenticationForm):
     username = forms.CharField(
@@ -400,20 +410,55 @@ class InstitutionV2Form(forms.ModelForm):
 class CampusV2Form(forms.ModelForm):
     class Meta:
         model = CampusV2
-        fields = ['name']  # Solo mostramos el nombre
+        fields = ['name']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Nombre de la sede',
-                'required': False  # Hacer opcional
+                'placeholder': 'Ej: Sede Central',
+                'minlength': '2',
+                'maxlength': '255'
             })
         }
-
+    
+    def clean_name(self):
+        name = self.cleaned_data.get('name', '').strip()
+        if len(name) < 2:
+            raise ValidationError("El nombre debe tener al menos 2 caracteres")
+        if len(name) > 255:
+            raise ValidationError("El nombre no puede exceder 255 caracteres")
+        return name
 
 class FacultyV2Form(forms.ModelForm):
     class Meta:
         model = FacultyV2
-        fields = ['name']  # Solo mostramos
+        fields = ['name', 'code']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Facultad de Ingeniería',
+                'minlength': '2',
+                'maxlength': '255'
+            }),
+            'code': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Código opcional',
+                'maxlength': '20'
+            })
+        }
+    
+    def clean_name(self):
+        name = self.cleaned_data.get('name', '').strip()
+        if len(name) < 2:
+            raise ValidationError("El nombre debe tener al menos 2 caracteres")
+        if len(name) > 255:
+            raise ValidationError("El nombre no puede exceder 255 caracteres")
+        return name
+    
+    def clean_code(self):
+        code = self.cleaned_data.get('code', '').strip()
+        if code and len(code) > 20:
+            raise ValidationError("El código no puede exceder 20 caracteres")
+        return code or None
 
 class SubjectForm(forms.ModelForm):
     class Meta:

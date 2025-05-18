@@ -92,9 +92,29 @@ class CampusV2(models.Model):
     class Meta:
         verbose_name = "Sede V2"
         verbose_name_plural = "Sedes V2"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['institution', 'name'],
+                name='unique_campus_name_per_institution'
+            )
+        ]
+
+    def clean(self):
+        if not self.name or not self.name.strip():
+            raise ValidationError("El nombre de la sede no puede estar vacío")
+        
+        if self.institution_id and CampusV2.objects.filter(
+            institution=self.institution,
+            name__iexact=self.name.strip()
+        ).exclude(id=self.id).exists():
+            raise ValidationError("Ya existe una sede con este nombre en la institución")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.institution})"
 
 class FacultyV2(models.Model):
     institution = models.ForeignKey(
@@ -126,9 +146,29 @@ class FacultyV2(models.Model):
     class Meta:
         verbose_name = "Facultad V2"
         verbose_name_plural = "Facultades V2"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['institution', 'name'],
+                name='unique_faculty_name_per_institution'
+            )
+        ]
+
+    def clean(self):
+        if not self.name or not self.name.strip():
+            raise ValidationError("El nombre de la facultad no puede estar vacío")
+        
+        if self.institution_id and FacultyV2.objects.filter(
+            institution=self.institution,
+            name__iexact=self.name.strip()
+        ).exclude(id=self.id).exists():
+            raise ValidationError("Ya existe una facultad con este nombre en la institución")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.institution})"
 
 class InstitutionLog(models.Model):
     ACTION_CHOICES = [
@@ -430,143 +470,6 @@ class Question(models.Model):
     def __str__(self):
         return f"{self.subject} - {self.question_text[:50]}..."
 
-class ExamTemplate(models.Model):
-    EXAM_TYPE_CHOICES = [
-        ('final', 'Final'),
-        ('parcial', 'Parcial'),
-    ]
-    EXAM_MODE_CHOICES = [
-        ('oral', 'Oral'),
-        ('escrito', 'Escrito'),
-    ]
-    EXAM_PARTIAL_CHOICES = [
-        ('1ro', 'Primer Parcial'),
-        ('2do', 'Segundo Parcial'),
-        ('3ro', 'Tercer Parcial'),
-        ('4to', 'Cuarto Parcial'),
-    ]
-    EXAM_GROUP_CHOICES = [
-        ('individual', 'Individual'),
-        ('grupal', 'Grupal'),
-    ]
-    SHIFT_CHOICES = [
-        ('mañana', 'Mañana'),
-        ('tarde', 'Tarde'),
-        ('noche', 'Noche'),
-    ]
-
-    institution = models.ForeignKey(
-        'Institution',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="Institución"
-    )
-    faculty = models.ForeignKey(
-        'Faculty',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="Facultad"
-    )
-    campus = models.ForeignKey(
-        'Campus',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="Sede"
-    )
-    career_name = models.CharField(max_length=255, verbose_name="Carrera")
-    subject = models.ForeignKey(
-        'Subject',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="Materia"
-    )
-    professor = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="Profesor"
-    )
-    year = models.IntegerField(verbose_name="Año")
-    exam_type = models.CharField(
-        max_length=10,
-        choices=EXAM_TYPE_CHOICES,
-        verbose_name="Tipo de examen"
-    )
-    partial_number = models.CharField(
-        max_length=10,
-        choices=EXAM_PARTIAL_CHOICES,
-        blank=True,
-        null=True,
-        verbose_name="Número de parcial"
-    )
-    exam_mode = models.CharField(
-        max_length=10,
-        choices=EXAM_MODE_CHOICES,
-        verbose_name="Modalidad de examen"
-    )
-    exam_group = models.CharField(
-        max_length=10,
-        choices=EXAM_GROUP_CHOICES,
-        default='individual',
-        verbose_name="Modalidad grupal"
-    )
-    shift = models.CharField(
-        max_length=10,
-        choices=SHIFT_CHOICES,
-        blank=True,
-        null=True,
-        verbose_name="Turno"
-    )
-    resolution_time = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-        verbose_name="Tiempo de resolución"
-    )
-    topics_to_evaluate = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="Temas a evaluar"
-    )
-    notes_and_recommendations = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="Notas y recomendaciones"
-    )
-    learning_outcomes = models.ManyToManyField(
-        'LearningOutcome',
-        blank=True,
-        verbose_name="Resultados de aprendizaje"
-    )
-   
-    created_by = models.ForeignKey(
-    User,
-    on_delete=models.CASCADE,
-    related_name='created_templates',  # Cambiado de 'exam_templates'
-    related_query_name='exam_template' # Añadido para queries
-    )
-
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        exam_name = f"{self.get_exam_type_display()}"
-        if self.exam_type == 'parcial' and self.partial_number:
-            exam_name += f" {self.get_partial_number_display()}"
-        return f"{self.subject} - {exam_name} ({self.year})"
-
-    class Meta:
-        verbose_name = "Plantilla de Examen"
-        verbose_name_plural = "Plantillas de Examen"
-        ordering = ["-created_at"]
-        indexes = [
-            models.Index(fields=["exam_type", "year"]),
-            models.Index(fields=["subject"]),
-        ]
 
 class Exam(models.Model):
     title = models.CharField(
@@ -955,6 +858,157 @@ class CareerSubject(models.Model):
     def __str__(self):
         optional_str = " (Optativa)" if self.is_optional else ""
         return f"{self.career.name} - {self.subject.name} (Sem {self.semester}){optional_str}"
+
+class ExamTemplate(models.Model):
+    # Punto 5 - Opciones de modalidad actualizadas
+    EXAM_MODE_CHOICES = [
+        ('presencial', 'Presencial'),
+        ('virtual', 'Virtual'),
+        ('domiciliario', 'Domiciliario'),  # Nueva opción
+        ('hibrido', 'Híbrido'),
+        ('otro', 'Otro')
+    ]
+    
+    # Punto 4 - Tiempo de resolución dividido
+    resolution_time_number = models.PositiveIntegerField(
+        default=60,
+        verbose_name="Duración numérica",
+        help_text="Valor numérico de la duración"
+    )
+    resolution_time_unit = models.CharField(
+        max_length=10,
+        choices=[('minutes', 'Minutos'), ('hours', 'Horas'), ('days', 'Días')],
+        default='minutes',
+        verbose_name="Unidad de tiempo"
+    )
+
+    # Punto 6 - Grupo de examen renombrado
+    exam_group = models.CharField(
+        max_length=100,
+        verbose_name="Cantidad de temas",
+        help_text="Número o descripción de temas incluidos"
+    )
+
+    # Campos principales existentes
+    institution = models.ForeignKey(
+        InstitutionV2,
+        on_delete=models.PROTECT,
+        verbose_name="Institución"
+    )
+    faculty = models.ForeignKey(
+        FacultyV2,
+        on_delete=models.PROTECT,
+        verbose_name="Facultad"
+    )
+    career = models.ForeignKey(
+        Career,
+        on_delete=models.PROTECT,
+        verbose_name="Carrera"
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.PROTECT,
+        verbose_name="Materia"
+    )
+    campus = models.ForeignKey(
+        CampusV2,
+        on_delete=models.PROTECT,
+        verbose_name="Sede/Campus"
+    )
+    professor = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='professor_exam_templates',
+        verbose_name="Profesor"
+    )
+    
+    # Campos de configuración del examen
+    year = models.PositiveIntegerField(verbose_name="Año académico")
+    exam_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('parcial', 'Parcial'),
+            ('final', 'Final'),
+            ('recuperatorio', 'Recuperatorio'),
+            ('practico', 'Práctico')
+        ],
+        verbose_name="Tipo de examen"
+    )
+    partial_number = models.PositiveIntegerField(
+        verbose_name="Número de parcial",
+        null=True,
+        blank=True
+    )
+    exam_mode = models.CharField(
+        max_length=20,
+        choices=EXAM_MODE_CHOICES,
+        verbose_name="Modalidad de examen"
+    )
+    shift = models.CharField(
+        max_length=50,
+        choices=[
+            ('manana', 'Mañana'),
+            ('tarde', 'Tarde'),
+            ('noche', 'Noche')
+        ],
+        verbose_name="Turno"
+    )
+    
+    # Campos de contenido
+    learning_outcomes = models.ManyToManyField(
+        LearningOutcome,
+        verbose_name="Resultados de aprendizaje"
+    )
+    topics_to_evaluate = models.TextField(
+        verbose_name="Temas a evaluar",
+        help_text="Listado de temas incluidos en el examen"
+    )
+    notes_and_recommendations = models.TextField(
+        verbose_name="Notas y recomendaciones",
+        blank=True
+    )
+    
+    # Metadata
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='created_exam_templates'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    
+    # Campos de diseño (opcionales)
+    institution_logo = models.ImageField(
+        upload_to='exam_templates/logos/',
+        null=True,
+        blank=True
+    )
+    custom_css = models.TextField(
+        blank=True,
+        help_text="CSS personalizado para la plantilla"
+    )
+    
+    class Meta:
+        verbose_name = "Plantilla de examen"
+        verbose_name_plural = "Plantillas de examen"
+        ordering = ['-created_at']
+        permissions = [
+            ('can_share_template', 'Puede compartir plantillas'),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_exam_type_display()} - {self.subject} ({self.year})"
+    
+    def get_resolution_time(self):
+        return f"{self.resolution_time_number} {self.get_resolution_time_unit_display()}"
+    
+    def clean(self):
+        # Validación personalizada ejemplo
+        if self.exam_type == 'parcial' and not self.partial_number:
+            raise ValidationError('Debe especificar el número de parcial')
+
+
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
