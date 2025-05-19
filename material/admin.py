@@ -4,6 +4,7 @@ from .models import (
     Subject, Contenido, Question, Exam, ExamTemplate, Profile,
     Topic, Subtopic, Institution, InstitutionV2, LearningOutcome, Career
 )
+from .forms import SubjectForm
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 
@@ -80,16 +81,44 @@ class CareerAdmin(admin.ModelAdmin):
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
+    form = SubjectForm  # Usando el form mejorado que definimos antes
     list_display = ('name', 'learning_outcomes_short', 'careers_list')
     search_fields = ('name',)
+    list_filter = ('careers',)  # Añadido para mejor filtrado
+    filter_horizontal = ('careers',)  # Para selección más fácil de carreras
+    
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'careers')
+        }),
+        ('Resultados de Aprendizaje', {
+            'fields': ('learning_outcomes',),
+            'description': '''<div class="help">
+                <p>Formato recomendado: <code>CÓDIGO: Descripción - Nivel X</code></p>
+                <p>Ejemplo: <code>MATH-101: Resolver ecuaciones - Nivel 2</code></p>
+            </div>'''
+        }),
+    )
 
     def learning_outcomes_short(self, obj):
-        return f"{obj.learning_outcomes[:50]}..." if obj.learning_outcomes else ""
+        if not obj.learning_outcomes:
+            return ""
+        # Versión mejorada que muestra el primer código encontrado
+        first_line = obj.learning_outcomes.split('\n')[0].strip()
+        if ':' in first_line:
+            return f"{first_line.split(':')[0].strip()}..."
+        return f"{first_line[:50]}..." if first_line else ""
     learning_outcomes_short.short_description = 'Resultados'
 
     def careers_list(self, obj):
-        return ", ".join([c.name for c in obj.careers.all()])
+        return ", ".join([c.name for c in obj.careers.all()[:3]]) + ("..." if obj.careers.count() > 3 else "")
     careers_list.short_description = 'Carreras'
+    
+    class Media:
+        css = {
+            'all': ('admin/css/subject_admin.css',)
+        }
+        js = ('admin/js/subject_admin.js',)
 
 @admin.register(Contenido)
 class ContenidoAdmin(admin.ModelAdmin):

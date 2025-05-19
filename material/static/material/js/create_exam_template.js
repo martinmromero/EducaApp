@@ -235,3 +235,143 @@ document.addEventListener('DOMContentLoaded', function() {
 function previewExamTemplate() {
     // ... código existente ...
 }
+
+// =============================================
+// SECCIÓN 7: CARGA DE LEARNING OUTCOMES (CHECKLIST)
+// =============================================
+// Reemplaza la función setupLearningOutcomesChecklist con esta versión mejorada
+
+function setupLearningOutcomesChecklist() {
+    const subjectSelect = document.getElementById('id_subject');
+    const container = document.getElementById('learning_outcomes_container');
+    const originalSelect = document.querySelector('select[name="learning_outcomes"]');
+
+    if (!subjectSelect || !container) {
+        console.error('Elementos del DOM no encontrados');
+        return;
+    }
+
+    subjectSelect.addEventListener('change', async function() {
+        const subjectId = this.value;
+        
+        // Mostrar estado de carga
+        container.innerHTML = `
+            <div class="outcome-loading">
+                <i class="fas fa-spinner fa-spin"></i> Cargando resultados...
+            </div>
+        `;
+
+        if (!subjectId) {
+            container.innerHTML = `
+                <div class="outcome-empty">
+                    <i class="fas fa-info-circle"></i> Seleccione una materia primero
+                </div>
+            `;
+            return;
+        }
+
+        try {
+            console.log(`Solicitando outcomes para subject_id: ${subjectId}`); // Debug
+            const response = await fetch(`/get-learning-outcomes/?subject_id=${subjectId}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const outcomes = await response.json();
+            console.log('Respuesta del servidor:', outcomes); // Debug
+
+            if (!outcomes || outcomes.length === 0) {
+                container.innerHTML = `
+                    <div class="outcome-empty">
+                        <i class="fas fa-exclamation-circle"></i> No hay resultados definidos para esta materia
+                    </div>
+                `;
+                return;
+            }
+
+            // Construir checklist
+            let html = '<div class="outcome-checklist">';
+            outcomes.forEach(outcome => {
+                // Verificar si ya estaba seleccionado
+                const isSelected = originalSelect 
+                    ? Array.from(originalSelect.options).some(opt => opt.value == outcome.id)
+                    : false;
+                
+                html += `
+                <div class="outcome-item">
+                    <input type="checkbox" 
+                           id="outcome_${outcome.id}" 
+                           value="${outcome.id}"
+                           ${isSelected ? 'checked' : ''}>
+                    <label for="outcome_${outcome.id}">
+                        <span class="outcome-code">${outcome.code}</span>
+                        <span class="outcome-desc">${outcome.description}</span>
+                        <span class="outcome-level">(Nivel ${outcome.level})</span>
+                    </label>
+                </div>
+                `;
+            });
+            html += '</div>';
+
+            container.innerHTML = html;
+
+            // Actualizar select original cuando cambian los checkboxes
+            container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    updateOriginalSelect(this.value, this.checked, originalSelect);
+                });
+            });
+
+        } catch (error) {
+            console.error('Error loading outcomes:', error);
+            container.innerHTML = `
+                <div class="outcome-error">
+                    <i class="fas fa-exclamation-triangle"></i> Error al cargar resultados
+                    <div class="error-details">${error.message}</div>
+                </div>
+            `;
+        }
+    });
+
+    function updateOriginalSelect(value, isChecked, selectElement) {
+        if (!selectElement) return;
+        
+        const existingOption = Array.from(selectElement.options).find(opt => opt.value === value);
+        
+        if (isChecked && !existingOption) {
+            const newOption = new Option(value, value, true, true);
+            selectElement.add(newOption);
+        } else if (!isChecked && existingOption) {
+            existingOption.remove();
+        }
+    }
+
+    // Disparar evento change si ya hay una materia seleccionada
+    if (subjectSelect.value) {
+        subjectSelect.dispatchEvent(new Event('change'));
+    }
+}
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-formato de códigos al escribir
+    const outcomesField = document.getElementById('id_learning_outcomes');
+    if (outcomesField) {
+        outcomesField.addEventListener('blur', function() {
+            // Validación básica en cliente
+            const lines = this.value.split('\n');
+            const formatted = lines.map((line, index) => {
+                line = line.trim();
+                if (line && !line.includes(':') && !line.startsWith('LO-')) {
+                    return `LO-${index+1}: ${line} - Nivel 1`;
+                }
+                return line;
+            }).join('\n');
+            
+            if (formatted !== this.value) {
+                this.value = formatted;
+            }
+        });
+    }
+});

@@ -149,3 +149,69 @@
 .input-group {
     margin-bottom: 5px;
 }
+
+
+/* Contenedor principal */
+.learning-outcomes-container {
+    width: 100%;
+    min-height: 120px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 15px;
+    margin-top: 5px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+}
+
+/* Items individuales */
+.outcome-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.outcome-item:hover {
+    background-color: #f1f8ff;
+    border-color: #b3d7ff;
+}
+
+/* Checkbox personalizado */
+.outcome-item input[type="checkbox"] {
+    margin-right: 10px;
+    transform: scale(1.2);
+}
+
+.outcome-item label {
+    flex-grow: 1;
+    margin-bottom: 0;
+    cursor: pointer;
+}
+
+/* Estado cuando no hay resultados */
+.learning-outcomes-container .no-outcomes {
+    color: #6c757d;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Adaptación para móviles */
+@media (max-width: 768px) {
+    .learning-outcomes-container {
+        max-height: 200px;
+    }
+}
+
+/* Estilo para el help text en el admin */
+.field-learning_outcomes .help {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    border-left: 3px solid #6c757d;
+}

@@ -390,6 +390,21 @@ class InstitutionV2Form(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['logo'].required = False
 
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if not name:  # Valida None o cadena vacía
+            raise ValidationError("El nombre de la institución es obligatorio")
+        
+        name = name.strip()
+        if len(name) < 2:
+            raise ValidationError("El nombre debe tener al menos 2 caracteres")
+        
+        # Validación adicional para nombres duplicados
+        if InstitutionV2.objects.filter(name__iexact=name).exclude(pk=getattr(self.instance, 'pk', None)).exists():
+            raise ValidationError("Ya existe una institución con este nombre")
+            
+        return name
+
     def clean_logo(self):
         logo = self.cleaned_data.get('logo')
 
@@ -405,7 +420,6 @@ class InstitutionV2Form(forms.ModelForm):
                 raise ValidationError("Adjunte una imagen válida (JPG, PNG o SVG)")
 
         return logo
-
 
 class CampusV2Form(forms.ModelForm):
     class Meta:
@@ -461,6 +475,22 @@ class FacultyV2Form(forms.ModelForm):
         return code or None
 
 class SubjectForm(forms.ModelForm):
+    learning_outcomes = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 5,
+            'placeholder': 'Ejemplo: LO-1: Resolver ecuaciones básicas - Nivel 1\nLO-2: Analizar problemas complejos - Nivel 2'
+        }),
+        label='Resultados de Aprendizaje',
+        help_text='''<small class="form-text text-muted">
+            Ingrese un resultado por línea con formato:<br>
+            <code>CÓDIGO: Descripción - Nivel X</code><br>
+            Ejemplo: <code>MATH-101: Resolver ecuaciones cuadráticas - Nivel 2</code>
+        </small>''',
+        required=False,
+        strip=True
+    )
+
     class Meta:
         model = Subject
         fields = ['name', 'learning_outcomes']
@@ -468,17 +498,45 @@ class SubjectForm(forms.ModelForm):
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Nombre de la materia'
-            }),
-            'learning_outcomes': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 3,
-                'placeholder': 'Resultados de aprendizaje esperados...'
-            }),
+            })
         }
         labels = {
-            'name': 'Nombre',
-            'learning_outcomes': 'Resultados de Aprendizaje'
+            'name': 'Nombre'
         }
+
+    def clean_learning_outcomes(self):
+        data = self.cleaned_data['learning_outcomes']
+        if not data:
+            return data
+        
+        validated_lines = []
+        for i, line in enumerate(data.splitlines(), start=1):
+            line = line.strip()
+            if line:
+                # Validación básica de formato
+                if ':' not in line:
+                    raise forms.ValidationError(
+                        f"Línea {i}: Falta separador ':' entre código y descripción. "
+                        f"Formato requerido: CÓDIGO: Descripción - Nivel X"
+                    )
+                
+                # Verificar nivel si está presente
+                if '-' in line:
+                    desc_part = line.split(':', 1)[1]
+                    if 'nivel' in desc_part.lower():
+                        try:
+                            level = int(desc_part.split('-')[1].lower().replace('nivel', '').strip())
+                            if not 1 <= level <= 3:
+                                raise ValueError
+                        except ValueError:
+                            raise forms.ValidationError(
+                                f"Línea {i}: Nivel debe ser entre 1 y 3. "
+                                f"Ejemplo válido: 'LO-1: Descripción - Nivel 2'"
+                            )
+                
+                validated_lines.append(line)
+        
+        return '\n'.join(validated_lines)
         
 
 class CareerForm(forms.ModelForm):

@@ -154,9 +154,17 @@ def create_exam(request):
 
 @login_required
 def create_exam_template(request):
-    # Cargar todas las materias para el filtro (Punto 7)
-    subjects = Subject.objects.all().select_related('institution')
+    # Obtener instituciones del usuario
+    user_institutions = InstitutionV2.objects.filter(
+        userinstitution__user=request.user,
+        is_active=True
+    )
     
+    # Obtener materias del usuario (usando el related_name correcto)
+    subjects = Subject.objects.filter(
+        subject_institutions__institution__in=user_institutions
+    ).distinct()
+
     if request.method == 'POST':
         form = ExamTemplateForm(
             request.POST, 
@@ -170,7 +178,6 @@ def create_exam_template(request):
                     exam_template = form.save(commit=False)
                     exam_template.created_by = request.user
                     
-                    # Procesamiento adicional para Punto 4
                     resolution_time = (
                         f"{form.cleaned_data['resolution_time_number']} "
                         f"{form.cleaned_data['resolution_time_unit']}"
@@ -180,9 +187,8 @@ def create_exam_template(request):
                     )
                     
                     exam_template.save()
-                    form.save_m2m()  # Para learning_outcomes (Punto 7)
+                    form.save_m2m()
                     
-                    # Log de creación (opcional)
                     InstitutionLog.objects.create(
                         institution=exam_template.institution,
                         user=request.user,
@@ -204,41 +210,39 @@ def create_exam_template(request):
                     extra_tags='danger'
                 )
     else:
-        initial_data = {}
-        
-        # Valores iniciales para Punto 4
-        initial_data.update({
+        initial_data = {
             'resolution_time_number': 60,
             'resolution_time_unit': 'minutes'
-        })
+        }
         
         form = ExamTemplateForm(
             initial=initial_data,
             user=request.user
         )
     
-    # Contexto para el template (Punto 7)
     context = {
         'form': form,
         'subjects': subjects,
         'learning_outcomes': LearningOutcome.objects.filter(
-            institution__userinstitution__user=request.user
+            subject__in=subjects
         ).select_related('subject'),
         'current_institution': request.GET.get('institution_id'),
-        'exam_modes': ExamTemplate.EXAM_MODE_CHOICES,  # Punto 5
-        'time_units': [  # Punto 4
+        'exam_modes': ExamTemplate.EXAM_MODE_CHOICES,
+        'time_units': [
             {'value': 'minutes', 'label': 'Minutos'},
             {'value': 'hours', 'label': 'Horas'},
             {'value': 'days', 'label': 'Días'}
         ]
     }
     
-    # Manejo de AJAX para filtrado (Punto 7)
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         institution_id = request.GET.get('institution_id')
         if institution_id:
+            institution_subjects = Subject.objects.filter(
+                subject_institutions__institution_id=institution_id
+            )
             outcomes = LearningOutcome.objects.filter(
-                institution_id=institution_id
+                subject__in=institution_subjects
             ).values('id', 'name', 'subject__name')
             return JsonResponse(list(outcomes), safe=False)
         return JsonResponse([], safe=False)
@@ -708,6 +712,38 @@ def manage_learning_outcomes(request):
         'outcomes': outcomes,
         'form': form
     })
+
+
+@login_required
+def get_learning_outcomes(request):
+    subject_id = request.GET.get('subject_id')
+    if not subject_id:
+        return JsonResponse([], safe=False)
+    
+    try:
+        subject = Subject.objects.get(id=subject_id)
+        if not subject.learning_outcomes:
+            return JsonResponse([], safe=False)
+        
+        # Parsear el formato específico encontrado (números separados por \r\n)
+        outcomes = []
+        for i, line in enumerate(subject.learning_outcomes.split('\r\n')):
+            line = line.strip()
+            if line:
+                outcomes.append({
+                    'id': f"{subject_id}-{line}",  # Usamos el número como ID
+                    'code': f"LO-{line}",  # Generamos un código automático
+                    'description': f"Resultado de aprendizaje {line}",
+                    'level': 1  # Nivel por defecto
+                })
+        
+        return JsonResponse(outcomes, safe=False)
+    
+    except Subject.DoesNotExist:
+        return JsonResponse({'error': 'Materia no encontrada'}, status=404)
+    except Exception as e:
+        logger.error(f"Error en get_learning_outcomes: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=400)
 
 @login_required
 def manage_institutions(request):
@@ -1385,6 +1421,20 @@ def career_associations(request, pk):
 
 
         # Agregar al final del archivo, antes de las funciones existentes de get_faculties_by_institution
+
+import json
+from material.models import Subject
+
+subject = Subject.objects.get(id=1)
+print("Tipo de dato:", type(subject.learning_outcomes))
+print("Contenido:", repr(subject.learning_outcomes))
+
+# Intenta parsear como JSON
+try:
+    parsed = json.loads(subject.learning_outcomes)
+    print("Como JSON:", parsed)
+except json.JSONDecodeError:
+    print("No es un JSON válido")
 
 @login_required
 @require_http_methods(["POST"])

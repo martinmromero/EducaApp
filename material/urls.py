@@ -76,4 +76,6 @@ path('careers/<int:pk>/', material_views.CareerDetailView.as_view(), name='caree
 path('get_faculties_by_institution/<int:institution_id>/', material_views.get_faculties_by_institution, name='get_faculties_by_institution'),
 path('get_campuses_by_institution/<int:institution_id>/', material_views.get_campuses_by_institution, name='get_campuses_by_institution'),
 
+path('get-learning-outcomes/', material_views.get_learning_outcomes, name='get_learning_outcomes'),
+
 ]

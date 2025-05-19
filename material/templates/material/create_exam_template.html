@@ -143,9 +143,27 @@
     <!-- Campos de ancho completo -->
     <div class="full-width-fields">
         <!-- Resultados de Aprendizaje -->
-        <div class="form-group">
-            <label for="{{ form.learning_outcomes.id_for_label }}">{{ form.learning_outcomes.label }}</label>
-            {{ form.learning_outcomes }}
+        <div class="form-group full-width-fields">
+            <label for="learning_outcomes_field">Resultados de aprendizaje</label>
+            <div class="input-group">
+                <!-- Select oculto para compatibilidad con Django -->
+                {{ form.learning_outcomes }}
+                
+                <!-- Contenedor dinámico (este es el que interactuará con nuestro JS) -->
+                <div id="learning_outcomes_container" class="learning-outcomes-container">
+                    <p class="text-muted">
+                        <i class="fas fa-info-circle"></i> Seleccione una materia para cargar los resultados
+                    </p>
+                </div>
+                
+                <!-- Botón para agregar nuevos (opcional) -->
+<!--                 <div class="input-group-append">
+                    <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                            data-target="learning_outcome" data-field="learning_outcomes">
+                        <i class="fas fa-plus"></i> Nuevo
+                    </button>
+                </div> -->
+            </div>
         </div>
 
         <!-- Notas y Recomendaciones -->

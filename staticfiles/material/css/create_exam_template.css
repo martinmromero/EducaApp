@@ -1,49 +1,108 @@
-/* Estilos para el diseño de dos columnas */
-.two-column-form {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 20px;
+    /* Estilos para el diseño de dos columnas */
+    .two-column-form {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .form-column {
+        flex: 1;
+    }
+    
+    .full-width-fields {
+        clear: both;
+        width: 100%;
+    }
+    
+    .form-actions {
+        margin-top: 20px;
+        text-align: right;
+    }
+    
+    /* Estilos existentes (se mantienen) */
+    .preview-container {
+        margin-top: 20px;
+        border: 2px solid black;
+        padding: 20px;
+        background-color: white;
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0 auto;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .exam-template { width: 100%; }
+    .header { display: flex; align-items: center; margin-bottom: 20px; }
+    .institution-logo { flex: 1; text-align: center; }
+    .institution-info { flex: 3; margin-left: 20px; }
+    .exam-details { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    .exam-details th, .exam-details td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    .exam-details th { background-color: #f2f2f2; }
+    .notes, .topics, .questions { margin-bottom: 20px; }
+    .notes h4, .topics h4, .questions h4 { margin-bottom: 10px; }
+    .questions p { margin: 5px 0; }
+    .btn-success { margin-left: 5px; }
+    .form-control[style*="display: none"] { margin-top: 0 !important; }
+    .input-group { margin-bottom: 5px; }
+    @media print {
+        .preview-container { border: none; box-shadow: none; padding: 0; }
+    }
+    @media (max-width: 768px) {
+        .two-column-form {
+            flex-direction: column;
+        }
+    }
+
+  /* Toast notifications */
+    .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 24px;
+        border-radius: 4px;
+        color: white;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 1000;
+    }
+    .toast.show {
+        opacity: 1;
+    }
+    .toast.success {
+        background-color: #28a745;
+    }
+    .toast.error {
+        background-color: #dc3545;
+    }
+    
+    /* Mejoras para los selects */
+    select:disabled {
+        opacity: 0.7;
+        background-color: #f8f9fa;
+    }
+    
+    /* Transiciones para botones */
+    .btn {
+        transition: all 0.2s ease;
+    }
+
+    /* Botones dinámicos */
+.dynamic-add-btn {
+    transition: all 0.2s ease;
 }
 
-.form-column {
-    flex: 1;
+.dynamic-add-btn.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
 }
 
-.full-width-fields {
-    clear: both;
-    width: 100%;
+.dynamic-cancel-btn {
+    margin-left: 5px;
 }
 
-.form-actions {
-    margin-top: 20px;
-    text-align: right;
+.dynamic-input {
+    display: none;
+    margin-top: 0.5rem;
 }
-
-/* Estilos para el preview */
-.preview-container {
-    margin-top: 20px;
-    border: 2px solid black;
-    padding: 20px;
-    background-color: white;
-    width: 210mm;
-    min-height: 297mm;
-    margin: 0 auto;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-.exam-template { width: 100%; }
-.header { display: flex; align-items: center; margin-bottom: 20px; }
-.institution-logo { flex: 1; text-align: center; }
-.institution-info { flex: 3; margin-left: 20px; }
-.exam-details { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-.exam-details th, .exam-details td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-.exam-details th { background-color: #f2f2f2; }
-.notes, .topics, .questions { margin-bottom: 20px; }
-.notes h4, .topics h4, .questions h4 { margin-bottom: 10px; }
-.questions p { margin: 5px 0; }
-.btn-success { margin-left: 5px; }
-.form-control[style*="display: none"] { margin-top: 0 !important; }
-.input-group { margin-bottom: 5px; }
 
 /* Toast notifications */
 .toast {
@@ -57,24 +116,102 @@
     transition: opacity 0.3s ease;
     z-index: 1000;
 }
-.toast.show { opacity: 1; }
-.toast.success { background-color: #28a745; }
-.toast.error { background-color: #dc3545; }
 
-/* Mejoras para selects */
-select:disabled {
-    opacity: 0.7;
-    background-color: #f8f9fa;
+.toast.show {
+    opacity: 1;
 }
 
-/* Transiciones para botones */
-.btn {
-    transition: all 0.2s ease;
+.toast.success {
+    background-color: #28a745;
 }
 
-/* Responsive */
+.toast.error {
+    background-color: #dc3545;
+}
+
+/* Form layout */
+.two-column-form {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.form-column {
+    flex: 1;
+}
+
 @media (max-width: 768px) {
     .two-column-form {
         flex-direction: column;
     }
+}
+
+.input-group {
+    margin-bottom: 5px;
+}
+
+
+/* Contenedor principal */
+.learning-outcomes-container {
+    width: 100%;
+    min-height: 120px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 15px;
+    margin-top: 5px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+}
+
+/* Items individuales */
+.outcome-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.outcome-item:hover {
+    background-color: #f1f8ff;
+    border-color: #b3d7ff;
+}
+
+/* Checkbox personalizado */
+.outcome-item input[type="checkbox"] {
+    margin-right: 10px;
+    transform: scale(1.2);
+}
+
+.outcome-item label {
+    flex-grow: 1;
+    margin-bottom: 0;
+    cursor: pointer;
+}
+
+/* Estado cuando no hay resultados */
+.learning-outcomes-container .no-outcomes {
+    color: #6c757d;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Adaptación para móviles */
+@media (max-width: 768px) {
+    .learning-outcomes-container {
+        max-height: 200px;
+    }
+}
+
+/* Estilo para el help text en el admin */
+.field-learning_outcomes .help {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    border-left: 3px solid #6c757d;
 }
