@@ -713,7 +713,6 @@ def manage_learning_outcomes(request):
         'form': form
     })
 
-
 @login_required
 def get_learning_outcomes(request):
     subject_id = request.GET.get('subject_id')
@@ -725,15 +724,20 @@ def get_learning_outcomes(request):
         if not subject.learning_outcomes:
             return JsonResponse([], safe=False)
         
-        # Parsear el formato específico encontrado (números separados por \r\n)
+        # Parsear los resultados de aprendizaje (cada línea es un resultado)
         outcomes = []
-        for i, line in enumerate(subject.learning_outcomes.split('\r\n')):
+        for i, line in enumerate(subject.learning_outcomes.splitlines(), start=1):
             line = line.strip()
             if line:
+                # Extraer código y descripción si sigue el formato "CODIGO: Descripción"
+                parts = line.split(':', 1)
+                code = parts[0].strip() if len(parts) > 1 else f"LO-{i}"
+                description = parts[1].strip() if len(parts) > 1 else line
+                
                 outcomes.append({
-                    'id': f"{subject_id}-{line}",  # Usamos el número como ID
-                    'code': f"LO-{line}",  # Generamos un código automático
-                    'description': f"Resultado de aprendizaje {line}",
+                    'id': f"{subject_id}-{i}",  # ID único para cada resultado
+                    'code': code,
+                    'description': description,
                     'level': 1  # Nivel por defecto
                 })
         

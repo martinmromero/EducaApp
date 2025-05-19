@@ -246,10 +246,7 @@ function setupLearningOutcomesChecklist() {
     const container = document.getElementById('learning_outcomes_container');
     const originalSelect = document.querySelector('select[name="learning_outcomes"]');
 
-    if (!subjectSelect || !container) {
-        console.error('Elementos del DOM no encontrados');
-        return;
-    }
+    if (!subjectSelect || !container) return;
 
     subjectSelect.addEventListener('change', async function() {
         const subjectId = this.value;
@@ -271,16 +268,14 @@ function setupLearningOutcomesChecklist() {
         }
 
         try {
-            console.log(`Solicitando outcomes para subject_id: ${subjectId}`); // Debug
             const response = await fetch(`/get-learning-outcomes/?subject_id=${subjectId}`);
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`Error HTTP: ${response.status}`);
             }
             
             const outcomes = await response.json();
-            console.log('Respuesta del servidor:', outcomes); // Debug
-
+            
             if (!outcomes || outcomes.length === 0) {
                 container.innerHTML = `
                     <div class="outcome-empty">
@@ -307,7 +302,6 @@ function setupLearningOutcomesChecklist() {
                     <label for="outcome_${outcome.id}">
                         <span class="outcome-code">${outcome.code}</span>
                         <span class="outcome-desc">${outcome.description}</span>
-                        <span class="outcome-level">(Nivel ${outcome.level})</span>
                     </label>
                 </div>
                 `;
@@ -353,25 +347,7 @@ function setupLearningOutcomesChecklist() {
     }
 }
 
-
+// Asegurarse de llamar a la función cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-formato de códigos al escribir
-    const outcomesField = document.getElementById('id_learning_outcomes');
-    if (outcomesField) {
-        outcomesField.addEventListener('blur', function() {
-            // Validación básica en cliente
-            const lines = this.value.split('\n');
-            const formatted = lines.map((line, index) => {
-                line = line.trim();
-                if (line && !line.includes(':') && !line.startsWith('LO-')) {
-                    return `LO-${index+1}: ${line} - Nivel 1`;
-                }
-                return line;
-            }).join('\n');
-            
-            if (formatted !== this.value) {
-                this.value = formatted;
-            }
-        });
-    }
+    setupLearningOutcomesChecklist();
 });
