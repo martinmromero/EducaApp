@@ -233,7 +233,38 @@ document.addEventListener('DOMContentLoaded', function() {
  * (Implementación existente se mantiene igual)
  */
 function previewExamTemplate() {
-    // ... código existente ...
+    const form = document.getElementById('examTemplateForm');
+    const formData = new FormData(form);
+    
+    // Mostrar estado de carga
+    const previewContainer = document.getElementById('preview');
+    previewContainer.innerHTML = `
+        <div class="loading-preview">
+            <i class="fas fa-spinner fa-spin"></i> Generando previsualización...
+        </div>
+    `;
+    
+    // Enviar datos al servidor para generar el preview
+    fetch('/exam-templates/preview/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.text())
+    .then(html => {
+        previewContainer.innerHTML = html;
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        previewContainer.innerHTML = `
+            <div class="preview-error">
+                <i class="fas fa-exclamation-triangle"></i> Error al generar la previsualización
+            </div>
+        `;
+    });
 }
 
 // =============================================

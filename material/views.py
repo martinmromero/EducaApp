@@ -255,27 +255,43 @@ def create_exam_template(request):
 
 
 @login_required
-def preview_exam_template(request, template_id):
-    template = get_object_or_404(
-        ExamTemplate,
-        id=template_id,
-        institution__userinstitution__user=request.user
-    )
+def preview_exam_template(request):
+    if request.method == 'POST':
+        # Procesar el formulario para el preview
+        exam_template = ExamTemplate(
+            institution=InstitutionV2.objects.get(id=request.POST.get('institution')),
+            faculty=FacultyV2.objects.get(id=request.POST.get('faculty')),
+            career=Career.objects.get(id=request.POST.get('career')),
+            subject=Subject.objects.get(id=request.POST.get('subject')),
+            campus=CampusV2.objects.get(id=request.POST.get('campus')),
+            professor=request.user,
+            year=request.POST.get('year'),
+            exam_type=request.POST.get('exam_type'),
+            partial_number=request.POST.get('partial_number'),
+            exam_mode=request.POST.get('exam_mode'),
+            resolution_time_number=request.POST.get('resolution_time_number'),
+            resolution_time_unit=request.POST.get('resolution_time_unit'),
+            notes_and_recommendations=request.POST.get('notes_and_recommendations'),
+            topics_to_evaluate=request.POST.get('topics_to_evaluate')
+        )
+        
+        # Si hay logo, asignarlo
+        if 'institution_logo' in request.FILES:
+            exam_template.institution_logo = request.FILES['institution_logo']
+        
+        # Procesar learning outcomes
+        learning_outcomes = LearningOutcome.objects.filter(
+            id__in=request.POST.getlist('learning_outcomes')
+        )
+        
+        return render(request, 'material/preview_exam_template.html', {
+            'exam_template': exam_template,
+            'learning_outcomes': learning_outcomes
+        })
     
-    # Cálculo de tiempo (Punto 4)
-    resolution_time = (
-        f"{template.resolution_time_number} "
-        f"{template.get_resolution_time_unit_display()}"
-    )
-    
-    return render(request, 'material/preview_exam_template.html', {
-        'exam_template': template,
-        'resolution_time': resolution_time,  # Punto 4
-        'learning_outcomes_grouped': template.learning_outcomes.all().order_by('subject__name'),  # Punto 7
-        'is_domiciliario': template.exam_mode == 'domiciliario'  # Punto 5
-    })
+    return HttpResponseBadRequest("Método no permitido")
 
-
+# ojo que hay dos funciones iguales, hay que ver cuando sirve y borrar la otra!
 @login_required
 def list_exam_templates(request):
     templates = ExamTemplate.objects.filter(
@@ -307,15 +323,12 @@ def list_exam_templates(request):
     })
 
 
-@login_required
-def preview_exam_template(request, template_id):
-    exam_template = get_object_or_404(ExamTemplate, id=template_id)
-    return render(request, 'material/preview_exam_template.html', {'exam_template': exam_template})
 
 @login_required
 def list_exam_templates(request):
     exam_templates = ExamTemplate.objects.filter(created_by=request.user)
     return render(request, 'material/list_exam_templates.html', {'exam_templates': exam_templates})
+
 
 def signup(request):
     if request.method == 'POST':

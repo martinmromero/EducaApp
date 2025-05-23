@@ -215,3 +215,143 @@
     margin-bottom: 10px;
     border-left: 3px solid #6c757d;
 }
+
+/* Agregar estos estilos */
+.two-column-form {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 20px;
+}
+
+.form-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.form-group {
+    margin-bottom: 0;
+}
+
+.form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-row label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0;
+}
+
+.input-combo {
+    display: flex;
+    gap: 8px;
+}
+
+.input-combo select,
+.input-combo .btn {
+    flex: 1;
+}
+
+.input-combo .btn {
+    max-width: 100px;
+}
+
+.form-control, select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    height: 38px;
+}
+
+textarea.form-control {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.dynamic-input {
+    margin-top: 5px;
+    display: none;
+}
+
+.full-width-fields {
+    width: 100%;
+    margin-top: 20px;
+}
+
+.full-width-fields .form-group {
+    margin-bottom: 20px;
+}
+
+/* Ajustes para los campos de texto grandes */
+#id_notes_and_recommendations,
+#id_topics_to_evaluate {
+    width: 100%;
+    min-height: 120px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .two-column-form {
+        flex-direction: column;
+        gap: 15px;
+    }
+}
+
+/* Estilos para la previsualización */
+.preview-container {
+    margin-top: 40px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.loading-preview,
+.preview-error {
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+}
+
+.preview-error {
+    color: #dc3545;
+}
+
+.exam-template-preview {
+    width: 100%;
+}
+
+.exam-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.institution-logo-preview {
+    max-height: 80px;
+    max-width: 150px;
+    margin-right: 20px;
+}
+
+.exam-details-preview {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.exam-details-preview th,
+.exam-details-preview td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.exam-details-preview th {
+    background-color: #f8f9fa;
+}

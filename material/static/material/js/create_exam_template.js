@@ -226,14 +226,61 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // =============================================
-// SECCIÓN 6: FUNCIONES ADICIONALES (PREVIEW)
+// SECCIÓN 6: FUNCIONES DE PREVIEW MEJORADA
 // =============================================
 /**
- * Función para previsualizar la plantilla de examen
- * (Implementación existente se mantiene igual)
+ * Función para previsualizar la plantilla de examen en nueva ventana
  */
 function previewExamTemplate() {
-    // ... código existente ...
+    // Ocultar todos los campos de creación dinámica
+    document.querySelectorAll('.dynamic-input').forEach(input => {
+        input.style.display = 'none';
+    });
+    
+    // Resetear botones "Nuevo"
+    document.querySelectorAll('.dynamic-add-btn').forEach(btn => {
+        btn.innerHTML = '<i class="fas fa-plus"></i> Nuevo';
+        btn.classList.replace('btn-success', 'btn-outline-secondary');
+    });
+    
+    // Enviar formulario
+    const form = document.getElementById('examTemplateForm');
+    const formData = new FormData(form);
+    
+    // Mostrar indicador de carga
+    const previewBtn = document.querySelector('button[onclick="previewExamTemplate()"]');
+    const originalText = previewBtn.innerHTML;
+    previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+    previewBtn.disabled = true;
+
+    // URL CORREGIDA - Usando la ruta directa
+    fetch('/exam-templates/preview/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Error en el servidor');
+        return response.text();
+    })
+    .then(html => {
+        // Abrir en nueva ventana
+        const previewWindow = window.open('', '_blank');
+        previewWindow.document.write(html);
+        previewWindow.document.close();
+        previewWindow.focus();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al generar la previsualización: ' + error.message);
+    })
+    .finally(() => {
+        previewBtn.innerHTML = originalText;
+        previewBtn.disabled = false;
+    });
 }
 
 // =============================================

@@ -9,136 +9,163 @@
 <form method="post" enctype="multipart/form-data" id="examTemplateForm">
     {% csrf_token %}
 
-    <div class="two-column-form">
-        <!-- Columna izquierda -->
-        <div class="form-column">
-            <!-- Institución -->
-            <div class="form-group">
+<!-- Reemplazar el contenido del two-column-form con esto -->
+<div class="two-column-form">
+    <!-- Columna izquierda -->
+    <div class="form-column">
+        <!-- Institución -->
+        <div class="form-group">
+            <div class="form-row">
                 <label for="{{ form.institution.id_for_label }}">{{ form.institution.label }}</label>
-                <div class="input-group">
+                <div class="input-combo">
                     {{ form.institution }}
-                    <div class="input-group-append">
-                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
-                                data-target="institution" data-field="id_institution">
-                            <i class="fas fa-plus"></i> Nuevo
-                        </button>
-                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                            data-target="institution" data-field="id_institution">
+                        <i class="fas fa-plus"></i> Nuevo
+                    </button>
                 </div>
                 <input type="text" class="form-control dynamic-input" id="new_institution" placeholder="Nombre de la Institución">
             </div>
+        </div>
 
-            <!-- Facultad -->
-            <div class="form-group">
+        <!-- Facultad -->
+        <div class="form-group">
+            <div class="form-row">
                 <label for="{{ form.faculty.id_for_label }}">{{ form.faculty.label }}</label>
-                <div class="input-group">
+                <div class="input-combo">
                     {{ form.faculty }}
-                    <div class="input-group-append">
-                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
-                                data-target="faculty" data-field="id_faculty" data-parent="id_institution">
-                            <i class="fas fa-plus"></i> Nuevo
-                        </button>
-                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                            data-target="faculty" data-field="id_faculty" data-parent="id_institution">
+                        <i class="fas fa-plus"></i> Nuevo
+                    </button>
                 </div>
                 <input type="text" class="form-control dynamic-input" id="new_faculty" placeholder="Nombre de la Facultad">
             </div>
+        </div>
 
-            <!-- Carrera -->
-            <div class="form-group">
+        <!-- Carrera -->
+        <div class="form-group">
+            <div class="form-row">
                 <label for="{{ form.career.id_for_label }}">{{ form.career.label }}</label>
-                <div class="input-group">
+                <div class="input-combo">
                     {{ form.career }}
-                    <div class="input-group-append">
-                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
-                                data-target="career" data-field="id_career">
-                            <i class="fas fa-plus"></i> Nuevo
-                        </button>
-                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                            data-target="career" data-field="id_career">
+                        <i class="fas fa-plus"></i> Nuevo
+                    </button>
                 </div>
                 <input type="text" class="form-control dynamic-input" id="new_career" placeholder="Nombre de la Carrera">
             </div>
+        </div>
 
-            <!-- Sede -->
-            <div class="form-group">
+        <!-- Sede -->
+        <div class="form-group">
+            <div class="form-row">
                 <label for="{{ form.campus.id_for_label }}">{{ form.campus.label }}</label>
-                <div class="input-group">
+                <div class="input-combo">
                     {{ form.campus }}
-                    <div class="input-group-append">
-                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
-                                data-target="campus" data-field="id_campus" data-parent="id_institution">
-                            <i class="fas fa-plus"></i> Nuevo
-                        </button>
-                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                            data-target="campus" data-field="id_campus" data-parent="id_institution">
+                        <i class="fas fa-plus"></i> Nuevo
+                    </button>
                 </div>
                 <input type="text" class="form-control dynamic-input" id="new_campus" placeholder="Nombre de la Sede">
             </div>
-
-            <!-- Año -->
-            <div class="form-group">
-                <label for="{{ form.year.id_for_label }}">{{ form.year.label }}</label>
-                {{ form.year }}
-            </div>
-
-            <!-- Turno -->
-            <div class="form-group">
-                <label for="{{ form.shift.id_for_label }}">{{ form.shift.label }}</label>
-                {{ form.shift }}
-            </div>
         </div>
+    </div>
 
-        <!-- Columna derecha -->
-        <div class="form-column">
-            <!-- Materia -->
-            <div class="form-group">
-                <label for="{{ form.subject.id_for_label }}">{{ form.subject.label }}</label>
-                <div class="input-group">
-                    {{ form.subject }}
-                    <div class="input-group-append">
-                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
-                                data-target="subject" data-field="id_subject">
-                            <i class="fas fa-plus"></i> Nuevo
-                        </button>
-                    </div>
+    <!-- Columna derecha -->
+
+<!-- Columna derecha COMPLETA (modificada) -->
+<div class="form-column">
+    <!-- Materia -->
+    <div class="form-group">
+        <div class="form-row">
+            <label for="{{ form.subject.id_for_label }}">{{ form.subject.label }}</label>
+            <div class="input-combo">
+                {{ form.subject }}
+                <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                        data-target="subject" data-field="id_subject">
+                    <i class="fas fa-plus"></i> Nuevo
+                </button>
+            </div>
+            <input type="text" class="form-control dynamic-input" id="new_subject" placeholder="Nombre de la Materia">
+        </div>
+    </div>
+
+    <!-- Profesor -->
+    <div class="form-group">
+        <div class="form-row">
+            <label for="{{ form.professor.id_for_label }}">{{ form.professor.label }}</label>
+            {{ form.professor }}
+        </div>
+    </div>
+
+    <!-- Tipo de Examen (modificado) -->
+    <div class="form-group">
+        <div class="form-row">
+            <label for="{{ form.exam_type.id_for_label }}">Tipo de Examen</label>
+            <select name="exam_type" id="id_exam_type" class="form-control" required>
+                <option value="">---------</option>
+                <option value="1er_parcial">1er. Parcial</option>
+                <option value="2do_parcial">2do. Parcial</option>
+                <option value="3er_parcial">3er. Parcial</option>
+                <option value="final">Final</option>
+                <option value="recuperatorio">Recuperatorio</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Duración del examen (nuevo campo dividido) -->
+    <div class="form-group">
+        <div class="form-row">
+            <label>Tiempo de Examen</label>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <input type="number" 
+                           name="duration_number" 
+                           class="form-control" 
+                           min="1" 
+                           placeholder="Ej: 90" 
+                           required>
                 </div>
-                <input type="text" class="form-control dynamic-input" id="new_subject" placeholder="Nombre de la Materia">
-            </div>
-
-            <!-- Profesor -->
-            <div class="form-group">
-                <label for="{{ form.professor.id_for_label }}">{{ form.professor.label }}</label>
-                {{ form.professor }}
-            </div>
-
-            <!-- Tipo de Examen -->
-            <div class="form-group">
-                <label for="{{ form.exam_type.id_for_label }}">{{ form.exam_type.label }}</label>
-                {{ form.exam_type }}
-            </div>
-
-            <!-- Número de Parcial -->
-            <div class="form-group">
-                <label for="{{ form.partial_number.id_for_label }}">{{ form.partial_number.label }}</label>
-                {{ form.partial_number }}
-            </div>
-
-            <!-- Modalidad -->
-            <div class="form-group">
-                <label for="{{ form.exam_mode.id_for_label }}">{{ form.exam_mode.label }}</label>
-                {{ form.exam_mode }}
-            </div>
-
-            <!-- Tiempo de Resolución -->
-            <div class="form-group">
-                <label for="{{ form.resolution_time.id_for_label }}">{{ form.resolution_time.label }}</label>
-                {{ form.resolution_time }}
-            </div>
-
-            <!-- Grupo de Examen -->
-            <div class="form-group">
-                <label for="{{ form.exam_group.id_for_label }}">{{ form.exam_group.label }}</label>
-                {{ form.exam_group }}
+                <div class="col-md-6">
+                    <select name="duration_unit" class="form-control" required>
+                        <option value="">Unidad...</option>
+                        <option value="minutes">Minutos</option>
+                        <option value="hours">Horas</option>
+                        <option value="days">Días</option>
+                        <option value="weeks">Semanas</option>
+                    </select>
+                </div>
             </div>
         </div>
     </div>
+</div>
+
+    <!-- Profesor -->
+    <div class="form-group">
+        <div class="form-row">
+            <label for="{{ form.professor.id_for_label }}">{{ form.professor.label }}</label>
+            {{ form.professor }}
+        </div>
+    </div>
+
+    <!-- Tipo de Examen (modificado) -->
+    <div class="form-group">
+        <div class="form-row">
+            <label for="{{ form.exam_type.id_for_label }}">Tipo de Examen</label>
+            <select name="exam_type" id="id_exam_type" class="form-control" required>
+                <option value="">---------</option>
+                <option value="1er_parcial">1er. Parcial</option>
+                <option value="2do_parcial">2do. Parcial</option>
+                <option value="3er_parcial">3er. Parcial</option>
+                <option value="final">Final</option>
+                <option value="recuperatorio">Recuperatorio</option>
+            </>
+</div>
+
+
 
     <!-- Campos de ancho completo -->
     <div class="full-width-fields">
@@ -191,10 +218,10 @@
         </div>
     </div>
 
-    <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Guardar Plantilla</button>
-        <button type="button" onclick="previewExamTemplate()" class="btn btn-secondary">Previsualizar</button>
-    </div>
+<div class="form-actions">
+    <button type="submit" class="btn btn-primary">Guardar Plantilla</button>
+    <button type="button" onclick="previewExamTemplate()" class="btn btn-secondary">Previsualizar</button>
+</div>>
 </form>
 
 <!-- Preview section -->
