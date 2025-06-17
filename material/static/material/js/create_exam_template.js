@@ -238,8 +238,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // =============================================
 
 function previewExamTemplate() {
-
-}function previewExamTemplate() {
     // Mostrar indicador de carga
     const previewBtn = document.querySelector('button[onclick="previewExamTemplate()"]');
     const originalText = previewBtn.innerHTML;
@@ -256,16 +254,14 @@ function previewExamTemplate() {
     const form = document.getElementById('examTemplateForm');
     const formData = new FormData(form);
 
-    // Asegurar que los campos de duración estén incluidos
-    const durationNumber = document.querySelector('input[name="duration_number"]').value;
-    const durationUnit = document.querySelector('select[name="duration_unit"]').value;
-    formData.append('resolution_time_number', durationNumber);
-    formData.append('resolution_time_unit', durationUnit);
-
     // Procesar learning outcomes seleccionados
     const outcomesCheckboxes = document.querySelectorAll('#learning_outcomes_container input[type="checkbox"]:checked');
     outcomesCheckboxes.forEach(checkbox => {
+            if (checkbox.value.includes('-')) {
+        formData.append('learning_outcomes', checkbox.value.split('-')[1]); // Toma solo el ID numérico
+    } else {
         formData.append('learning_outcomes', checkbox.value);
+    }
     });
 
     // Configuración de la petición fetch

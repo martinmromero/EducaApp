@@ -113,28 +113,44 @@
                 </div>
             </div>
 
-            <!-- Duración del examen -->
-<div class="form-group">
-    <div class="form-row">
-        <label>Tiempo de Examen</label>
-        <div class="row g-2">
-            <div class="col-md-6">
-                <input type="text"  <!-- Cambiado a text para mayor flexibilidad -->
-                       name="duration_number" 
-                       class="form-control" 
-                       placeholder="Ej: 90" 
-                       value="60">
-            </div>
-            <div class="col-md-6">
-                <select name="duration_unit" class="form-control">
-                    <option value="minutos">Minutos</option>
-                    <option value="horas">Horas</option>
-                    <option value="días">Días</option>
-                </select>
-            </div>
+          
+    <!-- Duración del examen - Versión simplificada -->
+    <div class="form-group">
+        <div class="form-row">
+            <label for="resolution_time">Tiempo de Examen</label>
+            <input type="text" 
+                name="resolution_time" 
+                id="id_resolution_time"
+                class="form-control" 
+                placeholder="Ej: 90 minutos, 2 horas" 
+                value="60 minutos"
+                required>
+            <small class="form-text text-muted">Ingrese la duración completa (ej: "90 minutos" o "2 horas")</small>
         </div>
     </div>
-</div>
+
+            <!-- Modalidad del examen -->
+            <div class="form-group">
+                <div class="form-row">
+                    <label for="{{ form.exam_mode.id_for_label }}">Modalidad del Examen</label>
+                    <select name="exam_mode" id="id_exam_mode" class="form-control" required>
+                        <option value="">---------</option>
+                        <option value="presencial">Presencial</option>
+                        <option value="virtual">Virtual</option>
+                        <option value="domiciliario">Domiciliario</option>
+                        <option value="hibrido">Híbrido</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Año del examen -->
+            <div class="form-group">
+                <div class="form-row">
+                    <label for="{{ form.year.id_for_label }}">{{ form.year.label }}</label>
+                    {{ form.year }}
+                </div>
+            </div>
         </div>
     </div>
 

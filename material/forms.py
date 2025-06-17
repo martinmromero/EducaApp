@@ -273,8 +273,9 @@ class ExamTemplateForm(forms.ModelForm):
         exclude = ['exam_group']
         fields = [
             'institution', 'faculty', 'career', 'subject', 'campus', 'professor',
-            'year', 'exam_type', 'partial_number', 'exam_mode', 'exam_group',
-            'shift', 'resolution_time_number', 'resolution_time_unit',  # Cambiados
+            'year', 'exam_type', #'partial_number', 
+            'exam_mode', 'exam_group',
+            'shift', #'resolution_time_number', 'resolution_time_unit',  # Cambiados
             'learning_outcomes', 'notes_and_recommendations', 'topics_to_evaluate'
         ]
         widgets = {
