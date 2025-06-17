@@ -16,7 +16,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView
 from django.views.generic import DetailView
 from django.template.loader import render_to_string
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from django.core.paginator import Paginator
 from django.db import models, transaction
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
@@ -29,10 +29,12 @@ from .forms import (
     UserEditForm, ContenidoForm, InstitutionForm, 
     LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm  
 )
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch
 from .ia_processor import extract_text_from_file, generate_questions_from_text
 from django.utils import timezone  # Añadir al inicio del archivo
 from .forms import InstitutionForm, LearningOutcomeForm, ProfileForm
+
 # Modelos
 
 
@@ -253,44 +255,53 @@ def create_exam_template(request):
         context
     )
 
-
+@require_POST
 @login_required
 def preview_exam_template(request):
-    if request.method == 'POST':
-        # Procesar el formulario para el preview
+    try:
+        # Verificar campos obligatorios
+        required_fields = ['institution', 'faculty', 'career', 'subject', 'professor', 'exam_type']
+        for field in required_fields:
+            if not request.POST.get(field):
+                return JsonResponse({'error': f'El campo {field} es requerido'}, status=400)
+
+        # Obtener tiempo de examen como string combinado
+        duration_number = request.POST.get('duration_number', '60')
+        duration_unit = request.POST.get('duration_unit', 'minutos')
+        resolution_time = f"{duration_number} {duration_unit}"
+
+        # Crear objeto temporal
         exam_template = ExamTemplate(
-            institution=InstitutionV2.objects.get(id=request.POST.get('institution')),
-            faculty=FacultyV2.objects.get(id=request.POST.get('faculty')),
-            career=Career.objects.get(id=request.POST.get('career')),
-            subject=Subject.objects.get(id=request.POST.get('subject')),
-            campus=CampusV2.objects.get(id=request.POST.get('campus')),
-            professor=request.user,
-            year=request.POST.get('year'),
+            institution_id=request.POST.get('institution'),
+            faculty_id=request.POST.get('faculty'),
+            career_id=request.POST.get('career'),
+            campus_id=request.POST.get('campus'),
+            subject_id=request.POST.get('subject'),
+            professor_id=request.POST.get('professor'),
             exam_type=request.POST.get('exam_type'),
-            partial_number=request.POST.get('partial_number'),
-            exam_mode=request.POST.get('exam_mode'),
-            resolution_time_number=request.POST.get('resolution_time_number'),
-            resolution_time_unit=request.POST.get('resolution_time_unit'),
-            notes_and_recommendations=request.POST.get('notes_and_recommendations'),
-            topics_to_evaluate=request.POST.get('topics_to_evaluate')
+            resolution_time=resolution_time,  # Guardamos como string simple
+            topics_to_evaluate=request.POST.get('topics_to_evaluate', ''),
+            notes_and_recommendations=request.POST.get('notes_and_recommendations', ''),
+            year=request.POST.get('year', ''),  # Año como string simple
+            created_by=request.user
         )
-        
-        # Si hay logo, asignarlo
-        if 'institution_logo' in request.FILES:
-            exam_template.institution_logo = request.FILES['institution_logo']
-        
+
         # Procesar learning outcomes
         learning_outcomes = LearningOutcome.objects.filter(
             id__in=request.POST.getlist('learning_outcomes')
-        )
-        
-        return render(request, 'material/preview_exam_template.html', {
-            'exam_template': exam_template,
-            'learning_outcomes': learning_outcomes
-        })
-    
-    return HttpResponseBadRequest("Método no permitido")
+        ) if 'learning_outcomes' in request.POST else None
 
+        context = {
+            'exam_template': exam_template,
+            'learning_outcomes': learning_outcomes,
+        }
+
+        return render(request, 'material/preview_exam_template.html', context)
+
+    except Exception as e:
+        logger.error(f"Error en preview: {str(e)}", exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
+    
 # ojo que hay dos funciones iguales, hay que ver cuando sirve y borrar la otra!
 @login_required
 def list_exam_templates(request):

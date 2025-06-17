@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const institutionSelect = document.getElementById('id_institution');
     const facultySelect = document.getElementById('id_faculty');
     const campusSelect = document.getElementById('id_campus');
+    const previewContainer = document.getElementById('previewContainer');
+    const previewContent = document.getElementById('previewContent');
 
     // =============================================
     // SECCIÓN 2: CARGA DE DEPENDIENTES (FACULTADES/CAMPUS)
@@ -231,29 +233,42 @@ document.addEventListener('DOMContentLoaded', function() {
 /**
  * Función para previsualizar la plantilla de examen en nueva ventana
  */
+ // =============================================
+    // SECCIÓN 6: FUNCIONES DE PREVIEW MEJORADA
+    // =============================================
+
 function previewExamTemplate() {
-    // Ocultar todos los campos de creación dinámica
-    document.querySelectorAll('.dynamic-input').forEach(input => {
-        input.style.display = 'none';
-    });
-    
-    // Resetear botones "Nuevo"
-    document.querySelectorAll('.dynamic-add-btn').forEach(btn => {
-        btn.innerHTML = '<i class="fas fa-plus"></i> Nuevo';
-        btn.classList.replace('btn-success', 'btn-outline-secondary');
-    });
-    
-    // Enviar formulario
-    const form = document.getElementById('examTemplateForm');
-    const formData = new FormData(form);
-    
+
+}function previewExamTemplate() {
     // Mostrar indicador de carga
     const previewBtn = document.querySelector('button[onclick="previewExamTemplate()"]');
     const originalText = previewBtn.innerHTML;
     previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
     previewBtn.disabled = true;
 
-    // URL CORREGIDA - Usando la ruta directa
+    // Limpiar preview anterior
+    const previewContainer = document.getElementById('previewContainer');
+    const previewContent = document.getElementById('previewContent');
+    previewContainer.style.display = 'none';
+    previewContent.innerHTML = '';
+
+    // Crear FormData y agregar todos los campos necesarios
+    const form = document.getElementById('examTemplateForm');
+    const formData = new FormData(form);
+
+    // Asegurar que los campos de duración estén incluidos
+    const durationNumber = document.querySelector('input[name="duration_number"]').value;
+    const durationUnit = document.querySelector('select[name="duration_unit"]').value;
+    formData.append('resolution_time_number', durationNumber);
+    formData.append('resolution_time_unit', durationUnit);
+
+    // Procesar learning outcomes seleccionados
+    const outcomesCheckboxes = document.querySelectorAll('#learning_outcomes_container input[type="checkbox"]:checked');
+    outcomesCheckboxes.forEach(checkbox => {
+        formData.append('learning_outcomes', checkbox.value);
+    });
+
+    // Configuración de la petición fetch
     fetch('/exam-templates/preview/', {
         method: 'POST',
         body: formData,
@@ -263,25 +278,31 @@ function previewExamTemplate() {
         }
     })
     .then(response => {
-        if (!response.ok) throw new Error('Error en el servidor');
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
         return response.text();
     })
     .then(html => {
-        // Abrir en nueva ventana
-        const previewWindow = window.open('', '_blank');
-        previewWindow.document.write(html);
-        previewWindow.document.close();
-        previewWindow.focus();
+        previewContent.innerHTML = html;
+        previewContainer.style.display = 'block';
+        previewContainer.scrollIntoView({ behavior: 'smooth' });
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('Error al generar la previsualización: ' + error.message);
+        console.error('Error en preview:', error);
+        previewContent.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> Error al generar el preview
+                <div>${error.message}</div>
+            </div>`;
+        previewContainer.style.display = 'block';
     })
     .finally(() => {
         previewBtn.innerHTML = originalText;
         previewBtn.disabled = false;
     });
 }
+
 
 // =============================================
 // SECCIÓN 7: CARGA DE LEARNING OUTCOMES (CHECKLIST)

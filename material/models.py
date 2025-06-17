@@ -860,36 +860,33 @@ class CareerSubject(models.Model):
         return f"{self.career.name} - {self.subject.name} (Sem {self.semester}){optional_str}"
 
 class ExamTemplate(models.Model):
-    # Punto 5 - Opciones de modalidad actualizadas
+    # Opciones de modalidad
     EXAM_MODE_CHOICES = [
         ('presencial', 'Presencial'),
         ('virtual', 'Virtual'),
-        ('domiciliario', 'Domiciliario'),  # Nueva opción
+        ('domiciliario', 'Domiciliario'),
         ('hibrido', 'Híbrido'),
         ('otro', 'Otro')
     ]
     
-    # Punto 4 - Tiempo de resolución dividido
-    resolution_time_number = models.PositiveIntegerField(
-        default=60,
-        verbose_name="Duración numérica",
-        help_text="Valor numérico de la duración"
-    )
-    resolution_time_unit = models.CharField(
-        max_length=10,
-        choices=[('minutes', 'Minutos'), ('hours', 'Horas'), ('days', 'Días')],
-        default='minutes',
-        verbose_name="Unidad de tiempo"
-    )
+    # Opciones de tipo de examen
+    EXAM_TYPE_CHOICES = [
+        ('1er_parcial', '1er. Parcial'),
+        ('2do_parcial', '2do. Parcial'), 
+        ('3er_parcial', '3er. Parcial'),
+        ('final', 'Final'),
+        ('recuperatorio', 'Recuperatorio'),
+        ('practico', 'Práctico')
+    ]
+    
+    # Opciones de turno
+    SHIFT_CHOICES = [
+        ('manana', 'Mañana'),
+        ('tarde', 'Tarde'),
+        ('noche', 'Noche')
+    ]
 
-    # Punto 6 - Grupo de examen renombrado
-    exam_group = models.CharField(
-        max_length=100,
-        verbose_name="Cantidad de temas",
-        help_text="Número o descripción de temas incluidos"
-    )
-
-    # Campos principales existentes
+    # Relaciones institucionales
     institution = models.ForeignKey(
         InstitutionV2,
         on_delete=models.PROTECT,
@@ -922,22 +919,15 @@ class ExamTemplate(models.Model):
         verbose_name="Profesor"
     )
     
-    # Campos de configuración del examen
-    year = models.PositiveIntegerField(verbose_name="Año académico")
-    exam_type = models.CharField(
-        max_length=50,
-        choices=[
-            ('parcial', 'Parcial'),
-            ('final', 'Final'),
-            ('recuperatorio', 'Recuperatorio'),
-            ('practico', 'Práctico')
-        ],
-        verbose_name="Tipo de examen"
+    # Configuración del examen
+    year = models.PositiveIntegerField(
+        verbose_name="Año académico",
+        default=2023
     )
-    partial_number = models.PositiveIntegerField(
-        verbose_name="Número de parcial",
-        null=True,
-        blank=True
+    exam_type = models.CharField(
+        max_length=20,
+        choices=EXAM_TYPE_CHOICES,
+        verbose_name="Tipo de examen"
     )
     exam_mode = models.CharField(
         max_length=20,
@@ -945,23 +935,31 @@ class ExamTemplate(models.Model):
         verbose_name="Modalidad de examen"
     )
     shift = models.CharField(
-        max_length=50,
-        choices=[
-            ('manana', 'Mañana'),
-            ('tarde', 'Tarde'),
-            ('noche', 'Noche')
-        ],
-        verbose_name="Turno"
+        max_length=20,
+        choices=SHIFT_CHOICES,
+        verbose_name="Turno",
+        blank=True,
+        null=True
     )
     
-    # Campos de contenido
+    # Duración como string combinado (simplificado)
+    resolution_time = models.CharField(
+        max_length=50,
+        verbose_name="Duración del examen",
+        help_text="Ej: 90 minutos, 2 horas",
+        default="60 minutos"
+    )
+    
+    # Contenido evaluativo
     learning_outcomes = models.ManyToManyField(
         LearningOutcome,
-        verbose_name="Resultados de aprendizaje"
+        verbose_name="Resultados de aprendizaje",
+        blank=True
     )
     topics_to_evaluate = models.TextField(
         verbose_name="Temas a evaluar",
-        help_text="Listado de temas incluidos en el examen"
+        help_text="Listado de temas incluidos en el examen",
+        blank=True
     )
     notes_and_recommendations = models.TextField(
         verbose_name="Notas y recomendaciones",
@@ -972,21 +970,33 @@ class ExamTemplate(models.Model):
     created_by = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
-        related_name='created_exam_templates'
+        related_name='created_exam_templates',
+        verbose_name="Creado por"
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de creación"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Última actualización"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Activo"
+    )
     
-    # Campos de diseño (opcionales)
+    # Diseño
     institution_logo = models.ImageField(
         upload_to='exam_templates/logos/',
         null=True,
-        blank=True
+        blank=True,
+        verbose_name="Logo institucional"
     )
     custom_css = models.TextField(
         blank=True,
-        help_text="CSS personalizado para la plantilla"
+        help_text="CSS personalizado para la plantilla",
+        verbose_name="Estilos CSS"
     )
     
     class Meta:
@@ -996,19 +1006,26 @@ class ExamTemplate(models.Model):
         permissions = [
             ('can_share_template', 'Puede compartir plantillas'),
         ]
+        indexes = [
+            models.Index(fields=['exam_type', 'year']),
+            models.Index(fields=['subject']),
+        ]
     
     def __str__(self):
         return f"{self.get_exam_type_display()} - {self.subject} ({self.year})"
     
-    def get_resolution_time(self):
-        return f"{self.resolution_time_number} {self.get_resolution_time_unit_display()}"
-    
     def clean(self):
-        # Validación personalizada ejemplo
-        if self.exam_type == 'parcial' and not self.partial_number:
-            raise ValidationError('Debe especificar el número de parcial')
+        # Validación personalizada
+        if not self.resolution_time:
+            raise ValidationError("Debe especificar la duración del examen")
+        
+        # Validar formato de tiempo (opcional)
+        if not any(unit in self.resolution_time.lower() for unit in ['minuto', 'hora', 'día', 'semana']):
+            raise ValidationError("Formato de duración inválido. Use 'minutos', 'horas', 'días' o 'semanas'")
 
-
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

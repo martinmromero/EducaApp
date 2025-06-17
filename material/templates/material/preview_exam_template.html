@@ -19,36 +19,59 @@
         </div>
     </div>
 
-    <!-- Detalles del examen -->
-    <div class="exam-details">
-        <table class="table table-bordered">
-            <tr>
-                <th>Materia</th>
-                <td>{{ exam_template.subject.name }}</td>
-                <th>Profesor</th>
-                <td>{{ exam_template.professor.get_full_name }}</td>
-            </tr>
-            <tr>
-                <th>Tipo de Examen</th>
-                <td>{{ exam_template.get_exam_type_display }}</td>
-                <th>Número de Parcial</th>
-                <td>{{ exam_template.partial_number }}</td>
-            </tr>
-            <tr>
-                <th>Modalidad</th>
-                <td>{{ exam_template.get_exam_mode_display }}</td>
-                <th>Duración</th>
-                <td>{{ exam_template.resolution_time_number }} {{ exam_template.get_resolution_time_unit_display }}</td>
-            </tr>
-        </table>
+    <!-- Datos del alumno -->
+    <div class="student-info" style="margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 15px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <div style="width: 48%;"><strong>Nombre:</strong> _________________________</div>
+            <div style="width: 48%;"><strong>Apellido:</strong> ______________________</div>
+        </div>
+        <div><strong>Fecha:</strong> ______________________________</div>
     </div>
 
+    <!-- Detalles del examen -->
+<div class="exam-details">
+    <table class="table table-bordered">
+        <tr>
+            <th>Materia</th>
+            <td>{{ exam_template.subject.name }}</td>
+            <th>Profesor</th>
+            <td>{{ exam_template.professor.get_full_name }}</td>
+        </tr>
+        <tr>
+            <th>Tipo de Examen</th>
+            <td>
+                {% if exam_template.exam_type == "1er_parcial" %}1er. Parcial
+                {% elif exam_template.exam_type == "2do_parcial" %}2do. Parcial
+                {% elif exam_template.exam_type == "3er_parcial" %}3er. Parcial
+                {% elif exam_template.exam_type == "final" %}Final
+                {% elif exam_template.exam_type == "recuperatorio" %}Recuperatorio
+                {% else %}{{ exam_template.exam_type }}{% endif %}
+            </td>
+                <th>Duración</th>
+                <td>{{ exam_template.resolution_time }}</td>
+        </tr>
+        <tr>
+            <th>Modalidad</th>
+            <td>
+                {% if exam_template.exam_mode == "presencial" %}Presencial
+                {% elif exam_template.exam_mode == "virtual" %}Virtual
+                {% elif exam_template.exam_mode == "domiciliario" %}Domiciliario
+                {% elif exam_template.exam_mode == "hibrido" %}Híbrido
+                {% elif exam_template.exam_mode == "otro" %}Otro
+                {% else %}{{ exam_template.exam_mode|default:"No especificado" }}{% endif %}
+            </td>
+            <th>Año</th>
+            <td>{{ exam_template.year|default:"-" }}</td>
+        </tr>
+    </table>
+</div>
+
     <!-- Resultados de aprendizaje -->
-    {% if learning_outcomes %}
+    {% if exam_template.learning_outcomes.all %}
     <div class="outcomes-section">
         <h4>Resultados de Aprendizaje Evaluados:</h4>
         <ul class="outcomes-list">
-            {% for outcome in learning_outcomes %}
+            {% for outcome in exam_template.learning_outcomes.all %}
             <li>
                 <span class="outcome-code">{{ outcome.code }}:</span>
                 <span class="outcome-desc">{{ outcome.description }}</span>
@@ -183,6 +206,20 @@
     
     .section-content {
         white-space: pre-line;
+    }
+    
+    .student-info {
+        margin-bottom: 30px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 15px;
+    }
+    
+    .student-info table {
+        width: 100%;
+    }
+    
+    .student-info td {
+        padding: 5px 0;
     }
     
     /* Ocultar elementos no deseados en impresión */
