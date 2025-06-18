@@ -66,20 +66,20 @@
     </table>
 </div>
 
-    <!-- Resultados de aprendizaje -->
-    {% if exam_template.learning_outcomes.all %}
-    <div class="outcomes-section">
-        <h4>Resultados de Aprendizaje Evaluados:</h4>
-        <ul class="outcomes-list">
-            {% for outcome in exam_template.learning_outcomes.all %}
-            <li>
-                <span class="outcome-code">{{ outcome.code }}:</span>
-                <span class="outcome-desc">{{ outcome.description }}</span>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
+ <!-- Resultados de aprendizaje - Versión corregida -->
+{% if learning_outcomes %}  <!-- Cambiamos exam_template.learning_outcomes.all por learning_outcomes -->
+<div class="outcomes-section">
+    <h4>Resultados de Aprendizaje Evaluados:</h4>
+    <ul class="outcomes-list">
+        {% for outcome in learning_outcomes %}  <!-- Usamos la variable directa del contexto -->
+        <li>
+            <span class="outcome-code">{{ outcome.code }}:</span>
+            <span class="outcome-desc">{{ outcome.description }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
 
     <!-- Temas y notas -->
     {% if exam_template.topics_to_evaluate %}

@@ -29,10 +29,10 @@ from .forms import (
     UserEditForm, ContenidoForm, InstitutionForm, 
     LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm  
 )
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Prefetch
 from .ia_processor import extract_text_from_file, generate_questions_from_text
-from django.utils import timezone  # Añadir al inicio del archivo
+from django.utils import timezone 
 from .forms import InstitutionForm, LearningOutcomeForm, ProfileForm
 
 # Modelos
@@ -266,7 +266,8 @@ def preview_exam_template(request):
             'career': 'Carrera',
             'subject': 'Materia',
             'professor': 'Profesor',
-            'exam_type': 'Tipo de examen'
+            'exam_type': 'Tipo de examen',
+            'exam_mode': 'Modalidad de examen'
         }
         
         missing_fields = [name for field, name in required_fields.items() if not request.POST.get(field)]
@@ -276,18 +277,13 @@ def preview_exam_template(request):
                 'details': missing_fields
             }, status=400)
 
-        # 2. Procesamiento seguro de learning outcomes
-        learning_outcomes = []
-        if 'learning_outcomes' in request.POST:
-            try:
-                outcome_ids = [int(id) for id in request.POST.getlist('learning_outcomes') if id.isdigit()]
-                learning_outcomes = LearningOutcome.objects.filter(id__in=outcome_ids)
-            except (ValueError, TypeError) as e:
-                logger.warning(f"Error procesando learning outcomes: {str(e)}")
-                learning_outcomes = []
+        # 2. Procesar learning outcomes
+        outcome_ids = [int(id) for id in request.POST.getlist('learning_outcomes', []) if id.isdigit()]
+        learning_outcomes = LearningOutcome.objects.filter(id__in=outcome_ids) if outcome_ids else []
 
-        # 3. Creación segura del objeto temporal
+        # 3. Crear objeto temporal con ID ficticio (SOLUCIÓN CLAVE)
         exam_template = ExamTemplate(
+            id=0,  # <<-- ESTO EVITA EL ERROR DE MANY-TO-MANY
             institution_id=request.POST['institution'],
             faculty_id=request.POST['faculty'],
             career_id=request.POST['career'],
@@ -295,37 +291,39 @@ def preview_exam_template(request):
             subject_id=request.POST['subject'],
             professor_id=request.POST['professor'],
             exam_type=request.POST['exam_type'],
-            resolution_time=request.POST.get('resolution_time', '60 minutos'),  # Usa el campo unificado
+            exam_mode=request.POST['exam_mode'],
+            resolution_time=request.POST.get('resolution_time', '60 minutos'),
             topics_to_evaluate=request.POST.get('topics_to_evaluate', ''),
             notes_and_recommendations=request.POST.get('notes_and_recommendations', ''),
-            year=request.POST.get('year', str(timezone.now().year)),  # Año actual por defecto
+            year=request.POST.get('year', str(timezone.now().year)),
             created_by=request.user
         )
 
-        # 4. Validación básica del objeto
-        try:
-            exam_template.full_clean()
-        except ValidationError as e:
-            logger.error(f"Error de validación: {str(e)}")
-            return JsonResponse({
-                'error': 'Datos inválidos',
-                'details': e.message_dict
-            }, status=400)
+        # 4. Validación sin guardar
+        exam_template.full_clean()
 
-        # 5. Renderizado seguro
+        # 5. Renderizar con datos simulados
         context = {
             'exam_template': exam_template,
             'learning_outcomes': learning_outcomes,
+            'is_preview': True  # <<-- PARA QUE EL TEMPLATE SEPA QUE ES PREVIEW
         }
 
         return render(request, 'material/preview_exam_template.html', context)
 
+    except ValidationError as e:
+        logger.error(f"Error de validación: {str(e)}")
+        return JsonResponse({
+            'error': 'Datos inválidos',
+            'details': e.message_dict
+        }, status=400)
     except Exception as e:
         logger.error(f"Error en preview: {str(e)}", exc_info=True)
         return JsonResponse({
             'error': 'Error interno del servidor',
             'details': str(e)
         }, status=500)
+    
     
 # ojo que hay dos funciones iguales, hay que ver cuando sirve y borrar la otra!
 @login_required

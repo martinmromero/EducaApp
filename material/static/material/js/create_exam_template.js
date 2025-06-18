@@ -236,35 +236,88 @@ document.addEventListener('DOMContentLoaded', function() {
  // =============================================
     // SECCIÓN 6: FUNCIONES DE PREVIEW MEJORADA
     // =============================================
+// create_exam_template.js
+// REEMPLAZA LA FUNCIÓN COMPLETA POR ESTA VERSIÓN:
+/* function setupPreviewButton() {
+    const previewBtn = document.getElementById('previewBtn');
+    if (!previewBtn) return;
 
+    previewBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // Validación rápida
+        const examMode = document.getElementById('id_exam_mode').value;
+        if (!examMode) {
+            alert('Seleccione la modalidad del examen');
+            return;
+        }
+
+        // Indicador de carga
+        const originalText = previewBtn.innerHTML;
+        previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+        previewBtn.disabled = true;
+
+        // Preparar datos
+        const form = document.getElementById('examTemplateForm');
+        const formData = new FormData(form);
+
+        // Enviar datos
+        fetch('/exam-templates/preview/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => {
+            previewBtn.innerHTML = originalText;
+            previewBtn.disabled = false;
+            
+            if (!response.ok) throw new Error('Error del servidor');
+            return response.text();
+        })
+        .then(html => {
+            document.getElementById('previewContent').innerHTML = html;
+            document.getElementById('previewContainer').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Preview error:', error);
+            alert('Error al generar previsualización');
+        });
+    });
+}
+
+// Agregar al final del DOMContentLoaded:
+document.addEventListener('DOMContentLoaded', function() {
+    // ... (todo tu código existente) ...
+    setupPreviewButton();  // <-- Esta línea nueva
+}); */
+
+    // toda la funcion siguiente si se reemplazó OK con la de arriba function setupPreviewButton() , borrarla
 function previewExamTemplate() {
-    // Mostrar indicador de carga
+    // 1. Validar campos requeridos
+    const examMode = document.getElementById('id_exam_mode').value;
+    if (!examMode) {
+        alert('Por favor seleccione la modalidad del examen');
+        return;
+    }
+
+    // 2. Configurar elementos UI
     const previewBtn = document.querySelector('button[onclick="previewExamTemplate()"]');
     const originalText = previewBtn.innerHTML;
     previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
     previewBtn.disabled = true;
-
-    // Limpiar preview anterior
+    
     const previewContainer = document.getElementById('previewContainer');
     const previewContent = document.getElementById('previewContent');
     previewContainer.style.display = 'none';
     previewContent.innerHTML = '';
 
-    // Crear FormData y agregar todos los campos necesarios
+    // 3. Preparar datos del formulario
     const form = document.getElementById('examTemplateForm');
     const formData = new FormData(form);
 
-    // Procesar learning outcomes seleccionados
-    const outcomesCheckboxes = document.querySelectorAll('#learning_outcomes_container input[type="checkbox"]:checked');
-    outcomesCheckboxes.forEach(checkbox => {
-            if (checkbox.value.includes('-')) {
-        formData.append('learning_outcomes', checkbox.value.split('-')[1]); // Toma solo el ID numérico
-    } else {
-        formData.append('learning_outcomes', checkbox.value);
-    }
-    });
-
-    // Configuración de la petición fetch
+    // 4. Enviar datos al servidor
     fetch('/exam-templates/preview/', {
         method: 'POST',
         body: formData,
@@ -275,21 +328,24 @@ function previewExamTemplate() {
     })
     .then(response => {
         if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`);
+            throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
         }
         return response.text();
     })
     .then(html => {
         previewContent.innerHTML = html;
         previewContainer.style.display = 'block';
-        previewContainer.scrollIntoView({ behavior: 'smooth' });
+        previewContainer.scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'nearest'
+        });
     })
     .catch(error => {
         console.error('Error en preview:', error);
         previewContent.innerHTML = `
             <div class="alert alert-danger">
-                <i class="fas fa-exclamation-triangle"></i> Error al generar el preview
-                <div>${error.message}</div>
+                <i class="fas fa-exclamation-triangle"></i> Error al generar la previsualización
+                <div class="error-details">${error.message}</div>
             </div>`;
         previewContainer.style.display = 'block';
     })
@@ -298,7 +354,6 @@ function previewExamTemplate() {
         previewBtn.disabled = false;
     });
 }
-
 
 // =============================================
 // SECCIÓN 7: CARGA DE LEARNING OUTCOMES (CHECKLIST)
