@@ -360,107 +360,77 @@ function previewExamTemplate() {
 // =============================================
 // Reemplaza la función setupLearningOutcomesChecklist con esta versión mejorada
 
+// Actualización de la función setupLearningOutcomesChecklist
+
 function setupLearningOutcomesChecklist() {
     const subjectSelect = document.getElementById('id_subject');
     const container = document.getElementById('learning_outcomes_container');
-    const originalSelect = document.querySelector('select[name="learning_outcomes"]');
+    const hiddenInput = document.getElementById('id_learning_outcomes');
+    
+    // Función para actualizar los outcomes seleccionados
+    function updateSelectedOutcomes() {
+        const selected = [];
+        document.querySelectorAll('.outcome-checkbox:checked').forEach(checkbox => {
+            selected.push(checkbox.value);
+        });
+        hiddenInput.value = selected.join(',');
+        console.log('Selected outcomes:', hiddenInput.value);
+    }
 
-    if (!subjectSelect || !container) return;
-
-    subjectSelect.addEventListener('change', async function() {
+    // Cargar outcomes cuando cambia la materia
+    subjectSelect?.addEventListener('change', async function() {
         const subjectId = this.value;
+        container.innerHTML = '<p>Cargando resultados...</p>';
         
-        // Mostrar estado de carga
-        container.innerHTML = `
-            <div class="outcome-loading">
-                <i class="fas fa-spinner fa-spin"></i> Cargando resultados...
-            </div>
-        `;
-
         if (!subjectId) {
-            container.innerHTML = `
-                <div class="outcome-empty">
-                    <i class="fas fa-info-circle"></i> Seleccione una materia primero
-                </div>
-            `;
+            container.innerHTML = '<p>Seleccione una materia primero</p>';
             return;
         }
 
         try {
             const response = await fetch(`/get-learning-outcomes/?subject_id=${subjectId}`);
-            
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-            
             const outcomes = await response.json();
             
             if (!outcomes || outcomes.length === 0) {
-                container.innerHTML = `
-                    <div class="outcome-empty">
-                        <i class="fas fa-exclamation-circle"></i> No hay resultados definidos para esta materia
-                    </div>
-                `;
+                container.innerHTML = '<p>No hay resultados definidos para esta materia</p>';
                 return;
             }
 
-            // Construir checklist
-            let html = '<div class="outcome-checklist">';
+            let html = '';
             outcomes.forEach(outcome => {
-                // Verificar si ya estaba seleccionado
-                const isSelected = originalSelect 
-                    ? Array.from(originalSelect.options).some(opt => opt.value == outcome.id)
-                    : false;
-                
                 html += `
-                <div class="outcome-item">
-                    <input type="checkbox" 
-                           id="outcome_${outcome.id}" 
-                           value="${outcome.id}"
-                           ${isSelected ? 'checked' : ''}>
+                <div>
+                    <input type="checkbox" class="outcome-checkbox" 
+                           id="outcome_${outcome.id}" value="${outcome.id}">
                     <label for="outcome_${outcome.id}">
-                        <span class="outcome-code">${outcome.code}</span>
-                        <span class="outcome-desc">${outcome.description}</span>
+                        ${outcome.code}: ${outcome.description}
                     </label>
                 </div>
                 `;
             });
-            html += '</div>';
-
+            
             container.innerHTML = html;
-
-            // Actualizar select original cuando cambian los checkboxes
-            container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    updateOriginalSelect(this.value, this.checked, originalSelect);
-                });
+            
+            // Añadir listeners a los nuevos checkboxes
+            container.querySelectorAll('.outcome-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', updateSelectedOutcomes);
             });
 
         } catch (error) {
-            console.error('Error loading outcomes:', error);
-            container.innerHTML = `
-                <div class="outcome-error">
-                    <i class="fas fa-exclamation-triangle"></i> Error al cargar resultados
-                    <div class="error-details">${error.message}</div>
-                </div>
-            `;
+            console.error('Error:', error);
+            container.innerHTML = '<p>Error al cargar resultados</p>';
         }
     });
 
-    function updateOriginalSelect(value, isChecked, selectElement) {
-        if (!selectElement) return;
-        
-        const existingOption = Array.from(selectElement.options).find(opt => opt.value === value);
-        
-        if (isChecked && !existingOption) {
-            const newOption = new Option(value, value, true, true);
-            selectElement.add(newOption);
-        } else if (!isChecked && existingOption) {
-            existingOption.remove();
-        }
+    // Actualizar outcomes antes de enviar el preview
+    const previewBtn = document.querySelector('button[onclick="previewExamTemplate()"]');
+    if (previewBtn) {
+        previewBtn.addEventListener('click', function() {
+            updateSelectedOutcomes();
+        });
     }
 
-    // Disparar evento change si ya hay una materia seleccionada
+    // Inicializar si hay materia seleccionada
     if (subjectSelect.value) {
         subjectSelect.dispatchEvent(new Event('change'));
     }

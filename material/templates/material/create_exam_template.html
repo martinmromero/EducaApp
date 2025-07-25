@@ -156,11 +156,12 @@
 
     <!-- Campos de ancho completo -->
     <div class="full-width-fields">
-        <!-- Resultados de Aprendizaje -->
+        
+        <!-- Bloque de Learning Outcomes -->
         <div class="form-group full-width-fields">
             <label for="learning_outcomes_field">Resultados de aprendizaje</label>
             <div class="input-group">
-                {{ form.learning_outcomes }}
+                <input type="hidden" name="learning_outcomes" id="id_learning_outcomes" value="">
                 <div id="learning_outcomes_container" class="learning-outcomes-container">
                     <p class="text-muted">
                         <i class="fas fa-info-circle"></i> Seleccione una materia para cargar los resultados

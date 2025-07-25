@@ -259,31 +259,28 @@ def create_exam_template(request):
 @login_required
 def preview_exam_template(request):
     try:
-        # 1. Validación de campos obligatorios
-        required_fields = {
-            'institution': 'Institución',
-            'faculty': 'Facultad', 
-            'career': 'Carrera',
-            'subject': 'Materia',
-            'professor': 'Profesor',
-            'exam_type': 'Tipo de examen',
-            'exam_mode': 'Modalidad de examen'
-        }
+        # Validación de campos obligatorios
+        required_fields = ['institution', 'faculty', 'career', 'subject', 'professor', 'exam_type', 'exam_mode']
+        missing = [f for f in required_fields if not request.POST.get(f)]
         
-        missing_fields = [name for field, name in required_fields.items() if not request.POST.get(field)]
-        if missing_fields:
+        if missing:
             return JsonResponse({
                 'error': 'Campos requeridos faltantes',
-                'details': missing_fields
+                'missing': missing
             }, status=400)
 
-        # 2. Procesar learning outcomes
-        outcome_ids = [int(id) for id in request.POST.getlist('learning_outcomes', []) if id.isdigit()]
-        learning_outcomes = LearningOutcome.objects.filter(id__in=outcome_ids) if outcome_ids else []
-
-        # 3. Crear objeto temporal con ID ficticio (SOLUCIÓN CLAVE)
+        # Procesar outcomes de la forma más simple posible
+        outcome_ids = []
+        if 'learning_outcomes' in request.POST:
+            raw_ids = request.POST['learning_outcomes']
+            if raw_ids:
+                outcome_ids = [int(id) for id in raw_ids.split(',') if id.isdigit()]
+        
+        learning_outcomes = LearningOutcome.objects.filter(id__in=outcome_ids)
+        
+        # Crear objeto temporal
         exam_template = ExamTemplate(
-            id=0,  # <<-- ESTO EVITA EL ERROR DE MANY-TO-MANY
+            id=0,
             institution_id=request.POST['institution'],
             faculty_id=request.POST['faculty'],
             career_id=request.POST['career'],
@@ -299,31 +296,16 @@ def preview_exam_template(request):
             created_by=request.user
         )
 
-        # 4. Validación sin guardar
-        exam_template.full_clean()
-
-        # 5. Renderizar con datos simulados
-        context = {
+        # Renderizar sin validación adicional
+        return render(request, 'material/preview_exam_template.html', {
             'exam_template': exam_template,
             'learning_outcomes': learning_outcomes,
-            'is_preview': True  # <<-- PARA QUE EL TEMPLATE SEPA QUE ES PREVIEW
-        }
+            'is_preview': True
+        })
 
-        return render(request, 'material/preview_exam_template.html', context)
-
-    except ValidationError as e:
-        logger.error(f"Error de validación: {str(e)}")
-        return JsonResponse({
-            'error': 'Datos inválidos',
-            'details': e.message_dict
-        }, status=400)
     except Exception as e:
-        logger.error(f"Error en preview: {str(e)}", exc_info=True)
-        return JsonResponse({
-            'error': 'Error interno del servidor',
-            'details': str(e)
-        }, status=500)
-    
+        logger.error(f"Preview error: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
     
 # ojo que hay dos funciones iguales, hay que ver cuando sirve y borrar la otra!
 @login_required
