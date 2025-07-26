@@ -30,7 +30,8 @@ from .forms import (
     LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm  
 )
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db.models import Prefetch
+from django.db.models import Prefetch, F, Value, CharField
+from django.db.models.functions import Concat
 from .ia_processor import extract_text_from_file, generate_questions_from_text
 from django.utils import timezone 
 from .forms import InstitutionForm, LearningOutcomeForm, ProfileForm
@@ -307,43 +308,58 @@ def preview_exam_template(request):
         logger.error(f"Preview error: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
     
-# ojo que hay dos funciones iguales, hay que ver cuando sirve y borrar la otra!
+
 @login_required
 def list_exam_templates(request):
+    # Prefetch y select_related para optimizar consultas
     templates = ExamTemplate.objects.filter(
         created_by=request.user
     ).select_related(
-        'institution', 'faculty', 'career', 'subject', 'professor'
-    ).prefetch_related('learning_outcomes')
-    
-    # Filtros adicionales (Punto 7)
+        'institution', 
+        'faculty', 
+        'career', 
+        'subject', 
+        'professor'
+    ).prefetch_related(
+        'learning_outcomes'
+    ).annotate(
+        institution_name=F('institution__name'),
+        faculty_name=F('faculty__name'),
+        career_name=F('career__name'),
+        subject_name=F('subject__name'),
+        professor_name=Concat(
+            F('professor__first_name'),
+            Value(' '),
+            F('professor__last_name'),
+            output_field=CharField()
+        )
+    ).order_by('-created_at')
+
+    # Filtros (manteniendo los existentes)
     subject_filter = request.GET.get('subject')
     if subject_filter:
         templates = templates.filter(subject_id=subject_filter)
-    
-    exam_mode_filter = request.GET.get('exam_mode')  # Punto 5
+
+    exam_mode_filter = request.GET.get('exam_mode')
     if exam_mode_filter:
         templates = templates.filter(exam_mode=exam_mode_filter)
-    
+
     # Paginación
     paginator = Paginator(templates, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
-    return render(request, 'material/list_exam_templates.html', {
+
+    # Contexto optimizado
+    context = {
         'exam_templates': page_obj,
         'subjects': Subject.objects.filter(
-            institution__userinstitution__user=request.user
+            subject_institutions__institution__userinstitution__user=request.user
         ).distinct(),
-        'exam_modes': ExamTemplate.EXAM_MODE_CHOICES  # Punto 5
-    })
+        'exam_modes': ExamTemplate.EXAM_MODE_CHOICES,
+    }
 
-#esta 2da la comento.  si no sirve, borrarla
-""" @login_required
-def list_exam_templates(request):
-    exam_templates = ExamTemplate.objects.filter(created_by=request.user)
-    return render(request, 'material/list_exam_templates.html', {'exam_templates': exam_templates})
- """
+    return render(request, 'material/list_exam_templates.html', context)
+
 
 def signup(request):
     if request.method == 'POST':
