@@ -260,8 +260,8 @@ def create_exam_template(request):
 @login_required
 def preview_exam_template(request):
     try:
-        # Validación de campos obligatorios
-        required_fields = ['institution', 'faculty', 'career', 'subject', 'professor', 'exam_type', 'exam_mode']
+        # Validación de campos obligatorios (ahora sin exam_mode)
+        required_fields = ['institution', 'faculty', 'career', 'subject', 'professor']
         missing = [f for f in required_fields if not request.POST.get(f)]
         
         if missing:
@@ -270,34 +270,46 @@ def preview_exam_template(request):
                 'missing': missing
             }, status=400)
 
-        # Procesar outcomes de la forma más simple posible
+        # Cargar facultades correctamente
+        faculty = None
+        if request.POST.get('faculty'):
+            try:
+                faculty = FacultyV2.objects.get(id=request.POST['faculty'])
+            except FacultyV2.DoesNotExist:
+                return JsonResponse({
+                    'error': 'Facultad no encontrada',
+                    'details': f"ID {request.POST['faculty']} no existe"
+                }, status=400)
+
+        # Procesar outcomes
         outcome_ids = []
         if 'learning_outcomes' in request.POST:
             raw_ids = request.POST['learning_outcomes']
             if raw_ids:
                 outcome_ids = [int(id) for id in raw_ids.split(',') if id.isdigit()]
         
-        learning_outcomes = LearningOutcome.objects.filter(id__in=outcome_ids)
-        
-        # Crear objeto temporal
+        learning_outcomes = LearningOutcome.objects.filter(id__in=outcome_ids) if outcome_ids else []
+
+        # Crear objeto temporal con todos los campos opcionales
         exam_template = ExamTemplate(
             id=0,
             institution_id=request.POST['institution'],
             faculty_id=request.POST['faculty'],
             career_id=request.POST['career'],
-            campus_id=request.POST.get('campus'),
             subject_id=request.POST['subject'],
             professor_id=request.POST['professor'],
-            exam_type=request.POST['exam_type'],
-            exam_mode=request.POST['exam_mode'],
+            # Campos opcionales (incluyendo exam_mode)
+            exam_mode=request.POST.get('exam_mode'),  # Puede ser None
+            campus_id=request.POST.get('campus'),
+            year=request.POST.get('year'),
+            exam_type=request.POST.get('exam_type'),
             resolution_time=request.POST.get('resolution_time', '60 minutos'),
             topics_to_evaluate=request.POST.get('topics_to_evaluate', ''),
             notes_and_recommendations=request.POST.get('notes_and_recommendations', ''),
-            year=request.POST.get('year', str(timezone.now().year)),
             created_by=request.user
         )
 
-        # Renderizar sin validación adicional
+        # Renderizar con todos los campos (aunque estén vacíos)
         return render(request, 'material/preview_exam_template.html', {
             'exam_template': exam_template,
             'learning_outcomes': learning_outcomes,
@@ -305,10 +317,12 @@ def preview_exam_template(request):
         })
 
     except Exception as e:
-        logger.error(f"Preview error: {str(e)}")
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"Preview error: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'error': f"Error al generar previsualización: {str(e)}",
+            'details': "Ver logs para más información"
+        }, status=500)
     
-
 @login_required
 def list_exam_templates(request):
     # Prefetch y select_related para optimizar consultas

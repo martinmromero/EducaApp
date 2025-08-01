@@ -8,7 +8,7 @@
 <h2>Crear Plantilla de Examen</h2>
 <form method="post" enctype="multipart/form-data" id="examTemplateForm">
     {% csrf_token %}
-
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" id="csrf_token">
     <div class="two-column-form">
         <!-- Columna izquierda -->
         <div class="form-column">
@@ -57,8 +57,8 @@
                 </div>
             </div>
 
-            <!-- Sede -->
-            <div class="form-group">
+            <!-- Sede -- comentada para ser borrada luego>
+<!--             <div class="form-group">
                 <div class="form-row">
                     <label for="{{ form.campus.id_for_label }}">{{ form.campus.label }}</label>
                     <div class="input-combo">
@@ -70,7 +70,7 @@
                     </div>
                     <input type="text" class="form-control dynamic-input" id="new_campus" placeholder="Nombre de la Sede">
                 </div>
-            </div>
+            </div> -->
         </div>
 
         <!-- Columna derecha -->
@@ -98,8 +98,8 @@
                 </div>
             </div>
 
-            <!-- Tipo de Examen -->
-            <div class="form-group">
+            <!-- Tipo de Examen comentado para ser movido a creación de examen luego. no borrarlo!-->
+<!--             <div class="form-group">
                 <div class="form-row">
                     <label for="{{ form.exam_type.id_for_label }}">Tipo de Examen</label>
                     <select name="exam_type" id="id_exam_type" class="form-control" required>
@@ -111,7 +111,7 @@
                         <option value="recuperatorio">Recuperatorio</option>
                     </select>
                 </div>
-            </div>
+            </div> -->
 
           
     <!-- Duración del examen - Versión simplificada -->
@@ -129,8 +129,8 @@
         </div>
     </div>
 
-            <!-- Modalidad del examen -->
-            <div class="form-group">
+            <!-- Modalidad del examen comentado para ser movido a creacion de examen, no borrar!!-->
+<!--             <div class="form-group">
                 <div class="form-row">
                     <label for="{{ form.exam_mode.id_for_label }}">Modalidad del Examen</label>
                     <select name="exam_mode" id="id_exam_mode" class="form-control" required>
@@ -142,15 +142,15 @@
                         <option value="otro">Otro</option>
                     </select>
                 </div>
-            </div>
+            </div> -->
 
-            <!-- Año del examen -->
-            <div class="form-group">
+            <!-- Año del examen comentado para ser borrado luego-->
+<!--             <div class="form-group">
                 <div class="form-row">
                     <label for="{{ form.year.id_for_label }}">{{ form.year.label }}</label>
                     {{ form.year }}
                 </div>
-            </div>
+            </div> -->
         </div>
     </div>
 
@@ -191,8 +191,7 @@
 
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Guardar Plantilla</button>
-        <!-- <button type="button" id="previewBtn" class="btn btn-secondary">Previsualizar</button> -->
-        <button type="button" onclick="previewExamTemplate()" class="btn btn-secondary">Previsualizar</button>
+       <button type="button" onclick="previewExamTemplate()" class="btn btn-secondary">Previsualizar</button>
     </div>
 </form>
 

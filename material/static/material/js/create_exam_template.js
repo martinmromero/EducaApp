@@ -32,48 +32,29 @@ document.addEventListener('DOMContentLoaded', function() {
      * Carga facultades y campus basados en la institución seleccionada
      * @param {string} institutionId - ID de la institución seleccionada
      */
-    async function loadDependents(institutionId) {
-        if (!institutionId) {
-            facultySelect.innerHTML = '<option value="">---------</option>';
-            campusSelect.innerHTML = '<option value="">---------</option>';
-            return;
-        }
-
-        try {
-            // Mostrar estado de carga
-            facultySelect.disabled = true;
-            campusSelect.disabled = true;
-            
-            // Cargar facultades
-            const facultiesResponse = await fetch(`/get_faculties_by_institution/${institutionId}/`);
-            if (!facultiesResponse.ok) throw new Error('Error cargando facultades');
-            const faculties = await facultiesResponse.json();
-            
-            facultySelect.innerHTML = '<option value="">---------</option>';
-            faculties.faculties.forEach(faculty => {
-                facultySelect.add(new Option(faculty.name, faculty.id));
-            });
-
-            // Cargar sedes
-            const campusesResponse = await fetch(`/get_campuses_by_institution/${institutionId}/`);
-            if (!campusesResponse.ok) throw new Error('Error cargando sedes');
-            const campuses = await campusesResponse.json();
-            
-            campusSelect.innerHTML = '<option value="">---------</option>';
-            campuses.campuses.forEach(campus => {
-                campusSelect.add(new Option(campus.name, campus.id));
-            });
-
-        } catch (error) {
-            console.error('Error:', error);
-            facultySelect.innerHTML = '<option value="">---------</option>';
-            campusSelect.innerHTML = '<option value="">---------</option>';
-            showToast('Error al cargar dependencias', 'error');
-        } finally {
-            facultySelect.disabled = false;
-            campusSelect.disabled = false;
-        }
+async function loadDependents(institutionId) {
+    if (!institutionId) {
+        facultySelect.innerHTML = '<option value="">---------</option>';
+        campusSelect.innerHTML = '<option value="">---------</option>';
+        return;
     }
+
+    try {
+        // Cargar facultades
+        const facultiesResponse = await fetch(`/get_faculties_by_institution/${institutionId}/`);
+        if (!facultiesResponse.ok) throw new Error('Error cargando facultades');
+        const faculties = await facultiesResponse.json();
+        
+        facultySelect.innerHTML = '<option value="">---------</option>';
+        faculties.faculties.forEach(faculty => {
+            facultySelect.add(new Option(faculty.name, faculty.id));
+        });
+
+    } catch (error) {
+        console.error('Error:', error);
+        facultySelect.innerHTML = '<option value="">Error cargando facultades</option>';
+    }
+}
 
     // =============================================
     // SECCIÓN 3: NOTIFICACIONES TOAST
@@ -294,149 +275,165 @@ document.addEventListener('DOMContentLoaded', function() {
 }); */
 
     // toda la funcion siguiente si se reemplazó OK con la de arriba function setupPreviewButton() , borrarla
-function previewExamTemplate() {
-    // 1. Validar campos requeridos
-    const examMode = document.getElementById('id_exam_mode').value;
-    if (!examMode) {
-        alert('Por favor seleccione la modalidad del examen');
-        return;
-    }
 
-    // 2. Configurar elementos UI
-    const previewBtn = document.querySelector('button[onclick="previewExamTemplate()"]');
-    const originalText = previewBtn.innerHTML;
-    previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
-    previewBtn.disabled = true;
-    
-    const previewContainer = document.getElementById('previewContainer');
-    const previewContent = document.getElementById('previewContent');
-    previewContainer.style.display = 'none';
-    previewContent.innerHTML = '';
 
-    // 3. Preparar datos del formulario
-    const form = document.getElementById('examTemplateForm');
-    const formData = new FormData(form);
-
-    // 4. Enviar datos al servidor
-    fetch('/exam-templates/preview/', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
-        }
-        return response.text();
-    })
-    .then(html => {
-        previewContent.innerHTML = html;
-        previewContainer.style.display = 'block';
-        previewContainer.scrollIntoView({ 
-            behavior: 'smooth',
-            block: 'nearest'
-        });
-    })
-    .catch(error => {
-        console.error('Error en preview:', error);
-        previewContent.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-triangle"></i> Error al generar la previsualización
-                <div class="error-details">${error.message}</div>
-            </div>`;
-        previewContainer.style.display = 'block';
-    })
-    .finally(() => {
-        previewBtn.innerHTML = originalText;
-        previewBtn.disabled = false;
-    });
-}
 
 // =============================================
 // SECCIÓN 7: CARGA DE LEARNING OUTCOMES (CHECKLIST)
 // =============================================
-// Reemplaza la función setupLearningOutcomesChecklist con esta versión mejorada
-
-// Actualización de la función setupLearningOutcomesChecklist
-
 function setupLearningOutcomesChecklist() {
-    const subjectSelect = document.getElementById('id_subject');
-    const container = document.getElementById('learning_outcomes_container');
-    const hiddenInput = document.getElementById('id_learning_outcomes');
-    
-    // Función para actualizar los outcomes seleccionados
-    function updateSelectedOutcomes() {
-        const selected = [];
-        document.querySelectorAll('.outcome-checkbox:checked').forEach(checkbox => {
-            selected.push(checkbox.value);
-        });
-        hiddenInput.value = selected.join(',');
-        console.log('Selected outcomes:', hiddenInput.value);
-    }
+    const subjectSelect = document.getElementById('subject');
+    const learningOutcomesContainer = document.getElementById('learning_outcomes_container');
 
-    // Cargar outcomes cuando cambia la materia
-    subjectSelect?.addEventListener('change', async function() {
-        const subjectId = this.value;
-        container.innerHTML = '<p>Cargando resultados...</p>';
-        
-        if (!subjectId) {
-            container.innerHTML = '<p>Seleccione una materia primero</p>';
-            return;
-        }
-
-        try {
-            const response = await fetch(`/get-learning-outcomes/?subject_id=${subjectId}`);
-            const outcomes = await response.json();
+    if (subjectSelect && learningOutcomesContainer) {
+        subjectSelect.addEventListener('change', function() {
+            const subjectId = this.value;
             
-            if (!outcomes || outcomes.length === 0) {
-                container.innerHTML = '<p>No hay resultados definidos para esta materia</p>';
-                return;
+            if (subjectId) {
+                fetch(`/get_learning_outcomes/?subject_id=${subjectId}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Error en la respuesta del servidor');
+                        return response.json();
+                    })
+                    .then(data => {
+                        learningOutcomesContainer.innerHTML = '';
+                        
+                        if (data && data.length > 0) {
+                            const checklist = document.createElement('div');
+                            checklist.className = 'learning-outcomes-checklist';
+                            
+                            data.forEach(outcome => {
+                                const checkboxContainer = document.createElement('div');
+                                checkboxContainer.className = 'form-check';
+                                
+                                const checkbox = document.createElement('input');
+                                checkbox.type = 'checkbox';
+                                checkbox.className = 'form-check-input';
+                                checkbox.name = 'learning_outcomes';
+                                checkbox.value = outcome.id;
+                                checkbox.id = `outcome-${outcome.id}`;
+                                
+                                const label = document.createElement('label');
+                                label.className = 'form-check-label';
+                                label.htmlFor = `outcome-${outcome.id}`;
+                                label.textContent = outcome.description;
+                                
+                                checkboxContainer.appendChild(checkbox);
+                                checkboxContainer.appendChild(label);
+                                checklist.appendChild(checkboxContainer);
+                            });
+                            
+                            learningOutcomesContainer.appendChild(checklist);
+                        } else {
+                            learningOutcomesContainer.innerHTML = '<p class="text-muted">No se encontraron resultados de aprendizaje para esta materia.</p>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error al cargar learning outcomes:', error);
+                        learningOutcomesContainer.innerHTML = `
+                            <div class="alert alert-danger">
+                                Error al cargar los resultados de aprendizaje. 
+                                <button onclick="window.location.reload()" class="btn btn-sm btn-link">Reintentar</button>
+                            </div>`;
+                    });
+            } else {
+                learningOutcomesContainer.innerHTML = '';
             }
-
-            let html = '';
-            outcomes.forEach(outcome => {
-                html += `
-                <div>
-                    <input type="checkbox" class="outcome-checkbox" 
-                           id="outcome_${outcome.id}" value="${outcome.id}">
-                    <label for="outcome_${outcome.id}">
-                        ${outcome.code}: ${outcome.description}
-                    </label>
-                </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-            
-            // Añadir listeners a los nuevos checkboxes
-            container.querySelectorAll('.outcome-checkbox').forEach(checkbox => {
-                checkbox.addEventListener('change', updateSelectedOutcomes);
-            });
-
-        } catch (error) {
-            console.error('Error:', error);
-            container.innerHTML = '<p>Error al cargar resultados</p>';
-        }
-    });
-
-    // Actualizar outcomes antes de enviar el preview
-    const previewBtn = document.querySelector('button[onclick="previewExamTemplate()"]');
-    if (previewBtn) {
-        previewBtn.addEventListener('click', function() {
-            updateSelectedOutcomes();
         });
-    }
 
-    // Inicializar si hay materia seleccionada
-    if (subjectSelect.value) {
-        subjectSelect.dispatchEvent(new Event('change'));
+        // Disparar evento change si ya hay una materia seleccionada
+        if (subjectSelect.value) {
+            subjectSelect.dispatchEvent(new Event('change'));
+        }
     }
 }
 
-// Asegurarse de llamar a la función cuando el DOM esté listo
+function previewExamTemplate() {
+    // 1. Obtención segura del token CSRF
+    const getCsrfToken = () => {
+        return document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    };
+
+    // 2. Validación de elementos críticos
+    const elements = {
+        form: document.getElementById('examTemplateForm'),
+        previewBtn: document.getElementById('previewBtn') || document.querySelector('button[onclick="previewExamTemplate()"]'),
+        previewContainer: document.getElementById('previewContainer'),
+        previewContent: document.getElementById('previewContent'),
+        csrfToken: getCsrfToken()
+    };
+
+    if (!elements.form || !elements.previewBtn || !elements.previewContainer || !elements.previewContent) {
+        alert('Error de configuración: elementos faltantes en el formulario');
+        return;
+    }
+
+    if (!elements.csrfToken) {
+        alert('Error de seguridad: token CSRF no encontrado');
+        return;
+    }
+
+    // 3. Validación de campos requeridos
+    const requiredFields = [
+        { id: 'id_subject', name: 'Materia' },
+        { id: 'id_professor', name: 'Profesor' }
+    ];
+
+    const missingFields = requiredFields
+        .filter(field => !document.getElementById(field.id)?.value)
+        .map(field => field.name);
+
+    if (missingFields.length > 0) {
+        alert(`Complete los campos requeridos:\n${missingFields.join('\n')}`);
+        return;
+    }
+
+    // 4. Configuración del estado de carga
+    const originalBtnContent = elements.previewBtn.innerHTML;
+    elements.previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+    elements.previewBtn.disabled = true;
+    elements.previewContainer.style.display = 'none';
+
+    // 5. Preparación y envío del formulario
+    const formData = new FormData(elements.form);
+    
+    fetch('/exam-templates/preview/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': elements.csrfToken
+        }
+    })
+    .then(response => {
+        if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
+        return response.text();
+    })
+    .then(html => {
+        elements.previewContent.innerHTML = html;
+        elements.previewContainer.style.display = 'block';
+        elements.previewContainer.scrollIntoView({ behavior: 'smooth' });
+    })
+    .catch(error => {
+        console.error('Error en preview:', error);
+        elements.previewContent.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> 
+                Error al generar previsualización: ${error.message}
+            </div>`;
+        elements.previewContainer.style.display = 'block';
+    })
+    .finally(() => {
+        elements.previewBtn.innerHTML = originalBtnContent;
+        elements.previewBtn.disabled = false;
+    });
+}
+
+// Inicialización cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
-    setupLearningOutcomesChecklist();
+    // Verificación de que la función existe antes de llamarla
+    if (typeof setupLearningOutcomesChecklist === 'function') {
+        setupLearningOutcomesChecklist();
+    } else {
+        console.error('Error crítico: setupLearningOutcomesChecklist no está definida');
+    }
 });

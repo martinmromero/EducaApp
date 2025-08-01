@@ -12,7 +12,8 @@
         {% endif %}
         <div class="institution-info">
             <h2>{{ exam_template.institution.name }}</h2>
-            <h3>{{ exam_template.faculty.name }} - {{ exam_template.career.name }}</h3>
+            <h3>Facultad de {{ exam_template.faculty.name }}</h3>
+            <h3>Carrera: {{ exam_template.career.name }}</h3>
             {% if exam_template.campus %}
                 <p><strong>Sede:</strong> {{ exam_template.campus.name }}</p>
             {% endif %}
