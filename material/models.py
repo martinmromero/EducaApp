@@ -263,15 +263,45 @@ class Faculty(models.Model):
 
 class Subject(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Nombre")
-    learning_outcomes = models.TextField(blank=True, null=True, verbose_name="Resultados de aprendizaje (opcional)")
+    learning_outcomes = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Resultados de aprendizaje",
+        help_text="Ingrese un resultado por línea. Puede usar el formato 'Código: Descripción' o simplemente la descripción."
+    )
+
+    def get_learning_outcomes_list(self):
+        """Devuelve los resultados de aprendizaje como lista estructurada"""
+        if not self.learning_outcomes:
+            return []
+        
+        try:
+            # Intentar parsear como JSON
+            return json.loads(self.learning_outcomes)
+        except json.JSONDecodeError:
+            # Si no es JSON, parsear como texto plano
+            outcomes = []
+            for i, line in enumerate(self.learning_outcomes.splitlines(), start=1):
+                line = line.strip()
+                if line:
+                    parts = line.split(':', 1)
+                    code = parts[0].strip() if len(parts) > 1 else f"LO-{i}"
+                    description = parts[1].strip() if len(parts) > 1 else line
+                    
+                    outcomes.append({
+                        'code': code,
+                        'description': description,
+                        'level': 1
+                    })
+            return outcomes
 
     def __str__(self):
         return self.name
 
     class Meta:
         db_table = 'material_subjects'
-        verbose_name = "Subject"
-        verbose_name_plural = "Subjects"
+        verbose_name = "Materia"
+        verbose_name_plural = "Materias"
 
 class LearningOutcome(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='outcomes')

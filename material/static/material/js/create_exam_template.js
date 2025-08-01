@@ -282,21 +282,29 @@ document.addEventListener('DOMContentLoaded', function() {
 // SECCIÓN 7: CARGA DE LEARNING OUTCOMES (CHECKLIST)
 // =============================================
 function setupLearningOutcomesChecklist() {
-    const subjectSelect = document.getElementById('subject');
+    const subjectSelect = document.getElementById('id_subject');
     const learningOutcomesContainer = document.getElementById('learning_outcomes_container');
+    const hiddenInput = document.getElementById('id_learning_outcomes');
 
     if (subjectSelect && learningOutcomesContainer) {
         subjectSelect.addEventListener('change', function() {
             const subjectId = this.value;
             
             if (subjectId) {
-                fetch(`/get_learning_outcomes/?subject_id=${subjectId}`)
+                // Mostrar indicador de carga
+                learningOutcomesContainer.innerHTML = `
+                    <div class="text-center py-3">
+                        <i class="fas fa-spinner fa-spin"></i> Cargando resultados...
+                    </div>`;
+
+                fetch(`/get-learning-outcomes/?subject_id=${subjectId}`)
                     .then(response => {
                         if (!response.ok) throw new Error('Error en la respuesta del servidor');
                         return response.json();
                     })
                     .then(data => {
                         learningOutcomesContainer.innerHTML = '';
+                        hiddenInput.value = '';
                         
                         if (data && data.length > 0) {
                             const checklist = document.createElement('div');
@@ -304,19 +312,29 @@ function setupLearningOutcomesChecklist() {
                             
                             data.forEach(outcome => {
                                 const checkboxContainer = document.createElement('div');
-                                checkboxContainer.className = 'form-check';
+                                checkboxContainer.className = 'form-check mb-2';
                                 
                                 const checkbox = document.createElement('input');
                                 checkbox.type = 'checkbox';
-                                checkbox.className = 'form-check-input';
+                                checkbox.className = 'form-check-input outcome-checkbox';
                                 checkbox.name = 'learning_outcomes';
-                                checkbox.value = outcome.id;
-                                checkbox.id = `outcome-${outcome.id}`;
+                                checkbox.value = outcome.id || outcome.code;
+                                checkbox.id = `outcome-${outcome.id || outcome.code}`;
+                                
+                                checkbox.addEventListener('change', function() {
+                                    updateSelectedOutcomes();
+                                });
                                 
                                 const label = document.createElement('label');
                                 label.className = 'form-check-label';
-                                label.htmlFor = `outcome-${outcome.id}`;
-                                label.textContent = outcome.description;
+                                label.htmlFor = `outcome-${outcome.id || outcome.code}`;
+                                
+                                // Mostrar código y descripción si están disponibles
+                                const description = outcome.code ? 
+                                    `<strong>${outcome.code}:</strong> ${outcome.description}` : 
+                                    outcome.description;
+                                
+                                label.innerHTML = description;
                                 
                                 checkboxContainer.appendChild(checkbox);
                                 checkboxContainer.appendChild(label);
@@ -325,21 +343,36 @@ function setupLearningOutcomesChecklist() {
                             
                             learningOutcomesContainer.appendChild(checklist);
                         } else {
-                            learningOutcomesContainer.innerHTML = '<p class="text-muted">No se encontraron resultados de aprendizaje para esta materia.</p>';
+                            learningOutcomesContainer.innerHTML = `
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> 
+                                    No se encontraron resultados de aprendizaje definidos para esta materia.
+                                </div>`;
                         }
                     })
                     .catch(error => {
                         console.error('Error al cargar learning outcomes:', error);
                         learningOutcomesContainer.innerHTML = `
                             <div class="alert alert-danger">
-                                Error al cargar los resultados de aprendizaje. 
-                                <button onclick="window.location.reload()" class="btn btn-sm btn-link">Reintentar</button>
+                                <i class="fas fa-exclamation-triangle"></i> 
+                                Error al cargar los resultados: ${error.message}
                             </div>`;
                     });
             } else {
-                learningOutcomesContainer.innerHTML = '';
+                learningOutcomesContainer.innerHTML = `
+                    <p class="text-muted">
+                        <i class="fas fa-info-circle"></i> 
+                        Seleccione una materia para ver los resultados de aprendizaje
+                    </p>`;
+                hiddenInput.value = '';
             }
         });
+
+        function updateSelectedOutcomes() {
+            const selected = Array.from(document.querySelectorAll('.outcome-checkbox:checked'))
+                                .map(checkbox => checkbox.value);
+            hiddenInput.value = selected.join(',');
+        }
 
         // Disparar evento change si ya hay una materia seleccionada
         if (subjectSelect.value) {

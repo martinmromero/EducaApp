@@ -779,33 +779,56 @@ def get_learning_outcomes(request):
     
     try:
         subject = Subject.objects.get(id=subject_id)
-        if not subject.learning_outcomes:
-            return JsonResponse([], safe=False)
-        
-        # Parsear los resultados de aprendizaje (cada línea es un resultado)
         outcomes = []
-        for i, line in enumerate(subject.learning_outcomes.splitlines(), start=1):
-            line = line.strip()
-            if line:
-                # Extraer código y descripción si sigue el formato "CODIGO: Descripción"
-                parts = line.split(':', 1)
-                code = parts[0].strip() if len(parts) > 1 else f"LO-{i}"
-                description = parts[1].strip() if len(parts) > 1 else line
-                
-                outcomes.append({
-                    'id': f"{subject_id}-{i}",  # ID único para cada resultado
-                    'code': code,
-                    'description': description,
-                    'level': 1  # Nivel por defecto
-                })
+        
+        # Primero verificar si hay outcomes en el modelo LearningOutcome
+        if hasattr(subject, 'outcomes'):
+            outcomes = list(LearningOutcome.objects.filter(subject=subject)
+                          .values('id', 'code', 'description', 'level'))
+        
+        # Si no hay outcomes en el modelo, verificar el campo learning_outcomes
+        if not outcomes and subject.learning_outcomes:
+            try:
+                # Intentar parsear como JSON si está en ese formato
+                outcomes_data = json.loads(subject.learning_outcomes)
+                if isinstance(outcomes_data, list):
+                    outcomes = outcomes_data
+                else:
+                    # Si es texto plano, convertirlo a formato estructurado
+                    outcomes = []
+                    for i, line in enumerate(subject.learning_outcomes.splitlines(), start=1):
+                        line = line.strip()
+                        if line:
+                            parts = line.split(':', 1)
+                            code = parts[0].strip() if len(parts) > 1 else f"LO-{i}"
+                            description = parts[1].strip() if len(parts) > 1 else line
+                            
+                            outcomes.append({
+                                'id': f"legacy-{i}",
+                                'code': code,
+                                'description': description,
+                                'level': 1
+                            })
+            except json.JSONDecodeError:
+                # Si no es JSON válido, tratarlo como texto plano
+                outcomes = []
+                for i, line in enumerate(subject.learning_outcomes.splitlines(), start=1):
+                    line = line.strip()
+                    if line:
+                        outcomes.append({
+                            'id': f"legacy-{i}",
+                            'code': f"LO-{i}",
+                            'description': line,
+                            'level': 1
+                        })
         
         return JsonResponse(outcomes, safe=False)
     
     except Subject.DoesNotExist:
         return JsonResponse({'error': 'Materia no encontrada'}, status=404)
     except Exception as e:
-        logger.error(f"Error en get_learning_outcomes: {str(e)}")
-        return JsonResponse({'error': str(e)}, status=400)
+        logger.error(f"Error en get_learning_outcomes: {str(e)}", exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
 
 @login_required
 def manage_institutions(request):
