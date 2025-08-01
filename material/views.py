@@ -260,69 +260,79 @@ def create_exam_template(request):
 @login_required
 def preview_exam_template(request):
     try:
-        # Validación de campos obligatorios (ahora sin exam_mode)
-        required_fields = ['institution', 'faculty', 'career', 'subject', 'professor']
-        missing = [f for f in required_fields if not request.POST.get(f)]
-        
-        if missing:
-            return JsonResponse({
-                'error': 'Campos requeridos faltantes',
-                'missing': missing
-            }, status=400)
+        # Validación básica
+        if not all(request.POST.get(field) for field in ['institution', 'faculty', 'career', 'subject']):
+            return JsonResponse({'error': 'Faltan campos requeridos'}, status=400)
 
-        # Cargar facultades correctamente
-        faculty = None
-        if request.POST.get('faculty'):
-            try:
-                faculty = FacultyV2.objects.get(id=request.POST['faculty'])
-            except FacultyV2.DoesNotExist:
-                return JsonResponse({
-                    'error': 'Facultad no encontrada',
-                    'details': f"ID {request.POST['faculty']} no existe"
-                }, status=400)
+        # Procesar outcomes seleccionados
+        selected_outcomes = request.POST.get('learning_outcomes', '').split(',')
+        selected_outcomes = [oid.strip() for oid in selected_outcomes if oid.strip()]
 
-        # Procesar outcomes
-        outcome_ids = []
-        if 'learning_outcomes' in request.POST:
-            raw_ids = request.POST['learning_outcomes']
-            if raw_ids:
-                outcome_ids = [int(id) for id in raw_ids.split(',') if id.isdigit()]
-        
-        learning_outcomes = LearningOutcome.objects.filter(id__in=outcome_ids) if outcome_ids else []
+        # Obtener datos para el preview
+        institution = InstitutionV2.objects.get(id=request.POST['institution'])
+        faculty = FacultyV2.objects.get(id=request.POST['faculty'])
+        career = Career.objects.get(id=request.POST['career'])
+        subject = Subject.objects.get(id=request.POST['subject'])
+        professor = User.objects.get(id=request.POST.get('professor', request.user.id))
 
-        # Crear objeto temporal con todos los campos opcionales
-        exam_template = ExamTemplate(
-            id=0,
-            institution_id=request.POST['institution'],
-            faculty_id=request.POST['faculty'],
-            career_id=request.POST['career'],
-            subject_id=request.POST['subject'],
-            professor_id=request.POST['professor'],
-            # Campos opcionales (incluyendo exam_mode)
-            exam_mode=request.POST.get('exam_mode'),  # Puede ser None
-            campus_id=request.POST.get('campus'),
-            year=request.POST.get('year'),
-            exam_type=request.POST.get('exam_type'),
-            resolution_time=request.POST.get('resolution_time', '60 minutos'),
-            topics_to_evaluate=request.POST.get('topics_to_evaluate', ''),
-            notes_and_recommendations=request.POST.get('notes_and_recommendations', ''),
-            created_by=request.user
-        )
+        # Obtener los outcomes seleccionados (nuevo código)
+        outcomes_to_display = []
+        if selected_outcomes:
+            # 1. Buscar en LearningOutcome (IDs normales)
+            db_outcomes = LearningOutcome.objects.filter(
+                id__in=[oid for oid in selected_outcomes if not oid.startswith('legacy-')]
+            )
+            outcomes_to_display.extend([
+                {
+                    'code': outcome.code,
+                    'description': outcome.description
+                }
+                for outcome in db_outcomes
+            ])
 
-        # Renderizar con todos los campos (aunque estén vacíos)
-        return render(request, 'material/preview_exam_template.html', {
-            'exam_template': exam_template,
-            'learning_outcomes': learning_outcomes,
-            'is_preview': True
-        })
+            # 2. Buscar en outcomes legacy (texto plano)
+            if subject.learning_outcomes:
+                try:
+                    legacy_outcomes = []
+                    for i, line in enumerate(subject.learning_outcomes.splitlines(), start=1):
+                        line = line.strip()
+                        if line:
+                            parts = line.split(':', 1)
+                            code = parts[0].strip() if len(parts) > 1 else f"LO-{i}"
+                            desc = parts[1].strip() if len(parts) > 1 else line
+                            legacy_id = f"legacy-{i}"
+                            
+                            if legacy_id in selected_outcomes:
+                                legacy_outcomes.append({
+                                    'code': code,
+                                    'description': desc
+                                })
+                    
+                    outcomes_to_display.extend(legacy_outcomes)
+                except Exception as e:
+                    logger.error(f"Error procesando legacy outcomes: {str(e)}")
+
+        context = {
+            'institution': institution,
+            'faculty': faculty,
+            'career': career,
+            'subject': subject,
+            'professor': professor,
+            'exam_mode': request.POST.get('exam_mode', ''),
+            'exam_type': request.POST.get('exam_type', ''),
+            'resolution_time': request.POST.get('resolution_time', '60 minutos'),
+            'topics_to_evaluate': request.POST.get('topics_to_evaluate', ''),
+            'notes_and_recommendations': request.POST.get('notes_and_recommendations', ''),
+            'learning_outcomes': outcomes_to_display,  # Asegurar que esto llega al template
+            'current_date': timezone.now().strftime("%d/%m/%Y")
+        }
+
+        return render(request, 'material/preview_exam_template.html', context)
 
     except Exception as e:
         logger.error(f"Preview error: {str(e)}", exc_info=True)
-        return JsonResponse({
-            'error': f"Error al generar previsualización: {str(e)}",
-            'details': "Ver logs para más información"
-        }, status=500)
-    
+        return JsonResponse({'error': str(e)}, status=500)
+
 @login_required
 def list_exam_templates(request):
     # Prefetch y select_related para optimizar consultas

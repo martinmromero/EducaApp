@@ -382,82 +382,67 @@ function setupLearningOutcomesChecklist() {
 }
 
 function previewExamTemplate() {
-    // 1. Obtención segura del token CSRF
-    const getCsrfToken = () => {
-        return document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-    };
+    const form = document.getElementById('examTemplateForm');
+    const previewContainer = document.getElementById('previewContainer');
+    const previewContent = document.getElementById('previewContent');
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    // 2. Validación de elementos críticos
-    const elements = {
-        form: document.getElementById('examTemplateForm'),
-        previewBtn: document.getElementById('previewBtn') || document.querySelector('button[onclick="previewExamTemplate()"]'),
-        previewContainer: document.getElementById('previewContainer'),
-        previewContent: document.getElementById('previewContent'),
-        csrfToken: getCsrfToken()
-    };
-
-    if (!elements.form || !elements.previewBtn || !elements.previewContainer || !elements.previewContent) {
-        alert('Error de configuración: elementos faltantes en el formulario');
+    // Validación básica
+    if (!form.elements['institution'].value || 
+        !form.elements['faculty'].value || 
+        !form.elements['career'].value || 
+        !form.elements['subject'].value) {
+        alert('Complete los campos requeridos');
         return;
     }
 
-    if (!elements.csrfToken) {
-        alert('Error de seguridad: token CSRF no encontrado');
-        return;
-    }
+    // Obtener outcomes seleccionados
+    const selectedOutcomes = Array.from(
+        document.querySelectorAll('.outcome-checkbox:checked')
+    ).map(checkbox => checkbox.value).join(',');
 
-    // 3. Validación de campos requeridos
-    const requiredFields = [
-        { id: 'id_subject', name: 'Materia' },
-        { id: 'id_professor', name: 'Profesor' }
-    ];
+    // Configurar FormData
+    const formData = new FormData(form);
+    formData.set('learning_outcomes', selectedOutcomes);
 
-    const missingFields = requiredFields
-        .filter(field => !document.getElementById(field.id)?.value)
-        .map(field => field.name);
+    // Mostrar loading
+    const btn = document.querySelector('button[onclick="previewExamTemplate()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+    btn.disabled = true;
 
-    if (missingFields.length > 0) {
-        alert(`Complete los campos requeridos:\n${missingFields.join('\n')}`);
-        return;
-    }
+    // Limpiar preview anterior
+    previewContent.innerHTML = '';
+    previewContainer.style.display = 'none';
 
-    // 4. Configuración del estado de carga
-    const originalBtnContent = elements.previewBtn.innerHTML;
-    elements.previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
-    elements.previewBtn.disabled = true;
-    elements.previewContainer.style.display = 'none';
-
-    // 5. Preparación y envío del formulario
-    const formData = new FormData(elements.form);
-    
     fetch('/exam-templates/preview/', {
         method: 'POST',
         body: formData,
         headers: {
-            'X-CSRFToken': elements.csrfToken
+            'X-CSRFToken': csrfToken
         }
     })
     .then(response => {
-        if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
+        if (!response.ok) throw new Error('Error al generar preview');
         return response.text();
     })
     .then(html => {
-        elements.previewContent.innerHTML = html;
-        elements.previewContainer.style.display = 'block';
-        elements.previewContainer.scrollIntoView({ behavior: 'smooth' });
+        previewContent.innerHTML = html;
+        previewContainer.style.display = 'block';
+        previewContainer.scrollIntoView({ behavior: 'smooth' });
     })
     .catch(error => {
-        console.error('Error en preview:', error);
-        elements.previewContent.innerHTML = `
+        console.error('Error:', error);
+        previewContent.innerHTML = `
             <div class="alert alert-danger">
                 <i class="fas fa-exclamation-triangle"></i> 
                 Error al generar previsualización: ${error.message}
             </div>`;
-        elements.previewContainer.style.display = 'block';
+        previewContainer.style.display = 'block';
     })
     .finally(() => {
-        elements.previewBtn.innerHTML = originalBtnContent;
-        elements.previewBtn.disabled = false;
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     });
 }
 

@@ -1,234 +1,70 @@
-{% extends 'material/base_print.html' %}
-{% load static %}
-
-{% block content %}
-<div class="exam-template-preview">
-    <!-- Encabezado con logo -->
-    <div class="exam-header">
-        {% if exam_template.institution.logo %}
-        <div class="institution-logo">
-            <img src="{{ exam_template.institution.logo.url }}" alt="Logo institución" class="img-fluid" style="max-height: 80px;">
-        </div>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Previsualización de Examen</title>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .institution-logo { max-height: 80px; }
+        .section { margin-bottom: 20px; }
+        .outcomes-list { list-style: none; padding-left: 0; }
+        .outcomes-list li { margin-bottom: 8px; padding-left: 20px; position: relative; }
+        .outcomes-list li:before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        {% if institution.logo %}
+        <img src="{{ institution.logo.url }}" class="institution-logo">
         {% endif %}
-        <div class="institution-info">
-            <h2>{{ exam_template.institution.name }}</h2>
-            <h3>Facultad de {{ exam_template.faculty.name }}</h3>
-            <h3>Carrera: {{ exam_template.career.name }}</h3>
-            {% if exam_template.campus %}
-                <p><strong>Sede:</strong> {{ exam_template.campus.name }}</p>
-            {% endif %}
-        </div>
+        <h1>{{ institution.name }}</h1>
+        <h2>{{ faculty.name }} - {{ career.name }}</h2>
     </div>
 
-    <!-- Datos del alumno -->
-    <div class="student-info" style="margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 15px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-            <div style="width: 48%;"><strong>Nombre:</strong> _________________________</div>
-            <div style="width: 48%;"><strong>Apellido:</strong> ______________________</div>
-        </div>
-        <div><strong>Fecha:</strong> ______________________________</div>
+    <div class="section">
+        <div><strong>Materia:</strong> {{ subject.name }}</div>
+        <div><strong>Profesor:</strong> {{ professor.get_full_name }}</div>
+        <div><strong>Fecha:</strong> {{ current_date }}</div>
     </div>
 
-    <!-- Detalles del examen -->
-<div class="exam-details">
-    <table class="table table-bordered">
-        <tr>
-            <th>Materia</th>
-            <td>{{ exam_template.subject.name }}</td>
-            <th>Profesor</th>
-            <td>{{ exam_template.professor.get_full_name }}</td>
-        </tr>
-        <tr>
-            <th>Tipo de Examen</th>
-            <td>
-                {% if exam_template.exam_type == "1er_parcial" %}1er. Parcial
-                {% elif exam_template.exam_type == "2do_parcial" %}2do. Parcial
-                {% elif exam_template.exam_type == "3er_parcial" %}3er. Parcial
-                {% elif exam_template.exam_type == "final" %}Final
-                {% elif exam_template.exam_type == "recuperatorio" %}Recuperatorio
-                {% else %}{{ exam_template.exam_type }}{% endif %}
-            </td>
-                <th>Duración</th>
-                <td>{{ exam_template.resolution_time }}</td>
-        </tr>
-        <tr>
-            <th>Modalidad</th>
-            <td>
-                {% if exam_template.exam_mode == "presencial" %}Presencial
-                {% elif exam_template.exam_mode == "virtual" %}Virtual
-                {% elif exam_template.exam_mode == "domiciliario" %}Domiciliario
-                {% elif exam_template.exam_mode == "hibrido" %}Híbrido
-                {% elif exam_template.exam_mode == "otro" %}Otro
-                {% else %}{{ exam_template.exam_mode|default:"No especificado" }}{% endif %}
-            </td>
-            <th>Año</th>
-            <td>{{ exam_template.year|default:"-" }}</td>
-        </tr>
-    </table>
-</div>
+    <div class="section">
+        <div><strong>Tipo de examen:</strong> {{ exam_type|default:"-" }}</div>
+        <div><strong>Modalidad:</strong> {{ exam_mode|default:"-" }}</div>
+        <div><strong>Duración:</strong> {{ resolution_time }}</div>
+    </div>
 
- <!-- Resultados de aprendizaje - Versión corregida -->
+    <!-- SECCIÓN CRÍTICA - LEARNING OUTCOMES -->
     {% if learning_outcomes %}
     <div class="section">
-        <h4>Resultados de aprendizaje evaluados:</h4>
-        <ul>
+        <h3>Resultados de aprendizaje evaluados:</h3>
+        <ul class="outcomes-list">
             {% for outcome in learning_outcomes %}
-            <li>{{ outcome.code }}: {{ outcome.description }}</li>
+            <li>
+                {% if outcome.code %}<strong>{{ outcome.code }}:</strong>{% endif %}
+                {{ outcome.description }}
+            </li>
             {% endfor %}
         </ul>
     </div>
     {% endif %}
 
-    <!-- Temas y notas -->
-    {% if exam_template.topics_to_evaluate %}
+    {% if topics_to_evaluate %}
     <div class="section">
-        <h4>Temas a Evaluar:</h4>
-        <div class="section-content">{{ exam_template.topics_to_evaluate|linebreaks }}</div>
+        <h3>Temas a evaluar:</h3>
+        <div>{{ topics_to_evaluate|linebreaks }}</div>
     </div>
     {% endif %}
 
-    {% if exam_template.notes_and_recommendations %}
+    {% if notes_and_recommendations %}
     <div class="section">
-        <h4>Notas y Recomendaciones:</h4>
-        <div class="section-content">{{ exam_template.notes_and_recommendations|linebreaks }}</div>
+        <h3>Notas y recomendaciones:</h3>
+        <div>{{ notes_and_recommendations|linebreaks }}</div>
     </div>
     {% endif %}
-</div>
-
-<style>
-    /* Estilos para impresión */
-    @page {
-        size: A4;
-        margin: 1.5cm;
-    }
-    
-    body {
-        font-family: "Times New Roman", Times, serif;
-        font-size: 12pt;
-        line-height: 1.5;
-        color: #000;
-        background: #fff;
-        padding: 0;
-        margin: 0;
-    }
-    
-    .exam-template-preview {
-        width: 100%;
-        max-width: 21cm;
-        margin: 0 auto;
-        padding: 1cm;
-    }
-    
-    .exam-header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 20px;
-        padding-bottom: 15px;
-        border-bottom: 2px solid #333;
-    }
-    
-    .institution-logo {
-        margin-right: 20px;
-    }
-    
-    .institution-logo img {
-        max-height: 80px;
-        width: auto;
-    }
-    
-    .institution-info {
-        flex-grow: 1;
-    }
-    
-    .institution-info h2 {
-        margin: 0;
-        font-size: 18pt;
-        font-weight: bold;
-    }
-    
-    .institution-info h3 {
-        margin: 5px 0 0 0;
-        font-size: 14pt;
-        font-weight: normal;
-    }
-    
-    .exam-details {
-        margin: 20px 0;
-    }
-    
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 15px 0;
-    }
-    
-    th, td {
-        padding: 8px 12px;
-        border: 1px solid #ddd;
-        text-align: left;
-    }
-    
-    th {
-        background-color: #f5f5f5;
-        font-weight: bold;
-    }
-    
-    .outcomes-section {
-        margin: 20px 0;
-    }
-    
-    .outcomes-list {
-        list-style-type: none;
-        padding: 0;
-    }
-    
-    .outcomes-list li {
-        margin-bottom: 8px;
-    }
-    
-    .outcome-code {
-        font-weight: bold;
-        margin-right: 5px;
-    }
-    
-    .section {
-        margin: 20px 0;
-    }
-    
-    .section h4 {
-        margin-bottom: 10px;
-        font-size: 14pt;
-        border-bottom: 1px solid #ddd;
-        padding-bottom: 5px;
-    }
-    
-    .section-content {
-        white-space: pre-line;
-    }
-    
-    .student-info {
-        margin-bottom: 30px;
-        border-bottom: 1px solid #333;
-        padding-bottom: 15px;
-    }
-    
-    .student-info table {
-        width: 100%;
-    }
-    
-    .student-info td {
-        padding: 5px 0;
-    }
-    
-    /* Ocultar elementos no deseados en impresión */
-    @media print {
-        .no-print {
-            display: none !important;
-        }
-        body {
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-    }
-</style>
-{% endblock %}
+</body>
+</html>
