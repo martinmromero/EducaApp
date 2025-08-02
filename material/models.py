@@ -4,6 +4,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.validators import MinValueValidator, MaxValueValidator  
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 import json
 
 # --- MODELOS V2 PRIMERO (para evitar referencias circulares) ---
@@ -507,6 +508,7 @@ class Exam(models.Model):
         verbose_name="Título del examen",
         help_text="Ej: Parcial 1 - Matemáticas"
     )
+
     subject = models.ForeignKey(
         Subject,
         on_delete=models.SET_DEFAULT,
@@ -514,30 +516,36 @@ class Exam(models.Model):
         verbose_name="Asignatura",
         related_name="exams"
     )
+
     topics = models.ManyToManyField(
         Topic,
         verbose_name="Temas evaluados",
         blank=True,
         related_name="exams"
     )
+
     questions = models.ManyToManyField(
         Question,
         verbose_name="Preguntas",
         related_name="exams"
     )
+
     instructions = models.TextField(
         verbose_name="Instrucciones generales",
         blank=True,
         null=True
     )
+
     duration_minutes = models.PositiveIntegerField(
         verbose_name="Duración (minutos)",
         default=60
     )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Fecha de creación"
     )
+
     created_by = models.ForeignKey(
     User,
     on_delete=models.CASCADE,
@@ -550,6 +558,7 @@ class Exam(models.Model):
         default=False,
         verbose_name="Publicado"
     )
+    
     learning_outcomes = models.ManyToManyField(
         LearningOutcome,
         verbose_name="Resultados de aprendizaje",
@@ -922,48 +931,66 @@ class ExamTemplate(models.Model):
         on_delete=models.PROTECT,
         verbose_name="Institución"
     )
+   
     faculty = models.ForeignKey(
         FacultyV2,
         on_delete=models.PROTECT,
         verbose_name="Facultad"
     )
+  
     career = models.ForeignKey(
         Career,
         on_delete=models.PROTECT,
         verbose_name="Carrera"
     )
+  
     subject = models.ForeignKey(
         Subject,
         on_delete=models.PROTECT,
         verbose_name="Materia"
     )
+   
     campus = models.ForeignKey(
         CampusV2,
         on_delete=models.PROTECT,
-        verbose_name="Sede/Campus"
+        verbose_name="Sede/Campus",
+        null=True,
+        blank=True
     )
+  
     professor = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
         related_name='professor_exam_templates',
-        verbose_name="Profesor"
+        verbose_name="Profesor",
+        null=True,
+        blank=True
     )
     
     # Configuración del examen
     year = models.PositiveIntegerField(
         verbose_name="Año académico",
-        default=2023
+        default=timezone.now().year
     )
+   
     exam_type = models.CharField(
         max_length=20,
         choices=EXAM_TYPE_CHOICES,
-        verbose_name="Tipo de examen"
+        verbose_name="Tipo de examen",
+        blank=True,
+        null=True,  # Permitir NULL en la base de datos
+        default=None
     )
+   
     exam_mode = models.CharField(
         max_length=20,
         choices=EXAM_MODE_CHOICES,
-        verbose_name="Modalidad de examen"
+        verbose_name="Modalidad de examen",
+        blank=True,
+        null=True,  # Permitir NULL en la base de datos
+        default=None
     )
+   
     shift = models.CharField(
         max_length=20,
         choices=SHIFT_CHOICES,
@@ -977,7 +1004,9 @@ class ExamTemplate(models.Model):
         max_length=50,
         verbose_name="Duración del examen",
         help_text="Ej: 90 minutos, 2 horas",
-        default="60 minutos"
+        blank=True,
+        null=True,
+        default=None
     )
     
     # Contenido evaluativo
@@ -986,11 +1015,13 @@ class ExamTemplate(models.Model):
         verbose_name="Resultados de aprendizaje",
         blank=True
     )
+   
     topics_to_evaluate = models.TextField(
         verbose_name="Temas a evaluar",
         help_text="Listado de temas incluidos en el examen",
         blank=True
     )
+   
     notes_and_recommendations = models.TextField(
         verbose_name="Notas y recomendaciones",
         blank=True
@@ -1003,14 +1034,17 @@ class ExamTemplate(models.Model):
         related_name='created_exam_templates',
         verbose_name="Creado por"
     )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Fecha de creación"
     )
+
     updated_at = models.DateTimeField(
         auto_now=True,
         verbose_name="Última actualización"
     )
+
     is_active = models.BooleanField(
         default=True,
         verbose_name="Activo"
@@ -1023,6 +1057,7 @@ class ExamTemplate(models.Model):
         blank=True,
         verbose_name="Logo institucional"
     )
+    
     custom_css = models.TextField(
         blank=True,
         help_text="CSS personalizado para la plantilla",
@@ -1041,8 +1076,11 @@ class ExamTemplate(models.Model):
             models.Index(fields=['subject']),
         ]
     
-    def __str__(self):
-        return f"{self.get_exam_type_display()} - {self.subject} ({self.year})"
+    def __str__(self):  
+        exam_name = f"{self.get_exam_type_display()}"  
+        if self.exam_type == 'parcial' and self.partial_number:  
+            exam_name += f" {self.get_partial_number_display()}"  
+        return f"{self.subject} - {exam_name} ({self.year})"
     
     def clean(self):
         # Validación personalizada
@@ -1054,8 +1092,12 @@ class ExamTemplate(models.Model):
             raise ValidationError("Formato de duración inválido. Use 'minutos', 'horas', 'días' o 'semanas'")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
+        skip_validation = kwargs.pop('skip_validation', False)
+        if skip_validation:
+            super().save(*args, **kwargs)
+        else:
+            self.full_clean()
+            super().save(*args, **kwargs)
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

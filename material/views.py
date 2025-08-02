@@ -333,6 +333,106 @@ def preview_exam_template(request):
         logger.error(f"Preview error: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
 
+from django.db import transaction
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from .models import ExamTemplate, LearningOutcome
+
+from django.db import IntegrityError  # Agregar este import al inicio
+
+@login_required
+@transaction.atomic
+def save_exam_template(request):
+    if request.method == 'POST':
+        try:
+            # Obtener datos del formulario (con valores por defecto para campos opcionales)
+            exam_template_data = {
+                'institution_id': request.POST.get('institution'),
+                'faculty_id': request.POST.get('faculty'),
+                'career_id': request.POST.get('career'),
+                'subject_id': request.POST.get('subject'),
+                 'exam_mode': request.POST.get('exam_mode'),  # Valor por defecto
+                'exam_type': request.POST.get('exam_type'),  # Valor por defecto
+                'resolution_time': request.POST.get('resolution_time', '60 minutos'),
+                'created_by': request.user,
+                'campus_id': request.POST.get('campus'),  # Puede ser null
+                'professor_id': request.POST.get('professor', request.user.id)  # Default al usuario actual
+            }
+
+            # Validación mínima de relaciones requeridas
+            required_fields = ['institution_id', 'faculty_id', 'career_id', 'subject_id']
+            if not all(exam_template_data[field] for field in required_fields):
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'Institución, Facultad, Carrera y Materia son requeridos'
+                }, status=400)
+
+            # Crear la plantilla (ignorando la validación estricta temporalmente)
+            exam_template = ExamTemplate(**exam_template_data)
+            exam_template.save(skip_validation=True)  # Necesitaremos agregar este método al modelo
+
+            # Manejar outcomes
+            outcomes_ids = []
+            if 'learning_outcomes[]' in request.POST:
+                outcomes_ids = request.POST.getlist('learning_outcomes[]')
+            elif 'learning_outcomes' in request.POST:
+                outcomes_str = request.POST.get('learning_outcomes', '')
+                outcomes_ids = [x for x in outcomes_str.split(',') if x]
+
+            # Separar outcomes legacy y normales
+            db_outcomes = []
+            legacy_outcomes = []
+            
+            for oid in outcomes_ids:
+                if oid.startswith('legacy-'):
+                    legacy_outcomes.append(oid)
+                else:
+                    db_outcomes.append(oid)
+
+            # Asignar outcomes normales
+            if db_outcomes:
+                outcomes = LearningOutcome.objects.filter(id__in=db_outcomes)
+                exam_template.learning_outcomes.set(outcomes)
+
+            # Para legacy outcomes, guardar como texto en notes_and_recommendations
+            if legacy_outcomes:
+                subject = Subject.objects.get(id=exam_template_data['subject_id'])
+                if subject.learning_outcomes:
+                    legacy_text = "\n".join(
+                        line for i, line in enumerate(subject.learning_outcomes.splitlines(), start=1)
+                        if f"legacy-{i}" in legacy_outcomes
+                    )
+                    exam_template.notes_and_recommendations = (
+                        f"{exam_template.notes_and_recommendations or ''}\n"
+                        f"Resultados de aprendizaje (legacy):\n{legacy_text}"
+                    )
+                    exam_template.save(skip_validation=True)
+
+            return JsonResponse({
+                'success': True, 
+                'message': 'Plantilla guardada correctamente',
+                'template_id': exam_template.id
+            })
+
+        except IntegrityError as e:
+            return JsonResponse({
+                'success': False,
+                'error': 'Error de integridad en la base de datos: ' + str(e)
+            }, status=400)
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({
+                'success': False,
+                'error': 'Error interno: ' + str(e)
+            }, status=500)
+
+    return JsonResponse({
+        'success': False,
+        'error': 'Método no permitido'
+    }, status=405)
+
 @login_required
 def list_exam_templates(request):
     # Prefetch y select_related para optimizar consultas

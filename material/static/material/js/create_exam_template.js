@@ -455,3 +455,78 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Error crítico: setupLearningOutcomesChecklist no está definida');
     }
 });
+
+// =============================================
+// SECCIÓN 8: GUARDADO DE PLANTILLA
+// =============================================
+function setupSaveTemplate() {
+    const saveBtn = document.getElementById('save-template-btn');
+    if (!saveBtn) return;
+
+    // Función de notificación mejorada
+    const showNotification = (message, type = 'success') => {
+        const container = document.getElementById('alerts-container') || document.body;
+        container.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    };
+
+    saveBtn.addEventListener('click', async function() {
+        const form = document.getElementById('examTemplateForm');
+        const formData = new FormData(form);
+
+        // Agregar todos los campos posibles (sin validación)
+        const optionalFields = {
+            'exam_mode': document.getElementById('id_exam_mode')?.value || '',
+            'resolution_time': document.getElementById('id_resolution_time')?.value || '',
+            'learning_outcomes': Array.from(document.querySelectorAll('.outcome-checkbox:checked'))
+                                .map(cb => cb.value).join(',')
+        };
+
+        // Agregar campos opcionales al FormData
+        Object.entries(optionalFields).forEach(([key, value]) => {
+            formData.append(key, value);
+        });
+
+        // Estado de carga
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        saveBtn.disabled = true;
+
+        try {
+            const response = await fetch('/exam-templates/save/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Error al guardar la plantilla');
+            }
+
+            showNotification('Plantilla guardada correctamente');
+            
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification(error.message, 'danger');
+        } finally {
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }
+    });
+}
+
+
+// Asegúrate de que esta línea esté al final del DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+    // ... (tu código existente) ...
+    setupSaveTemplate();
+});
+
