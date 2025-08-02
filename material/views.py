@@ -4,7 +4,8 @@ import json
 import logging
 
 
-from django.forms import formset_factory, modelformset_factory
+from django.forms import formset_factory, modelformset_factory, inlineformset_factory
+
 
 # Django core imports
 from django.conf import settings
@@ -43,6 +44,15 @@ from .forms import InstitutionV2Form, CampusV2Form, FacultyV2Form, InstitutionFo
 # Logger configuration
 logger = logging.getLogger(__name__)
 
+
+LearningOutcomeFormSet = inlineformset_factory(
+    Subject,
+    LearningOutcome,
+    form=LearningOutcomeForm,
+    extra=1,
+    can_delete=True,
+    fields=('description', 'level')
+)
 
 
 def get_topics(request):
@@ -1522,6 +1532,12 @@ class SubjectDetailView(DetailView):
     template_name = 'material/subjects/detail.html'
     context_object_name = 'subject'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['outcomes'] = self.object.outcomes.all().order_by('code')  # Agrega outcomes al contexto
+        return context
+
+
 # Careers CRUD (similar structure)
 @login_required
 def career_list(request):
@@ -1819,22 +1835,6 @@ def get_campuses_by_institution(request, institution_id):
         print(f"Error in get_campuses_by_institution: {e}")  # DEBUG
         return JsonResponse({'error': str(e)}, status=500)
 
-class SubjectUpdateView(UpdateView):
-    model = Subject
-    form_class = SubjectForm
-    template_name = 'material/subjects/subject_form.html'
-    success_url = reverse_lazy('subject_list')
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['outcomes'] = self.object.outcomes.all().order_by('code')
-        context['legacy_outcomes'] = self.object.learning_outcomes if self.object.learning_outcomes else None
-        return context
-
-    def form_valid(self, form):
-        messages.success(self.request, 'Materia actualizada correctamente')
-        return super().form_valid(form)
-
 class LearningOutcomeCreateView(CreateView):
     model = LearningOutcome
     form_class = LearningOutcomeForm
@@ -1866,3 +1866,74 @@ class LearningOutcomeListView(ListView):
         context = super().get_context_data(**kwargs)
         context['subject'] = Subject.objects.get(pk=self.kwargs['subject_id'])
         return context
+    
+
+class SubjectCreateView(CreateView):
+    model = Subject
+    form_class = SubjectForm
+    template_name = 'material/subjects/form.html'
+    success_url = reverse_lazy('material:subject_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['outcome_formset'] = LearningOutcomeFormSet(self.request.POST)
+        else:
+            context['outcome_formset'] = LearningOutcomeFormSet()
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        outcome_formset = context['outcome_formset']
+        
+        with transaction.atomic():
+            self.object = form.save()
+            
+            if outcome_formset.is_valid():
+                outcome_formset.instance = self.object
+                outcome_formset.save()
+                
+                # Generar códigos automáticos para outcomes sin código
+                for outcome in self.object.outcomes.filter(code__isnull=True):
+                    prefix = self.object.name[:3].upper()
+                    count = self.object.outcomes.count()
+                    outcome.code = f"{prefix}-{str(count).zfill(3)}"
+                    outcome.save()
+                
+                messages.success(self.request, 'Materia y resultados guardados correctamente')
+                return super().form_valid(form)
+            
+        return self.render_to_response(self.get_context_data(form=form))
+
+class SubjectUpdateView(UpdateView):
+    model = Subject
+    form_class = SubjectForm
+    template_name = 'material/subjects/form.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['outcome_formset'] = LearningOutcomeFormSet(
+                self.request.POST, 
+                instance=self.object
+            )
+        else:
+            context['outcome_formset'] = LearningOutcomeFormSet(
+                instance=self.object,
+                queryset=self.object.outcomes.order_by('code')
+            )
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        outcome_formset = context['outcome_formset']
+        
+        with transaction.atomic():
+            self.object = form.save()
+            
+            if outcome_formset.is_valid():
+                outcome_formset.save()
+                messages.success(self.request, 'Cambios guardados correctamente')
+                return redirect('material:subject_detail', pk=self.object.pk)
+            
+        return self.render_to_response(self.get_context_data(form=form))

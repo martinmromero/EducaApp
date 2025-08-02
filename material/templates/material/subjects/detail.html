@@ -16,21 +16,57 @@
         <div class="row mb-4">
             <div class="col-md-6">
                 <h5>{{ subject.name }}</h5>
+                <a href="{% url 'material:subject_list' %}" class="btn btn-outline-secondary btn-sm mt-2">
+                    <i class="bi bi-arrow-left"></i> Volver al listado
+                </a>
             </div>
         </div>
-        <div class="row">
+
+        <!-- Sección de Outcomes (modelo) -->
+        <div class="row mb-4">
             <div class="col-md-12">
-                <h6>Resultados de Aprendizaje:</h6>
-                <div class="border p-3 rounded bg-light">
-                    {{ subject.learning_outcomes|linebreaks|default:"No especificado" }}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6>Resultados de Aprendizaje (Nuevos)</h6>
+                    <a href="{% url 'material:learningoutcome_add' subject_id=subject.pk %}" 
+                       class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle"></i> Agregar
+                    </a>
+                </div>
+                {% if subject.outcomes.all %}
+                    <div class="list-group">
+                        {% for outcome in subject.outcomes.all %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ outcome.code }}</strong>: {{ outcome.description }}
+                                </div>
+                                <div class="btn-group">
+                                    <a href="#" class="btn btn-sm btn-outline-warning">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="#" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">No hay resultados registrados.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Sección de Outcomes (legacy) -->
+        {% if subject.learning_outcomes %}
+            <div class="row">
+                <div class="col-md-12">
+                    <h6>Resultados de Aprendizaje (Legacy):</h6>
+                    <div class="border p-3 rounded bg-light">
+                        {{ subject.learning_outcomes|linebreaks }}
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="mt-4">
-            <a href="{% url 'material:subject_list' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> Volver al listado
-            </a>
-        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

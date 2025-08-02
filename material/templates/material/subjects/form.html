@@ -2,11 +2,13 @@
 {% block content %}
 <div class="card shadow">
     <div class="card-header">
-        <h5 class="mb-0">{{ action }} Materia</h5>
+        <h5 class="mb-0">{{ action }} Materia {% if subject %}: {{ subject.name }}{% endif %}</h5>
     </div>
     <div class="card-body">
-        <form method="post">
+        <form method="post" id="subject-form">
             {% csrf_token %}
+            
+            <!-- Campo Nombre -->
             <div class="mb-3">
                 {{ form.name.label_tag }}
                 {{ form.name }}
@@ -16,17 +18,65 @@
                     </div>
                 {% endif %}
             </div>
-            <div class="mb-3">
-                {{ form.learning_outcomes.label_tag }}
-                {{ form.learning_outcomes }}
-                {% if form.learning_outcomes.errors %}
-                    <div class="invalid-feedback d-block">
-                        {{ form.learning_outcomes.errors }}
+
+            <!-- Sección de Learning Outcomes -->
+            <div class="mb-4 border-top pt-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6>Resultados de Aprendizaje</h6>
+                    <button type="button" id="add-outcome" class="btn btn-sm btn-success">
+                        <i class="bi bi-plus-circle"></i> Agregar
+                    </button>
+                </div>
+
+                {{ outcome_formset.management_form }}
+                <div id="outcomes-container">
+                    {% for form in outcome_formset %}
+                    <div class="outcome-item card mb-2" id="outcome-{{ forloop.counter0 }}">
+                        <div class="card-body">
+                            <div class="row">
+                                <!-- Código -->
+                                <div class="col-md-2">
+                                    {{ form.code.label_tag }}
+                                    {{ form.code }}
+                                    {% if form.code.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.code.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Descripción -->
+                                <div class="col-md-8">
+                                    {{ form.description.label_tag }}
+                                    {{ form.description }}
+                                    {% if form.description.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.description.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Controles -->
+                                <div class="col-md-2 d-flex align-items-center">
+                                    {% if form.instance.pk %}
+                                        {{ form.DELETE }} <label for="{{ form.DELETE.id_for_label }}">Eliminar</label>
+                                    {% endif %}
+                                    {{ form.id }}
+                                    <button type="button" class="btn btn-sm btn-danger remove-outcome ms-auto">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                {% endif %}
+                    {% endfor %}
+                </div>
             </div>
-            <div class="d-flex justify-content-between">
-                <a href="{% url 'material:subject_list' %}" class="btn btn-secondary">
+
+            <!-- Botones de acción -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{% if subject %}{% url 'material:subject_detail' pk=subject.pk %}{% else %}{% url 'material:subject_list' %}{% endif %}" 
+                   class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Cancelar
                 </a>
                 <button type="submit" class="btn btn-primary">
@@ -36,4 +86,71 @@
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formPrefix = 'outcomes';
+    let totalForms = document.getElementById(`id_${formPrefix}-TOTAL_FORMS`);
+    let formCount = parseInt(totalForms.value);
+    
+    // Agregar nuevo outcome
+    document.getElementById('add-outcome').addEventListener('click', function() {
+        const container = document.getElementById('outcomes-container');
+        const newForm = container.children[container.children.length-1].cloneNode(true);
+        const newId = 'outcome-' + formCount;
+        
+        // Actualizar IDs y names
+        newForm.id = newId;
+        newForm.innerHTML = newForm.innerHTML.replace(
+            new RegExp(`${formPrefix}-(\\d+)-`, 'g'),
+            `${formPrefix}-${formCount}-`
+        );
+        
+        // Limpiar valores
+        newForm.querySelectorAll('input, textarea').forEach(input => {
+            if (!input.name.includes('DELETE') && !input.name.includes('id')) {
+                input.value = '';
+            }
+        });
+        
+        // Mostrar y aumentar contador
+        newForm.style.display = 'block';
+        container.appendChild(newForm);
+        totalForms.value = ++formCount;
+    });
+
+    // Eliminar outcome
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-outcome')) {
+            const formItem = e.target.closest('.outcome-item');
+            const deleteCheckbox = formItem.querySelector('input[type="checkbox"][name*="-DELETE"]');
+            
+            if (deleteCheckbox) {
+                deleteCheckbox.checked = true;
+                formItem.style.opacity = '0.5';
+                formItem.querySelectorAll('input, textarea').forEach(input => {
+                    if (!input.name.includes('DELETE')) {
+                        input.disabled = true;
+                    }
+                });
+            } else {
+                formItem.remove();
+                totalForms.value = --formCount;
+            }
+        }
+    });
+});
+</script>
+
+<style>
+.outcome-item {
+    transition: all 0.3s ease;
+}
+.outcome-item:hover {
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+}
+[disabled] {
+    background-color: #f8f9fa !important;
+}
+</style>
 {% endblock %}

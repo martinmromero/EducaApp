@@ -281,12 +281,12 @@ class Subject(models.Model):
         verbose_name_plural = "Materias"
 
 class LearningOutcome(models.Model):
-    LEVEL_CHOICES = [
+   """  LEVEL_CHOICES = [
         (1, 'Básico'),
         (2, 'Intermedio'),
         (3, 'Avanzado')
     ]
-
+ """
     subject = models.ForeignKey(
         Subject,
         on_delete=models.CASCADE,
@@ -327,7 +327,7 @@ class LearningOutcome(models.Model):
         verbose_name_plural = "Resultados de Aprendizaje"
         ordering = ['subject', 'code']
         unique_together = [['subject', 'code']]
-        
+
 
 class Topic(models.Model):
     name = models.CharField(max_length=255, verbose_name="Nombre del Tema")
