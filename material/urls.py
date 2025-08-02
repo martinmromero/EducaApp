@@ -61,9 +61,14 @@ path('instituciones/', material_views.manage_institutions, name='manage_institut
 # Subjects CRUD
 path('subjects/', material_views.subject_list, name='subject_list'),
 path('subjects/create/', material_views.create_subject, name='create_subject'),
-path('subjects/<int:pk>/edit/', material_views.edit_subject, name='edit_subject'),
+# linea siguiente obsoleta. si funciona dos renglones abajo, borrar 1 renglon abajo de subject edit
+#path('subjects/<int:pk>/edit/', material_views.edit_subject, name='edit_subject'),
+path('subjects/<int:pk>/edit/', material_views.SubjectUpdateView.as_view(), name='edit_subject'),
 path('subjects/<int:pk>/delete/', material_views.delete_subject, name='delete_subject'),
-path('subjects/<int:pk>/', material_views.SubjectDetailView.as_view(), name='subject_detail'),  
+path('subjects/<int:pk>/', material_views.SubjectDetailView.as_view(), name='detail_subject'),  
+path('subjects/<int:subject_id>/outcomes/', material_views.LearningOutcomeListView.as_view(), name='learningoutcome_list'),
+path('subjects/<int:subject_id>/outcomes/add/', material_views.LearningOutcomeCreateView.as_view(), name='learningoutcome_add'),
+
 
 # Careers CRUD
 # urls.py
@@ -77,6 +82,7 @@ path('careers/<int:pk>/', material_views.CareerDetailView.as_view(), name='caree
 path('get_faculties_by_institution/<int:institution_id>/', material_views.get_faculties_by_institution, name='get_faculties_by_institution'),
 path('get_campuses_by_institution/<int:institution_id>/', material_views.get_campuses_by_institution, name='get_campuses_by_institution'),
 
+#el siguiente renglon tal vez sea obsoleto. revisar cuando termine de ver temas de learning outcomes
 path('get-learning-outcomes/', material_views.get_learning_outcomes, name='get_learning_outcomes'),
 
 ]

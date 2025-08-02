@@ -42,7 +42,6 @@ class InstitutionForm(forms.ModelForm):
                 raise ValidationError("Formato de imagen no válido (solo JPG, PNG, SVG)")
         return logo
 
-
 class CampusForm(forms.ModelForm):
     class Meta:
         model = Campus
@@ -52,7 +51,6 @@ class CampusForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'address': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'})
         }
-
 
 class FacultyForm(forms.ModelForm):
     class Meta:
@@ -64,18 +62,34 @@ class FacultyForm(forms.ModelForm):
             'code': forms.TextInput(attrs={'class': 'form-control'})
         }
 
-
 class LearningOutcomeForm(forms.ModelForm):
     class Meta:
         model = LearningOutcome
-        fields = '__all__'
+        fields = ['subject', 'description', 'level']  # 'code' no está incluido
         widgets = {
-            'subject': forms.Select(attrs={'class': 'form-control'}),
-            'code': forms.TextInput(attrs={'class': 'form-control'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'level': forms.Select(attrs={'class': 'form-control'}),
+            'subject': forms.HiddenInput(),  # Normalmente se establece desde la vista
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Ingrese la descripción del resultado de aprendizaje...'
+            }),
+            'level': forms.Select(attrs={
+                'class': 'form-control',
+                'data-placeholder': 'Seleccione nivel de dominio...'
+            })
+        }
+        labels = {
+            'description': 'Descripción',
+            'level': 'Nivel de dominio'
+        }
+        help_texts = {
+            'level': '1: Básico, 2: Intermedio, 3: Avanzado'
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'subject' in self.initial:
+            self.fields['subject'].disabled = True
 
 class ContenidoForm(forms.ModelForm):
     subject = forms.ModelChoiceField(
@@ -98,7 +112,6 @@ class ContenidoForm(forms.ModelForm):
         labels = {
             'title': 'Título del Contenido',
         }
-
 
 class QuestionForm(forms.ModelForm):
     subject = forms.ModelChoiceField(
@@ -220,7 +233,6 @@ class QuestionForm(forms.ModelForm):
 
         return cleaned_data
 
-
 class ExamForm(forms.ModelForm):
     learning_outcomes = forms.ModelMultipleChoiceField(
         queryset=LearningOutcome.objects.none(),
@@ -254,8 +266,6 @@ class ExamForm(forms.ModelForm):
         elif self.instance.pk:
             self.fields['topics'].queryset = self.instance.subject.topic_set.all()
             self.fields['learning_outcomes'].queryset = self.instance.subject.learningoutcome_set.all()
-
-
    
 class ProfileForm(forms.ModelForm):
     class Meta:
@@ -265,7 +275,6 @@ class ProfileForm(forms.ModelForm):
             'role': forms.Select(attrs={'class': 'form-control'}),
             'institutions': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
-
 
 class ExamTemplateForm(forms.ModelForm):
     class Meta:
@@ -317,8 +326,7 @@ class ExamTemplateForm(forms.ModelForm):
         self.fields['learning_outcomes'].widget = forms.CheckboxSelectMultiple(
             attrs={'class': 'learning-outcomes-checkbox'}
         )
-        
-
+   
 class CustomLoginForm(AuthenticationForm):
     username = forms.CharField(
         widget=forms.TextInput(attrs={'class': 'form-control'})
@@ -333,7 +341,6 @@ class CustomLoginForm(AuthenticationForm):
                 "Cuenta inactiva. Contacta al administrador.",
                 code='inactive',
             )
-
 
 class UserEditForm(forms.ModelForm):
     role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, label="Rol",
@@ -370,7 +377,6 @@ class UserEditForm(forms.ModelForm):
                 user.profile.save()
                 user.profile.institutions.set(self.cleaned_data['institutions'])
         return user
-
 
 class InstitutionV2Form(forms.ModelForm):
     class Meta:
@@ -477,68 +483,28 @@ class FacultyV2Form(forms.ModelForm):
         return code or None
 
 class SubjectForm(forms.ModelForm):
-    learning_outcomes = forms.CharField(
-        widget=forms.Textarea(attrs={
-            'class': 'form-control',
-            'rows': 5,
-            'placeholder': 'Ejemplo: LO-1: Resolver ecuaciones básicas - Nivel 1\nLO-2: Analizar problemas complejos - Nivel 2'
-        }),
-        label='Resultados de Aprendizaje',
-        help_text='''<small class="form-text text-muted">
-            Ingrese un resultado por línea con formato:<br>
-            <code>CÓDIGO: Descripción - Nivel X</code><br>
-            Ejemplo: <code>MATH-101: Resolver ecuaciones cuadráticas - Nivel 2</code>
-        </small>''',
-        required=False,
-        strip=True
-    )
-
     class Meta:
         model = Subject
-        fields = ['name', 'learning_outcomes']
+        fields = ['name']  # Excluye learning_outcomes
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Nombre de la materia'
+                'placeholder': 'Nombre de la materia',
+                'required': 'required'
             })
         }
         labels = {
-            'name': 'Nombre'
+            'name': 'Nombre de la materia'
+        }
+        help_texts = {
+            'name': 'Ingrese el nombre completo de la materia'
         }
 
-    def clean_learning_outcomes(self):
-        data = self.cleaned_data['learning_outcomes']
-        if not data:
-            return data
-        
-        validated_lines = []
-        for i, line in enumerate(data.splitlines(), start=1):
-            line = line.strip()
-            if line:
-                # Validación básica de formato
-                if ':' not in line:
-                    raise forms.ValidationError(
-                        f"Línea {i}: Falta separador ':' entre código y descripción. "
-                        f"Formato requerido: CÓDIGO: Descripción - Nivel X"
-                    )
-                
-                # Verificar nivel si está presente
-                if '-' in line:
-                    desc_part = line.split(':', 1)[1]
-                    if 'nivel' in desc_part.lower():
-                        try:
-                            level = int(desc_part.split('-')[1].lower().replace('nivel', '').strip())
-                            if not 1 <= level <= 3:
-                                raise ValueError
-                        except ValueError:
-                            raise forms.ValidationError(
-                                f"Línea {i}: Nivel debe ser entre 1 y 3. "
-                                f"Ejemplo válido: 'LO-1: Descripción - Nivel 2'"
-                            )
-                
-                validated_lines.append(line)
-        
-        return '\n'.join(validated_lines)
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if not name or len(name.strip()) < 3:
+            raise ValidationError("El nombre debe tener al menos 3 caracteres")
+        return name.strip()
         
 
 class CareerForm(forms.ModelForm):

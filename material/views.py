@@ -14,7 +14,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView
-from django.views.generic import DetailView
+from django.views.generic import DetailView, UpdateView, CreateView, ListView
+from django.urls import reverse_lazy
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods, require_POST
 from django.core.paginator import Paginator
@@ -36,10 +37,7 @@ from .ia_processor import extract_text_from_file, generate_questions_from_text
 from django.utils import timezone 
 from .forms import InstitutionForm, LearningOutcomeForm, ProfileForm
 
-# Modelos
 
-
-# Formularios
 from .forms import InstitutionV2Form, CampusV2Form, FacultyV2Form, InstitutionForm
 
 # Logger configuration
@@ -1820,3 +1818,51 @@ def get_campuses_by_institution(request, institution_id):
     except Exception as e:
         print(f"Error in get_campuses_by_institution: {e}")  # DEBUG
         return JsonResponse({'error': str(e)}, status=500)
+
+class SubjectUpdateView(UpdateView):
+    model = Subject
+    form_class = SubjectForm
+    template_name = 'material/subjects/subject_form.html'
+    success_url = reverse_lazy('subject_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['outcomes'] = self.object.outcomes.all().order_by('code')
+        context['legacy_outcomes'] = self.object.learning_outcomes if self.object.learning_outcomes else None
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Materia actualizada correctamente')
+        return super().form_valid(form)
+
+class LearningOutcomeCreateView(CreateView):
+    model = LearningOutcome
+    form_class = LearningOutcomeForm
+    template_name = 'material/learningoutcome_form.html'
+    
+    def get_success_url(self):
+        return reverse_lazy('subject_detail', kwargs={'pk': self.object.subject.id})
+
+    def get_initial(self):
+        return {'subject': self.kwargs['subject_id']}
+
+    def form_valid(self, form):
+        form.instance.subject_id = self.kwargs['subject_id']
+        response = super().form_valid(form)
+        messages.success(self.request, 'Resultado de aprendizaje creado')
+        return response
+
+class LearningOutcomeListView(ListView):
+    model = LearningOutcome
+    template_name = 'material/learningoutcome_list.html'
+    context_object_name = 'outcomes'
+    
+    def get_queryset(self):
+        return LearningOutcome.objects.filter(
+            subject_id=self.kwargs['subject_id']
+        ).order_by('code')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['subject'] = Subject.objects.get(pk=self.kwargs['subject_id'])
+        return context

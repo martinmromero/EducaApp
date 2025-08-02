@@ -265,36 +265,12 @@ class Faculty(models.Model):
 class Subject(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Nombre")
     learning_outcomes = models.TextField(
-        blank=True, 
-        null=True, 
-        verbose_name="Resultados de aprendizaje",
-        help_text="Ingrese un resultado por línea. Puede usar el formato 'Código: Descripción' o simplemente la descripción."
+        blank=True,
+        null=True,
+        verbose_name="[OBSOLETO] Resultados de aprendizaje (formato antiguo)",
+        help_text="Este campo será eliminado en futuras versiones. Use el modelo LearningOutcome.",
+        editable=False  # Desactivado en todos los formularios
     )
-
-    def get_learning_outcomes_list(self):
-        """Devuelve los resultados de aprendizaje como lista estructurada"""
-        if not self.learning_outcomes:
-            return []
-        
-        try:
-            # Intentar parsear como JSON
-            return json.loads(self.learning_outcomes)
-        except json.JSONDecodeError:
-            # Si no es JSON, parsear como texto plano
-            outcomes = []
-            for i, line in enumerate(self.learning_outcomes.splitlines(), start=1):
-                line = line.strip()
-                if line:
-                    parts = line.split(':', 1)
-                    code = parts[0].strip() if len(parts) > 1 else f"LO-{i}"
-                    description = parts[1].strip() if len(parts) > 1 else line
-                    
-                    outcomes.append({
-                        'code': code,
-                        'description': description,
-                        'level': 1
-                    })
-            return outcomes
 
     def __str__(self):
         return self.name
@@ -305,19 +281,53 @@ class Subject(models.Model):
         verbose_name_plural = "Materias"
 
 class LearningOutcome(models.Model):
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='outcomes')
-    code = models.CharField(max_length=20)
-    description = models.TextField()
-    level = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(3)],
-        help_text="Nivel de dominio (1: Básico, 2: Intermedio, 3: Avanzado)"
+    LEVEL_CHOICES = [
+        (1, 'Básico'),
+        (2, 'Intermedio'),
+        (3, 'Avanzado')
+    ]
+
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name='outcomes',
+        verbose_name="Asignatura"
     )
+    code = models.CharField(
+        max_length=20,
+        editable=False,  # Generado automáticamente
+        verbose_name="Código",
+        help_text="Generado automáticamente al guardar"
+    )
+    description = models.TextField(verbose_name="Descripción")
+    level = models.PositiveSmallIntegerField(
+        choices=LEVEL_CHOICES,
+        default=1,
+        verbose_name="Nivel"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            # Generar código con prefijo de materia + secuencia (ej: MAT-001)
+            subject_prefix = getattr(self.subject, 'code', 'LO')[:3].upper()
+            last_outcome = LearningOutcome.objects.filter(
+                subject=self.subject
+            ).order_by('-id').first()
+            last_num = int(last_outcome.code.split('-')[-1]) if last_outcome else 0
+            self.code = f"{subject_prefix}-{last_num + 1:03d}"
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.code} - {self.description[:50]}..."
+        return f"{self.code} ({self.get_level_display()}): {self.description[:50]}..."
 
     class Meta:
-        unique_together = ('subject', 'code')
+        verbose_name = "Resultado de Aprendizaje"
+        verbose_name_plural = "Resultados de Aprendizaje"
+        ordering = ['subject', 'code']
+        unique_together = [['subject', 'code']]
+        
 
 class Topic(models.Model):
     name = models.CharField(max_length=255, verbose_name="Nombre del Tema")
