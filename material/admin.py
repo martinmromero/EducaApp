@@ -180,10 +180,19 @@ class SubtopicAdmin(admin.ModelAdmin):
 
 @admin.register(LearningOutcome)
 class LearningOutcomeAdmin(admin.ModelAdmin):
-    list_display = ('code', 'subject', 'level', 'description_short')
-    list_filter = ('subject', 'level')
-    search_fields = ('code', 'description')
+    list_display = ('id', 'short_description', 'subject_name', 'created_at')
+    list_select_related = ('subject',)
+    search_fields = ('description', 'subject__name')
+    list_filter = ('subject__name', 'created_at')
+    readonly_fields = ('created_at', 'updated_at')
+    fields = ('subject', 'description', 'created_at', 'updated_at')
+    ordering = ('-created_at',)
 
-    def description_short(self, obj):
-        return f"{obj.description[:50]}..."
-    description_short.short_description = 'Descripción'
+    def short_description(self, obj):
+        return obj.description[:80] + ('...' if len(obj.description) > 80 else '')
+    short_description.short_description = 'Descripción'
+
+    def subject_name(self, obj):
+        return obj.subject.name
+    subject_name.short_description = 'Materia'
+    subject_name.admin_order_field = 'subject__name'

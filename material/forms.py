@@ -65,31 +65,31 @@ class FacultyForm(forms.ModelForm):
 class LearningOutcomeForm(forms.ModelForm):
     class Meta:
         model = LearningOutcome
-        fields = ['subject', 'description', 'level']  # 'code' no está incluido
+        fields = ['subject', 'description']
         widgets = {
-            'subject': forms.HiddenInput(),  # Normalmente se establece desde la vista
+            'subject': forms.HiddenInput(),
             'description': forms.Textarea(attrs={
                 'class': 'form-control',
-                'rows': 3,
-                'placeholder': 'Ingrese la descripción del resultado de aprendizaje...'
-            }),
-            'level': forms.Select(attrs={
-                'class': 'form-control',
-                'data-placeholder': 'Seleccione nivel de dominio...'
+                'rows': 5,
+                'minlength': '10',
+                'required': 'required',
+                'placeholder': 'Ej: "El estudiante podrá resolver ecuaciones diferenciales..."'
             })
         }
         labels = {
-            'description': 'Descripción',
-            'level': 'Nivel de dominio'
-        }
-        help_texts = {
-            'level': '1: Básico, 2: Intermedio, 3: Avanzado'
+            'description': 'Contenido *'
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if 'subject' in self.initial:
+        if self.instance and self.instance.subject_id:
             self.fields['subject'].disabled = True
+
+    def clean_description(self):
+        description = self.cleaned_data.get('description', '').strip()
+        if len(description) < 10:
+            raise ValidationError("Mínimo 10 caracteres requeridos")
+        return description
 
 class ContenidoForm(forms.ModelForm):
     subject = forms.ModelChoiceField(
@@ -483,9 +483,11 @@ class FacultyV2Form(forms.ModelForm):
         return code or None
 
 class SubjectForm(forms.ModelForm):
+    min_outcomes = 1  # Mínimo requerido de outcomes
+    
     class Meta:
         model = Subject
-        fields = ['name']  # Excluye learning_outcomes
+        fields = ['name']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -500,12 +502,28 @@ class SubjectForm(forms.ModelForm):
             'name': 'Ingrese el nombre completo de la materia'
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['name'].label = "Nombre de la materia *"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        outcomes = [
+            k for k in self.data.keys() 
+            if k.startswith('outcomes-') and 'description' in k
+        ]
+        
+        if len(outcomes) < self.min_outcomes:
+            raise ValidationError(
+                f"Debe ingresar al menos {self.min_outcomes} resultado de aprendizaje"
+            )
+        return cleaned_data
+
     def clean_name(self):
         name = self.cleaned_data.get('name')
         if not name or len(name.strip()) < 3:
             raise ValidationError("El nombre debe tener al menos 3 caracteres")
         return name.strip()
-        
 
 class CareerForm(forms.ModelForm):
     class Meta:

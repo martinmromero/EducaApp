@@ -263,72 +263,134 @@ class Faculty(models.Model):
         verbose_name_plural = "Faculties"
 
 class Subject(models.Model):
-    name = models.CharField(max_length=100, unique=True, verbose_name="Nombre")
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    careers = models.ManyToManyField('Career', related_name='subject_careers')  # Nuevo nombre único    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     learning_outcomes = models.TextField(
-        blank=True,
+        blank=True, 
         null=True,
-        verbose_name="[OBSOLETO] Resultados de aprendizaje (formato antiguo)",
-        help_text="Este campo será eliminado en futuras versiones. Use el modelo LearningOutcome.",
-        editable=False  # Desactivado en todos los formularios
+        help_text="Legacy field - almacena outcomes en texto o JSON"
     )
+
+    class Meta:
+        db_table = 'material_subjects'
+        verbose_name = 'Subject'
+        verbose_name_plural = 'Subjects'
+        ordering = ['name']
 
     def __str__(self):
         return self.name
 
-    class Meta:
-        db_table = 'material_subjects'
-        verbose_name = "Materia"
-        verbose_name_plural = "Materias"
+    def save_outcomes(self, outcomes_data):
+        """Guarda outcomes en el nuevo modelo"""
+        current_outcomes = list(self.learning_outcomes.all())
+        
+        for outcome_data in outcomes_data:
+            outcome_id = outcome_data.get('id')
+            if outcome_id and not outcome_id.startswith('legacy-'):  # Ignorar IDs legacy
+                outcome = next((o for o in current_outcomes if str(o.id) == str(outcome_id)), None)
+                if outcome:
+                    outcome.description = outcome_data['description']
+                    outcome.level = outcome_data.get('level', 1)
+                    outcome.save()
+                    current_outcomes.remove(outcome)
+            else:
+                LearningOutcome.objects.create(
+                    subject=self,
+                    description=outcome_data['description'],
+                    level=outcome_data.get('level', 1)
+                )
+        
+        # Eliminar outcomes no incluidos en el nuevo set
+        for outcome in current_outcomes:
+            outcome.delete()
+
+    @property
+    def legacy_outcomes(self):
+        """Método ya completo - no modificar"""
+        if hasattr(self, '_legacy_outcomes_cache'):
+            return self._legacy_outcomes_cache
+            
+        if not self.learning_outcomes:
+            self._legacy_outcomes_cache = []
+            return self._legacy_outcomes_cache
+            
+        try:
+            data = json.loads(self.learning_outcomes)
+            self._legacy_outcomes_cache = data if isinstance(data, list) else [data]
+        except json.JSONDecodeError:
+            self._legacy_outcomes_cache = [
+                line.strip() for line in self.learning_outcomes.splitlines() 
+                if line.strip()
+            ]
+        return self._legacy_outcomes_cache
+
+    def get_all_outcomes(self):
+        """Método completo (confirmado) - no modificar"""
+        outcomes = list(self.learning_outcomes.all().values('id', 'description', 'level'))
+        
+        for i, item in enumerate(self.legacy_outcomes, start=1):
+            outcomes.append({
+                'id': f'legacy-{i}',
+                'description': item.get('description', str(item)) if isinstance(item, dict) else str(item),
+                'level': item.get('level', 1) if isinstance(item, dict) else 1
+            })
+        return outcomes
+
+    def clean(self):
+        """Validación adicional si es necesaria"""
+        if not self.name.strip():
+            raise ValidationError("El nombre no puede estar vacío")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
 
 class LearningOutcome(models.Model):
-   """  LEVEL_CHOICES = [
-        (1, 'Básico'),
-        (2, 'Intermedio'),
-        (3, 'Avanzado')
-    ]
- """
+    """
+    Modelo simplificado para resultados de aprendizaje:
+    - ID automático (autonumérico)
+    - Relación con Subject (FK)
+    - Campo de texto para el contenido
+    - Campos automáticos de fecha
+    """
     subject = models.ForeignKey(
-        Subject,
+        'Subject',
         on_delete=models.CASCADE,
-        related_name='outcomes',
-        verbose_name="Asignatura"
+        related_name="learning_outcome_relations", 
+        verbose_name="Materia"
     )
-    code = models.CharField(
-        max_length=20,
-        editable=False,  # Generado automáticamente
-        verbose_name="Código",
-        help_text="Generado automáticamente al guardar"
-    )
-    description = models.TextField(verbose_name="Descripción")
-    level = models.PositiveSmallIntegerField(
-        choices=LEVEL_CHOICES,
-        default=1,
-        verbose_name="Nivel"
+    description = models.TextField(
+        verbose_name="Contenido",
+        help_text="Texto completo del resultado de aprendizaje"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        if not self.code:
-            # Generar código con prefijo de materia + secuencia (ej: MAT-001)
-            subject_prefix = getattr(self.subject, 'code', 'LO')[:3].upper()
-            last_outcome = LearningOutcome.objects.filter(
-                subject=self.subject
-            ).order_by('-id').first()
-            last_num = int(last_outcome.code.split('-')[-1]) if last_outcome else 0
-            self.code = f"{subject_prefix}-{last_num + 1:03d}"
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.code} ({self.get_level_display()}): {self.description[:50]}..."
-
     class Meta:
         verbose_name = "Resultado de Aprendizaje"
         verbose_name_plural = "Resultados de Aprendizaje"
-        ordering = ['subject', 'code']
-        unique_together = [['subject', 'code']]
+        ordering = ['subject__name', 'created_at']
+        indexes = [
+            models.Index(fields=['subject', 'created_at']),
+        ]
 
+    def __str__(self):
+        return f"{self.description[:50]}..." if len(self.description) > 50 else self.description
 
+    def clean(self):
+        if not self.description.strip():
+            raise ValidationError("El contenido no puede estar vacío")
+        if len(self.description.strip()) < 10:
+            raise ValidationError("El contenido debe tener al menos 10 caracteres")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+        
 class Topic(models.Model):
     name = models.CharField(max_length=255, verbose_name="Nombre del Tema")
     subject = models.ForeignKey(
@@ -759,24 +821,20 @@ class Career(models.Model):
         FacultyV2,
         blank=True,
         verbose_name="Facultades",
-        related_name="careers"
+        related_name="career_faculties"  # related_name único
     )
- 
     subjects = models.ManyToManyField(
         Subject,
         blank=True,
         verbose_name="Materias",
-        related_name="careers"
-
-    ) 
- 
+        related_name="career_subjects"  # related_name único
+    )
     campus = models.ManyToManyField(
         CampusV2,
         blank=True,
         verbose_name="Campus",
-        related_name="careers_campus"
+        related_name="career_campuses"  # related_name único
     )
-
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Fecha de creación"
@@ -790,9 +848,24 @@ class Career(models.Model):
         verbose_name = "Carrera"
         verbose_name_plural = "Carreras"
         ordering = ['name']
+        indexes = [
+            models.Index(fields=['name']),
+        ]
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        """Validación adicional"""
+        if not self.name.strip():
+            raise ValidationError("El nombre no puede estar vacío")
+        
+        if Career.objects.filter(name__iexact=self.name).exclude(id=self.id).exists():
+            raise ValidationError("Ya existe una carrera con este nombre")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 #nuevas clases para relacionar instituciones con carreras y materias.  falta ajustar carreras, materias e instituciones
 class InstitutionCareer(models.Model):

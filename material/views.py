@@ -50,8 +50,8 @@ LearningOutcomeFormSet = inlineformset_factory(
     LearningOutcome,
     form=LearningOutcomeForm,
     extra=1,
-    can_delete=True,
-    fields=('description', 'level')
+    fields=('description',),
+    fk_name='subject'
 )
 
 
@@ -1629,21 +1629,7 @@ def career_associations(request, pk):
 
 
 
-        # Agregar al final del archivo, antes de las funciones existentes de get_faculties_by_institution
 
-import json
-from material.models import Subject
-
-subject = Subject.objects.get(id=1)
-print("Tipo de dato:", type(subject.learning_outcomes))
-print("Contenido:", repr(subject.learning_outcomes))
-
-# Intenta parsear como JSON
-try:
-    parsed = json.loads(subject.learning_outcomes)
-    print("Como JSON:", parsed)
-except json.JSONDecodeError:
-    print("No es un JSON válido")
 
 @login_required
 @require_http_methods(["POST"])
@@ -1873,37 +1859,43 @@ class SubjectCreateView(CreateView):
     form_class = SubjectForm
     template_name = 'material/subjects/form.html'
     success_url = reverse_lazy('material:subject_list')
-
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.request.POST:
-            context['outcome_formset'] = LearningOutcomeFormSet(self.request.POST)
+            context['outcome_formset'] = LearningOutcomeFormSet(
+                self.request.POST,
+                prefix='outcomes'
+            )
         else:
-            context['outcome_formset'] = LearningOutcomeFormSet()
+            context['outcome_formset'] = LearningOutcomeFormSet(
+                prefix='outcomes'
+            )
         return context
-
+    
     def form_valid(self, form):
         context = self.get_context_data()
         outcome_formset = context['outcome_formset']
         
-        with transaction.atomic():
-            self.object = form.save()
+        if not outcome_formset.is_valid():
+            return self.form_invalid(form)
             
-            if outcome_formset.is_valid():
-                outcome_formset.instance = self.object
-                outcome_formset.save()
-                
-                # Generar códigos automáticos para outcomes sin código
-                for outcome in self.object.outcomes.filter(code__isnull=True):
-                    prefix = self.object.name[:3].upper()
-                    count = self.object.outcomes.count()
-                    outcome.code = f"{prefix}-{str(count).zfill(3)}"
-                    outcome.save()
-                
-                messages.success(self.request, 'Materia y resultados guardados correctamente')
-                return super().form_valid(form)
+        self.object = form.save()
+        
+        outcomes_data = []
+        for outcome_form in outcome_formset:
+            if outcome_form.cleaned_data.get('description'):
+                outcomes_data.append({
+                    'description': outcome_form.cleaned_data['description'],
+                    'level': outcome_form.cleaned_data.get('level', 1)
+                })
+        
+        if len(outcomes_data) < 1:
+            form.add_error(None, "Debe agregar al menos un resultado de aprendizaje")
+            return self.form_invalid(form)
             
-        return self.render_to_response(self.get_context_data(form=form))
+        self.object.save_outcomes(outcomes_data)
+        return super().form_valid(form)
 
 class SubjectUpdateView(UpdateView):
     model = Subject

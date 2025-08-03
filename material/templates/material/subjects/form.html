@@ -33,16 +33,12 @@
                     {% for form in outcome_formset %}
                     <div class="outcome-item card mb-2" id="outcome-{{ forloop.counter0 }}">
                         <div class="card-body">
-                            <div class="row">
-                                <!-- Código -->
-                                <div class="col-md-2">
-                                    {{ form.code.label_tag }}
-                                    {{ form.code }}
-                                    {% if form.code.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {{ form.code.errors }}
-                                        </div>
-                                    {% endif %}
+                            <div class="row align-items-center">
+                                <!-- Numeración -->
+                                <div class="col-md-1 text-center">
+                                    <span class="badge bg-primary outcome-number">
+                                        {{ forloop.counter }}
+                                    </span>
                                 </div>
                                 
                                 <!-- Descripción -->
@@ -56,8 +52,14 @@
                                     {% endif %}
                                 </div>
                                 
+                                <!-- Nivel -->
+                                <div class="col-md-2">
+                                    {{ form.level.label_tag }}
+                                    {{ form.level }}
+                                </div>
+                                
                                 <!-- Controles -->
-                                <div class="col-md-2 d-flex align-items-center">
+                                <div class="col-md-1 d-flex align-items-center">
                                     {% if form.instance.pk %}
                                         {{ form.DELETE }} <label for="{{ form.DELETE.id_for_label }}">Eliminar</label>
                                     {% endif %}
@@ -70,6 +72,9 @@
                         </div>
                     </div>
                     {% endfor %}
+                </div>
+                <div id="outcomes-error" class="text-danger mt-2 d-none">
+                    Debe ingresar al menos un resultado de aprendizaje
                 </div>
             </div>
 
@@ -93,10 +98,32 @@ document.addEventListener('DOMContentLoaded', function() {
     let totalForms = document.getElementById(`id_${formPrefix}-TOTAL_FORMS`);
     let formCount = parseInt(totalForms.value);
     
+    // Actualizar numeración
+    function updateNumbers() {
+        document.querySelectorAll('.outcome-item:not([style*="display: none"])').forEach((item, index) => {
+            item.querySelector('.outcome-number').textContent = index + 1;
+        });
+    }
+    
+    // Validación antes de enviar
+    document.getElementById('subject-form').addEventListener('submit', function(e) {
+        const outcomes = document.querySelectorAll('#outcomes-container .outcome-item:not([style*="display: none"])');
+        const errorElement = document.getElementById('outcomes-error');
+        
+        if (outcomes.length < 1) {
+            e.preventDefault();
+            errorElement.classList.remove('d-none');
+            return false;
+        }
+        errorElement.classList.add('d-none');
+        return true;
+    });
+    
     // Agregar nuevo outcome
     document.getElementById('add-outcome').addEventListener('click', function() {
         const container = document.getElementById('outcomes-container');
-        const newForm = container.children[container.children.length-1].cloneNode(true);
+        const lastForm = container.lastElementChild;
+        const newForm = lastForm.cloneNode(true);
         const newId = 'outcome-' + formCount;
         
         // Actualizar IDs y names
@@ -107,16 +134,19 @@ document.addEventListener('DOMContentLoaded', function() {
         );
         
         // Limpiar valores
-        newForm.querySelectorAll('input, textarea').forEach(input => {
+        newForm.querySelectorAll('input, textarea, select').forEach(input => {
             if (!input.name.includes('DELETE') && !input.name.includes('id')) {
                 input.value = '';
+                if (input.type === 'select-one') {
+                    input.selectedIndex = 0;
+                }
             }
         });
         
         // Mostrar y aumentar contador
-        newForm.style.display = 'block';
         container.appendChild(newForm);
         totalForms.value = ++formCount;
+        updateNumbers();
     });
 
     // Eliminar outcome
@@ -128,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (deleteCheckbox) {
                 deleteCheckbox.checked = true;
                 formItem.style.opacity = '0.5';
-                formItem.querySelectorAll('input, textarea').forEach(input => {
+                formItem.querySelectorAll('input, textarea, select').forEach(input => {
                     if (!input.name.includes('DELETE')) {
                         input.disabled = true;
                     }
@@ -137,8 +167,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 formItem.remove();
                 totalForms.value = --formCount;
             }
+            updateNumbers();
         }
     });
+    
+    // Inicializar numeración
+    updateNumbers();
 });
 </script>
 
@@ -151,6 +185,15 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 [disabled] {
     background-color: #f8f9fa !important;
+}
+.outcome-number {
+    font-size: 1rem;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
 }
 </style>
 {% endblock %}
