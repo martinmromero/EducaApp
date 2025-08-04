@@ -264,7 +264,7 @@ class Faculty(models.Model):
 
 class Subject(models.Model):
     name = models.CharField(max_length=100)
-    description = models.TextField(blank=True, null=True)
+    # description = models.TextField(blank=True, null=True)
     careers = models.ManyToManyField('Career', related_name='subject_careers')  # Nuevo nombre único    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
