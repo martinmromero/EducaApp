@@ -1,0 +1,101 @@
+{% extends "material/base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-lg">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">
+                <i class="bi bi-book me-2"></i>
+                {% if object %}Editar{% else %}Crear{% endif %} Materia
+            </h3>
+        </div>
+        <div class="card-body">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                
+                <!-- Campos principales del Subject -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label class="form-label fw-bold">Nombre de la materia*</label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div class="alert alert-danger mt-2">
+                                    {{ form.name.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección de Outcomes -->
+                <div class="border-top pt-4 mt-4">
+                    <h5 class="mb-3">
+                        <i class="bi bi-list-check me-2"></i>
+                        Resultados de Aprendizaje (Opcionales)
+                    </h5>
+                    
+                    {{ outcome_formset.management_form }}
+                    
+                    <div id="outcomes-container">
+                        {% for form in outcome_formset %}
+                        <div class="card mb-3 outcome-form" data-prefix="{{ form.prefix }}">
+                            <div class="card-body">
+                                {{ form.id }}
+                                <div class="form-group">
+                                    <label class="form-label">Descripción:</label>
+                                    <textarea 
+                                        name="{{ form.prefix }}-description"
+                                        class="form-control"
+                                        rows="3"
+                                    >{{ form.description.value|default:'' }}</textarea>
+                                    {% if form.description.errors %}
+                                        <div class="alert alert-danger mt-2">
+                                            {{ form.description.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if outcome_formset.can_delete %}
+                                <div class="form-check mt-2">
+                                    {{ form.DELETE }}
+                                    <label class="form-check-label text-danger" for="{{ form.DELETE.id_for_label }}">
+                                        <i class="bi bi-trash"></i> Eliminar este resultado
+                                    </label>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <button type="button" id="add-outcome" class="btn btn-sm btn-outline-primary mt-2">
+                        <i class="bi bi-plus-circle"></i> Añadir otro resultado
+                    </button>
+                </div>
+
+                <!-- Botones de acción -->
+                <div class="d-flex justify-content-between mt-5">
+                    <a href="{% url 'material:subject_list' %}" class="btn btn-secondary">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-save"></i> Guardar cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="{% static 'material/js/learning_outcomes.js' %}"></script>
+{% endblock %}
+<style>
+.outcome-form {
+    transition: all 0.3s ease;
+}
+.outcome-form:hover {
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}

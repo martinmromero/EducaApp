@@ -350,17 +350,10 @@ class Subject(models.Model):
 
 
 class LearningOutcome(models.Model):
-    """
-    Modelo simplificado para resultados de aprendizaje:
-    - ID automático (autonumérico)
-    - Relación con Subject (FK)
-    - Campo de texto para el contenido
-    - Campos automáticos de fecha
-    """
     subject = models.ForeignKey(
         'Subject',
         on_delete=models.CASCADE,
-        related_name="learning_outcome_relations", 
+        related_name="outcome_relations",  # Nombre único que evita conflictos
         verbose_name="Materia"
     )
     description = models.TextField(
@@ -374,22 +367,6 @@ class LearningOutcome(models.Model):
         verbose_name = "Resultado de Aprendizaje"
         verbose_name_plural = "Resultados de Aprendizaje"
         ordering = ['subject__name', 'created_at']
-        indexes = [
-            models.Index(fields=['subject', 'created_at']),
-        ]
-
-    def __str__(self):
-        return f"{self.description[:50]}..." if len(self.description) > 50 else self.description
-
-    def clean(self):
-        if not self.description.strip():
-            raise ValidationError("El contenido no puede estar vacío")
-        if len(self.description.strip()) < 10:
-            raise ValidationError("El contenido debe tener al menos 10 caracteres")
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
         
 class Topic(models.Model):
     name = models.CharField(max_length=255, verbose_name="Nombre del Tema")
