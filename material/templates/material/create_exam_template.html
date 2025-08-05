@@ -56,21 +56,6 @@
                     <input type="text" class="form-control dynamic-input" id="new_career" placeholder="Nombre de la Carrera">
                 </div>
             </div>
-
-            <!-- Sede -- comentada para ser borrada luego>
-<!--             <div class="form-group">
-                <div class="form-row">
-                    <label for="{{ form.campus.id_for_label }}">{{ form.campus.label }}</label>
-                    <div class="input-combo">
-                        {{ form.campus }}
-                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
-                                data-target="campus" data-field="id_campus" data-parent="id_institution">
-                            <i class="fas fa-plus"></i> Nuevo
-                        </button>
-                    </div>
-                    <input type="text" class="form-control dynamic-input" id="new_campus" placeholder="Nombre de la Sede">
-                </div>
-            </div> -->
         </div>
 
         <!-- Columna derecha -->
@@ -98,74 +83,57 @@
                 </div>
             </div>
 
-            <!-- Tipo de Examen comentado para ser movido a creación de examen luego. no borrarlo!-->
-<!--             <div class="form-group">
+            <!-- Duración del examen -->
+            <div class="form-group">
                 <div class="form-row">
-                    <label for="{{ form.exam_type.id_for_label }}">Tipo de Examen</label>
-                    <select name="exam_type" id="id_exam_type" class="form-control" required>
-                        <option value="">---------</option>
-                        <option value="1er_parcial">1er. Parcial</option>
-                        <option value="2do_parcial">2do. Parcial</option>
-                        <option value="3er_parcial">3er. Parcial</option>
-                        <option value="final">Final</option>
-                        <option value="recuperatorio">Recuperatorio</option>
-                    </select>
+                    <label for="resolution_time">Tiempo de Examen</label>
+                    <input type="text" 
+                        name="resolution_time" 
+                        id="id_resolution_time"
+                        class="form-control" 
+                        placeholder="Ej: 90 minutos, 2 horas" 
+                        value="60 minutos"
+                        required>
+                    <small class="form-text text-muted">Ingrese la duración completa (ej: "90 minutos" o "2 horas")</small>
                 </div>
-            </div> -->
-
-          
-    <!-- Duración del examen - Versión simplificada -->
-    <div class="form-group">
-        <div class="form-row">
-            <label for="resolution_time">Tiempo de Examen</label>
-            <input type="text" 
-                name="resolution_time" 
-                id="id_resolution_time"
-                class="form-control" 
-                placeholder="Ej: 90 minutos, 2 horas" 
-                value="60 minutos"
-                required>
-            <small class="form-text text-muted">Ingrese la duración completa (ej: "90 minutos" o "2 horas")</small>
-        </div>
-    </div>
-
-            <!-- Modalidad del examen comentado para ser movido a creacion de examen, no borrar!!-->
-<!--             <div class="form-group">
-                <div class="form-row">
-                    <label for="{{ form.exam_mode.id_for_label }}">Modalidad del Examen</label>
-                    <select name="exam_mode" id="id_exam_mode" class="form-control" required>
-                        <option value="">---------</option>
-                        <option value="presencial">Presencial</option>
-                        <option value="virtual">Virtual</option>
-                        <option value="domiciliario">Domiciliario</option>
-                        <option value="hibrido">Híbrido</option>
-                        <option value="otro">Otro</option>
-                    </select>
-                </div>
-            </div> -->
-
-            <!-- Año del examen comentado para ser borrado luego-->
-<!--             <div class="form-group">
-                <div class="form-row">
-                    <label for="{{ form.year.id_for_label }}">{{ form.year.label }}</label>
-                    {{ form.year }}
-                </div>
-            </div> -->
+            </div>
         </div>
     </div>
 
     <!-- Campos de ancho completo -->
     <div class="full-width-fields">
-        
-        <!-- Bloque de Learning Outcomes -->
+        <!-- Bloque de Learning Outcomes Actualizado -->
         <div class="form-group full-width-fields">
-            <label for="learning_outcomes_field">Resultados de aprendizaje</label>
+            <label>Resultados de aprendizaje</label>
             <div class="input-group">
                 <input type="hidden" name="learning_outcomes" id="id_learning_outcomes" value="">
                 <div id="learning_outcomes_container" class="learning-outcomes-container">
-                    <p class="text-muted">
-                        <i class="fas fa-info-circle"></i> Seleccione una materia para cargar los resultados
-                    </p>
+                    {% if form.subject.value %}
+                        <div class="outcomes-checkbox-list">
+                            {% for outcome in form.learning_outcomes.field.queryset %}
+                                <div class="form-check">
+                                    <input class="form-check-input outcome-checkbox" 
+                                           type="checkbox" 
+                                           value="{{ outcome.id }}"
+                                           id="outcome_{{ outcome.id }}"
+                                           {% if outcome.id in form.learning_outcomes.value %}checked{% endif %}>
+                                    <label class="form-check-label" for="outcome_{{ outcome.id }}">
+                                        {{ outcome.description }}
+                                    </label>
+                                </div>
+                            {% empty %}
+                                <p class="text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    No hay resultados de aprendizaje definidos para esta materia
+                                </p>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">
+                            <i class="fas fa-info-circle"></i> 
+                            Seleccione una materia para cargar los resultados
+                        </p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -181,31 +149,17 @@
             <label for="{{ form.notes_and_recommendations.id_for_label }}">{{ form.notes_and_recommendations.label }}</label>
             {{ form.notes_and_recommendations }}
         </div>
-
-        <!-- Logo de la Institución -->
-        <div class="form-group">
-            <label for="{{ form.institution_logo.id_for_label }}">{{ form.institution_logo.label }}</label>
-            {{ form.institution_logo }}
-        </div>
     </div>
 
     <div class="form-actions">
         <button type="button" id="save-template-btn" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Plantilla</button>
-       <button type="button" onclick="previewExamTemplate()" class="btn btn-secondary">
-    <i class="fas fa-eye"></i> Previsualizar
-</button>
+        <button type="button" onclick="previewExamTemplate()" class="btn btn-secondary">
+            <i class="fas fa-eye"></i> Previsualizar
+        </button>
     </div>
 </form>
 
 <!-- Preview section -->
-<div id="previewContainer" class="preview-container" style="display: none;">
-    <div id="previewContent"></div>
-</div>
-
-<script src="{% static 'material/js/create_exam_template.js' %}"></script>
-
-
-<!-- Agregar esto al final del formulario, antes del cierre del block content -->
 <div id="previewContainer" class="preview-container mt-4" style="display: none;">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3>Previsualización</h3>
@@ -223,26 +177,25 @@
     border-radius: 5px;
     padding: 20px;
     background-color: #f8f9fa;
+    margin-top: 30px;
+    transition: all 0.3s ease;
 }
 .preview-content {
     background: white;
     padding: 20px;
     border-radius: 5px;
     box-shadow: 0 0 10px rgba(0,0,0,0.05);
-}
-
-/* Agregar esto a los estilos existentes */
-.preview-container {
-    margin-top: 30px;
-    transition: all 0.3s ease;
-}
-.preview-content {
     max-height: 70vh;
     overflow-y: auto;
 }
-/* Ajustar para que el preview no herede estilos del formulario */
-.preview-content * {
-    all: revert;
+.outcomes-checkbox-list {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
 }
 </style>
+
+<script src="{% static 'material/js/create_exam_template.js' %}"></script>
 {% endblock %}

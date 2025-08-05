@@ -41,6 +41,13 @@ from .forms import InstitutionForm, LearningOutcomeForm, ProfileForm
 
 from .forms import InstitutionV2Form, CampusV2Form, FacultyV2Form, InstitutionForm
 
+from django.db import transaction
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from .models import ExamTemplate, LearningOutcome
+
+from django.db import IntegrityError  # Agregar este import al inicio
+
 # Logger configuration
 logger = logging.getLogger(__name__)
 
@@ -283,42 +290,19 @@ def preview_exam_template(request):
         subject = Subject.objects.get(id=request.POST['subject'])
         professor = User.objects.get(id=request.POST.get('professor', request.user.id))
 
-        # Obtener los outcomes seleccionados (nuevo código)
+        # Obtener los outcomes seleccionados del modelo LearningOutcome
         outcomes_to_display = []
         if selected_outcomes:
-            # 1. Buscar en LearningOutcome (IDs normales)
-            db_outcomes = LearningOutcome.objects.filter(
-                id__in=[oid for oid in selected_outcomes if not oid.startswith('legacy-')]
+            outcomes = LearningOutcome.objects.filter(
+                id__in=selected_outcomes,
+                subject=subject
             )
-            outcomes_to_display.extend([
+            outcomes_to_display = [
                 {
-                    'code': outcome.code,
                     'description': outcome.description
                 }
-                for outcome in db_outcomes
-            ])
-
-            # 2. Buscar en outcomes legacy (texto plano)
-            if subject.learning_outcomes:
-                try:
-                    legacy_outcomes = []
-                    for i, line in enumerate(subject.learning_outcomes.splitlines(), start=1):
-                        line = line.strip()
-                        if line:
-                            parts = line.split(':', 1)
-                            code = parts[0].strip() if len(parts) > 1 else f"LO-{i}"
-                            desc = parts[1].strip() if len(parts) > 1 else line
-                            legacy_id = f"legacy-{i}"
-                            
-                            if legacy_id in selected_outcomes:
-                                legacy_outcomes.append({
-                                    'code': code,
-                                    'description': desc
-                                })
-                    
-                    outcomes_to_display.extend(legacy_outcomes)
-                except Exception as e:
-                    logger.error(f"Error procesando legacy outcomes: {str(e)}")
+                for outcome in outcomes
+            ]
 
         context = {
             'institution': institution,
@@ -331,7 +315,7 @@ def preview_exam_template(request):
             'resolution_time': request.POST.get('resolution_time', '60 minutos'),
             'topics_to_evaluate': request.POST.get('topics_to_evaluate', ''),
             'notes_and_recommendations': request.POST.get('notes_and_recommendations', ''),
-            'learning_outcomes': outcomes_to_display,  # Asegurar que esto llega al template
+            'learning_outcomes': outcomes_to_display,
             'current_date': timezone.now().strftime("%d/%m/%Y")
         }
 
@@ -341,33 +325,27 @@ def preview_exam_template(request):
         logger.error(f"Preview error: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
 
-from django.db import transaction
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from .models import ExamTemplate, LearningOutcome
-
-from django.db import IntegrityError  # Agregar este import al inicio
 
 @login_required
 @transaction.atomic
 def save_exam_template(request):
     if request.method == 'POST':
         try:
-            # Obtener datos del formulario (con valores por defecto para campos opcionales)
+            # Obtener datos del formulario
             exam_template_data = {
                 'institution_id': request.POST.get('institution'),
                 'faculty_id': request.POST.get('faculty'),
                 'career_id': request.POST.get('career'),
                 'subject_id': request.POST.get('subject'),
-                 'exam_mode': request.POST.get('exam_mode'),  # Valor por defecto
-                'exam_type': request.POST.get('exam_type'),  # Valor por defecto
+                'exam_mode': request.POST.get('exam_mode'),
+                'exam_type': request.POST.get('exam_type'),
                 'resolution_time': request.POST.get('resolution_time', '60 minutos'),
                 'created_by': request.user,
-                'campus_id': request.POST.get('campus'),  # Puede ser null
-                'professor_id': request.POST.get('professor', request.user.id)  # Default al usuario actual
+                'campus_id': request.POST.get('campus'),
+                'professor_id': request.POST.get('professor', request.user.id)
             }
 
-            # Validación mínima de relaciones requeridas
+            # Validación mínima
             required_fields = ['institution_id', 'faculty_id', 'career_id', 'subject_id']
             if not all(exam_template_data[field] for field in required_fields):
                 return JsonResponse({
@@ -375,11 +353,11 @@ def save_exam_template(request):
                     'error': 'Institución, Facultad, Carrera y Materia son requeridos'
                 }, status=400)
 
-            # Crear la plantilla (ignorando la validación estricta temporalmente)
+            # Crear la plantilla
             exam_template = ExamTemplate(**exam_template_data)
-            exam_template.save(skip_validation=True)  # Necesitaremos agregar este método al modelo
+            exam_template.save(skip_validation=True)
 
-            # Manejar outcomes
+            # Manejar outcomes (solo del modelo LearningOutcome)
             outcomes_ids = []
             if 'learning_outcomes[]' in request.POST:
                 outcomes_ids = request.POST.getlist('learning_outcomes[]')
@@ -387,34 +365,12 @@ def save_exam_template(request):
                 outcomes_str = request.POST.get('learning_outcomes', '')
                 outcomes_ids = [x for x in outcomes_str.split(',') if x]
 
-            # Separar outcomes legacy y normales
-            db_outcomes = []
-            legacy_outcomes = []
-            
-            for oid in outcomes_ids:
-                if oid.startswith('legacy-'):
-                    legacy_outcomes.append(oid)
-                else:
-                    db_outcomes.append(oid)
-
-            # Asignar outcomes normales
-            if db_outcomes:
-                outcomes = LearningOutcome.objects.filter(id__in=db_outcomes)
+            if outcomes_ids:
+                outcomes = LearningOutcome.objects.filter(
+                    id__in=outcomes_ids,
+                    subject_id=exam_template_data['subject_id']
+                )
                 exam_template.learning_outcomes.set(outcomes)
-
-            # Para legacy outcomes, guardar como texto en notes_and_recommendations
-            if legacy_outcomes:
-                subject = Subject.objects.get(id=exam_template_data['subject_id'])
-                if subject.learning_outcomes:
-                    legacy_text = "\n".join(
-                        line for i, line in enumerate(subject.learning_outcomes.splitlines(), start=1)
-                        if f"legacy-{i}" in legacy_outcomes
-                    )
-                    exam_template.notes_and_recommendations = (
-                        f"{exam_template.notes_and_recommendations or ''}\n"
-                        f"Resultados de aprendizaje (legacy):\n{legacy_text}"
-                    )
-                    exam_template.save(skip_validation=True)
 
             return JsonResponse({
                 'success': True, 
@@ -873,17 +829,19 @@ def delete_exam_template(request):
         messages.success(request, 'Las plantillas seleccionadas se han eliminado correctamente.', extra_tags='exam_template')
     return redirect('material:list_exam_templates')
 
+
 @login_required
 def manage_learning_outcomes(request):
-    outcomes = LearningOutcome.objects.all()
     if request.method == 'POST':
         form = LearningOutcomeForm(request.POST)
         if form.is_valid():
-            form.save()
+            outcome = form.save()
             messages.success(request, 'Resultado de aprendizaje guardado correctamente.')
             return redirect('material:manage_learning_outcomes')
     else:
         form = LearningOutcomeForm()
+
+    outcomes = LearningOutcome.objects.select_related('subject').all()
     return render(request, 'material/manage_learning_outcomes.html', {
         'outcomes': outcomes,
         'form': form
@@ -897,48 +855,8 @@ def get_learning_outcomes(request):
     
     try:
         subject = Subject.objects.get(id=subject_id)
-        outcomes = []
-        
-        # Primero verificar si hay outcomes en el modelo LearningOutcome
-        if hasattr(subject, 'outcomes'):
-            outcomes = list(LearningOutcome.objects.filter(subject=subject)
-                          .values('id', 'code', 'description', 'level'))
-        
-        # Si no hay outcomes en el modelo, verificar el campo learning_outcomes
-        if not outcomes and subject.learning_outcomes:
-            try:
-                # Intentar parsear como JSON si está en ese formato
-                outcomes_data = json.loads(subject.learning_outcomes)
-                if isinstance(outcomes_data, list):
-                    outcomes = outcomes_data
-                else:
-                    # Si es texto plano, convertirlo a formato estructurado
-                    outcomes = []
-                    for i, line in enumerate(subject.learning_outcomes.splitlines(), start=1):
-                        line = line.strip()
-                        if line:
-                            parts = line.split(':', 1)
-                            code = parts[0].strip() if len(parts) > 1 else f"LO-{i}"
-                            description = parts[1].strip() if len(parts) > 1 else line
-                            
-                            outcomes.append({
-                                'id': f"legacy-{i}",
-                                'code': code,
-                                'description': description,
-                                'level': 1
-                            })
-            except json.JSONDecodeError:
-                # Si no es JSON válido, tratarlo como texto plano
-                outcomes = []
-                for i, line in enumerate(subject.learning_outcomes.splitlines(), start=1):
-                    line = line.strip()
-                    if line:
-                        outcomes.append({
-                            'id': f"legacy-{i}",
-                            'code': f"LO-{i}",
-                            'description': line,
-                            'level': 1
-                        })
+        outcomes = list(LearningOutcome.objects.filter(subject=subject)
+                      .values('id', 'description'))
         
         return JsonResponse(outcomes, safe=False)
     
@@ -947,6 +865,7 @@ def get_learning_outcomes(request):
     except Exception as e:
         logger.error(f"Error en get_learning_outcomes: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
+
 
 @login_required
 def manage_institutions(request):

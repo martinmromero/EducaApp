@@ -70,14 +70,14 @@ class LearningOutcomeForm(forms.ModelForm):
             'subject': forms.HiddenInput(),
             'description': forms.Textarea(attrs={
                 'class': 'form-control',
-                'rows': 5,
+                'rows': 3,
                 'minlength': '10',
                 'required': 'required',
-                'placeholder': 'Ej: "El estudiante podrá resolver ecuaciones diferenciales..."'
+                'placeholder': 'Descripción del resultado de aprendizaje...'
             })
         }
         labels = {
-            'description': 'Contenido *'
+            'description': 'Descripción *'
         }
 
     def __init__(self, *args, **kwargs):
@@ -88,7 +88,7 @@ class LearningOutcomeForm(forms.ModelForm):
     def clean_description(self):
         description = self.cleaned_data.get('description', '').strip()
         if len(description) < 10:
-            raise ValidationError("Mínimo 10 caracteres requeridos")
+            raise ValidationError("La descripción debe tener al menos 10 caracteres")
         return description
 
 class ContenidoForm(forms.ModelForm):
@@ -265,8 +265,8 @@ class ExamForm(forms.ModelForm):
                 pass
         elif self.instance.pk:
             self.fields['topics'].queryset = self.instance.subject.topic_set.all()
-            self.fields['learning_outcomes'].queryset = self.instance.subject.learningoutcome_set.all()
-   
+            self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(subject=self.instance.subject)
+
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
@@ -282,30 +282,19 @@ class ExamTemplateForm(forms.ModelForm):
         exclude = ['exam_group']
         fields = [
             'institution', 'faculty', 'career', 'subject', 'campus', 'professor',
-            #'year', 'exam_type', #'partial_number', 
-            'exam_mode', 'exam_group',
-            'shift', #'resolution_time_number', 'resolution_time_unit',  # Cambiados
+            'exam_mode', 'exam_group', 'shift',
             'learning_outcomes', 'notes_and_recommendations', 'topics_to_evaluate'
         ]
         widgets = {
-            'resolution_time_number': forms.NumberInput(attrs={
-                'min': 1,
-                'class': 'form-control',
-                'placeholder': 'Ej: 90'
-            }),
-            'resolution_time_unit': forms.Select(attrs={
-                'class': 'form-control'
-            }),
-            'exam_mode': forms.Select(attrs={
-                'class': 'form-control'
-            }),
+            'learning_outcomes': forms.CheckboxSelectMultiple(
+                attrs={'class': 'learning-outcomes-checkbox'}
+            ),
         }
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
-        # Configuración inicial de querysets
         if user:
             self.fields['institution'].queryset = InstitutionV2.objects.filter(
                 userinstitution__user=user, 
@@ -316,17 +305,23 @@ class ExamTemplateForm(forms.ModelForm):
 
         self.fields['faculty'].queryset = FacultyV2.objects.none()
         self.fields['campus'].queryset = CampusV2.objects.none()
-
-        # Configuración del campo profesor
         self.fields['professor'].queryset = User.objects.filter(is_active=True)
         self.fields['professor'].label_from_instance = lambda obj: f"{obj.first_name} {obj.last_name} ({obj.username})"
         
-        # Punto 7 - Mejora para learning_outcomes
-        self.fields['learning_outcomes'].queryset = LearningOutcome.objects.all()
-        self.fields['learning_outcomes'].widget = forms.CheckboxSelectMultiple(
-            attrs={'class': 'learning-outcomes-checkbox'}
-        )
-   
+        # Configurar outcomes basado en la materia seleccionada
+        if 'subject' in self.data:
+            try:
+                subject_id = int(self.data.get('subject'))
+                self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(
+                    subject_id=subject_id
+                )
+            except (ValueError, TypeError):
+                pass
+        elif self.instance.pk and self.instance.subject:
+            self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(
+                subject=self.instance.subject
+            )
+
 class CustomLoginForm(AuthenticationForm):
     username = forms.CharField(
         widget=forms.TextInput(attrs={'class': 'form-control'})
@@ -483,8 +478,6 @@ class FacultyV2Form(forms.ModelForm):
         return code or None
 
 class SubjectForm(forms.ModelForm):
-    min_outcomes = 1  # Mínimo requerido de outcomes
-    
     class Meta:
         model = Subject
         fields = ['name']
@@ -496,28 +489,12 @@ class SubjectForm(forms.ModelForm):
             })
         }
         labels = {
-            'name': 'Nombre de la materia'
-        }
-        help_texts = {
-            'name': 'Ingrese el nombre completo de la materia'
+            'name': 'Nombre de la materia *'
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['name'].label = "Nombre de la materia *"
-
-    def clean(self):
-        cleaned_data = super().clean()
-        outcomes = [
-            k for k in self.data.keys() 
-            if k.startswith('outcomes-') and 'description' in k
-        ]
-        
-        if len(outcomes) < self.min_outcomes:
-            raise ValidationError(
-                f"Debe ingresar al menos {self.min_outcomes} resultado de aprendizaje"
-            )
-        return cleaned_data
 
     def clean_name(self):
         name = self.cleaned_data.get('name')
@@ -525,6 +502,8 @@ class SubjectForm(forms.ModelForm):
             raise ValidationError("El nombre debe tener al menos 3 caracteres")
         return name.strip()
 
+    # Eliminamos el método clean() que validaba min_outcomes
+    
 class CareerForm(forms.ModelForm):
     class Meta:
         model = Career
