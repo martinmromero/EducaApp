@@ -1,101 +1,199 @@
 {% extends "material/base.html" %}
 {% block content %}
-<div class="container mt-4">
-    <div class="card shadow-lg">
-        <div class="card-header bg-primary text-white">
-            <h3 class="mb-0">
-                <i class="bi bi-book me-2"></i>
-                {% if object %}Editar{% else %}Crear{% endif %} Materia
-            </h3>
-        </div>
-        <div class="card-body">
-            <form method="post" novalidate>
-                {% csrf_token %}
-                
-                <!-- Campos principales del Subject -->
-                <div class="row mb-4">
-                    <div class="col-md-12">
-                        <div class="form-group">
-                            <label class="form-label fw-bold">Nombre de la materia*</label>
-                            {{ form.name }}
-                            {% if form.name.errors %}
-                                <div class="alert alert-danger mt-2">
-                                    {{ form.name.errors }}
-                                </div>
-                            {% endif %}
-                        </div>
+<div class="card shadow">
+    <div class="card-header">
+        <h5 class="mb-0">{{ action }} Materia {% if subject %}: {{ subject.name }}{% endif %}</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" id="subject-form">
+            {% csrf_token %}
+            
+            <!-- Campo Nombre -->
+            <div class="mb-3">
+                {{ form.name.label_tag }}
+                {{ form.name }}
+                {% if form.name.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.name.errors }}
                     </div>
+                {% endif %}
+            </div>
+
+            <!-- Sección de Learning Outcomes -->
+            <div class="mb-4 border-top pt-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6>Resultados de Aprendizaje</h6>
+                    <button type="button" id="add-outcome" class="btn btn-sm btn-success">
+                        <i class="bi bi-plus-circle"></i> Agregar
+                    </button>
                 </div>
 
-                <!-- Sección de Outcomes -->
-                <div class="border-top pt-4 mt-4">
-                    <h5 class="mb-3">
-                        <i class="bi bi-list-check me-2"></i>
-                        Resultados de Aprendizaje (Opcionales)
-                    </h5>
-                    
-                    {{ outcome_formset.management_form }}
-                    
-                    <div id="outcomes-container">
-                        {% for form in outcome_formset %}
-                        <div class="card mb-3 outcome-form" data-prefix="{{ form.prefix }}">
-                            <div class="card-body">
-                                {{ form.id }}
-                                <div class="form-group">
-                                    <label class="form-label">Descripción:</label>
-                                    <textarea 
-                                        name="{{ form.prefix }}-description"
-                                        class="form-control"
-                                        rows="3"
-                                    >{{ form.description.value|default:'' }}</textarea>
+                {{ outcome_formset.management_form }}
+                <div id="outcomes-container">
+                    {% for form in outcome_formset %}
+                    <div class="outcome-item card mb-2" id="outcome-{{ forloop.counter0 }}">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <!-- Numeración -->
+                                <div class="col-md-1 text-center">
+                                    <span class="badge bg-primary outcome-number">
+                                        {{ forloop.counter }}
+                                    </span>
+                                </div>
+                                
+                                <!-- Descripción -->
+                                <div class="col-md-8">
+                                    {{ form.description.label_tag }}
+                                    {{ form.description }}
                                     {% if form.description.errors %}
-                                        <div class="alert alert-danger mt-2">
+                                        <div class="invalid-feedback d-block">
                                             {{ form.description.errors }}
                                         </div>
                                     {% endif %}
                                 </div>
                                 
-                                {% if outcome_formset.can_delete %}
-                                <div class="form-check mt-2">
-                                    {{ form.DELETE }}
-                                    <label class="form-check-label text-danger" for="{{ form.DELETE.id_for_label }}">
-                                        <i class="bi bi-trash"></i> Eliminar este resultado
-                                    </label>
+                                <!-- Nivel -->
+                                <div class="col-md-2">
+                                    {{ form.level.label_tag }}
+                                    {{ form.level }}
                                 </div>
-                                {% endif %}
+                                
+                                <!-- Controles -->
+                                <div class="col-md-1 d-flex align-items-center">
+                                    {% if form.instance.pk %}
+                                        {{ form.DELETE }} <label for="{{ form.DELETE.id_for_label }}">Eliminar</label>
+                                    {% endif %}
+                                    {{ form.id }}
+                                    <button type="button" class="btn btn-sm btn-danger remove-outcome ms-auto">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        {% endfor %}
                     </div>
-                    
-                    <button type="button" id="add-outcome" class="btn btn-sm btn-outline-primary mt-2">
-                        <i class="bi bi-plus-circle"></i> Añadir otro resultado
-                    </button>
+                    {% endfor %}
                 </div>
+                <div id="outcomes-error" class="text-danger mt-2 d-none">
+                    Debe ingresar al menos un resultado de aprendizaje
+                </div>
+            </div>
 
-                <!-- Botones de acción -->
-                <div class="d-flex justify-content-between mt-5">
-                    <a href="{% url 'material:subject_list' %}" class="btn btn-secondary">
-                        <i class="bi bi-x-circle"></i> Cancelar
-                    </a>
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-save"></i> Guardar cambios
-                    </button>
-                </div>
-            </form>
-        </div>
+            <!-- Botones de acción -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{% if subject %}{% url 'material:subject_detail' pk=subject.pk %}{% else %}{% url 'material:subject_list' %}{% endif %}" 
+                   class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Guardar
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
-{% block extra_js %}
-<script src="{% static 'material/js/learning_outcomes.js' %}"></script>
-{% endblock %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formPrefix = 'outcomes';
+    let totalForms = document.getElementById(`id_${formPrefix}-TOTAL_FORMS`);
+    let formCount = parseInt(totalForms.value);
+    
+    // Actualizar numeración
+    function updateNumbers() {
+        document.querySelectorAll('.outcome-item:not([style*="display: none"])').forEach((item, index) => {
+            item.querySelector('.outcome-number').textContent = index + 1;
+        });
+    }
+    
+    // Validación antes de enviar
+    document.getElementById('subject-form').addEventListener('submit', function(e) {
+        const outcomes = document.querySelectorAll('#outcomes-container .outcome-item:not([style*="display: none"])');
+        const errorElement = document.getElementById('outcomes-error');
+        
+        if (outcomes.length < 1) {
+            e.preventDefault();
+            errorElement.classList.remove('d-none');
+            return false;
+        }
+        errorElement.classList.add('d-none');
+        return true;
+    });
+    
+    // Agregar nuevo outcome
+    document.getElementById('add-outcome').addEventListener('click', function() {
+        const container = document.getElementById('outcomes-container');
+        const lastForm = container.lastElementChild;
+        const newForm = lastForm.cloneNode(true);
+        const newId = 'outcome-' + formCount;
+        
+        // Actualizar IDs y names
+        newForm.id = newId;
+        newForm.innerHTML = newForm.innerHTML.replace(
+            new RegExp(`${formPrefix}-(\\d+)-`, 'g'),
+            `${formPrefix}-${formCount}-`
+        );
+        
+        // Limpiar valores
+        newForm.querySelectorAll('input, textarea, select').forEach(input => {
+            if (!input.name.includes('DELETE') && !input.name.includes('id')) {
+                input.value = '';
+                if (input.type === 'select-one') {
+                    input.selectedIndex = 0;
+                }
+            }
+        });
+        
+        // Mostrar y aumentar contador
+        container.appendChild(newForm);
+        totalForms.value = ++formCount;
+        updateNumbers();
+    });
+
+    // Eliminar outcome
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-outcome')) {
+            const formItem = e.target.closest('.outcome-item');
+            const deleteCheckbox = formItem.querySelector('input[type="checkbox"][name*="-DELETE"]');
+            
+            if (deleteCheckbox) {
+                deleteCheckbox.checked = true;
+                formItem.style.opacity = '0.5';
+                formItem.querySelectorAll('input, textarea, select').forEach(input => {
+                    if (!input.name.includes('DELETE')) {
+                        input.disabled = true;
+                    }
+                });
+            } else {
+                formItem.remove();
+                totalForms.value = --formCount;
+            }
+            updateNumbers();
+        }
+    });
+    
+    // Inicializar numeración
+    updateNumbers();
+});
+</script>
+
 <style>
-.outcome-form {
+.outcome-item {
     transition: all 0.3s ease;
 }
-.outcome-form:hover {
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+.outcome-item:hover {
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+}
+[disabled] {
+    background-color: #f8f9fa !important;
+}
+.outcome-number {
+    font-size: 1rem;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
 }
 </style>
 {% endblock %}

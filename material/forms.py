@@ -65,9 +65,8 @@ class FacultyForm(forms.ModelForm):
 class LearningOutcomeForm(forms.ModelForm):
     class Meta:
         model = LearningOutcome
-        fields = ['subject', 'description']
+        fields = ['description']  # Eliminamos 'subject' de los fields
         widgets = {
-            'subject': forms.HiddenInput(),
             'description': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 3,
@@ -82,8 +81,7 @@ class LearningOutcomeForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.instance and self.instance.subject_id:
-            self.fields['subject'].disabled = True
+        # Eliminamos la lógica relacionada con subject ya que no lo necesitamos en el form
 
     def clean_description(self):
         description = self.cleaned_data.get('description', '').strip()
@@ -503,7 +501,7 @@ class SubjectForm(forms.ModelForm):
         return name.strip()
 
     # Eliminamos el método clean() que validaba min_outcomes
-    
+
 class CareerForm(forms.ModelForm):
     class Meta:
         model = Career

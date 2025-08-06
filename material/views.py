@@ -1453,7 +1453,7 @@ class SubjectDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['outcomes'] = self.object.outcomes.all().order_by('code')  # Agrega outcomes al contexto
+        context['outcomes'] = self.object.outcome_relations.all()  # Eliminado .order_by('code')
         return context
 
 
@@ -1801,19 +1801,12 @@ class SubjectCreateView(CreateView):
             
         self.object = form.save()
         
-        outcomes_data = []
-        for outcome_form in outcome_formset:
-            if outcome_form.cleaned_data.get('description'):
-                outcomes_data.append({
-                    'description': outcome_form.cleaned_data['description'],
-                    'level': outcome_form.cleaned_data.get('level', 1)
-                })
-        
-        if len(outcomes_data) < 1:
-            form.add_error(None, "Debe agregar al menos un resultado de aprendizaje")
-            return self.form_invalid(form)
+        # Procesar outcomes a través del formset directamente
+        outcomes = outcome_formset.save(commit=False)
+        for outcome in outcomes:
+            outcome.subject = self.object
+            outcome.save()
             
-        self.object.save_outcomes(outcomes_data)
         return super().form_valid(form)
 
 class SubjectUpdateView(UpdateView):
@@ -1823,16 +1816,21 @@ class SubjectUpdateView(UpdateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        subject = self.get_object()
+        
         if self.request.POST:
             context['outcome_formset'] = LearningOutcomeFormSet(
-                self.request.POST, 
-                instance=self.object
+                self.request.POST,
+                instance=subject,
+                prefix='outcomes'
             )
         else:
             context['outcome_formset'] = LearningOutcomeFormSet(
-                instance=self.object,
-                queryset=self.object.outcomes.order_by('code')
+                instance=subject,
+                prefix='outcomes',
+                queryset=subject.outcome_relations.all()
             )
+        
         return context
 
     def form_valid(self, form):
@@ -1843,7 +1841,11 @@ class SubjectUpdateView(UpdateView):
             self.object = form.save()
             
             if outcome_formset.is_valid():
-                outcome_formset.save()
+                outcomes = outcome_formset.save(commit=False)
+                for outcome in outcomes:
+                    outcome.subject = self.object  # Asignamos el subject aquí
+                    outcome.save()
+                
                 messages.success(self.request, 'Cambios guardados correctamente')
                 return redirect('material:subject_detail', pk=self.object.pk)
             

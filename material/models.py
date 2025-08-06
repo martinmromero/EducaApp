@@ -264,8 +264,7 @@ class Faculty(models.Model):
 
 class Subject(models.Model):
     name = models.CharField(max_length=100)
-    # description = models.TextField(blank=True, null=True)
-    careers = models.ManyToManyField('Career', related_name='subject_careers')  # Nuevo nombre único    
+    careers = models.ManyToManyField('Career', related_name='subject_careers')    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     learning_outcomes = models.TextField(
@@ -284,26 +283,23 @@ class Subject(models.Model):
         return self.name
 
     def save_outcomes(self, outcomes_data):
-        """Guarda outcomes en el nuevo modelo"""
-        current_outcomes = list(self.learning_outcomes.all())
+        """Guarda outcomes en el nuevo modelo (LearningOutcome)"""
+        current_outcomes = list(self.outcome_relations.all())
         
         for outcome_data in outcomes_data:
             outcome_id = outcome_data.get('id')
-            if outcome_id and not outcome_id.startswith('legacy-'):  # Ignorar IDs legacy
+            if outcome_id and not outcome_id.startswith('legacy-'):
                 outcome = next((o for o in current_outcomes if str(o.id) == str(outcome_id)), None)
                 if outcome:
                     outcome.description = outcome_data['description']
-                    outcome.level = outcome_data.get('level', 1)
                     outcome.save()
                     current_outcomes.remove(outcome)
             else:
                 LearningOutcome.objects.create(
                     subject=self,
-                    description=outcome_data['description'],
-                    level=outcome_data.get('level', 1)
+                    description=outcome_data['description']
                 )
         
-        # Eliminar outcomes no incluidos en el nuevo set
         for outcome in current_outcomes:
             outcome.delete()
 
@@ -329,18 +325,16 @@ class Subject(models.Model):
 
     def get_all_outcomes(self):
         """Método completo (confirmado) - no modificar"""
-        outcomes = list(self.learning_outcomes.all().values('id', 'description', 'level'))
+        outcomes = list(self.outcome_relations.all().values('id', 'description'))
         
         for i, item in enumerate(self.legacy_outcomes, start=1):
             outcomes.append({
                 'id': f'legacy-{i}',
-                'description': item.get('description', str(item)) if isinstance(item, dict) else str(item),
-                'level': item.get('level', 1) if isinstance(item, dict) else 1
+                'description': item.get('description', str(item)) if isinstance(item, dict) else str(item)
             })
         return outcomes
 
     def clean(self):
-        """Validación adicional si es necesaria"""
         if not self.name.strip():
             raise ValidationError("El nombre no puede estar vacío")
 
