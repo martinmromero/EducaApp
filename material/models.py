@@ -129,13 +129,9 @@ class FacultyV2(models.Model):
         verbose_name="Nombre de la Facultad",
         help_text="Nombre de la facultad"
     )
-    code = models.CharField(
-        max_length=20,
-        verbose_name="Código",
-        help_text="Código de la facultad (opcional)",
-        blank=True,
-        null=True
-    )
+    # Elimina esta línea:
+    # code = models.CharField(...)
+    
     is_active = models.BooleanField(
         default=True,
         verbose_name="Activa",
@@ -143,33 +139,6 @@ class FacultyV2(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Facultad V2"
-        verbose_name_plural = "Facultades V2"
-        constraints = [
-            models.UniqueConstraint(
-                fields=['institution', 'name'],
-                name='unique_faculty_name_per_institution'
-            )
-        ]
-
-    def clean(self):
-        if not self.name or not self.name.strip():
-            raise ValidationError("El nombre de la facultad no puede estar vacío")
-        
-        if self.institution_id and FacultyV2.objects.filter(
-            institution=self.institution,
-            name__iexact=self.name.strip()
-        ).exclude(id=self.id).exists():
-            raise ValidationError("Ya existe una facultad con este nombre en la institución")
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.name} ({self.institution})"
 
 class InstitutionLog(models.Model):
     ACTION_CHOICES = [

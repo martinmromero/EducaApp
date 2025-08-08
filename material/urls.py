@@ -84,6 +84,11 @@ path('careers/<int:pk>/', material_views.CareerDetailView.as_view(), name='caree
 
 path('get_faculties_by_institution/<int:institution_id>/', material_views.get_faculties_by_institution, name='get_faculties_by_institution'),
 path('get_campuses_by_institution/<int:institution_id>/', material_views.get_campuses_by_institution, name='get_campuses_by_institution'),
+path('exam-templates/view/<int:template_id>/', material_views.view_exam_template, name='view_exam_template'),
+
+
+path('add-topic/', material_views.add_topic, name='add_topic'),
+path('add-subtopic/', material_views.add_subtopic, name='add_subtopic'),
 
 #el siguiente renglon tal vez sea obsoleto. revisar cuando termine de ver temas de learning outcomes
 path('get-learning-outcomes/', material_views.get_learning_outcomes, name='get_learning_outcomes'),

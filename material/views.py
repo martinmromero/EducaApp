@@ -325,13 +325,45 @@ def preview_exam_template(request):
         logger.error(f"Preview error: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
 
+@login_required
+def view_exam_template(request, template_id):
+    """Vista específica para ver plantillas guardadas (GET)"""
+    try:
+        template = ExamTemplate.objects.get(
+            id=template_id,
+            created_by=request.user
+        )
+    except ExamTemplate.DoesNotExist:
+        raise Http404("La plantilla no existe o no tienes permisos para verla")
+
+    outcomes_to_display = [
+        {'description': outcome.description}
+        for outcome in template.learning_outcomes.all()
+    ]
+
+    context = {
+        'institution': template.institution,
+        'faculty': template.faculty,
+        'career': template.career,
+        'subject': template.subject,
+        'professor': template.professor,
+        'exam_mode': template.get_exam_mode_display(),
+        'exam_type': template.get_exam_type_display(),
+        'resolution_time': template.resolution_time,
+        'topics_to_evaluate': template.topics_to_evaluate,
+        'notes_and_recommendations': template.notes_and_recommendations,
+        'learning_outcomes': outcomes_to_display,
+        'current_date': timezone.now().strftime("%d/%m/%Y"),
+        'is_preview': False
+    }
+
+    return render(request, 'material/preview_exam_template.html', context)
 
 @login_required
 @transaction.atomic
 def save_exam_template(request):
     if request.method == 'POST':
         try:
-            # Obtener datos del formulario
             exam_template_data = {
                 'institution_id': request.POST.get('institution'),
                 'faculty_id': request.POST.get('faculty'),
@@ -342,7 +374,10 @@ def save_exam_template(request):
                 'resolution_time': request.POST.get('resolution_time', '60 minutos'),
                 'created_by': request.user,
                 'campus_id': request.POST.get('campus'),
-                'professor_id': request.POST.get('professor', request.user.id)
+                'professor_id': request.POST.get('professor', request.user.id),
+                'topics_to_evaluate': request.POST.get('topics_to_evaluate', ''),
+                'notes_and_recommendations': request.POST.get('notes_and_recommendations', ''),
+                'year': timezone.now().year  # Asegurar que tenga año
             }
 
             # Validación mínima
@@ -357,7 +392,7 @@ def save_exam_template(request):
             exam_template = ExamTemplate(**exam_template_data)
             exam_template.save(skip_validation=True)
 
-            # Manejar outcomes (solo del modelo LearningOutcome)
+            # Manejar outcomes
             outcomes_ids = []
             if 'learning_outcomes[]' in request.POST:
                 outcomes_ids = request.POST.getlist('learning_outcomes[]')
@@ -385,8 +420,7 @@ def save_exam_template(request):
             }, status=400)
             
         except Exception as e:
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error saving exam template: {str(e)}", exc_info=True)
             return JsonResponse({
                 'success': False,
                 'error': 'Error interno: ' + str(e)
@@ -399,31 +433,20 @@ def save_exam_template(request):
 
 @login_required
 def list_exam_templates(request):
-    # Prefetch y select_related para optimizar consultas
+    # Consulta optimizada con select_related y prefetch_related
     templates = ExamTemplate.objects.filter(
         created_by=request.user
     ).select_related(
         'institution', 
         'faculty', 
         'career', 
-        'subject', 
+        'subject',
         'professor'
     ).prefetch_related(
         'learning_outcomes'
-    ).annotate(
-        institution_name=F('institution__name'),
-        faculty_name=F('faculty__name'),
-        career_name=F('career__name'),
-        subject_name=F('subject__name'),
-        professor_name=Concat(
-            F('professor__first_name'),
-            Value(' '),
-            F('professor__last_name'),
-            output_field=CharField()
-        )
     ).order_by('-created_at')
 
-    # Filtros (manteniendo los existentes)
+    # Filtros
     subject_filter = request.GET.get('subject')
     if subject_filter:
         templates = templates.filter(subject_id=subject_filter)
@@ -437,17 +460,21 @@ def list_exam_templates(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Contexto optimizado
+    # Obtener materias para el filtro
+    user_institutions = InstitutionV2.objects.filter(
+        userinstitution__user=request.user
+    )
+    subjects = Subject.objects.filter(
+        subject_institutions__institution__in=user_institutions
+    ).distinct()
+
     context = {
         'exam_templates': page_obj,
-        'subjects': Subject.objects.filter(
-            subject_institutions__institution__userinstitution__user=request.user
-        ).distinct(),
-        'exam_modes': ExamTemplate.EXAM_MODE_CHOICES,
+        'subjects': subjects,
+        'exam_modes': ExamTemplate.EXAM_TYPE_CHOICES,  # Cambiado a EXAM_TYPE_CHOICES
     }
 
     return render(request, 'material/list_exam_templates.html', context)
-
 
 def signup(request):
     if request.method == 'POST':
@@ -629,16 +656,14 @@ def upload_questions(request):
     if request.method == 'POST':
         form = QuestionForm(request.POST, request.FILES)
         if form.is_valid():
-            # Crear contenido por defecto si no existe
-            default_contenido, _ = Contenido.objects.get_or_create(
+            default_contenido = Contenido.objects.get_or_create(
                 title="Contenido por Defecto",
                 defaults={
                     'uploaded_by': request.user,
-                    'subject': Subject.objects.get(id=1)  # Asigna una materia por defecto
+                    'subject': form.cleaned_data['subject']
                 }
-            )
+            )[0]
 
-            # Procesar archivo CSV/TXT o pregunta individual
             if 'file' in request.FILES:
                 file = request.FILES['file']
                 try:
@@ -654,7 +679,6 @@ def upload_questions(request):
                     logger.error(f"Error procesando archivo: {str(e)}")
                     messages.error(request, f'Error al procesar el archivo: {str(e)}')
             else:
-                # Guardar pregunta individual
                 question = form.save(commit=False)
                 question.contenido = default_contenido
                 question.user = request.user
@@ -1850,3 +1874,91 @@ class SubjectUpdateView(UpdateView):
                 return redirect('material:subject_detail', pk=self.object.pk)
             
         return self.render_to_response(self.get_context_data(form=form))
+    
+# Agregar estas funciones al final de views.py
+
+@login_required
+@require_http_methods(["POST"])
+def add_topic(request):
+    try:
+        data = json.loads(request.body)
+        name = data.get('name')
+        subject_id = data.get('subject_id')
+        
+        if not name or not subject_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Nombre y materia son requeridos'
+            }, status=400)
+            
+        subject = get_object_or_404(Subject, id=subject_id)
+        
+        # Verificar si ya existe
+        if Topic.objects.filter(name=name, subject=subject).exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'Ya existe un tema con este nombre para esta materia'
+            }, status=400)
+            
+        topic = Topic.objects.create(
+            name=name,
+            subject=subject
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'topic': {
+                'id': topic.id,
+                'name': topic.name
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error adding topic: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def add_subtopic(request):
+    try:
+        data = json.loads(request.body)
+        name = data.get('name')
+        topic_id = data.get('topic_id')
+        
+        if not name or not topic_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Nombre y tema son requeridos'
+            }, status=400)
+            
+        topic = get_object_or_404(Topic, id=topic_id)
+        
+        # Verificar si ya existe
+        if Subtopic.objects.filter(name=name, topic=topic).exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'Ya existe un subtema con este nombre para este tema'
+            }, status=400)
+            
+        subtopic = Subtopic.objects.create(
+            name=name,
+            topic=topic
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'subtopic': {
+                'id': subtopic.id,
+                'name': subtopic.name
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error adding subtopic: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

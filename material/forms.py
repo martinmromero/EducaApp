@@ -112,100 +112,27 @@ class ContenidoForm(forms.ModelForm):
         }
 
 class QuestionForm(forms.ModelForm):
-    subject = forms.ModelChoiceField(
-        queryset=Subject.objects.all(),
-        widget=forms.Select(attrs={
-            'class': 'form-control',
-            'data-dark-mode': 'bg-dark text-light'
-        }),
-        required=True,
-        label="Materia"
-    )
-
     topic = forms.ModelChoiceField(
         queryset=Topic.objects.none(),
-        widget=forms.Select(attrs={
-            'class': 'form-control',
-            'data-dark-mode': 'bg-dark text-light'
-        }),
-        required=True,
-        label="Tema principal"
+        required=False,
+        label="Tema Principal"
     )
-
     subtopic = forms.ModelChoiceField(
         queryset=Subtopic.objects.none(),
-        widget=forms.Select(attrs={
-            'class': 'form-control',
-            'data-dark-mode': 'bg-dark text-light',
-            'disabled': 'disabled'
-        }),
         required=False,
-        label="Subtema (opcional)"
-    )
-
-    question_image = forms.ImageField(
-        widget=forms.ClearableFileInput(attrs={
-            'class': 'form-control-file',
-            'accept': '.jpg,.jpeg,.png,.svg',
-            'data-dark-mode': 'text-light'
-        }),
-        required=False,
-        label="Imagen de la pregunta (opcional)"
-    )
-
-    answer_image = forms.ImageField(
-        widget=forms.ClearableFileInput(attrs={
-            'class': 'form-control-file',
-            'accept': '.jpg,.jpeg,.png,.svg',
-            'data-dark-mode': 'text-light'
-        }),
-        required=False,
-        label="Imagen de la respuesta (opcional)"
+        label="Subtema"
     )
 
     class Meta:
         model = Question
-        fields = [
-            'subject', 'question_text', 'question_image',
-            'answer_text', 'answer_image', 'topic', 'subtopic',
-            'unit', 'reference_book', 'source_page'
-        ]
-        widgets = {
-            'question_text': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 3,
-                'data-dark-mode': 'bg-dark text-light'
-            }),
-            'answer_text': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 3,
-                'data-dark-mode': 'bg-dark text-light'
-            }),
-            'unit': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Ej: Unidad 3 - Álgebra',
-                'data-dark-mode': 'bg-dark text-light'
-            }),
-            'reference_book': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Ej: Cálculo de Stewart - 8va Edición',
-                'data-dark-mode': 'bg-dark text-light'
-            }),
-            'source_page': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Ej: 145',
-                'data-dark-mode': 'bg-dark text-light'
-            }),
-        }
-        labels = {
-            'unit': 'Unidad (opcional)',
-            'reference_book': 'Libro o documento de referencia (opcional)',
-            'source_page': 'Página de referencia (opcional)',
-        }
+        fields = ['subject', 'topic', 'subtopic', 'question_text', 'answer_text', 
+                 'question_image', 'answer_image', 'unit', 'reference_book', 
+                 'source_page', 'chapter']  # Eliminado 'file' y agregados campos correctos
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        self.fields['subject'].queryset = Subject.objects.all()
+        
         if 'subject' in self.data:
             try:
                 subject_id = int(self.data.get('subject'))
@@ -214,22 +141,15 @@ class QuestionForm(forms.ModelForm):
                 pass
         elif self.instance.pk:
             self.fields['topic'].queryset = self.instance.subject.topic_set.all()
-            if self.instance.topic:
-                self.fields['subtopic'].queryset = self.instance.topic.subtopic_set.all()
-                self.fields['subtopic'].widget.attrs.pop('disabled')
 
-    def clean(self):
-        cleaned_data = super().clean()
-
-        for field in ['question_image', 'answer_image']:
-            if file := cleaned_data.get(field):
-                if not file.name.lower().endswith(('.jpg', '.jpeg', '.png', '.svg')):
-                    self.add_error(field, 'Formato no soportado. Use JPG, PNG o SVG.')
-
-        if cleaned_data.get('subtopic') and not cleaned_data.get('topic'):
-            self.add_error('topic', 'Seleccione un tema principal para asignar un subtema.')
-
-        return cleaned_data
+        if 'topic' in self.data:
+            try:
+                topic_id = int(self.data.get('topic'))
+                self.fields['subtopic'].queryset = Subtopic.objects.filter(topic_id=topic_id)
+            except (ValueError, TypeError):
+                pass
+        elif self.instance.pk and self.instance.topic:
+            self.fields['subtopic'].queryset = self.instance.topic.subtopic_set.all()
 
 class ExamForm(forms.ModelForm):
     learning_outcomes = forms.ModelMultipleChoiceField(
@@ -446,18 +366,13 @@ class CampusV2Form(forms.ModelForm):
 class FacultyV2Form(forms.ModelForm):
     class Meta:
         model = FacultyV2
-        fields = ['name', 'code']
+        fields = ['name']  # Elimina 'code' de la lista de campos
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Ej: Facultad de Ingeniería',
                 'minlength': '2',
                 'maxlength': '255'
-            }),
-            'code': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Código opcional',
-                'maxlength': '20'
             })
         }
     
@@ -469,11 +384,7 @@ class FacultyV2Form(forms.ModelForm):
             raise ValidationError("El nombre no puede exceder 255 caracteres")
         return name
     
-    def clean_code(self):
-        code = self.cleaned_data.get('code', '').strip()
-        if code and len(code) > 20:
-            raise ValidationError("El código no puede exceder 20 caracteres")
-        return code or None
+    # Elimina el método clean_code() completo
 
 class SubjectForm(forms.ModelForm):
     class Meta:

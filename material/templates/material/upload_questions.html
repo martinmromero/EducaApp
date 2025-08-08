@@ -32,9 +32,46 @@
                 {% csrf_token %}
                 <div class="form-group">
                     <label for="{{ form.subject.id_for_label }}">Materia</label>
-                    {{ form.subject }}
+                    <div class="input-group">
+                        {{ form.subject }}
+                        <div class="input-group-append">
+                            <button class="btn btn-outline-secondary" type="button" data-toggle="modal" data-target="#newTopicModal">
+                                <i class="fas fa-plus"></i> Nuevo Tema
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="{{ form.topic.id_for_label }}">Tema Principal</label>
+                            <div class="input-group">
+                                {{ form.topic }}
+                                <div class="input-group-append">
+                                    <button class="btn btn-outline-secondary" type="button" id="addTopicBtn" disabled>
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="{{ form.subtopic.id_for_label }}">Subtema</label>
+                            <div class="input-group">
+                                {{ form.subtopic }}
+                                <div class="input-group-append">
+                                    <button class="btn btn-outline-secondary" type="button" id="addSubtopicBtn" disabled>
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resto del formulario existente -->
                 <div class="form-group">
                     <label for="{{ form.question_text.id_for_label }}">Pregunta</label>
                     {{ form.question_text }}
@@ -55,21 +92,6 @@
                     <label for="{{ form.answer_image.id_for_label }}">Imagen de Respuesta</label>
                     {{ form.answer_image }}
                     <div id="answerImagePreview" class="mt-2" style="max-width: 300px;"></div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="{{ form.topic.id_for_label }}">Tema Principal</label>
-                            {{ form.topic }}
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="{{ form.subtopic.id_for_label }}">Subtema</label>
-                            {{ form.subtopic }}
-                        </div>
-                    </div>
                 </div>
 
                 <div class="row">
@@ -125,10 +147,78 @@
             </form>
         </div>
     </div>
+
+    <!-- Modal para nuevo Tema -->
+    <div class="modal fade" id="newTopicModal" tabindex="-1" role="dialog" aria-labelledby="newTopicModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content {% if dark_mode %}bg-dark text-light{% else %}bg-light{% endif %}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newTopicModalLabel">Agregar Nuevo Tema</h5>
+                    <button type="button" class="close {% if dark_mode %}text-light{% else %}text-dark{% endif %}" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="newTopicForm">
+                        <div class="form-group">
+                            <label for="newTopicName">Nombre del Tema</label>
+                            <input type="text" class="form-control {% if dark_mode %}bg-secondary text-light{% else %}bg-white{% endif %}" id="newTopicName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="newTopicSubject">Materia</label>
+                            <select class="form-control {% if dark_mode %}bg-secondary text-light{% else %}bg-white{% endif %}" id="newTopicSubject" required>
+                                <option value="">Seleccione una materia</option>
+                                {% for subject in form.subject.field.queryset %}
+                                    <option value="{{ subject.id }}">{{ subject.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="saveNewTopic">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para nuevo Subtema -->
+    <div class="modal fade" id="newSubtopicModal" tabindex="-1" role="dialog" aria-labelledby="newSubtopicModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content {% if dark_mode %}bg-dark text-light{% else %}bg-light{% endif %}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newSubtopicModalLabel">Agregar Nuevo Subtema</h5>
+                    <button type="button" class="close {% if dark_mode %}text-light{% else %}text-dark{% endif %}" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="newSubtopicForm">
+                        <div class="form-group">
+                            <label for="newSubtopicName">Nombre del Subtema</label>
+                            <input type="text" class="form-control {% if dark_mode %}bg-secondary text-light{% else %}bg-white{% endif %}" id="newSubtopicName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="newSubtopicTopic">Tema Principal</label>
+                            <select class="form-control {% if dark_mode %}bg-secondary text-light{% else %}bg-white{% endif %}" id="newSubtopicTopic" required>
+                                <option value="">Seleccione un tema primero</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="saveNewSubtopic">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Scripts -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 $(document).ready(function() {
     // Previsualización de imágenes
@@ -164,8 +254,13 @@ $(document).ready(function() {
                     });
                     $('#{{ form.topic.id_for_label }}').html(options).prop('disabled', false);
                     $('#{{ form.subtopic.id_for_label }}').html('<option value="">Seleccione un tema primero</option>').prop('disabled', true);
+                    $('#addTopicBtn').prop('disabled', false);
                 }
             });
+        } else {
+            $('#{{ form.topic.id_for_label }}').html('<option value="">Seleccione una materia primero</option>').prop('disabled', true);
+            $('#{{ form.subtopic.id_for_label }}').html('<option value="">Seleccione un tema primero</option>').prop('disabled', true);
+            $('#addTopicBtn').prop('disabled', true);
         }
     });
 
@@ -181,9 +276,169 @@ $(document).ready(function() {
                         options += `<option value="${subtopic.id}">${subtopic.name}</option>`;
                     });
                     $('#{{ form.subtopic.id_for_label }}').html(options).prop('disabled', false);
+                    $('#addSubtopicBtn').prop('disabled', false);
+                    
+                    // Actualizar select en modal de subtema
+                    $('#newSubtopicTopic').html('<option value="">Seleccione un tema</option>');
+                    data.forEach(function(topic) {
+                        $('#newSubtopicTopic').append(`<option value="${topic.id}">${topic.name}</option>`);
+                    });
                 }
             });
+        } else {
+            $('#{{ form.subtopic.id_for_label }}').html('<option value="">Seleccione un tema primero</option>').prop('disabled', true);
+            $('#addSubtopicBtn').prop('disabled', true);
         }
+    });
+
+    // Manejo de modales
+    $('#addTopicBtn').click(function() {
+        const subjectId = $('#{{ form.subject.id_for_label }}').val();
+        if (!subjectId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Seleccione una materia primero',
+                text: 'Debe seleccionar una materia antes de agregar un nuevo tema'
+            });
+            return;
+        }
+        $('#newTopicSubject').val(subjectId);
+        $('#newTopicModal').modal('show');
+    });
+
+    $('#addSubtopicBtn').click(function() {
+        const topicId = $('#{{ form.topic.id_for_label }}').val();
+        if (!topicId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Seleccione un tema primero',
+                text: 'Debe seleccionar un tema antes de agregar un nuevo subtema'
+            });
+            return;
+        }
+        
+        // Cargar temas disponibles para el subtema
+        const subjectId = $('#{{ form.subject.id_for_label }}').val();
+        $.ajax({
+            url: '{% url "material:get_topics" %}',
+            data: { 'subject_id': subjectId },
+            success: function(data) {
+                let options = '<option value="">Seleccione un tema</option>';
+                data.forEach(function(topic) {
+                    options += `<option value="${topic.id}" ${topic.id == topicId ? 'selected' : ''}>${topic.name}</option>`;
+                });
+                $('#newSubtopicTopic').html(options);
+                $('#newSubtopicModal').modal('show');
+            }
+        });
+    });
+
+    // Guardar nuevo Tema
+    $('#saveNewTopic').click(function() {
+        const name = $('#newTopicName').val();
+        const subjectId = $('#newTopicSubject').val();
+        
+        if (!name || !subjectId) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Campos incompletos',
+                text: 'Debe completar todos los campos'
+            });
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "material:add_topic" %}',
+            method: 'POST',
+            data: {
+                'name': name,
+                'subject_id': subjectId,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    // Actualizar select de temas
+                    let newOption = new Option(response.topic.name, response.topic.id, true, true);
+                    $('#{{ form.topic.id_for_label }}').append(newOption).trigger('change');
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Tema agregado',
+                        text: 'El nuevo tema se ha agregado correctamente'
+                    });
+                    
+                    $('#newTopicModal').modal('hide');
+                    $('#newTopicName').val('');
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.error || 'Ocurrió un error al guardar el tema'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Ocurrió un error al comunicarse con el servidor'
+                });
+            }
+        });
+    });
+
+    // Guardar nuevo Subtema
+    $('#saveNewSubtopic').click(function() {
+        const name = $('#newSubtopicName').val();
+        const topicId = $('#newSubtopicTopic').val();
+        
+        if (!name || !topicId) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Campos incompletos',
+                text: 'Debe completar todos los campos'
+            });
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "material:add_subtopic" %}',
+            method: 'POST',
+            data: {
+                'name': name,
+                'topic_id': topicId,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    // Actualizar select de subtemas
+                    let newOption = new Option(response.subtopic.name, response.subtopic.id, true, true);
+                    $('#{{ form.subtopic.id_for_label }}').append(newOption).trigger('change');
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Subtema agregado',
+                        text: 'El nuevo subtema se ha agregado correctamente'
+                    });
+                    
+                    $('#newSubtopicModal').modal('hide');
+                    $('#newSubtopicName').val('');
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.error || 'Ocurrió un error al guardar el subtema'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Ocurrió un error al comunicarse con el servidor'
+                });
+            }
+        });
     });
 
     // Cambiar pestañas
@@ -206,6 +461,10 @@ $(document).ready(function() {
     .nav-tabs .nav-link.active {
         color: {% if dark_mode %}#000000{% else %}#495057{% endif %};
         background-color: {% if dark_mode %}#f8f9fa{% else %}#ffffff{% endif %};
+    }
+    
+    .input-group-append .btn {
+        border-radius: 0 .25rem .25rem 0;
     }
 </style>
 {% endblock %}

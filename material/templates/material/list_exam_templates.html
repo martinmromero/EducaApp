@@ -31,9 +31,9 @@
                 </select>
             </div>
             <div class="form-group">
-                <label for="exam_mode" class="mr-2">Modalidad:</label>
+                <label for="exam_mode" class="mr-2">Tipo:</label>
                 <select name="exam_mode" id="exam_mode" class="form-control">
-                    <option value="">Todas</option>
+                    <option value="">Todos</option>
                     {% for mode in exam_modes %}
                         <option value="{{ mode.0 }}"
                             {% if request.GET.exam_mode == mode.0 %}selected{% endif %}>
@@ -43,6 +43,7 @@
                 </select>
             </div>
             <button type="submit" class="btn btn-primary ml-2">Filtrar</button>
+            <a href="{% url 'material:list_exam_templates' %}" class="btn btn-secondary ml-2">Limpiar</a>
         </form>
     </div>
 </div>
@@ -73,23 +74,31 @@
                     <td>
                         <input type="checkbox" name="template_ids" value="{{ template.id }}">
                     </td>
-                    <td>{{ template.institution_name }}</td>
-                    <td>{{ template.faculty_name }}</td>
-                    <td>{{ template.career_name }}</td>
-                    <td>{{ template.subject_name }}</td>
-                    <td>{{ template.professor_name }}</td>
+                    <td>{{ template.institution.name|default:"-" }}</td>
+                    <td>{{ template.faculty.name|default:"-" }}</td>
+                    <td>{{ template.career.name|default:"-" }}</td>
+                    <td>{{ template.subject.name|default:"-" }}</td>
+                    <td>
+                        {% if template.professor %}
+                            {{ template.professor.get_full_name }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
                     <td>{{ template.year }}</td>
-                    <td>{{ template.get_exam_type_display }}</td>
+                    <td>{{ template.get_exam_type_display|default:"-" }}</td>
                     <td>
                         <div class="btn-group">
-                            <a href="{% url 'material:preview_exam_template' template.id %}" 
-                               class="btn btn-sm btn-primary" 
-                               title="Vista previa">
-                                <i class="fas fa-eye"></i>
-                            </a>
+                            <a href="{% url 'material:view_exam_template' template.id %}" 
+                                class="btn btn-sm btn-primary" 
+                                title="Vista previa"
+                                target="_blank">
+                                    <i class="fas fa-eye"></i>
+                                </a>
                             <a href="#" 
                                class="btn btn-sm btn-secondary"
-                               title="Editar">
+                               title="Editar"
+                               onclick="editTemplate({{ template.id }})">
                                 <i class="fas fa-edit"></i>
                             </a>
                         </div>
@@ -122,6 +131,31 @@
     </div>
 </form>
 
+<!-- Paginación -->
+{% if exam_templates.has_other_pages %}
+<div class="pagination justify-content-center">
+    <ul class="pagination">
+        {% if exam_templates.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page=1">&laquo; Primera</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ exam_templates.previous_page_number }}">Anterior</a></li>
+        {% endif %}
+        
+        {% for num in exam_templates.paginator.page_range %}
+            {% if exam_templates.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > exam_templates.number|add:'-3' and num < exam_templates.number|add:'3' %}
+                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if exam_templates.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ exam_templates.next_page_number }}">Siguiente</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ exam_templates.paginator.num_pages }}">Última &raquo;</a></li>
+        {% endif %}
+    </ul>
+</div>
+{% endif %}
+
 <!-- Scripts -->
 <script>
     // Selección masiva
@@ -140,9 +174,14 @@
             return;
         }
         
-        if (confirm(`¿Eliminar ${selected.length} plantilla(s) seleccionada(s)?`)) {
+        if (confirm(`¿Eliminar ${selected.length} plantilla(s) seleccionada(s)? Esta acción no se puede deshacer.`)) {
             document.getElementById('deleteForm').submit();
         }
+    }
+
+    // Función para editar plantilla
+    function editTemplate(templateId) {
+        window.location.href = `/exam-templates/edit/${templateId}/`;
     }
 </script>
 
@@ -152,6 +191,9 @@
     }
     .btn-group .btn {
         padding: 0.25rem 0.5rem;
+    }
+    .pagination {
+        margin-top: 20px;
     }
 </style>
 {% endblock %}
