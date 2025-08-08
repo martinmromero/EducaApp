@@ -1,0 +1,53 @@
+{% extends 'material/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <h1>Subir Nuevo Contenido</h1>
+    <form method="post" enctype="multipart/form-data" class="mt-4">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Información Básica</div>
+                    <div class="card-body">
+                        {{ form.title|as_crispy_field }}
+                        {{ form.file|as_crispy_field }}
+                        {{ form.content_type|as_crispy_field }}
+                        {{ form.subject|as_crispy_field }}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Metadatos</div>
+                    <div class="card-body">
+                        {{ form.isbn|as_crispy_field }}
+                        {{ form.edition|as_crispy_field }}
+                        {{ form.pages|as_crispy_field }}
+                        {{ form.publisher|as_crispy_field }}
+                        {{ form.year|as_crispy_field }}
+                        {{ form.chapter|as_crispy_field }}
+                        {{ form.total_chapters|as_crispy_field }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">
+            <i class="fas fa-upload"></i> Subir y Procesar
+        </button>
+    </form>
+</div>
+
+<script>
+document.getElementById("id_file").addEventListener("change", function() {
+    const file = this.files[0];
+    if (file) {
+        // Autocompletar nombre si no está definido
+        if (!document.getElementById("id_title").value) {
+            document.getElementById("id_title").value = file.name.split('.')[0];
+        }
+    }
+});
+</script>
+{% endblock %}

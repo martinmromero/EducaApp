@@ -1,0 +1,75 @@
+{% extends 'material/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Gestionar Preguntas: {{ contenido.title }}</h1>
+        <a href="{% url 'contenido_detail' pk=contenido.pk %}" class="btn btn-outline-secondary">
+            <i class="fas fa-book"></i> Ver Contenido
+        </a>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="card">
+            <div class="card-header d-flex justify-content-between">
+                <span>Preguntas Generadas ({{ questions.count }})</span>
+                <button type="submit" class="btn btn-sm btn-success">
+                    <i class="fas fa-save"></i> Guardar Selección
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th width="40px">Sel.</th>
+                                <th>Pregunta</th>
+                                <th>Respuesta</th>
+                                <th>Fuente</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for question in questions %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" name="selected_questions" 
+                                           value="{{ question.id }}" {% if question.is_selected %}checked{% endif %}>
+                                </td>
+                                <td>
+                                    {{ question.question_text|truncatechars:100 }}
+                                    {% if question.question_image %}
+                                    <span class="badge bg-info">+Imagen</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ question.answer_text|truncatechars:50 }}</td>
+                                <td>
+                                    {% if question.source_chapter %}
+                                    Cap. {{ question.source_chapter }}
+                                    {% endif %}
+                                    {% if question.source_page %}
+                                    Pág. {{ question.source_page }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'edit_question' question_id=question.id %}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'question_history' question_id=question.id %}" 
+                                       class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-history"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

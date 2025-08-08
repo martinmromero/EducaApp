@@ -365,153 +365,95 @@ class Subtopic(models.Model):
         unique_together = ('name', 'topic')
 
 class Contenido(models.Model):
+    CONTENT_TYPE_CHOICES = [
+        ('book', 'Libro'),
+        ('paper', 'Artículo'),
+        ('thesis', 'Tesis'),
+        ('presentation', 'Presentación'),
+        ('other', 'Otro')
+    ]
+    
     title = models.CharField(max_length=255)
     file = models.FileField(upload_to='contenidos/')
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES, default='book')
     uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    subject = models.ForeignKey(
-        Subject,
-        on_delete=models.SET_DEFAULT,
-        default=1,
-        verbose_name="Subject"
-    )
+    subject = models.ForeignKey('Subject', on_delete=models.SET_DEFAULT, default=1)
+    
+    # Metadatos del contenido
     isbn = models.CharField(max_length=20, blank=True, null=True)
     edition = models.CharField(max_length=50, blank=True, null=True)
     pages = models.PositiveIntegerField(blank=True, null=True)
     publisher = models.CharField(max_length=100, blank=True, null=True)
     year = models.PositiveIntegerField(blank=True, null=True)
-    chapter = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name='Capítulo (opcional)'
+    chapter = models.CharField(max_length=100, blank=True, null=True, verbose_name='Capítulo/Sección')
+    total_chapters = models.PositiveIntegerField(blank=True, null=True)
+    
+    # Procesamiento IA
+    processing_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('uploaded', 'Subido'),
+            ('processing', 'Procesando'),
+            ('analyzed', 'Analizado'),
+            ('error', 'Error')
+        ],
+        default='uploaded'
     )
+    processed_at = models.DateTimeField(blank=True, null=True)
+    ai_analysis = models.JSONField(blank=True, null=True)  # Estructura de capítulos, resumen general, etc.
 
     def __str__(self):
-        return f"{self.subject} - {self.title}"
+        return f"{self.title} ({self.get_content_type_display()})"
 
 class Question(models.Model):
     QUESTION_TYPE_CHOICES = [
-        ('opcion_multiple', 'Opción múltiple'),
-        ('verdadero_falso', 'Verdadero/Falso'),
-        ('desarrollo', 'Desarrollo'),
+        ('multiple_choice', 'Opción múltiple'),
+        ('true_false', 'Verdadero/Falso'),
+        ('short_answer', 'Respuesta corta'),
+        ('essay', 'Ensayo')
     ]
-
-    contenido = models.ForeignKey(
-        'Contenido',
-        on_delete=models.CASCADE,
-        verbose_name='Contenido relacionado',
-        null=True,
-        blank=True,
-        related_name='preguntas'
-    )
-    subject = models.ForeignKey(
-        'Subject',
-        on_delete=models.SET_DEFAULT,
-        default=1,
-        verbose_name='Materia'
-    )
-    topic = models.ForeignKey(
-        'Topic',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=False,
-        verbose_name='Tema principal'
-    )
-    subtopic = models.ForeignKey(
-        'Subtopic',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name='Subtema (opcional)'
-    )
-    question_type = models.CharField(
-        max_length=20,
-        choices=QUESTION_TYPE_CHOICES,
-        default='opcion_multiple',
-        verbose_name='Tipo de pregunta'
-    )
-    question_text = models.TextField(verbose_name='Texto de la pregunta')
-    answer_text = models.TextField(verbose_name='Texto de la respuesta')
-    question_image = models.ImageField(
-        upload_to='questions/images/',
-        null=True,
-        blank=True,
-        verbose_name='Imagen de la pregunta (opcional)',
-        help_text='Formatos: JPG, PNG, SVG'
-    )
-    answer_image = models.ImageField(
-        upload_to='answers/images/',
-        null=True,
-        blank=True,
-        verbose_name='Imagen de la respuesta (opcional)',
-        help_text='Formatos: JPG, PNG, SVG'
-    )
-    options_json = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name='Opciones (JSON)'
-    )
-    difficulty = models.PositiveSmallIntegerField(
-        default=1,
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        verbose_name='Dificultad (1-5)'
-    )
-    source_page = models.IntegerField(
-        null=True,
-        blank=True,
-        verbose_name='Página de referencia'
-    )
-    unit = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name='Unidad (opcional)'
-    )
-    reference_book = models.CharField(
-        max_length=200,
-        blank=True,
-        null=True,
-        verbose_name='Libro/Documento (opcional)'
-    )
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        verbose_name='Usuario',
-        null=True,
-        blank=True
-    )
+    
+    # Relaciones principales
+    contenido = models.ForeignKey(Contenido, on_delete=models.CASCADE, null=True, blank=True)
+    subject = models.ForeignKey('Subject', on_delete=models.SET_DEFAULT, default=1)
+    topic = models.ForeignKey('Topic', on_delete=models.SET_NULL, null=True, blank=True)
+    subtopic = models.ForeignKey('Subtopic', on_delete=models.SET_NULL, null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    
+    # Contenido de la pregunta
+    question_type = models.CharField(max_length=20, choices=QUESTION_TYPE_CHOICES)
+    question_text = models.TextField()
+    answer_text = models.TextField()
+    question_image = models.ImageField(upload_to='questions/', blank=True, null=True)
+    answer_image = models.ImageField(upload_to='answers/', blank=True, null=True)
+    
+    # Metadatos de fuente
+    source_page = models.PositiveIntegerField(blank=True, null=True)
+    source_chapter = models.CharField(max_length=100, blank=True, null=True)
+    source_unit = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Estado y auditoría
+    is_selected = models.BooleanField(default=True, help_text="Indica si fue seleccionada por el usuario")
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    ai_generated = models.BooleanField(default=True)
 
     class Meta:
-        ordering = ['subject', 'topic', 'subtopic', 'difficulty']
-        verbose_name = 'Pregunta'
-        verbose_name_plural = 'Preguntas'
-        unique_together = ('contenido', 'source_page')
+        ordering = ['contenido', 'source_chapter', 'source_page']
+        indexes = [
+            models.Index(fields=['contenido', 'is_selected']),
+            models.Index(fields=['subject', 'topic']),
+        ]
 
-    @property
-    def options(self):
-        if self.options_json:
-            try:
-                return json.loads(self.options_json)
-            except json.JSONDecodeError:
-                return None
-        return None
+class QuestionVersion(models.Model):
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='versions')
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    changes = models.JSONField(help_text="Cambios en formato {campo: [valor_anterior, nuevo_valor]}")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
 
-    @options.setter
-    def options(self, value):
-        self.options_json = json.dumps(value) if value else None
-
-    def clean(self):
-        super().clean()
-        for field_name in ['question_image', 'answer_image']:
-            image = getattr(self, field_name)
-            if image and not image.name.lower().endswith(('.jpg', '.jpeg', '.png', '.svg')):
-                raise ValidationError(f'Formato no válido para {field_name}. Use JPG, PNG o SVG.')
-
-    def __str__(self):
-        return f"{self.subject} - {self.question_text[:50]}..."
 
 
 class Exam(models.Model):

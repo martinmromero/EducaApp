@@ -1,0 +1,93 @@
+{% extends 'material/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h2 class="mb-0">{{ contenido.title }}</h2>
+            <div>
+                <a href="{% url 'manage_questions' contenido_id=contenido.id %}" 
+                   class="btn btn-primary">
+                    <i class="fas fa-question-circle"></i> Gestionar Preguntas
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <strong>Tipo:</strong> {{ contenido.get_content_type_display }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Materia:</strong> {{ contenido.subject.name }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Subido por:</strong> {{ contenido.uploaded_by.username }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Estado:</strong> 
+                            <span class="badge 
+                                {% if contenido.processing_status == 'analyzed' %}bg-success
+                                {% elif contenido.processing_status == 'error' %}bg-danger
+                                {% else %}bg-warning{% endif %}">
+                                {{ contenido.get_processing_status_display }}
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">Metadatos</div>
+                        <div class="card-body">
+                            <dl class="row">
+                                {% if contenido.isbn %}
+                                <dt class="col-sm-3">ISBN:</dt>
+                                <dd class="col-sm-9">{{ contenido.isbn }}</dd>
+                                {% endif %}
+                                
+                                {% if contenido.pages %}
+                                <dt class="col-sm-3">Páginas:</dt>
+                                <dd class="col-sm-9">{{ contenido.pages }}</dd>
+                                {% endif %}
+                                
+                                {% if contenido.chapter %}
+                                <dt class="col-sm-3">Capítulo:</dt>
+                                <dd class="col-sm-9">{{ contenido.chapter }}</dd>
+                                {% endif %}
+                                
+                                {% if contenido.total_chapters %}
+                                <dt class="col-sm-3">Capítulos totales:</dt>
+                                <dd class="col-sm-9">{{ contenido.total_chapters }}</dd>
+                                {% endif %}
+                                
+                                <dt class="col-sm-3">Procesado:</dt>
+                                <dd class="col-sm-9">
+                                    {% if contenido.processed_at %}
+                                    {{ contenido.processed_at|date:"SHORT_DATETIME_FORMAT" }}
+                                    {% else %}Pendiente{% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <h5>Vista previa del contenido:</h5>
+                {% if contenido.file.url|lower|slice:"-4:" == ".pdf" %}
+                <iframe src="{{ contenido.file.url }}#toolbar=0" 
+                        width="100%" height="500px" class="border rounded"></iframe>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 
+                    Vista previa no disponible para este tipo de archivo.
+                    <a href="{{ contenido.file.url }}" class="alert-link">Descargar archivo</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -90,66 +90,54 @@ class LearningOutcomeForm(forms.ModelForm):
         return description
 
 class ContenidoForm(forms.ModelForm):
-    subject = forms.ModelChoiceField(
-        queryset=Subject.objects.all(),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        label="Subject"
-    )
-
     class Meta:
         model = Contenido
-        fields = ['subject', 'title', 'file', 'isbn', 'edition', 'pages', 'publisher', 'year']
+        fields = [
+            'title', 'file', 'content_type', 'subject',
+            'isbn', 'edition', 'pages', 'publisher', 'year',
+            'chapter', 'total_chapters'
+        ]
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
-            'isbn': forms.TextInput(attrs={'class': 'form-control'}),
-            'edition': forms.TextInput(attrs={'class': 'form-control'}),
-            'pages': forms.NumberInput(attrs={'class': 'form-control'}),
-            'publisher': forms.TextInput(attrs={'class': 'form-control'}),
-            'year': forms.NumberInput(attrs={'class': 'form-control'}),
-        }
-        labels = {
-            'title': 'Título del Contenido',
+            'file': forms.FileInput(attrs={'class': 'form-control'}),
+            'content_type': forms.Select(attrs={'class': 'form-control'}),
+            'subject': forms.Select(attrs={'class': 'form-control'}),
         }
 
 class QuestionForm(forms.ModelForm):
     topic = forms.ModelChoiceField(
         queryset=Topic.objects.none(),
         required=False,
-        label="Tema Principal"
+        widget=forms.Select(attrs={'class': 'form-control'})
     )
     subtopic = forms.ModelChoiceField(
         queryset=Subtopic.objects.none(),
         required=False,
-        label="Subtema"
+        widget=forms.Select(attrs={'class': 'form-control'})
     )
 
     class Meta:
         model = Question
-        fields = ['subject', 'topic', 'subtopic', 'question_text', 'answer_text', 
-                 'question_image', 'answer_image', 'unit', 'reference_book', 
-                 'source_page', 'chapter']  # Eliminado 'file' y agregados campos correctos
+        fields = [
+            'question_type', 'question_text', 'answer_text',
+            'question_image', 'answer_image',
+            'subject', 'topic', 'subtopic',
+            'source_page', 'source_chapter', 'source_unit',
+            'is_selected'
+        ]
+        widgets = {
+            'question_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'answer_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['subject'].queryset = Subject.objects.all()
-        
         if 'subject' in self.data:
             try:
                 subject_id = int(self.data.get('subject'))
                 self.fields['topic'].queryset = Topic.objects.filter(subject_id=subject_id)
             except (ValueError, TypeError):
                 pass
-        elif self.instance.pk:
-            self.fields['topic'].queryset = self.instance.subject.topic_set.all()
-
-        if 'topic' in self.data:
-            try:
-                topic_id = int(self.data.get('topic'))
-                self.fields['subtopic'].queryset = Subtopic.objects.filter(topic_id=topic_id)
-            except (ValueError, TypeError):
-                pass
-        elif self.instance.pk and self.instance.topic:
-            self.fields['subtopic'].queryset = self.instance.topic.subtopic_set.all()
 
 class ExamForm(forms.ModelForm):
     learning_outcomes = forms.ModelMultipleChoiceField(

@@ -97,18 +97,72 @@ def index(request):
     return render(request, 'material/index.html', context)
 
 @login_required
-def upload_contenido(request):  # Antes upload_material
+def upload_contenido(request):
     if request.method == 'POST':
         form = ContenidoForm(request.POST, request.FILES)
         if form.is_valid():
             contenido = form.save(commit=False)
             contenido.uploaded_by = request.user
             contenido.save()
-            messages.success(request, 'Los archivos se subieron correctamente.')
-            return redirect('material:mis_contenidos')
+            
+            # Iniciar procesamiento IA (ejemplo simplificado)
+            tasks.process_content.delay(contenido.id)
+            
+            return redirect('contenido_detail', pk=contenido.pk)
     else:
         form = ContenidoForm()
-    return render(request, 'material/upload.html', {'form': form})
+    return render(request, 'upload_contenido.html', {'form': form})
+
+@login_required
+def manage_questions(request, contenido_id):
+    contenido = get_object_or_404(Contenido, pk=contenido_id)
+    questions = Question.objects.filter(contenido=contenido)
+    
+    if request.method == 'POST':
+        selected_ids = request.POST.getlist('selected_questions')
+        Question.objects.filter(contenido=contenido).update(is_selected=False)
+        Question.objects.filter(id__in=selected_ids).update(is_selected=True)
+        return redirect('manage_questions', contenido_id=contenido.id)
+    
+    return render(request, 'manage_questions.html', {
+        'contenido': contenido,
+        'questions': questions
+    })
+
+@login_required
+def edit_question(request, question_id):
+    question = get_object_or_404(Question, pk=question_id)
+    if request.method == 'POST':
+        form = QuestionForm(request.POST, request.FILES, instance=question)
+        if form.is_valid():
+            with transaction.atomic():
+                original_data = {
+                    f.name: getattr(question, f.name)
+                    for f in question._meta.fields
+                }
+                form.save()
+                new_data = form.cleaned_data
+                
+                # Registrar cambios
+                changes = {
+                    field: [original_data[field], new_value]
+                    for field, new_value in new_data.items()
+                    if original_data.get(field) != new_value
+                }
+                
+                if changes:
+                    QuestionVersion.objects.create(
+                        question=question,
+                        user=request.user,
+                        changes=changes
+                    )
+            
+            return redirect('manage_questions', contenido_id=question.contenido.id)
+    else:
+        form = QuestionForm(instance=question)
+    
+    return render(request, 'edit_question.html', {'form': form, 'question': question})
+
 
 @login_required
 def generate_questions(request, contenido_id):
