@@ -34,8 +34,12 @@
         <div class="menu-item" onclick="toggleSubmenu(this)">
             <i class="bi bi-folder-fill me-2"></i> Material
             <div class="submenu">
-                <a href="{% url 'material:upload_contenido' %}"><i class="bi bi-upload me-2"></i>Subir Material</a>
-                <a href="{% url 'material:mis_contenidos' %}"><i class="bi bi-collection me-2"></i>Mi Material</a>
+                <li class="nav-item">
+    <a class="nav-link" href="{% url 'material:upload_contenido' %}">Subir Contenido</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="{% url 'material:upload_questions' %}">Subir Preguntas</a>
+</li>
             </div>
         </div>
 

@@ -21,7 +21,7 @@
                             {% for subject in subjects_unicos %}
                                 <option value="{{ subject.id }}" 
                                     {% if selected_subject == subject.id|stringformat:"s" %}selected{% endif %}>
-                                    {{ subject.Nombre }}
+                                    {{ subject.name }}
                                 </option>
                             {% endfor %}
                         </select>

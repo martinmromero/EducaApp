@@ -437,15 +437,13 @@ class Question(models.Model):
         upload_to='questions/images/',
         null=True,
         blank=True,
-        verbose_name='Imagen de la pregunta (opcional)',
-        help_text='Formatos: JPG, PNG, SVG'
+        verbose_name='Imagen de la pregunta (opcional)'
     )
     answer_image = models.ImageField(
         upload_to='answers/images/',
         null=True,
         blank=True,
-        verbose_name='Imagen de la respuesta (opcional)',
-        help_text='Formatos: JPG, PNG, SVG'
+        verbose_name='Imagen de la respuesta (opcional)'
     )
     options_json = models.TextField(
         blank=True,
@@ -462,18 +460,6 @@ class Question(models.Model):
         blank=True,
         verbose_name='Página de referencia'
     )
-    unit = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name='Unidad (opcional)'
-    )
-    reference_book = models.CharField(
-        max_length=200,
-        blank=True,
-        null=True,
-        verbose_name='Libro/Documento (opcional)'
-    )
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -488,7 +474,6 @@ class Question(models.Model):
         ordering = ['subject', 'topic', 'subtopic', 'difficulty']
         verbose_name = 'Pregunta'
         verbose_name_plural = 'Preguntas'
-        unique_together = ('contenido', 'source_page')
 
     @property
     def options(self):
@@ -512,7 +497,6 @@ class Question(models.Model):
 
     def __str__(self):
         return f"{self.subject} - {self.question_text[:50]}..."
-
 
 class Exam(models.Model):
     title = models.CharField(

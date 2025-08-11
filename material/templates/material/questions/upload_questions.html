@@ -49,7 +49,7 @@
                             <div class="input-group">
                                 {{ form.topic }}
                                 <div class="input-group-append">
-                                    <button class="btn btn-outline-secondary" type="button" id="addTopicBtn" disabled>
+                                    <button class="btn btn-outline-primary" type="button" id="addTopicBtn">
                                         <i class="fas fa-plus"></i>
                                     </button>
                                 </div>
@@ -62,7 +62,7 @@
                             <div class="input-group">
                                 {{ form.subtopic }}
                                 <div class="input-group-append">
-                                    <button class="btn btn-outline-secondary" type="button" id="addSubtopicBtn" disabled>
+                                    <button class="btn btn-outline-primary" type="button" id="addSubtopicBtn">
                                         <i class="fas fa-plus"></i>
                                     </button>
                                 </div>
@@ -71,7 +71,6 @@
                     </div>
                 </div>
 
-                <!-- Resto del formulario existente -->
                 <div class="form-group">
                     <label for="{{ form.question_text.id_for_label }}">Pregunta</label>
                     {{ form.question_text }}
@@ -95,28 +94,16 @@
                 </div>
 
                 <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-8">
                         <div class="form-group">
-                            <label for="{{ form.unit.id_for_label }}">Unidad</label>
-                            {{ form.unit }}
+                            <label for="{{ form.contenido.id_for_label }}">Contenido/Referencia</label>
+                            {{ form.contenido }}
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="{{ form.reference_book.id_for_label }}">Libro de Referencia</label>
-                            {{ form.reference_book }}
-                        </div>
-                    </div>
-                    <div class="col-md-2">
                         <div class="form-group">
                             <label for="{{ form.source_page.id_for_label }}">Página</label>
                             {{ form.source_page }}
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="form-group">
-                            <label for="{{ form.chapter.id_for_label }}">Capítulo</label>
-                            {{ form.chapter }}
                         </div>
                     </div>
                 </div>
@@ -219,6 +206,7 @@
 <!-- Scripts -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 $(document).ready(function() {
     // Previsualización de imágenes
@@ -229,6 +217,8 @@ $(document).ready(function() {
                 $(previewId).html(`<img src="${e.target.result}" class="img-fluid rounded border">`);
             }
             reader.readAsDataURL(input.files[0]);
+        } else {
+            $(previewId).html('');
         }
     }
 
@@ -241,55 +231,96 @@ $(document).ready(function() {
     });
 
     // Dinámica de topic/subtopic
-    $('#{{ form.subject.id_for_label }}').change(function() {
-        const subjectId = $(this).val();
-        if (subjectId) {
-            $.ajax({
-                url: '{% url "material:get_topics" %}',
-                data: { 'subject_id': subjectId },
-                success: function(data) {
-                    let options = '<option value="">Seleccione un tema</option>';
-                    data.forEach(function(topic) {
-                        options += `<option value="${topic.id}">${topic.name}</option>`;
-                    });
-                    $('#{{ form.topic.id_for_label }}').html(options).prop('disabled', false);
-                    $('#{{ form.subtopic.id_for_label }}').html('<option value="">Seleccione un tema primero</option>').prop('disabled', true);
-                    $('#addTopicBtn').prop('disabled', false);
-                }
-            });
-        } else {
-            $('#{{ form.topic.id_for_label }}').html('<option value="">Seleccione una materia primero</option>').prop('disabled', true);
-            $('#{{ form.subtopic.id_for_label }}').html('<option value="">Seleccione un tema primero</option>').prop('disabled', true);
-            $('#addTopicBtn').prop('disabled', true);
+    function loadTopics(subjectId, selectedTopicId = null) {
+        if (!subjectId) {
+            $('#{{ form.topic.id_for_label }}')
+                .html('<option value="">Seleccione una materia primero</option>')
+                .prop('disabled', true);
+            return;
         }
+
+        $.ajax({
+            url: '{% url "material:get_topics" %}',
+            data: { 'subject_id': subjectId },
+            success: function(data) {
+                let options = '<option value="">Seleccione un tema</option>';
+                data.forEach(function(topic) {
+                    const selected = topic.id == selectedTopicId ? 'selected' : '';
+                    options += `<option value="${topic.id}" ${selected}>${topic.name}</option>`;
+                });
+                
+                $('#{{ form.topic.id_for_label }}')
+                    .html(options)
+                    .prop('disabled', false);
+                
+                if (selectedTopicId) {
+                    loadSubtopics(selectedTopicId);
+                } else if (data.length === 1) {
+                    // Seleccionar automáticamente si solo hay un tema
+                    $('#{{ form.topic.id_for_label }}').val(data[0].id).trigger('change');
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'No se pudieron cargar los temas'
+                });
+            }
+        });
+    }
+
+    function loadSubtopics(topicId, selectedSubtopicId = null) {
+        if (!topicId) {
+            $('#{{ form.subtopic.id_for_label }}')
+                .html('<option value="">Seleccione un tema primero</option>')
+                .prop('disabled', true);
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "material:get_subtopics" %}',
+            data: { 'topic_id': topicId },
+            success: function(data) {
+                let options = '<option value="">Sin subtema</option>';
+                data.forEach(function(subtopic) {
+                    const selected = subtopic.id == selectedSubtopicId ? 'selected' : '';
+                    options += `<option value="${subtopic.id}" ${selected}>${subtopic.name}</option>`;
+                });
+                
+                $('#{{ form.subtopic.id_for_label }}')
+                    .html(options)
+                    .prop('disabled', false);
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'No se pudieron cargar los subtemas'
+                });
+            }
+        });
+    }
+
+    // Eventos de cambio
+    $('#{{ form.subject.id_for_label }}').change(function() {
+        loadTopics($(this).val());
     });
 
     $('#{{ form.topic.id_for_label }}').change(function() {
-        const topicId = $(this).val();
-        if (topicId) {
-            $.ajax({
-                url: '{% url "material:get_subtopics" %}',
-                data: { 'topic_id': topicId },
-                success: function(data) {
-                    let options = '<option value="">Sin subtema</option>';
-                    data.forEach(function(subtopic) {
-                        options += `<option value="${subtopic.id}">${subtopic.name}</option>`;
-                    });
-                    $('#{{ form.subtopic.id_for_label }}').html(options).prop('disabled', false);
-                    $('#addSubtopicBtn').prop('disabled', false);
-                    
-                    // Actualizar select en modal de subtema
-                    $('#newSubtopicTopic').html('<option value="">Seleccione un tema</option>');
-                    data.forEach(function(topic) {
-                        $('#newSubtopicTopic').append(`<option value="${topic.id}">${topic.name}</option>`);
-                    });
-                }
-            });
-        } else {
-            $('#{{ form.subtopic.id_for_label }}').html('<option value="">Seleccione un tema primero</option>').prop('disabled', true);
-            $('#addSubtopicBtn').prop('disabled', true);
-        }
+        loadSubtopics($(this).val());
     });
+
+    // Inicialización
+    function initializeSelects() {
+        const subjectId = $('#{{ form.subject.id_for_label }}').val();
+        const topicId = $('#{{ form.topic.id_for_label }}').val();
+        
+        if (subjectId) {
+            loadTopics(subjectId, topicId);
+        }
+    }
+    initializeSelects();
 
     // Manejo de modales
     $('#addTopicBtn').click(function() {
@@ -302,6 +333,7 @@ $(document).ready(function() {
             });
             return;
         }
+        $('#newTopicName').val('');
         $('#newTopicSubject').val(subjectId);
         $('#newTopicModal').modal('show');
     });
@@ -317,32 +349,21 @@ $(document).ready(function() {
             return;
         }
         
-        // Cargar temas disponibles para el subtema
-        const subjectId = $('#{{ form.subject.id_for_label }}').val();
-        $.ajax({
-            url: '{% url "material:get_topics" %}',
-            data: { 'subject_id': subjectId },
-            success: function(data) {
-                let options = '<option value="">Seleccione un tema</option>';
-                data.forEach(function(topic) {
-                    options += `<option value="${topic.id}" ${topic.id == topicId ? 'selected' : ''}>${topic.name}</option>`;
-                });
-                $('#newSubtopicTopic').html(options);
-                $('#newSubtopicModal').modal('show');
-            }
-        });
+        $('#newSubtopicName').val('');
+        $('#newSubtopicTopic').val(topicId);
+        $('#newSubtopicModal').modal('show');
     });
 
     // Guardar nuevo Tema
     $('#saveNewTopic').click(function() {
-        const name = $('#newTopicName').val();
+        const name = $('#newTopicName').val().trim();
         const subjectId = $('#newTopicSubject').val();
         
-        if (!name || !subjectId) {
+        if (!name) {
             Swal.fire({
                 icon: 'error',
-                title: 'Campos incompletos',
-                text: 'Debe completar todos los campos'
+                title: 'Nombre requerido',
+                text: 'Debe ingresar un nombre para el tema'
             });
             return;
         }
@@ -355,33 +376,43 @@ $(document).ready(function() {
                 'subject_id': subjectId,
                 'csrfmiddlewaretoken': '{{ csrf_token }}'
             },
+            contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+            dataType: 'json',
             success: function(response) {
                 if (response.success) {
                     // Actualizar select de temas
-                    let newOption = new Option(response.topic.name, response.topic.id, true, true);
-                    $('#{{ form.topic.id_for_label }}').append(newOption).trigger('change');
+                    $('#{{ form.topic.id_for_label }}').append(
+                        $('<option>', {
+                            value: response.topic.id,
+                            text: response.topic.name,
+                            selected: true
+                        })
+                    ).trigger('change');
                     
                     Swal.fire({
                         icon: 'success',
-                        title: 'Tema agregado',
-                        text: 'El nuevo tema se ha agregado correctamente'
+                        title: '¡Éxito!',
+                        text: 'Tema creado correctamente'
                     });
                     
                     $('#newTopicModal').modal('hide');
-                    $('#newTopicName').val('');
                 } else {
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: response.error || 'Ocurrió un error al guardar el tema'
+                        text: response.error || 'Error al crear el tema'
                     });
                 }
             },
-            error: function() {
+            error: function(xhr) {
+                let errorMsg = 'Error al comunicarse con el servidor';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Ocurrió un error al comunicarse con el servidor'
+                    text: errorMsg
                 });
             }
         });
@@ -389,14 +420,14 @@ $(document).ready(function() {
 
     // Guardar nuevo Subtema
     $('#saveNewSubtopic').click(function() {
-        const name = $('#newSubtopicName').val();
+        const name = $('#newSubtopicName').val().trim();
         const topicId = $('#newSubtopicTopic').val();
         
-        if (!name || !topicId) {
+        if (!name) {
             Swal.fire({
                 icon: 'error',
-                title: 'Campos incompletos',
-                text: 'Debe completar todos los campos'
+                title: 'Nombre requerido',
+                text: 'Debe ingresar un nombre para el subtema'
             });
             return;
         }
@@ -409,33 +440,43 @@ $(document).ready(function() {
                 'topic_id': topicId,
                 'csrfmiddlewaretoken': '{{ csrf_token }}'
             },
+            contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+            dataType: 'json',
             success: function(response) {
                 if (response.success) {
                     // Actualizar select de subtemas
-                    let newOption = new Option(response.subtopic.name, response.subtopic.id, true, true);
-                    $('#{{ form.subtopic.id_for_label }}').append(newOption).trigger('change');
+                    $('#{{ form.subtopic.id_for_label }}').append(
+                        $('<option>', {
+                            value: response.subtopic.id,
+                            text: response.subtopic.name,
+                            selected: true
+                        })
+                    ).trigger('change');
                     
                     Swal.fire({
                         icon: 'success',
-                        title: 'Subtema agregado',
-                        text: 'El nuevo subtema se ha agregado correctamente'
+                        title: '¡Éxito!',
+                        text: 'Subtema creado correctamente'
                     });
                     
                     $('#newSubtopicModal').modal('hide');
-                    $('#newSubtopicName').val('');
                 } else {
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: response.error || 'Ocurrió un error al guardar el subtema'
+                        text: response.error || 'Error al crear el subtema'
                     });
                 }
             },
-            error: function() {
+            error: function(xhr) {
+                let errorMsg = 'Error al comunicarse con el servidor';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Ocurrió un error al comunicarse con el servidor'
+                    text: errorMsg
                 });
             }
         });
@@ -465,6 +506,12 @@ $(document).ready(function() {
     
     .input-group-append .btn {
         border-radius: 0 .25rem .25rem 0;
+    }
+    
+    #questionImagePreview img, 
+    #answerImagePreview img {
+        max-height: 200px;
+        object-fit: contain;
     }
 </style>
 {% endblock %}

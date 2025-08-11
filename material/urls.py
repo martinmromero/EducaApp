@@ -90,6 +90,9 @@ path('exam-templates/view/<int:template_id>/', material_views.view_exam_template
 path('add-topic/', material_views.add_topic, name='add_topic'),
 path('add-subtopic/', material_views.add_subtopic, name='add_subtopic'),
 
+path('upload/', material_views.upload_contenido, name='upload_contenido'),  # Para contenido tradicional
+path('upload-questions/', material_views.upload_questions, name='upload_questions'),  # Nueva vista mejorada
+
 #el siguiente renglon tal vez sea obsoleto. revisar cuando termine de ver temas de learning outcomes
 path('get-learning-outcomes/', material_views.get_learning_outcomes, name='get_learning_outcomes'),
 

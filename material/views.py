@@ -108,7 +108,7 @@ def upload_contenido(request):  # Antes upload_material
             return redirect('material:mis_contenidos')
     else:
         form = ContenidoForm()
-    return render(request, 'material/upload.html', {'form': form})
+    return render(request, 'material/questions/upload.html', {'form': form})
 
 @login_required
 def generate_questions(request, contenido_id):
@@ -574,7 +574,7 @@ def lista_preguntas(request):
 
     subjects = Subject.objects.filter(
         question__in=preguntas
-    ).distinct().order_by('Nombre')
+    ).distinct().order_by('name')  # Cambiado de 'Nombre' a 'name'
 
     topics = Topic.objects.filter(
         subject__question__in=preguntas
@@ -597,7 +597,8 @@ def lista_preguntas(request):
         'selected_topic': topic_id if topic_id.isdigit() else '',
         'selected_subtopic': subtopic_id if subtopic_id.isdigit() else '',
     }
-    return render(request, 'material/lista_preguntas.html', context)
+    return render(request, 'material/questions/lista_preguntas.html', context)
+
 
 @login_required
 def editar_pregunta(request, pk):
@@ -633,7 +634,7 @@ def eliminar_pregunta(request, pk):
 @login_required
 def mis_contenidos(request):
     contenidos = Contenido.objects.filter(uploaded_by=request.user)
-    return render(request, 'material/mis_contenidos.html', {'contenidos': contenidos})
+    return render(request, 'material/questions/mis_contenidos.html', {'contenidos': contenidos})
 
 @login_required
 def delete_contenido(request):
@@ -653,46 +654,77 @@ def delete_contenido(request):
 
 @login_required
 def upload_questions(request):
+    """
+    Vista para subir preguntas, tanto individualmente como por lotes (CSV/TXT)
+    """
     if request.method == 'POST':
-        form = QuestionForm(request.POST, request.FILES)
+        form = QuestionForm(request.POST, request.FILES, current_user=request.user)
+        
         if form.is_valid():
-            default_contenido = Contenido.objects.get_or_create(
-                title="Contenido por Defecto",
-                defaults={
-                    'uploaded_by': request.user,
-                    'subject': form.cleaned_data['subject']
-                }
-            )[0]
-
-            if 'file' in request.FILES:
-                file = request.FILES['file']
-                try:
-                    if file.name.endswith('.csv'):
+            try:
+                # Procesamiento para archivos CSV/TXT
+                if 'file' in request.FILES:
+                    file = request.FILES['file']
+                    file_extension = os.path.splitext(file.name)[1].lower()
+                    
+                    # Crear contenido por defecto asociado
+                    default_contenido, created = Contenido.objects.get_or_create(
+                        title="Contenido por Defecto",
+                        defaults={
+                            'uploaded_by': request.user,
+                            'subject': form.cleaned_data['subject']
+                        }
+                    )
+                    
+                    if file_extension == '.csv':
                         questions_created = process_csv_file(file, default_contenido, request.user)
-                        messages.success(request, f'{questions_created} preguntas creadas desde CSV.')
-                    elif file.name.endswith('.txt'):
+                        messages.success(request, f'{questions_created} preguntas creadas desde archivo CSV.')
+                    elif file_extension == '.txt':
                         questions_created = process_txt_file(file, default_contenido, request.user)
-                        messages.success(request, f'{questions_created} preguntas creadas desde TXT.')
+                        messages.success(request, f'{questions_created} preguntas creadas desde archivo TXT.')
                     else:
-                        messages.error(request, 'Formato no soportado. Use CSV o TXT.')
-                except Exception as e:
-                    logger.error(f"Error procesando archivo: {str(e)}")
-                    messages.error(request, f'Error al procesar el archivo: {str(e)}')
-            else:
-                question = form.save(commit=False)
-                question.contenido = default_contenido
-                question.user = request.user
-                question.save()
-                messages.success(request, 'Pregunta guardada correctamente.')
+                        messages.error(request, 'Formato de archivo no soportado. Use CSV o TXT.')
+                        return redirect('material:upload_questions')
+                    
+                # Procesamiento para pregunta individual
+                else:
+                    question = form.save(commit=False)
+                    question.user = request.user
+                    
+                    # Asignar contenido si se seleccionó
+                    if form.cleaned_data['contenido']:
+                        question.contenido = form.cleaned_data['contenido']
+                    else:
+                        # Crear contenido por defecto si no se seleccionó uno
+                        default_contenido = Contenido.objects.create(
+                            title="Contenido Automático",
+                            uploaded_by=request.user,
+                            subject=form.cleaned_data['subject']
+                        )
+                        question.contenido = default_contenido
+                    
+                    question.save()
+                    messages.success(request, 'Pregunta guardada correctamente.')
+                
+                return redirect('material:lista_preguntas')
             
-            return redirect('material:upload_questions')
+            except Exception as e:
+                logger.error(f"Error al procesar preguntas: {str(e)}", exc_info=True)
+                messages.error(request, f'Ocurrió un error: {str(e)}')
+                return redirect('material:upload_questions')
+        
+        else:
+            messages.error(request, 'Por favor corrija los errores en el formulario.')
     else:
-        form = QuestionForm()
-
-    return render(request, 'material/upload_questions.html', {
+        form = QuestionForm(current_user=request.user)
+    
+    context = {
         'form': form,
-        'dark_mode': request.session.get('dark_mode', False)
-    })
+        'dark_mode': request.session.get('dark_mode', False),
+        'current_tab': request.session.get('upload_questions_tab', 'single')
+    }
+    
+    return render(request, 'material/questions/upload_questions.html', context)
 
 # Funciones auxiliares para procesamiento de archivos
 def process_csv_file(file, contenido, user):
@@ -1877,88 +1909,129 @@ class SubjectUpdateView(UpdateView):
     
 # Agregar estas funciones al final de views.py
 
+@require_POST
 @login_required
-@require_http_methods(["POST"])
 def add_topic(request):
     try:
-        data = json.loads(request.body)
-        name = data.get('name')
-        subject_id = data.get('subject_id')
+        # Cambiamos a request.POST para los datos del formulario
+        name = request.POST.get('name', '').strip()
+        subject_id = request.POST.get('subject_id')
         
-        if not name or not subject_id:
+        # Validaciones
+        if not name:
             return JsonResponse({
                 'success': False,
-                'error': 'Nombre y materia son requeridos'
+                'error': 'El nombre del tema no puede estar vacío'
             }, status=400)
             
-        subject = get_object_or_404(Subject, id=subject_id)
-        
-        # Verificar si ya existe
-        if Topic.objects.filter(name=name, subject=subject).exists():
+        if not subject_id:
             return JsonResponse({
                 'success': False,
-                'error': 'Ya existe un tema con este nombre para esta materia'
+                'error': 'Debe seleccionar una materia'
             }, status=400)
             
+        try:
+            subject = Subject.objects.get(id=subject_id)
+        except Subject.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Materia no encontrada'
+            }, status=404)
+            
+        # Verificar duplicados (case insensitive)
+        if Topic.objects.filter(name__iexact=name, subject=subject).exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'Ya existe un tema con este nombre en esta materia'
+            }, status=400)
+            
+        # Crear el tema
         topic = Topic.objects.create(
             name=name,
-            subject=subject
+            subject=subject,
+            importance=3  # Valor por defecto
         )
         
         return JsonResponse({
             'success': True,
             'topic': {
                 'id': topic.id,
-                'name': topic.name
+                'name': topic.name,
+                'subject_id': subject.id
             }
         })
         
     except Exception as e:
-        logger.error(f"Error adding topic: {str(e)}")
+        logger.error(f"Error al agregar tema: {str(e)}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': 'Error interno del servidor'
         }, status=500)
 
+
+@require_POST
 @login_required
-@require_http_methods(["POST"])
 def add_subtopic(request):
     try:
         data = json.loads(request.body)
-        name = data.get('name')
+        name = data.get('name', '').strip()
         topic_id = data.get('topic_id')
         
-        if not name or not topic_id:
+        # Validaciones
+        if not name:
             return JsonResponse({
                 'success': False,
-                'error': 'Nombre y tema son requeridos'
+                'error': 'El nombre del subtema no puede estar vacío'
             }, status=400)
             
-        topic = get_object_or_404(Topic, id=topic_id)
-        
-        # Verificar si ya existe
-        if Subtopic.objects.filter(name=name, topic=topic).exists():
+        if not topic_id:
             return JsonResponse({
                 'success': False,
-                'error': 'Ya existe un subtema con este nombre para este tema'
+                'error': 'Debe seleccionar un tema principal'
             }, status=400)
             
+        try:
+            topic = Topic.objects.get(id=topic_id)
+        except Topic.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Tema no encontrado'
+            }, status=404)
+            
+        # Verificar duplicados
+        if Subtopic.objects.filter(name__iexact=name, topic=topic).exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'Ya existe un subtema con este nombre en este tema'
+            }, status=400)
+            
+        # Crear el subtema
         subtopic = Subtopic.objects.create(
             name=name,
             topic=topic
         )
         
+        # Registrar acción
+        logger.info(f"Usuario {request.user} creó subtema {subtopic.id} en tema {topic.id}")
+        
         return JsonResponse({
             'success': True,
             'subtopic': {
                 'id': subtopic.id,
-                'name': subtopic.name
+                'name': subtopic.name,
+                'topic_id': topic.id
             }
         })
         
-    except Exception as e:
-        logger.error(f"Error adding subtopic: {str(e)}")
+    except json.JSONDecodeError:
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': 'Formato de datos inválido'
+        }, status=400)
+        
+    except Exception as e:
+        logger.error(f"Error al agregar subtema: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'Error interno del servidor'
         }, status=500)
