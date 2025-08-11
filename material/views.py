@@ -556,33 +556,44 @@ def mis_examenes(request):
 
 @login_required
 def lista_preguntas(request):
+    # Obtener todas las preguntas del usuario
     preguntas = Question.objects.filter(
         models.Q(contenido__uploaded_by=request.user) | 
         models.Q(user=request.user)
-    ).select_related('subject', 'topic', 'subtopic')
+    ).select_related('subject', 'topic', 'subtopic', 'contenido')
 
+    # Obtener materias que tienen preguntas del usuario
+    subjects = Subject.objects.filter(
+        question__in=preguntas
+    ).distinct().order_by('name')
+
+    # Aplicar filtros
     subject_id = request.GET.get('subject', '')
     topic_id = request.GET.get('topic', '')
     subtopic_id = request.GET.get('subtopic', '')
 
     if subject_id.isdigit():
         preguntas = preguntas.filter(subject_id=int(subject_id))
+        if topic_id.isdigit():
+            preguntas = preguntas.filter(topic_id=int(topic_id))
+            if subtopic_id.isdigit():
+                preguntas = preguntas.filter(subtopic_id=int(subtopic_id))
+
+    # Obtener temas y subtemas basados en los filtros actuales
+    topics = Topic.objects.none()
+    subtopics = Subtopic.objects.none()
+
+    if subject_id.isdigit():
+        topics = Topic.objects.filter(
+            subject_id=int(subject_id),
+            question__in=preguntas
+        ).distinct().order_by('name')
+
     if topic_id.isdigit():
-        preguntas = preguntas.filter(topic_id=int(topic_id))
-    if subtopic_id.isdigit():
-        preguntas = preguntas.filter(subtopic_id=int(subtopic_id))
-
-    subjects = Subject.objects.filter(
-        question__in=preguntas
-    ).distinct().order_by('name')  # Cambiado de 'Nombre' a 'name'
-
-    topics = Topic.objects.filter(
-        subject__question__in=preguntas
-    ).distinct().order_by('name') if subject_id.isdigit() else Topic.objects.none()
-
-    subtopics = Subtopic.objects.filter(
-        topic__subject__question__in=preguntas
-    ).distinct().order_by('name') if topic_id.isdigit() else Subtopic.objects.none()
+        subtopics = Subtopic.objects.filter(
+            topic_id=int(topic_id),
+            question__in=preguntas
+        ).distinct().order_by('name')
 
     paginator = Paginator(preguntas, 25)
     page_number = request.GET.get('page')
@@ -590,15 +601,14 @@ def lista_preguntas(request):
 
     context = {
         'preguntas': page_obj,
-        'subjects_unicos': subjects,
-        'topics_unicos': topics,
-        'subtopics_unicos': subtopics,
+        'subjects': subjects,
+        'topics': topics,
+        'subtopics': subtopics,
         'selected_subject': subject_id if subject_id.isdigit() else '',
         'selected_topic': topic_id if topic_id.isdigit() else '',
         'selected_subtopic': subtopic_id if subtopic_id.isdigit() else '',
     }
     return render(request, 'material/questions/lista_preguntas.html', context)
-
 
 @login_required
 def editar_pregunta(request, pk):

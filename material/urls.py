@@ -47,6 +47,7 @@ urlpatterns = [
     path('instituciones-v2/favorito/<int:pk>/', material_views.toggle_favorite_institution, name='toggle_favorite_institution'),
     path('instituciones-v2/detalle/<int:pk>/', material_views.institution_v2_detail, name='institution_v2_detail'),
     path('instituciones-v2/logs/<int:pk>/', material_views.institution_v2_logs, name='institution_v2_logs'),
+# linea siguiente comentada para ser borrada:   
     # path('instituciones-v2/count-favorites/', material_views.count_favorite_institutions, name='count_favorite_institutions'),
     path('instituciones-v2/<int:institution_id>/campus/create/', material_views.create_campus_v2, name='create_campus_v2'),
     path('instituciones-v2/<int:institution_id>/campus/<int:campus_id>/edit/', material_views.edit_campus_v2, name='edit_campus_v2'),
