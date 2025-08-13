@@ -32,14 +32,10 @@
 
         <!-- Menú de dos niveles -->
         <div class="menu-item" onclick="toggleSubmenu(this)">
-            <i class="bi bi-folder-fill me-2"></i> Material
+            <i class="bi bi-folder-fill me-2"></i> Contenidos
             <div class="submenu">
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'material:upload_contenido' %}">Subir Contenido</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'material:mis_contenidos' %}">Mis Contenidos</a>
-                </li>
+                    <a href="{% url 'material:upload_contenido' %}"><i class="bi bi-upload me-2"></i>Subir Contenido</a>
+                    <a href="{% url 'material:mis_contenidos' %}"><i class="bi bi-collection me-2"></i>Mis Contenidos</a>
             </div>
         </div>
 
@@ -52,61 +48,65 @@
         </div>
 
         <div class="menu-item" onclick="toggleSubmenu(this)">
+            <i class="bi bi-file-earmark-text-fill me-2"></i> Plantillas
+            <div class="submenu">
+                <a href="{% url 'material:create_exam_template' %}"><i class="bi bi-file-earmark-plus me-2"></i>Crear Plantilla</a>
+                <a href="{% url 'material:list_exam_templates' %}"><i class="bi bi-files me-2"></i>Mis Plantillas</a>
+                </div>
+        </div>
+
+         <div class="menu-item" onclick="toggleSubmenu(this)">
             <i class="bi bi-file-earmark-text-fill me-2"></i> Exámenes
             <div class="submenu">
                 <a href="{% url 'material:create_exam' %}"><i class="bi bi-plus-circle me-2"></i>Crear Exámenes</a>
-                <a href="{% url 'material:create_exam_template' %}"><i class="bi bi-file-earmark-plus me-2"></i>Plantilla de Examen</a>
-                <a href="{% url 'material:list_exam_templates' %}"><i class="bi bi-files me-2"></i>Plantillas Guardadas</a>
                 <a href="{% url 'material:mis_examenes' %}"><i class="bi bi-archive me-2"></i>Mis Exámenes</a>
             </div>
         </div>
 
-        <!-- Ítem original de Instituciones (se mantiene) -->
+        <!-- Nuevo ítem para Instituciones V2 -->
         <div class="menu-item" onclick="toggleSubmenu(this)">
-            <i class="bi bi-building me-2"></i> Instituciones
+            <i class="bi bi-buildings me-2"></i> Instituciones
             <div class="submenu">
-                <a href="{% url 'material:manage_institutions' %}"><i class="bi bi-gear me-2"></i>Gestión (Legado)</a>
-                <a href="{% url 'material:manage_learning_outcomes' %}"><i class="bi bi-book me-2"></i>Resultados de Aprendizaje</a>
-            </div>
-        </div>
+
+                <a href="{% url 'material:create_institution_v2' %}"><i class="bi bi-plus-circle me-2"></i>Crear Institución</a>
+                <a href="{% url 'material:institution_v2_list' %}"> <i class="bi bi-list-stars me-2"></i>Mis Instituciones </a> </div>
+        </div>       
 
 <div class="menu-item" onclick="toggleSubmenu(this)">
     <i class="bi bi-mortarboard-fill me-2"></i> Carreras
     <div class="submenu">
+          <a href="{% url 'material:career_create_simple' %}">
+            <i class="bi bi-plus-circle me-2"></i>Crear Carrera
+        </a>  
         <a href="{% url 'material:career_list' %}">
-            <i class="bi bi-list-ul me-2"></i>Listado
-        </a>
-        <a href="{% url 'material:career_create_simple' %}">
-            <i class="bi bi-plus-circle me-2"></i>Crear Nueva
-        </a>
+            <i class="bi bi-list-ul me-2"></i>Mis Carreras    </a>
+
     </div>
 </div>
 
 <div class="menu-item" onclick="toggleSubmenu(this)">
     <i class="bi bi-book me-2"></i> Materias
     <div class="submenu">
-        <a href="{% url 'material:subject_list' %}">
-            <i class="bi bi-list-ul me-2"></i>Listado
-        </a>
         <a href="{% url 'material:create_subject' %}">
-            <i class="bi bi-plus-circle me-2"></i>Crear Nueva
+            <i class="bi bi-plus-circle me-2"></i>Crear Materia
         </a>
+        <a href="{% url 'material:subject_list' %}">
+            <i class="bi bi-list-ul me-2"></i>Mis Materias
+        </a>
+
     </div>
 </div>
 
 
-        <!-- Nuevo ítem para Instituciones V2 -->
-        <div class="menu-item" onclick="toggleSubmenu(this)">
-            <i class="bi bi-buildings me-2"></i> Mis Instituciones
-            <div class="submenu">
-                <a href="{% url 'material:institution_v2_list' %}">
-                    <i class="bi bi-list-stars me-2"></i>Listado
 
-                </a>
-                <a href="{% url 'material:create_institution_v2' %}"><i class="bi bi-plus-circle me-2"></i>Crear Nueva</a>
+ <!-- Ítem original de Instituciones (se mantiene) -->
+        <div class="menu-item" onclick="toggleSubmenu(this)">
+            <i class="bi bi-building me-2"></i> Instituciones (OLD)
+            <div class="submenu">
+                <a href="{% url 'material:manage_institutions' %}"><i class="bi bi-gear me-2"></i>Gestión (Legado)</a>
+                <a href="{% url 'material:manage_learning_outcomes' %}"><i class="bi bi-book me-2"></i>Resultados de Aprendizaje</a>
             </div>
         </div>
-
         <!-- Menú de Administración (solo para administradores) -->
         {% if is_admin %}
             <div class="menu-item" onclick="toggleSubmenu(this)">
@@ -212,6 +212,14 @@
 
         // Submenús
         function toggleSubmenu(element) {
+            // Cierra todos los submenús excepto el clickeado
+            const menuItems = document.querySelectorAll('.sidebar .menu-item');
+            menuItems.forEach(item => {
+                if (item !== element) {
+                    item.classList.remove('active');
+                }
+            });
+            // Alterna el submenú del elemento clickeado
             element.classList.toggle('active');
         }
 

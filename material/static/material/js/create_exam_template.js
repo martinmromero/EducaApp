@@ -463,18 +463,21 @@ function setupSaveTemplate() {
     const saveBtn = document.getElementById('save-template-btn');
     if (!saveBtn) return;
 
-    // Función de notificación mejorada
+    // Función de notificación tipo toast y scroll arriba
     const showNotification = (message, type = 'success') => {
-        const container = document.getElementById('alerts-container') || document.body;
-        container.innerHTML = `
-            <div class="alert alert-${type} alert-dismissible fade show">
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        `;
+    // Scroll arriba absoluto de la página
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        // Toast Bootstrap
+        const toastEl = document.getElementById('successToast');
+        const toastMsg = document.getElementById('toastMessage');
+        toastMsg.textContent = message;
+        toastEl.className = `toast align-items-center text-bg-${type} border-0`;
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
     };
 
-    saveBtn.addEventListener('click', async function() {
+    saveBtn.addEventListener('click', async function(e) {
+        e.preventDefault(); // Evita submit estándar
         const form = document.getElementById('examTemplateForm');
         const formData = new FormData(form);
 
@@ -511,8 +514,11 @@ function setupSaveTemplate() {
                 throw new Error(data.error || 'Error al guardar la plantilla');
             }
 
+            // Mostrar notificación y redirigir al listado
             showNotification('Plantilla guardada correctamente');
-            
+            setTimeout(function() {
+                window.location.href = '/create-exam-template/';
+            }, 1200); // 1.2 segundos para que el usuario vea el mensaje y se recargue la página
         } catch (error) {
             console.error('Error:', error);
             showNotification(error.message, 'danger');
