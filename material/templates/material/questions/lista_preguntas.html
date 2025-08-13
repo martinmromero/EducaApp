@@ -15,10 +15,10 @@
                 <div class="form-row">
                     <!-- Filtro por Materia -->
                     <div class="form-group col-md-4">
-                        <label for="subject">Materia</label>
-                        <select name="subject" id="subject" class="form-control">
+                        <label for="filter-subject">Materia</label>
+                        <select name="subject" id="filter-subject" class="form-control">
                             <option value="">Todas las materias</option>
-                            {% for subject in subjects_unicos %}
+                            {% for subject in subjects %}
                                 <option value="{{ subject.id }}" 
                                     {% if selected_subject == subject.id|stringformat:"s" %}selected{% endif %}>
                                     {{ subject.name }}
@@ -192,20 +192,9 @@ $(document).ready(function() {
     });
 
     // Aplicar filtros al hacer submit
-    $('#filter-form').submit(function(e) {
-        e.preventDefault();
-        const params = new URLSearchParams(window.location.search);
-        
-        ['subject', 'topic', 'subtopic'].forEach(function(filter) {
-            const value = $('#filter-' + filter).val();
-            if (value) {
-                params.set(filter, value);
-            } else {
-                params.delete(filter);
-            }
-        });
-        
-        window.location.href = window.location.pathname + '?' + params.toString();
+    // Filtrar automáticamente al cambiar cualquier select de filtro
+    $('#filter-subject, #contenido, #question_type').change(function() {
+        this.form.submit();
     });
 });
 </script>

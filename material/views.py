@@ -520,24 +520,26 @@ def delete_user(request, user_id):
 @login_required
 def mis_datos(request):
     user = request.user
+    import logging
+    logger = logging.getLogger(__name__)
     if request.method == 'POST':
+        logger.info(f"POST DATA: {request.POST}")
         form = UserEditForm(request.POST, instance=user)
+        logger.info(f"Form valid: {form.is_valid()}")
         if form.is_valid():
+            logger.info(f"Form cleaned_data: {form.cleaned_data}")
             if form.has_changed():
-                user.username = form.cleaned_data['username']
-                user.first_name = form.cleaned_data['first_name']
-                user.last_name = form.cleaned_data['last_name']
-                user.email = form.cleaned_data['email']
-                user.save()
-                profile = user.profile
-                profile.role = form.cleaned_data['role']
-                profile.save()
-                profile.institutions.set(form.cleaned_data['institutions'])
+                logger.info(f"ANTES DE GUARDAR: first_name={form.cleaned_data.get('first_name')}, last_name={form.cleaned_data.get('last_name')}")
+                user = form.save()
+                logger.info(f"DESPUES DE GUARDAR: first_name={user.first_name}, last_name={user.last_name}")
                 update_session_auth_hash(request, user)
                 messages.success(request, 'Sus cambios fueron guardados.')
             else:
+                logger.info("No se realizaron cambios detectados por el formulario.")
                 messages.info(request, 'No se realizaron cambios.')
             return redirect('material:mis_datos')
+        else:
+            logger.error(f"Errores en el formulario: {form.errors}")
     else:
         initial_data = {
             'role': user.profile.role,
@@ -557,10 +559,7 @@ def mis_examenes(request):
 @login_required
 def lista_preguntas(request):
     # Obtener todas las preguntas del usuario
-    preguntas = Question.objects.filter(
-        models.Q(contenido__uploaded_by=request.user) | 
-        models.Q(user=request.user)
-    ).select_related('subject', 'topic', 'subtopic', 'contenido')
+    preguntas = Question.objects.filter(user=request.user).select_related('subject', 'topic', 'subtopic', 'contenido')
 
     # Obtener materias que tienen preguntas del usuario
     subjects = Subject.objects.filter(
@@ -572,24 +571,27 @@ def lista_preguntas(request):
     topic_id = request.GET.get('topic', '')
     subtopic_id = request.GET.get('subtopic', '')
 
-    if subject_id.isdigit():
+    # Filtrar por materia si corresponde
+    if subject_id and subject_id.isdigit():
         preguntas = preguntas.filter(subject_id=int(subject_id))
-        if topic_id.isdigit():
-            preguntas = preguntas.filter(topic_id=int(topic_id))
-            if subtopic_id.isdigit():
-                preguntas = preguntas.filter(subtopic_id=int(subtopic_id))
+    # Filtrar por tema si corresponde
+    if topic_id and topic_id.isdigit() and int(topic_id) > 0:
+        preguntas = preguntas.filter(topic_id=int(topic_id))
+    # Filtrar por subtema si corresponde
+    if subtopic_id and subtopic_id.isdigit() and int(subtopic_id) > 0:
+        preguntas = preguntas.filter(subtopic_id=int(subtopic_id))
 
     # Obtener temas y subtemas basados en los filtros actuales
     topics = Topic.objects.none()
     subtopics = Subtopic.objects.none()
 
-    if subject_id.isdigit():
+    if subject_id and subject_id.isdigit() and int(subject_id) > 0:
         topics = Topic.objects.filter(
             subject_id=int(subject_id),
             question__in=preguntas
         ).distinct().order_by('name')
 
-    if topic_id.isdigit():
+    if topic_id and topic_id.isdigit() and int(topic_id) > 0:
         subtopics = Subtopic.objects.filter(
             topic_id=int(topic_id),
             question__in=preguntas
@@ -623,7 +625,7 @@ def editar_pregunta(request, pk):
     else:
         form = QuestionForm(instance=pregunta)
     
-    return render(request, 'material/editar_pregunta.html', {
+    return render(request, 'material/questions/editar_pregunta.html', {
         'form': form,
         'pregunta': pregunta
     })
@@ -637,7 +639,7 @@ def eliminar_pregunta(request, pk):
         messages.success(request, 'Pregunta eliminada correctamente')
         return redirect('material:lista_preguntas')
     
-    return render(request, 'material/confirmar_eliminar.html', {
+    return render(request, 'material/questions/confirmar_eliminar.html', {
         'pregunta': pregunta
     })
 
@@ -676,21 +678,13 @@ def upload_questions(request):
                 if 'file' in request.FILES:
                     file = request.FILES['file']
                     file_extension = os.path.splitext(file.name)[1].lower()
-                    
-                    # Crear contenido por defecto asociado
-                    default_contenido, created = Contenido.objects.get_or_create(
-                        title="Contenido por Defecto",
-                        defaults={
-                            'uploaded_by': request.user,
-                            'subject': form.cleaned_data['subject']
-                        }
-                    )
-                    
+                    # No asociar contenido por defecto; solo si el usuario selecciona uno
+                    contenido_seleccionado = form.cleaned_data.get('contenido')
                     if file_extension == '.csv':
-                        questions_created = process_csv_file(file, default_contenido, request.user)
+                        questions_created = process_csv_file(file, contenido_seleccionado, request.user)
                         messages.success(request, f'{questions_created} preguntas creadas desde archivo CSV.')
                     elif file_extension == '.txt':
-                        questions_created = process_txt_file(file, default_contenido, request.user)
+                        questions_created = process_txt_file(file, contenido_seleccionado, request.user)
                         messages.success(request, f'{questions_created} preguntas creadas desde archivo TXT.')
                     else:
                         messages.error(request, 'Formato de archivo no soportado. Use CSV o TXT.')
@@ -700,19 +694,11 @@ def upload_questions(request):
                 else:
                     question = form.save(commit=False)
                     question.user = request.user
-                    
-                    # Asignar contenido si se seleccionó
+                    # Asignar contenido solo si se seleccionó
                     if form.cleaned_data['contenido']:
                         question.contenido = form.cleaned_data['contenido']
                     else:
-                        # Crear contenido por defecto si no se seleccionó uno
-                        default_contenido = Contenido.objects.create(
-                            title="Contenido Automático",
-                            uploaded_by=request.user,
-                            subject=form.cleaned_data['subject']
-                        )
-                        question.contenido = default_contenido
-                    
+                        question.contenido = None
                     question.save()
                     messages.success(request, 'Pregunta guardada correctamente.')
                 

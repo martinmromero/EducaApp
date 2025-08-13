@@ -21,7 +21,30 @@
                     {% for subject in subjects %}
                     <tr>
                         <td>{{ subject.name }}</td>
-                        <td>{{ subject.learning_outcomes|truncatechars:50|default:"-" }}</td>
+                        <td>
+                            <div class="accordion" id="accordionOutcomes{{ subject.pk }}">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="headingOutcomes{{ subject.pk }}">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOutcomes{{ subject.pk }}" aria-expanded="false" aria-controls="collapseOutcomes{{ subject.pk }}">
+                                            Ver Resultados ({{ subject.get_all_outcomes|length }})
+                                        </button>
+                                    </h2>
+                                    <div id="collapseOutcomes{{ subject.pk }}" class="accordion-collapse collapse" aria-labelledby="headingOutcomes{{ subject.pk }}" data-bs-parent="#accordionOutcomes{{ subject.pk }}">
+                                        <div class="accordion-body">
+                                            {% if subject.get_all_outcomes %}
+                                                <ul class="mb-0">
+                                                    {% for outcome in subject.get_all_outcomes %}
+                                                        <li>{{ outcome.description }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% else %}
+                                                <span class="text-muted">No hay resultados registrados.</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
                         <td>
                             <div class="btn-group">
                                 <a href="{% url 'material:subject_detail' pk=subject.pk %}" class="btn btn-sm btn-info">

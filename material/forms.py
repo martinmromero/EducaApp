@@ -65,12 +65,11 @@ class FacultyForm(forms.ModelForm):
 class LearningOutcomeForm(forms.ModelForm):
     class Meta:
         model = LearningOutcome
-        fields = ['description']  # Eliminamos 'subject' de los fields
+        fields = ['description']
         widgets = {
             'description': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 3,
-                'minlength': '10',
                 'required': 'required',
                 'placeholder': 'Descripción del resultado de aprendizaje...'
             })
@@ -83,11 +82,7 @@ class LearningOutcomeForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Eliminamos la lógica relacionada con subject ya que no lo necesitamos en el form
 
-    def clean_description(self):
-        description = self.cleaned_data.get('description', '').strip()
-        if len(description) < 10:
-            raise ValidationError("La descripción debe tener al menos 10 caracteres")
-        return description
+    # Eliminada la validación de longitud mínima para description
 
 class ContenidoForm(forms.ModelForm):
     subject = forms.ModelChoiceField(
@@ -273,7 +268,13 @@ class CustomLoginForm(AuthenticationForm):
 
 class UserEditForm(forms.ModelForm):
     role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, label="Rol",
-                            widget=forms.Select(attrs={'class': 'form-control'}))
+                            widget=forms.Select(attrs={'class': 'form-control'}), required=False)
+    def clean(self):
+        cleaned_data = super().clean()
+        # Si el campo 'role' no viene en el POST, asignar el actual
+        if not cleaned_data.get('role') and self.instance and hasattr(self.instance, 'profile'):
+            cleaned_data['role'] = self.instance.profile.role
+        return cleaned_data
     institutions = forms.ModelMultipleChoiceField(
         queryset=Institution.objects.all(),
         widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
@@ -293,7 +294,8 @@ class UserEditForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.instance and hasattr(self.instance, 'profile'):
+        # Solo setear initial extra en GET (cuando no hay data)
+        if not self.data and self.instance and hasattr(self.instance, 'profile'):
             self.initial['role'] = self.instance.profile.role
             self.initial['institutions'] = self.instance.profile.institutions.all()
 

@@ -41,8 +41,10 @@
         <div class="mb-3">
             {{ form.email.label_tag }} {{ form.email }}
         </div>
-        <!-- Mostrar el campo de rol solo si el usuario es administrador -->
         {% if is_admin %}
+            <div class="mb-3">
+                {{ form.is_active.label_tag }} {{ form.is_active }}
+            </div>
             <div class="mb-3">
                 {{ form.role.label_tag }} {{ form.role }}
             </div>

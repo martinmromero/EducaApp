@@ -1,0 +1,18 @@
+materia: Matemáticas
+pregunta: ¿Cuánto es 2+2?
+respuesta: 4
+tema: Álgebra
+unidad: 1
+libro_referencia: Libro de Álgebra
+pagina: 12
+capitulo: Capítulo 1
+
+materia: Historia
+pregunta: ¿Quién fue San Martín?
+respuesta: Libertador
+tema: Independencia
+subtema: Argentina
+unidad: 2
+libro_referencia: Libro de Historia
+pagina: 34
+capitulo: Capítulo 2

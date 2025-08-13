@@ -35,11 +35,11 @@
             <i class="bi bi-folder-fill me-2"></i> Material
             <div class="submenu">
                 <li class="nav-item">
-    <a class="nav-link" href="{% url 'material:upload_contenido' %}">Subir Contenido</a>
-</li>
-<li class="nav-item">
-    <a class="nav-link" href="{% url 'material:upload_questions' %}">Subir Preguntas</a>
-</li>
+                    <a class="nav-link" href="{% url 'material:upload_contenido' %}">Subir Contenido</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'material:mis_contenidos' %}">Mis Contenidos</a>
+                </li>
             </div>
         </div>
 
@@ -101,7 +101,7 @@
             <div class="submenu">
                 <a href="{% url 'material:institution_v2_list' %}">
                     <i class="bi bi-list-stars me-2"></i>Listado
-                    <span class="badge bg-primary ms-2" id="favorites-badge">0</span>
+
                 </a>
                 <a href="{% url 'material:create_institution_v2' %}"><i class="bi bi-plus-circle me-2"></i>Crear Nueva</a>
             </div>
@@ -215,18 +215,7 @@
             element.classList.toggle('active');
         }
 
-        // Actualizar badge de favoritos
-        document.addEventListener('DOMContentLoaded', function() {
-            fetch('/instituciones-v2/count-favorites/')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.count > 0) {
-                        document.getElementById('favorites-badge').textContent = data.count;
-                    } else {
-                        document.getElementById('favorites-badge').style.display = 'none';
-                    }
-                });
-        });
+
     </script>
 
 </body>
