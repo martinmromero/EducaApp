@@ -1,0 +1,186 @@
+
+{% extends 'material/base.html' %}
+{% load static %}
+{% block content %}
+<script src="{% static 'material/js/create_exam.js' %}"></script>
+<h2>Crear Examen</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div class="row">
+        <div class="col-md-6">
+            <!-- Plantilla -->
+            <div class="mb-3">
+                <label for="plantilla">Plantilla</label>
+                <select class="form-select" name="plantilla" id="plantilla">
+                    <option value="">Examen vacío</option>
+                    {% for template in templates %}
+                        <option value="{{ template.id }}">{{ template }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!-- Materia -->
+            <div class="mb-3">
+                {{ form.subject.label_tag }}
+                {{ form.subject }}
+            </div>
+            <!-- Resultados de aprendizaje como checkboxes -->
+            <div class="mb-3">
+                <label for="id_learning_outcomes">Resultados de aprendizaje</label>
+                <div id="learning_outcomes_container">
+                    <!-- Los checkboxes se poblarán dinámicamente -->
+                </div>
+            </div>
+            <!-- Temas evaluados -->
+            <div class="mb-3">
+                <label for="id_topics">Temas evaluados</label>
+                <select multiple class="form-select" name="topics" id="id_topics">
+                </select>
+            </div>
+            <!-- Institución -->
+            <div class="mb-3">
+                <label for="institucion_dropdown">Institución</label>
+                <select class="form-select" name="institucion_dropdown" id="institucion_dropdown" onchange="toggleTextbox('institucion_dropdown', 'institucion_text')">
+                    <option value="">Seleccionar institución</option>
+                    {% for institucion in instituciones %}
+                        <option value="{{ institucion.id }}">{{ institucion.name }}</option>
+                    {% endfor %}
+                    <option value="otro">Otro</option>
+                </select>
+                <input type="text" class="form-control mt-2" name="institucion_text" id="institucion_text" placeholder="Ingrese institución" style="display:none;">
+            </div>
+            <!-- Facultad -->
+            <div class="mb-3">
+                <label for="facultad_dropdown">Facultad</label>
+                <select class="form-select" name="facultad_dropdown" id="facultad_dropdown" onchange="toggleTextbox('facultad_dropdown', 'facultad_text')">
+                    <option value="">Seleccionar facultad</option>
+                    <option value="otro">Otro</option>
+                </select>
+                <input type="text" class="form-control mt-2" name="facultad_text" id="facultad_text" placeholder="Ingrese facultad" style="display:none;">
+            </div>
+            <!-- Carrera -->
+            <div class="mb-3">
+                <label for="carrera_dropdown">Carrera</label>
+                <select class="form-select" name="carrera_dropdown" id="carrera_dropdown" onchange="toggleTextbox('carrera_dropdown', 'carrera_text')">
+                    <option value="">Seleccionar carrera</option>
+                    {% for carrera in carreras %}
+                        <option value="{{ carrera.id }}">{{ carrera.name }}</option>
+                    {% endfor %}
+                    <option value="otro">Otro</option>
+                </select>
+                <input type="text" class="form-control mt-2" name="carrera_text" id="carrera_text" placeholder="Ingrese carrera" style="display:none;">
+            </div>
+            <!-- Sede -->
+            <div class="mb-3">
+                <label for="sede_dropdown">Sede / Localización</label>
+                <select class="form-select" name="sede_dropdown" id="sede_dropdown" onchange="toggleTextbox('sede_dropdown', 'sede_text')">
+                    <option value="">Seleccionar sede</option>
+                    <option value="otro">Otro</option>
+                </select>
+                <input type="text" class="form-control mt-2" name="sede_text" id="sede_text" placeholder="Ingrese sede" style="display:none;">
+            </div>
+        </div>
+        <div class="col-md-6">
+            <!-- Curso -->
+            <div class="mb-3">
+                <label for="curso">Curso / Comisión </label>
+                <input type="text" class="form-control" name="curso" id="curso">
+            </div>
+            <!-- Turno -->
+            <div class="mb-3">
+                <label for="turno_dropdown">Turno</label>
+                <select class="form-select" name="turno_dropdown" id="turno_dropdown" onchange="toggleTextbox('turno_dropdown', 'turno_text')">
+                    <option value="">Seleccionar turno</option>
+                    <option value="Mañana">Mañana</option>
+                    <option value="Tarde">Tarde</option>
+                    <option value="Noche">Noche</option>
+                    <option value="otro">Otro</option>
+                </select>
+                <input type="text" class="form-control mt-2" name="turno_text" id="turno_text" placeholder="Ingrese turno" style="display:none;">
+            </div>
+            <!-- Profesor -->
+            <div class="mb-3">
+                <label for="profesor_dropdown">Profesor</label>
+                <select class="form-select" name="profesor_dropdown" id="profesor_dropdown" onchange="toggleTextbox('profesor_dropdown', 'profesor_text')">
+                    <option value="">Seleccionar profesor</option>
+                    {% for profesor in profesores %}
+                        <option value="{{ profesor.id }}">{{ profesor.get_full_name }}</option>
+                    {% endfor %}
+                    <option value="otro">Otro</option>
+                </select>
+                <input type="text" class="form-control mt-2" name="profesor_text" id="profesor_text" placeholder="Ingrese profesor" style="display:none;">
+            </div>
+            <!-- Fecha -->
+            <div class="mb-3">
+                <label for="fecha">Fecha</label>
+                <input type="date" class="form-control" name="fecha" id="fecha">
+            </div>
+            <!-- Alumno/a -->
+            <div class="mb-3">
+                <label for="alumno">Alumno/a</label>
+                <input type="text" class="form-control" name="alumno" id="alumno" placeholder="Completar en papel" disabled>
+            </div>
+            <!-- Título -->
+            <div class="mb-3">
+                {{ form.title.label_tag }}
+                {{ form.title }}
+            </div>
+            <!-- Preguntas -->
+            <div class="mb-3">
+                {{ form.questions.label_tag }}
+                {{ form.questions }}
+            </div>
+            <!-- Instrucciones -->
+            <div class="mb-3">
+                {{ form.instructions.label_tag }}
+                {{ form.instructions }}
+            </div>
+            <!-- Duración -->
+            <div class="mb-3">
+                {{ form.duration_minutes.label_tag }}
+                {{ form.duration_minutes }}
+            </div>
+            <!-- Tipo de examen -->
+            <div class="mb-3">
+                <label for="tipo_examen">Tipo de examen</label>
+                <!-- Valores ajustados para coincidir con ExamTemplate.EXAM_TYPE_CHOICES -->
+                <select class="form-select" name="tipo_examen" id="tipo_examen">
+                    <option value="">Seleccionar tipo</option>
+                    <option value="1er_parcial">1er. Parcial</option>
+                    <option value="2do_parcial">2do. Parcial</option>
+                    <option value="3er_parcial">3er. Parcial</option>
+                    <option value="final">Final</option>
+                    <option value="recuperatorio">Recuperatorio</option>
+                    <option value="practico">Práctico</option>
+                </select>
+            </div>
+            <!-- Tipo de modalidad -->
+            <div class="mb-3">
+                <label for="tipo_modalidad">Modalidad</label>
+                <!-- Valores ajustados para coincidir con ExamTemplate.EXAM_GROUP_CHOICES -->
+                <select class="form-select" name="tipo_modalidad" id="tipo_modalidad">
+                    <option value="">Seleccionar modalidad</option>
+                    <option value="individual">Individual</option>
+                    <option value="grupal">Grupal</option>
+                </select>
+            </div>
+            <!-- Modalidad de resolución -->
+            <div class="mb-3">
+                <label for="modalidad_resolucion">Modalidad de resolución</label>
+                <!-- Valores ajustados para coincidir con ExamTemplate.EXAM_MODE_CHOICES -->
+                <select class="form-select" name="modalidad_resolucion" id="modalidad_resolucion">
+                    <option value="">Seleccionar resolución</option>
+                    <option value="oral">Oral</option>
+                    <option value="escrito">Escrito</option>
+                    <option value="presencial">Presencial</option>
+                    <option value="virtual">Virtual</option>
+                    <option value="domiciliario">Domiciliario</option>
+                    <option value="hibrido">Híbrido</option>
+                    <option value="otro">Otro</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary mt-3">Crear Examen</button>
+</form>
+{% endblock %}

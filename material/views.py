@@ -1,3 +1,62 @@
+from django.http import JsonResponse
+# Endpoint para obtener el nombre de la carrera por ID
+from .models import Career
+
+def get_career_name(request, career_id):
+    try:
+        career = Career.objects.get(pk=career_id)
+        return JsonResponse({'name': career.name})
+    except Career.DoesNotExist:
+        return JsonResponse({'name': 'Carrera no encontrada'}, status=404)
+from django.views.decorators.http import require_GET
+from .models import ExamTemplate, Subject, Question, LearningOutcome, Topic
+
+# AJAX: obtener datos de plantilla de examen
+@require_GET
+def get_exam_template(request, template_id):
+    try:
+        template = ExamTemplate.objects.get(id=template_id)
+    except ExamTemplate.DoesNotExist:
+        return JsonResponse({'error': 'Plantilla no encontrada'}, status=404)
+
+    data = {
+        'subject_id': template.subject.id if template.subject else None,
+        'title': getattr(template, 'title', None),
+        'instructions': getattr(template, 'notes_and_recommendations', None),
+        'duration_minutes': template.resolution_time,
+        'questions': list(template.question_set.values_list('id', flat=True)) if hasattr(template, 'question_set') else [],
+        'topics': [int(tid) for tid in template.topics_to_evaluate.split(',') if tid.isdigit()] if template.topics_to_evaluate else [],
+        'learning_outcomes': list(template.learning_outcomes.values_list('id', flat=True)),
+        'institution_id': template.institution.id if template.institution else None,
+        'faculty_id': template.faculty.id if template.faculty else None,
+        'career_id': template.career.id if template.career else None,
+        'campus_id': template.campus.id if template.campus else None,
+        'professor_id': template.professor.id if template.professor else None,
+        'exam_type': template.exam_type,
+        'exam_mode': template.exam_mode,
+        'shift': template.shift,
+    }
+    return JsonResponse(data)
+from django.views.decorators.http import require_GET
+# AJAX: obtener preguntas por temas seleccionados
+@require_GET
+def get_questions_by_topics(request):
+    from .models import Question, Topic
+    topic_ids = request.GET.get('topics', '')
+    if not topic_ids:
+        return JsonResponse([], safe=False)
+    topic_ids = [int(tid) for tid in topic_ids.split(',') if tid.isdigit()]
+    questions = Question.objects.filter(topics__id__in=topic_ids).distinct()
+    data = [{'id': q.id, 'text': q.text} for q in questions]
+    return JsonResponse(data, safe=False)
+
+# AJAX: obtener carreras por facultad seleccionada
+@require_GET
+def get_careers_by_faculty(request, faculty_id):
+    from .models import Career, FacultyV2
+    careers = Career.objects.filter(faculties__id=faculty_id).distinct()
+    data = [{'id': c.id, 'name': c.name} for c in careers]
+    return JsonResponse({'careers': data})
 # Standard library imports
 import csv
 import json
@@ -157,6 +216,17 @@ def save_selected_questions(request, contenido_id):
 
 @login_required
 def create_exam(request):
+    from .models import FacultyV2, Career, CampusV2, Subject, Profile, ExamTemplate, InstitutionV2
+    from django.contrib.auth.models import User
+
+    instituciones = InstitutionV2.objects.filter(is_active=True)
+    facultades = FacultyV2.objects.filter(is_active=True)
+    carreras = Career.objects.all()
+    sedes = CampusV2.objects.filter(is_active=True)
+    materias = Subject.objects.all()
+    profesores = User.objects.filter(profile__role='admin') | User.objects.filter(profile__role='user')
+    templates = ExamTemplate.objects.all()
+
     if request.method == 'POST':
         form = ExamForm(request.POST)
         if form.is_valid():
@@ -168,7 +238,18 @@ def create_exam(request):
             return redirect('material:mis_examenes')
     else:
         form = ExamForm()
-    return render(request, 'material/create_exam.html', {'form': form})
+
+    context = {
+        'form': form,
+        'instituciones': instituciones,
+        'facultades': facultades,
+        'carreras': carreras,
+        'sedes': sedes,
+        'materias': materias,
+        'profesores': profesores,
+        'templates': templates,
+    }
+    return render(request, 'material/exams/create_exam.html', context)
 
 @login_required
 def create_exam_template(request):

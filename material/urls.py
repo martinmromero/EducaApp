@@ -5,6 +5,7 @@ app_name = 'material'
 
 urlpatterns = [
     path('', material_views.index, name='index'),
+    path('get-career-name/<int:career_id>/', material_views.get_career_name, name='get_career_name'),
     path('upload/', material_views.upload_contenido, name='upload_contenido'),
     path('questions/<int:contenido_id>/', material_views.generate_questions, name='generate_questions'),
     path('review-questions/<int:contenido_id>/', material_views.review_questions, name='review_questions'),
@@ -93,6 +94,12 @@ path('add-subtopic/', material_views.add_subtopic, name='add_subtopic'),
 
 path('upload/', material_views.upload_contenido, name='upload_contenido'),  # Para contenido tradicional
 path('upload-questions/', material_views.upload_questions, name='upload_questions'),  # Nueva vista mejorada
+
+path('get-questions-by-topics/', material_views.get_questions_by_topics, name='get_questions_by_topics'),
+path('get-careers-by-faculty/<int:faculty_id>/', material_views.get_careers_by_faculty, name='get_careers_by_faculty'),
+
+
+path('get-exam-template/<int:template_id>/', material_views.get_exam_template, name='get_exam_template'),
 
 #el siguiente renglon tal vez sea obsoleto. revisar cuando termine de ver temas de learning outcomes
 path('get-learning-outcomes/', material_views.get_learning_outcomes, name='get_learning_outcomes'),
