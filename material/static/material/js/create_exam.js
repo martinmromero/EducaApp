@@ -6,7 +6,11 @@ document.addEventListener('DOMContentLoaded', function() {
     var plantillaSelect = document.getElementById('plantilla');
     plantillaSelect.addEventListener('change', function() {
         var plantillaId = this.value;
-        if (plantillaId) {
+            if (!plantillaId) {
+                location.reload();
+                return;
+            }
+            if (plantillaId) {
             fetch('/get-exam-template/' + plantillaId + '/')
                 .then(function(response) { return response.json(); })
                 .then(function(data) {

@@ -7,6 +7,7 @@
 <form method="post">
     {% csrf_token %}
     {{ form.non_field_errors }}
+    <button type="button" class="btn btn-secondary" onclick="location.reload();">Limpiar datos</button>
     <div class="row">
         <div class="col-md-6">
             <!-- Plantilla -->
