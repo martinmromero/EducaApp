@@ -1094,8 +1094,11 @@ class ExamTemplate(models.Model):
         if not self.resolution_time:
             raise ValidationError("Debe especificar la duración del examen")
         
-        # Validar formato de tiempo (opcional)
-        if not any(unit in self.resolution_time.lower() for unit in ['minuto', 'hora', 'día', 'semana']):
+        # Validar formato de tiempo (más flexible)
+        resolution_time_lower = self.resolution_time.lower()
+        valid_units = ['minuto', 'hora', 'día', 'semana', 'min', 'hr', 'h', 'm']
+        
+        if not any(unit in resolution_time_lower for unit in valid_units):
             raise ValidationError("Formato de duración inválido. Use 'minutos', 'horas', 'días' o 'semanas'")
 
     def save(self, *args, **kwargs):
@@ -1103,7 +1106,9 @@ class ExamTemplate(models.Model):
         if skip_validation:
             super().save(*args, **kwargs)
         else:
-            self.full_clean()
+            # Solo validar si resolution_time no está vacío
+            if self.resolution_time and self.resolution_time.strip():
+                self.full_clean()
             super().save(*args, **kwargs)
 
 @receiver(post_save, sender=User)

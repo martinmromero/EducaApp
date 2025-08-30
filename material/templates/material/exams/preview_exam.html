@@ -1,0 +1,33 @@
+{% extends 'material/exams/base_exam_preview.html' %}
+
+{% block title %}Vista Previa del Examen{% endblock %}
+
+{% block header %}
+{% if exam.institucion %}
+<h1>{{ exam.institucion }}</h1>
+{% endif %}
+{% if exam.facultad or exam.carrera %}
+<h2>
+    {% if exam.facultad %}{{ exam.facultad }}{% endif %}
+    {% if exam.facultad and exam.carrera %} - {% endif %}
+    {% if exam.carrera %}{{ exam.carrera }}{% endif %}
+</h2>
+{% endif %}
+{% if exam.subject %}
+<h2>{{ exam.subject }}</h2>
+{% endif %}
+{% endblock %}
+
+{% block action_buttons %}
+<button onclick="window.print()">
+    <i class="fas fa-print"></i> Imprimir Examen
+</button>
+<a href="{% url 'material:create_exam' %}">
+    <button class="secondary">
+        <i class="fas fa-edit"></i> Editar
+    </button>
+</a>
+<button onclick="history.back()" class="secondary">
+    <i class="fas fa-arrow-left"></i> Volver
+</button>
+{% endblock %}

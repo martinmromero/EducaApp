@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const institutionSelect = document.getElementById('id_institution');
     const facultySelect = document.getElementById('id_faculty');
     const campusSelect = document.getElementById('id_campus');
+    const previewContainer = document.getElementById('previewContainer');
+    const previewContent = document.getElementById('previewContent');
 
     // =============================================
     // SECCIÓN 2: CARGA DE DEPENDIENTES (FACULTADES/CAMPUS)
@@ -30,48 +32,29 @@ document.addEventListener('DOMContentLoaded', function() {
      * Carga facultades y campus basados en la institución seleccionada
      * @param {string} institutionId - ID de la institución seleccionada
      */
-    async function loadDependents(institutionId) {
-        if (!institutionId) {
-            facultySelect.innerHTML = '<option value="">---------</option>';
-            campusSelect.innerHTML = '<option value="">---------</option>';
-            return;
-        }
-
-        try {
-            // Mostrar estado de carga
-            facultySelect.disabled = true;
-            campusSelect.disabled = true;
-            
-            // Cargar facultades
-            const facultiesResponse = await fetch(`/get_faculties_by_institution/${institutionId}/`);
-            if (!facultiesResponse.ok) throw new Error('Error cargando facultades');
-            const faculties = await facultiesResponse.json();
-            
-            facultySelect.innerHTML = '<option value="">---------</option>';
-            faculties.faculties.forEach(faculty => {
-                facultySelect.add(new Option(faculty.name, faculty.id));
-            });
-
-            // Cargar sedes
-            const campusesResponse = await fetch(`/get_campuses_by_institution/${institutionId}/`);
-            if (!campusesResponse.ok) throw new Error('Error cargando sedes');
-            const campuses = await campusesResponse.json();
-            
-            campusSelect.innerHTML = '<option value="">---------</option>';
-            campuses.campuses.forEach(campus => {
-                campusSelect.add(new Option(campus.name, campus.id));
-            });
-
-        } catch (error) {
-            console.error('Error:', error);
-            facultySelect.innerHTML = '<option value="">---------</option>';
-            campusSelect.innerHTML = '<option value="">---------</option>';
-            showToast('Error al cargar dependencias', 'error');
-        } finally {
-            facultySelect.disabled = false;
-            campusSelect.disabled = false;
-        }
+async function loadDependents(institutionId) {
+    if (!institutionId) {
+        facultySelect.innerHTML = '<option value="">---------</option>';
+        campusSelect.innerHTML = '<option value="">---------</option>';
+        return;
     }
+
+    try {
+        // Cargar facultades
+        const facultiesResponse = await fetch(`/get_faculties_by_institution/${institutionId}/`);
+        if (!facultiesResponse.ok) throw new Error('Error cargando facultades');
+        const faculties = await facultiesResponse.json();
+        
+        facultySelect.innerHTML = '<option value="">---------</option>';
+        faculties.faculties.forEach(faculty => {
+            facultySelect.add(new Option(faculty.name, faculty.id));
+        });
+
+    } catch (error) {
+        console.error('Error:', error);
+        facultySelect.innerHTML = '<option value="">Error cargando facultades</option>';
+    }
+}
 
     // =============================================
     // SECCIÓN 3: NOTIFICACIONES TOAST
@@ -226,159 +209,330 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // =============================================
-// SECCIÓN 6: FUNCIONES ADICIONALES (PREVIEW)
+// SECCIÓN 6: FUNCIONES DE PREVIEW MEJORADA
 // =============================================
 /**
- * Función para previsualizar la plantilla de examen
- * (Implementación existente se mantiene igual)
+ * Función para previsualizar la plantilla de examen en nueva ventana
  */
-function previewExamTemplate() {
-    const form = document.getElementById('examTemplateForm');
-    const formData = new FormData(form);
-    
-    // Mostrar estado de carga
-    const previewContainer = document.getElementById('preview');
-    previewContainer.innerHTML = `
-        <div class="loading-preview">
-            <i class="fas fa-spinner fa-spin"></i> Generando previsualización...
-        </div>
-    `;
-    
-    // Enviar datos al servidor para generar el preview
-    fetch('/exam-templates/preview/', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+ // =============================================
+    // SECCIÓN 6: FUNCIONES DE PREVIEW MEJORADA
+    // =============================================
+// create_exam_template.js
+// REEMPLAZA LA FUNCIÓN COMPLETA POR ESTA VERSIÓN:
+/* function setupPreviewButton() {
+    const previewBtn = document.getElementById('previewBtn');
+    if (!previewBtn) return;
+
+    previewBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // Validación rápida
+        const examMode = document.getElementById('id_exam_mode').value;
+        if (!examMode) {
+            alert('Seleccione la modalidad del examen');
+            return;
         }
-    })
-    .then(response => response.text())
-    .then(html => {
-        previewContainer.innerHTML = html;
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        previewContainer.innerHTML = `
-            <div class="preview-error">
-                <i class="fas fa-exclamation-triangle"></i> Error al generar la previsualización
-            </div>
-        `;
+
+        // Indicador de carga
+        const originalText = previewBtn.innerHTML;
+        previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+        previewBtn.disabled = true;
+
+        // Preparar datos
+        const form = document.getElementById('examTemplateForm');
+        const formData = new FormData(form);
+
+        // Enviar datos
+        fetch('/exam-templates/preview/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => {
+            previewBtn.innerHTML = originalText;
+            previewBtn.disabled = false;
+            
+            if (!response.ok) throw new Error('Error del servidor');
+            return response.text();
+        })
+        .then(html => {
+            document.getElementById('previewContent').innerHTML = html;
+            document.getElementById('previewContainer').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Preview error:', error);
+            alert('Error al generar previsualización');
+        });
     });
 }
+
+// Agregar al final del DOMContentLoaded:
+document.addEventListener('DOMContentLoaded', function() {
+    // ... (todo tu código existente) ...
+    setupPreviewButton();  // <-- Esta línea nueva
+}); */
+
+    // toda la funcion siguiente si se reemplazó OK con la de arriba function setupPreviewButton() , borrarla
+
+
 
 // =============================================
 // SECCIÓN 7: CARGA DE LEARNING OUTCOMES (CHECKLIST)
 // =============================================
-// Reemplaza la función setupLearningOutcomesChecklist con esta versión mejorada
-
 function setupLearningOutcomesChecklist() {
     const subjectSelect = document.getElementById('id_subject');
-    const container = document.getElementById('learning_outcomes_container');
-    const originalSelect = document.querySelector('select[name="learning_outcomes"]');
+    const learningOutcomesContainer = document.getElementById('learning_outcomes_container');
+    const hiddenInput = document.getElementById('id_learning_outcomes');
 
-    if (!subjectSelect || !container) return;
-
-    subjectSelect.addEventListener('change', async function() {
-        const subjectId = this.value;
-        
-        // Mostrar estado de carga
-        container.innerHTML = `
-            <div class="outcome-loading">
-                <i class="fas fa-spinner fa-spin"></i> Cargando resultados...
-            </div>
-        `;
-
-        if (!subjectId) {
-            container.innerHTML = `
-                <div class="outcome-empty">
-                    <i class="fas fa-info-circle"></i> Seleccione una materia primero
-                </div>
-            `;
-            return;
-        }
-
-        try {
-            const response = await fetch(`/get-learning-outcomes/?subject_id=${subjectId}`);
+    if (subjectSelect && learningOutcomesContainer) {
+        subjectSelect.addEventListener('change', function() {
+            const subjectId = this.value;
             
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
+            if (subjectId) {
+                // Mostrar indicador de carga
+                learningOutcomesContainer.innerHTML = `
+                    <div class="text-center py-3">
+                        <i class="fas fa-spinner fa-spin"></i> Cargando resultados...
+                    </div>`;
+
+                fetch(`/get-learning-outcomes/?subject_id=${subjectId}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Error en la respuesta del servidor');
+                        return response.json();
+                    })
+                    .then(data => {
+                        learningOutcomesContainer.innerHTML = '';
+                        hiddenInput.value = '';
+                        
+                        if (data && data.length > 0) {
+                            const checklist = document.createElement('div');
+                            checklist.className = 'learning-outcomes-checklist';
+                            
+                            data.forEach(outcome => {
+                                const checkboxContainer = document.createElement('div');
+                                checkboxContainer.className = 'form-check mb-2';
+                                
+                                const checkbox = document.createElement('input');
+                                checkbox.type = 'checkbox';
+                                checkbox.className = 'form-check-input outcome-checkbox';
+                                checkbox.name = 'learning_outcomes';
+                                checkbox.value = outcome.id || outcome.code;
+                                checkbox.id = `outcome-${outcome.id || outcome.code}`;
+                                
+                                checkbox.addEventListener('change', function() {
+                                    updateSelectedOutcomes();
+                                });
+                                
+                                const label = document.createElement('label');
+                                label.className = 'form-check-label';
+                                label.htmlFor = `outcome-${outcome.id || outcome.code}`;
+                                
+                                // Mostrar código y descripción si están disponibles
+                                const description = outcome.code ? 
+                                    `<strong>${outcome.code}:</strong> ${outcome.description}` : 
+                                    outcome.description;
+                                
+                                label.innerHTML = description;
+                                
+                                checkboxContainer.appendChild(checkbox);
+                                checkboxContainer.appendChild(label);
+                                checklist.appendChild(checkboxContainer);
+                            });
+                            
+                            learningOutcomesContainer.appendChild(checklist);
+                        } else {
+                            learningOutcomesContainer.innerHTML = `
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> 
+                                    No se encontraron resultados de aprendizaje definidos para esta materia.
+                                </div>`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error al cargar learning outcomes:', error);
+                        learningOutcomesContainer.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle"></i> 
+                                Error al cargar los resultados: ${error.message}
+                            </div>`;
+                    });
+            } else {
+                learningOutcomesContainer.innerHTML = `
+                    <p class="text-muted">
+                        <i class="fas fa-info-circle"></i> 
+                        Seleccione una materia para ver los resultados de aprendizaje
+                    </p>`;
+                hiddenInput.value = '';
             }
-            
-            const outcomes = await response.json();
-            
-            if (!outcomes || outcomes.length === 0) {
-                container.innerHTML = `
-                    <div class="outcome-empty">
-                        <i class="fas fa-exclamation-circle"></i> No hay resultados definidos para esta materia
-                    </div>
-                `;
-                return;
-            }
+        });
 
-            // Construir checklist
-            let html = '<div class="outcome-checklist">';
-            outcomes.forEach(outcome => {
-                // Verificar si ya estaba seleccionado
-                const isSelected = originalSelect 
-                    ? Array.from(originalSelect.options).some(opt => opt.value == outcome.id)
-                    : false;
-                
-                html += `
-                <div class="outcome-item">
-                    <input type="checkbox" 
-                           id="outcome_${outcome.id}" 
-                           value="${outcome.id}"
-                           ${isSelected ? 'checked' : ''}>
-                    <label for="outcome_${outcome.id}">
-                        <span class="outcome-code">${outcome.code}</span>
-                        <span class="outcome-desc">${outcome.description}</span>
-                    </label>
-                </div>
-                `;
-            });
-            html += '</div>';
-
-            container.innerHTML = html;
-
-            // Actualizar select original cuando cambian los checkboxes
-            container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    updateOriginalSelect(this.value, this.checked, originalSelect);
-                });
-            });
-
-        } catch (error) {
-            console.error('Error loading outcomes:', error);
-            container.innerHTML = `
-                <div class="outcome-error">
-                    <i class="fas fa-exclamation-triangle"></i> Error al cargar resultados
-                    <div class="error-details">${error.message}</div>
-                </div>
-            `;
+        function updateSelectedOutcomes() {
+            const selected = Array.from(document.querySelectorAll('.outcome-checkbox:checked'))
+                                .map(checkbox => checkbox.value);
+            hiddenInput.value = selected.join(',');
         }
-    });
 
-    function updateOriginalSelect(value, isChecked, selectElement) {
-        if (!selectElement) return;
-        
-        const existingOption = Array.from(selectElement.options).find(opt => opt.value === value);
-        
-        if (isChecked && !existingOption) {
-            const newOption = new Option(value, value, true, true);
-            selectElement.add(newOption);
-        } else if (!isChecked && existingOption) {
-            existingOption.remove();
+        // Disparar evento change si ya hay una materia seleccionada
+        if (subjectSelect.value) {
+            subjectSelect.dispatchEvent(new Event('change'));
         }
-    }
-
-    // Disparar evento change si ya hay una materia seleccionada
-    if (subjectSelect.value) {
-        subjectSelect.dispatchEvent(new Event('change'));
     }
 }
 
-// Asegurarse de llamar a la función cuando el DOM esté listo
+function previewExamTemplate() {
+    const form = document.getElementById('examTemplateForm');
+    const previewContainer = document.getElementById('previewContainer');
+    const previewContent = document.getElementById('previewContent');
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    // Validación básica
+    if (!form.elements['institution'].value || 
+        !form.elements['faculty'].value || 
+        !form.elements['career'].value || 
+        !form.elements['subject'].value) {
+        alert('Complete los campos requeridos');
+        return;
+    }
+
+    // Obtener outcomes seleccionados
+    const selectedOutcomes = Array.from(
+        document.querySelectorAll('.outcome-checkbox:checked')
+    ).map(checkbox => checkbox.value).join(',');
+
+    // Configurar FormData
+    const formData = new FormData(form);
+    formData.set('learning_outcomes', selectedOutcomes);
+
+    // Mostrar loading
+    const btn = document.querySelector('button[onclick="previewExamTemplate()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+    btn.disabled = true;
+
+    // Limpiar preview anterior
+    previewContent.innerHTML = '';
+    previewContainer.style.display = 'none';
+
+    fetch('/exam-templates/preview/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Error al generar preview');
+        return response.text();
+    })
+    .then(html => {
+        previewContent.innerHTML = html;
+        previewContainer.style.display = 'block';
+        previewContainer.scrollIntoView({ behavior: 'smooth' });
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        previewContent.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> 
+                Error al generar previsualización: ${error.message}
+            </div>`;
+        previewContainer.style.display = 'block';
+    })
+    .finally(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+
+// Inicialización cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
-    setupLearningOutcomesChecklist();
+    // Verificación de que la función existe antes de llamarla
+    if (typeof setupLearningOutcomesChecklist === 'function') {
+        setupLearningOutcomesChecklist();
+    } else {
+        console.error('Error crítico: setupLearningOutcomesChecklist no está definida');
+    }
 });
+
+// =============================================
+// SECCIÓN 8: GUARDADO DE PLANTILLA
+// =============================================
+function setupSaveTemplate() {
+    const saveBtn = document.getElementById('save-template-btn');
+    if (!saveBtn) return;
+
+    // Función de notificación tipo toast y scroll arriba
+    const showNotification = (message, type = 'success') => {
+    // Scroll arriba absoluto de la página
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        // Toast Bootstrap
+        const toastEl = document.getElementById('successToast');
+        const toastMsg = document.getElementById('toastMessage');
+        toastMsg.textContent = message;
+        toastEl.className = `toast align-items-center text-bg-${type} border-0`;
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    };
+
+    saveBtn.addEventListener('click', async function(e) {
+        e.preventDefault(); // Evita submit estándar
+        const form = document.getElementById('examTemplateForm');
+        const formData = new FormData(form);
+
+        // Agregar todos los campos posibles (sin validación)
+        const optionalFields = {
+            'exam_mode': document.getElementById('id_exam_mode')?.value || '',
+            'resolution_time': document.getElementById('id_resolution_time')?.value || '',
+            'learning_outcomes': Array.from(document.querySelectorAll('.outcome-checkbox:checked'))
+                                .map(cb => cb.value).join(',')
+        };
+
+        // Agregar campos opcionales al FormData
+        Object.entries(optionalFields).forEach(([key, value]) => {
+            formData.append(key, value);
+        });
+
+        // Estado de carga
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        saveBtn.disabled = true;
+
+        try {
+            const response = await fetch('/exam-templates/save/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Error al guardar la plantilla');
+            }
+
+            // Mostrar notificación y redirigir al listado
+            showNotification('Plantilla guardada correctamente');
+            setTimeout(function() {
+                window.location.href = '/create-exam-template/';
+            }, 1200); // 1.2 segundos para que el usuario vea el mensaje y se recargue la página
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification(error.message, 'danger');
+        } finally {
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }
+    });
+}
+
+
+// Asegúrate de que esta línea esté al final del DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+    // ... (tu código existente) ...
+    setupSaveTemplate();
+});
+

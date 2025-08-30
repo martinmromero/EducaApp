@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Previsualización de Examen{% endblock %} - {{ institution.name|default:"EducaApp" }}</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .exam-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 30px;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            border-radius: 5px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #0066cc;
+        }
+        .institution-logo {
+            max-height: 100px;
+            max-width: 100%;
+            margin-bottom: 15px;
+        }
+        .section {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .section:last-child {
+            border-bottom: none;
+        }
+        .exam-info {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .exam-info-column {
+            width: 48%;
+            margin-bottom: 10px;
+        }
+        .outcomes-list, .topics-list, .questions-list {
+            list-style: none;
+            padding-left: 0;
+            margin-top: 10px;
+        }
+        .outcomes-list li, .topics-list li, .questions-list li {
+            margin-bottom: 8px;
+            padding-left: 25px;
+            position: relative;
+        }
+        .outcomes-list li:before, .topics-list li:before, .questions-list li:before {
+            content: "•";
+            position: absolute;
+            left: 10px;
+            font-weight: bold;
+            color: #0066cc;
+            font-size: 1.2em;
+        }
+        h1, h2, h3 {
+            color: #003366;
+            margin-top: 0;
+        }
+        h1 {
+            margin-bottom: 5px;
+            font-size: 1.8em;
+        }
+        h2 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+        }
+        h3 {
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        strong {
+            color: #0066cc;
+        }
+        .print-button {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .print-button button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+            margin: 5px;
+        }
+        .print-button button:hover {
+            background: #004d99;
+        }
+        .print-button button.secondary {
+            background: #666;
+        }
+        .print-button button.secondary:hover {
+            background: #555;
+        }
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                font-size: 12pt;
+            }
+            .exam-container {
+                box-shadow: none;
+                padding: 0;
+            }
+            .header {
+                page-break-after: avoid;
+            }
+            .section {
+                page-break-inside: avoid;
+            }
+            .print-button {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="exam-container">
+        <div class="header">
+            {% block header %}
+            {% if institution.logo %}
+            <img src="{{ institution.logo.url }}" class="institution-logo" alt="Logo de {{ institution.name }}">
+            {% endif %}
+            <h1>{{ institution.name|default:"Institución" }}</h1>
+            <h2>{{ faculty.name|default:"Facultad" }} - {{ career.name|default:"Carrera" }}</h2>
+            <h2>{{ subject.name|default:"Materia" }}</h2>
+            {% endblock %}
+        </div>
+
+        <div class="exam-info">
+            <div class="exam-info-column">
+                {% block exam_info_left %}
+                <div><strong>Profesor:</strong> {{ professor.get_full_name|default:professor|default:"-" }}</div>
+                <div><strong>Fecha:</strong> {{ current_date|default:exam.fecha|default:"-" }}</div>
+                {% if exam.alumno %}
+                <div><strong>Alumno/a:</strong> {{ exam.alumno }}</div>
+                {% endif %}
+                {% endblock %}
+            </div>
+            <div class="exam-info-column">
+                {% block exam_info_right %}
+                <div><strong>Tipo de examen:</strong> {{ exam_type|default:exam.tipo_examen|default:"-" }}</div>
+                <div><strong>Modalidad:</strong> {{ exam_mode|default:exam.tipo_modalidad|default:"-" }}</div>
+                <div><strong>Duración:</strong> {{ resolution_time|default:exam.duration_minutes|default:"-" }}{% if exam.duration_minutes %} minutos{% endif %}</div>
+                {% if exam.modalidad_resolucion %}
+                <div><strong>Modalidad de resolución:</strong> {{ exam.modalidad_resolucion|join:', ' }}</div>
+                {% endif %}
+                {% endblock %}
+            </div>
+        </div>
+
+        {% block exam_content %}
+        {% if exam.title %}
+        <div class="section">
+            <h3>Título del examen:</h3>
+            <div>{{ exam.title }}</div>
+        </div>
+        {% endif %}
+
+        {% if learning_outcomes or outcomes_texts %}
+        <div class="section">
+            <h3>Resultados de aprendizaje evaluados:</h3>
+            <ul class="outcomes-list">
+                {% if outcomes_texts %}
+                    {% for outcome in outcomes_texts %}
+                    <li>{{ outcome }}</li>
+                    {% endfor %}
+                {% elif learning_outcomes %}
+                    {% for outcome in learning_outcomes %}
+                    <li>{{ outcome.description }}</li>
+                    {% endfor %}
+                {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if topics_to_evaluate or topics_texts %}
+        <div class="section">
+            <h3>Temas a evaluar:</h3>
+            {% if topics_texts %}
+            <ul class="topics-list">
+                {% for topic in topics_texts %}
+                <li>{{ topic }}</li>
+                {% endfor %}
+            </ul>
+            {% elif topics_to_evaluate %}
+            <div>{{ topics_to_evaluate|linebreaks }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if questions_texts %}
+        <div class="section">
+            <h3>Preguntas:</h3>
+            <ul class="questions-list">
+                {% for question in questions_texts %}
+                <li>{{ question }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if notes_and_recommendations or exam.instructions %}
+        <div class="section">
+            <h3>{% if notes_and_recommendations %}Notas y recomendaciones{% else %}Instrucciones generales{% endif %}:</h3>
+            <div>{{ notes_and_recommendations|linebreaks|default:exam.instructions|linebreaks }}</div>
+        </div>
+        {% endif %}
+
+        {% if exam.curso %}
+        <div class="section">
+            <h3>Información adicional:</h3>
+            <div><strong>Curso / Comisión:</strong> {{ exam.curso }}</div>
+            {% if exam.turno %}
+            <div><strong>Turno:</strong> {{ exam.turno }}</div>
+            {% endif %}
+            {% if exam.sede %}
+            <div><strong>Sede / Localización:</strong> {{ exam.sede }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endblock %}
+
+        <div class="print-button no-print">
+            {% block action_buttons %}
+            <button onclick="window.print()">
+                <i class="fas fa-print"></i> Imprimir Examen
+            </button>
+            <button onclick="history.back()" class="secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </button>
+            {% endblock %}
+        </div>
+    </div>
+
+    <!-- Font Awesome para íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+    {% block scripts %}
+    <script>
+        // Auto-print cuando viene del formulario de creación
+        if(new URLSearchParams(window.location.search).has('from_creation')) {
+            window.print();
+        }
+    </script>
+    {% endblock %}
+</body>
+</html>

@@ -1,4 +1,99 @@
-from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect
+from django.contrib import messages
+@login_required
+def preview_exam(request):
+    exam = request.session.get('preview_exam')
+    if not exam:
+        messages.error(request, 'No hay datos para mostrar el preview.')
+        return redirect('material:create_exam')
+
+    # Debug: imprimir los datos recibidos
+    print("DEBUG - Datos de exam en preview:", exam)
+
+    from .models import Subject, InstitutionV2, FacultyV2, Career, CampusV2, User, Question, Topic, LearningOutcome
+    # Resolver los textos asociados a los PKs
+    if exam.get('subject'):
+        subject = Subject.objects.filter(pk=exam['subject']).first()
+        exam['subject'] = subject.name if subject else exam['subject']
+    if exam.get('institucion'):
+        institucion = InstitutionV2.objects.filter(pk=exam['institucion']).first()
+        exam['institucion'] = institucion.name if institucion else exam['institucion']
+    if exam.get('facultad'):
+        facultad = FacultyV2.objects.filter(pk=exam['facultad']).first()
+        exam['facultad'] = facultad.name if facultad else exam['facultad']
+    if exam.get('carrera'):
+        carrera = Career.objects.filter(pk=exam['carrera']).first()
+        exam['carrera'] = carrera.name if carrera else exam['carrera']
+    if exam.get('sede'):
+        sede = CampusV2.objects.filter(pk=exam['sede']).first()
+        exam['sede'] = sede.name if sede else exam['sede']
+    if exam.get('profesor'):
+        profesor = User.objects.filter(pk=exam['profesor']).first()
+        exam['profesor'] = profesor.get_full_name() if profesor else exam['profesor']
+    # Variables temporales para textos completos
+    questions_texts = []
+    outcomes_texts = []
+    topics_texts = []
+    
+    # Mostrar textos de preguntas (respetando orden y todos los valores)
+    if exam.get('questions'):
+        question_ids = []
+        if isinstance(exam['questions'], list):
+            # Los datos ahora vienen como lista directamente desde getlist()
+            question_ids = [int(q) for q in exam['questions'] if str(q).isdigit()]
+        elif isinstance(exam['questions'], str):
+            # Fallback para casos donde venga como string
+            question_ids = [int(q) for q in exam['questions'].replace('[','').replace(']','').replace(' ','').split(',') if q.strip().isdigit()]
+        if question_ids:
+            preguntas = Question.objects.filter(pk__in=question_ids)
+            preguntas_dict = {q.pk: q.question_text for q in preguntas}
+            questions_texts = [preguntas_dict.get(qid, f"Pregunta ID: {qid}") for qid in question_ids]
+    
+    # Mostrar textos de temas evaluados (respetando orden y todos los valores)
+    if exam.get('topics'):
+        topic_ids = []
+        if isinstance(exam['topics'], list):
+            # Los datos ahora vienen como lista directamente desde getlist()
+            topic_ids = [int(t) for t in exam['topics'] if str(t).isdigit()]
+        elif isinstance(exam['topics'], str):
+            # Fallback para casos donde venga como string
+            topic_ids = [int(t) for t in exam['topics'].replace('[','').replace(']','').replace(' ','').split(',') if t.strip().isdigit()]
+        if topic_ids:
+            temas = Topic.objects.filter(pk__in=topic_ids)
+            temas_dict = {t.pk: t.name for t in temas}
+            topics_texts = [temas_dict.get(tid, f"Tema ID: {tid}") for tid in topic_ids]
+    
+    # Mostrar textos de resultados de aprendizaje (respetando orden y todos los valores)
+    if exam.get('learning_outcomes'):
+        outcome_ids = []
+        if isinstance(exam['learning_outcomes'], list):
+            # Los datos ahora vienen como lista directamente desde getlist()
+            outcome_ids = [int(o) for o in exam['learning_outcomes'] if str(o).isdigit()]
+        elif isinstance(exam['learning_outcomes'], str):
+            # Fallback para casos donde venga como string
+            outcome_ids = [int(o) for o in exam['learning_outcomes'].replace('[','').replace(']','').replace(' ','').split(',') if o.strip().isdigit()]
+        if outcome_ids:
+            outcomes = LearningOutcome.objects.filter(pk__in=outcome_ids)
+            outcomes_dict = {o.pk: o.description for o in outcomes}
+            outcomes_texts = [outcomes_dict.get(oid, f"Resultado ID: {oid}") for oid in outcome_ids]
+    return render(request, 'material/exams/preview_exam.html', {
+        'exam': exam,
+        'questions_texts': questions_texts,
+        'outcomes_texts': outcomes_texts,
+        'topics_texts': topics_texts,
+        'institution': {'name': exam.get('institucion', 'Institución')},
+        'faculty': {'name': exam.get('facultad', 'Facultad')},
+        'career': {'name': exam.get('carrera', 'Carrera')},
+        'subject': {'name': exam.get('subject', 'Materia')},
+        'professor': {'get_full_name': exam.get('profesor', '-')},
+        'current_date': exam.get('fecha', '-'),
+        'exam_type': exam.get('tipo_examen', '-'),
+        'exam_mode': exam.get('tipo_modalidad', '-'),
+        'resolution_time': exam.get('duration_minutes', '-'),
+    })
+from django.http import JsonResponse, Http404
+import os
 # Endpoint para obtener el nombre de la carrera por ID
 from .models import Career
 
@@ -42,12 +137,19 @@ from django.views.decorators.http import require_GET
 @require_GET
 def get_questions_by_topics(request):
     from .models import Question, Topic
-    topic_ids = request.GET.get('topics', '')
-    if not topic_ids:
-        return JsonResponse([], safe=False)
-    topic_ids = [int(tid) for tid in topic_ids.split(',') if tid.isdigit()]
-    questions = Question.objects.filter(topics__id__in=topic_ids).distinct()
-    data = [{'id': q.id, 'text': q.text} for q in questions]
+    all_topics = request.GET.get('all', 'false') == 'true'
+    subject_id = request.GET.get('subject_id')
+    topics = request.GET.get('topics', '')
+    topic_ids = [int(t) for t in topics.split(',') if t]
+    questions = Question.objects.none()
+    if all_topics and subject_id:
+        questions = Question.objects.filter(subject_id=subject_id)
+    elif topic_ids:
+        questions = Question.objects.filter(topic_id__in=topic_ids)
+    data = [
+        {'id': q.id, 'text': q.question_text[:80]}
+        for q in questions
+    ]
     return JsonResponse(data, safe=False)
 
 # AJAX: obtener carreras por facultad seleccionada
@@ -123,7 +225,7 @@ LearningOutcomeFormSet = inlineformset_factory(
 
 def get_topics(request):
     subject_id = request.GET.get('subject_id')
-    topics = Topic.objects.filter(subject_id=subject_id).values('id', 'name')
+    topics = Topic.objects.filter(subject_id=subject_id, question__isnull=False).distinct().values('id', 'name')
     return JsonResponse(list(topics), safe=False)
 
 def get_subtopics(request):
@@ -229,7 +331,36 @@ def create_exam(request):
 
     if request.method == 'POST':
         form = ExamForm(request.POST)
-        if form.is_valid():
+        if 'preview' in request.POST:
+            exam_data = {}
+            # Campos múltiples que requieren getlist()
+            multiple_fields = ['questions', 'topics', 'learning_outcomes']
+            
+            for field in form.fields:
+                if field in multiple_fields:
+                    value = request.POST.getlist(field)
+                    if value:
+                        exam_data[field] = value
+                else:
+                    value = request.POST.get(field)
+                    if value:
+                        exam_data[field] = value
+            # Campos extra del form manual
+            exam_data['institucion'] = request.POST.get('institucion_dropdown')
+            exam_data['facultad'] = request.POST.get('facultad_dropdown')
+            exam_data['carrera'] = request.POST.get('carrera_dropdown')
+            exam_data['sede'] = request.POST.get('sede_dropdown')
+            exam_data['curso'] = request.POST.get('curso')
+            exam_data['turno'] = request.POST.get('turno_dropdown')
+            exam_data['profesor'] = request.POST.get('profesor_dropdown')
+            exam_data['fecha'] = request.POST.get('fecha')
+            exam_data['tipo_examen'] = request.POST.get('tipo_examen')
+            exam_data['tipo_modalidad'] = request.POST.get('tipo_modalidad')
+            exam_data['modalidad_resolucion'] = request.POST.getlist('modalidad_resolucion')
+            exam_data['alumno'] = request.POST.get('alumno')
+            request.session['preview_exam'] = exam_data
+            return redirect('material:preview_exam')
+        elif form.is_valid():
             exam = form.save(commit=False)
             exam.created_by = request.user
             exam.save()
@@ -348,7 +479,7 @@ def create_exam_template(request):
     
     return render(
         request,
-        'material/create_exam_template.html',
+        'material/exams/create_exam_template.html',
         context
     )
 
@@ -385,7 +516,23 @@ def preview_exam_template(request):
                 for outcome in outcomes
             ]
 
+        # Crear un objeto exam-like para compatibilidad con el template base
+        exam_data = {
+            'title': '',  # Las plantillas no tienen título por defecto
+            'instructions': request.POST.get('notes_and_recommendations', ''),
+            'duration_minutes': request.POST.get('resolution_time', '60 minutos'),
+            'tipo_examen': request.POST.get('exam_type', ''),
+            'tipo_modalidad': request.POST.get('exam_mode', ''),
+            'modalidad_resolucion': [],  # No disponible en plantillas
+            'alumno': '',  # Campo vacío para plantillas
+            'fecha': '',  # Campo vacío para plantillas
+            'curso': '',  # No disponible en plantillas
+            'turno': '',  # No disponible en plantillas
+            'sede': ''   # No disponible en plantillas
+        }
+
         context = {
+            'exam': exam_data,  # Objeto exam para compatibilidad
             'institution': institution,
             'faculty': faculty,
             'career': career,
@@ -400,11 +547,105 @@ def preview_exam_template(request):
             'current_date': timezone.now().strftime("%d/%m/%Y")
         }
 
-        return render(request, 'material/preview_exam_template.html', context)
+        return render(request, 'material/exams/preview_exam_template.html', context)
 
     except Exception as e:
         logger.error(f"Preview error: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def edit_exam_template(request, template_id):
+    """Vista para editar una plantilla de examen existente"""
+    try:
+        template = ExamTemplate.objects.get(
+            id=template_id,
+            created_by=request.user
+        )
+    except ExamTemplate.DoesNotExist:
+        messages.error(request, 'La plantilla no existe o no tienes permisos para editarla.')
+        return redirect('material:list_exam_templates')
+
+    if request.method == 'POST':
+        # Debug: Ver qué datos se están enviando
+        print(f"DEBUG: Datos POST recibidos: {dict(request.POST)}")
+        
+        form = ExamTemplateForm(request.POST, instance=template, user=request.user)
+        
+        # Debug: Información del template original
+        print(f"DEBUG: Template original ID: {template.id}")
+        print(f"DEBUG: Template original created_by: {template.created_by}")
+        print(f"DEBUG: Form instance ID antes de validar: {form.instance.id if hasattr(form, 'instance') else 'No instance'}")
+        print(f"DEBUG: Form instance es el mismo objeto?: {form.instance is template}")
+        
+        if form.is_valid():
+            try:
+                # Verificar que el formulario mantenga la instancia correcta
+                exam_template = form.save(commit=False)
+                
+                print(f"DEBUG: Después de form.save(commit=False):")
+                print(f"  - ID: {exam_template.id}")
+                print(f"  - PK: {exam_template.pk}")
+                print(f"  - created_by: {exam_template.created_by}")
+                print(f"  - Es el mismo objeto que el template original?: {exam_template is template}")
+                
+                # Verificar si hay algún campo que esté causando problemas
+                print(f"DEBUG: Campos del formulario cambiados: {form.changed_data}")
+                
+                # Guardar
+                exam_template.save()
+                form.save_m2m()
+                
+                print(f"DEBUG: Después de save():")
+                print(f"  - ID final: {exam_template.id}")
+                print(f"  - PK final: {exam_template.pk}")
+                
+                # Verificar en la base de datos
+                updated_template = ExamTemplate.objects.get(id=template_id)
+                print(f"DEBUG: Template desde DB - ID: {updated_template.id}, created_by: {updated_template.created_by}")
+                
+                messages.success(request, f'Plantilla con ID {exam_template.id} actualizada exitosamente.')
+                return redirect('material:list_exam_templates')
+                
+            except Exception as e:
+                print(f"DEBUG: Error al guardar: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                messages.error(request, f'Error al actualizar la plantilla: {str(e)}')
+        else:
+            print(f"DEBUG: Errores del formulario: {form.errors}")
+            print(f"DEBUG: Non-field errors: {form.non_field_errors()}")
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        # GET request - crear formulario con la instancia existente
+        form = ExamTemplateForm(instance=template, user=request.user)
+
+    # Obtener subjects disponibles para el usuario
+    subjects = Subject.objects.all()
+    if hasattr(request.user, 'profile') and hasattr(request.user.profile, 'institutions'):
+        user_institutions = request.user.profile.institutions.all()
+        if user_institutions:
+            subjects = Subject.objects.filter(
+                subject_institutions__institution__in=user_institutions
+            ).distinct()
+
+    context = {
+        'form': form,
+        'subjects': subjects,
+        'learning_outcomes': LearningOutcome.objects.filter(
+            subject__in=subjects
+        ).select_related('subject'),
+        'current_institution': template.institution.id if template.institution else None,
+        'exam_modes': ExamTemplate.EXAM_MODE_CHOICES,
+        'time_units': [
+            {'value': 'minutes', 'label': 'Minutos'},
+            {'value': 'hours', 'label': 'Horas'},
+            {'value': 'days', 'label': 'Días'}
+        ],
+        'template': template,  # Para referencia adicional si es necesario
+        'edit_mode': True,     # Indicar que estamos en modo edición
+    }
+    
+    return render(request, 'material/exams/create_exam_template.html', context)
 
 @login_required
 def view_exam_template(request, template_id):
@@ -422,7 +663,23 @@ def view_exam_template(request, template_id):
         for outcome in template.learning_outcomes.all()
     ]
 
+    # Crear un objeto exam-like para compatibilidad con el template base
+    exam_data = {
+        'title': getattr(template, 'title', ''),
+        'instructions': template.notes_and_recommendations,
+        'duration_minutes': template.resolution_time,
+        'tipo_examen': template.get_exam_type_display(),
+        'tipo_modalidad': template.get_exam_mode_display(),
+        'curso': '',
+        'turno': '',
+        'sede': '',
+        'alumno': '',
+        'fecha': timezone.now().strftime("%d/%m/%Y"),
+        'modalidad_resolucion': '',
+    }
+
     context = {
+        'exam': exam_data,
         'institution': template.institution,
         'faculty': template.faculty,
         'career': template.career,
@@ -438,7 +695,7 @@ def view_exam_template(request, template_id):
         'is_preview': False
     }
 
-    return render(request, 'material/preview_exam_template.html', context)
+    return render(request, 'material/exams/preview_exam_template.html', context)
 
 @login_required
 @transaction.atomic
@@ -555,7 +812,7 @@ def list_exam_templates(request):
         'exam_modes': ExamTemplate.EXAM_TYPE_CHOICES,  # Cambiado a EXAM_TYPE_CHOICES
     }
 
-    return render(request, 'material/list_exam_templates.html', context)
+    return render(request, 'material/exams/list_exam_templates.html', context)
 
 def signup(request):
     if request.method == 'POST':
@@ -635,7 +892,7 @@ def mis_datos(request):
 @login_required
 def mis_examenes(request):
     examenes = Exam.objects.filter(created_by=request.user)
-    return render(request, 'material/mis_examenes.html', {'examenes': examenes})
+    return render(request, 'material/test_simple.html', {'examenes': examenes})
 
 @login_required
 def lista_preguntas(request):

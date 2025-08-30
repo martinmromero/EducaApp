@@ -4,6 +4,7 @@ from . import views as material_views  # Usar el mismo alias para todas las vist
 app_name = 'material'
 
 urlpatterns = [
+    path('preview-exam/', material_views.preview_exam, name='preview_exam'),
     path('', material_views.index, name='index'),
     path('get-career-name/<int:career_id>/', material_views.get_career_name, name='get_career_name'),
     path('upload/', material_views.upload_contenido, name='upload_contenido'),
@@ -12,6 +13,7 @@ urlpatterns = [
     path('save-questions/<int:contenido_id>/', material_views.save_selected_questions, name='save_selected_questions'),
     path('create-exam/', material_views.create_exam, name='create_exam'),
     path('create-exam-template/', material_views.create_exam_template, name='create_exam_template'),
+    path('exam-templates/edit/<int:template_id>/', material_views.edit_exam_template, name='edit_exam_template'),
     path('exam-templates/preview/', material_views.preview_exam_template, name='preview_exam_template'),
     path('exam-templates/', material_views.list_exam_templates, name='list_exam_templates'),
     path('exam-templates/delete/', material_views.delete_exam_template, name='delete_exam_template'),

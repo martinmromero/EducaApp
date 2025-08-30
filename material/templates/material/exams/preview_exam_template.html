@@ -1,0 +1,14 @@
+{% extends 'material/exams/base_exam_preview.html' %}
+
+{% block title %}Plantilla de Examen{% endblock %}
+
+{% block action_buttons %}
+<button onclick="window.print()">
+    <i class="fas fa-print"></i> Imprimir Examen
+</button>
+<a href="{% url 'material:list_exam_templates' %}">
+    <button class="secondary">
+        <i class="fas fa-arrow-left"></i> Volver
+    </button>
+</a>
+{% endblock %}

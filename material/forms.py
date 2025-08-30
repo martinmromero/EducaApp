@@ -208,16 +208,17 @@ class ProfileForm(forms.ModelForm):
 class ExamTemplateForm(forms.ModelForm):
     class Meta:
         model = ExamTemplate
-        exclude = ['exam_group']
         fields = [
             'institution', 'faculty', 'career', 'subject', 'campus', 'professor',
-            'exam_mode', 'exam_group', 'shift',
+            'resolution_time',
             'learning_outcomes', 'notes_and_recommendations', 'topics_to_evaluate'
         ]
         widgets = {
             'learning_outcomes': forms.CheckboxSelectMultiple(
                 attrs={'class': 'learning-outcomes-checkbox'}
             ),
+            'notes_and_recommendations': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+            'topics_to_evaluate': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
 
     def __init__(self, *args, **kwargs):

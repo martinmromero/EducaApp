@@ -8,6 +8,7 @@
     {% csrf_token %}
     {{ form.non_field_errors }}
     <button type="button" class="btn btn-secondary" onclick="location.reload();">Limpiar datos</button>
+    <button type="submit" name="preview" value="1" class="btn btn-info ms-2">Vista previa</button>
 
     <!-- Sección 2 columnas: Plantilla - Materia -->
     <div class="row mb-3">
@@ -118,40 +119,82 @@
         </div>
     </div>
 
-    <!-- Sección 3 columnas: Tipo de examen - Modalidad - Modalidad de resolución -->
+    <!-- Sección 3 espacios: Tipo de examen (radio), Modalidad (radio), Modalidad de resolución (checkboxes) -->
     <div class="row mb-3">
         <div class="col-md-4">
-            <label for="tipo_examen">Tipo de examen</label>
-            <select class="form-select" name="tipo_examen" id="tipo_examen">
-                <option value="">Seleccionar tipo</option>
-                <option value="1er_parcial">1er. Parcial</option>
-                <option value="2do_parcial">2do. Parcial</option>
-                <option value="3er_parcial">3er. Parcial</option>
-                <option value="final">Final</option>
-                <option value="recuperatorio">Recuperatorio</option>
-                <option value="practico">Práctico</option>
-            </select>
+            <label>Tipo de examen</label>
+            <div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tipo_examen" id="tipo_examen_1er" value="1er_parcial">
+                    <label class="form-check-label" for="tipo_examen_1er">1er. Parcial</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tipo_examen" id="tipo_examen_2do" value="2do_parcial">
+                    <label class="form-check-label" for="tipo_examen_2do">2do. Parcial</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tipo_examen" id="tipo_examen_3er" value="3er_parcial">
+                    <label class="form-check-label" for="tipo_examen_3er">3er. Parcial</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tipo_examen" id="tipo_examen_final" value="final">
+                    <label class="form-check-label" for="tipo_examen_final">Final</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tipo_examen" id="tipo_examen_recup" value="recuperatorio">
+                    <label class="form-check-label" for="tipo_examen_recup">Recuperatorio</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tipo_examen" id="tipo_examen_practico" value="practico">
+                    <label class="form-check-label" for="tipo_examen_practico">Práctico</label>
+                </div>
+            </div>
         </div>
         <div class="col-md-4">
-            <label for="tipo_modalidad">Modalidad</label>
-            <select class="form-select" name="tipo_modalidad" id="tipo_modalidad">
-                <option value="">Seleccionar modalidad</option>
-                <option value="individual">Individual</option>
-                <option value="grupal">Grupal</option>
-            </select>
+            <label>Modalidad</label>
+            <div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tipo_modalidad" id="modalidad_individual" value="individual">
+                    <label class="form-check-label" for="modalidad_individual">Individual</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tipo_modalidad" id="modalidad_grupal" value="grupal">
+                    <label class="form-check-label" for="modalidad_grupal">Grupal</label>
+                </div>
+            </div>
         </div>
         <div class="col-md-4">
-            <label for="modalidad_resolucion">Modalidad de resolución</label>
-            <select class="form-select" name="modalidad_resolucion" id="modalidad_resolucion">
-                <option value="">Seleccionar resolución</option>
-                <option value="oral">Oral</option>
-                <option value="escrito">Escrito</option>
-                <option value="presencial">Presencial</option>
-                <option value="virtual">Virtual</option>
-                <option value="domiciliario">Domiciliario</option>
-                <option value="hibrido">Híbrido</option>
-                <option value="otro">Otro</option>
-            </select>
+            <label>Modalidad de resolución</label>
+            <div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_oral" value="oral">
+                    <label class="form-check-label" for="resolucion_oral">Oral</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_escrito" value="escrito">
+                    <label class="form-check-label" for="resolucion_escrito">Escrito</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_presencial" value="presencial">
+                    <label class="form-check-label" for="resolucion_presencial">Presencial</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_virtual" value="virtual">
+                    <label class="form-check-label" for="resolucion_virtual">Virtual</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_domiciliario" value="domiciliario">
+                    <label class="form-check-label" for="resolucion_domiciliario">Domiciliario</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_hibrido" value="hibrido">
+                    <label class="form-check-label" for="resolucion_hibrido">Híbrido</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_otro" value="otro">
+                    <label class="form-check-label" for="resolucion_otro">Otro</label>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -163,6 +206,7 @@
     <div class="mb-3">
         <label for="id_topics">Temas evaluados</label>
         <select multiple class="form-select" name="topics" id="id_topics">
+            <option value="all">Todos los temas</option>
         </select>
     </div>
     <div class="mb-3">
@@ -170,8 +214,8 @@
         {{ form.questions }}
     </div>
     <div class="mb-3" style="display:none;">
-        {{ form.title.label_tag }}
-        {{ form.title }}
+    <label for="id_title">Título</label>
+    <input type="text" class="form-control" name="title" id="id_title" maxlength="255" style="display:none;">
     </div>
 
     <!-- Campo Alumno/a oculto -->

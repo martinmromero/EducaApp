@@ -95,10 +95,9 @@
                                 target="_blank">
                                     <i class="fas fa-eye"></i>
                                 </a>
-                            <a href="#" 
+                            <a href="{% url 'material:edit_exam_template' template.id %}" 
                                class="btn btn-sm btn-secondary"
-                               title="Editar"
-                               onclick="editTemplate({{ template.id }})">
+                               title="Editar">
                                 <i class="fas fa-edit"></i>
                             </a>
                         </div>

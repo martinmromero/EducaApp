@@ -5,8 +5,12 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 <link rel="stylesheet" href="{% static 'material/css/create_exam_template.css' %}">
 
-<h2>Crear Plantilla de Examen</h2>
+<h2>{% if edit_mode %}Editar{% else %}Crear{% endif %} Plantilla de Examen</h2>
 <form method="post" enctype="multipart/form-data" id="examTemplateForm">
+    {% csrf_token %}
+    {% if edit_mode and template %}
+        <input type="hidden" name="template_id" value="{{ template.id }}">
+    {% endif %}
     <!-- Toast de notificación -->
     <div class="position-fixed top-0 end-0 p-3" style="z-index: 1055">
         <div id="successToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
@@ -120,7 +124,7 @@
             <div class="input-group">
                 <input type="hidden" name="learning_outcomes" id="id_learning_outcomes" value="">
                 <div id="learning_outcomes_container" class="learning-outcomes-container">
-                    {% if form.subject.value %}
+                    {% if form.subject.value or template.subject %}
                         <div class="outcomes-checkbox-list">
                             {% for outcome in form.learning_outcomes.field.queryset %}
                                 <div class="form-check">
@@ -128,7 +132,7 @@
                                            type="checkbox" 
                                            value="{{ outcome.id }}"
                                            id="outcome_{{ outcome.id }}"
-                                           {% if outcome.id in form.learning_outcomes.value %}checked{% endif %}>
+                                           {% if outcome.id in form.learning_outcomes.value or outcome in template.learning_outcomes.all %}checked{% endif %}>
                                     <label class="form-check-label" for="outcome_{{ outcome.id }}">
                                         {{ outcome.description }}
                                     </label>
@@ -164,7 +168,10 @@
     </div>
 
     <div class="form-actions">
-        <button type="button" id="save-template-btn" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Plantilla</button>
+        <button type="button" id="save-template-btn" class="btn btn-primary">
+            <i class="fas fa-save"></i> 
+            {% if edit_mode %}Guardar copia de plantilla{% else %}Guardar Plantilla{% endif %}
+        </button>
         <button type="button" onclick="previewExamTemplate()" class="btn btn-secondary">
             <i class="fas fa-eye"></i> Previsualizar
         </button>
@@ -210,4 +217,78 @@
 </style>
 
 <script src="{% static 'material/js/create_exam_template.js' %}"></script>
+
+{% if edit_mode and template %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Disparar evento change en institución para cargar datos dependientes
+    {% if template.institution %}
+    const institutionSelect = document.getElementById('id_institution');
+    if (institutionSelect) {
+        institutionSelect.dispatchEvent(new Event('change'));
+        
+        // Después de cargar facultades, seleccionar la correcta
+        setTimeout(function() {
+            {% if template.faculty %}
+            const facultySelect = document.getElementById('id_faculty');
+            if (facultySelect) {
+                facultySelect.value = '{{ template.faculty.id }}';
+                facultySelect.dispatchEvent(new Event('change'));
+                
+                // Después de cargar carreras, seleccionar la correcta
+                setTimeout(function() {
+                    {% if template.career %}
+                    const careerSelect = document.getElementById('id_career');
+                    if (careerSelect) {
+                        careerSelect.value = '{{ template.career.id }}';
+                    }
+                    {% endif %}
+                }, 500);
+            }
+            {% endif %}
+        }, 500);
+    }
+    {% endif %}
+    
+    // Pre-seleccionar learning outcomes después de que se carguen
+    setTimeout(function() {
+        // Método 1: Usar los IDs específicos
+        {% for outcome in template.learning_outcomes.all %}
+        const checkbox{{ outcome.id }} = document.getElementById('outcome_{{ outcome.id }}');
+        if (checkbox{{ outcome.id }}) {
+            checkbox{{ outcome.id }}.checked = true;
+        }
+        {% endfor %}
+        
+        // Método 2: Como respaldo, buscar por valor
+        const selectedOutcomes = [{% for outcome in template.learning_outcomes.all %}{{ outcome.id }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+        document.querySelectorAll('.outcome-checkbox').forEach(function(checkbox) {
+            if (selectedOutcomes.includes(parseInt(checkbox.value))) {
+                checkbox.checked = true;
+            }
+        });
+        
+        // Actualizar el campo oculto
+        updateLearningOutcomes();
+    }, 2000);
+    
+    // Función para actualizar el campo oculto (si existe en el JS externo)
+    function updateLearningOutcomes() {
+        if (typeof updateLearningOutcomesField === 'function') {
+            updateLearningOutcomesField();
+        } else {
+            // Implementación básica si no existe la función
+            const selectedValues = [];
+            document.querySelectorAll('.outcome-checkbox:checked').forEach(function(cb) {
+                selectedValues.push(cb.value);
+            });
+            const hiddenField = document.getElementById('id_learning_outcomes');
+            if (hiddenField) {
+                hiddenField.value = selectedValues.join(',');
+            }
+        }
+    }
+});
+</script>
+{% endif %}
 {% endblock %}
