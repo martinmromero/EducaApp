@@ -5,7 +5,8 @@ from django.core.exceptions import ValidationError
 from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
     Subject, Topic, Subtopic, Institution, LearningOutcome, Campus, Faculty, User,
-    InstitutionV2, CampusV2, FacultyV2, Career, InstitutionCareer, CareerSubject, UserInstitution
+    InstitutionV2, CampusV2, FacultyV2, Career, InstitutionCareer, CareerSubject, UserInstitution,
+    OralExamSet
 )
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
@@ -458,3 +459,59 @@ class CareerSimpleForm(forms.ModelForm):
                 'placeholder': 'Nombre de la carrera'
             })
         }
+
+class OralExamForm(forms.ModelForm):
+    topics = forms.ModelMultipleChoiceField(
+        queryset=Topic.objects.none(),  # Se establecerá dinámicamente
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        required=True,
+        label='Temas a evaluar'
+    )
+    
+    class Meta:
+        model = OralExamSet
+        fields = ['name', 'subject', 'topics', 'num_groups', 'students_per_group', 'questions_per_student']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Examen Oral Final - Matemáticas'
+            }),
+            'subject': forms.Select(attrs={'class': 'form-select'}),
+            'num_groups': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '1',
+                'max': '10'
+            }),
+            'students_per_group': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '1',
+                'max': '20'
+            }),
+            'questions_per_student': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '1',
+                'max': '10',
+                'value': '3'
+            })
+        }
+    
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Filtrar materias por usuario
+        if user:
+            user_subjects = Subject.objects.filter(
+                question__user=user
+            ).distinct()
+            self.fields['subject'].queryset = user_subjects
+        
+        # Si hay una materia seleccionada, mostrar sus temas
+        if 'subject' in self.data:
+            try:
+                subject_id = int(self.data.get('subject'))
+                self.fields['topics'].queryset = Topic.objects.filter(subject_id=subject_id)
+            except (ValueError, TypeError):
+                pass
+        elif self.instance.pk:
+            self.fields['topics'].queryset = self.instance.subject.topics.all()

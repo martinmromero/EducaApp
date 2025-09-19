@@ -1111,6 +1111,104 @@ class ExamTemplate(models.Model):
                 self.full_clean()
             super().save(*args, **kwargs)
 
+# Modelo para Cuestionarios Orales
+class OralExamSet(models.Model):
+    name = models.CharField(
+        max_length=255,
+        verbose_name='Nombre del conjunto de examen oral'
+    )
+    subject = models.ForeignKey(
+        'Subject',
+        on_delete=models.CASCADE,
+        verbose_name='Materia'
+    )
+    topics = models.ManyToManyField(
+        'Topic',
+        verbose_name='Temas a evaluar',
+        help_text='Seleccione los temas que se incluirán en el examen oral'
+    )
+    num_groups = models.PositiveIntegerField(
+        verbose_name='Número de grupos',
+        help_text='Cantidad de grupos de estudiantes'
+    )
+    students_per_group = models.PositiveIntegerField(
+        verbose_name='Estudiantes por grupo',
+        help_text='Número de estudiantes en cada grupo'
+    )
+    questions_per_student = models.PositiveIntegerField(
+        default=3,
+        verbose_name='Preguntas por estudiante',
+        help_text='Cantidad de preguntas que recibirá cada estudiante'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Creador'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = 'Conjunto de Examen Oral'
+        verbose_name_plural = 'Conjuntos de Exámenes Orales'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} - {self.subject.name}"
+
+class OralExamGroup(models.Model):
+    exam_set = models.ForeignKey(
+        OralExamSet,
+        on_delete=models.CASCADE,
+        related_name='groups'
+    )
+    group_number = models.PositiveIntegerField(
+        verbose_name='Número de grupo'
+    )
+    
+    class Meta:
+        verbose_name = 'Grupo de Examen Oral'
+        verbose_name_plural = 'Grupos de Examen Oral'
+        ordering = ['exam_set', 'group_number']
+    
+    def __str__(self):
+        return f"Grupo {self.group_number} - {self.exam_set.name}"
+
+class OralExamStudent(models.Model):
+    group = models.ForeignKey(
+        OralExamGroup,
+        on_delete=models.CASCADE,
+        related_name='students'
+    )
+    student_number = models.PositiveIntegerField(
+        verbose_name='Número de estudiante'
+    )
+    questions = models.ManyToManyField(
+        Question,
+        through='OralExamStudentQuestion',
+        verbose_name='Preguntas asignadas'
+    )
+    
+    class Meta:
+        verbose_name = 'Estudiante de Examen Oral'
+        verbose_name_plural = 'Estudiantes de Examen Oral'
+        ordering = ['group', 'student_number']
+    
+    def __str__(self):
+        return f"Estudiante {self.student_number} - {self.group}"
+
+class OralExamStudentQuestion(models.Model):
+    student = models.ForeignKey(OralExamStudent, on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    order = models.PositiveIntegerField(
+        verbose_name='Orden de la pregunta'
+    )
+    
+    class Meta:
+        verbose_name = 'Pregunta de Estudiante'
+        verbose_name_plural = 'Preguntas de Estudiantes'
+        ordering = ['student', 'order']
+        unique_together = [('student', 'order')]
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:

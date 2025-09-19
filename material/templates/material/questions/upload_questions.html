@@ -147,24 +147,8 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
 
     <!-- Pestaña Lote -->
-    <div class="tab-pane fade {% if current_tab == 'batch' %}show active{% endif %}" id="batch" role="tabpanel">
-<script>
-// Guardar y restaurar la última pestaña activa usando localStorage
-document.addEventListener('DOMContentLoaded', function() {
-    var triggerTabList = [].slice.call(document.querySelectorAll('#uploadTabs a'));
-    triggerTabList.forEach(function(triggerEl) {
-        triggerEl.addEventListener('shown.bs.tab', function (event) {
-            localStorage.setItem('uploadQuestionsTab', event.target.id === 'batch-tab' ? 'batch' : 'single');
-        });
-    });
-    // Restaurar pestaña activa
-    var lastTab = localStorage.getItem('uploadQuestionsTab');
-    if (lastTab && document.getElementById(lastTab + '-tab')) {
-        var tab = new bootstrap.Tab(document.getElementById(lastTab + '-tab'));
-        tab.show();
-    }
-});
-</script>
+        <!-- Pestaña Batch -->
+        <div class="tab-pane fade {% if current_tab == 'batch' %}show active{% endif %}" id="batch" role="tabpanel">
             <form method="post" enctype="multipart/form-data" id="batchForm">
                 {% csrf_token %}
 
@@ -176,28 +160,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 <div class="alert alert-info mt-3">
                     <strong>Formato esperado para CSV:</strong><br>
-                    <code>materia,pregunta,respuesta,tema,subtema,unidad,libro_referencia,pagina,capitulo</code><br>
+                    <code>materia,pregunta,respuesta,tema,subtema,pagina</code><br>
+                    <em>Campos requeridos: materia, pregunta, respuesta, tema</em><br>
+                    <em>Campos opcionales: subtema, pagina</em><br>
                     Ejemplo:<br>
-                    <code>Matemáticas,¿Cuánto es 2+2?,4,Álgebra,,1,Libro de Álgebra,12,Capítulo 1</code><br>
-                    <code>Historia,¿Quién fue San Martín?,Libertador,Independencia,Argentina,2,Libro de Historia,34,Capítulo 2</code>
+                    <code>Matemáticas,¿Cuánto es 2+2?,4,Álgebra,,12</code><br>
+                    <code>Historia,¿Quién fue San Martín?,Libertador,Independencia,Argentina,34</code>
                     <br><br>
                     <strong>Formato esperado para TXT:</strong><br>
+                    <em>Campos requeridos: materia, pregunta, respuesta, tema</em><br>
+                    <em>Campos opcionales: subtema, pagina</em><br>
                     <pre style="white-space: pre-line;">
 materia: Matemáticas
 pregunta: ¿Cuánto es 2+2?
 respuesta: 4
 tema: Álgebra
-unidad: 1
-libro_referencia: Libro de Álgebra
 pagina: 12
-capitulo: Capítulo 1
 
 materia: Historia
 pregunta: ¿Quién fue San Martín?
 respuesta: Libertador
 tema: Independencia
 subtema: Argentina
-unidad: 2
+pagina: 34
 libro_referencia: Libro de Historia
 pagina: 34
 capitulo: Capítulo 2
@@ -206,7 +191,13 @@ capitulo: Capítulo 2
                     <a href="/static/material/ejemplo_batch_preguntas.txt" class="btn btn-outline-secondary btn-sm mt-2 ms-2" download>Descargar ejemplo TXT</a>
                 </div>
 
-                <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+                <button type="submit" class="btn btn-primary mt-3">Subir Preguntas</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
                 <script>
                 $(document).ready(function() {
                     // Previsualización de imágenes
@@ -385,4 +376,23 @@ capitulo: Capítulo 2
         object-fit: contain;
     }
 </style>
+
+<script>
+// Guardar y restaurar la última pestaña activa usando localStorage
+document.addEventListener('DOMContentLoaded', function() {
+    var triggerTabList = [].slice.call(document.querySelectorAll('#uploadTabs a'));
+    triggerTabList.forEach(function(triggerEl) {
+        triggerEl.addEventListener('shown.bs.tab', function (event) {
+            localStorage.setItem('uploadQuestionsTab', event.target.id === 'batch-tab' ? 'batch' : 'single');
+        });
+    });
+    
+    // Restaurar pestaña activa
+    var lastTab = localStorage.getItem('uploadQuestionsTab');
+    if (lastTab && document.getElementById(lastTab + '-tab')) {
+        var tab = new bootstrap.Tab(document.getElementById(lastTab + '-tab'));
+        tab.show();
+    }
+});
+</script>
 {% endblock %}

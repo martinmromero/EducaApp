@@ -1,0 +1,160 @@
+{% extends 'material/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">Crear Cuestionario Oral</h1>
+    
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Configuración del Examen Oral</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" id="oral-exam-form">
+                {% csrf_token %}
+                
+                <!-- Información básica -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="id_name">{{ form.name.label }}</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <div class="text-danger">{{ form.name.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="id_subject">{{ form.subject.label }}</label>
+                        {{ form.subject }}
+                        {% if form.subject.errors %}
+                            <div class="text-danger">{{ form.subject.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="id_questions_per_student">{{ form.questions_per_student.label }}</label>
+                        {{ form.questions_per_student }}
+                        {% if form.questions_per_student.errors %}
+                            <div class="text-danger">{{ form.questions_per_student.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Configuración de grupos -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="id_num_groups">{{ form.num_groups.label }}</label>
+                        {{ form.num_groups }}
+                        {% if form.num_groups.errors %}
+                            <div class="text-danger">{{ form.num_groups.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="id_students_per_group">{{ form.students_per_group.label }}</label>
+                        {{ form.students_per_group }}
+                        {% if form.students_per_group.errors %}
+                            <div class="text-danger">{{ form.students_per_group.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Selección de temas -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label>{{ form.topics.label }}</label>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-primary" id="select-all-topics">
+                                <i class="fas fa-check-square"></i> Seleccionar Todo
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="deselect-all-topics">
+                                <i class="fas fa-square"></i> Deseleccionar Todo
+                            </button>
+                        </div>
+                    </div>
+                    <div id="topics-container" class="border p-3" style="max-height: 300px; overflow-y: auto;">
+                        {% for choice in form.topics %}
+                            <div class="form-check">
+                                {{ choice.tag }}
+                                <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                    {{ choice.choice_label }}
+                                </label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% if form.topics.errors %}
+                        <div class="text-danger">{{ form.topics.errors }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Crear Cuestionario Oral
+                    </button>
+                    <a href="{% url 'material:list_oral_exams' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Volver a la lista
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const subjectSelect = document.getElementById('id_subject');
+    const topicsContainer = document.getElementById('topics-container');
+    
+    subjectSelect.addEventListener('change', function() {
+        const subjectId = this.value;
+        if (subjectId) {
+            // Hacer petición AJAX para obtener los temas de la materia seleccionada
+            fetch(`{% url 'material:get_topics' %}?subject_id=${subjectId}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Limpiar temas actuales
+                    topicsContainer.innerHTML = '';
+                    
+                    // Agregar nuevos temas
+                    data.forEach(topic => {
+                        const div = document.createElement('div');
+                        div.className = 'form-check';
+                        div.innerHTML = `
+                            <input class="form-check-input" type="checkbox" 
+                                   name="topics" value="${topic.id}" id="topic_${topic.id}">
+                            <label class="form-check-label" for="topic_${topic.id}">
+                                ${topic.name}
+                            </label>
+                        `;
+                        topicsContainer.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error al cargar temas:', error);
+                });
+        } else {
+            topicsContainer.innerHTML = '<p class="text-muted">Seleccione una materia primero</p>';
+        }
+    });
+    
+    // Funcionalidad para seleccionar/deseleccionar todos los temas
+    const selectAllBtn = document.getElementById('select-all-topics');
+    const deselectAllBtn = document.getElementById('deselect-all-topics');
+    
+    selectAllBtn.addEventListener('click', function() {
+        const checkboxes = topicsContainer.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+    });
+    
+    deselectAllBtn.addEventListener('click', function() {
+        const checkboxes = topicsContainer.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+    });
+});
+</script>
+
+{% endblock %}

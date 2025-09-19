@@ -14,7 +14,7 @@
             <form method="get" id="filter-form">
                 <div class="form-row">
                     <!-- Filtro por Materia -->
-                    <div class="form-group col-md-4">
+                    <div class="form-group col-md-6">
                         <label for="filter-subject">Materia</label>
                         <select name="subject" id="filter-subject" class="form-control">
                             <option value="">Todas las materias</option>
@@ -27,40 +27,13 @@
                         </select>
                     </div>
                     
-                    <!-- Filtro por Contenido -->
-                    <div class="form-group col-md-4">
-                        <label for="contenido">Contenido</label>
-                        <select name="contenido" id="contenido" class="form-control">
-                            <option value="">Todos los contenidos</option>
-                            {% for cont in contenidos_unicos %}
-                                <option value="{{ cont.id }}"
-                                    {% if selected_contenido == cont.id|stringformat:"s" %}selected{% endif %}>
-                                    {{ cont.title }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <!-- Filtro por Tipo de Pregunta -->
-                    <div class="form-group col-md-4">
-                        <label for="question_type">Tipo</label>
-                        <select name="question_type" id="question_type" class="form-control">
-                            <option value="">Todos los tipos</option>
-                            {% for type in question_types %}
-                                <option value="{{ type.0 }}"
-                                    {% if selected_question_type == type.0 %}selected{% endif %}>
-                                    {{ type.1 }}
-                                </option>
-                            {% endfor %}
-                        </select>
+                    <div class="form-group col-md-6 d-flex align-items-end">
+                        <a href="{% url 'material:lista_preguntas' %}" class="btn btn-secondary">
+                            <i class="fas fa-undo"></i> Limpiar
+                        </a>
                     </div>
                 </div>
-                
-                <div class="text-right">
-                    <a href="{% url 'material:lista_preguntas' %}" class="btn btn-secondary">
-                        <i class="fas fa-undo"></i> Limpiar filtros
-                    </a>
-                </div>
+
             </form>
         </div>
     </div>
@@ -133,6 +106,18 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Hacer que el filtro se aplique automáticamente al cambiar la selección
+    const subjectFilter = document.getElementById('filter-subject');
+    if (subjectFilter) {
+        subjectFilter.addEventListener('change', function() {
+            document.getElementById('filter-form').submit();
+        });
+    }
+});
+</script>
 {% endblock %}
 
 {% block javascript %}

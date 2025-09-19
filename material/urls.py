@@ -106,4 +106,10 @@ path('get-exam-template/<int:template_id>/', material_views.get_exam_template, n
 #el siguiente renglon tal vez sea obsoleto. revisar cuando termine de ver temas de learning outcomes
 path('get-learning-outcomes/', material_views.get_learning_outcomes, name='get_learning_outcomes'),
 
+# Cuestionarios Orales
+path('oral-exams/', material_views.list_oral_exams, name='list_oral_exams'),
+path('oral-exams/create/', material_views.create_oral_exam, name='create_oral_exam'),
+path('oral-exams/<int:exam_id>/', material_views.view_oral_exam, name='view_oral_exam'),
+path('oral-exams/<int:exam_id>/delete/', material_views.delete_oral_exam, name='delete_oral_exam'),
+
 ]

@@ -99,6 +99,15 @@
 
 
 
+        <!-- Cuestionarios Orales -->
+        <div class="menu-item" onclick="toggleSubmenu(this)">
+            <i class="bi bi-mic me-2"></i> Cuestionarios Orales
+            <div class="submenu">
+                <a href="{% url 'material:create_oral_exam' %}"><i class="bi bi-plus-circle me-2"></i>Crear Cuestionario</a>
+                <a href="{% url 'material:list_oral_exams' %}"><i class="bi bi-list-ul me-2"></i>Mis Cuestionarios</a>
+            </div>
+        </div>
+
  <!-- Ítem original de Instituciones (se mantiene) -->
         <div class="menu-item" onclick="toggleSubmenu(this)">
             <i class="bi bi-building me-2"></i> Instituciones (OLD)

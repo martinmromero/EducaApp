@@ -185,12 +185,14 @@ from django.db import models, transaction
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404, reverse
 from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, 
-    Subtopic,Institution, LearningOutcome, Campus, Faculty,Career)
+    Subtopic,Institution, LearningOutcome, Campus, Faculty,Career, 
+    OralExamSet, OralExamGroup, OralExamStudent, OralExamStudentQuestion)
 from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog)
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
     UserEditForm, ContenidoForm, InstitutionForm, 
-    LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm  
+    LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm,
+    OralExamForm  
 )
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Prefetch, F, Value, CharField
@@ -952,16 +954,16 @@ def lista_preguntas(request):
 
 @login_required
 def editar_pregunta(request, pk):
-    pregunta = get_object_or_404(Question, pk=pk, contenido__uploaded_by=request.user)
+    pregunta = get_object_or_404(Question, pk=pk, user=request.user)
     
     if request.method == 'POST':
-        form = QuestionForm(request.POST, instance=pregunta)
+        form = QuestionForm(request.POST, request.FILES, instance=pregunta, current_user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Pregunta actualizada correctamente')
             return redirect('material:lista_preguntas')
     else:
-        form = QuestionForm(instance=pregunta)
+        form = QuestionForm(instance=pregunta, current_user=request.user)
     
     return render(request, 'material/questions/editar_pregunta.html', {
         'form': form,
@@ -970,7 +972,7 @@ def editar_pregunta(request, pk):
 
 @login_required
 def eliminar_pregunta(request, pk):
-    pregunta = get_object_or_404(Question, pk=pk, contenido__uploaded_by=request.user)
+    pregunta = get_object_or_404(Question, pk=pk, user=request.user)
     
     if request.method == 'POST':
         pregunta.delete()
@@ -1008,28 +1010,45 @@ def upload_questions(request):
     Vista para subir preguntas, tanto individualmente como por lotes (CSV/TXT)
     """
     if request.method == 'POST':
-        form = QuestionForm(request.POST, request.FILES, current_user=request.user)
-        
-        if form.is_valid():
+        # Verificar si se está subiendo un archivo (procesamiento batch)
+        if 'file' in request.FILES:
             try:
-                # Procesamiento para archivos CSV/TXT
-                if 'file' in request.FILES:
-                    file = request.FILES['file']
-                    file_extension = os.path.splitext(file.name)[1].lower()
-                    # No asociar contenido por defecto; solo si el usuario selecciona uno
-                    contenido_seleccionado = form.cleaned_data.get('contenido')
-                    if file_extension == '.csv':
-                        questions_created = process_csv_file(file, contenido_seleccionado, request.user)
-                        messages.success(request, f'{questions_created} preguntas creadas desde archivo CSV.')
-                    elif file_extension == '.txt':
-                        questions_created = process_txt_file(file, contenido_seleccionado, request.user)
-                        messages.success(request, f'{questions_created} preguntas creadas desde archivo TXT.')
-                    else:
-                        messages.error(request, 'Formato de archivo no soportado. Use CSV o TXT.')
-                        return redirect('material:upload_questions')
-                    
-                # Procesamiento para pregunta individual
+                file = request.FILES['file']
+                file_extension = os.path.splitext(file.name)[1].lower()
+                
+                # Obtener contenido seleccionado si existe
+                contenido_seleccionado = None
+                contenido_id = request.POST.get('contenido')
+                if contenido_id:
+                    try:
+                        contenido_seleccionado = Contenido.objects.get(id=contenido_id, uploaded_by=request.user)
+                    except Contenido.DoesNotExist:
+                        pass
+                
+                # Procesar archivo según extensión
+                if file_extension == '.csv':
+                    questions_created = process_csv_file(file, contenido_seleccionado, request.user)
+                    messages.success(request, f'{questions_created} preguntas creadas desde archivo CSV.')
+                elif file_extension == '.txt':
+                    questions_created = process_txt_file(file, contenido_seleccionado, request.user)
+                    messages.success(request, f'{questions_created} preguntas creadas desde archivo TXT.')
                 else:
+                    messages.error(request, 'Formato de archivo no soportado. Use CSV o TXT.')
+                    return redirect('material:upload_questions')
+                
+                return redirect('material:lista_preguntas')
+                
+            except Exception as e:
+                logger.error(f"Error al procesar archivo: {str(e)}", exc_info=True)
+                messages.error(request, f'Ocurrió un error al procesar el archivo: {str(e)}')
+                return redirect('material:upload_questions')
+        
+        # Procesamiento para pregunta individual
+        else:
+            form = QuestionForm(request.POST, request.FILES, current_user=request.user)
+            
+            if form.is_valid():
+                try:
                     question = form.save(commit=False)
                     question.user = request.user
                     # Asignar contenido solo si se seleccionó
@@ -1039,16 +1058,15 @@ def upload_questions(request):
                         question.contenido = None
                     question.save()
                     messages.success(request, 'Pregunta guardada correctamente.')
+                    return redirect('material:lista_preguntas')
                 
-                return redirect('material:lista_preguntas')
+                except Exception as e:
+                    logger.error(f"Error al guardar pregunta individual: {str(e)}", exc_info=True)
+                    messages.error(request, f'Ocurrió un error: {str(e)}')
+                    return redirect('material:upload_questions')
             
-            except Exception as e:
-                logger.error(f"Error al procesar preguntas: {str(e)}", exc_info=True)
-                messages.error(request, f'Ocurrió un error: {str(e)}')
-                return redirect('material:upload_questions')
-        
-        else:
-            messages.error(request, 'Por favor corrija los errores en el formulario.')
+            else:
+                messages.error(request, 'Por favor corrija los errores en el formulario.')
     else:
         form = QuestionForm(current_user=request.user)
     
@@ -1062,43 +1080,112 @@ def upload_questions(request):
 
 # Funciones auxiliares para procesamiento de archivos
 def process_csv_file(file, contenido, user):
-    decoded_file = file.read().decode('utf-8').splitlines()
-    reader = csv.DictReader(decoded_file)
+    from .models import Subject, Topic, Subtopic, Question
+    
+    # Intentar múltiples codificaciones
+    encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
+    decoded_file = None
+    
+    for encoding in encodings:
+        try:
+            file.seek(0)  # Volver al inicio del archivo
+            decoded_file = file.read().decode(encoding).splitlines()
+            logger.info(f"Archivo CSV leído exitosamente con codificación: {encoding}")
+            break
+        except UnicodeDecodeError:
+            continue
+    
+    if decoded_file is None:
+        raise Exception("No se pudo leer el archivo. Formatos soportados: UTF-8, Latin1, Windows-1252, ISO-8859-1, UTF-16.")
+    
+    try:
+        reader = csv.DictReader(decoded_file)
+    except Exception as e:
+        raise Exception(f"Error al procesar el CSV: {str(e)}")
+    
     questions_created = 0
+    errors = []
+    row_number = 1  # Para seguimiento de filas
 
     for row in reader:
+        row_number += 1
         try:
+            # Validar campos requeridos
+            missing_fields = []
+            if not row.get('materia'):
+                missing_fields.append('materia')
+            if not row.get('pregunta'):
+                missing_fields.append('pregunta')
+            if not row.get('respuesta'):
+                missing_fields.append('respuesta')
+            if not row.get('tema'):
+                missing_fields.append('tema')
+                
+            if missing_fields:
+                error_msg = f"Fila {row_number}: faltan campos requeridos: {', '.join(missing_fields)}"
+                errors.append(error_msg)
+                logger.warning(error_msg)
+                continue
+                
+            # Obtener o crear la materia
+            subject, _ = Subject.objects.get_or_create(name=row.get('materia', 'General'))
+            
+            # Obtener o crear el tema
+            topic, _ = Topic.objects.get_or_create(
+                name=row.get('tema', 'General'),
+                subject=subject
+            )
+            
+            # Obtener subtema solo si se proporciona
+            subtopic = None
+            if row.get('subtema') and row.get('subtema').strip():
+                subtopic, _ = Subtopic.objects.get_or_create(
+                    name=row.get('subtema'),
+                    topic=topic
+                )
+            
+            # Crear la pregunta solo con campos que existen en el modelo
             Question.objects.create(
                 contenido=contenido,
-                subject=Subject.objects.get_or_create(Nombre=row.get('materia', 'General'))[0],
+                subject=subject,
                 question_text=row['pregunta'],
                 answer_text=row['respuesta'],
-                topic=Topic.objects.get_or_create(
-                    name=row.get('tema', 'General'),
-                    subject=Subject.objects.get_or_create(Nombre=row.get('materia', 'General'))[0]
-                )[0],
-                subtopic=Subtopic.objects.get_or_create(
-                    name=row.get('subtema'),
-                    topic=Topic.objects.get_or_create(
-                        name=row.get('tema', 'General'),
-                        subject=Subject.objects.get_or_create(Nombre=row.get('materia', 'General'))[0]
-                    )[0]
-                )[0] if row.get('subtema') else None,
-                unit=row.get('unidad'),
-                reference_book=row.get('libro_referencia'),
-                source_page=row.get('pagina'),
-                chapter=row.get('capitulo'),
+                topic=topic,
+                subtopic=subtopic,
+                source_page=int(row['pagina']) if row.get('pagina') and row.get('pagina').strip().isdigit() else None,
                 user=user
             )
             questions_created += 1
         except Exception as e:
-            logger.error(f"Error creando pregunta desde CSV: {str(e)}")
+            error_msg = f"Fila {row_number}: {str(e)}"
+            errors.append(error_msg)
+            logger.error(f"Error creando pregunta desde CSV - {error_msg}")
             continue
 
+    # Si hay errores, lanzar excepción con detalles
+    if errors and questions_created == 0:
+        raise Exception(f"No se pudo crear ninguna pregunta. Errores encontrados:\n" + "\n".join(errors[:5]))
+    elif errors:
+        logger.warning(f"Se crearon {questions_created} preguntas con {len(errors)} errores: {errors[:3]}")
+    
     return questions_created
 
 def process_txt_file(file, contenido, user):
-    lines = file.read().decode('utf-8').splitlines()
+    # Intentar múltiples codificaciones
+    encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
+    lines = None
+    
+    for encoding in encodings:
+        try:
+            file.seek(0)  # Volver al inicio del archivo
+            lines = file.read().decode(encoding).splitlines()
+            logger.info(f"Archivo TXT leído exitosamente con codificación: {encoding}")
+            break
+        except UnicodeDecodeError:
+            continue
+    
+    if lines is None:
+        raise Exception("No se pudo leer el archivo. Formatos soportados: UTF-8, Latin1, Windows-1252, ISO-8859-1, UTF-16.")
     question_data = {}
     questions_created = 0
 
@@ -1120,9 +1207,10 @@ def process_txt_file(file, contenido, user):
     return questions_created
 
 def create_question_from_dict(data, contenido, user):
+    from .models import Subject, Topic, Subtopic, Question
     # Obtener o crear Subject
     subject, _ = Subject.objects.get_or_create(
-        Nombre=data.get('materia', 'General')
+        name=data.get('materia', 'General')
     )
     
     # Obtener o crear Topic
@@ -1139,7 +1227,7 @@ def create_question_from_dict(data, contenido, user):
             topic=topic
         )
     
-    # Crear la pregunta
+    # Crear la pregunta solo con campos que existen en el modelo
     Question.objects.create(
         contenido=contenido,
         subject=subject,
@@ -1147,10 +1235,7 @@ def create_question_from_dict(data, contenido, user):
         answer_text=data.get('respuesta', ''),
         topic=topic,
         subtopic=subtopic,
-        unit=data.get('unidad'),
-        reference_book=data.get('libro_referencia'),
-        source_page=data.get('pagina'),
-        chapter=data.get('capitulo'),
+        source_page=int(data.get('pagina')) if data.get('pagina') and str(data.get('pagina')).strip().isdigit() else None,
         user=user
     )
 
@@ -2369,3 +2454,152 @@ def add_subtopic(request):
             'success': False,
             'error': 'Error interno del servidor'
         }, status=500)
+
+# Vistas para Cuestionarios Orales
+@login_required
+def create_oral_exam(request):
+    if request.method == 'POST':
+        form = OralExamForm(request.POST, user=request.user)
+        if form.is_valid():
+            oral_exam = form.save(commit=False)
+            oral_exam.user = request.user
+            oral_exam.save()
+            form.save_m2m()  # Guardar las relaciones many-to-many
+            
+            # Generar las preguntas para cada grupo y estudiante
+            generate_oral_exam_questions(oral_exam)
+            
+            messages.success(request, 'Cuestionario oral creado exitosamente')
+            return redirect('material:view_oral_exam', exam_id=oral_exam.id)
+        else:
+            messages.error(request, 'Por favor corrija los errores en el formulario')
+    else:
+        form = OralExamForm(user=request.user)
+    
+    return render(request, 'material/oral_exams/create.html', {'form': form})
+
+@login_required
+def view_oral_exam(request, exam_id):
+    oral_exam = get_object_or_404(OralExamSet, id=exam_id, user=request.user)
+    groups = oral_exam.groups.all().prefetch_related(
+        'students__oralexamstudentquestion_set__question'
+    )
+    
+    # Calcular total de estudiantes
+    total_students = oral_exam.num_groups * oral_exam.students_per_group
+    
+    # Calcular total de preguntas
+    total_questions = total_students * oral_exam.questions_per_student
+    
+    return render(request, 'material/oral_exams/view.html', {
+        'oral_exam': oral_exam,
+        'groups': groups,
+        'total_students': total_students,
+        'total_questions': total_questions
+    })
+
+@login_required
+def list_oral_exams(request):
+    oral_exams = OralExamSet.objects.filter(user=request.user).order_by('-created_at')
+    
+    # Agregar total de estudiantes a cada examen
+    for exam in oral_exams:
+        exam.total_students = exam.num_groups * exam.students_per_group
+    
+    return render(request, 'material/oral_exams/list.html', {
+        'oral_exams': oral_exams
+    })
+
+def generate_oral_exam_questions(oral_exam):
+    """
+    Genera las preguntas para cada estudiante en cada grupo,
+    evitando repeticiones por subtema dentro del grupo
+    """
+    from collections import defaultdict
+    import random
+    from .models import OralExamGroup, OralExamStudent, OralExamStudentQuestion
+    
+    # Obtener todas las preguntas disponibles de los temas seleccionados
+    available_questions = Question.objects.filter(
+        subject=oral_exam.subject,
+        topic__in=oral_exam.topics.all(),
+        user=oral_exam.user
+    ).select_related('topic', 'subtopic')
+    
+    if not available_questions.exists():
+        raise ValueError("No hay preguntas disponibles para los temas seleccionados")
+    
+    # Agrupar preguntas por subtema (o por tema si no hay subtema)
+    questions_by_subtopic = defaultdict(list)
+    for question in available_questions:
+        key = question.subtopic.id if question.subtopic else f"topic_{question.topic.id}"
+        questions_by_subtopic[key].append(question)
+    
+    # Crear los grupos
+    for group_num in range(1, oral_exam.num_groups + 1):
+        group = OralExamGroup.objects.create(
+            exam_set=oral_exam,
+            group_number=group_num
+        )
+        
+        used_subtopics_in_group = set()
+        
+        # Crear estudiantes en el grupo
+        for student_num in range(1, oral_exam.students_per_group + 1):
+            student = OralExamStudent.objects.create(
+                group=group,
+                student_number=student_num
+            )
+            
+            # Asignar preguntas al estudiante
+            assigned_questions = []
+            available_subtopics = list(questions_by_subtopic.keys())
+            random.shuffle(available_subtopics)
+            
+            questions_assigned = 0
+            for subtopic_key in available_subtopics:
+                if questions_assigned >= oral_exam.questions_per_student:
+                    break
+                
+                # Si este subtema ya fue usado por otro estudiante del grupo, saltarlo
+                if subtopic_key in used_subtopics_in_group:
+                    continue
+                
+                # Tomar una pregunta aleatoria de este subtema
+                subtopic_questions = questions_by_subtopic[subtopic_key]
+                selected_question = random.choice(subtopic_questions)
+                assigned_questions.append(selected_question)
+                used_subtopics_in_group.add(subtopic_key)
+                questions_assigned += 1
+            
+            # Si no hay suficientes subtemas únicos, permitir repeticiones pero con diferentes preguntas
+            if questions_assigned < oral_exam.questions_per_student:
+                remaining_needed = oral_exam.questions_per_student - questions_assigned
+                all_available = list(available_questions)
+                # Excluir preguntas ya asignadas
+                for assigned_q in assigned_questions:
+                    if assigned_q in all_available:
+                        all_available.remove(assigned_q)
+                
+                random.shuffle(all_available)
+                assigned_questions.extend(all_available[:remaining_needed])
+            
+            # Crear las relaciones estudiante-pregunta
+            for order, question in enumerate(assigned_questions, 1):
+                OralExamStudentQuestion.objects.create(
+                    student=student,
+                    question=question,
+                    order=order
+                )
+
+@login_required
+def delete_oral_exam(request, exam_id):
+    oral_exam = get_object_or_404(OralExamSet, id=exam_id, user=request.user)
+    
+    if request.method == 'POST':
+        exam_name = oral_exam.name
+        oral_exam.delete()
+        messages.success(request, f'Cuestionario oral "{exam_name}" eliminado exitosamente')
+        return redirect('material:list_oral_exams')
+    
+    return redirect('material:list_oral_exams')

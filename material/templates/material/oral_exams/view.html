@@ -1,0 +1,445 @@
+{% extends 'material/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">{{ oral_exam.name }}</h1>
+    
+    <!-- Información del examen -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Información del Examen Oral</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Materia:</strong> {{ oral_exam.subject.name }}</p>
+                    <p><strong>Número de grupos:</strong> {{ oral_exam.num_groups }}</p>
+                    <p><strong>Estudiantes por grupo:</strong> {{ oral_exam.students_per_group }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Preguntas por estudiante:</strong> {{ oral_exam.questions_per_student }}</p>
+                    <p><strong>Creado:</strong> {{ oral_exam.created_at|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Total de estudiantes:</strong> {{ total_students }}</p>
+                </div>
+            </div>
+            <div class="mt-3">
+                <p><strong>Temas evaluados:</strong></p>
+                <ul>
+                    {% for topic in oral_exam.topics.all %}
+                        <li>{{ topic.name }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Panel de control -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Panel de Control del Examen</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label"><strong>Modo de Visualización:</strong></label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="viewMode" id="listMode" value="list" checked>
+                        <label class="form-check-label" for="listMode">
+                            <i class="fas fa-list"></i> Listar todas las preguntas por estudiante
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="viewMode" id="roundRobinMode" value="roundRobin">
+                        <label class="form-check-label" for="roundRobinMode">
+                            <i class="fas fa-sync-alt"></i> Round Robin (1 pregunta por vuelta)
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <!-- Los controles están al final de la página -->
+                </div>
+            </div>
+            
+            <!-- Resumen de evaluaciones -->
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-chart-bar"></i> Resumen de Evaluaciones</h6>
+                        <div class="row text-center">
+                            <div class="col-3">
+                                <span class="badge badge-success badge-pill" style="font-size: 1rem;">
+                                    <i class="fas fa-check"></i> Bien: <span id="goodCount">0</span>
+                                </span>
+                            </div>
+                            <div class="col-3">
+                                <span class="badge badge-warning badge-pill" style="font-size: 1rem;">
+                                    <i class="fas fa-minus"></i> Regular: <span id="regularCount">0</span>
+                                </span>
+                            </div>
+                            <div class="col-3">
+                                <span class="badge badge-danger badge-pill" style="font-size: 1rem;">
+                                    <i class="fas fa-times"></i> Mal: <span id="badCount">0</span>
+                                </span>
+                            </div>
+                            <div class="col-3">
+                                <span class="badge badge-secondary badge-pill" style="font-size: 1rem;">
+                                    <i class="fas fa-clock"></i> Pendientes: <span id="pendingCount">{{ total_questions }}</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Grupos y preguntas -->
+    {% for group in groups %}
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Grupo {{ group.group_number }}</h6>
+            <button class="btn btn-sm btn-info" onclick="printGroup({{ group.group_number }})">
+                <i class="fas fa-print"></i> Imprimir Grupo
+            </button>
+        </div>
+        <div class="card-body" id="group-{{ group.group_number }}">
+            <div class="row">
+                {% for student in group.students.all %}
+                <div class="col-md-6 mb-4">
+                    <div class="border rounded p-3 h-100">
+                        <h5 class="text-primary">Estudiante {{ student.student_number }}</h5>
+                        <div class="questions-list">
+                            {% for sq in student.oralexamstudentquestion_set.all %}
+                            <div class="question-item mb-3" data-question-order="{{ sq.order }}">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <strong class="text-dark">Pregunta {{ sq.order }}:</strong>
+                                    {% if sq.question.subtopic %}
+                                        <small class="text-muted">{{ sq.question.subtopic.name }}</small>
+                                    {% else %}
+                                        <small class="text-muted">{{ sq.question.topic.name }}</small>
+                                    {% endif %}
+                                </div>
+                                <p class="mt-2 mb-1">{{ sq.question.question_text }}</p>
+                                {% if sq.question.question_image %}
+                                    <img src="{{ sq.question.question_image.url }}" class="img-fluid mt-2" style="max-width: 200px;">
+                                {% endif %}
+                                <details class="mt-2">
+                                    <summary class="text-success cursor-pointer">Ver respuesta</summary>
+                                    <div class="mt-2 p-2 bg-light rounded">
+                                        <p>{{ sq.question.answer_text }}</p>
+                                        {% if sq.question.answer_image %}
+                                            <img src="{{ sq.question.answer_image.url }}" class="img-fluid mt-2" style="max-width: 200px;">
+                                        {% endif %}
+                                        {% if sq.question.source_page %}
+                                            <small class="text-muted d-block mt-2">Página de referencia: {{ sq.question.source_page }}</small>
+                                        {% endif %}
+                                    </div>
+                                </details>
+                                
+                                <!-- Sistema de evaluación -->
+                                <div class="evaluation-section mt-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted"><strong>Evaluación:</strong></small>
+                                        <div class="btn-group btn-group-sm" role="group" data-question-id="{{ sq.id }}">
+                                            <button type="button" class="btn btn-outline-success eval-btn" data-score="good">
+                                                <i class="fas fa-check"></i> Bien
+                                            </button>
+                                            <button type="button" class="btn btn-outline-warning eval-btn" data-score="regular">
+                                                <i class="fas fa-minus"></i> Regular
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger eval-btn" data-score="bad">
+                                                <i class="fas fa-times"></i> Mal
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary eval-btn" data-score="clear">
+                                                <i class="fas fa-undo"></i> Limpiar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <hr>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    
+    <!-- Controles Round Robin -->
+    <div id="roundRobinControls" class="mt-4" style="display: none;">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-outline-primary" onclick="prevQuestion()" id="prevQuestion">
+                        <i class="fas fa-chevron-left"></i> Anterior
+                    </button>
+                    
+                    <div class="text-center">
+                        <h5 class="mb-0">Pregunta <span id="currentQuestionNumber">1</span> de <span id="totalQuestionsCount">{{ oral_exam.questions_per_student }}</span></h5>
+                    </div>
+                    
+                    <button type="button" class="btn btn-outline-primary" onclick="nextQuestion()" id="nextQuestion">
+                        Siguiente <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <button class="btn btn-success" onclick="printAll()">
+            <i class="fas fa-print"></i> Imprimir Todo
+        </button>
+        <a href="{% url 'material:list_oral_exams' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Volver a la lista
+        </a>
+        <a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Crear Otro Cuestionario
+        </a>
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #333 !important;
+        page-break-inside: avoid;
+    }
+    
+    .question-item {
+        page-break-inside: avoid;
+    }
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+details > summary {
+    list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+    display: none;
+}
+
+details > summary::before {
+    content: '▶ ';
+}
+
+details[open] > summary::before {
+    content: '▼ ';
+}
+
+.question-item {
+    display: block;
+}
+
+.question-item.hidden {
+    display: none !important;
+}
+
+.eval-btn.active {
+    color: white !important;
+}
+
+.eval-btn[data-score="good"].active {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.eval-btn[data-score="regular"].active {
+    background-color: #ffc107;
+    border-color: #ffc107;
+}
+
+.eval-btn[data-score="bad"].active {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.hidden {
+    display: none !important;
+}
+</style>
+
+<script>
+// Variables globales para Round Robin
+let currentRound = 1;
+let maxRounds = parseInt('{{ oral_exam.questions_per_student }}');
+let viewMode = 'list';
+
+// Sistema de evaluación
+const evaluations = {};
+
+document.addEventListener('DOMContentLoaded', function() {
+    setupViewModeControls();
+    setupEvaluationSystem();
+    updateView();
+});
+
+function setupViewModeControls() {
+    const listMode = document.getElementById('listMode');
+    const roundRobinMode = document.getElementById('roundRobinMode');
+    const roundRobinControls = document.getElementById('roundRobinControls');
+    const prevBtn = document.getElementById('prevQuestion');
+    const nextBtn = document.getElementById('nextQuestion');
+    
+    console.log('Elements found:', {listMode, roundRobinMode, roundRobinControls, prevBtn, nextBtn});
+    
+    listMode.addEventListener('change', function() {
+        if (this.checked) {
+            viewMode = 'list';
+            roundRobinControls.style.display = 'none';
+            updateView();
+        }
+    });
+    
+    roundRobinMode.addEventListener('change', function() {
+        if (this.checked) {
+            viewMode = 'roundRobin';
+            roundRobinControls.style.display = 'block';
+            updateView();
+        }
+    });
+    
+    prevBtn.addEventListener('click', function() {
+        if (currentRound > 1) {
+            currentRound--;
+            updateView();
+        }
+    });
+    
+    nextBtn.addEventListener('click', function() {
+        if (currentRound < maxRounds) {
+            currentRound++;
+            updateView();
+        }
+    });
+}
+
+function setupEvaluationSystem() {
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('eval-btn') || e.target.parentElement.classList.contains('eval-btn')) {
+            const btn = e.target.classList.contains('eval-btn') ? e.target : e.target.parentElement;
+            const questionId = btn.closest('[data-question-id]').getAttribute('data-question-id');
+            const score = btn.getAttribute('data-score');
+            
+            // Limpiar selecciones anteriores del mismo grupo
+            const btnGroup = btn.closest('.btn-group');
+            btnGroup.querySelectorAll('.eval-btn').forEach(b => b.classList.remove('active'));
+            
+            if (score === 'clear') {
+                delete evaluations[questionId];
+            } else {
+                // Activar botón seleccionado
+                btn.classList.add('active');
+                evaluations[questionId] = score;
+            }
+            
+            updateEvaluationSummary();
+        }
+    });
+}
+
+function updateView() {
+    const questionItems = document.querySelectorAll('.question-item');
+    console.log('updateView called:', {viewMode, currentRound, maxRounds, questionItemsCount: questionItems.length});
+    
+    if (viewMode === 'list') {
+        // Mostrar todas las preguntas
+        questionItems.forEach(item => {
+            item.classList.remove('hidden');
+        });
+    } else if (viewMode === 'roundRobin') {
+        // Mostrar solo preguntas de la ronda actual
+        let visibleCount = 0;
+        questionItems.forEach(item => {
+            const questionText = item.querySelector('.text-dark');
+            if (questionText) {
+                const questionOrder = parseInt(questionText.textContent.match(/\d+/)[0]);
+                console.log('Question order found:', questionOrder, 'current round:', currentRound);
+                if (questionOrder === currentRound) {
+                    item.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    item.classList.add('hidden');
+                }
+            }
+        });
+        
+        console.log('Visible questions:', visibleCount);
+        
+        // Actualizar contador
+        document.getElementById('currentQuestionNumber').textContent = currentRound;
+        
+        // Habilitar/deshabilitar botones
+        document.getElementById('prevQuestion').disabled = currentRound === 1;
+        document.getElementById('nextQuestion').disabled = currentRound === maxRounds;
+    }
+}
+
+function updateEvaluationSummary() {
+    // Contar evaluaciones
+    const counts = { good: 0, regular: 0, bad: 0 };
+    Object.values(evaluations).forEach(score => {
+        counts[score]++;
+    });
+    
+    // Actualizar el título de la página con el progreso
+    const total = Object.keys(evaluations).length;
+    const totalQuestions = document.querySelectorAll('.question-item').length;
+    document.title = `Cuestionario Oral - ${total}/${totalQuestions} evaluadas`;
+}
+
+function printGroup(groupNumber) {
+    // Ocultar elementos que no queremos imprimir
+    const elements = document.querySelectorAll('.card-header button, .mt-4, .no-print');
+    elements.forEach(el => el.style.display = 'none');
+    
+    // Ocultar otros grupos
+    const allGroups = document.querySelectorAll('[id^="group-"]');
+    allGroups.forEach(group => {
+        if (group.id !== `group-${groupNumber}`) {
+            group.closest('.card').style.display = 'none';
+        }
+    });
+    
+    window.print();
+    
+    // Restaurar elementos después de imprimir
+    setTimeout(() => {
+        elements.forEach(el => el.style.display = '');
+        allGroups.forEach(group => {
+            group.closest('.card').style.display = '';
+        });
+    }, 1000);
+}
+
+function printAll() {
+    // Ocultar botones durante la impresión
+    const buttons = document.querySelectorAll('.card-header button, .mt-4');
+    buttons.forEach(btn => btn.style.display = 'none');
+    
+    window.print();
+    
+    // Restaurar botones después de imprimir
+    setTimeout(() => {
+        buttons.forEach(btn => btn.style.display = '');
+    }, 1000);
+}
+
+
+
+
+</script>
+
+{% endblock %}
