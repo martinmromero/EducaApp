@@ -41,6 +41,30 @@
                     </div>
                 </div>
                 
+                <!-- Configuración inicial -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="id_total_students">{{ form.total_students.label }}</label>
+                        {{ form.total_students }}
+                        {% if form.total_students.help_text %}
+                            <small class="form-text text-muted">{{ form.total_students.help_text }}</small>
+                        {% endif %}
+                        {% if form.total_students.errors %}
+                            <div class="text-danger">{{ form.total_students.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Panel de información de validación -->
+                <div class="row mb-3" id="validation-panel" style="display: none;">
+                    <div class="col-md-12">
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle"></i> Información de Validación</h6>
+                            <div id="validation-info"></div>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Configuración de grupos -->
                 <div class="row mb-3">
                     <div class="col-md-6">
@@ -153,6 +177,118 @@ document.addEventListener('DOMContentLoaded', function() {
         checkboxes.forEach(checkbox => {
             checkbox.checked = false;
         });
+    });
+    
+    // Validación y cálculo automático
+    function calculateOptimalGroups() {
+        const totalStudents = parseInt(document.getElementById('id_total_students').value) || 0;
+        const questionsPerStudent = parseInt(document.getElementById('id_questions_per_student').value) || 3;
+        const subjectId = document.getElementById('id_subject').value;
+        const selectedTopics = Array.from(document.querySelectorAll('#topics-container input:checked')).map(cb => cb.value);
+        
+        if (totalStudents > 0 && subjectId && selectedTopics.length > 0) {
+            // Hacer llamada AJAX para obtener información de validación
+            fetch('{% url "material:validate_oral_exam" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    subject_id: subjectId,
+                    topic_ids: selectedTopics,
+                    total_students: totalStudents,
+                    questions_per_student: questionsPerStudent
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showValidationInfo(data.info, totalStudents);
+                    suggestGroups(totalStudents, data.info.max_students_per_group);
+                }
+            })
+            .catch(error => {
+                console.error('Error en validación:', error);
+            });
+        }
+    }
+    
+    function showValidationInfo(info, totalStudents) {
+        const panel = document.getElementById('validation-panel');
+        const infoDiv = document.getElementById('validation-info');
+        
+        infoDiv.innerHTML = `
+            <p><strong>Preguntas disponibles:</strong> ${info.total_questions}</p>
+            <p><strong>Subtemas disponibles:</strong> ${info.total_subtopics}</p>
+            <p><strong>Máximo recomendado por grupo:</strong> ${info.max_students_per_group} estudiantes</p>
+        `;
+        
+        panel.style.display = 'block';
+    }
+    
+    function suggestGroups(totalStudents, maxStudentsPerGroup) {
+        const numGroupsField = document.getElementById('id_num_groups');
+        const studentsPerGroupField = document.getElementById('id_students_per_group');
+        
+        if (maxStudentsPerGroup && maxStudentsPerGroup > 0) {
+            const suggestedGroups = Math.ceil(totalStudents / maxStudentsPerGroup);
+            const suggestedStudentsPerGroup = Math.ceil(totalStudents / suggestedGroups);
+            
+            numGroupsField.value = suggestedGroups;
+            studentsPerGroupField.value = suggestedStudentsPerGroup;
+            
+            // Validar que la multiplicación coincida
+            updateTotalValidation();
+        }
+    }
+    
+    function updateTotalValidation() {
+        const totalStudents = parseInt(document.getElementById('id_total_students').value) || 0;
+        const numGroups = parseInt(document.getElementById('id_num_groups').value) || 0;
+        const studentsPerGroup = parseInt(document.getElementById('id_students_per_group').value) || 0;
+        const calculated = numGroups * studentsPerGroup;
+        
+        // Remover clases de validación anteriores
+        const fields = ['id_total_students', 'id_num_groups', 'id_students_per_group'];
+        fields.forEach(id => {
+            const field = document.getElementById(id);
+            field.classList.remove('is-invalid', 'is-valid');
+        });
+        
+        if (totalStudents > 0 && numGroups > 0 && studentsPerGroup > 0) {
+            if (calculated >= totalStudents && calculated <= totalStudents * 1.2) {
+                // Válido (permite hasta 20% de espacios vacíos)
+                fields.forEach(id => {
+                    document.getElementById(id).classList.add('is-valid');
+                });
+            } else if (calculated < totalStudents) {
+                // Inválido - insuficiente
+                fields.forEach(id => {
+                    document.getElementById(id).classList.add('is-invalid');
+                });
+            } else {
+                // Advertencia - muchos espacios vacíos, pero no invalid
+                fields.forEach(id => {
+                    const field = document.getElementById(id);
+                    field.classList.remove('is-invalid');
+                    field.classList.add('is-valid');
+                });
+            }
+        }
+    }
+    
+    // Event listeners para recálculo automático
+    document.getElementById('id_total_students').addEventListener('input', calculateOptimalGroups);
+    document.getElementById('id_questions_per_student').addEventListener('input', calculateOptimalGroups);
+    document.getElementById('id_num_groups').addEventListener('input', updateTotalValidation);
+    document.getElementById('id_students_per_group').addEventListener('input', updateTotalValidation);
+    
+    // Event listener para cambios en topics
+    document.addEventListener('change', function(e) {
+        if (e.target.type === 'checkbox' && e.target.name === 'topics') {
+            calculateOptimalGroups();
+        }
     });
 });
 </script>

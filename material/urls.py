@@ -109,7 +109,10 @@ path('get-learning-outcomes/', material_views.get_learning_outcomes, name='get_l
 # Cuestionarios Orales
 path('oral-exams/', material_views.list_oral_exams, name='list_oral_exams'),
 path('oral-exams/create/', material_views.create_oral_exam, name='create_oral_exam'),
+path('oral-exams/validate/', material_views.validate_oral_exam, name='validate_oral_exam'),
 path('oral-exams/<int:exam_id>/', material_views.view_oral_exam, name='view_oral_exam'),
 path('oral-exams/<int:exam_id>/delete/', material_views.delete_oral_exam, name='delete_oral_exam'),
+path('oral-exams/evaluate/', material_views.evaluate_oral_question, name='evaluate_oral_question'),
+path('oral-exams/assign-names/', material_views.assign_student_names, name='assign_student_names'),
 
 ]

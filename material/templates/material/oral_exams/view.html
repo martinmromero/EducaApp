@@ -3,6 +3,7 @@
 
 {% block content %}
 <div class="container-fluid">
+    {% csrf_token %}
     <h1 class="h3 mb-4 text-gray-800">{{ oral_exam.name }}</h1>
     
     <!-- Información del examen -->
@@ -61,6 +62,33 @@
                 </div>
             </div>
             
+            <!-- Asignación de nombres de estudiantes -->
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-users"></i> Asignación de Nombres de Estudiantes</h6>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label for="studentNames" class="form-label">
+                                    Lista de nombres (uno por línea, se asignarán aleatoriamente):
+                                </label>
+                                <textarea class="form-control" id="studentNames" rows="4" 
+                                          placeholder="Juan Pérez&#10;María García&#10;Carlos López&#10;Ana Rodríguez"></textarea>
+                                <small class="form-text text-muted">
+                                    Se necesitan al menos {{ total_students }} nombres para todos los estudiantes.
+                                </small>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="button" class="btn btn-primary btn-block" id="assignNamesBtn">
+                                    <i class="fas fa-random"></i> Asignar Nombres Aleatoriamente
+                                </button>
+                            </div>
+                        </div>
+                        <div id="nameAssignmentResult" class="mt-2"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Resumen de evaluaciones -->
             <div class="row mt-3">
                 <div class="col-12">
@@ -96,19 +124,43 @@
     
     <!-- Grupos y preguntas -->
     {% for group in groups %}
-    <div class="card shadow mb-4">
+    <div class="card shadow mb-4" id="group-{{ group.group_number }}" data-group-number="{{ group.group_number }}">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
             <h6 class="m-0 font-weight-bold text-primary">Grupo {{ group.group_number }}</h6>
             <button class="btn btn-sm btn-info" onclick="printGroup({{ group.group_number }})">
                 <i class="fas fa-print"></i> Imprimir Grupo
             </button>
         </div>
-        <div class="card-body" id="group-{{ group.group_number }}">
+        <div class="card-body">
             <div class="row">
                 {% for student in group.students.all %}
                 <div class="col-md-6 mb-4">
-                    <div class="border rounded p-3 h-100">
-                        <h5 class="text-primary">Estudiante {{ student.student_number }}</h5>
+                    <div class="border rounded p-3 h-100" data-student-id="{{ student.id }}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h5 class="text-primary mb-1">
+                                    {% if student.student_name %}
+                                        {{ student.student_name }}
+                                    {% else %}
+                                        Estudiante {{ student.student_number }}
+                                    {% endif %}
+                                </h5>
+                                {% if student.student_name %}
+                                    <small class="text-muted">Número: {{ student.student_number }}</small>
+                                {% endif %}
+                            </div>
+                            <div class="text-right">
+                                <small class="d-block text-muted">Progreso: <span class="progress-percent">0%</span></small>
+                                <small class="d-block text-success">Correctas: <span class="score-percent">0%</span></small>
+                            </div>
+                        </div>
+                        
+                        <!-- Barra de progreso del estudiante -->
+                        <div class="progress mb-3" style="height: 6px;">
+                            <div class="progress-bar bg-info progress-bar-student" role="progressbar" 
+                                 style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                            </div>
+                        </div>
                         <div class="questions-list">
                             {% for sq in student.oralexamstudentquestion_set.all %}
                             <div class="question-item mb-3" data-question-order="{{ sq.order }}">
@@ -138,24 +190,41 @@
                                 </details>
                                 
                                 <!-- Sistema de evaluación -->
-                                <div class="evaluation-section mt-3">
+                                <div class="evaluation-section mt-3" data-student-question-id="{{ sq.id }}">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <small class="text-muted"><strong>Evaluación:</strong></small>
-                                        <div class="btn-group btn-group-sm" role="group" data-question-id="{{ sq.id }}">
-                                            <button type="button" class="btn btn-outline-success eval-btn" data-score="good">
+                                        <small class="text-muted">
+                                            <strong>Evaluación:</strong> 
+                                            <span class="current-evaluation text-{{ sq.evaluation|default:'secondary' }}">
+                                                {% if sq.evaluation == 'bien' %}✓ Bien
+                                                {% elif sq.evaluation == 'regular' %}~ Regular  
+                                                {% elif sq.evaluation == 'mal' %}✗ Mal
+                                                {% else %}⏳ Pendiente{% endif %}
+                                            </span>
+                                        </small>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn {% if sq.evaluation == 'bien' %}btn-success{% else %}btn-outline-success{% endif %} eval-btn" 
+                                                    data-evaluation="bien" data-student-question-id="{{ sq.id }}">
                                                 <i class="fas fa-check"></i> Bien
                                             </button>
-                                            <button type="button" class="btn btn-outline-warning eval-btn" data-score="regular">
+                                            <button type="button" class="btn {% if sq.evaluation == 'regular' %}btn-warning{% else %}btn-outline-warning{% endif %} eval-btn" 
+                                                    data-evaluation="regular" data-student-question-id="{{ sq.id }}">
                                                 <i class="fas fa-minus"></i> Regular
                                             </button>
-                                            <button type="button" class="btn btn-outline-danger eval-btn" data-score="bad">
+                                            <button type="button" class="btn {% if sq.evaluation == 'mal' %}btn-danger{% else %}btn-outline-danger{% endif %} eval-btn" 
+                                                    data-evaluation="mal" data-student-question-id="{{ sq.id }}">
                                                 <i class="fas fa-times"></i> Mal
                                             </button>
-                                            <button type="button" class="btn btn-outline-secondary eval-btn" data-score="clear">
-                                                <i class="fas fa-undo"></i> Limpiar
+                                            <button type="button" class="btn {% if sq.evaluation == 'pendiente' %}btn-secondary{% else %}btn-outline-secondary{% endif %} eval-btn" 
+                                                    data-evaluation="pendiente" data-student-question-id="{{ sq.id }}">
+                                                <i class="fas fa-clock"></i> Pendiente
                                             </button>
                                         </div>
                                     </div>
+                                    {% if sq.notes %}
+                                        <div class="mt-2">
+                                            <small class="text-muted"><strong>Notas:</strong> {{ sq.notes }}</small>
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
                             <hr>
@@ -174,15 +243,16 @@
         <div class="card">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
-                    <button type="button" class="btn btn-outline-primary" onclick="prevQuestion()" id="prevQuestion">
+                    <button type="button" class="btn btn-outline-primary" id="prevQuestion">
                         <i class="fas fa-chevron-left"></i> Anterior
                     </button>
                     
                     <div class="text-center">
-                        <h5 class="mb-0">Pregunta <span id="currentQuestionNumber">1</span> de <span id="totalQuestionsCount">{{ oral_exam.questions_per_student }}</span></h5>
+                        <h5 class="mb-0"><span id="currentQuestionNumber">Grupo 1 - Pregunta 1</span></h5>
+                        <small class="text-muted">de {{ oral_exam.num_groups }} grupos × {{ oral_exam.questions_per_student }} preguntas</small>
                     </div>
                     
-                    <button type="button" class="btn btn-outline-primary" onclick="nextQuestion()" id="nextQuestion">
+                    <button type="button" class="btn btn-outline-primary" id="nextQuestion">
                         Siguiente <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
@@ -247,6 +317,15 @@ details[open] > summary::before {
     display: none !important;
 }
 
+/* Ocultar elementos innecesarios en modo round robin */
+.round-robin-mode .question-item hr {
+    display: none;
+}
+
+.round-robin-mode .question-item + .question-item {
+    border-top: none;
+}
+
 .eval-btn.active {
     color: white !important;
 }
@@ -273,7 +352,9 @@ details[open] > summary::before {
 
 <script>
 // Variables globales para Round Robin
+let currentGroup = 1;
 let currentRound = 1;
+let maxGroups = {{ oral_exam.num_groups }};
 let maxRounds = parseInt('{{ oral_exam.questions_per_student }}');
 let viewMode = 'list';
 
@@ -312,18 +393,36 @@ function setupViewModeControls() {
     });
     
     prevBtn.addEventListener('click', function() {
-        if (currentRound > 1) {
-            currentRound--;
-            updateView();
-        }
+        navigatePrevious();
     });
     
     nextBtn.addEventListener('click', function() {
-        if (currentRound < maxRounds) {
-            currentRound++;
-            updateView();
-        }
+        navigateNext();
     });
+}
+
+function navigatePrevious() {
+    if (currentRound > 1) {
+        // Ir a la pregunta anterior en el mismo grupo
+        currentRound--;
+    } else if (currentGroup > 1) {
+        // Ir al grupo anterior, última pregunta
+        currentGroup--;
+        currentRound = maxRounds;
+    }
+    updateView();
+}
+
+function navigateNext() {
+    if (currentRound < maxRounds) {
+        // Ir a la siguiente pregunta en el mismo grupo
+        currentRound++;
+    } else if (currentGroup < maxGroups) {
+        // Ir al siguiente grupo, primera pregunta
+        currentGroup++;
+        currentRound = 1;
+    }
+    updateView();
 }
 
 function setupEvaluationSystem() {
@@ -351,39 +450,58 @@ function setupEvaluationSystem() {
 }
 
 function updateView() {
-    const questionItems = document.querySelectorAll('.question-item');
-    console.log('updateView called:', {viewMode, currentRound, maxRounds, questionItemsCount: questionItems.length});
+    console.log('updateView called:', {viewMode, currentGroup, currentRound});
+    const allGroups = document.querySelectorAll('.card[id^="group-"]');
+    const body = document.body;
+    console.log('Found groups:', allGroups.length);
     
     if (viewMode === 'list') {
-        // Mostrar todas las preguntas
-        questionItems.forEach(item => {
-            item.classList.remove('hidden');
+        // Remover clase round robin
+        body.classList.remove('round-robin-mode');
+        
+        // Mostrar todos los grupos y todas las preguntas
+        allGroups.forEach(group => {
+            group.style.display = 'block';
+            const questionItems = group.querySelectorAll('.question-item');
+            questionItems.forEach(item => {
+                item.classList.remove('hidden');
+            });
         });
     } else if (viewMode === 'roundRobin') {
-        // Mostrar solo preguntas de la ronda actual
-        let visibleCount = 0;
-        questionItems.forEach(item => {
-            const questionText = item.querySelector('.text-dark');
-            if (questionText) {
-                const questionOrder = parseInt(questionText.textContent.match(/\d+/)[0]);
-                console.log('Question order found:', questionOrder, 'current round:', currentRound);
-                if (questionOrder === currentRound) {
-                    item.classList.remove('hidden');
-                    visibleCount++;
-                } else {
-                    item.classList.add('hidden');
-                }
+        // Agregar clase round robin
+        body.classList.add('round-robin-mode');
+        // Mostrar solo el grupo actual y la ronda actual
+        allGroups.forEach(group => {
+            const groupNumber = parseInt(group.getAttribute('data-group-number'));
+            
+            if (groupNumber === currentGroup) {
+                group.style.display = 'block';
+                
+                // Dentro del grupo actual, mostrar solo la pregunta de la ronda actual
+                const questionItems = group.querySelectorAll('.question-item');
+                questionItems.forEach(item => {
+                    const questionOrder = parseInt(item.dataset.questionOrder);
+                    if (questionOrder === currentRound) {
+                        item.classList.remove('hidden');
+                    } else {
+                        item.classList.add('hidden');
+                    }
+                });
+            } else {
+                group.style.display = 'none';
             }
         });
         
-        console.log('Visible questions:', visibleCount);
-        
         // Actualizar contador
-        document.getElementById('currentQuestionNumber').textContent = currentRound;
+        document.getElementById('currentQuestionNumber').textContent = 
+            `Grupo ${currentGroup} - Pregunta ${currentRound}`;
         
-        // Habilitar/deshabilitar botones
-        document.getElementById('prevQuestion').disabled = currentRound === 1;
-        document.getElementById('nextQuestion').disabled = currentRound === maxRounds;
+        // Habilitar/deshabilitar botones de navegación
+        const isFirstPage = (currentGroup === 1 && currentRound === 1);
+        const isLastPage = (currentGroup === maxGroups && currentRound === maxRounds);
+        
+        document.getElementById('prevQuestion').disabled = isFirstPage;
+        document.getElementById('nextQuestion').disabled = isLastPage;
     }
 }
 
@@ -437,8 +555,196 @@ function printAll() {
     }, 1000);
 }
 
+// Nuevas funciones para evaluaciones y nombres
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing oral exam interface...');
+    
+    // Manejar botones de evaluación
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('eval-btn') || e.target.parentElement.classList.contains('eval-btn')) {
+            const btn = e.target.classList.contains('eval-btn') ? e.target : e.target.parentElement;
+            const studentQuestionId = btn.getAttribute('data-student-question-id');
+            const evaluation = btn.getAttribute('data-evaluation');
+            
+            console.log('Evaluating question:', studentQuestionId, 'with evaluation:', evaluation);
+            evaluateQuestion(studentQuestionId, evaluation, btn);
+        }
+    });
+    
+    // Manejar asignación de nombres
+    const assignBtn = document.getElementById('assignNamesBtn');
+    if (assignBtn) {
+        assignBtn.addEventListener('click', function() {
+            console.log('Assign names button clicked');
+            const studentNames = document.getElementById('studentNames').value;
+            if (!studentNames.trim()) {
+                alert('Por favor, ingrese los nombres de los estudiantes.');
+                return;
+            }
+            
+            assignStudentNames(studentNames);
+        });
+    } else {
+        console.error('assignNamesBtn element not found!');
+    }
+    
+    // Inicializar contadores
+    updateEvaluationCounters();
+    console.log('Oral exam interface initialized successfully');
+});
 
+function evaluateQuestion(studentQuestionId, evaluation, btn) {
+    const formData = new FormData();
+    formData.append('student_question_id', studentQuestionId);
+    formData.append('evaluation', evaluation);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('{% url "material:evaluate_oral_question" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Actualizar botones de evaluación
+            const evaluationSection = btn.closest('.evaluation-section');
+            const buttons = evaluationSection.querySelectorAll('.eval-btn');
+            
+            buttons.forEach(b => {
+                b.classList.remove('btn-success', 'btn-warning', 'btn-danger', 'btn-secondary');
+                b.classList.add('btn-outline-' + getButtonColor(b.getAttribute('data-evaluation')));
+            });
+            
+            // Activar botón seleccionado
+            btn.classList.remove('btn-outline-' + getButtonColor(evaluation));
+            btn.classList.add('btn-' + getButtonColor(evaluation));
+            
+            // Actualizar texto de evaluación actual
+            const currentEval = evaluationSection.querySelector('.current-evaluation');
+            currentEval.textContent = getEvaluationText(evaluation);
+            currentEval.className = 'current-evaluation text-' + getButtonColor(evaluation);
+            
+            // Actualizar contadores del estudiante
+            const studentDiv = evaluationSection.closest('[data-student-id]');
+            const studentId = studentDiv.getAttribute('data-student-id');
+            updateStudentProgress(studentId, data.evaluation_counts, data.progress_percentage, data.score_percentage);
+            
+            // Actualizar contadores globales
+            updateEvaluationCounters();
+        } else {
+            alert('Error al evaluar: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error de conexión al evaluar la pregunta.');
+    });
+}
 
+function assignStudentNames(studentNames) {
+    const formData = new FormData();
+    formData.append('exam_id', '{{ oral_exam.id }}');
+    formData.append('student_names', studentNames);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('{% url "material:assign_student_names" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        const resultDiv = document.getElementById('nameAssignmentResult');
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success alert-dismissible fade show">
+                    <i class="fas fa-check"></i> ${data.message}
+                    <button type="button" class="close" data-dismiss="alert">
+                        <span>&times;</span>
+                    </button>
+                </div>
+            `;
+            // Recargar la página para mostrar los nombres asignados
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <i class="fas fa-exclamation-triangle"></i> ${data.error}
+                    <button type="button" class="close" data-dismiss="alert">
+                        <span>&times;</span>
+                    </button>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error de conexión al asignar nombres.');
+    });
+}
+
+function getButtonColor(evaluation) {
+    const colors = {
+        'bien': 'success',
+        'regular': 'warning', 
+        'mal': 'danger',
+        'pendiente': 'secondary'
+    };
+    return colors[evaluation] || 'secondary';
+}
+
+function getEvaluationText(evaluation) {
+    const texts = {
+        'bien': '✓ Bien',
+        'regular': '~ Regular',
+        'mal': '✗ Mal', 
+        'pendiente': '⏳ Pendiente'
+    };
+    return texts[evaluation] || '⏳ Pendiente';
+}
+
+function updateStudentProgress(studentId, counts, progressPercent, scorePercent) {
+    const studentDiv = document.querySelector(`[data-student-id="${studentId}"]`);
+    if (studentDiv) {
+        const progressSpan = studentDiv.querySelector('.progress-percent');
+        const scoreSpan = studentDiv.querySelector('.score-percent');
+        const progressBar = studentDiv.querySelector('.progress-bar-student');
+        
+        if (progressSpan) progressSpan.textContent = progressPercent + '%';
+        if (scoreSpan) scoreSpan.textContent = scorePercent + '%';
+        if (progressBar) progressBar.style.width = progressPercent + '%';
+    }
+}
+
+function updateEvaluationCounters() {
+    // Contar todas las evaluaciones en la página
+    const allEvaluations = document.querySelectorAll('.evaluation-section');
+    const counts = { bien: 0, regular: 0, mal: 0, pendiente: 0 };
+    
+    allEvaluations.forEach(section => {
+        const activeBtn = section.querySelector('.btn-success, .btn-warning, .btn-danger, .btn-secondary:not(.btn-outline-secondary)');
+        if (activeBtn) {
+            const evaluation = activeBtn.getAttribute('data-evaluation');
+            counts[evaluation]++;
+        } else {
+            counts.pendiente++; // Si no hay botón activo, está pendiente
+        }
+    });
+    
+    // Actualizar contadores en el resumen
+    document.getElementById('goodCount').textContent = counts.bien;
+    document.getElementById('regularCount').textContent = counts.regular;
+    document.getElementById('badCount').textContent = counts.mal;
+    document.getElementById('pendingCount').textContent = counts.pendiente;
+}
+
+// Funciones globales para compatibilidad
+function prevQuestion() {
+    navigatePrevious();
+}
+
+function nextQuestion() {
+    navigateNext();
+}
 
 </script>
 

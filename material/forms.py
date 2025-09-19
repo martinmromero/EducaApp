@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
+import math
 from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
     Subject, Topic, Subtopic, Institution, LearningOutcome, Campus, Faculty, User,
@@ -468,9 +469,22 @@ class OralExamForm(forms.ModelForm):
         label='Temas a evaluar'
     )
     
+    # Campos adicionales para la validación
+    total_students = forms.IntegerField(
+        label='Total de estudiantes',
+        min_value=1,
+        max_value=100,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ej: 24',
+            'id': 'id_total_students'
+        }),
+        help_text='Cantidad total de estudiantes que rendirán el examen'
+    )
+    
     class Meta:
         model = OralExamSet
-        fields = ['name', 'subject', 'topics', 'num_groups', 'students_per_group', 'questions_per_student']
+        fields = ['name', 'subject', 'topics', 'total_students', 'questions_per_student', 'num_groups', 'students_per_group']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -496,13 +510,19 @@ class OralExamForm(forms.ModelForm):
         }
     
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
+        # Guardar el usuario en initial para acceso posterior
+        if self.user:
+            if 'initial' not in kwargs:
+                self.initial = {}
+            self.initial['user'] = self.user
+        
         # Filtrar materias por usuario
-        if user:
+        if self.user:
             user_subjects = Subject.objects.filter(
-                question__user=user
+                question__user=self.user
             ).distinct()
             self.fields['subject'].queryset = user_subjects
         
@@ -515,3 +535,87 @@ class OralExamForm(forms.ModelForm):
                 pass
         elif self.instance.pk:
             self.fields['topics'].queryset = self.instance.subject.topics.all()
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        total_students = cleaned_data.get('total_students')
+        questions_per_student = cleaned_data.get('questions_per_student')
+        num_groups = cleaned_data.get('num_groups')
+        students_per_group = cleaned_data.get('students_per_group')
+        topics = cleaned_data.get('topics')
+        subject = cleaned_data.get('subject')
+        
+        if not all([total_students, questions_per_student, topics, subject]):
+            return cleaned_data
+        
+        # Validar que el total de estudiantes sea lógico con la configuración de grupos
+        if num_groups and students_per_group:
+            calculated_total = num_groups * students_per_group
+            # Permitir cierta flexibilidad: el cálculo puede ser mayor que el total (grupos no completos)
+            # pero no debe ser menor (faltarían estudiantes)
+            if calculated_total < total_students:
+                raise ValidationError(
+                    f'La configuración de grupos ({num_groups} × {students_per_group} = {calculated_total}) '
+                    f'es insuficiente para {total_students} estudiantes. Aumente el número de grupos o estudiantes por grupo.'
+                )
+            
+            # Si la diferencia es muy grande (más del 20%), dar una advertencia
+            difference_percentage = ((calculated_total - total_students) / total_students) * 100
+            if difference_percentage > 20:
+                # Solo advertencia, no error
+                import warnings
+                warnings.warn(
+                    f'La configuración genera {calculated_total - total_students} lugares vacíos '
+                    f'({difference_percentage:.1f}% de espacios no utilizados)'
+                )
+        
+        # Contar preguntas disponibles por subtema
+        from collections import defaultdict
+        from .models import Question
+        
+        user = self.initial.get('user') if hasattr(self, 'initial') else None
+        available_questions = Question.objects.filter(
+            subject=subject,
+            topic__in=topics,
+            user=user
+        ).select_related('topic', 'subtopic')
+        
+        if not available_questions.exists():
+            raise ValidationError('No hay preguntas disponibles para los temas seleccionados')
+        
+        # Agrupar por subtema
+        subtopics_count = defaultdict(int)
+        for question in available_questions:
+            key = question.subtopic.id if question.subtopic else f"topic_{question.topic.id}"
+            subtopics_count[key] += 1
+        
+        total_subtopics = len(subtopics_count)
+        total_questions = available_questions.count()
+        
+        # Calcular grupos óptimos
+        if students_per_group and questions_per_student:
+            # Para evitar repeticiones, necesitamos al menos tantos subtemas como estudiantes por grupo
+            max_students_per_group_by_subtopics = total_subtopics
+            
+            if students_per_group > max_students_per_group_by_subtopics:
+                suggested_groups = math.ceil(total_students / max_students_per_group_by_subtopics)
+                suggested_students_per_group = math.ceil(total_students / suggested_groups)
+                
+                raise ValidationError(
+                    f'Con {total_subtopics} subtemas disponibles, el máximo recomendado por grupo es {max_students_per_group_by_subtopics} estudiantes '
+                    f'para evitar repeticiones de temas. Sugerencia: {suggested_groups} grupos de {suggested_students_per_group} estudiantes cada uno.'
+                )
+        
+        # Agregar información útil a los cleaned_data para mostrar en el template
+        cleaned_data['_validation_info'] = {
+            'total_questions': total_questions,
+            'total_subtopics': total_subtopics,
+            'subtopics_detail': dict(subtopics_count),
+            'max_students_per_group': max_students_per_group_by_subtopics if 'max_students_per_group_by_subtopics' in locals() else total_subtopics
+        }
+        
+        return cleaned_data
+    
+    def get_validation_info(self):
+        """Método para obtener información de validación después del clean()"""
+        return getattr(self, '_validation_info', {})

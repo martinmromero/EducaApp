@@ -1,6 +1,8 @@
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.views.decorators.http import require_POST
+from django.utils import timezone
 @login_required
 def preview_exam(request):
     exam = request.session.get('preview_exam')
@@ -2457,12 +2459,86 @@ def add_subtopic(request):
 
 # Vistas para Cuestionarios Orales
 @login_required
+def validate_oral_exam(request):
+    """Vista AJAX para validar configuración de examen oral"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    
+    try:
+        import json
+        from collections import defaultdict
+        
+        data = json.loads(request.body)
+        subject_id = data.get('subject_id')
+        topic_ids = data.get('topic_ids', [])
+        total_students = data.get('total_students', 0)
+        questions_per_student = data.get('questions_per_student', 3)
+        
+        if not all([subject_id, topic_ids, total_students > 0]):
+            return JsonResponse({'success': False, 'error': 'Datos incompletos'})
+        
+        # Obtener preguntas disponibles
+        available_questions = Question.objects.filter(
+            subject_id=subject_id,
+            topic_id__in=topic_ids,
+            user=request.user
+        ).select_related('topic', 'subtopic')
+        
+        if not available_questions.exists():
+            return JsonResponse({
+                'success': False, 
+                'error': 'No hay preguntas disponibles para los temas seleccionados'
+            })
+        
+        # Contar subtemas
+        subtopics_count = defaultdict(int)
+        for question in available_questions:
+            key = question.subtopic.id if question.subtopic else f"topic_{question.topic.id}"
+            subtopics_count[key] += 1
+        
+        total_subtopics = len(subtopics_count)
+        total_questions = available_questions.count()
+        max_students_per_group = total_subtopics  # Máximo para evitar repeticiones
+        
+        return JsonResponse({
+            'success': True,
+            'info': {
+                'total_questions': total_questions,
+                'total_subtopics': total_subtopics,
+                'max_students_per_group': max_students_per_group,
+                'subtopics_detail': dict(subtopics_count)
+            }
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Formato JSON inválido'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
 def create_oral_exam(request):
     if request.method == 'POST':
         form = OralExamForm(request.POST, user=request.user)
         if form.is_valid():
             oral_exam = form.save(commit=False)
             oral_exam.user = request.user
+            
+            # Calcular distribución real de estudiantes
+            total_students = form.cleaned_data['total_students']
+            num_groups = form.cleaned_data['num_groups']
+            students_per_group = form.cleaned_data['students_per_group']
+            
+            # Ajustar students_per_group si es necesario
+            base_students_per_group = total_students // num_groups
+            extra_students = total_students % num_groups
+            
+            # Si la división no es exacta, ajustar
+            if extra_students > 0:
+                # Algunos grupos tendrán un estudiante más
+                oral_exam.students_per_group = base_students_per_group + 1
+            else:
+                oral_exam.students_per_group = base_students_per_group
+            
             oral_exam.save()
             form.save_m2m()  # Guardar las relaciones many-to-many
             
@@ -2513,7 +2589,7 @@ def list_oral_exams(request):
 def generate_oral_exam_questions(oral_exam):
     """
     Genera las preguntas para cada estudiante en cada grupo,
-    evitando repeticiones por subtema dentro del grupo
+    evitando repeticiones por subtema dentro del grupo y por ronda
     """
     from collections import defaultdict
     import random
@@ -2535,6 +2611,20 @@ def generate_oral_exam_questions(oral_exam):
         key = question.subtopic.id if question.subtopic else f"topic_{question.topic.id}"
         questions_by_subtopic[key].append(question)
     
+    # Verificar que hay suficientes subtemas para el algoritmo
+    total_subtopics = len(questions_by_subtopic)
+    min_subtopics_needed = oral_exam.students_per_group * oral_exam.questions_per_student
+    
+    if total_subtopics < min_subtopics_needed:
+        print(f"Advertencia: Solo hay {total_subtopics} subtemas disponibles para {min_subtopics_needed} preguntas necesarias por grupo")
+    
+    # Calcular distribución de estudiantes por grupo
+    total_students = oral_exam.total_students
+    base_students_per_group = total_students // oral_exam.num_groups
+    extra_students = total_students % oral_exam.num_groups
+    
+    students_assigned = 0
+    
     # Crear los grupos
     for group_num in range(1, oral_exam.num_groups + 1):
         group = OralExamGroup.objects.create(
@@ -2542,55 +2632,100 @@ def generate_oral_exam_questions(oral_exam):
             group_number=group_num
         )
         
-        used_subtopics_in_group = set()
+        # Determinar cuántos estudiantes van en este grupo
+        students_in_this_group = base_students_per_group
+        if group_num <= extra_students:  # Los primeros grupos tienen un estudiante extra
+            students_in_this_group += 1
+            
+        # Evitar crear grupos vacíos o exceder el total
+        if students_assigned >= total_students:
+            break
+            
+        actual_students_in_group = min(students_in_this_group, total_students - students_assigned)
+        
+        # *** ALGORITMO HÍBRIDO CORREGIDO ***
+        # Control de preguntas usadas por grupo Y control de subtemas por ronda
+        used_questions_in_group = set()  # Control global de preguntas por grupo
+        used_subtopics_by_round = defaultdict(set)  # Control de subtemas por ronda
         
         # Crear estudiantes en el grupo
-        for student_num in range(1, oral_exam.students_per_group + 1):
+        students = []
+        for student_num in range(1, actual_students_in_group + 1):
             student = OralExamStudent.objects.create(
                 group=group,
                 student_number=student_num
             )
+            students.append(student)
             
-            # Asignar preguntas al estudiante
-            assigned_questions = []
-            available_subtopics = list(questions_by_subtopic.keys())
-            random.shuffle(available_subtopics)
+        students_assigned += actual_students_in_group
+        
+        # Asignar preguntas ronda por ronda para mejor distribución de subtemas
+        for round_num in range(1, oral_exam.questions_per_student + 1):
+            # Lista de subtemas disponibles para esta ronda
+            available_subtopics_for_round = [
+                key for key in questions_by_subtopic.keys() 
+                if key not in used_subtopics_by_round[round_num]
+            ]
             
-            questions_assigned = 0
-            for subtopic_key in available_subtopics:
-                if questions_assigned >= oral_exam.questions_per_student:
-                    break
+            # Si no hay suficientes subtemas únicos, resetear la ronda
+            if len(available_subtopics_for_round) < len(students):
+                available_subtopics_for_round = list(questions_by_subtopic.keys())
+                used_subtopics_by_round[round_num] = set()
+            
+            random.shuffle(available_subtopics_for_round)
+            
+            # Asignar una pregunta de cada subtema a cada estudiante en esta ronda
+            for i, student in enumerate(students):
+                selected_question = None
                 
-                # Si este subtema ya fue usado por otro estudiante del grupo, saltarlo
-                if subtopic_key in used_subtopics_in_group:
-                    continue
+                # Intentar usar un subtema diferente para esta ronda
+                if i < len(available_subtopics_for_round):
+                    subtopic_key = available_subtopics_for_round[i]
+                    subtopic_questions = questions_by_subtopic[subtopic_key]
+                    
+                    # Buscar una pregunta de este subtema que no haya sido usada en el grupo
+                    available_questions_in_subtopic = [
+                        q for q in subtopic_questions 
+                        if q.id not in used_questions_in_group
+                    ]
+                    
+                    if available_questions_in_subtopic:
+                        selected_question = random.choice(available_questions_in_subtopic)
+                        # Marcar subtema como usado en esta ronda
+                        used_subtopics_by_round[round_num].add(subtopic_key)
                 
-                # Tomar una pregunta aleatoria de este subtema
-                subtopic_questions = questions_by_subtopic[subtopic_key]
-                selected_question = random.choice(subtopic_questions)
-                assigned_questions.append(selected_question)
-                used_subtopics_in_group.add(subtopic_key)
-                questions_assigned += 1
-            
-            # Si no hay suficientes subtemas únicos, permitir repeticiones pero con diferentes preguntas
-            if questions_assigned < oral_exam.questions_per_student:
-                remaining_needed = oral_exam.questions_per_student - questions_assigned
-                all_available = list(available_questions)
-                # Excluir preguntas ya asignadas
-                for assigned_q in assigned_questions:
-                    if assigned_q in all_available:
-                        all_available.remove(assigned_q)
+                # Si no encontramos pregunta del subtema preferido, buscar cualquier pregunta no usada
+                if selected_question is None:
+                    all_unused_questions = [
+                        q for q in available_questions 
+                        if q.id not in used_questions_in_group
+                    ]
+                    
+                    if all_unused_questions:
+                        selected_question = random.choice(all_unused_questions)
+                        # Marcar el subtema de la pregunta seleccionada
+                        subtopic_key = selected_question.subtopic.id if selected_question.subtopic else f"topic_{selected_question.topic.id}"
+                        used_subtopics_by_round[round_num].add(subtopic_key)
+                    else:
+                        # Caso extremo: reutilizar preguntas (pocas preguntas disponibles)
+                        if available_questions:
+                            selected_question = random.choice(list(available_questions))
+                            print(f"ADVERTENCIA: Reutilizando pregunta en Grupo {group_num}, Ronda {round_num} - Pocas preguntas disponibles")
+                        else:
+                            print(f"ERROR CRÍTICO: No hay preguntas disponibles")
+                            continue
                 
-                random.shuffle(all_available)
-                assigned_questions.extend(all_available[:remaining_needed])
-            
-            # Crear las relaciones estudiante-pregunta
-            for order, question in enumerate(assigned_questions, 1):
+                # Marcar pregunta como usada en este grupo
+                used_questions_in_group.add(selected_question.id)
+                
+                # Crear la asignación estudiante-pregunta
                 OralExamStudentQuestion.objects.create(
                     student=student,
-                    question=question,
-                    order=order
+                    question=selected_question,
+                    order=round_num
                 )
+        
+        print(f"Grupo {group_num}: {len(used_questions_in_group)} preguntas únicas asignadas a {len(students)} estudiantes")
 
 @login_required
 def delete_oral_exam(request, exam_id):
@@ -2603,3 +2738,123 @@ def delete_oral_exam(request, exam_id):
         return redirect('material:list_oral_exams')
     
     return redirect('material:list_oral_exams')
+
+@login_required
+@require_POST
+def evaluate_oral_question(request):
+    """Vista AJAX para evaluar una pregunta de examen oral"""
+    try:
+        student_question_id = request.POST.get('student_question_id')
+        evaluation = request.POST.get('evaluation')
+        notes = request.POST.get('notes', '')
+        
+        if not student_question_id or not evaluation:
+            return JsonResponse({
+                'success': False,
+                'error': 'Faltan parámetros requeridos'
+            }, status=400)
+        
+        if evaluation not in ['bien', 'regular', 'mal', 'pendiente']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Evaluación inválida'
+            }, status=400)
+        
+        # Verificar que la pregunta pertenece al usuario
+        student_question = get_object_or_404(
+            OralExamStudentQuestion,
+            id=student_question_id,
+            student__group__exam_set__user=request.user
+        )
+        
+        # Actualizar evaluación
+        student_question.evaluation = evaluation
+        student_question.notes = notes
+        if evaluation != 'pendiente':
+            student_question.evaluated_at = timezone.now()
+        else:
+            student_question.evaluated_at = None
+        student_question.save()
+        
+        # Obtener conteos actualizados del estudiante
+        student = student_question.student
+        evaluation_counts = student.get_evaluation_counts()
+        progress_percentage = student.get_progress_percentage()
+        score_percentage = student.get_score_percentage()
+        
+        return JsonResponse({
+            'success': True,
+            'evaluation_counts': evaluation_counts,
+            'progress_percentage': progress_percentage,
+            'score_percentage': score_percentage
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@login_required 
+@require_POST
+def assign_student_names(request):
+    """Vista AJAX para asignar nombres de estudiantes aleatoriamente"""
+    try:
+        exam_id = request.POST.get('exam_id')
+        student_names = request.POST.get('student_names', '').strip()
+        
+        if not exam_id or not student_names:
+            return JsonResponse({
+                'success': False,
+                'error': 'Se requiere ID del examen y lista de nombres'
+            }, status=400)
+        
+        oral_exam = get_object_or_404(OralExamSet, id=exam_id, user=request.user)
+        
+        # Procesar nombres (uno por línea)
+        names_list = [name.strip() for name in student_names.split('\n') if name.strip()]
+        
+        if not names_list:
+            return JsonResponse({
+                'success': False,
+                'error': 'No se encontraron nombres válidos'
+            }, status=400)
+        
+        # Obtener todos los estudiantes del examen
+        all_students = OralExamStudent.objects.filter(
+            group__exam_set=oral_exam
+        ).order_by('group__group_number', 'student_number')
+        
+        total_students = all_students.count()
+        
+        if len(names_list) < total_students:
+            return JsonResponse({
+                'success': False,
+                'error': f'Se necesitan al menos {total_students} nombres, solo se proporcionaron {len(names_list)}'
+            }, status=400)
+        
+        # Mezclar nombres aleatoriamente
+        import random
+        random.shuffle(names_list)
+        
+        # Asignar nombres a estudiantes
+        updates = []
+        for i, student in enumerate(all_students):
+            if i < len(names_list):
+                student.student_name = names_list[i]
+                updates.append(student)
+        
+        # Actualizar en lote
+        OralExamStudent.objects.bulk_update(updates, ['student_name'])
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Se asignaron {len(updates)} nombres exitosamente',
+            'assigned_count': len(updates)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

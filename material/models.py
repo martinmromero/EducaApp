@@ -1140,6 +1140,10 @@ class OralExamSet(models.Model):
         verbose_name='Preguntas por estudiante',
         help_text='Cantidad de preguntas que recibirá cada estudiante'
     )
+    total_students = models.PositiveIntegerField(
+        verbose_name='Total de estudiantes',
+        help_text='Cantidad total de estudiantes que rendirán el examen'
+    )
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -1182,6 +1186,13 @@ class OralExamStudent(models.Model):
     student_number = models.PositiveIntegerField(
         verbose_name='Número de estudiante'
     )
+    student_name = models.CharField(
+        max_length=255,
+        verbose_name='Nombre del estudiante',
+        blank=True,
+        null=True,
+        help_text='Nombre completo del estudiante'
+    )
     questions = models.ManyToManyField(
         Question,
         through='OralExamStudentQuestion',
@@ -1194,13 +1205,77 @@ class OralExamStudent(models.Model):
         ordering = ['group', 'student_number']
     
     def __str__(self):
+        if self.student_name:
+            return f"{self.student_name} - Grupo {self.group.group_number}"
         return f"Estudiante {self.student_number} - {self.group}"
+    
+    def get_evaluation_counts(self):
+        """Retorna un diccionario con las evaluaciones del estudiante"""
+        evaluations = self.oralexamstudentquestion_set.all()
+        counts = {
+            'bien': evaluations.filter(evaluation='bien').count(),
+            'regular': evaluations.filter(evaluation='regular').count(),
+            'mal': evaluations.filter(evaluation='mal').count(),
+            'pendiente': evaluations.filter(evaluation='pendiente').count(),
+            'total': evaluations.count()
+        }
+        return counts
+    
+    def get_progress_percentage(self):
+        """Retorna el porcentaje de progreso (preguntas evaluadas)"""
+        counts = self.get_evaluation_counts()
+        if counts['total'] == 0:
+            return 0
+        evaluated = counts['total'] - counts['pendiente']
+        return round((evaluated / counts['total']) * 100, 1)
+    
+    def get_score_percentage(self):
+        """
+        Retorna el porcentaje de puntuación basado en:
+        - 'bien': 100% (1.0 punto)
+        - 'regular': 50% (0.5 puntos)  
+        - 'mal': 0% (0.0 puntos)
+        - 'pendiente': no se cuenta
+        """
+        counts = self.get_evaluation_counts()
+        evaluated = counts['total'] - counts['pendiente']
+        if evaluated == 0:
+            return 0
+        
+        # Calcular puntuación total
+        total_points = (counts['bien'] * 1.0) + (counts['regular'] * 0.5) + (counts['mal'] * 0.0)
+        max_possible_points = evaluated * 1.0
+        
+        return round((total_points / max_possible_points) * 100, 1)
 
 class OralExamStudentQuestion(models.Model):
+    EVALUATION_CHOICES = [
+        ('bien', 'Bien'),
+        ('regular', 'Regular'),
+        ('mal', 'Mal'),
+        ('pendiente', 'Pendiente'),
+    ]
+    
     student = models.ForeignKey(OralExamStudent, on_delete=models.CASCADE)
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
     order = models.PositiveIntegerField(
         verbose_name='Orden de la pregunta'
+    )
+    evaluation = models.CharField(
+        max_length=10,
+        choices=EVALUATION_CHOICES,
+        default='pendiente',
+        verbose_name='Evaluación'
+    )
+    evaluated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha de evaluación'
+    )
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='Notas adicionales'
     )
     
     class Meta:
