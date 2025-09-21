@@ -2858,3 +2858,183 @@ def assign_student_names(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+@login_required
+def get_available_questions(request):
+    """Vista AJAX para obtener preguntas disponibles para intercambio"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        logger.info(f"get_available_questions called with params: {request.GET}")
+        
+        group_id = request.GET.get('group_id')
+        current_question_id = request.GET.get('current_question_id')
+        
+        logger.info(f"Extracted params - group_id: {group_id}, current_question_id: {current_question_id}")
+        
+        if not group_id:
+            logger.error("Missing group_id parameter")
+            return JsonResponse({
+                'success': False,
+                'error': 'Se requiere group_id'
+            }, status=400)
+        
+        # Verificar que el grupo pertenece al usuario
+        logger.info(f"Looking for group {group_id} for user {request.user}")
+        group = get_object_or_404(
+            OralExamGroup,
+            id=group_id,
+            exam_set__user=request.user
+        )
+        logger.info(f"Found group: {group}")
+        
+        # Obtener preguntas ya usadas en este grupo
+        used_questions = OralExamStudentQuestion.objects.filter(
+            student__group=group
+        ).values_list('question_id', flat=True)
+        logger.info(f"Used questions in group: {list(used_questions)}")
+        
+        # Obtener el exam_set para filtrar por materia/temas
+        exam_set = group.exam_set
+        subject = exam_set.subject
+        logger.info(f"Exam set: {exam_set}, Subject: {subject}")
+        
+        # Obtener preguntas disponibles (no usadas en el grupo)
+        available_questions = Question.objects.filter(
+            user=request.user,
+            subject=subject
+        ).exclude(
+            id__in=used_questions
+        ).select_related('topic')
+        
+        # Si hay una pregunta actual, también incluirla como opción
+        if current_question_id:
+            try:
+                # Usar Q objects para incluir la pregunta actual
+                from django.db.models import Q
+                available_questions = Question.objects.filter(
+                    Q(user=request.user, subject=subject) & 
+                    (Q(id=current_question_id) | ~Q(id__in=used_questions))
+                ).select_related('topic')
+            except Question.DoesNotExist:
+                pass
+        
+        # Formatear respuesta
+        questions_data = []
+        for question in available_questions:
+            # Mapear dificultad numérica a texto descriptivo
+            difficulty_map = {
+                1: 'Muy Fácil',
+                2: 'Fácil', 
+                3: 'Normal',
+                4: 'Difícil',
+                5: 'Muy Difícil'
+            }
+            difficulty_value = difficulty_map.get(question.difficulty, 'Normal')
+            
+            questions_data.append({
+                'id': question.id,
+                'question_text': question.question_text[:100] + ('...' if len(question.question_text) > 100 else ''),
+                'topic_name': question.topic.name if question.topic else 'Sin tema',
+                'difficulty': difficulty_value
+            })
+        
+        logger.info(f"Returning {len(questions_data)} available questions")
+        return JsonResponse({
+            'success': True,
+            'available_questions': questions_data,
+            'count': len(questions_data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in get_available_questions: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@login_required
+@require_POST  
+@login_required
+def exchange_question(request):
+    """Vista AJAX para intercambiar una pregunta específica"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        logger.info(f"exchange_question called with POST data: {request.POST}")
+        
+        student_question_id = request.POST.get('student_question_id')
+        new_question_id = request.POST.get('new_question_id')
+        
+        logger.info(f"Parameters - student_question_id: {student_question_id}, new_question_id: {new_question_id}")
+        
+        if not student_question_id or not new_question_id:
+            logger.error("Missing required parameters")
+            return JsonResponse({
+                'success': False,
+                'error': 'Faltan parámetros requeridos'
+            }, status=400)
+        
+        # Verificar que la pregunta del estudiante pertenece al usuario
+        student_question = get_object_or_404(
+            OralExamStudentQuestion,
+            id=student_question_id,
+            student__group__exam_set__user=request.user
+        )
+        
+        # Verificar que la nueva pregunta pertenece al usuario
+        new_question = get_object_or_404(
+            Question,
+            id=new_question_id,
+            user=request.user
+        )
+        
+        # Verificar que la nueva pregunta no está siendo usada en el mismo grupo
+        group = student_question.student.group
+        is_question_used_in_group = OralExamStudentQuestion.objects.filter(
+            student__group=group,
+            question=new_question
+        ).exclude(id=student_question_id).exists()
+        
+        if is_question_used_in_group:
+            return JsonResponse({
+                'success': False,
+                'error': 'Esta pregunta ya está siendo usada por otro estudiante en el mismo grupo'
+            }, status=400)
+        
+        # Guardar pregunta anterior para el log
+        old_question = student_question.question
+        
+        # Realizar el intercambio
+        logger.info(f"Exchanging question for student_question {student_question_id}")
+        student_question.question = new_question
+        
+        # Resetear evaluación al intercambiar (solo si los campos existen)
+        if hasattr(student_question, 'evaluation'):
+            student_question.evaluation = 'pendiente'
+        if hasattr(student_question, 'evaluated_at'):
+            student_question.evaluated_at = None
+        if hasattr(student_question, 'notes'):
+            student_question.notes = ''
+            
+        student_question.save()
+        logger.info(f"Question exchange completed successfully")
+        
+        logger.info(f"Returning success response")
+        return JsonResponse({
+            'success': True,
+            'message': f'Pregunta intercambiada exitosamente',
+            'old_question': old_question.question_text[:100] + ('...' if len(old_question.question_text) > 100 else ''),
+            'new_question': new_question.question_text[:100] + ('...' if len(new_question.question_text) > 100 else ''),
+            'new_question_full': new_question.question_text,
+            'new_topic': new_question.topic.name if new_question.topic else 'Sin tema'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in exchange_question: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

@@ -164,13 +164,24 @@
                         <div class="questions-list">
                             {% for sq in student.oralexamstudentquestion_set.all %}
                             <div class="question-item mb-3" data-question-order="{{ sq.order }}">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <strong class="text-dark">Pregunta {{ sq.order }}:</strong>
-                                    {% if sq.question.subtopic %}
-                                        <small class="text-muted">{{ sq.question.subtopic.name }}</small>
-                                    {% else %}
-                                        <small class="text-muted">{{ sq.question.topic.name }}</small>
-                                    {% endif %}
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <strong class="text-dark">Pregunta {{ sq.order }}:</strong>
+                                        <button class="btn btn-sm btn-outline-warning ml-2 change-question-btn" 
+                                                data-student-question-id="{{ sq.id }}" 
+                                                data-group-id="{{ student.group.id }}"
+                                                data-current-question-id="{{ sq.question.id }}"
+                                                title="Cambiar esta pregunta por otra">
+                                            <i class="fas fa-exchange-alt"></i> Cambiar
+                                        </button>
+                                    </div>
+                                    <div class="text-right">
+                                        {% if sq.question.subtopic %}
+                                            <small class="text-muted">{{ sq.question.subtopic.name }}</small>
+                                        {% else %}
+                                            <small class="text-muted">{{ sq.question.topic.name }}</small>
+                                        {% endif %}
+                                    </div>
                                 </div>
                                 <p class="mt-2 mb-1">{{ sq.question.question_text }}</p>
                                 {% if sq.question.question_image %}
@@ -227,7 +238,6 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            <hr>
                             {% endfor %}
                         </div>
                     </div>
@@ -270,6 +280,46 @@
         <a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary">
             <i class="fas fa-plus"></i> Crear Otro Cuestionario
         </a>
+    </div>
+</div>
+
+<!-- Modal para cambiar pregunta -->
+<div class="modal fade" id="changeQuestionModal" tabindex="-1" role="dialog" aria-labelledby="changeQuestionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="changeQuestionModalLabel">
+                    <i class="fas fa-exchange-alt"></i> Cambiar Pregunta
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h6>Pregunta actual:</h6>
+                    <div id="currentQuestionText" class="p-2 bg-light rounded"></div>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>Seleccionar nueva pregunta:</h6>
+                    <div id="availableQuestionsContainer">
+                        <div class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="sr-only">Cargando...</span>
+                            </div>
+                            <p class="mt-2">Cargando preguntas disponibles...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmExchangeBtn" disabled>
+                    <i class="fas fa-check"></i> Confirmar Cambio
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -317,13 +367,30 @@ details[open] > summary::before {
     display: none !important;
 }
 
-/* Ocultar elementos innecesarios en modo round robin */
-.round-robin-mode .question-item hr {
-    display: none;
-}
-
+/* Mejora visual para round robin */
 .round-robin-mode .question-item + .question-item {
     border-top: none;
+}
+
+/* Estilos para botón cambiar pregunta */
+.change-question-btn {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.change-question-btn:hover {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+}
+
+/* Estilos para modal de intercambio */
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+.list-group-item input[type="radio"]:checked + div {
+    font-weight: bold;
 }
 
 .eval-btn.active {
@@ -351,6 +418,14 @@ details[open] > summary::before {
 </style>
 
 <script>
+// URLs de Django para AJAX
+const URLS = {
+    evaluateQuestion: '{% url "material:evaluate_oral_question" %}',
+    assignNames: '{% url "material:assign_student_names" %}',
+    getAvailableQuestions: '{% url "material:get_available_questions" %}',
+    exchangeQuestion: '{% url "material:exchange_question" %}'
+};
+
 // Variables globales para Round Robin
 let currentGroup = 1;
 let currentRound = 1;
@@ -362,9 +437,74 @@ let viewMode = 'list';
 const evaluations = {};
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing complete oral exam interface...');
+    
+    // Configurar controles de vista y evaluación
     setupViewModeControls();
     setupEvaluationSystem();
     updateView();
+    
+    // Manejar asignación de nombres
+    const assignBtn = document.getElementById('assignNamesBtn');
+    if (assignBtn) {
+        assignBtn.addEventListener('click', function() {
+            console.log('Assign names button clicked');
+            const studentNames = document.getElementById('studentNames').value;
+            if (!studentNames.trim()) {
+                alert('Por favor, ingrese los nombres de los estudiantes.');
+                return;
+            }
+            
+            assignStudentNames(studentNames);
+        });
+    } else {
+        console.log('assignNamesBtn element not found');
+    }
+    
+    // Confirmar intercambio
+    const confirmBtn = document.getElementById('confirmExchangeBtn');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function() {
+            if (selectedNewQuestionId && currentStudentQuestionId) {
+                exchangeQuestion(currentStudentQuestionId, selectedNewQuestionId);
+            }
+        });
+    }
+    
+    // Event listener principal para clicks
+    document.addEventListener('click', function(e) {
+        // Manejar clicks en botones de evaluación
+        if (e.target.classList.contains('eval-btn') || e.target.parentElement.classList.contains('eval-btn')) {
+            const btn = e.target.classList.contains('eval-btn') ? e.target : e.target.parentElement;
+            const studentQuestionId = btn.getAttribute('data-student-question-id');
+            const evaluation = btn.getAttribute('data-evaluation');
+            
+            console.log('Evaluating question:', studentQuestionId, 'with evaluation:', evaluation);
+            evaluateQuestion(studentQuestionId, evaluation, btn);
+        }
+        
+        // Manejar clicks en botones "Cambiar pregunta"
+        if (e.target.classList.contains('change-question-btn') || e.target.closest('.change-question-btn')) {
+            const btn = e.target.classList.contains('change-question-btn') ? e.target : e.target.closest('.change-question-btn');
+            console.log('Change question button clicked:', btn);
+            openChangeQuestionModal(btn);
+        }
+    });
+
+    // Event listener para selección de nueva pregunta
+    document.addEventListener('change', function(e) {
+        if (e.target.name === 'newQuestionRadio') {
+            selectedNewQuestionId = e.target.value;
+            const confirmBtn = document.getElementById('confirmExchangeBtn');
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+            }
+        }
+    });
+
+    // Inicializar contadores
+    updateEvaluationCounters();
+    console.log('Complete oral exam interface initialized successfully');
 });
 
 function setupViewModeControls() {
@@ -555,43 +695,9 @@ function printAll() {
     }, 1000);
 }
 
-// Nuevas funciones para evaluaciones y nombres
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing oral exam interface...');
-    
-    // Manejar botones de evaluación
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('eval-btn') || e.target.parentElement.classList.contains('eval-btn')) {
-            const btn = e.target.classList.contains('eval-btn') ? e.target : e.target.parentElement;
-            const studentQuestionId = btn.getAttribute('data-student-question-id');
-            const evaluation = btn.getAttribute('data-evaluation');
-            
-            console.log('Evaluating question:', studentQuestionId, 'with evaluation:', evaluation);
-            evaluateQuestion(studentQuestionId, evaluation, btn);
-        }
-    });
-    
-    // Manejar asignación de nombres
-    const assignBtn = document.getElementById('assignNamesBtn');
-    if (assignBtn) {
-        assignBtn.addEventListener('click', function() {
-            console.log('Assign names button clicked');
-            const studentNames = document.getElementById('studentNames').value;
-            if (!studentNames.trim()) {
-                alert('Por favor, ingrese los nombres de los estudiantes.');
-                return;
-            }
-            
-            assignStudentNames(studentNames);
-        });
-    } else {
-        console.error('assignNamesBtn element not found!');
-    }
-    
-    // Inicializar contadores
-    updateEvaluationCounters();
-    console.log('Oral exam interface initialized successfully');
-});
+// Event listeners ahora están dentro del DOMContentLoaded
+
+// Funciones para evaluaciones y nombres (ya incluidas en DOMContentLoaded principal)
 
 function evaluateQuestion(studentQuestionId, evaluation, btn) {
     const formData = new FormData();
@@ -599,7 +705,7 @@ function evaluateQuestion(studentQuestionId, evaluation, btn) {
     formData.append('evaluation', evaluation);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
-    fetch('{% url "material:evaluate_oral_question" %}', {
+    fetch(URLS.evaluateQuestion, {
         method: 'POST',
         body: formData
     })
@@ -647,7 +753,7 @@ function assignStudentNames(studentNames) {
     formData.append('student_names', studentNames);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
-    fetch('{% url "material:assign_student_names" %}', {
+    fetch(URLS.assignNames, {
         method: 'POST',
         body: formData
     })
@@ -735,6 +841,284 @@ function updateEvaluationCounters() {
     document.getElementById('regularCount').textContent = counts.regular;
     document.getElementById('badCount').textContent = counts.mal;
     document.getElementById('pendingCount').textContent = counts.pendiente;
+}
+
+// Variables para intercambio de preguntas
+let selectedNewQuestionId = null;
+let currentStudentQuestionId = null;
+
+// Función de prueba para verificar que JavaScript funciona
+console.log('JavaScript cargado correctamente');
+console.log('URLs disponibles:', URLS);
+
+// Funciones para intercambio de preguntas (ya incluidas en DOMContentLoaded principal)
+
+function openChangeQuestionModal(btn) {
+    console.log('openChangeQuestionModal called with btn:', btn);
+    
+    currentStudentQuestionId = btn.getAttribute('data-student-question-id');
+    const groupId = btn.getAttribute('data-group-id');
+    const currentQuestionId = btn.getAttribute('data-current-question-id');
+    
+    console.log('Modal data:', {currentStudentQuestionId, groupId, currentQuestionId});
+    
+    // Encontrar el texto de la pregunta actual
+    const questionItem = btn.closest('.question-item');
+    const currentQuestionElement = questionItem.querySelector('p');
+    const currentQuestionText = currentQuestionElement ? currentQuestionElement.textContent : 'Pregunta no encontrada';
+    
+    console.log('Current question text:', currentQuestionText);
+    
+    // Mostrar pregunta actual en el modal
+    const currentQuestionTextElement = document.getElementById('currentQuestionText');
+    if (currentQuestionTextElement) {
+        currentQuestionTextElement.textContent = currentQuestionText;
+        console.log('Set current question text in modal');
+    } else {
+        console.error('currentQuestionText element not found!');
+    }
+    
+    // Resetear selección
+    selectedNewQuestionId = null;
+    const confirmBtn = document.getElementById('confirmExchangeBtn');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        console.log('Disabled confirm button');
+    } else {
+        console.error('confirmExchangeBtn element not found!');
+    }
+    
+    // Cargar preguntas disponibles
+    loadAvailableQuestions(groupId, currentQuestionId);
+    
+    // Mostrar modal (usando Bootstrap 4 JavaScript nativo)
+    const modal = document.getElementById('changeQuestionModal');
+    if (modal) {
+        console.log('Showing modal...');
+        // Intentar con jQuery primero, si no está disponible usar Bootstrap nativo
+        if (typeof $ !== 'undefined' && $.fn.modal) {
+            $('#changeQuestionModal').modal('show');
+        } else if (typeof bootstrap !== 'undefined') {
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+        } else {
+            // Fallback: mostrar el modal manualmente
+            modal.classList.add('show');
+            modal.style.display = 'block';
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('role', 'dialog');
+            // Agregar backdrop
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            document.body.appendChild(backdrop);
+            document.body.classList.add('modal-open');
+        }
+    } else {
+        console.error('Modal element not found!');
+    }
+}
+
+function loadAvailableQuestions(groupId, currentQuestionId) {
+    const container = document.getElementById('availableQuestionsContainer');
+    container.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="sr-only">Cargando...</span>
+            </div>
+            <p class="mt-2">Cargando preguntas disponibles...</p>
+        </div>
+    `;
+    
+    const url = URLS.getAvailableQuestions + '?' + 
+                `group_id=${groupId}&current_question_id=${currentQuestionId}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayAvailableQuestions(data.available_questions);
+            } else {
+                container.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        Error al cargar preguntas: ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    Error de conexión al cargar preguntas.
+                </div>
+            `;
+        });
+}
+
+function displayAvailableQuestions(questions) {
+    const container = document.getElementById('availableQuestionsContainer');
+    
+    if (questions.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-info-circle"></i> 
+                No hay preguntas disponibles para intercambio en este grupo.
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="list-group" style="max-height: 400px; overflow-y: auto;">';
+    
+    questions.forEach(question => {
+        html += `
+            <label class="list-group-item list-group-item-action" style="cursor: pointer;">
+                <div class="d-flex align-items-start">
+                    <input type="radio" name="newQuestionRadio" value="${question.id}" class="mr-3 mt-1">
+                    <div class="flex-grow-1">
+                        <div class="mb-1">
+                            <strong>${question.question_text}</strong>
+                        </div>
+                        <small class="text-muted">
+                            <i class="fas fa-tag"></i> ${question.topic_name}
+                            ${question.difficulty ? ' | ' + question.difficulty : ''}
+                        </small>
+                    </div>
+                </div>
+            </label>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function exchangeQuestion(studentQuestionId, newQuestionId) {
+    console.log('exchangeQuestion called with:', { studentQuestionId, newQuestionId });
+    
+    // Verificar token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        console.error('CSRF token not found!');
+        alert('Error: Token de seguridad no encontrado. Recarga la página.');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('student_question_id', studentQuestionId);
+    formData.append('new_question_id', newQuestionId);
+    formData.append('csrfmiddlewaretoken', csrfToken.value);
+    
+    console.log('FormData prepared:', {
+        student_question_id: studentQuestionId,
+        new_question_id: newQuestionId,
+        csrf: csrfToken.value ? 'present' : 'missing'
+    });
+    
+    // Deshabilitar botón durante el proceso
+    const confirmBtn = document.getElementById('confirmExchangeBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cambiando...';
+    
+    console.log('Sending POST to:', URLS.exchangeQuestion);
+    
+    fetch(URLS.exchangeQuestion, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        console.log('Response received:', response.status, response.statusText);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data);
+        if (data.success) {
+            // Mostrar mensaje de éxito
+            const alertHtml = `
+                <div class="alert alert-success alert-dismissible fade show">
+                    <i class="fas fa-check"></i> ${data.message}
+                    <button type="button" class="close" data-dismiss="alert">
+                        <span>&times;</span>
+                    </button>
+                </div>
+            `;
+            
+            // Cerrar modal con JavaScript nativo
+            const modal = document.getElementById('changeQuestionModal');
+            if (modal) {
+                // Intentar con jQuery si está disponible
+                if (typeof $ !== 'undefined' && $.fn.modal) {
+                    $('#changeQuestionModal').modal('hide');
+                } else if (typeof bootstrap !== 'undefined') {
+                    const bsModal = bootstrap.Modal.getInstance(modal) || new bootstrap.Modal(modal);
+                    bsModal.hide();
+                } else {
+                    // Fallback manual
+                    modal.classList.remove('show');
+                    modal.style.display = 'none';
+                    modal.setAttribute('aria-hidden', 'true');
+                    // Remover backdrop si existe
+                    const backdrop = document.querySelector('.modal-backdrop');
+                    if (backdrop) {
+                        backdrop.remove();
+                    }
+                    document.body.classList.remove('modal-open');
+                }
+            }
+            
+            // Mostrar alerta y recargar página
+            document.body.insertAdjacentHTML('afterbegin', alertHtml);
+            
+            // Recargar página para mostrar los cambios
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            // Mostrar error
+            const errorHtml = `
+                <div class="alert alert-danger mt-3">
+                    <i class="fas fa-exclamation-triangle"></i> ${data.error}
+                </div>
+            `;
+            document.getElementById('availableQuestionsContainer').insertAdjacentHTML('afterend', errorHtml);
+            
+            // Rehabilitar botón
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-check"></i> Confirmar Cambio';
+        }
+    })
+    .catch(error => {
+        console.error('Error in exchangeQuestion:', error);
+        
+        // Mostrar error más detallado
+        let errorMessage = 'Error de conexión al intercambiar pregunta.';
+        if (error.message) {
+            errorMessage += ` Detalle: ${error.message}`;
+        }
+        
+        alert(errorMessage);
+        
+        // También mostrar en el modal si está abierto
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'alert alert-danger mt-3';
+        errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${errorMessage}`;
+        
+        const container = document.getElementById('availableQuestionsContainer');
+        if (container) {
+            container.parentNode.insertBefore(errorDiv, container.nextSibling);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+        
+        // Rehabilitar botón
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="fas fa-check"></i> Confirmar Cambio';
+    });
 }
 
 // Funciones globales para compatibilidad

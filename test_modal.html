@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Modal Funcionalidad</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Test Modal Functionality</h1>
+        
+        <div class="alert alert-info">
+            <strong>Prueba del Modal de Cambio de Preguntas</strong><br>
+            Datos de prueba: Group ID = 81, Question ID = 24, Student Question ID = 1369
+        </div>
+        
+        <!-- Simular botón de cambio -->
+        <button type="button" class="btn btn-warning change-question-btn"
+                data-student-question-id="1369"
+                data-group-id="81" 
+                data-current-question-id="24">
+            <i class="fas fa-exchange-alt"></i> Cambiar
+        </button>
+        
+        <!-- Logs y debugging -->
+        <div class="mt-4">
+            <h3>Console Logs:</h3>
+            <div id="logOutput" class="border p-3" style="height: 200px; overflow-y: auto; background-color: #f8f9fa;">
+            </div>
+        </div>
+        
+        <div class="mt-3">
+            <button type="button" class="btn btn-info" onclick="testModalDirectly()">
+                Test Modal Directly
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="clearLogs()">
+                Clear Logs
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal para cambiar pregunta (copiado del template original) -->
+    <div class="modal fade" id="changeQuestionModal" tabindex="-1" role="dialog" aria-labelledby="changeQuestionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="changeQuestionModalLabel">
+                        <i class="fas fa-exchange-alt"></i> Cambiar Pregunta
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Seleccione una pregunta de reemplazo. Solo se mostrarán preguntas disponibles que no hayan sido utilizadas en este grupo.
+                    </div>
+                    
+                    <div id="availableQuestionsContainer">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="confirmExchangeBtn" disabled>
+                        <i class="fas fa-check"></i> Confirmar Cambio
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Override console.log para mostrar en la página
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        
+        function addToLog(message, type = 'log') {
+            const logOutput = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? 'text-danger' : type === 'warn' ? 'text-warning' : 'text-dark';
+            logOutput.innerHTML += `<div class="${color}">[${timestamp}] ${message}</div>`;
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            addToLog(args.join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            addToLog('ERROR: ' + args.join(' '), 'error');
+        };
+        
+        // Variables globales del script original
+        let currentStudentQuestionId = null;
+        let selectedNewQuestionId = null;
+        
+        // URLs simuladas (estas vendrían de Django en el template real)
+        const URLS = {
+            getAvailableQuestions: '/material/oral-exams/available-questions/',
+            exchangeQuestion: '/material/oral-exams/exchange-question/'
+        };
+        
+        function clearLogs() {
+            document.getElementById('logOutput').innerHTML = '';
+        }
+        
+        function testModalDirectly() {
+            console.log('Testing modal directly...');
+            const modal = document.getElementById('changeQuestionModal');
+            if (modal) {
+                console.log('Modal found, showing...');
+                $('#changeQuestionModal').modal('show');
+            } else {
+                console.error('Modal not found!');
+            }
+        }
+        
+        // Función principal del script original
+        function openChangeQuestionModal(btn) {
+            console.log('openChangeQuestionModal called with btn:', btn);
+            
+            currentStudentQuestionId = btn.getAttribute('data-student-question-id');
+            const groupId = btn.getAttribute('data-group-id');
+            const currentQuestionId = btn.getAttribute('data-current-question-id');
+            
+            console.log('Extracted data:', {
+                currentStudentQuestionId,
+                groupId,
+                currentQuestionId
+            });
+            
+            if (!currentStudentQuestionId || !groupId || !currentQuestionId) {
+                console.error('Missing required data attributes!', {
+                    currentStudentQuestionId,
+                    groupId,
+                    currentQuestionId
+                });
+                alert('Error: Datos insuficientes para cambiar la pregunta.');
+                return;
+            }
+            
+            // Reset del modal
+            selectedNewQuestionId = null;
+            const confirmBtn = document.getElementById('confirmExchangeBtn');
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                console.log('Disabled confirm button');
+            } else {
+                console.error('confirmExchangeBtn element not found!');
+            }
+            
+            // Cargar preguntas disponibles
+            loadAvailableQuestions(groupId, currentQuestionId);
+            
+            // Mostrar modal
+            const modal = document.getElementById('changeQuestionModal');
+            if (modal) {
+                console.log('Showing modal...');
+                // Intentar con jQuery primero
+                if (typeof $ !== 'undefined' && $.fn.modal) {
+                    $('#changeQuestionModal').modal('show');
+                } else {
+                    console.error('jQuery or Bootstrap modal not available!');
+                    // Fallback manual
+                    modal.classList.add('show');
+                    modal.style.display = 'block';
+                }
+            } else {
+                console.error('Modal element not found!');
+            }
+        }
+        
+        function loadAvailableQuestions(groupId, currentQuestionId) {
+            console.log('loadAvailableQuestions called with:', { groupId, currentQuestionId });
+            
+            const container = document.getElementById('availableQuestionsContainer');
+            container.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="sr-only">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando preguntas disponibles...</p>
+                </div>
+            `;
+            
+            const url = URLS.getAvailableQuestions + '?' + 
+                        `group_id=${groupId}&current_question_id=${currentQuestionId}`;
+            
+            console.log('Fetching URL:', url);
+            
+            // Simular respuesta exitosa para testing
+            setTimeout(() => {
+                const mockData = {
+                    success: true,
+                    available_questions: [
+                        {
+                            id: 25,
+                            question_text: "¿Cuáles son los elementos del entorno general?",
+                            topic_name: "Contexto. Variables",
+                            difficulty: "Normal"
+                        },
+                        {
+                            id: 26,
+                            question_text: "Defina estrategia corporativa y sus niveles",
+                            topic_name: "Niveles de estrategia", 
+                            difficulty: "Intermedio"
+                        }
+                    ],
+                    count: 2
+                };
+                
+                console.log('Mock response received:', mockData);
+                displayAvailableQuestions(mockData.available_questions);
+            }, 1000);
+        }
+        
+        function displayAvailableQuestions(questions) {
+            console.log('displayAvailableQuestions called with:', questions);
+            
+            const container = document.getElementById('availableQuestionsContainer');
+            
+            if (!questions || questions.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        No hay preguntas disponibles para intercambio.
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div class="list-group">';
+            
+            questions.forEach(question => {
+                html += `
+                    <label class="list-group-item list-group-item-action" style="cursor: pointer;">
+                        <div class="d-flex w-100 justify-content-between">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="newQuestionRadio" 
+                                       value="${question.id}" id="question${question.id}">
+                                <div class="form-check-label ml-2">
+                                    <strong>${question.question_text}</strong>
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                <i class="fas fa-tag"></i> ${question.topic_name}
+                                ${question.difficulty ? ' | ' + question.difficulty : ''}
+                            </small>
+                        </div>
+                    </label>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+            
+            console.log('Questions displayed successfully');
+        }
+        
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded');
+            console.log('jQuery available:', typeof $ !== 'undefined');
+            console.log('Bootstrap available:', typeof bootstrap !== 'undefined');
+            
+            // Event listener principal para botones de cambio
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('change-question-btn') || e.target.closest('.change-question-btn')) {
+                    console.log('Change question button clicked!');
+                    const btn = e.target.classList.contains('change-question-btn') ? e.target : e.target.closest('.change-question-btn');
+                    openChangeQuestionModal(btn);
+                }
+            });
+            
+            // Event listener para selección de nueva pregunta
+            document.addEventListener('change', function(e) {
+                if (e.target.name === 'newQuestionRadio') {
+                    selectedNewQuestionId = e.target.value;
+                    console.log('Selected new question ID:', selectedNewQuestionId);
+                    const confirmBtn = document.getElementById('confirmExchangeBtn');
+                    if (confirmBtn) {
+                        confirmBtn.disabled = false;
+                        console.log('Enabled confirm button');
+                    }
+                }
+            });
+            
+            console.log('Event listeners configured');
+        });
+        
+        console.log('Test page loaded successfully');
+    </script>
+</body>
+</html>
