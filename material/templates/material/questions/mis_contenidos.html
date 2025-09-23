@@ -1,17 +1,12 @@
 {% extends 'material/base.html' %}
+{% load message_tags %}
 
 {% block content %}
 <div class="container">
     <h1>Mis Contenidos</h1>
 
-    <!-- Mostrar todos los mensajes -->
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}" role="alert">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
+    <!-- Mensajes específicos de contenidos -->
+    {% show_messages "contenidos" %}
 
     <!-- Formulario para eliminar contenidos seleccionados -->
     <form method="post" action="{% url 'material:delete_contenido' %}" id="deleteForm">

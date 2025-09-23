@@ -167,6 +167,12 @@
             </div>
         </nav>
 
+        <!-- Mensajes generales del sistema -->
+        {% load message_tags %}
+        <div class="container-fluid">
+            {% show_messages "general" %}
+        </div>
+
         <!-- Contenido de la página -->
         <div class="container-fluid mt-3">
             {% block content %}
@@ -232,8 +238,10 @@
             element.classList.toggle('active');
         }
 
-
     </script>
+
+    <!-- Bloque para JavaScript específico de cada página -->
+    {% block javascript %}{% endblock %}
 
 </body>
 

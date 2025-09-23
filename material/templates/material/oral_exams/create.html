@@ -1,9 +1,13 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load message_tags %}
 
 {% block content %}
 <div class="container-fluid">
     <h1 class="h3 mb-4 text-gray-800">Crear Cuestionario Oral</h1>
+    
+    <!-- Mensajes específicos de cuestionarios orales -->
+    {% show_messages "cuestionarios_orales" %}
     
     <div class="card shadow mb-4">
         <div class="card-header py-3">
@@ -13,102 +17,118 @@
             <form method="post" id="oral-exam-form">
                 {% csrf_token %}
                 
-                <!-- Información básica -->
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <label for="id_name">{{ form.name.label }}</label>
-                        {{ form.name }}
-                        {% if form.name.errors %}
-                            <div class="text-danger">{{ form.name.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <div class="row mb-3">
+                <!-- Layout con dos columnas -->
+                <div class="row">
+                    <!-- Columna izquierda - Configuración principal -->
                     <div class="col-md-6">
-                        <label for="id_subject">{{ form.subject.label }}</label>
-                        {{ form.subject }}
-                        {% if form.subject.errors %}
-                            <div class="text-danger">{{ form.subject.errors }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="col-md-6">
-                        <label for="id_questions_per_student">{{ form.questions_per_student.label }}</label>
-                        {{ form.questions_per_student }}
-                        {% if form.questions_per_student.errors %}
-                            <div class="text-danger">{{ form.questions_per_student.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <!-- Configuración inicial -->
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <label for="id_total_students">{{ form.total_students.label }}</label>
-                        {{ form.total_students }}
-                        {% if form.total_students.help_text %}
-                            <small class="form-text text-muted">{{ form.total_students.help_text }}</small>
-                        {% endif %}
-                        {% if form.total_students.errors %}
-                            <div class="text-danger">{{ form.total_students.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <!-- Panel de información de validación -->
-                <div class="row mb-3" id="validation-panel" style="display: none;">
-                    <div class="col-md-12">
-                        <div class="alert alert-info">
-                            <h6><i class="fas fa-info-circle"></i> Información de Validación</h6>
-                            <div id="validation-info"></div>
+                        <h5 class="mb-3 text-primary">Configuración del Examen</h5>
+                        
+                        <!-- 1. Materia -->
+                        <div class="mb-3">
+                            <label for="id_subject" class="form-label">{{ form.subject.label }}</label>
+                            {{ form.subject }}
+                            {% if form.subject.errors %}
+                                <div class="text-danger">{{ form.subject.errors }}</div>
+                            {% endif %}
                         </div>
-                    </div>
-                </div>
-                
-                <!-- Configuración de grupos -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="id_num_groups">{{ form.num_groups.label }}</label>
-                        {{ form.num_groups }}
-                        {% if form.num_groups.errors %}
-                            <div class="text-danger">{{ form.num_groups.errors }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="col-md-6">
-                        <label for="id_students_per_group">{{ form.students_per_group.label }}</label>
-                        {{ form.students_per_group }}
-                        {% if form.students_per_group.errors %}
-                            <div class="text-danger">{{ form.students_per_group.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <!-- Selección de temas -->
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <label>{{ form.topics.label }}</label>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-outline-primary" id="select-all-topics">
-                                <i class="fas fa-check-square"></i> Seleccionar Todo
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" id="deselect-all-topics">
-                                <i class="fas fa-square"></i> Deseleccionar Todo
-                            </button>
-                        </div>
-                    </div>
-                    <div id="topics-container" class="border p-3" style="max-height: 300px; overflow-y: auto;">
-                        {% for choice in form.topics %}
-                            <div class="form-check">
-                                {{ choice.tag }}
-                                <label class="form-check-label" for="{{ choice.id_for_label }}">
-                                    {{ choice.choice_label }}
-                                </label>
+                        
+                        <!-- Fila 1: Total de estudiantes - Preguntas por estudiante -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="id_total_students" class="form-label">{{ form.total_students.label }}</label>
+                                {{ form.total_students }}
+                                {% if form.total_students.help_text %}
+                                    <small class="form-text text-muted">{{ form.total_students.help_text }}</small>
+                                {% endif %}
+                                {% if form.total_students.errors %}
+                                    <div class="text-danger">{{ form.total_students.errors }}</div>
+                                {% endif %}
                             </div>
-                        {% endfor %}
+                            <div class="col-md-6">
+                                <label for="id_questions_per_student" class="form-label">{{ form.questions_per_student.label }}</label>
+                                {{ form.questions_per_student }}
+                                {% if form.questions_per_student.errors %}
+                                    <div class="text-danger">{{ form.questions_per_student.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Fila 2: Número de grupos - Estudiantes por grupo -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="id_num_groups" class="form-label">{{ form.num_groups.label }}</label>
+                                {{ form.num_groups }}
+                                {% if form.num_groups.errors %}
+                                    <div class="text-danger">{{ form.num_groups.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_students_per_group" class="form-label">{{ form.students_per_group.label }}</label>
+                                {{ form.students_per_group }}
+                                {% if form.students_per_group.errors %}
+                                    <div class="text-danger">{{ form.students_per_group.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Panel de información de validación -->
+                        <div class="mb-3" id="validation-panel" style="display: none;">
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-info-circle"></i> Información de Validación</h6>
+                                <div id="validation-info"></div>
+                            </div>
+                        </div>
                     </div>
-                    {% if form.topics.errors %}
-                        <div class="text-danger">{{ form.topics.errors }}</div>
-                    {% endif %}
+                    
+                    <!-- Columna derecha - Temas a evaluar -->
+                    <div class="col-md-6">
+                        <h5 class="mb-3 text-primary">Temas a Evaluar</h5>
+                        
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label">{{ form.topics.label }}</label>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary" id="select-all-topics">
+                                        <i class="fas fa-check-square"></i> Todo
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" id="deselect-all-topics">
+                                        <i class="fas fa-square"></i> Ninguno
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="topics-container" class="border p-3" style="max-height: 400px; overflow-y: auto;">
+                                {% for choice in form.topics %}
+                                    <div class="form-check">
+                                        {{ choice.tag }}
+                                        <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                            {{ choice.choice_label }}
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            {% if form.topics.errors %}
+                                <div class="text-danger">{{ form.topics.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Separador visual -->
+                <hr class="my-4">
+                
+                <!-- Nombre del conjunto al final -->
+                <div class="row">
+                    <div class="col-md-8 mx-auto">
+                        <h5 class="mb-3 text-primary">Información del Cuestionario</h5>
+                        <div class="mb-3">
+                            <label for="id_name" class="form-label">{{ form.name.label }}</label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div class="text-danger">{{ form.name.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">Este nombre te ayudará a identificar el cuestionario en la lista.</small>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="mt-4">
@@ -126,68 +146,222 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Referencias a los campos
     const subjectSelect = document.getElementById('id_subject');
     const topicsContainer = document.getElementById('topics-container');
+    const totalStudentsField = document.getElementById('id_total_students');
+    const questionsPerStudentField = document.getElementById('id_questions_per_student');
+    const numGroupsField = document.getElementById('id_num_groups');
+    const studentsPerGroupField = document.getElementById('id_students_per_group');
     
+    // Inicialmente deshabilitar campos que dependen de la secuencia
+    disableFieldsAfterSubject();
+    
+    // 1. SELECCIÓN DE MATERIA - Primer paso
     subjectSelect.addEventListener('change', function() {
         const subjectId = this.value;
         if (subjectId) {
-            // Hacer petición AJAX para obtener los temas de la materia seleccionada
-            fetch(`{% url 'material:get_topics' %}?subject_id=${subjectId}`)
-                .then(response => response.json())
-                .then(data => {
-                    // Limpiar temas actuales
-                    topicsContainer.innerHTML = '';
-                    
-                    // Agregar nuevos temas
-                    data.forEach(topic => {
-                        const div = document.createElement('div');
-                        div.className = 'form-check';
-                        div.innerHTML = `
-                            <input class="form-check-input" type="checkbox" 
-                                   name="topics" value="${topic.id}" id="topic_${topic.id}">
-                            <label class="form-check-label" for="topic_${topic.id}">
-                                ${topic.name}
-                            </label>
-                        `;
-                        topicsContainer.appendChild(div);
-                    });
-                })
-                .catch(error => {
-                    console.error('Error al cargar temas:', error);
-                });
+            loadTopicsForSubject(subjectId);
+            enableTopicsSelection();
+            resetFieldsFromStep('topics');
         } else {
-            topicsContainer.innerHTML = '<p class="text-muted">Seleccione una materia primero</p>';
+            disableFieldsAfterSubject();
+            resetAllCalculatedFields();
         }
     });
     
-    // Funcionalidad para seleccionar/deseleccionar todos los temas
+    // 2. SELECCIÓN DE CONTENIDOS - Segundo paso
     const selectAllBtn = document.getElementById('select-all-topics');
     const deselectAllBtn = document.getElementById('deselect-all-topics');
     
     selectAllBtn.addEventListener('click', function() {
         const checkboxes = topicsContainer.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = true;
-        });
+        checkboxes.forEach(checkbox => checkbox.checked = true);
+        onTopicsChanged();
     });
     
     deselectAllBtn.addEventListener('click', function() {
         const checkboxes = topicsContainer.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = false;
-        });
+        checkboxes.forEach(checkbox => checkbox.checked = false);
+        onTopicsChanged();
     });
     
-    // Validación y cálculo automático
-    function calculateOptimalGroups() {
-        const totalStudents = parseInt(document.getElementById('id_total_students').value) || 0;
-        const questionsPerStudent = parseInt(document.getElementById('id_questions_per_student').value) || 3;
-        const subjectId = document.getElementById('id_subject').value;
-        const selectedTopics = Array.from(document.querySelectorAll('#topics-container input:checked')).map(cb => cb.value);
+    // Event listener para cambios individuales en topics
+    document.addEventListener('change', function(e) {
+        if (e.target.type === 'checkbox' && e.target.name === 'topics') {
+            onTopicsChanged();
+        }
+    });
+    
+    // 3. TOTAL DE ESTUDIANTES - Tercer paso
+    totalStudentsField.addEventListener('input', function() {
+        onTotalStudentsChanged();
+    });
+    
+    // 4. PREGUNTAS POR ESTUDIANTE - Cuarto paso
+    questionsPerStudentField.addEventListener('input', function() {
+        onQuestionsPerStudentChanged();
+    });
+    
+    // Campos calculados que pueden ser ajustados manualmente
+    numGroupsField.addEventListener('input', function() {
+        onGroupsFieldsChanged('groups');
+    });
+    
+    studentsPerGroupField.addEventListener('input', function() {
+        onGroupsFieldsChanged('studentsPerGroup');
+    });
+    
+    // FUNCIONES DE CONTROL DE SECUENCIA
+    function disableFieldsAfterSubject() {
+        totalStudentsField.disabled = true;
+        questionsPerStudentField.disabled = true;
+        numGroupsField.disabled = true;
+        studentsPerGroupField.disabled = true;
+        clearTopics();
+    }
+    
+    function enableTopicsSelection() {
+        // Los topics se habilitan cuando se carga la materia
+    }
+    
+    function enableTotalStudents() {
+        totalStudentsField.disabled = false;
+        questionsPerStudentField.disabled = true;
+        numGroupsField.disabled = true;
+        studentsPerGroupField.disabled = true;
+    }
+    
+    function enableQuestionsPerStudent() {
+        questionsPerStudentField.disabled = false;
+        numGroupsField.disabled = true;
+        studentsPerGroupField.disabled = true;
+    }
+    
+    function enableGroupFields() {
+        numGroupsField.disabled = false;
+        studentsPerGroupField.disabled = false;
+    }
+    
+    function resetFieldsFromStep(step) {
+        switch(step) {
+            case 'topics':
+                totalStudentsField.value = '';
+                totalStudentsField.disabled = true;
+                // Fall through
+            case 'totalStudents':
+                questionsPerStudentField.value = '';
+                questionsPerStudentField.disabled = true;
+                // Fall through
+            case 'questionsPerStudent':
+                numGroupsField.value = '';
+                studentsPerGroupField.value = '';
+                numGroupsField.disabled = true;
+                studentsPerGroupField.disabled = true;
+                hideValidationPanel();
+                break;
+        }
+    }
+    
+    // FUNCIONES DE MANEJO DE EVENTOS
+    function loadTopicsForSubject(subjectId) {
+        fetch(`{% url 'material:get_topics' %}?subject_id=${subjectId}`)
+            .then(response => response.json())
+            .then(data => {
+                topicsContainer.innerHTML = '';
+                data.forEach(topic => {
+                    const div = document.createElement('div');
+                    div.className = 'form-check';
+                    div.innerHTML = `
+                        <input class="form-check-input" type="checkbox" 
+                               name="topics" value="${topic.id}" id="topic_${topic.id}">
+                        <label class="form-check-label" for="topic_${topic.id}">
+                            ${topic.name}
+                        </label>
+                    `;
+                    topicsContainer.appendChild(div);
+                });
+            })
+            .catch(error => {
+                console.error('Error al cargar temas:', error);
+                topicsContainer.innerHTML = '<p class="text-danger">Error al cargar temas</p>';
+            });
+    }
+    
+    function onTopicsChanged() {
+        const selectedTopics = getSelectedTopics();
+        if (selectedTopics.length > 0) {
+            enableTotalStudents();
+            if (totalStudentsField.value) {
+                onTotalStudentsChanged();
+            }
+        } else {
+            resetFieldsFromStep('totalStudents');
+        }
+    }
+    
+    function onTotalStudentsChanged() {
+        const totalStudents = parseInt(totalStudentsField.value) || 0;
+        if (totalStudents > 0 && getSelectedTopics().length > 0) {
+            enableQuestionsPerStudent();
+            if (questionsPerStudentField.value) {
+                // Si ya tengo preguntas por estudiante, recalculo inmediatamente
+                onQuestionsPerStudentChanged();
+            }
+        } else {
+            resetFieldsFromStep('questionsPerStudent');
+        }
+    }
+    
+    function onQuestionsPerStudentChanged() {
+        const totalStudents = parseInt(totalStudentsField.value) || 0;
+        const questionsPerStudent = parseInt(questionsPerStudentField.value) || 0;
+        const selectedTopics = getSelectedTopics();
         
-        if (totalStudents > 0 && subjectId && selectedTopics.length > 0) {
-            // Hacer llamada AJAX para obtener información de validación
+        if (totalStudents > 0 && questionsPerStudent > 0 && selectedTopics.length > 0) {
+            calculateOptimalConfiguration();
+        } else {
+            resetGroupFields();
+        }
+    }
+    
+    function onGroupsFieldsChanged(changedField) {
+        const totalStudents = parseInt(totalStudentsField.value) || 0;
+        
+        if (totalStudents === 0) {
+            // No podemos calcular sin el total de estudiantes
+            updateValidationDisplay();
+            return;
+        }
+        
+        if (changedField === 'groups') {
+            // Usuario cambió número de grupos → calcular estudiantes por grupo
+            const numGroups = parseInt(numGroupsField.value) || 0;
+            if (numGroups > 0) {
+                const calculatedStudentsPerGroup = Math.ceil(totalStudents / numGroups);
+                studentsPerGroupField.value = calculatedStudentsPerGroup;
+            }
+        } else if (changedField === 'studentsPerGroup') {
+            // Usuario cambió estudiantes por grupo → calcular número de grupos
+            const studentsPerGroup = parseInt(studentsPerGroupField.value) || 0;
+            if (studentsPerGroup > 0) {
+                const calculatedGroups = Math.ceil(totalStudents / studentsPerGroup);
+                numGroupsField.value = calculatedGroups;
+            }
+        }
+        
+        updateValidationDisplay();
+    }
+    
+    // FUNCIONES DE CÁLCULO Y VALIDACIÓN
+    function calculateOptimalConfiguration() {
+        const totalStudents = parseInt(totalStudentsField.value) || 0;
+        const questionsPerStudent = parseInt(questionsPerStudentField.value) || 0;
+        const subjectId = subjectSelect.value;
+        const selectedTopics = getSelectedTopics();
+        
+        if (totalStudents > 0 && questionsPerStudent > 0 && subjectId && selectedTopics.length > 0) {
+            // Hacer llamada AJAX para obtener configuración óptima
             fetch('{% url "material:validate_oral_exam" %}', {
                 method: 'POST',
                 headers: {
@@ -204,92 +378,222 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    showValidationInfo(data.info, totalStudents);
-                    suggestGroups(totalStudents, data.info.max_students_per_group);
+                    showValidationInfo(data.info);
+                    calculateAndSetOptimalGroups(totalStudents, data.info.max_students_per_group);
+                    enableGroupFields();
+                    updateValidationDisplay();
+                } else {
+                    showError('Error en la configuración: ' + data.message);
                 }
             })
             .catch(error => {
                 console.error('Error en validación:', error);
+                showError('Error al validar la configuración');
             });
         }
     }
     
-    function showValidationInfo(info, totalStudents) {
+    function calculateAndSetOptimalGroups(totalStudents, maxStudentsPerGroup) {
+        // Cálculo de configuración óptima
+        let optimalGroups, optimalStudentsPerGroup;
+        
+        if (maxStudentsPerGroup && maxStudentsPerGroup > 0) {
+            // Usar el máximo recomendado por el sistema
+            optimalGroups = Math.ceil(totalStudents / maxStudentsPerGroup);
+            optimalStudentsPerGroup = Math.ceil(totalStudents / optimalGroups);
+        } else {
+            // Cálculo básico: intentar grupos de 8-12 estudiantes
+            const idealGroupSize = 10;
+            if (totalStudents <= idealGroupSize) {
+                optimalGroups = 1;
+                optimalStudentsPerGroup = totalStudents;
+            } else {
+                optimalGroups = Math.ceil(totalStudents / idealGroupSize);
+                optimalStudentsPerGroup = Math.ceil(totalStudents / optimalGroups);
+            }
+        }
+        
+        numGroupsField.value = optimalGroups;
+        studentsPerGroupField.value = optimalStudentsPerGroup;
+    }
+    
+    function updateValidationDisplay() {
+        const totalStudents = parseInt(totalStudentsField.value) || 0;
+        const numGroups = parseInt(numGroupsField.value) || 0;
+        const studentsPerGroup = parseInt(studentsPerGroupField.value) || 0;
+        const calculated = numGroups * studentsPerGroup;
+        
+        // Limpiar clases de validación anteriores
+        clearValidationClasses();
+        
+        // Asegurar que existe el panel de validación base
+        ensureValidationPanelExists();
+        
+        if (totalStudents > 0 && numGroups > 0 && studentsPerGroup > 0) {
+            if (calculated >= totalStudents && calculated <= totalStudents * 1.25) {
+                // Configuración válida (máximo 25% de espacios vacíos)
+                addValidationClass('is-valid');
+                showCalculationInfo(totalStudents, numGroups, studentsPerGroup, calculated);
+            } else if (calculated < totalStudents) {
+                // Configuración insuficiente
+                addValidationClass('is-invalid');
+                showCalculationError('Configuración insuficiente: faltan espacios para estudiantes');
+            } else {
+                // Demasiados espacios vacíos
+                addValidationClass('is-warning');
+                showCalculationWarning('Muchos espacios vacíos, considera reducir los grupos');
+            }
+        } else {
+            // Limpiar status si no hay configuración completa
+            const calculationStatus = document.getElementById('calculation-status');
+            if (calculationStatus) {
+                calculationStatus.innerHTML = '';
+            }
+        }
+    }
+    
+    function ensureValidationPanelExists() {
+        const panel = document.getElementById('validation-panel');
+        const calculationStatus = document.getElementById('calculation-status');
+        
+        if (panel && !calculationStatus) {
+            const infoDiv = document.getElementById('validation-info');
+            if (infoDiv && !infoDiv.querySelector('#calculation-status')) {
+                infoDiv.innerHTML += '<div id="calculation-status"></div>';
+            }
+        }
+    }
+    
+    // FUNCIONES DE UTILIDAD
+    function getSelectedTopics() {
+        return Array.from(document.querySelectorAll('#topics-container input:checked')).map(cb => cb.value);
+    }
+    
+    function clearTopics() {
+        topicsContainer.innerHTML = '<p class="text-muted">Seleccione una materia primero</p>';
+    }
+    
+    function resetAllCalculatedFields() {
+        totalStudentsField.value = '';
+        questionsPerStudentField.value = '';
+        numGroupsField.value = '';
+        studentsPerGroupField.value = '';
+        hideValidationPanel();
+        clearValidationClasses();
+    }
+    
+    function resetGroupFields() {
+        numGroupsField.value = '';
+        studentsPerGroupField.value = '';
+        numGroupsField.disabled = true;
+        studentsPerGroupField.disabled = true;
+        hideValidationPanel();
+    }
+    
+    function clearValidationClasses() {
+        const fields = [totalStudentsField, questionsPerStudentField, numGroupsField, studentsPerGroupField];
+        fields.forEach(field => {
+            field.classList.remove('is-invalid', 'is-valid', 'is-warning');
+        });
+    }
+    
+    function addValidationClass(className) {
+        const fields = [numGroupsField, studentsPerGroupField];
+        fields.forEach(field => {
+            field.classList.add(className);
+        });
+    }
+    
+    // FUNCIONES DE INFORMACIÓN Y ERRORES
+    function showValidationInfo(info) {
         const panel = document.getElementById('validation-panel');
         const infoDiv = document.getElementById('validation-info');
         
+        // Guardar la información base para uso posterior
+        window.currentValidationInfo = info;
+        
         infoDiv.innerHTML = `
-            <p><strong>Preguntas disponibles:</strong> ${info.total_questions}</p>
-            <p><strong>Subtemas disponibles:</strong> ${info.total_subtopics}</p>
-            <p><strong>Máximo recomendado por grupo:</strong> ${info.max_students_per_group} estudiantes</p>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><i class="fas fa-question-circle text-primary"></i> <strong>Preguntas disponibles:</strong> ${info.total_questions}</p>
+                    <p><i class="fas fa-list text-info"></i> <strong>Subtemas disponibles:</strong> ${info.total_subtopics}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><i class="fas fa-users text-success"></i> <strong>Máximo por grupo:</strong> ${info.max_students_per_group || 'No definido'} estudiantes</p>
+                </div>
+            </div>
+            <div id="calculation-status"></div>
         `;
         
         panel.style.display = 'block';
     }
     
-    function suggestGroups(totalStudents, maxStudentsPerGroup) {
-        const numGroupsField = document.getElementById('id_num_groups');
-        const studentsPerGroupField = document.getElementById('id_students_per_group');
+    function showCalculationInfo(total, groups, perGroup, calculated) {
+        const calculationStatus = document.getElementById('calculation-status');
         
-        if (maxStudentsPerGroup && maxStudentsPerGroup > 0) {
-            const suggestedGroups = Math.ceil(totalStudents / maxStudentsPerGroup);
-            const suggestedStudentsPerGroup = Math.ceil(totalStudents / suggestedGroups);
-            
-            numGroupsField.value = suggestedGroups;
-            studentsPerGroupField.value = suggestedStudentsPerGroup;
-            
-            // Validar que la multiplicación coincida
-            updateTotalValidation();
+        // Cálculos dinámicos para mostrar alternativas
+        const efficiencyPercentage = Math.round((total / calculated) * 100);
+        const wastedSpaces = calculated - total;
+        
+        // Reemplazar completamente el contenido del status (no acumular)
+        calculationStatus.innerHTML = `
+            <div class="alert alert-success mt-2">
+                <div class="row">
+                    <div class="col-md-8">
+                        <i class="fas fa-check-circle"></i> <strong>Configuración actual:</strong><br>
+                        ${groups} grupos × ${perGroup} estudiantes = ${calculated} espacios totales<br>
+                        <small class="text-muted">
+                            ${total} estudiantes asignados (${efficiencyPercentage}% de ocupación)
+                            ${wastedSpaces > 0 ? ` • ${wastedSpaces} espacios libres` : ''}
+                        </small>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-info">
+                            <i class="fas fa-lightbulb"></i> <strong>Ajuste dinámico:</strong><br>
+                            • Cambia grupos → Recalcula estudiantes/grupo<br>
+                            • Cambia estudiantes/grupo → Recalcula grupos
+                        </small>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function showCalculationError(message) {
+        const calculationStatus = document.getElementById('calculation-status');
+        
+        // Reemplazar completamente el contenido (no acumular)
+        calculationStatus.innerHTML = `
+            <div class="alert alert-danger mt-2">
+                <i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong> ${message}
+            </div>
+        `;
+    }
+    
+    function showCalculationWarning(message) {
+        const calculationStatus = document.getElementById('calculation-status');
+        
+        // Reemplazar completamente el contenido (no acumular)
+        calculationStatus.innerHTML = `
+            <div class="alert alert-warning mt-2">
+                <i class="fas fa-exclamation-circle"></i> <strong>Advertencia:</strong> ${message}
+            </div>
+        `;
+    }
+    
+    function hideValidationPanel() {
+        const panel = document.getElementById('validation-panel');
+        const calculationStatus = document.getElementById('calculation-status');
+        
+        panel.style.display = 'none';
+        if (calculationStatus) {
+            calculationStatus.innerHTML = '';
         }
     }
     
-    function updateTotalValidation() {
-        const totalStudents = parseInt(document.getElementById('id_total_students').value) || 0;
-        const numGroups = parseInt(document.getElementById('id_num_groups').value) || 0;
-        const studentsPerGroup = parseInt(document.getElementById('id_students_per_group').value) || 0;
-        const calculated = numGroups * studentsPerGroup;
-        
-        // Remover clases de validación anteriores
-        const fields = ['id_total_students', 'id_num_groups', 'id_students_per_group'];
-        fields.forEach(id => {
-            const field = document.getElementById(id);
-            field.classList.remove('is-invalid', 'is-valid');
-        });
-        
-        if (totalStudents > 0 && numGroups > 0 && studentsPerGroup > 0) {
-            if (calculated >= totalStudents && calculated <= totalStudents * 1.2) {
-                // Válido (permite hasta 20% de espacios vacíos)
-                fields.forEach(id => {
-                    document.getElementById(id).classList.add('is-valid');
-                });
-            } else if (calculated < totalStudents) {
-                // Inválido - insuficiente
-                fields.forEach(id => {
-                    document.getElementById(id).classList.add('is-invalid');
-                });
-            } else {
-                // Advertencia - muchos espacios vacíos, pero no invalid
-                fields.forEach(id => {
-                    const field = document.getElementById(id);
-                    field.classList.remove('is-invalid');
-                    field.classList.add('is-valid');
-                });
-            }
-        }
+    function showError(message) {
+        alert(message); // TODO: Implementar un sistema de notificaciones más elegante
     }
-    
-    // Event listeners para recálculo automático
-    document.getElementById('id_total_students').addEventListener('input', calculateOptimalGroups);
-    document.getElementById('id_questions_per_student').addEventListener('input', calculateOptimalGroups);
-    document.getElementById('id_num_groups').addEventListener('input', updateTotalValidation);
-    document.getElementById('id_students_per_group').addEventListener('input', updateTotalValidation);
-    
-    // Event listener para cambios en topics
-    document.addEventListener('change', function(e) {
-        if (e.target.type === 'checkbox' && e.target.name === 'topics') {
-            calculateOptimalGroups();
-        }
-    });
 });
 </script>
 

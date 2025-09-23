@@ -1,18 +1,11 @@
 {% extends 'material/base.html' %}
+{% load message_tags %}
 
 {% block content %}
 <h2>Plantillas de Examen Guardadas</h2>
 
-<!-- Mensajes -->
-{% if messages %}
-    {% for message in messages %}
-        {% if "exam_template" in message.tags %}
-            <div class="alert alert-{{ message.tags }}">
-                {{ message }}
-            </div>
-        {% endif %}
-    {% endfor %}
-{% endif %}
+<!-- Mensajes específicos de plantillas -->
+{% show_messages "plantillas" %}
 
 <!-- Filtros -->
 <div class="row mb-4">

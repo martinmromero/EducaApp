@@ -1,9 +1,13 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load message_tags %}
 
 {% block content %}
 <div class="container-fluid">
     <h1 class="h3 mb-4 text-gray-800">Mis Preguntas</h1>
+    
+    <!-- Mensajes específicos de preguntas -->
+    {% show_messages "preguntas" %}
     
     <!-- Filtros -->
     <div class="card shadow mb-4">
@@ -14,7 +18,7 @@
             <form method="get" id="filter-form">
                 <div class="form-row">
                     <!-- Filtro por Materia -->
-                    <div class="form-group col-md-6">
+                    <div class="form-group col-md-4">
                         <label for="filter-subject">Materia</label>
                         <select name="subject" id="filter-subject" class="form-control">
                             <option value="">Todas las materias</option>
@@ -27,10 +31,43 @@
                         </select>
                     </div>
                     
-                    <div class="form-group col-md-6 d-flex align-items-end">
+                    <!-- Filtro por Tema (oculto inicialmente) -->
+                    <div class="form-group col-md-4" id="topic-container" style="display: none;">
+                        <label for="filter-topic">Tema</label>
+                        <select name="topic" id="filter-topic" class="form-control">
+                            <option value="">Todos los temas</option>
+                            {% for topic in topics %}
+                                <option value="{{ topic.id }}" 
+                                    {% if selected_topic == topic.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ topic.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro por Subtema (oculto inicialmente) -->
+                    <div class="form-group col-md-4" id="subtopic-container" style="display: none;">
+                        <label for="filter-subtopic">Subtema</label>
+                        <select name="subtopic" id="filter-subtopic" class="form-control">
+                            <option value="">Todos los subtemas</option>
+                            {% for subtopic in subtopics %}
+                                <option value="{{ subtopic.id }}" 
+                                    {% if selected_subtopic == subtopic.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ subtopic.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group col-md-12 d-flex justify-content-between">
                         <a href="{% url 'material:lista_preguntas' %}" class="btn btn-secondary">
-                            <i class="fas fa-undo"></i> Limpiar
+                            <i class="fas fa-undo"></i> Limpiar Filtros
                         </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-filter"></i> Aplicar Filtros
+                        </button>
                     </div>
                 </div>
 
@@ -107,80 +144,168 @@
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Hacer que el filtro se aplique automáticamente al cambiar la selección
-    const subjectFilter = document.getElementById('filter-subject');
-    if (subjectFilter) {
-        subjectFilter.addEventListener('change', function() {
-            document.getElementById('filter-form').submit();
-        });
-    }
-});
-</script>
 {% endblock %}
 
 {% block javascript %}
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-$(document).ready(function() {
-    // Filtrado de temas cuando cambia la materia
-    $('#filter-subject').change(function() {
-        const subjectId = $(this).val();
-        const topicSelect = $('#filter-topic');
-        const subtopicSelect = $('#filter-subtopic');
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== FILTROS CASCADA INICIADO ===');
+    
+    // Obtener elementos
+    const subjectSelect = document.getElementById('filter-subject');
+    const topicSelect = document.getElementById('filter-topic');
+    const subtopicSelect = document.getElementById('filter-subtopic');
+    const topicContainer = document.getElementById('topic-container');
+    const subtopicContainer = document.getElementById('subtopic-container');
+    
+    // Estado inicial: mostrar dropdowns según selecciones
+    initializeDropdowns();
+    
+    // EVENTO: Cambio de materia
+    subjectSelect.addEventListener('change', function() {
+        console.log('📋 Materia cambió a:', this.value);
         
-        topicSelect.html('<option value="">Todos los temas</option>');
-        subtopicSelect.html('<option value="">Todos los subtemas</option>');
+        // Ocultar y limpiar subtemas
+        subtopicContainer.style.display = 'none';
         
-        if (subjectId) {
-            $.ajax({
-                url: '{% url "material:get_topics" %}',
-                data: { subject_id: subjectId },
-                success: function(data) {
-                    data.forEach(function(topic) {
-                        topicSelect.append(
-                            $('<option>', {
-                                value: topic.id,
-                                text: topic.name
-                            })
-                        );
-                    });
-                }
-            });
+        if (this.value) {
+            // Mostrar tema y cargar opciones dinámicamente
+            topicContainer.style.display = 'block';
+            loadTopics(this.value);
+        } else {
+            // Ocultar ambos dropdowns dependientes
+            topicContainer.style.display = 'none';
+            subtopicContainer.style.display = 'none';
         }
+        
+        // Enviar formulario para filtrar preguntas
+        document.getElementById('filter-form').submit();
     });
-
-    // Filtrado de subtemas cuando cambia el tema
-    $('#filter-topic').change(function() {
-        const topicId = $(this).val();
-        const subtopicSelect = $('#filter-subtopic');
+    
+    // EVENTO: Cambio de tema
+    topicSelect.addEventListener('change', function() {
+        console.log('📂 Tema cambió a:', this.value || 'TODOS LOS TEMAS');
         
-        subtopicSelect.html('<option value="">Todos los subtemas</option>');
-        
-        if (topicId) {
-            $.ajax({
-                url: '{% url "material:get_subtopics" %}',
-                data: { topic_id: topicId },
-                success: function(data) {
-                    data.forEach(function(subtopic) {
-                        subtopicSelect.append(
-                            $('<option>', {
-                                value: subtopic.id,
-                                text: subtopic.name
-                            })
-                        );
-                    });
-                }
-            });
+        if (this.value) {
+            // Tema específico seleccionado
+            console.log('✅ Tema específico - mostrando subtemas');
+            subtopicContainer.style.display = 'block';
+            loadSubtopics(this.value);
+        } else {
+            // "Todos los temas" seleccionado
+            console.log('� Todos los temas - ocultando subtemas');
+            subtopicContainer.style.display = 'none';
+            // Limpiar subtemas
+            subtopicSelect.innerHTML = '<option value="">Todos los subtemas</option>';
         }
+        
+        // SIEMPRE enviar formulario (tanto para tema específico como para "todos")
+        console.log('📤 Enviando formulario para filtrar por tema');
+        document.getElementById('filter-form').submit();
     });
-
-    // Aplicar filtros al hacer submit
-    // Filtrar automáticamente al cambiar cualquier select de filtro
-    $('#filter-subject, #contenido, #question_type').change(function() {
-        this.form.submit();
+    
+    // EVENTO: Cambio de subtema
+    subtopicSelect.addEventListener('change', function() {
+        console.log('📄 Subtema cambió a:', this.value || 'TODOS LOS SUBTEMAS');
+        
+        // SIEMPRE enviar formulario (tanto para subtema específico como para "todos")
+        console.log('📤 Enviando formulario para filtrar por subtema');
+        document.getElementById('filter-form').submit();
     });
+    
+    // FUNCIONES AUXILIARES
+    function initializeDropdowns() {
+        const selectedSubject = subjectSelect.value;
+        const selectedTopic = topicSelect.value;
+        
+        console.log('🔄 Inicializando dropdowns:', {selectedSubject, selectedTopic});
+        
+        // Mostrar tema si hay materia seleccionada
+        if (selectedSubject) {
+            topicContainer.style.display = 'block';
+            
+            // Cargar temas si el dropdown está vacío
+            if (topicSelect.children.length <= 1) {
+                loadTopics(selectedSubject);
+            }
+        } else {
+            topicContainer.style.display = 'none';
+            subtopicContainer.style.display = 'none';
+            return;
+        }
+        
+        // Mostrar subtema si hay tema seleccionado
+        if (selectedTopic) {
+            subtopicContainer.style.display = 'block';
+            
+            // Cargar subtemas si el dropdown está vacío
+            if (subtopicSelect.children.length <= 1) {
+                loadSubtopics(selectedTopic);
+            }
+        } else {
+            subtopicContainer.style.display = 'none';
+        }
+    }
+    
+    function loadTopics(subjectId) {
+        console.log('🔽 Cargando temas para materia:', subjectId);
+        topicSelect.innerHTML = '<option value="">Cargando temas...</option>';
+        
+        fetch(`{% url "material:get_topics" %}?subject_id=${subjectId}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('📥 Temas recibidos:', data.length);
+                
+                // Limpiar y agregar opción por defecto
+                topicSelect.innerHTML = '<option value="">Todos los temas</option>';
+                
+                // Agregar cada tema
+                data.forEach(topic => {
+                    const option = document.createElement('option');
+                    option.value = topic.id;
+                    option.textContent = topic.name;
+                    topicSelect.appendChild(option);
+                });
+                
+                if (data.length === 0) {
+                    topicSelect.innerHTML = '<option value="">No hay temas disponibles</option>';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error cargando temas:', error);
+                topicSelect.innerHTML = '<option value="">Error cargando temas</option>';
+            });
+    }
+    
+    function loadSubtopics(topicId) {
+        console.log('🔽 Cargando subtemas para tema:', topicId);
+        subtopicSelect.innerHTML = '<option value="">Cargando subtemas...</option>';
+        
+        fetch(`{% url "material:get_subtopics" %}?topic_id=${topicId}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('📥 Subtemas recibidos:', data.length);
+                
+                // Limpiar y agregar opción por defecto
+                subtopicSelect.innerHTML = '<option value="">Todos los subtemas</option>';
+                
+                // Agregar cada subtema
+                data.forEach(subtopic => {
+                    const option = document.createElement('option');
+                    option.value = subtopic.id;
+                    option.textContent = subtopic.name;
+                    subtopicSelect.appendChild(option);
+                });
+                
+                if (data.length === 0) {
+                    subtopicSelect.innerHTML = '<option value="">No hay subtemas disponibles</option>';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error cargando subtemas:', error);
+                subtopicSelect.innerHTML = '<option value="">Error cargando subtemas</option>';
+            });
+    }
 });
 </script>
 {% endblock %}

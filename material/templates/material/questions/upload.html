@@ -1,17 +1,12 @@
 {% extends 'material/base.html' %}
+{% load message_tags %}
 
 {% block content %}
 <div class="container">
     <h1>Subir Material</h1>
 
-    <!-- Mostrar mensajes de éxito o error -->
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-success" role="alert">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
+    <!-- Mensajes específicos de contenidos -->
+    {% show_messages "contenidos" %}
 
     <form method="post" enctype="multipart/form-data" id="uploadForm">
         {% csrf_token %}

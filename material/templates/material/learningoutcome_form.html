@@ -1,0 +1,56 @@
+{% extends 'material/base.html' %}
+{% load message_tags %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-bullseye me-2"></i>Agregar Resultado de Aprendizaje
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Mensajes específicos de materias -->
+                    {% show_messages "materias" %}
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">
+                                {{ form.description.label }}
+                            </label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.description.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Describe de manera clara y específica lo que el estudiante será capaz de hacer al completar esta unidad de aprendizaje.
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'material:subject_detail' pk=view.kwargs.subject_id %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-1"></i> Guardar Resultado
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

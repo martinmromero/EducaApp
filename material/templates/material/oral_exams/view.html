@@ -291,9 +291,7 @@
                 <h5 class="modal-title" id="changeQuestionModalLabel">
                     <i class="fas fa-exchange-alt"></i> Cambiar Pregunta
                 </h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">
@@ -306,7 +304,7 @@
                     <div id="availableQuestionsContainer">
                         <div class="text-center">
                             <div class="spinner-border" role="status">
-                                <span class="sr-only">Cargando...</span>
+                                <span class="visually-hidden">Cargando...</span>
                             </div>
                             <p class="mt-2">Cargando preguntas disponibles...</p>
                         </div>
@@ -314,7 +312,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="confirmExchangeBtn" disabled>
                     <i class="fas fa-check"></i> Confirmar Cambio
                 </button>
@@ -764,9 +762,7 @@ function assignStudentNames(studentNames) {
             resultDiv.innerHTML = `
                 <div class="alert alert-success alert-dismissible fade show">
                     <i class="fas fa-check"></i> ${data.message}
-                    <button type="button" class="close" data-dismiss="alert">
-                        <span>&times;</span>
-                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
             // Recargar la página para mostrar los nombres asignados
@@ -775,9 +771,7 @@ function assignStudentNames(studentNames) {
             resultDiv.innerHTML = `
                 <div class="alert alert-danger alert-dismissible fade show">
                     <i class="fas fa-exclamation-triangle"></i> ${data.error}
-                    <button type="button" class="close" data-dismiss="alert">
-                        <span>&times;</span>
-                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
         }
@@ -1045,21 +1039,21 @@ function exchangeQuestion(studentQuestionId, newQuestionId) {
             const alertHtml = `
                 <div class="alert alert-success alert-dismissible fade show">
                     <i class="fas fa-check"></i> ${data.message}
-                    <button type="button" class="close" data-dismiss="alert">
-                        <span>&times;</span>
-                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
             
-            // Cerrar modal con JavaScript nativo
+            // Cerrar modal con Bootstrap 5
             const modal = document.getElementById('changeQuestionModal');
             if (modal) {
-                // Intentar con jQuery si está disponible
-                if (typeof $ !== 'undefined' && $.fn.modal) {
-                    $('#changeQuestionModal').modal('hide');
-                } else if (typeof bootstrap !== 'undefined') {
+                // Usar Bootstrap 5 nativo
+                if (typeof bootstrap !== 'undefined') {
                     const bsModal = bootstrap.Modal.getInstance(modal) || new bootstrap.Modal(modal);
                     bsModal.hide();
+                } else if (typeof $ !== 'undefined') {
+                    // Fallback para jQuery con Bootstrap 5
+                    const modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
+                    modalInstance.hide();
                 } else {
                     // Fallback manual
                     modal.classList.remove('show');

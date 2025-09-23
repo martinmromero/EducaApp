@@ -33,19 +33,14 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 {% extends 'material/base.html' %}
 {% load static %}
+{% load message_tags %}
 
 {% block content %}
 <div class="container {% if dark_mode %}bg-dark text-light{% else %}bg-light{% endif %}" style="min-height: 100vh; padding: 20px;">
     <h1 class="{% if dark_mode %}text-light{% else %}text-dark{% endif %}">Subir Preguntas</h1>
 
-    <!-- Mensajes -->
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %}">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
+    <!-- Mensajes específicos de preguntas -->
+    {% show_messages "preguntas" %}
 
     <!-- Pestañas -->
     <ul class="nav nav-tabs mb-4" id="uploadTabs" role="tablist">

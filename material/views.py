@@ -7,7 +7,7 @@ from django.utils import timezone
 def preview_exam(request):
     exam = request.session.get('preview_exam')
     if not exam:
-        messages.error(request, 'No hay datos para mostrar el preview.')
+        messages.error(request, 'No hay datos para mostrar el preview.', extra_tags='general')
         return redirect('material:create_exam')
 
     # Debug: imprimir los datos recibidos
@@ -250,7 +250,7 @@ class CustomLoginView(LoginView):
 
     def form_invalid(self, form):
         """Maneja intentos fallidos de login"""
-        messages.error(self.request, "Credenciales inválidas. Intente nuevamente.")
+        messages.error(self.request, "Credenciales inválidas. Intente nuevamente.", extra_tags='general')
         return super().form_invalid(form)
     
 
@@ -269,7 +269,7 @@ def upload_contenido(request):  # Antes upload_material
             contenido = form.save(commit=False)
             contenido.uploaded_by = request.user
             contenido.save()
-            messages.success(request, 'Los archivos se subieron correctamente.')
+            messages.success(request, 'Los archivos se subieron correctamente.', extra_tags='contenidos')
             return redirect('material:mis_contenidos')
     else:
         form = ContenidoForm()
@@ -282,7 +282,7 @@ def generate_questions(request, contenido_id):
     try:
         text = extract_text_from_file(contenido.file.path)
     except ValueError as e:
-        messages.error(request, str(e))
+        messages.error(request, str(e), extra_tags='contenidos')
         return redirect('material:mis_contenidos')
     questions_text = generate_questions_from_text(text, num_questions)
     request.session['generated_questions'] = questions_text.split('\n')
@@ -317,7 +317,7 @@ def save_selected_questions(request, contenido_id):
                     subtopic=None,
                     user=request.user
                 )
-        messages.success(request, 'Preguntas guardadas correctamente.')
+        messages.success(request, 'Preguntas guardadas correctamente.', extra_tags='preguntas')
         return redirect('material:lista_preguntas')
 
 @login_required
@@ -369,7 +369,7 @@ def create_exam(request):
             exam.created_by = request.user
             exam.save()
             form.save_m2m()
-            messages.success(request, 'Examen creado correctamente.')
+            messages.success(request, 'Examen creado correctamente.', extra_tags='examenes')
             return redirect('material:mis_examenes')
     else:
         form = ExamForm()
@@ -432,7 +432,7 @@ def create_exam_template(request):
                     messages.success(
                         request, 
                         'Plantilla creada correctamente',
-                        extra_tags='exam_template'
+                        extra_tags='plantillas'
                     )
                     return redirect('material:list_exam_templates')
                     
@@ -566,7 +566,7 @@ def edit_exam_template(request, template_id):
             created_by=request.user
         )
     except ExamTemplate.DoesNotExist:
-        messages.error(request, 'La plantilla no existe o no tienes permisos para editarla.')
+        messages.error(request, 'La plantilla no existe o no tienes permisos para editarla.', extra_tags='plantillas')
         return redirect('material:list_exam_templates')
 
     if request.method == 'POST':
@@ -607,18 +607,18 @@ def edit_exam_template(request, template_id):
                 updated_template = ExamTemplate.objects.get(id=template_id)
                 print(f"DEBUG: Template desde DB - ID: {updated_template.id}, created_by: {updated_template.created_by}")
                 
-                messages.success(request, f'Plantilla con ID {exam_template.id} actualizada exitosamente.')
+                messages.success(request, f'Plantilla con ID {exam_template.id} actualizada exitosamente.', extra_tags='plantillas')
                 return redirect('material:list_exam_templates')
                 
             except Exception as e:
                 print(f"DEBUG: Error al guardar: {str(e)}")
                 import traceback
                 traceback.print_exc()
-                messages.error(request, f'Error al actualizar la plantilla: {str(e)}')
+                messages.error(request, f'Error al actualizar la plantilla: {str(e)}', extra_tags='plantillas')
         else:
             print(f"DEBUG: Errores del formulario: {form.errors}")
             print(f"DEBUG: Non-field errors: {form.non_field_errors()}")
-            messages.error(request, 'Por favor corrige los errores en el formulario.')
+            messages.error(request, 'Por favor corrige los errores en el formulario.', extra_tags='plantillas')
     else:
         # GET request - crear formulario con la instancia existente
         form = ExamTemplateForm(instance=template, user=request.user)
@@ -843,7 +843,7 @@ def edit_user(request, user_id):
         form = UserEditForm(request.POST, instance=user)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Usuario actualizado correctamente.')
+            messages.success(request, 'Usuario actualizado correctamente.', extra_tags='usuarios')
             return redirect('material:user_list')
     else:
         form = UserEditForm(instance=user)
@@ -855,7 +855,7 @@ def delete_user(request, user_id):
     user = get_object_or_404(User, id=user_id)
     if request.method == 'POST':
         user.delete()
-        messages.success(request, 'Usuario eliminado correctamente.')
+        messages.success(request, 'Usuario eliminado correctamente.', extra_tags='usuarios')
         return redirect('material:user_list')
     return render(request, 'material/confirm_delete_user.html', {'user': user})
 
@@ -962,7 +962,7 @@ def editar_pregunta(request, pk):
         form = QuestionForm(request.POST, request.FILES, instance=pregunta, current_user=request.user)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Pregunta actualizada correctamente')
+            messages.success(request, 'Pregunta actualizada correctamente', extra_tags='preguntas')
             return redirect('material:lista_preguntas')
     else:
         form = QuestionForm(instance=pregunta, current_user=request.user)
@@ -978,7 +978,7 @@ def eliminar_pregunta(request, pk):
     
     if request.method == 'POST':
         pregunta.delete()
-        messages.success(request, 'Pregunta eliminada correctamente')
+        messages.success(request, 'Pregunta eliminada correctamente', extra_tags='preguntas')
         return redirect('material:lista_preguntas')
     
     return render(request, 'material/questions/confirmar_eliminar.html', {
@@ -995,15 +995,15 @@ def delete_contenido(request):
     if request.method == 'POST':
         contenido_ids = request.POST.getlist('contenido_ids')
         if not contenido_ids:
-            messages.error(request, 'No se seleccionó ningún documento para borrar.')
+            messages.error(request, 'No se seleccionó ningún documento para borrar.', extra_tags='contenidos')
             return redirect('material:mis_contenidos')
         contenidos = Contenido.objects.filter(id__in=contenido_ids, uploaded_by=request.user)
         count = contenidos.count()
         contenidos.delete()
         if count == 1:
-            messages.success(request, 'El documento ha sido borrado correctamente.')
+            messages.success(request, 'El documento ha sido borrado correctamente.', extra_tags='contenidos')
         else:
-            messages.success(request, f'Los {count} documentos han sido borrados correctamente.')
+            messages.success(request, f'Los {count} documentos han sido borrados correctamente.', extra_tags='contenidos')
     return redirect('material:mis_contenidos')
 
 @login_required
@@ -1030,19 +1030,19 @@ def upload_questions(request):
                 # Procesar archivo según extensión
                 if file_extension == '.csv':
                     questions_created = process_csv_file(file, contenido_seleccionado, request.user)
-                    messages.success(request, f'{questions_created} preguntas creadas desde archivo CSV.')
+                    messages.success(request, f'{questions_created} preguntas creadas desde archivo CSV.', extra_tags='preguntas')
                 elif file_extension == '.txt':
                     questions_created = process_txt_file(file, contenido_seleccionado, request.user)
-                    messages.success(request, f'{questions_created} preguntas creadas desde archivo TXT.')
+                    messages.success(request, f'{questions_created} preguntas creadas desde archivo TXT.', extra_tags='preguntas')
                 else:
-                    messages.error(request, 'Formato de archivo no soportado. Use CSV o TXT.')
+                    messages.error(request, 'Formato de archivo no soportado. Use CSV o TXT.', extra_tags='preguntas')
                     return redirect('material:upload_questions')
                 
                 return redirect('material:lista_preguntas')
                 
             except Exception as e:
                 logger.error(f"Error al procesar archivo: {str(e)}", exc_info=True)
-                messages.error(request, f'Ocurrió un error al procesar el archivo: {str(e)}')
+                messages.error(request, f'Ocurrió un error al procesar el archivo: {str(e)}', extra_tags='preguntas')
                 return redirect('material:upload_questions')
         
         # Procesamiento para pregunta individual
@@ -1059,16 +1059,16 @@ def upload_questions(request):
                     else:
                         question.contenido = None
                     question.save()
-                    messages.success(request, 'Pregunta guardada correctamente.')
+                    messages.success(request, 'Pregunta guardada correctamente.', extra_tags='preguntas')
                     return redirect('material:lista_preguntas')
                 
                 except Exception as e:
                     logger.error(f"Error al guardar pregunta individual: {str(e)}", exc_info=True)
-                    messages.error(request, f'Ocurrió un error: {str(e)}')
+                    messages.error(request, f'Ocurrió un error: {str(e)}', extra_tags='preguntas')
                     return redirect('material:upload_questions')
             
             else:
-                messages.error(request, 'Por favor corrija los errores en el formulario.')
+                messages.error(request, 'Por favor corrija los errores en el formulario.', extra_tags='preguntas')
     else:
         form = QuestionForm(current_user=request.user)
     
@@ -1295,7 +1295,7 @@ Capítulo: Capítulo 2: Literatura Latinoamericana"""
         response['Content-Disposition'] = 'attachment; filename="template.txt"'
         return response
     else:
-        messages.error(request, 'Formato de plantilla no soportado.')
+        messages.error(request, 'Formato de plantilla no soportado.', extra_tags='plantillas')
         return redirect('material:upload_questions')
 
 @login_required
@@ -1303,7 +1303,7 @@ def delete_exam_template(request):
     if request.method == 'POST':
         template_ids = request.POST.getlist('template_ids')
         ExamTemplate.objects.filter(id__in=template_ids, created_by=request.user).delete()
-        messages.success(request, 'Las plantillas seleccionadas se han eliminado correctamente.', extra_tags='exam_template')
+        messages.success(request, 'Las plantillas seleccionadas se han eliminado correctamente.', extra_tags='plantillas')
     return redirect('material:list_exam_templates')
 
 
@@ -1381,7 +1381,7 @@ def manage_institutions(request):
                             'institution': institution
                         })
                     })
-                messages.success(request, 'Institución creada correctamente')
+                messages.success(request, 'Institución creada correctamente', extra_tags='instituciones')
                 return redirect('material:manage_institutions')
             
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1508,7 +1508,7 @@ def delete_institution(request, pk):
             
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
-            messages.success(request, 'Institución eliminada correctamente')
+            messages.success(request, 'Institución eliminada correctamente', extra_tags='instituciones')
             return redirect('material:manage_institutions')
             
     except Exception as e:
@@ -1596,7 +1596,7 @@ def create_institution_v2(request):
                             name=faculty_form.cleaned_data['name']
                         )
 
-                messages.success(request, 'Institución creada con éxito.')
+                messages.success(request, 'Institución creada con éxito.', extra_tags='instituciones')
                 return redirect('material:institution_v2_detail', pk=institution.pk)
     else:
         form = InstitutionV2Form()
@@ -1668,7 +1668,7 @@ def edit_institution_v2(request, pk):
                         elif faculty_form.cleaned_data.get('DELETE', False) and faculty_form.instance.pk:
                             faculty_form.instance.delete()
 
-                    messages.success(request, 'Institución actualizada correctamente')
+                    messages.success(request, 'Institución actualizada correctamente', extra_tags='instituciones')
                     return redirect('material:institution_v2_detail', pk=institution.pk)
 
             except Exception as e:
@@ -1895,7 +1895,7 @@ def create_subject(request):
         form = SubjectForm(request.POST)
         if form.is_valid():
             subject = form.save()
-            messages.success(request, 'Materia creada exitosamente')
+            messages.success(request, 'Materia creada exitosamente', extra_tags='materias')
             return redirect('material:subject_list')
     else:
         form = SubjectForm()
@@ -1908,7 +1908,7 @@ def edit_subject(request, pk):
         form = SubjectForm(request.POST, instance=subject)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Materia actualizada exitosamente')
+            messages.success(request, 'Materia actualizada exitosamente', extra_tags='materias')
             return redirect('material:subject_detail', pk=pk)
     else:
         form = SubjectForm(instance=subject)
@@ -1919,7 +1919,7 @@ def delete_subject(request, pk):
     subject = get_object_or_404(Subject, pk=pk)
     if request.method == 'POST':
         subject.delete()
-        messages.success(request, 'Materia eliminada exitosamente')
+        messages.success(request, 'Materia eliminada exitosamente', extra_tags='materias')
         return redirect('material:subject_list')
     return render(request, 'material/subjects/confirm_delete.html', {'subject': subject})
 
@@ -1946,7 +1946,7 @@ def create_career(request):
         form = CareerForm(request.POST)
         if form.is_valid():
             career = form.save()
-            messages.success(request, 'Carrera creada exitosamente')
+            messages.success(request, 'Carrera creada exitosamente', extra_tags='carreras')
             return redirect('material:career_list')
     else:
         form = CareerForm()
@@ -1962,7 +1962,7 @@ def edit_career(request, pk):
         form = CareerForm(request.POST, instance=career)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Carrera actualizada exitosamente')
+            messages.success(request, 'Carrera actualizada exitosamente', extra_tags='carreras')
             return redirect('material:career_detail', pk=pk)
     else:
         form = CareerForm(instance=career)
@@ -1977,7 +1977,7 @@ def delete_career(request, pk):
     career = get_object_or_404(Career, pk=pk)
     if request.method == 'POST':
         career.delete()
-        messages.success(request, 'Carrera eliminada exitosamente')
+        messages.success(request, 'Carrera eliminada exitosamente', extra_tags='carreras')
         return redirect('material:career_list')
     return render(request, 'material/careers/confirm_delete.html', {'career': career})
 
@@ -2223,7 +2223,7 @@ class LearningOutcomeCreateView(CreateView):
     template_name = 'material/learningoutcome_form.html'
     
     def get_success_url(self):
-        return reverse_lazy('subject_detail', kwargs={'pk': self.object.subject.id})
+        return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.subject.id})
 
     def get_initial(self):
         return {'subject': self.kwargs['subject_id']}
@@ -2231,7 +2231,7 @@ class LearningOutcomeCreateView(CreateView):
     def form_valid(self, form):
         form.instance.subject_id = self.kwargs['subject_id']
         response = super().form_valid(form)
-        messages.success(self.request, 'Resultado de aprendizaje creado')
+        messages.success(self.request, 'Resultado de aprendizaje creado exitosamente', extra_tags='materias')
         return response
 
 class LearningOutcomeListView(ListView):
@@ -2545,10 +2545,10 @@ def create_oral_exam(request):
             # Generar las preguntas para cada grupo y estudiante
             generate_oral_exam_questions(oral_exam)
             
-            messages.success(request, 'Cuestionario oral creado exitosamente')
+            messages.success(request, 'Cuestionario oral creado exitosamente', extra_tags='cuestionarios_orales')
             return redirect('material:view_oral_exam', exam_id=oral_exam.id)
         else:
-            messages.error(request, 'Por favor corrija los errores en el formulario')
+            messages.error(request, 'Por favor corrija los errores en el formulario', extra_tags='cuestionarios_orales')
     else:
         form = OralExamForm(user=request.user)
     
@@ -2734,7 +2734,7 @@ def delete_oral_exam(request, exam_id):
     if request.method == 'POST':
         exam_name = oral_exam.name
         oral_exam.delete()
-        messages.success(request, f'Cuestionario oral "{exam_name}" eliminado exitosamente')
+        messages.success(request, f'Cuestionario oral "{exam_name}" eliminado exitosamente', extra_tags='cuestionarios_orales')
         return redirect('material:list_oral_exams')
     
     return redirect('material:list_oral_exams')

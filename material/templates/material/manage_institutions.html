@@ -1,18 +1,15 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load message_tags %}
 
 {% block content %}
 <div class="container mt-4">
     <h2 class="mb-4">Gestión de Instituciones</h2>
 
-    <div id="ajax-messages">
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        {% endfor %}
-    </div>
+    <!-- Mensajes específicos de instituciones -->
+    {% show_messages "instituciones" %}
+    
+    <div id="ajax-messages"></div>
 
     <div class="card shadow mb-4">
         <div class="card-header bg-primary text-white">

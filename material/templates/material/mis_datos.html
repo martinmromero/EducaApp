@@ -1,12 +1,17 @@
 {% extends 'material/base.html' %}
+{% load message_tags %}
 
 {% block content %}
 <div class="container">
     <h1>Mis datos</h1>
 
-    <!-- Mostrar mensajes -->
-    {% if messages %}
-        {% for message in messages %}
+    <!-- Mensajes específicos de usuarios -->
+    {% show_messages "usuarios" %}
+    
+    <!-- Modal de mensajes (si necesitas mantener funcionalidad específica) -->
+    {% get_filtered_messages "usuarios" as user_messages %}
+    {% if user_messages %}
+        {% for message in user_messages %}
             <!-- Modal para mostrar el mensaje -->
             <div class="modal fade" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
                 <div class="modal-dialog">

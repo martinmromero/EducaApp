@@ -1,9 +1,13 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load message_tags %}
 
 {% block content %}
 <div class="container-fluid">
     <h1 class="h3 mb-4 text-gray-800">Mis Cuestionarios Orales</h1>
+    
+    <!-- Mensajes específicos de cuestionarios orales -->
+    {% show_messages "cuestionarios_orales" %}
     
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
