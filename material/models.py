@@ -140,6 +140,15 @@ class FacultyV2(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name = "Facultad"
+        verbose_name_plural = "Facultades"
+        ordering = ['name']
+        unique_together = ['institution', 'name']
+
+    def __str__(self):
+        return f"{self.name} - {self.institution.name}"
+
 class InstitutionLog(models.Model):
     ACTION_CHOICES = [
         ('create', 'Creación'),

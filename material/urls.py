@@ -31,13 +31,13 @@ urlpatterns = [
     path('download-template/<str:format>/', material_views.download_template, name='download_template'),
     path('editar-pregunta/<int:pk>/', material_views.editar_pregunta, name='editar_pregunta'),
     path('eliminar-pregunta/<int:pk>/', material_views.eliminar_pregunta, name='eliminar_pregunta'),
-    path('logros/', material_views.manage_learning_outcomes, name='manage_learning_outcomes'),
-    path('instituciones/eliminar/<int:pk>/', material_views.delete_institution, name='delete_institution'),
-    path('instituciones/editar/<int:pk>/', material_views.edit_institution, name='edit_institution'),
-
 #crud preguntas
     path('get-topics/', material_views.get_topics, name='get_topics'),
     path('get-subtopics/', material_views.get_subtopics, name='get_subtopics'),
+    
+# AJAX endpoints para carreras
+    path('get-faculties/', material_views.get_faculties, name='get_faculties'),
+    path('get-campus/', material_views.get_campus_by_institution, name='get_campus_by_institution'),
 
 
 
@@ -60,7 +60,6 @@ urlpatterns = [
     path('instituciones-v2/<int:institution_id>/facultad/<int:faculty_id>/delete/', material_views.delete_faculty_v2, name='delete_faculty_v2'),
     path('instituciones-v2/<int:pk>/eliminar-logo/', material_views.delete_institution_logo_v2, name='delete_institution_logo_v2'),
     path('api/create-related-element/', material_views.create_related_element, name='create_related_element'),
-path('instituciones/', material_views.manage_institutions, name='manage_institutions'),
 
 # Subjects CRUD
 path('subjects/', material_views.subject_list, name='subject_list'),
@@ -82,7 +81,6 @@ path('subjects/<int:subject_id>/outcomes/add/', material_views.LearningOutcomeCr
 path('careers/', material_views.career_list, name='career_list'),
 path('careers/create/', material_views.career_create_simple, name='career_create_simple'),
 path('careers/<int:pk>/associations/', material_views.career_associations, name='career_associations'),
-path('careers/<int:pk>/edit/', material_views.edit_career, name='edit_career'),
 path('careers/<int:pk>/delete/', material_views.delete_career, name='delete_career'),
 path('careers/<int:pk>/', material_views.CareerDetailView.as_view(), name='career_detail'),
 

@@ -12,14 +12,23 @@
 </head>
 
 <body>
+    <!-- Botón toggle externo (aparece cuando sidebar está colapsado) -->
+    <button class="sidebar-toggle-external" id="externalToggle" onclick="toggleSidebar()">
+        <i class="bi bi-chevron-right"></i>
+    </button>
+
     <!-- Menú lateral -->
     <div class="sidebar" id="sidebar">
         <!-- Logo y nombre de la app -->
-        <div class="app-brand">
+        <div class="app-brand d-flex justify-content-between align-items-center">
             <a href="{% url 'material:index' %}" class="d-flex align-items-center">
                 <i class="bi bi-journal-bookmark-fill me-2"></i>
-                <span>EducaApp</span>
+                <span class="brand-text">EducaApp</span>
             </a>
+            <!-- Botón toggle dentro del sidebar -->
+            <button class="sidebar-toggle-internal" onclick="toggleSidebar()">
+                <i class="bi bi-chevron-left"></i>
+            </button>
         </div>
 
         <!-- Mensaje de bienvenida -->
@@ -108,14 +117,6 @@
             </div>
         </div>
 
- <!-- Ítem original de Instituciones (se mantiene) -->
-        <div class="menu-item" onclick="toggleSubmenu(this)">
-            <i class="bi bi-building me-2"></i> Instituciones (OLD)
-            <div class="submenu">
-                <a href="{% url 'material:manage_institutions' %}"><i class="bi bi-gear me-2"></i>Gestión (Legado)</a>
-                <a href="{% url 'material:manage_learning_outcomes' %}"><i class="bi bi-book me-2"></i>Resultados de Aprendizaje</a>
-            </div>
-        </div>
         <!-- Menú de Administración (solo para administradores) -->
         {% if is_admin %}
             <div class="menu-item" onclick="toggleSubmenu(this)">
@@ -236,6 +237,23 @@
             });
             // Alterna el submenú del elemento clickeado
             element.classList.toggle('active');
+        }
+
+        // Toggle Sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const externalToggle = document.getElementById('externalToggle');
+            
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+            
+            // Mostrar/ocultar botón externo según el estado del sidebar
+            if (sidebar.classList.contains('collapsed')) {
+                externalToggle.classList.add('show');
+            } else {
+                externalToggle.classList.remove('show');
+            }
         }
 
     </script>

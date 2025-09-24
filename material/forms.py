@@ -5,64 +5,13 @@ from django.core.exceptions import ValidationError
 import math
 from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
-    Subject, Topic, Subtopic, Institution, LearningOutcome, Campus, Faculty, User,
+    Subject, Topic, Subtopic, LearningOutcome, User,
     InstitutionV2, CampusV2, FacultyV2, Career, InstitutionCareer, CareerSubject, UserInstitution,
     OralExamSet
 )
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
 
-
-class InstitutionForm(forms.ModelForm):
-    class Meta:
-        model = Institution
-        fields = ['name', 'logo']
-        widgets = {
-            'name': forms.TextInput(attrs={
-                'class': 'form-control',
-                'required': 'required',
-                'minlength': '3'
-            }),
-            'logo': forms.FileInput(attrs={
-                'class': 'form-control',
-                'accept': '.jpg,.jpeg,.png,.svg'
-            })
-        }
-
-    def clean_name(self):
-        name = self.cleaned_data.get('name')
-        if len(name) < 3:
-            raise ValidationError("El nombre debe tener al menos 3 caracteres")
-        return name
-
-    def clean_logo(self):
-        logo = self.cleaned_data.get('logo')
-        if logo:
-            if logo.size > 2 * 1024 * 1024:
-                raise ValidationError("El logo no debe exceder 2MB")
-            if not logo.content_type in ['image/jpeg', 'image/png', 'image/svg+xml']:
-                raise ValidationError("Formato de imagen no válido (solo JPG, PNG, SVG)")
-        return logo
-
-class CampusForm(forms.ModelForm):
-    class Meta:
-        model = Campus
-        fields = ['name', 'address', 'institution']
-        widgets = {
-            'institution': forms.HiddenInput(),
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'address': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'})
-        }
-
-class FacultyForm(forms.ModelForm):
-    class Meta:
-        model = Faculty
-        fields = ['name', 'code', 'institution']
-        widgets = {
-            'institution': forms.HiddenInput(),
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'code': forms.TextInput(attrs={'class': 'form-control'})
-        }
 
 class LearningOutcomeForm(forms.ModelForm):
     class Meta:
@@ -279,7 +228,7 @@ class UserEditForm(forms.ModelForm):
             cleaned_data['role'] = self.instance.profile.role
         return cleaned_data
     institutions = forms.ModelMultipleChoiceField(
-        queryset=Institution.objects.all(),
+        queryset=InstitutionV2.objects.all(),
         widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
         required=False
     )
@@ -435,15 +384,83 @@ class SubjectForm(forms.ModelForm):
     # Eliminamos el método clean() que validaba min_outcomes
 
 class CareerForm(forms.ModelForm):
+    institution = forms.ModelChoiceField(
+        queryset=InstitutionV2.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="Institución",
+        required=True,
+        empty_label="Seleccione una institución"
+    )
+    
     class Meta:
         model = Career
         fields = ['name', 'faculties', 'campus', 'subjects']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'faculties': forms.SelectMultiple(attrs={'class': 'form-select'}),
-            'campus': forms.SelectMultiple(attrs={'class': 'form-select'}),
-            'subjects': forms.SelectMultiple(attrs={'class': 'form-select'}),
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ingrese el nombre de la carrera'
+            }),
+            'faculties': forms.SelectMultiple(attrs={
+                'class': 'form-select',
+                'size': '6'
+            }),
+            'campus': forms.SelectMultiple(attrs={
+                'class': 'form-select',
+                'size': '6'
+            }),
+            'subjects': forms.SelectMultiple(attrs={
+                'class': 'form-select',
+                'size': '8'
+            }),
         }
+        labels = {
+            'name': 'Nombre de la Carrera *',
+            'faculties': 'Facultades',
+            'campus': 'Sede',
+            'subjects': 'Materias',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        career_pk = kwargs.pop('career_pk', None)
+        super().__init__(*args, **kwargs)
+        
+        # Si hay una carrera, obtener la institución asociada
+        if career_pk:
+            try:
+                institution_career = InstitutionCareer.objects.get(career_id=career_pk)
+                self.fields['institution'].initial = institution_career.institution
+            except InstitutionCareer.DoesNotExist:
+                pass
+        
+        # Inicialmente, vaciar los querysets dependientes
+        self.fields['faculties'].queryset = FacultyV2.objects.none()
+        self.fields['campus'].queryset = CampusV2.objects.none()
+        
+        # Si hay institución seleccionada, filtrar
+        if 'institution' in self.data:
+            try:
+                institution_id = int(self.data.get('institution'))
+                self.fields['faculties'].queryset = FacultyV2.objects.filter(
+                    institution_id=institution_id, is_active=True
+                ).order_by('name')
+                self.fields['campus'].queryset = CampusV2.objects.filter(
+                    institution_id=institution_id
+                ).order_by('name')
+            except (ValueError, TypeError):
+                pass
+        elif self.instance.pk:
+            # Al cargar la forma con una instancia existente
+            try:
+                institution_career = InstitutionCareer.objects.get(career=self.instance)
+                institution_id = institution_career.institution.id
+                self.fields['faculties'].queryset = FacultyV2.objects.filter(
+                    institution_id=institution_id, is_active=True
+                ).order_by('name')
+                self.fields['campus'].queryset = CampusV2.objects.filter(
+                    institution_id=institution_id
+                ).order_by('name')
+            except InstitutionCareer.DoesNotExist:
+                pass
 
 class InstitutionCareerForm(forms.ModelForm):
     class Meta:

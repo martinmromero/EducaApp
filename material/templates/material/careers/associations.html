@@ -1,32 +1,163 @@
 {% extends 'material/base.html' %}
-{% load crispy_forms_tags %}
+{% load static %}
+{% load message_tags %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>Asociaciones para: {{ career.name }}</h2>
-    <div class="card">
-        <div class="card-header">
-            <ul class="nav nav-tabs card-header-tabs">
-                <li class="nav-item">
-                    <a class="nav-link active" href="#">Facultades y Campus</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'material:career_detail' pk=career.pk %}">Ver Detalles</a>
-                </li>
-            </ul>
-        </div>
-        <div class="card-body">
-            <form method="post">
-                {% csrf_token %}
-                {{ form|crispy }}
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i> Guardar Asociaciones
-                </button>
-                <a href="{% url 'material:career_list' %}" class="btn btn-secondary">
-                    <i class="fas fa-times"></i> Volver al Listado
-                </a>
-            </form>
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">Asociaciones de Carrera</h1>
+    
+    <!-- Mensajes -->
+    {% show_messages "examenes" %}
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        Configurar: {{ career.name }}
+                    </h6>
+                    <div class="btn-group">
+                        <a href="{% url 'material:career_detail' pk=career.pk %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i> Ver Detalles
+                        </a>
+                        <a href="{% url 'material:career_list' %}" class="btn btn-sm btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Volver al Listado
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="career-form">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <!-- Nombre de la Carrera -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_name" class="form-label">{{ form.name.label }}</label>
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.name.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Institución -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_institution" class="form-label">{{ form.institution.label }}</label>
+                                {{ form.institution }}
+                                {% if form.institution.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.institution.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <!-- Facultades -->
+                            <div class="col-md-4 mb-3">
+                                <label for="id_faculties" class="form-label">{{ form.faculties.label }}</label>
+                                {{ form.faculties }}
+                                <small class="form-text text-muted">
+                                    Mantén presionado Ctrl (Cmd en Mac) para seleccionar múltiples opciones
+                                </small>
+                                {% if form.faculties.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.faculties.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Sede/Campus -->
+                            <div class="col-md-4 mb-3">
+                                <label for="id_campus" class="form-label">{{ form.campus.label }}</label>
+                                {{ form.campus }}
+                                <small class="form-text text-muted">
+                                    Mantén presionado Ctrl (Cmd en Mac) para seleccionar múltiples opciones
+                                </small>
+                                {% if form.campus.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.campus.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Materias -->
+                            <div class="col-md-4 mb-3">
+                                <label for="id_subjects" class="form-label">{{ form.subjects.label }}</label>
+                                {{ form.subjects }}
+                                <small class="form-text text-muted">
+                                    Mantén presionado Ctrl (Cmd en Mac) para seleccionar múltiples opciones
+                                </small>
+                                {% if form.subjects.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.subjects.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Guardar Asociaciones
+                                </button>
+                                <a href="{% url 'material:career_detail' pk=career.pk %}" class="btn btn-secondary ms-2">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const institutionSelect = document.getElementById('id_institution');
+    const facultiesSelect = document.getElementById('id_faculties');
+    const campusSelect = document.getElementById('id_campus');
+    
+    // Cuando cambie la institución, actualizar facultades y campus
+    institutionSelect.addEventListener('change', function() {
+        const institutionId = this.value;
+        
+        // Limpiar selecciones
+        facultiesSelect.innerHTML = '';
+        campusSelect.innerHTML = '';
+        
+        if (institutionId) {
+            // Cargar facultades
+            fetch(`/get-faculties/?institution_id=${institutionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    data.forEach(faculty => {
+                        const option = document.createElement('option');
+                        option.value = faculty.id;
+                        option.textContent = faculty.name;
+                        facultiesSelect.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error cargando facultades:', error));
+            
+            // Cargar campus
+            fetch(`/get-campus/?institution_id=${institutionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    data.forEach(campus => {
+                        const option = document.createElement('option');
+                        option.value = campus.id;
+                        option.textContent = campus.name;
+                        campusSelect.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error cargando campus:', error));
+        }
+    });
+});
+</script>
 {% endblock %}

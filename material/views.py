@@ -13,7 +13,7 @@ def preview_exam(request):
     # Debug: imprimir los datos recibidos
     print("DEBUG - Datos de exam en preview:", exam)
 
-    from .models import Subject, InstitutionV2, FacultyV2, Career, CampusV2, User, Question, Topic, LearningOutcome
+    from .models import Subject, InstitutionV2, FacultyV2, Career, CampusV2, User, Question, Topic, LearningOutcome, InstitutionCareer
     # Resolver los textos asociados a los PKs
     if exam.get('subject'):
         subject = Subject.objects.filter(pk=exam['subject']).first()
@@ -187,12 +187,12 @@ from django.db import models, transaction
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404, reverse
 from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, 
-    Subtopic,Institution, LearningOutcome, Campus, Faculty,Career, 
+    Subtopic, LearningOutcome, Career, 
     OralExamSet, OralExamGroup, OralExamStudent, OralExamStudentQuestion)
-from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog)
+from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer)
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
-    UserEditForm, ContenidoForm, InstitutionForm, 
+    UserEditForm, ContenidoForm, 
     LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm,
     OralExamForm  
 )
@@ -201,10 +201,10 @@ from django.db.models import Prefetch, F, Value, CharField
 from django.db.models.functions import Concat
 from .ia_processor import extract_text_from_file, generate_questions_from_text
 from django.utils import timezone 
-from .forms import InstitutionForm, LearningOutcomeForm, ProfileForm
+from .forms import LearningOutcomeForm, ProfileForm
 
 
-from .forms import InstitutionV2Form, CampusV2Form, FacultyV2Form, InstitutionForm
+from .forms import InstitutionV2Form, CampusV2Form, FacultyV2Form
 
 from django.db import transaction
 from django.http import JsonResponse
@@ -236,6 +236,21 @@ def get_subtopics(request):
     topic_id = request.GET.get('topic_id')
     subtopics = Subtopic.objects.filter(topic_id=topic_id).values('id', 'name')
     return JsonResponse(list(subtopics), safe=False)
+
+def get_faculties(request):
+    institution_id = request.GET.get('institution_id')
+    faculties = FacultyV2.objects.filter(
+        institution_id=institution_id, 
+        is_active=True
+    ).values('id', 'name').order_by('name')
+    return JsonResponse(list(faculties), safe=False)
+
+def get_campus_by_institution(request):
+    institution_id = request.GET.get('institution_id')
+    campus = CampusV2.objects.filter(
+        institution_id=institution_id
+    ).values('id', 'name').order_by('name')
+    return JsonResponse(list(campus), safe=False)
 
 def is_admin(user):
     try:
@@ -1307,22 +1322,9 @@ def delete_exam_template(request):
     return redirect('material:list_exam_templates')
 
 
-@login_required
-def manage_learning_outcomes(request):
-    if request.method == 'POST':
-        form = LearningOutcomeForm(request.POST)
-        if form.is_valid():
-            outcome = form.save()
-            messages.success(request, 'Resultado de aprendizaje guardado correctamente.')
-            return redirect('material:manage_learning_outcomes')
-    else:
-        form = LearningOutcomeForm()
-
-    outcomes = LearningOutcome.objects.select_related('subject').all()
-    return render(request, 'material/manage_learning_outcomes.html', {
-        'outcomes': outcomes,
-        'form': form
-    })
+# FUNCIÓN OBSOLETA: manage_learning_outcomes eliminada
+# Los learning outcomes ahora se gestionan por materia individual
+# usando LearningOutcomeCreateView y LearningOutcomeListView
 
 @login_required
 def get_learning_outcomes(request):
@@ -1342,71 +1344,6 @@ def get_learning_outcomes(request):
     except Exception as e:
         logger.error(f"Error en get_learning_outcomes: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
-
-
-@login_required
-def manage_institutions(request):
-    if request.method == 'POST':
-        try:
-            form = InstitutionForm(request.POST, request.FILES)
-            if form.is_valid():
-                institution = form.save(commit=False)
-                institution.owner = request.user
-                institution.save()
-                
-                # Procesar sedes
-                for campus_name in request.POST.getlist('campuses'):
-                    if campus_name.strip():
-                        Campus.objects.create(
-                            name=campus_name.strip(),
-                            institution=institution
-                        )
-                
-                # Procesar facultades
-                for name, code in zip(
-                    request.POST.getlist('faculty_names'),
-                    request.POST.getlist('faculty_codes')
-                ):
-                    if name.strip():
-                        Faculty.objects.create(
-                            name=name.strip(),
-                            code=code.strip(),
-                            institution=institution
-                        )
-                
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return JsonResponse({
-                        'success': True,
-                        'html': render_to_string('material/institution_row.html', {
-                            'institution': institution
-                        })
-                    })
-                messages.success(request, 'Institución creada correctamente', extra_tags='instituciones')
-                return redirect('material:manage_institutions')
-            
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'success': False,
-                    'errors': form.errors
-                }, status=400)
-            
-            messages.error(request, 'Error en el formulario')
-            return redirect('material:manage_institutions')
-            
-        except Exception as e:
-            logger.error(f"Error al guardar institución: {str(e)}")
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'success': False,
-                    'error': str(e)
-                }, status=500)
-            messages.error(request, 'Error al procesar la solicitud')
-            return redirect('material:manage_institutions')
-
-    institutions = Institution.objects.filter(owner=request.user).prefetch_related('campuses', 'faculties')
-    return render(request, 'material/manage_institutions.html', {
-        'institutions': institutions
-    })
 
 @login_required
 def edit_institution(request, pk):
@@ -1956,23 +1893,6 @@ def create_career(request):
     })
 
 @login_required
-def edit_career(request, pk):
-    career = get_object_or_404(Career, pk=pk)
-    if request.method == 'POST':
-        form = CareerForm(request.POST, instance=career)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Carrera actualizada exitosamente', extra_tags='carreras')
-            return redirect('material:career_detail', pk=pk)
-    else:
-        form = CareerForm(instance=career)
-    return render(request, 'material/careers/form.html', {
-        'form': form,
-        'action': 'Editar',
-        'career': career
-    })
-
-@login_required
 def delete_career(request, pk):
     career = get_object_or_404(Career, pk=pk)
     if request.method == 'POST':
@@ -2010,13 +1930,26 @@ def career_associations(request, pk):
     career = get_object_or_404(Career, pk=pk)
     
     if request.method == 'POST':
-        form = CareerForm(request.POST, instance=career)
+        form = CareerForm(request.POST, instance=career, career_pk=pk)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Asociaciones actualizadas correctamente')
+            # Guardar la carrera
+            career = form.save()
+            
+            # Manejar la asociación con institución
+            institution = form.cleaned_data.get('institution')
+            if institution:
+                # Actualizar o crear la asociación institución-carrera
+                InstitutionCareer.objects.update_or_create(
+                    career=career,
+                    defaults={'institution': institution, 'is_active': True}
+                )
+            
+            messages.success(request, 'Asociaciones actualizadas correctamente', extra_tags='examenes')
             return redirect('material:career_detail', pk=pk)
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario', extra_tags='examenes')
     else:
-        form = CareerForm(instance=career)
+        form = CareerForm(instance=career, career_pk=pk)
     
     return render(request, 'material/careers/associations.html', {
         'form': form,
