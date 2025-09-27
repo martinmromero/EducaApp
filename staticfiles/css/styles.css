@@ -1,3 +1,57 @@
+/* Botón toggle interno del sidebar */
+.sidebar-toggle-internal {
+    background: none;
+    border: none;
+    color: #6c757d;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-toggle-internal:hover {
+    background-color: #e9ecef;
+    color: #495057;
+}
+
+.sidebar-toggle-internal:active {
+    transform: scale(0.95);
+}
+
+/* Botón toggle externo (para cuando el sidebar está colapsado) */
+.sidebar-toggle-external {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1050;
+    background-color: #f8f9fa;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: none; /* Oculto inicialmente */
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-toggle-external:hover {
+    background-color: #e9ecef;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-toggle-external.show {
+    display: flex;
+}
+
 /* Estilos para el menú lateral */
 .sidebar {
     height: 100%;
@@ -13,8 +67,30 @@
     display: flex;
     flex-direction: column;
 }
+
 .sidebar.collapsed {
     transform: translateX(-250px);
+}
+
+/* Mejorar la visibilidad del brand cuando está colapsado */
+.sidebar .app-brand {
+    padding: 10px 15px;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 10px;
+}
+
+.sidebar .app-brand a {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: #333;
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+.sidebar .app-brand a:hover {
+    background-color: transparent;
+    color: #007bff;
 }
 .sidebar a {
     padding: 10px 15px;
@@ -76,6 +152,12 @@
     }
     .main-content.expanded {
         margin-left: 250px;
+    }
+    
+    /* Botón toggle en móvil */
+    .sidebar-toggle {
+        left: 20px !important;
+        top: 20px;
     }
 }
 
