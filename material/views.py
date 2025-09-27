@@ -178,7 +178,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView
-from django.views.generic import DetailView, UpdateView, CreateView, ListView
+from django.views.generic import DetailView, UpdateView, CreateView, ListView, DeleteView
 from django.urls import reverse_lazy
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods, require_POST
@@ -2181,6 +2181,33 @@ class LearningOutcomeListView(ListView):
         context = super().get_context_data(**kwargs)
         context['subject'] = Subject.objects.get(pk=self.kwargs['subject_id'])
         return context
+
+
+class LearningOutcomeUpdateView(UpdateView):
+    model = LearningOutcome
+    form_class = LearningOutcomeForm
+    template_name = 'material/learningoutcome_form.html'
+    
+    def get_success_url(self):
+        return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.subject.id})
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, 'Resultado de aprendizaje actualizado exitosamente', extra_tags='materias')
+        return response
+
+
+class LearningOutcomeDeleteView(DeleteView):
+    model = LearningOutcome
+    template_name = 'material/learningoutcomes/confirm_delete.html'
+    
+    def get_success_url(self):
+        return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.subject.id})
+
+    def delete(self, request, *args, **kwargs):
+        response = super().delete(request, *args, **kwargs)
+        messages.success(request, 'Resultado de aprendizaje eliminado exitosamente', extra_tags='materias')
+        return response
     
 
 class SubjectCreateView(CreateView):

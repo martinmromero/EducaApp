@@ -74,6 +74,8 @@ path('subjects/<int:pk>/delete/', material_views.delete_subject, name='delete_su
 path('subjects/<int:pk>/', material_views.SubjectDetailView.as_view(), name='subject_detail'),  
 path('subjects/<int:subject_id>/outcomes/', material_views.LearningOutcomeListView.as_view(), name='learningoutcome_list'),
 path('subjects/<int:subject_id>/outcomes/add/', material_views.LearningOutcomeCreateView.as_view(), name='learningoutcome_add'),
+path('outcomes/<int:pk>/edit/', material_views.LearningOutcomeUpdateView.as_view(), name='learningoutcome_edit'),
+path('outcomes/<int:pk>/delete/', material_views.LearningOutcomeDeleteView.as_view(), name='learningoutcome_delete'),
 
 
 # Careers CRUD
