@@ -2189,7 +2189,12 @@ class LearningOutcomeUpdateView(UpdateView):
     template_name = 'material/learningoutcome_form.html'
     
     def get_success_url(self):
-        return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.subject.id})
+        try:
+            if self.object and self.object.subject and self.object.subject.id:
+                return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.subject.id})
+        except (AttributeError, ValueError):
+            pass
+        return reverse_lazy('material:subject_list')
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -2202,7 +2207,12 @@ class LearningOutcomeDeleteView(DeleteView):
     template_name = 'material/learningoutcomes/confirm_delete.html'
     
     def get_success_url(self):
-        return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.subject.id})
+        try:
+            if self.object and self.object.subject and self.object.subject.id:
+                return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.subject.id})
+        except (AttributeError, ValueError):
+            pass
+        return reverse_lazy('material:subject_list')
 
     def delete(self, request, *args, **kwargs):
         response = super().delete(request, *args, **kwargs)

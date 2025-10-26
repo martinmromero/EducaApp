@@ -8,7 +8,12 @@
             <div class="card">
                 <div class="card-header bg-success text-white">
                     <h3 class="mb-0">
-                        <i class="fas fa-bullseye me-2"></i>Agregar Resultado de Aprendizaje
+                        <i class="fas fa-bullseye me-2"></i>
+                        {% if object %}
+                            Editar Resultado de Aprendizaje
+                        {% else %}
+                            Agregar Resultado de Aprendizaje
+                        {% endif %}
                     </h3>
                 </div>
                 <div class="card-body">
@@ -40,9 +45,22 @@
                         </div>
                         
                         <div class="d-flex justify-content-between">
-                            <a href="{% url 'material:subject_detail' pk=view.kwargs.subject_id %}" class="btn btn-secondary">
-                                <i class="fas fa-arrow-left me-1"></i> Cancelar
-                            </a>
+                            {% if view.kwargs.subject_id %}
+                                <!-- Para crear nuevo outcome -->
+                                <a href="{% url 'material:subject_detail' pk=view.kwargs.subject_id %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i> Cancelar
+                                </a>
+                            {% elif object.subject %}
+                                <!-- Para editar outcome existente -->
+                                <a href="{% url 'material:subject_detail' pk=object.subject.pk %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i> Cancelar
+                                </a>
+                            {% else %}
+                                <!-- Fallback -->
+                                <a href="{% url 'material:subject_list' %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i> Cancelar
+                                </a>
+                            {% endif %}
                             <button type="submit" class="btn btn-success">
                                 <i class="fas fa-save me-1"></i> Guardar Resultado
                             </button>
