@@ -9,7 +9,8 @@ __pycache__/
 *.pyd
 
 # Ignorar la base de datos SQLite (si es local)
-db.sqlite3
+# comentado para que la base sí pase entre las 2 notebooks
+# db.sqlite3
 
 # Ignorar archivos de entorno
 .env
@@ -18,4 +19,5 @@ db.sqlite3
 .vscode/
 
 # Ignorar archivos de medios subidos por usuarios (si no quieres subirlos)
-media/
+# tal vez sirva no subir media, pero ahora lo comenté porque estoy con las 2 notebooks y 
+#media/

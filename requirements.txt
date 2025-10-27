@@ -6,3 +6,4 @@ django-crispy-forms==2.4
 django-debug-toolbar==4.2.0
 djangorestframework==3.16.0
 crispy-bootstrap5
+django-extensions==3.2.3
