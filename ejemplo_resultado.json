@@ -1,0 +1,48 @@
+{
+  "metadata": {
+    "title": "",
+    "author": "",
+    "subject": "",
+    "total_pages": 4,
+    "format": "PDF 1.7"
+  },
+  "toc": [
+    {
+      "level": 1,
+      "title": "Capítulo 1: Introducción",
+      "page": 2
+    },
+    {
+      "level": 1,
+      "title": "Capítulo 2: Metodología",
+      "page": 4
+    }
+  ],
+  "chapters": [
+    {
+      "title": "Capítulo 1: Introducción",
+      "content": "Encabezado del Documento - Página 2\nCapítulo 1: Introducción\nEste es el contenido del capítulo 1.\nAquí explicamos los conceptos básicos de nuestra investigación.\nEs fundamental entender estos principios antes de continuar.\n\nEncabezado del Documento - Página 3\nContinuación del Capítulo 1...\nMás contenido importante sobre la introducción.",
+      "tokens": 84,
+      "pages": [
+        2,
+        3
+      ]
+    },
+    {
+      "title": "Capítulo 2: Metodología",
+      "content": "Encabezado del Documento - Página 4\nCapítulo 2: Metodología\nEn este capítulo describimos los métodos utilizados.\nAplicamos técnicas cuantitativas y cualitativas.",
+      "tokens": 48,
+      "pages": [
+        4
+      ]
+    }
+  ],
+  "full_text": "",
+  "stats": {
+    "total_pages": 4,
+    "total_chapters": 2,
+    "total_tokens": 132,
+    "removed_headers": 0,
+    "removed_footers": 0
+  }
+}

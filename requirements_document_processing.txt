@@ -1,0 +1,122 @@
+# ============================================================================
+# 📄 REQUIREMENTS: Document Processing Module (Stack Completo)
+# ============================================================================
+# Fecha: 29 octubre 2025
+# Propósito: Librerías para interpretar documentos (PDF, DOCX, PPTX, TXT)
+#            con foco en extracción limpia de estructura y optimización de tokens
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 🔴 CORE: Procesamiento de Documentos
+# ----------------------------------------------------------------------------
+
+# PDF - Extracción avanzada con detección de estructura
+PyMuPDF==1.25.1
+# Razón: REEMPLAZA a PyPDF2 (más rápido, extrae TOC, mejor con layouts complejos)
+# Uso: Extracción de texto, TOC, metadatos, detección de headers/footers
+
+# PDF - Análisis estructural complementario
+pdfplumber==0.11.0
+# Razón: Complementa PyMuPDF para tablas, detección de layouts multi-columna
+# Uso: Extracción de tablas, detección precisa de posiciones de texto
+
+# DOCX - Archivos Microsoft Word
+python-docx==0.8.11
+# Razón: Ya instalada, funcional y mantenida
+# Uso: Extracción de párrafos, estilos (títulos), headers/footers
+
+# PPTX - Archivos PowerPoint
+python-pptx==0.6.23
+# Razón: Ya instalada, funcional
+# Uso: Extracción de texto de slides, notas, títulos
+
+# ----------------------------------------------------------------------------
+# 🧮 OPTIMIZACIÓN DE TOKENS (CRÍTICO para IA)
+# ----------------------------------------------------------------------------
+
+# Conteo exacto de tokens OpenAI/Claude
+tiktoken==0.9.0
+# Razón: ESENCIAL - mide tokens antes de enviar a IA para evitar sobrecostos
+# Uso: Conteo preciso para GPT-3.5/4, fragmentación inteligente de texto
+
+# ----------------------------------------------------------------------------
+# 🧹 LIMPIEZA Y NORMALIZACIÓN
+# ----------------------------------------------------------------------------
+
+# Conversión HTML → Markdown (reduce tokens)
+markdownify==0.13.1
+# Razón: Convierte HTML extraído a Markdown limpio (menos tokens que HTML)
+# Uso: Limpieza de formato rico, conversión de PDFs con estilos complejos
+
+# Expresiones regulares avanzadas (ya instalada en base)
+# regex==2025.10.22
+# Razón: Detección de patrones (capítulos, secciones, referencias)
+# Nota: Ya viene con entorno base, no reinstalar
+
+# ----------------------------------------------------------------------------
+# 📐 PROCESAMIENTO DE TEXTO (Opcional - usar con moderación)
+# ----------------------------------------------------------------------------
+
+# NLP básico - tokenización, stopwords
+# nltk==3.9.2
+# Razón: Ya instalada. Útil para división en oraciones, limpieza de stopwords
+# Advertencia: Pesada (>50MB de datos). Usar solo si necesitás análisis semántico
+
+# NLP avanzado - detección de entidades, estructura sintáctica
+# spacy==3.8.7
+# Razón: Ya instalada. Útil para detectar títulos por análisis sintáctico
+# Advertencia: MUY pesada (>100MB con modelos). Usar solo si regex no alcanza
+
+# ----------------------------------------------------------------------------
+# 🛠️ UTILIDADES
+# ----------------------------------------------------------------------------
+
+# Parser XML (dependencia de python-docx, ya instalada)
+lxml==6.0.2
+# Razón: Requerida por python-docx, útil para parsear XML/HTML
+
+# Procesamiento de imágenes (ya instalada en base)
+# Pillow==12.0.0
+# Razón: Extracción de imágenes embebidas en documentos (opcional)
+
+# HTTP requests (ya instalada)
+# requests==2.32.5
+# Razón: Descarga de documentos remotos (si aplica)
+
+# ----------------------------------------------------------------------------
+# 📊 DATOS Y MANIPULACIÓN
+# ----------------------------------------------------------------------------
+
+# Arrays numéricos (ya instalada, requerida por spacy/nltk)
+# numpy==2.3.4
+# Razón: Dependencia de spacy. Útil si hacés procesamiento de embeddings
+
+# ----------------------------------------------------------------------------
+# 🎨 DEBUG Y PRESENTACIÓN (Opcional)
+# ----------------------------------------------------------------------------
+
+# Output de consola con formato
+# rich==14.2.0
+# Razón: Ya instalada. Útil para debug/logs bonitos durante desarrollo
+
+# ============================================================================
+# 📦 INSTALACIÓN COMPLETA
+# ============================================================================
+# Comando PowerShell (desde raíz del proyecto):
+#   .\.venv\Scripts\Activate.ps1
+#   pip install -r requirements_document_processing.txt
+#
+# Verificación:
+#   python -c "import fitz, pdfplumber, tiktoken, docx, pptx; print('✅ OK')"
+# ============================================================================
+
+# ============================================================================
+# 🔄 ALTERNATIVA: Stack Minimalista (solo lo crítico)
+# ============================================================================
+# Si querés instalar SOLO lo esencial, comentá todo excepto:
+#   PyMuPDF==1.25.1
+#   tiktoken==0.9.0
+#   python-docx==0.8.11
+#   python-pptx==0.6.23
+#   lxml==6.0.2
+# ============================================================================

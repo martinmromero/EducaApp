@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views as material_views  # Usar el mismo alias para todas las vistas
+from . import views_document_processor as doc_views  # Importar vistas del procesador de documentos
 
 app_name = 'material'
 
@@ -38,6 +39,13 @@ urlpatterns = [
 # AJAX endpoints para carreras
     path('get-faculties/', material_views.get_faculties, name='get_faculties'),
     path('get-campus/', material_views.get_campus_by_institution, name='get_campus_by_institution'),
+
+# Document Processor - Nuevas URLs para procesamiento avanzado de documentos
+    path('doc-processor/', doc_views.document_processor_dashboard, name='document_processor_dashboard'),
+    path('doc-processor/upload/', doc_views.upload_and_process_document, name='upload_and_process_document'),
+    path('doc-processor/count-tokens/', doc_views.count_document_tokens, name='count_document_tokens'),
+    path('doc-processor/split-chunks/', doc_views.split_text_chunks, name='split_text_chunks'),
+    path('doc-processor/optimize/', doc_views.optimize_text_view, name='optimize_text'),
 
 
 

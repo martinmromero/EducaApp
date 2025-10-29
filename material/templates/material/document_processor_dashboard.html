@@ -1,0 +1,383 @@
+{% extends "material/base.html" %}
+{% load static %}
+
+{% block title %}Procesador de Documentos - EducaApp{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2><i class="fas fa-file-alt"></i> Procesador de Documentos con IA</h2>
+            <p class="text-muted">Analiza documentos PDF, DOCX, PPTX con detección automática de estructura y conteo de tokens para optimizar envíos a IA</p>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Tabs de funcionalidades -->
+    <ul class="nav nav-tabs" id="docProcessorTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab">
+                <i class="fas fa-upload"></i> Procesar Documento
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tokens-tab" data-bs-toggle="tab" data-bs-target="#tokens" type="button" role="tab">
+                <i class="fas fa-calculator"></i> Contador de Tokens
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="optimize-tab" data-bs-toggle="tab" data-bs-target="#optimize" type="button" role="tab">
+                <i class="fas fa-compress"></i> Optimizador
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content mt-4" id="docProcessorTabContent">
+        <!-- Tab 1: Procesar Documento Completo -->
+        <div class="tab-pane fade show active" id="upload" role="tabpanel">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-upload"></i> Subir Documento</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="uploadDocumentForm" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label class="form-label">Archivo</label>
+                                    <input type="file" class="form-control" id="documentFile" name="documento" accept=".pdf,.docx,.pptx,.txt" required>
+                                    <small class="text-muted">Formatos: PDF, DOCX, PPTX, TXT (máx {{ max_file_size_mb }}MB)</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="removeHeaders" name="remove_headers" checked>
+                                        <label class="form-check-label" for="removeHeaders">
+                                            Eliminar headers repetitivos
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="removeFooters" name="remove_footers" checked>
+                                        <label class="form-check-label" for="removeFooters">
+                                            Eliminar footers repetitivos
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-cogs"></i> Procesar Documento
+                                </button>
+                            </form>
+
+                            <div id="uploadProgress" class="mt-3" style="display:none;">
+                                <div class="progress">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                                </div>
+                                <small class="text-muted">Procesando...</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-8">
+                    <div id="resultCard" class="card" style="display:none;">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="fas fa-check-circle"></i> Resultado del Procesamiento</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="resultContent"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Contador de Tokens -->
+        <div class="tab-pane fade" id="tokens" role="tabpanel">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="fas fa-calculator"></i> Contar Tokens</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Sube un documento para calcular tokens y estimar costos de procesamiento con IA (GPT-4).</p>
+                            <form id="countTokensForm" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label class="form-label">Archivo</label>
+                                    <input type="file" class="form-control" id="tokenFile" name="documento" accept=".pdf,.docx,.pptx,.txt" required>
+                                </div>
+                                <button type="submit" class="btn btn-info w-100">
+                                    <i class="fas fa-calculator"></i> Calcular Tokens
+                                </button>
+                            </form>
+
+                            <div id="tokenProgress" class="mt-3" style="display:none;">
+                                <div class="spinner-border text-info" role="status"></div>
+                                <span class="ms-2">Contando tokens...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div id="tokenResultCard" class="card" style="display:none;">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="fas fa-chart-line"></i> Resultado</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="tokenResultContent"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Optimizador de Texto -->
+        <div class="tab-pane fade" id="optimize" role="tabpanel">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-warning">
+                            <h5 class="mb-0"><i class="fas fa-compress"></i> Optimizar Texto</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Reduce tokens sin perder información eliminando espacios extras y contenido redundante.</p>
+                            <form id="optimizeForm">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label class="form-label">Texto a Optimizar</label>
+                                    <textarea class="form-control" id="inputText" name="text" rows="8" required placeholder="Pega aquí el texto a optimizar..."></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="removeWhitespace" name="remove_whitespace" checked>
+                                        <label class="form-check-label" for="removeWhitespace">
+                                            Eliminar espacios y saltos de línea extras
+                                        </label>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-warning w-100">
+                                    <i class="fas fa-magic"></i> Optimizar
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div id="optimizeResultCard" class="card" style="display:none;">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="fas fa-check"></i> Texto Optimizado</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="optimizeResultContent"></div>
+                            <hr>
+                            <div class="mb-3">
+                                <label class="form-label">Texto Resultante</label>
+                                <textarea class="form-control" id="optimizedText" rows="8" readonly></textarea>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="copyOptimizedText()">
+                                <i class="fas fa-copy"></i> Copiar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Form: Procesar Documento
+document.getElementById('uploadDocumentForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const progressDiv = document.getElementById('uploadProgress');
+    const resultCard = document.getElementById('resultCard');
+    
+    progressDiv.style.display = 'block';
+    resultCard.style.display = 'none';
+    
+    try {
+        const response = await fetch('{% url "material:upload_and_process_document" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const data = await response.json();
+        progressDiv.style.display = 'none';
+        
+        if (data.success) {
+            displayDocumentResult(data);
+            resultCard.style.display = 'block';
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        progressDiv.style.display = 'none';
+        alert('Error al procesar: ' + error);
+    }
+});
+
+function displayDocumentResult(data) {
+    let html = `
+        <h5>${data.filename}</h5>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>Páginas/Slides:</strong> ${data.stats.total_pages || data.stats.total_slides || 'N/A'}<br>
+                <strong>Capítulos:</strong> ${data.stats.total_chapters}<br>
+                <strong>Total de Tokens:</strong> <span class="badge bg-primary">${data.stats.total_tokens.toLocaleString()}</span>
+            </div>
+            <div class="col-md-6">
+                ${data.stats.removed_headers ? `<small class="text-muted">Headers eliminados: ${data.stats.removed_headers}</small><br>` : ''}
+                ${data.stats.removed_footers ? `<small class="text-muted">Footers eliminados: ${data.stats.removed_footers}</small>` : ''}
+            </div>
+        </div>
+        <hr>
+        <h6>Capítulos Detectados:</h6>
+        <div class="accordion" id="chaptersAccordion">
+    `;
+    
+    data.chapters.forEach((chapter, index) => {
+        html += `
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button ${index > 0 ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" data-bs-target="#chapter${index}">
+                        ${chapter.title} <span class="badge bg-secondary ms-2">${chapter.tokens} tokens</span>
+                    </button>
+                </h2>
+                <div id="chapter${index}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" data-bs-parent="#chaptersAccordion">
+                    <div class="accordion-body">
+                        <p><small class="text-muted">Páginas: ${chapter.pages.join(', ')}</small></p>
+                        <p>${chapter.content_preview}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    document.getElementById('resultContent').innerHTML = html;
+}
+
+// Form: Contador de Tokens
+document.getElementById('countTokensForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const progressDiv = document.getElementById('tokenProgress');
+    const resultCard = document.getElementById('tokenResultCard');
+    
+    progressDiv.style.display = 'block';
+    resultCard.style.display = 'none';
+    
+    try {
+        const response = await fetch('{% url "material:count_document_tokens" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const data = await response.json();
+        progressDiv.style.display = 'none';
+        
+        if (data.success) {
+            document.getElementById('tokenResultContent').innerHTML = `
+                <h5>${data.filename}</h5>
+                <div class="alert alert-info">
+                    <h3 class="mb-0">${data.total_tokens.toLocaleString()}</h3>
+                    <small>Tokens totales (GPT-4)</small>
+                </div>
+                <p><strong>Costo estimado:</strong> $${data.estimated_cost_usd} USD</p>
+                <small class="text-muted">${data.model_reference}</small>
+            `;
+            resultCard.style.display = 'block';
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        progressDiv.style.display = 'none';
+        alert('Error: ' + error);
+    }
+});
+
+// Form: Optimizador
+document.getElementById('optimizeForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const resultCard = document.getElementById('optimizeResultCard');
+    
+    try {
+        const response = await fetch('{% url "material:optimize_text" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('optimizeResultContent').innerHTML = `
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <h5>${data.original_tokens}</h5>
+                        <small>Tokens originales</small>
+                    </div>
+                    <div class="col-md-4">
+                        <h5>${data.optimized_tokens}</h5>
+                        <small>Tokens optimizados</small>
+                    </div>
+                    <div class="col-md-4">
+                        <h5 class="text-success">-${data.percentage_saved}%</h5>
+                        <small>Ahorro</small>
+                    </div>
+                </div>
+            `;
+            document.getElementById('optimizedText').value = data.optimized_text;
+            resultCard.style.display = 'block';
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error);
+    }
+});
+
+function copyOptimizedText() {
+    const text = document.getElementById('optimizedText');
+    text.select();
+    document.execCommand('copy');
+    alert('Texto copiado al portapapeles');
+}
+</script>
+
+<style>
+.accordion-button {
+    font-size: 0.95rem;
+}
+
+.accordion-body {
+    font-size: 0.9rem;
+}
+
+.nav-tabs .nav-link {
+    color: #666;
+}
+
+.nav-tabs .nav-link.active {
+    font-weight: bold;
+}
+</style>
+{% endblock %}
