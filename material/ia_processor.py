@@ -214,3 +214,171 @@ def generate_questions_from_text(text, num_questions):
         "Para habilitarlo: pip install transformers torch\n"
         f"Texto recibido: {len(text)} caracteres, ~{count_tokens(text)} tokens"
     )
+
+
+def extract_book_metadata(file_path):
+    """
+    Extrae metadata de un libro PDF (ISBN, título, autor, edición, editorial, año, páginas).
+    
+    Args:
+        file_path: Ruta al archivo PDF
+    
+    Returns:
+        dict con metadata extraída: {
+            'title': str,
+            'author': str,
+            'isbn': str,
+            'edition': str,
+            'publisher': str,
+            'year': int,
+            'pages': int
+        }
+    """
+    metadata = {
+        'title': '',
+        'author': '',
+        'isbn': '',
+        'edition': '',
+        'publisher': '',
+        'year': None,
+        'pages': None
+    }
+    
+    _, file_extension = os.path.splitext(file_path)
+    if file_extension.lower() != '.pdf':
+        return metadata
+    
+    try:
+        doc = fitz.open(file_path)
+        
+        # 1. Metadata del PDF (título, autor, fecha)
+        pdf_metadata = doc.metadata
+        if pdf_metadata:
+            metadata['title'] = pdf_metadata.get('title', '').strip()
+            metadata['author'] = pdf_metadata.get('author', '').strip()
+            
+            # Intentar extraer año de creationDate o modDate
+            creation_date = pdf_metadata.get('creationDate', '')
+            if creation_date and len(creation_date) >= 4:
+                try:
+                    # Formato: D:YYYYMMDD...
+                    year_match = re.search(r'(\d{4})', creation_date)
+                    if year_match:
+                        metadata['year'] = int(year_match.group(1))
+                except:
+                    pass
+        
+        # 2. Número de páginas
+        metadata['pages'] = len(doc)
+        
+        # 3. Extraer texto de las primeras 5 páginas para buscar ISBN, edición, editorial
+        # (muchos libros tienen la info de copyright en páginas 3-5)
+        first_pages_text = ""
+        for page_num in range(min(5, len(doc))):
+            first_pages_text += f"\n--- Página {page_num+1} ---\n"
+            first_pages_text += doc[page_num].get_text()
+        
+        # 4. Buscar ISBN (varios formatos, incluyendo con guiones)
+        isbn_patterns = [
+            r'ISBN[:\s-]*(\d{3}[-\s]?\d{1,5}[-\s]?\d{1,7}[-\s]?\d{1,7}[-\s]?\d)',  # ISBN-13 con guiones
+            r'ISBN[:\s-]*(\d{13})',  # ISBN-13 sin guiones
+            r'ISBN[:\s-]*(\d{1,5}[-\s]?\d{1,7}[-\s]?\d{1,7}[-\s]?[\dX])',  # ISBN-10 con guiones
+            r'ISBN[:\s-]*(\d{10})',  # ISBN-10 sin guiones
+            r'(?:ISBN|isbn)[-:]?\s*(\d{10,13})',  # ISBN simple
+        ]
+        
+        for pattern in isbn_patterns:
+            isbn_match = re.search(pattern, first_pages_text, re.IGNORECASE)
+            if isbn_match:
+                isbn = isbn_match.group(1)
+                # Normalizar: mantener solo dígitos (eliminar guiones y espacios)
+                isbn_clean = isbn.replace('-', '').replace(' ', '')
+                # Validar longitud (10 o 13 dígitos)
+                if len(isbn_clean) in [10, 13]:
+                    metadata['isbn'] = isbn  # Mantener formato original con guiones
+                    break
+        
+        # 5. Buscar edición (patrones mejorados para español)
+        edition_patterns = [
+            r'Primera\s+edici[oó]n[:\s]+(\w+\s+de\s+)?(\d{4})',  # "Primera edición: noviembre de 2024"
+            r'(\d+)[ºª]?\s+edici[oó]n',  # "3ª edición" o "3 edición"
+            r'(\d+)(?:st|nd|rd|th)\s+edition',  # "3rd edition"
+            r'edici[oó]n[:\s]+(\d+)',  # "Edición: 3"
+            r'edition[:\s]+(\d+)',  # "Edition: 3"
+        ]
+        
+        for pattern in edition_patterns:
+            edition_match = re.search(pattern, first_pages_text, re.IGNORECASE)
+            if edition_match:
+                # Para "Primera edición", extraer 1
+                if 'primera' in pattern.lower() or 'first' in pattern.lower():
+                    metadata['edition'] = '1'
+                else:
+                    # Extraer el número de edición
+                    groups = edition_match.groups()
+                    for group in groups:
+                        if group and group.isdigit():
+                            metadata['edition'] = group
+                            break
+                if metadata['edition']:
+                    break
+        
+        # 6. Buscar editorial (patrones mejorados, ordenados por prioridad)
+        publisher_patterns = [
+            # Primero: patrones más específicos
+            r'Ediciones\s+([A-Z][A-ZÁ-ÿ]+)',  # "Ediciones OCTAEDRO"
+            r'Editorial\s+([A-Z][A-Za-zÁ-ÿ]+(?:\s+[A-Z][A-Za-zÁ-ÿ]+)?)',  # "Editorial Pearson Education"
+            # Segundo: con dos puntos
+            r'Editorial[:\s]+([A-Z][A-Za-zÁ-ÿ\s&,.-]+?)(?:\n|,)',  # "Editorial: Nombre"
+            r'Publisher[:\s]+([A-Z][A-Za-z\s&,.-]+?)(?:\n|,)',  # "Publisher: Name"
+            r'Publicado\s+por[:\s]+([A-Z][A-Za-zÁ-ÿ\s&,.-]+?)(?:\n|,)',  # "Publicado por: Editorial"
+            r'Published\s+by[:\s]+([A-Z][A-Za-z\s&,.-]+?)(?:\n|,)',  # "Published by: Publisher"
+        ]
+        
+        for pattern in publisher_patterns:
+            publisher_match = re.search(pattern, first_pages_text)
+            if publisher_match:
+                publisher = publisher_match.group(1).strip()
+                # Limpiar publisher (quitar espacios extras, comas finales, etc.)
+                publisher = re.sub(r'\s+', ' ', publisher)
+                publisher = publisher.strip(',.-')
+                # Validar longitud razonable
+                if 2 < len(publisher) < 80:
+                    metadata['publisher'] = publisher
+                    break
+        
+        # 7. Buscar año de publicación en el texto (patrones mejorados)
+        if not metadata['year']:
+            year_patterns = [
+                r'Primera\s+edici[oó]n[:\s]+\w+\s+de\s+(\d{4})',  # "Primera edición: noviembre de 2024"
+                r'©\s*(\d{4})',  # "© 2024"
+                r'Copyright\s*©?\s*(\d{4})',  # "Copyright © 2024"
+                r'Publicado\s+en\s+(\d{4})',  # "Publicado en 2024"
+                r'Published\s+in\s+(\d{4})',  # "Published in 2024"
+                r'(\d{4})\s*©',  # "2024 ©"
+            ]
+            
+            for pattern in year_patterns:
+                year_match = re.search(pattern, first_pages_text, re.IGNORECASE)
+                if year_match:
+                    year = int(year_match.group(1))
+                    if 1900 <= year <= 2030:  # Validar rango razonable
+                        metadata['year'] = year
+                        break
+        
+        # 8. Si no hay título en metadata, intentar extraer de la primera página
+        if not metadata['title']:
+            lines = first_pages_text.split('\n')
+            # Buscar la primera línea con longitud significativa (probablemente el título)
+            for line in lines[:10]:
+                line = line.strip()
+                if 10 < len(line) < 200 and not line.startswith('ISBN'):
+                    metadata['title'] = line
+                    break
+        
+        doc.close()
+        
+    except Exception as e:
+        print(f"Error extrayendo metadata: {e}")
+    
+    return metadata

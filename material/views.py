@@ -199,7 +199,7 @@ from .forms import (
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Prefetch, F, Value, CharField
 from django.db.models.functions import Concat
-from .ia_processor import extract_text_from_file, generate_questions_from_text
+from .ia_processor import extract_text_from_file, generate_questions_from_text, extract_book_metadata
 from django.utils import timezone 
 from .forms import LearningOutcomeForm, ProfileForm
 
@@ -289,6 +289,61 @@ def upload_contenido(request):  # Antes upload_material
     else:
         form = ContenidoForm()
     return render(request, 'material/questions/upload.html', {'form': form})
+
+@login_required
+def extract_metadata_from_upload(request):
+    """
+    Vista AJAX para extraer metadata de un archivo PDF subido.
+    Retorna JSON con ISBN, título, autor, edición, editorial, año, páginas.
+    """
+    from django.http import JsonResponse
+    import tempfile
+    import os
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    
+    if 'file' not in request.FILES:
+        return JsonResponse({'error': 'No se recibió ningún archivo'}, status=400)
+    
+    uploaded_file = request.FILES['file']
+    
+    # Validar que sea PDF
+    if not uploaded_file.name.lower().endswith('.pdf'):
+        return JsonResponse({
+            'error': 'Solo se puede extraer metadata de archivos PDF',
+            'metadata': {}
+        })
+    
+    try:
+        # Guardar temporalmente el archivo
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+            for chunk in uploaded_file.chunks():
+                tmp_file.write(chunk)
+            tmp_path = tmp_file.name
+        
+        # Extraer metadata
+        metadata = extract_book_metadata(tmp_path)
+        
+        # Limpiar archivo temporal
+        os.unlink(tmp_path)
+        
+        # Si no hay título, usar el nombre del archivo
+        if not metadata.get('title'):
+            metadata['title'] = os.path.splitext(uploaded_file.name)[0]
+        
+        return JsonResponse({
+            'success': True,
+            'metadata': metadata,
+            'filename': uploaded_file.name
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'error': f'Error al procesar el archivo: {str(e)}',
+            'metadata': {}
+        }, status=500)
+
 
 @login_required
 def generate_questions(request, contenido_id):

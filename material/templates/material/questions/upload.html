@@ -8,6 +8,22 @@
     <!-- Mensajes específicos de contenidos -->
     {% show_messages "contenidos" %}
 
+    <!-- Alerta de metadata extraída -->
+    <div id="metadataAlert" class="alert alert-info d-none" role="alert">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Metadata detectada automáticamente:</strong>
+        <span id="metadataInfo"></span>
+        <button type="button" class="btn-close float-end" data-bs-dismiss="alert"></button>
+    </div>
+
+    <!-- Spinner de carga -->
+    <div id="loadingSpinner" class="d-none text-center my-3">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Extrayendo metadata...</span>
+        </div>
+        <p class="mt-2">Analizando documento...</p>
+    </div>
+
     <form method="post" enctype="multipart/form-data" id="uploadForm">
         {% csrf_token %}
         <div class="mb-3">
@@ -16,4 +32,110 @@
         <button type="submit" class="btn btn-primary w-100">Subir archivo</button>
     </form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.querySelector('input[type="file"]');
+    const form = document.getElementById('uploadForm');
+    
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            
+            if (!file) return;
+            
+            // Solo procesar PDFs
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                return;
+            }
+            
+            // Mostrar spinner
+            document.getElementById('loadingSpinner').classList.remove('d-none');
+            document.getElementById('metadataAlert').classList.add('d-none');
+            
+            // Crear FormData y enviar archivo
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('{% url "material:extract_metadata_from_upload" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Ocultar spinner
+                document.getElementById('loadingSpinner').classList.add('d-none');
+                
+                if (data.success && data.metadata) {
+                    const metadata = data.metadata;
+                    
+                    // Pre-llenar campos del formulario
+                    if (metadata.title) {
+                        const titleInput = document.querySelector('input[name="title"]');
+                        if (titleInput && !titleInput.value) {
+                            titleInput.value = metadata.title;
+                        }
+                    }
+                    
+                    if (metadata.isbn) {
+                        const isbnInput = document.querySelector('input[name="isbn"]');
+                        if (isbnInput) {
+                            isbnInput.value = metadata.isbn;
+                        }
+                    }
+                    
+                    if (metadata.edition) {
+                        const editionInput = document.querySelector('input[name="edition"]');
+                        if (editionInput) {
+                            editionInput.value = metadata.edition;
+                        }
+                    }
+                    
+                    if (metadata.publisher) {
+                        const publisherInput = document.querySelector('input[name="publisher"]');
+                        if (publisherInput) {
+                            publisherInput.value = metadata.publisher;
+                        }
+                    }
+                    
+                    if (metadata.year) {
+                        const yearInput = document.querySelector('input[name="year"]');
+                        if (yearInput) {
+                            yearInput.value = metadata.year;
+                        }
+                    }
+                    
+                    if (metadata.pages) {
+                        const pagesInput = document.querySelector('input[name="pages"]');
+                        if (pagesInput) {
+                            pagesInput.value = metadata.pages;
+                        }
+                    }
+                    
+                    // Mostrar alerta con información
+                    let infoText = [];
+                    if (metadata.title) infoText.push(`Título: ${metadata.title}`);
+                    if (metadata.isbn) infoText.push(`ISBN: ${metadata.isbn}`);
+                    if (metadata.edition) infoText.push(`Edición: ${metadata.edition}`);
+                    if (metadata.publisher) infoText.push(`Editorial: ${metadata.publisher}`);
+                    if (metadata.year) infoText.push(`Año: ${metadata.year}`);
+                    if (metadata.pages) infoText.push(`Páginas: ${metadata.pages}`);
+                    
+                    if (infoText.length > 0) {
+                        document.getElementById('metadataInfo').textContent = infoText.join(' | ');
+                        document.getElementById('metadataAlert').classList.remove('d-none');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error extrayendo metadata:', error);
+                document.getElementById('loadingSpinner').classList.add('d-none');
+            });
+        });
+    }
+});
+</script>
 {% endblock %}

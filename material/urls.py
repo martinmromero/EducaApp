@@ -9,6 +9,7 @@ urlpatterns = [
     path('', material_views.index, name='index'),
     path('get-career-name/<int:career_id>/', material_views.get_career_name, name='get_career_name'),
     path('upload/', material_views.upload_contenido, name='upload_contenido'),
+    path('extract-metadata/', material_views.extract_metadata_from_upload, name='extract_metadata_from_upload'),
     path('questions/<int:contenido_id>/', material_views.generate_questions, name='generate_questions'),
     path('review-questions/<int:contenido_id>/', material_views.review_questions, name='review_questions'),
     path('save-questions/<int:contenido_id>/', material_views.save_selected_questions, name='save_selected_questions'),
