@@ -45,15 +45,15 @@
                 <div class="col-md-6">
                     <label class="form-label"><strong>Modo de Visualización:</strong></label>
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="viewMode" id="listMode" value="list" checked>
-                        <label class="form-check-label" for="listMode">
-                            <i class="fas fa-list"></i> Listar todas las preguntas por estudiante
+                        <input class="form-check-input" type="radio" name="viewMode" id="roundRobinMode" value="roundRobin" checked>
+                        <label class="form-check-label" for="roundRobinMode">
+                            <i class="fas fa-sync-alt"></i> Round Robin (1 pregunta por vuelta)
                         </label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="viewMode" id="roundRobinMode" value="roundRobin">
-                        <label class="form-check-label" for="roundRobinMode">
-                            <i class="fas fa-sync-alt"></i> Round Robin (1 pregunta por vuelta)
+                        <input class="form-check-input" type="radio" name="viewMode" id="listMode" value="list">
+                        <label class="form-check-label" for="listMode">
+                            <i class="fas fa-list"></i> Listar todas las preguntas por estudiante
                         </label>
                     </div>
                 </div>
@@ -429,13 +429,30 @@ let currentGroup = 1;
 let currentRound = 1;
 let maxGroups = {{ oral_exam.num_groups }};
 let maxRounds = parseInt('{{ oral_exam.questions_per_student }}');
-let viewMode = 'list';
+let viewMode = 'roundRobin';  // Round Robin como default
 
 // Sistema de evaluación
 const evaluations = {};
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing complete oral exam interface...');
+    
+    // Restaurar el modo de visualización guardado (si existe)
+    const savedViewMode = localStorage.getItem('oralExamViewMode');
+    if (savedViewMode) {
+        viewMode = savedViewMode;
+        // Marcar el radio button correcto
+        if (savedViewMode === 'roundRobin') {
+            document.getElementById('roundRobinMode').checked = true;
+            document.getElementById('roundRobinControls').style.display = 'block';
+        } else {
+            document.getElementById('listMode').checked = true;
+            document.getElementById('roundRobinControls').style.display = 'none';
+        }
+    } else {
+        // Si no hay modo guardado, usar Round Robin por defecto
+        document.getElementById('roundRobinControls').style.display = 'block';
+    }
     
     // Configurar controles de vista y evaluación
     setupViewModeControls();
@@ -517,6 +534,7 @@ function setupViewModeControls() {
     listMode.addEventListener('change', function() {
         if (this.checked) {
             viewMode = 'list';
+            localStorage.setItem('oralExamViewMode', 'list');  // Guardar preferencia
             roundRobinControls.style.display = 'none';
             updateView();
         }
@@ -525,6 +543,7 @@ function setupViewModeControls() {
     roundRobinMode.addEventListener('change', function() {
         if (this.checked) {
             viewMode = 'roundRobin';
+            localStorage.setItem('oralExamViewMode', 'roundRobin');  // Guardar preferencia
             roundRobinControls.style.display = 'block';
             updateView();
         }

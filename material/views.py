@@ -2925,10 +2925,16 @@ def get_available_questions(request):
         subject = exam_set.subject
         logger.info(f"Exam set: {exam_set}, Subject: {subject}")
         
-        # Obtener preguntas disponibles (no usadas en el grupo)
+        # Obtener los temas seleccionados para este examen oral
+        selected_topics = exam_set.topics.all()
+        logger.info(f"Selected topics for this exam: {list(selected_topics)}")
+        
+        # Obtener preguntas disponibles (no usadas en el grupo) 
+        # FILTRADAS POR LOS TEMAS SELECCIONADOS en el examen
         available_questions = Question.objects.filter(
             user=request.user,
-            subject=subject
+            subject=subject,
+            topic__in=selected_topics  # Solo preguntas de los temas seleccionados
         ).exclude(
             id__in=used_questions
         ).select_related('topic')
@@ -2939,7 +2945,7 @@ def get_available_questions(request):
                 # Usar Q objects para incluir la pregunta actual
                 from django.db.models import Q
                 available_questions = Question.objects.filter(
-                    Q(user=request.user, subject=subject) & 
+                    Q(user=request.user, subject=subject, topic__in=selected_topics) & 
                     (Q(id=current_question_id) | ~Q(id__in=used_questions))
                 ).select_related('topic')
             except Question.DoesNotExist:
