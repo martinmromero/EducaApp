@@ -271,10 +271,10 @@ def extract_book_metadata(file_path):
         # 2. Número de páginas
         metadata['pages'] = len(doc)
         
-        # 3. Extraer texto de las primeras 5 páginas para buscar ISBN, edición, editorial
-        # (muchos libros tienen la info de copyright en páginas 3-5)
+        # 3. Extraer texto de las primeras 10 páginas para buscar ISBN, edición, editorial
+        # (muchos libros tienen la info de copyright en páginas 3-10)
         first_pages_text = ""
-        for page_num in range(min(5, len(doc))):
+        for page_num in range(min(10, len(doc))):
             first_pages_text += f"\n--- Página {page_num+1} ---\n"
             first_pages_text += doc[page_num].get_text()
         
