@@ -12,29 +12,40 @@ EducaApp es un sistema integral de gestión educativa desarrollado en Django que
 ## ✨ Características Principales
 
 ### 🏫 Gestión Institucional
-- **Instituciones V2**: Sistema completo de gestión de instituciones educativas
+- **Instituciones V2**: Sistema completo de gestión de instituciones educativas con logos
 - **Campus y Facultades**: Organización jerárquica de la estructura institucional
-- **Carreras**: Gestión de carreras académicas con asociaciones institucionales
+- **Carreras**: Gestión de carreras académicas con asociaciones multi-nivel
+- **Sistema de Favoritos**: Marcado de instituciones frecuentes por usuario
+- **Auditoría**: Logs completos de cambios en instituciones
+- **Relaciones Avanzadas**: Asociación Institución-Carrera-Materia con metadatos (semestre, carga horaria, optatividad)
 
 ### 📚 Gestión Académica
-- **Materias**: CRUD completo de materias/asignaturas
-- **Resultados de Aprendizaje**: Sistema integrado por materia con funcionalidades completas
-- **Temas y Subtemas**: Organización temática del contenido educativo
+- **Materias**: CRUD completo de materias/asignaturas con asociaciones institucionales
+- **Resultados de Aprendizaje**: Sistema integrado por materia con funcionalidades completas de edición
+- **Temas y Subtemas**: Organización temática jerárquica del contenido educativo
 - **Preguntas**: Banco de preguntas con filtros cascada (materia → tema → subtema)
+- **Contenidos Educativos**: Gestión de materiales con metadata automática (libros, PDFs, documentos)
 
 ### 📝 Sistema de Exámenes
-- **Plantillas de Examen**: Creación y reutilización de plantillas personalizables
-- **Exámenes Escritos**: Generación automática con selección de preguntas
+- **Plantillas de Examen**: Creación y reutilización de plantillas personalizables con configuración completa
+- **Exámenes Escritos**: Generación automática con selección de preguntas por temas
 - **Cuestionarios Orales**: Sistema avanzado de evaluación oral con algoritmos inteligentes
+- **Evaluación en Tiempo Real**: Sistema de calificación para exámenes orales (Bien/Regular/Mal)
+- **Gestión de Estudiantes**: Asignación de nombres, intercambio de preguntas y seguimiento de progreso
+- **Cálculo Automático**: Porcentajes de progreso y puntuación por estudiante
 - **Vista Previa e Impresión**: Formatos optimizados para diferentes tipos de evaluación
 
 ### 🔧 Funcionalidades Técnicas
 - **Carga Masiva**: Importación de preguntas via CSV/TXT
-- **Procesamiento de Archivos**: Soporte para PDF, DOCX, PPTX
+- **Procesamiento Avanzado de Documentos**: Dashboard completo con soporte para PDF, DOCX, PPTX
+- **Extracción Automática de Metadata**: Pre-llenado de formularios desde PDFs (ISBN, edición, páginas, editorial, año)
+- **Análisis de Tokens**: Contador de tokens y división inteligente en chunks
 - **Interfaz Responsiva**: Design moderno con Bootstrap 5
 - **Sidebar Colapsable**: Navegación optimizada
 - **Filtros Dinámicos**: Sistema de filtros cascada con AJAX
 - **Sistema de Mensajes**: Notificaciones contextuales por módulo
+- **Gestión de Usuarios**: CRUD completo con sistema de roles (Admin/Usuario)
+- **Sistema de Favoritos**: Marcado de instituciones favoritas por usuario
 
 ## 🚀 Instalación
 
@@ -87,13 +98,17 @@ La aplicación estará disponible en `http://127.0.0.1:8000/`
 | Paquete | Versión | Propósito |
 |---------|---------|-----------|
 | Django | 4.2.20 | Framework web principal |
-| PyPDF2 | 3.0.0 | Procesamiento de archivos PDF |
+| PyMuPDF | 1.26.5 | Procesamiento avanzado de archivos PDF |
+| pdfplumber | 0.11.7 | Extracción de datos de PDFs |
+| tiktoken | 0.12.0 | Contador de tokens para IA |
+| markdownify | 1.2.0 | Conversión de HTML a Markdown |
 | python-docx | 0.8.11 | Procesamiento de archivos Word |
 | python-pptx | 0.6.23 | Procesamiento de archivos PowerPoint |
 | django-crispy-forms | 2.4 | Formularios mejorados |
+| crispy-bootstrap5 | - | Integración Bootstrap 5 |
 | djangorestframework | 3.16.0 | APIs REST |
 | django-debug-toolbar | 4.2.0 | Herramientas de desarrollo |
-| crispy-bootstrap5 | - | Integración Bootstrap 5 |
+| django-extensions | 3.2.3 | Utilidades adicionales para Django |
 
 ## 🏗️ Estructura del Proyecto
 
@@ -106,6 +121,7 @@ educaapp/
 ├── material/                   # Aplicación principal
 │   ├── models.py              # Modelos de datos
 │   ├── views.py               # Vistas y lógica de negocio
+│   ├── views_document_processor.py  # Vistas de procesamiento de documentos
 │   ├── forms.py               # Formularios
 │   ├── urls.py                # URLs de la aplicación
 │   ├── admin.py               # Configuración del admin
@@ -116,6 +132,7 @@ educaapp/
 │   │       ├── exams/         # Templates de exámenes
 │   │       ├── oral_exams/    # Templates de exámenes orales
 │   │       ├── careers/       # Templates de carreras
+│   │       ├── institutions_v2/ # Templates de instituciones
 │   │       └── learningoutcomes/ # Templates de resultados
 │   ├── static/                # Archivos estáticos
 │   └── migrations/            # Migraciones de BD
@@ -130,14 +147,21 @@ educaapp/
 
 ### Para Docentes
 1. **Gestión de Contenido**: Crear y organizar materias con sus resultados de aprendizaje
-2. **Banco de Preguntas**: Cargar y categorizar preguntas por temas
-3. **Creación de Exámenes**: Generar exámenes personalizados usando plantillas
-4. **Evaluaciones Orales**: Crear cuestionarios orales con distribución automática
+2. **Banco de Preguntas**: Cargar y categorizar preguntas por temas con dificultad y metadata
+3. **Creación de Exámenes**: Generar exámenes personalizados usando plantillas reutilizables
+4. **Evaluaciones Orales**: Crear cuestionarios orales con distribución automática y evaluación en tiempo real
+5. **Procesamiento de Documentos**: Subir PDFs y extraer automáticamente metadata e información
+6. **Análisis de Contenido**: Analizar tokens y dividir documentos en chunks para procesamiento con IA
+7. **Seguimiento de Estudiantes**: Evaluar, asignar nombres y calcular puntuaciones automáticamente
 
 ### Para Instituciones
-1. **Gestión Organizacional**: Administrar campus, facultades y carreras
+1. **Gestión Organizacional**: Administrar campus, facultades y carreras con estructura jerárquica
 2. **Estandarización**: Usar plantillas para mantener consistencia en evaluaciones
 3. **Reportes**: Generar vistas previas e imprimir exámenes en formatos estándar
+4. **Auditoría**: Rastrear todos los cambios realizados en instituciones mediante logs
+5. **Gestión de Usuarios**: Administrar roles y permisos de usuarios del sistema
+6. **Asociaciones Flexibles**: Configurar relaciones entre instituciones, carreras y materias
+7. **Favoritos**: Marcar y acceder rápidamente a instituciones frecuentes
 
 ## 🔧 Configuración Avanzada
 
@@ -173,13 +197,28 @@ python manage.py test material.tests
 ### Cuestionarios Orales Inteligentes
 - Algoritmo de distribución equitativa de preguntas
 - Gestión de grupos y estudiantes
-- Sistema de intercambio de preguntas
+- Sistema de intercambio de preguntas entre estudiantes
 - Evaluación y seguimiento en tiempo real
+- Sistema de calificación: Bien (100%), Regular (50%), Mal (0%)
+- Cálculo automático de progreso y puntuación
 
 ### Carga Masiva de Contenido
-- Importación CSV/TXT con validaciones
+- Importación CSV/TXT con validaciones robustas
 - Procesamiento de documentos (PDF, DOCX, PPTX)
 - Sistema de preview antes de confirmar importación
+
+### Procesamiento Avanzado de Documentos
+- **Dashboard de Procesamiento**: Interface completa para análisis de documentos
+- **Extracción de Metadata**: Obtención automática de ISBN, edición, páginas, editorial y año
+- **Análisis de Tokens**: Contador de tokens compatible con modelos de IA
+- **División Inteligente**: Segmentación de texto en chunks optimizados
+- **Optimización de Texto**: Conversión y limpieza de contenido para procesamiento
+
+### Gestión Institucional Avanzada
+- **Relaciones Multi-nivel**: Instituciones, Facultades, Campus, Carreras y Materias
+- **Sistema de Logs**: Auditoría completa de cambios en instituciones
+- **Favoritos**: Marcado rápido de instituciones frecuentes
+- **Asociaciones Flexibles**: Materias por carrera con semestre, carga horaria y optatividad
 
 ## 🤝 Contribución
 
@@ -191,7 +230,19 @@ python manage.py test material.tests
 
 ## 📝 Changelog
 
-### [Última Versión] - 2025-09-27
+### [Actual] - 2026-01-24
+- ✅ **Feature**: Sistema completo de procesamiento avanzado de documentos
+- ✅ **Feature**: Extracción automática de metadata de PDFs
+- ✅ **Feature**: Análisis de tokens y división en chunks para IA
+- ✅ **Feature**: Sistema de evaluación en tiempo real para exámenes orales
+- ✅ **Feature**: Gestión completa de usuarios con roles
+- ✅ **Feature**: Sistema de favoritos para instituciones
+- ✅ **Feature**: Relaciones avanzadas Institución-Carrera-Materia
+- ✅ **Feature**: Sistema de logs para auditoría institucional
+- ✅ **Improvement**: Cálculo automático de progreso y puntuación en exámenes orales
+- ✅ **Improvement**: Intercambio de preguntas entre estudiantes
+
+### [2025-09-27]
 - ✅ **Fix**: Corregidos botones de editar/eliminar Learning Outcomes
 - ✅ **Feature**: Sistema de filtros cascada en lista de preguntas
 - ✅ **Improvement**: Sidebar colapsable para mejor UX
