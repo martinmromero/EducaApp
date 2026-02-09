@@ -47,6 +47,15 @@ urlpatterns = [
     path('doc-processor/count-tokens/', doc_views.count_document_tokens, name='count_document_tokens'),
     path('doc-processor/split-chunks/', doc_views.split_text_chunks, name='split_text_chunks'),
     path('doc-processor/optimize/', doc_views.optimize_text_view, name='optimize_text'),
+    
+    # Local AI Server integration
+    path('doc-processor/local-ai/status/', doc_views.check_local_ai_status, name='check_local_ai_status'),
+    path('doc-processor/local-ai/models/', doc_views.list_local_ai_models, name='list_local_ai_models'),
+    path('doc-processor/local-ai/set-model/', doc_views.set_local_ai_model, name='set_local_ai_model'),
+    
+    # AI Question Generation
+    path('doc-processor/generate-questions/', doc_views.generate_questions_from_chapters, name='generate_questions_from_chapters'),
+    path('doc-processor/save-questions/', doc_views.save_generated_questions, name='save_generated_questions'),
 
 
 

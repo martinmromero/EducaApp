@@ -1,0 +1,30 @@
+{
+  "name": "ollama-integration-example",
+  "version": "1.0.0",
+  "description": "Ejemplo de integración con Ollama para aplicaciones de IA",
+  "main": "backend-express-minimo.js",
+  "scripts": {
+    "start": "node backend-express-minimo.js",
+    "dev": "nodemon backend-express-minimo.js",
+    "test-client": "node cliente-ollama-nodejs.js"
+  },
+  "keywords": [
+    "ollama",
+    "ai",
+    "llm",
+    "chatbot",
+    "express",
+    "integration"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

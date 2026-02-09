@@ -476,6 +476,24 @@ class Question(models.Model):
         null=True,
         blank=True
     )
+    # Campos para preguntas generadas por IA
+    generated_by_ai = models.BooleanField(
+        default=False,
+        verbose_name='Generada por IA',
+        help_text='Indica si esta pregunta fue generada automáticamente por IA'
+    )
+    ai_approved = models.BooleanField(
+        null=True,
+        blank=True,
+        verbose_name='Aprobada por usuario',
+        help_text='True=Aprobada, False=Rechazada, NULL=Sin revisar'
+    )
+    source_chapters_json = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='Capítulos fuente (JSON)',
+        help_text='JSON con información de los capítulos de donde se generó'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -496,6 +514,21 @@ class Question(models.Model):
     @options.setter
     def options(self, value):
         self.options_json = json.dumps(value) if value else None
+    
+    @property
+    def source_chapters(self):
+        """Retorna los capítulos fuente como objeto Python"""
+        if self.source_chapters_json:
+            try:
+                return json.loads(self.source_chapters_json)
+            except json.JSONDecodeError:
+                return None
+        return None
+    
+    @source_chapters.setter
+    def source_chapters(self, value):
+        """Guarda los capítulos fuente como JSON"""
+        self.source_chapters_json = json.dumps(value, ensure_ascii=False) if value else None
 
     def clean(self):
         super().clean()

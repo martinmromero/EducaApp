@@ -7,8 +7,41 @@
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
-            <h2><i class="fas fa-file-alt"></i> Procesador de Documentos con IA</h2>
-            <p class="text-muted">Analiza documentos PDF, DOCX, PPTX con detección automática de estructura y conteo de tokens para optimizar envíos a IA</p>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h2><i class="fas fa-file-alt"></i> Procesador de Documentos con IA</h2>
+                    <p class="text-muted">Analiza documentos PDF, DOCX, PPTX con detección automática de estructura y conteo de tokens para optimizar envíos a IA</p>
+                </div>
+                <div>
+                    <!-- Estado del servidor local de IA -->
+                    <div id="localAIStatus" class="d-flex align-items-center">
+                        {% if local_ai_connected %}
+                        <span class="badge bg-success px-3 py-2">
+                            <i class="fas fa-circle me-2 blink"></i>
+                            <span class="fw-bold">Servidor Local IA Conectado</span>
+                        </span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark px-3 py-2">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            <span class="fw-bold">Servidor Local IA Desconectado</span>
+                        </span>
+                        {% endif %}
+                        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
+                            <i class="fas fa-sync"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted d-block mt-1 text-end">
+                        {{ local_ai_url }}
+                        <span id="unlimitedTokensBadge" style="display: {% if local_ai_connected %}inline{% else %}none{% endif %};">
+                            | <i class="fas fa-infinity text-success"></i> <strong class="text-success">Tokens ilimitados</strong>
+                        </span>
+                        <br>
+                        <span id="currentModelBadge" style="display: {% if local_ai_connected %}inline{% else %}none{% endif %};">
+                            <i class="fas fa-brain text-info"></i> Modelo activo: <strong id="currentModelName">{{ selected_model }}</strong>
+                        </span>
+                    </small>
+                </div>
+            </div>
             <hr>
         </div>
     </div>
@@ -28,6 +61,11 @@
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="optimize-tab" data-bs-toggle="tab" data-bs-target="#optimize" type="button" role="tab">
                 <i class="fas fa-compress"></i> Optimizador
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="models-tab" data-bs-toggle="tab" data-bs-target="#models" type="button" role="tab">
+                <i class="fas fa-brain"></i> Modelos Locales <span id="modelsCountBadge" class="badge bg-secondary ms-1">0</span>
             </button>
         </li>
     </ul>
@@ -187,6 +225,71 @@
                 </div>
             </div>
         </div>
+
+        <!-- Tab 4: Modelos Locales de IA -->
+        <div class="tab-pane fade" id="models" role="tabpanel">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-brain"></i> Modelos Locales Disponibles</h5>
+                            <button class="btn btn-sm btn-light" onclick="loadLocalModels()">
+                                <i class="fas fa-sync"></i> Actualizar
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="modelsLoadingIndicator" class="text-center py-5" style="display:none;">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2 text-muted">Cargando modelos...</p>
+                            </div>
+                            
+                            <div id="modelsDisconnected" class="alert alert-warning" style="display:none;">
+                                <i class="fas fa-exclamation-triangle"></i> 
+                                No hay conexión con el servidor local de IA. 
+                                <br><small>Asegúrate de estar conectado a la VPN.</small>
+                            </div>
+                            
+                            <div id="modelsListContainer" class="table-responsive">
+                                <p class="text-muted">Haz clic en "Actualizar" para cargar los modelos disponibles.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Preguntas Generadas -->
+<div class="modal fade" id="questionsModal" tabindex="-1" aria-labelledby="questionsModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="questionsModalLabel">
+                    <i class="fas fa-check-circle"></i> Preguntas Generadas con IA
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="questionsLoadingIndicator" class="text-center py-5" style="display:none;">
+                    <div class="spinner-border text-success" role="status"></div>
+                    <p class="mt-3 text-muted">Generando preguntas con IA...</p>
+                    <small class="text-muted">Esto puede tardar de 30 a 120 segundos dependiendo del contenido</small>
+                </div>
+                
+                <div id="questionsContent">
+                    <!-- Las preguntas se cargarán aquí dinámicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-success" id="saveQuestionsBtn" onclick="saveGeneratedQuestions()">
+                    <i class="fas fa-save"></i> Guardar Preguntas Seleccionadas
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -241,14 +344,28 @@ function displayDocumentResult(data) {
             </div>
         </div>
         <hr>
-        <h6>Capítulos Detectados:</h6>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6>Capítulos Detectados:</h6>
+            <button id="generateQuestionsBtn" class="btn btn-success" onclick="generateQuestionsFromSelected()" disabled>
+                <i class="fas fa-magic"></i> Generar Preguntas con IA
+            </button>
+        </div>
         <div class="accordion" id="chaptersAccordion">
     `;
+    
+    // Guardar datos globalmente para usar después
+    window.currentDocumentData = data;
     
     data.chapters.forEach((chapter, index) => {
         html += `
             <div class="accordion-item">
-                <h2 class="accordion-header">
+                <h2 class="accordion-header d-flex align-items-center">
+                    <div class="form-check ms-3 me-2">
+                        <input class="form-check-input chapter-checkbox" type="checkbox" value="${index}" id="chapterCheck${index}" onchange="updateGenerateButton()">
+                        <label class="form-check-label visually-hidden" for="chapterCheck${index}">
+                            Seleccionar ${chapter.title}
+                        </label>
+                    </div>
                     <button class="accordion-button ${index > 0 ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" data-bs-target="#chapter${index}">
                         ${chapter.title} <span class="badge bg-secondary ms-2">${chapter.tokens} tokens</span>
                     </button>
@@ -265,6 +382,18 @@ function displayDocumentResult(data) {
     
     html += '</div>';
     document.getElementById('resultContent').innerHTML = html;
+}
+
+// Actualizar botón de generar preguntas
+function updateGenerateButton() {
+    const checkboxes = document.querySelectorAll('.chapter-checkbox:checked');
+    const btn = document.getElementById('generateQuestionsBtn');
+    if (btn) {
+        btn.disabled = checkboxes.length === 0;
+        btn.innerHTML = checkboxes.length > 0 ? 
+            `<i class="fas fa-magic"></i> Generar Preguntas (${checkboxes.length} capítulos)` :
+            `<i class="fas fa-magic"></i> Generar Preguntas con IA`;
+    }
 }
 
 // Form: Contador de Tokens
@@ -361,6 +490,450 @@ function copyOptimizedText() {
     document.execCommand('copy');
     alert('Texto copiado al portapapeles');
 }
+
+// ============================================
+// Funciones para servidor local de IA
+// ============================================
+
+async function checkLocalAIStatus() {
+    try {
+        const response = await fetch('{% url "material:check_local_ai_status" %}');
+        const data = await response.json();
+        
+        const statusDiv = document.getElementById('localAIStatus');
+        const unlimitedBadge = document.getElementById('unlimitedTokensBadge');
+        
+        if (data.connected) {
+            statusDiv.innerHTML = `
+                <span class="badge bg-success px-3 py-2">
+                    <i class="fas fa-circle me-2 blink"></i>
+                    <span class="fw-bold">Servidor Local IA Conectado</span>
+                </span>
+                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
+                    <i class="fas fa-sync"></i>
+                </button>
+            `;
+            unlimitedBadge.style.display = 'inline';
+            
+            // Actualizar contador de modelos si está disponible
+            if (data.models_count !== undefined) {
+                document.getElementById('modelsCountBadge').textContent = data.models_count;
+            }
+        } else {
+            statusDiv.innerHTML = `
+                <span class="badge bg-warning text-dark px-3 py-2">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <span class="fw-bold">Servidor Local IA Desconectado</span>
+                </span>
+                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
+                    <i class="fas fa-sync"></i>
+                </button>
+            `;
+            unlimitedBadge.style.display = 'none';
+            document.getElementById('modelsCountBadge').textContent = '0';
+        }
+    } catch (error) {
+        console.error('Error al verificar estado del servidor local:', error);
+    }
+}
+
+async function loadLocalModels() {
+    const loadingDiv = document.getElementById('modelsLoadingIndicator');
+    const disconnectedDiv = document.getElementById('modelsDisconnected');
+    const containerDiv = document.getElementById('modelsListContainer');
+    
+    loadingDiv.style.display = 'block';
+    disconnectedDiv.style.display = 'none';
+    containerDiv.innerHTML = '';
+    
+    try {
+        const response = await fetch('{% url "material:list_local_ai_models" %}');
+        const data = await response.json();
+        
+        loadingDiv.style.display = 'none';
+        
+        if (data.success && data.connected && data.models.length > 0) {
+            // Actualizar contador
+            document.getElementById('modelsCountBadge').textContent = data.count;
+            
+            const currentModel = data.selected_model || '{{ selected_model }}';
+            
+            // Generar tabla de modelos
+            let html = `
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-check-circle"></i> 
+                    <strong>Modelo activo:</strong> <code>${currentModel}</code>
+                    <br><small>Haz clic en "Activar" para cambiar de modelo</small>
+                </div>
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th><i class="fas fa-brain"></i> Modelo</th>
+                            <th><i class="fas fa-hdd"></i> Tamaño</th>
+                            <th><i class="fas fa-calendar"></i> Modificado</th>
+                            <th class="text-center"><i class="fas fa-cog"></i> Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.models.forEach(model => {
+                const sizeGB = model.size ? (model.size / 1024 / 1024 / 1024).toFixed(2) : 'N/A';
+                const modifiedDate = model.modified_at ? new Date(model.modified_at).toLocaleString('es-ES') : 'N/A';
+                const isActive = model.name === currentModel;
+                const isRecommended = model.name === 'llama3.1:8b' || model.name === 'command-r7b:latest' || model.name === 'qwen3:8b';
+                
+                html += `
+                    <tr class="${isActive ? 'table-success' : ''}">
+                        <td>
+                            <strong>${model.name || model.model}</strong>
+                            ${isActive ? '<span class="badge bg-success ms-2"><i class="fas fa-check"></i> Activo</span>' : ''}
+                            ${isRecommended && !isActive ? '<span class="badge bg-info ms-2">⭐ Recomendado</span>' : ''}
+                            <br><small class="text-muted">${model.model}</small>
+                        </td>
+                        <td>${sizeGB} GB</td>
+                        <td><small>${modifiedDate}</small></td>
+                        <td class="text-center">
+                            ${isActive ? 
+                                '<span class="text-success"><i class="fas fa-check-circle"></i> En uso</span>' : 
+                                `<button class="btn btn-sm btn-primary" onclick="setActiveModel('${model.name}')">
+                                    <i class="fas fa-power-off"></i> Activar
+                                </button>`
+                            }
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+                <div class="alert alert-secondary mt-3">
+                    <i class="fas fa-lightbulb"></i> 
+                    <strong>Tips:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li><code>llama3.1:8b</code> - Rápido y confiable (⭐ RECOMENDADO por defecto)</li>
+                        <li><code>command-r7b</code> - Excelente para seguir instrucciones estructuradas</li>
+                        <li><code>qwen3:8b</code> - Buen balance entre velocidad y calidad</li>
+                        <li>Modelos más grandes (12B+) son más lentos pero más precisos</li>
+                    </ul>
+                </div>
+            `;
+            
+            containerDiv.innerHTML = html;
+        } else if (!data.connected) {
+            disconnectedDiv.style.display = 'block';
+        } else {
+            containerDiv.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    No se encontraron modelos en el servidor local.
+                </div>
+            `;
+        }
+    } catch (error) {
+        loadingDiv.style.display = 'none';
+        disconnectedDiv.style.display = 'block';
+        console.error('Error al cargar modelos:', error);
+    }
+}
+
+async function setActiveModel(modelName) {
+    if (!confirm(`¿Cambiar el modelo activo a "${modelName}"?`)) {
+        return;
+    }
+    
+    try {
+        const formData = new FormData();
+        formData.append('model', modelName);
+        
+        const response = await fetch('{% url "material:set_local_ai_model" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Actualizar interfaz
+            document.getElementById('currentModelName').textContent = modelName;
+            
+            // Mostrar mensaje de éxito
+            alert(`✅ Modelo cambiado exitosamente a: ${modelName}`);
+            
+            // Recargar lista de modelos
+            await loadLocalModels();
+            
+            // Actualizar estado general
+            await checkLocalAIStatus();
+        } else {
+            alert(`❌ Error al cambiar modelo: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Error al cambiar modelo:', error);
+        alert('❌ Error al cambiar el modelo');
+    }
+}
+
+function showModelDetails(details) {
+    alert('Detalles del modelo:\n\n' + JSON.stringify(details, null, 2));
+}
+
+// Verificar estado al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    checkLocalAIStatus();
+    
+    // Recargar modelos automáticamente cada 60 segundos si estamos en la tab de modelos
+    setInterval(function() {
+        const modelsTab = document.getElementById('models-tab');
+        if (modelsTab && modelsTab.classList.contains('active')) {
+            checkLocalAIStatus();
+        }
+    }, 60000);
+});
+
+// ============================================
+// Funciones para generar preguntas con IA
+// ============================================
+
+async function generateQuestionsFromSelected() {
+    const checkboxes = document.querySelectorAll('.chapter-checkbox:checked');
+    
+    if (checkboxes.length === 0) {
+        alert('Por favor selecciona al menos un capítulo');
+        return;
+    }
+    
+    // Verificar PRIMERO que el servidor IA esté disponible
+    try {
+        const statusResponse = await fetch('{% url "material:check_local_ai_status" %}');
+        const statusData = await statusResponse.json();
+        
+        if (!statusData.connected) {
+            alert('⚠️ Servidor de IA no disponible\n\nAsegúrate de estar conectado a la VPN de la intranet antes de generar preguntas.\n\nServidor: 192.168.12.236:11434');
+            return;
+        }
+    } catch (error) {
+        alert('❌ No se pudo verificar el servidor de IA. Revisa tu conexión VPN.');
+        return;
+    }
+    
+    // Obtener los capítulos seleccionados
+    const selectedChapters = [];
+    checkboxes.forEach(checkbox => {
+        const index = parseInt(checkbox.value);
+        const chapter = window.currentDocumentData.chapters[index];
+        selectedChapters.push(chapter);
+    });
+    
+    // Advertir si se seleccionaron muchos capítulos
+    if (selectedChapters.length > 5) {
+        const confirmed = confirm(`⚠️ Has seleccionado ${selectedChapters.length} capítulos.\n\nGenerar preguntas de muchos capítulos puede tardar varios minutos.\n\n¿Continuar?`);
+        if (!confirmed) return;
+    }
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('questionsModal'));
+    modal.show();
+    
+    // Mostrar loading con mensaje informativo
+    const loadingEl = document.getElementById('questionsLoadingIndicator');
+    loadingEl.style.display = 'block';
+    loadingEl.innerHTML = `
+        <div class="text-center p-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-3 text-muted">
+                <strong>Generando ${selectedChapters.length} capítulo(s) con IA...</strong><br>
+                <small>Esto puede tardar entre 30 segundos y 2 minutos.<br>
+                Por favor espera...</small>
+            </p>
+        </div>
+    `;
+    document.getElementById('questionsContent').innerHTML = '';
+    
+    try {
+        // Llamar al endpoint para generar preguntas
+        const response = await fetch('{% url "material:generate_questions_from_chapters" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                chapters: selectedChapters,
+                filename: window.currentDocumentData.filename
+            })
+        });
+        
+        const data = await response.json();
+        
+        document.getElementById('questionsLoadingIndicator').style.display = 'none';
+        
+        if (data.success && data.questions && data.questions.length > 0) {
+            displayGeneratedQuestions(data.questions);
+        } else {
+            document.getElementById('questionsContent').innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>No se pudieron generar preguntas</strong><br>
+                    ${data.error || 'Error desconocido. Intenta con otros capítulos o verifica la conexión VPN.'}
+                </div>
+            `;
+        }
+    } catch (error) {
+        document.getElementById('questionsLoadingIndicator').style.display = 'none';
+        document.getElementById('questionsContent').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-times-circle"></i>
+                <strong>Error de conexión</strong><br>
+                ${error.message}<br>
+                <small class="text-muted">Verifica que estés conectado a la VPN (192.168.12.236:11434)</small>
+            </div>
+        `;
+        console.error('Error:', error);
+    }
+}
+
+function displayGeneratedQuestions(questions) {
+    let html = `
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> 
+            <strong>${questions.length} preguntas generadas</strong>
+            <br><small>Revisa cada pregunta y marca las que deseas guardar</small>
+        </div>
+        <div class="mb-3">
+            <button class="btn btn-sm btn-outline-primary" onclick="selectAllQuestions(true)">
+                <i class="fas fa-check-square"></i> Seleccionar todas
+            </button>
+            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="selectAllQuestions(false)">
+                <i class="fas fa-square"></i> Deseleccionar todas
+            </button>
+        </div>
+    `;
+    
+    questions.forEach((q, index) => {
+        const optionsHTML = q.opciones ? q.opciones.map((opt, i) => 
+            `<li class="${i === q.respuesta_correcta_index ? 'text-success fw-bold' : ''}">${opt}</li>`
+        ).join('') : '';
+        
+        html += `
+            <div class="card mb-3 question-card" data-question-index="${index}">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="form-check">
+                        <input class="form-check-input question-approve-checkbox" type="checkbox" value="${index}" id="question${index}" checked>
+                        <label class="form-check-label fw-bold" for="question${index}">
+                            Pregunta ${index + 1}
+                        </label>
+                    </div>
+                    <div>
+                        <span class="badge bg-info">${q.tipo || 'Opción múltiple'}</span>
+                        <span class="badge bg-secondary">Dificultad: ${q.dificultad || 3}/5</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="fw-bold mb-3">${q.pregunta}</p>
+                    ${optionsHTML ? `<ul class="mb-3">${optionsHTML}</ul>` : ''}
+                    <div class="alert alert-light mb-0">
+                        <strong>Respuesta correcta:</strong> ${q.respuesta}<br>
+                        ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    document.getElementById('questionsContent').innerHTML = html;
+    
+    // Guardar preguntas globalmente
+    window.generatedQuestions = questions;
+}
+
+function selectAllQuestions(select) {
+    document.querySelectorAll('.question-approve-checkbox').forEach(checkbox => {
+        checkbox.checked = select;
+    });
+}
+
+async function saveGeneratedQuestions() {
+    const selectedCheckboxes = document.querySelectorAll('.question-approve-checkbox:checked');
+    const unselectedCheckboxes = document.querySelectorAll('.question-approve-checkbox:not(:checked)');
+    
+    if (selectedCheckboxes.length === 0 && unselectedCheckboxes.length === 0) {
+        alert('No hay preguntas para guardar');
+        return;
+    }
+    
+    // Recopilar preguntas aprobadas y rechazadas
+    const approvedQuestions = [];
+    const rejectedQuestions = [];
+    
+    selectedCheckboxes.forEach(checkbox => {
+        const index = parseInt(checkbox.value);
+        approvedQuestions.push({
+            ...window.generatedQuestions[index],
+            ai_approved: true
+        });
+    });
+    
+    unselectedCheckboxes.forEach(checkbox => {
+        const index = parseInt(checkbox.value);
+        rejectedQuestions.push({
+            ...window.generatedQuestions[index],
+            ai_approved: false
+        });
+    });
+    
+    if (!confirm(`¿Guardar ${approvedQuestions.length} preguntas aprobadas y ${rejectedQuestions.length} rechazadas?`)) {
+        return;
+    }
+    
+    // Deshabilitar botón
+    const saveBtn = document.getElementById('saveQuestionsBtn');
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    
+    try {
+        const response = await fetch('{% url "material:save_generated_questions" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                approved: approvedQuestions,
+                rejected: rejectedQuestions,
+                filename: window.currentDocumentData.filename
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`✅ ${data.saved_count} preguntas guardadas exitosamente`);
+            
+            // Cerrar modal
+            bootstrap.Modal.getInstance(document.getElementById('questionsModal')).hide();
+            
+            // Limpiar checkboxes
+            document.querySelectorAll('.chapter-checkbox').forEach(cb => cb.checked = false);
+            updateGenerateButton();
+        } else {
+            alert(`❌ Error: ${data.error}`);
+        }
+    } catch (error) {
+        alert(`❌ Error al guardar: ${error.message}`);
+        console.error('Error:', error);
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> Guardar Preguntas Seleccionadas';
+    }
+}
+
 </script>
 
 <style>
@@ -378,6 +951,25 @@ function copyOptimizedText() {
 
 .nav-tabs .nav-link.active {
     font-weight: bold;
+}
+
+/* Animación para el indicador de conexión */
+@keyframes blink {
+    0%, 50%, 100% { opacity: 1; }
+    25%, 75% { opacity: 0.3; }
+}
+
+.blink {
+    animation: blink 2s ease-in-out infinite;
+}
+
+#localAIStatus {
+    font-size: 0.95rem;
+}
+
+.table th {
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 </style>
 {% endblock %}

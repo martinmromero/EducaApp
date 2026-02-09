@@ -6,6 +6,7 @@ django-debug-toolbar==4.2.0
 djangorestframework==3.16.0
 crispy-bootstrap5
 django-extensions==3.2.3
+requests==2.31.0
 
 # Document Processing Stack (optimizado para IA)
 PyMuPDF==1.26.5

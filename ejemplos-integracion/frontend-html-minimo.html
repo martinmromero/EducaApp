@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cliente IA - Ejemplo Mínimo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 600px;
+      width: 100%;
+      padding: 30px;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 24px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+
+    .status-dot.online {
+      background: #4caf50;
+      box-shadow: 0 0 8px #4caf50;
+    }
+
+    .chat-container {
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      height: 400px;
+      overflow-y: auto;
+      padding: 20px;
+      margin-bottom: 20px;
+      background: #fafafa;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user {
+      align-items: flex-end;
+    }
+
+    .message-content {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      word-wrap: break-word;
+    }
+
+    .message.user .message-content {
+      background: #667eea;
+      color: white;
+    }
+
+    .message.assistant .message-content {
+      background: white;
+      border: 1px solid #e0e0e0;
+      color: #333;
+    }
+
+    .message-meta {
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+      padding: 0 4px;
+    }
+
+    .input-container {
+      display: flex;
+      gap: 10px;
+    }
+
+    #input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 25px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    #input:focus {
+      border-color: #667eea;
+    }
+
+    button {
+      padding: 12px 24px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    button:hover:not(:disabled) {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .loading {
+      display: inline-block;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .settings {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 8px;
+    }
+
+    .settings label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: #666;
+    }
+
+    .settings input, .settings select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🤖 Cliente IA - Ollama</h1>
+    
+    <div class="status" id="status">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">Verificando conexión...</span>
+    </div>
+
+    <div class="settings">
+      <label>
+        Backend URL:
+        <input type="text" id="backend-url" value="http://localhost:3000">
+      </label>
+      <label>
+        Modelo:
+        <select id="model-select">
+          <option value="llama3.1:8b">Llama 3.1 (8B)</option>
+          <option value="medgemma-4b-it-Q6_K:latest">MedGemma (4B)</option>
+          <option value="gemma3:4b">Gemma 3 (4B)</option>
+          <option value="mistral:7b">Mistral (7B)</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="chat-container" id="chat"></div>
+
+    <div class="input-container">
+      <input 
+        type="text" 
+        id="input" 
+        placeholder="Escribe tu mensaje..."
+        onkeypress="if(event.key==='Enter') enviarMensaje()"
+      >
+      <button onclick="enviarMensaje()" id="send-btn">Enviar</button>
+    </div>
+  </div>
+
+  <script>
+    let mensajes = [];
+    let backendUrl = 'http://localhost:3000';
+
+    // Verificar conexión al cargar
+    window.addEventListener('load', () => {
+      backendUrl = document.getElementById('backend-url').value;
+      verificarConexion();
+    });
+
+    document.getElementById('backend-url').addEventListener('change', (e) => {
+      backendUrl = e.target.value;
+      verificarConexion();
+    });
+
+    async function verificarConexion() {
+      try {
+        const response = await fetch(`${backendUrl}/api/ia/health`);
+        const data = await response.json();
+        
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        
+        if (data.ollama_conectado) {
+          statusDot.classList.add('online');
+          statusText.textContent = `🟢 Conectado - ${data.modelo_configurado}`;
+          
+          // Cargar modelos disponibles
+          if (data.modelos_disponibles && data.modelos_disponibles.length > 0) {
+            const select = document.getElementById('model-select');
+            select.innerHTML = '';
+            data.modelos_disponibles.forEach(model => {
+              const option = document.createElement('option');
+              option.value = model.name;
+              option.textContent = model.name;
+              select.appendChild(option);
+            });
+          }
+        } else {
+          statusDot.classList.remove('online');
+          statusText.textContent = `🔴 Sin conexión - ${data.error || 'Ollama no disponible'}`;
+        }
+      } catch (error) {
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        statusDot.classList.remove('online');
+        statusText.textContent = `🔴 Error: ${error.message}`;
+      }
+    }
+
+    async function enviarMensaje() {
+      const input = document.getElementById('input');
+      const mensaje = input.value.trim();
+      
+      if (!mensaje) return;
+      
+      // Agregar mensaje del usuario
+      agregarMensaje('user', mensaje);
+      input.value = '';
+      
+      // Deshabilitar botón
+      const sendBtn = document.getElementById('send-btn');
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<span class="loading">Generando...</span>';
+      
+      try {
+        const modelo = document.getElementById('model-select').value;
+        
+        // Enviar a backend con contexto
+        const response = await fetch(`${backendUrl}/api/chat-context`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messages: mensajes,
+            model: modelo
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Agregar respuesta de la IA
+        agregarMensaje('assistant', data.reply, data.metadata);
+        
+      } catch (error) {
+        agregarMensaje('assistant', `❌ Error: ${error.message}`);
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Enviar';
+      }
+    }
+
+    function agregarMensaje(role, content, metadata = null) {
+      // Guardar en historial
+      if (role === 'user' || role === 'assistant') {
+        mensajes.push({ role, content });
+      }
+      
+      const chatContainer = document.getElementById('chat');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${role}`;
+      
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'message-content';
+      contentDiv.textContent = content;
+      
+      messageDiv.appendChild(contentDiv);
+      
+      // Agregar metadata si existe
+      if (metadata) {
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'message-meta';
+        metaDiv.textContent = `${metadata.tokens || 0} tokens • ${metadata.duration_ms || 0}ms`;
+        messageDiv.appendChild(metaDiv);
+      }
+      
+      chatContainer.appendChild(messageDiv);
+      
+      // Scroll al final
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // Agregar mensaje de bienvenida
+    setTimeout(() => {
+      agregarMensaje('assistant', '¡Hola! Soy un asistente de IA. ¿En qué puedo ayudarte?');
+    }, 500);
+  </script>
+</body>
+</html>
