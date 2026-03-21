@@ -5,14 +5,23 @@ Endpoints para procesar documentos, contar tokens y preparar contenido para IA.
 """
 
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+from django.conf import settings
 import os
+import uuid
+import shutil
 import tempfile
+import threading
+import time
 import logging
+
+# In-memory job store for SSE streaming jobs (job_id → params)
+_jobs = {}
+_jobs_lock = threading.Lock()
 
 from material.ia_processor import (
     extract_text_advanced,
@@ -61,7 +70,7 @@ def upload_and_process_document(request):
         }, status=400)
     
     try:
-        # Guardar temporalmente
+        # Guardar temporalmente para procesamiento
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_file:
             for chunk in archivo.chunks():
                 tmp_file.write(chunk)
@@ -74,12 +83,38 @@ def upload_and_process_document(request):
             remove_footers=remove_footers
         )
         
-        # Limpiar archivo temporal
-        os.unlink(tmp_path)
+        # --- Persistir archivo en sesión (no eliminarlo) ---
+        # Eliminar archivo previo de esta sesión si existe
+        prev_session = request.session.get('doc_processor', {})
+        prev_path = prev_session.get('file_path')
+        if prev_path and os.path.exists(prev_path):
+            try:
+                os.unlink(prev_path)
+            except OSError:
+                pass
+
+        # Mover a directorio de sesiones persistentes
+        doc_id = str(uuid.uuid4())
+        sessions_dir = os.path.join(settings.MEDIA_ROOT, 'doc_sessions')
+        os.makedirs(sessions_dir, exist_ok=True)
+        session_file_path = os.path.join(sessions_dir, f'{doc_id}{ext}')
+        shutil.move(tmp_path, session_file_path)
+
+        # Guardar en sesión: ruta del archivo + índice de capítulos
+        request.session['doc_processor'] = {
+            'doc_id': doc_id,
+            'file_path': session_file_path,
+            'filename': nombre,
+            'remove_headers': remove_headers,
+            'remove_footers': remove_footers,
+        }
+        request.session.modified = True
+        # ---------------------------------------------------
         
-        # Formatear respuesta
+        # Formatear respuesta (content_preview solo para mostrar en UI)
         response_data = {
             'success': True,
+            'doc_id': doc_id,
             'filename': nombre,
             'metadata': result.get('metadata', {}),
             'stats': result.get('stats', {}),
@@ -87,7 +122,7 @@ def upload_and_process_document(request):
                 {
                     'title': ch.get('title', ''),
                     'tokens': ch.get('tokens', 0),
-                    'content_preview': ch.get('content', '')[:200] + '...' if len(ch.get('content', '')) > 200 else ch.get('content', ''),
+                    'content_preview': ch.get('content', '')[:6000],
                     'pages': ch.get('pages', [])
                 }
                 for ch in result.get('chapters', [])
@@ -100,7 +135,10 @@ def upload_and_process_document(request):
     except Exception as e:
         # Limpiar en caso de error
         if 'tmp_path' in locals() and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
         
         return JsonResponse({
             'success': False,
@@ -397,61 +435,229 @@ def set_local_ai_model(request):
 def generate_questions_from_chapters(request):
     """
     Genera preguntas automáticamente usando IA desde capítulos seleccionados.
-    
+
+    Lee el documento completo persistido en sesión y aplica chunking para
+    procesar capítulos de cualquier longitud sin truncar el contenido.
+
     POST JSON:
-        - chapters: lista de capítulos con título y contenido
+        - chapter_indices: lista de índices de capítulos (preferido)
+        - chapters: lista de capítulos con título (fallback si no hay sesión)
         - filename: nombre del archivo fuente
-    
+        - doc_id: ID de documento (opcional, para validación)
+
     Returns:
         JSON con preguntas generadas
     """
     import json as json_module
-    
+
     try:
         data = json_module.loads(request.body)
-        chapters = data.get('chapters', [])
+        chapter_indices = data.get('chapter_indices', [])
+        chapters_from_request = data.get('chapters', [])
         filename = data.get('filename', 'Documento')
-        
-        if not chapters:
+        stream_mode = data.get('stream_mode', False)
+
+        if not chapter_indices and not chapters_from_request:
             return JsonResponse({
                 'success': False,
                 'error': 'No se proporcionaron capítulos'
             }, status=400)
-        
-        # Verificar que el servidor local esté disponible
-        # Forzar verificación en tiempo real (no cache)
+
+        # Verificar servidor IA
         if not local_ai.check_connection():
             return JsonResponse({
                 'success': False,
-                'error': 'Servidor local de IA no disponible. Verifica que estés conectado a la VPN de la intranet (192.168.12.236:11434).'
+                'error': 'Servidor local de IA no disponible. Verifica la conexión VPN (192.168.12.236:11434).'
             }, status=503)
-        
-        # Combinar contenido de todos los capítulos seleccionados
-        combined_content = ""
-        chapter_info = []
-        
-        for chapter in chapters:
-            combined_content += f"\n\n=== {chapter.get('title', 'Capítulo')} ===\n"
-            # Usar el preview si existe, sino buscar content
-            content = chapter.get('content_preview', chapter.get('content', ''))
-            combined_content += content
-            chapter_info.append({
-                'title': chapter.get('title'),
-                'pages': chapter.get('pages', [])
+
+        # Modo streaming: guardar job y retornar job_id al cliente
+        if stream_mode:
+            job_id = _store_streaming_job(request, chapter_indices, chapters_from_request, filename)
+            return JsonResponse({
+                'success': True,
+                'job_id': job_id,
+                'stream': True,
             })
-        
-        # Construir prompt para generar preguntas
-        prompt = f"""Analiza el siguiente texto educativo y genera exactamente 6 preguntas de opción múltiple variadas.
+
+        # --------------------------------------------------------
+        # Obtener contenido completo desde el archivo en sesión
+        # --------------------------------------------------------
+        doc_session = request.session.get('doc_processor', {})
+        session_file = doc_session.get('file_path')
+        chapters_to_process = []
+
+        if session_file and os.path.exists(session_file):
+            # Re-procesar el archivo original para obtener contenido completo
+            try:
+                full_result = extract_text_advanced(
+                    session_file,
+                    remove_headers=doc_session.get('remove_headers', True),
+                    remove_footers=doc_session.get('remove_footers', True)
+                )
+                all_session_chapters = full_result.get('chapters', [])
+
+                if chapter_indices:
+                    chapters_to_process = [
+                        all_session_chapters[i]
+                        for i in chapter_indices
+                        if i < len(all_session_chapters)
+                    ]
+                else:
+                    # Hacer match por título con los capítulos del request
+                    request_titles = {ch.get('title', '') for ch in chapters_from_request}
+                    chapters_to_process = [
+                        ch for ch in all_session_chapters
+                        if ch.get('title', '') in request_titles
+                    ]
+            except Exception as e:
+                logger.warning(f"No se pudo re-procesar el archivo de sesión: {e}")
+                # Caer en modo fallback
+
+        # Fallback: usar el contenido preview que vino en el request
+        if not chapters_to_process:
+            logger.info("Usando contenido del request como fallback (sin sesión de archivo)")
+            chapters_to_process = chapters_from_request
+
+        if not chapters_to_process:
+            return JsonResponse({
+                'success': False,
+                'error': 'No se pudo obtener el contenido de los capítulos'
+            }, status=400)
+
+        # --------------------------------------------------------
+        # Generar preguntas por capítulo usando chunking
+        # --------------------------------------------------------
+        all_questions = []
+        chapter_info = []
+
+        for chapter in chapters_to_process:
+            title = chapter.get('title', 'Capítulo')
+            content = chapter.get('content', chapter.get('content_preview', ''))
+            chapter_info.append({'title': title, 'pages': chapter.get('pages', [])})
+
+            logger.info(f"Procesando capítulo '{title}' ({len(content)} caracteres)")
+
+            # Dividir en chunks de ≤ 3000 tokens
+            chunks = _split_into_chunks(content, max_tokens=3000)
+            logger.info(f"  → {len(chunks)} chunk(s)")
+
+            # Preguntas por chunk: entre 4 y 8, proporcional a número de chunks
+            questions_per_chunk = max(4, min(8, 20 // max(len(chunks), 1)))
+
+            for chunk_idx, chunk in enumerate(chunks):
+                chunk_questions = _generate_questions_for_chunk(
+                    chunk, title, questions_per_chunk, chunk_idx, len(chunks)
+                )
+                all_questions.extend(chunk_questions)
+                logger.info(f"  chunk {chunk_idx + 1}/{len(chunks)}: {len(chunk_questions)} preguntas")
+
+        # Deduplicar y agregar metadata
+        all_questions = _deduplicate_questions(all_questions)
+        for q in all_questions:
+            q['source_chapters'] = chapter_info
+            q['source_file'] = filename
+
+        logger.info(f"Total preguntas generadas (dedup): {len(all_questions)}")
+
+        return JsonResponse({
+            'success': True,
+            'questions': all_questions,
+            'count': len(all_questions),
+        })
+
+    except Exception as e:
+        logger.exception("Error en generate_questions_from_chapters")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+def _store_streaming_job(request, chapter_indices, chapters_from_request, filename):
+    """Guarda los parámetros del job en memoria y retorna el job_id."""
+    job_id = str(uuid.uuid4())
+    with _jobs_lock:
+        # Limpiar jobs viejos (> 10 min) para no acumular basura
+        now = time.time()
+        stale = [jid for jid, j in _jobs.items() if now - j.get('created_at', 0) > 600]
+        for jid in stale:
+            _jobs.pop(jid, None)
+
+        _jobs[job_id] = {
+            'chapter_indices': chapter_indices,
+            'chapters_from_request': chapters_from_request,
+            'filename': filename,
+            'doc_session': dict(request.session.get('doc_processor', {})),
+            'user_id': request.user.id,
+            'created_at': now,
+        }
+    return job_id
+
+
+# ============================================
+# Helpers para generación por chunks
+# ============================================
+
+def _split_into_chunks(content, max_tokens=3000):
+    """Divide el contenido en fragmentos de ≤ max_tokens tokens."""
+    total_tokens = count_tokens(content)
+    if total_tokens <= max_tokens:
+        return [content]
+
+    # Dividir por párrafos y agrupar hasta el límite
+    paragraphs = content.split('\n\n')
+    chunks = []
+    current_parts = []
+    current_tokens = 0
+
+    for para in paragraphs:
+        para_tokens = count_tokens(para)
+        # Si un párrafo solo ya supera el límite, cortarlo por líneas
+        if para_tokens > max_tokens:
+            if current_parts:
+                chunks.append('\n\n'.join(current_parts))
+                current_parts = []
+                current_tokens = 0
+            lines = para.split('\n')
+            for line in lines:
+                line_tokens = count_tokens(line)
+                if current_tokens + line_tokens > max_tokens and current_parts:
+                    chunks.append('\n'.join(current_parts))
+                    current_parts = [line]
+                    current_tokens = line_tokens
+                else:
+                    current_parts.append(line)
+                    current_tokens += line_tokens
+        elif current_tokens + para_tokens > max_tokens and current_parts:
+            chunks.append('\n\n'.join(current_parts))
+            current_parts = [para]
+            current_tokens = para_tokens
+        else:
+            current_parts.append(para)
+            current_tokens += para_tokens
+
+    if current_parts:
+        chunks.append('\n\n'.join(current_parts))
+
+    return chunks if chunks else [content]
+
+
+def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks):
+    """Genera preguntas para un fragmento de capítulo usando la IA local."""
+    import json as json_module
+
+    context_note = f"(parte {chunk_idx + 1} de {total_chunks})" if total_chunks > 1 else ""
+
+    prompt = f"""Analiza el siguiente texto educativo del capítulo "{chapter_title}" {context_note} y genera exactamente {num_questions} preguntas de opción múltiple.
 
 TEXTO:
-{combined_content[:5000]}  
+{content}
 
 IMPORTANTE:
-- Genera preguntas que cubran diferentes partes del texto
-- Varía la dificultad (2 fáciles, 2 medias, 2 difíciles)
-- No incluyas información de páginas, títulos de secciones ni numeración del libro
-- Enfócate solo en el CONTENIDO educativo
-- Responde SOLO con JSON válido, sin formato markdown ni explicaciones
+- Genera exactamente {num_questions} preguntas basadas únicamente en el texto anterior
+- Varía la dificultad: algunas fáciles (dificultad 1-2), otras medias (3), otras difíciles (4-5)
+- No incluyas referencias a páginas, títulos de sección ni numeración
+- Responde SOLO con JSON válido, sin bloques de código markdown
 
 Formato JSON requerido:
 {{
@@ -461,72 +667,169 @@ Formato JSON requerido:
       "opciones": ["A) opción 1", "B) opción 2", "C) opción 3", "D) opción 4"],
       "respuesta_correcta_index": 0,
       "respuesta": "A) texto de la opción correcta",
-      "explicacion": "por qué es correcta esta respuesta",
+      "explicacion": "breve explicación de por qué es correcta",
       "dificultad": 2,
       "tipo": "opcion_multiple"
     }}
   ]
 }}"""
-        
-        # Generar con IA (con validación adicional)
-        logger.info(f"Generando preguntas para {len(chapters)} capítulos")
-        logger.info(f"Longitud del contenido combinado: {len(combined_content)} caracteres")
-        
-        result = local_ai.generate(
-            prompt=prompt,
-            temperature=0.4,  # Balanceado para creatividad pero precisión
-            max_tokens=1500
-        )
-        
-        logger.info(f"Resultado de generación: éxito={result['success']}")
-        
-        if not result['success']:
-            return JsonResponse({
-                'success': False,
-                'error': f"Error de IA: {result.get('error', 'Error desconocido')}"
-            }, status=500)
-        
-        # Intentar parsear el JSON de la respuesta
+
+    result = local_ai.generate(prompt=prompt, temperature=0.4, max_tokens=3000)
+
+    if not result['success']:
+        logger.warning(f"IA falló para chunk {chunk_idx + 1}: {result.get('error', '')}")
+        return []
+
+    try:
         ai_response = result['text'].strip()
-        
-        # Limpiar posibles marcadores de código markdown
+        # Eliminar bloques de código markdown si existen
         if ai_response.startswith('```'):
             lines = ai_response.split('\n')
-            ai_response = '\n'.join([line for line in lines if not line.startswith('```')])
-        
-        try:
-            questions_data = json_module.loads(ai_response)
-            questions = questions_data.get('preguntas', [])
-            
-            if not questions:
-                raise ValueError("No se encontraron preguntas en la respuesta")
-            
-            # Agregar información de capítulos fuente a cada pregunta
-            for q in questions:
-                q['source_chapters'] = chapter_info
-                q['source_file'] = filename
-            
-            return JsonResponse({
-                'success': True,
-                'questions': questions,
-                'count': len(questions),
-                'tokens_used': result.get('tokens', 0),
-                'duration_ms': result.get('duration_ms', 0)
-            })
-            
-        except json_module.JSONDecodeError as e:
-            # Si falla el parseo, intentar extraer preguntas de forma más flexible
-            return JsonResponse({
-                'success': False,
-                'error': f'La IA no generó un JSON válido. Por favor intenta de nuevo.',
-                'debug_response': ai_response[:500]
-            }, status=500)
-        
+            ai_response = '\n'.join(line for line in lines if not line.startswith('```'))
+        questions_data = json_module.loads(ai_response)
+        return questions_data.get('preguntas', [])
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=500)
+        logger.warning(f"No se pudo parsear JSON del chunk {chunk_idx + 1}: {e}")
+        return []
+
+
+def _deduplicate_questions(questions):
+    """Elimina preguntas duplicadas comparando los primeros 80 caracteres (case-insensitive)."""
+    seen = set()
+    unique = []
+    for q in questions:
+        key = q.get('pregunta', '').lower().strip()[:80]
+        if key and key not in seen:
+            seen.add(key)
+            unique.append(q)
+    return unique
+
+
+@login_required
+@require_http_methods(["GET"])
+def stream_questions(request, job_id):
+    """
+    SSE endpoint: transmite preguntas a medida que se generan por chunks.
+    El cliente abre un EventSource hacia esta URL tras recibir job_id del
+    endpoint POST /generate-questions/ con stream_mode=true.
+    """
+    import json as json_module
+
+    def event_stream(job, user_id):
+        # Verificar usuario antes de procesar
+        if job.get('user_id') != user_id:
+            yield f'data: {json_module.dumps({"type": "error", "message": "No autorizado"})}\n\n'
+            return
+
+        chapter_indices = job['chapter_indices']
+        chapters_from_request = job['chapters_from_request']
+        filename = job['filename']
+        doc_session = job['doc_session']
+
+        # Obtener contenido completo (misma lógica que generate_questions_from_chapters)
+        chapters_to_process = []
+        session_file = doc_session.get('file_path')
+        if session_file and os.path.exists(session_file):
+            try:
+                full_result = extract_text_advanced(
+                    session_file,
+                    remove_headers=doc_session.get('remove_headers', True),
+                    remove_footers=doc_session.get('remove_footers', True)
+                )
+                all_session_chapters = full_result.get('chapters', [])
+                if chapter_indices:
+                    chapters_to_process = [
+                        all_session_chapters[i]
+                        for i in chapter_indices
+                        if i < len(all_session_chapters)
+                    ]
+                else:
+                    req_titles = {ch.get('title', '') for ch in chapters_from_request}
+                    chapters_to_process = [
+                        ch for ch in all_session_chapters
+                        if ch.get('title', '') in req_titles
+                    ]
+            except Exception as exc:
+                logger.warning(f"SSE: no se pudo re-procesar sesion: {exc}")
+
+        if not chapters_to_process:
+            chapters_to_process = chapters_from_request
+
+        if not chapters_to_process:
+            yield f'data: {json_module.dumps({"type": "error", "message": "No se pudo obtener el contenido de los capítulos"})}\n\n'
+            return
+
+        # Pre-calcular total de chunks para progress
+        chapter_splits = []
+        total_chunks_all = 0
+        for chapter in chapters_to_process:
+            content = chapter.get('content', chapter.get('content_preview', ''))
+            chunks = _split_into_chunks(content, max_tokens=3000)
+            chapter_splits.append(chunks)
+            total_chunks_all += len(chunks)
+
+        yield f'data: {json_module.dumps({"type": "start", "total_chunks": total_chunks_all, "filename": filename})}\n\n'
+
+        seen_keys = set()
+        total_generated = 0
+        chunk_idx_global = 0
+
+        for chapter, chunks in zip(chapters_to_process, chapter_splits):
+            title = chapter.get('title', 'Capítulo')
+            pages = chapter.get('pages', [])
+            questions_per_chunk = max(4, min(8, 20 // max(len(chunks), 1)))
+
+            for i, chunk in enumerate(chunks):
+                chunk_idx_global += 1
+                try:
+                    raw_questions = _generate_questions_for_chunk(
+                        chunk, title, questions_per_chunk, i, len(chunks)
+                    )
+                    new_qs = []
+                    for q in raw_questions:
+                        key = q.get('pregunta', '').lower().strip()[:80]
+                        if key and key not in seen_keys:
+                            seen_keys.add(key)
+                            q['source_chapters'] = [{'title': title, 'pages': pages}]
+                            q['source_file'] = filename
+                            new_qs.append(q)
+
+                    total_generated += len(new_qs)
+                    event = {
+                        'type': 'questions',
+                        'questions': new_qs,
+                        'chunk': chunk_idx_global,
+                        'total_chunks': total_chunks_all,
+                        'chapter_title': title,
+                    }
+                    yield f'data: {json_module.dumps(event)}\n\n'
+
+                except GeneratorExit:
+                    return
+                except Exception as exc:
+                    logger.warning(f"SSE chunk {chunk_idx_global} error: {exc}")
+                    yield f'data: {json_module.dumps({"type": "chunk_error", "chunk": chunk_idx_global, "message": str(exc)})}\n\n'
+
+        yield f'data: {json_module.dumps({"type": "done", "total": total_generated})}\n\n'
+
+    with _jobs_lock:
+        job = _jobs.pop(job_id, None)
+
+    if not job:
+        def _not_found():
+            import json as j
+            yield f'data: {j.dumps({"type": "error", "message": "Job no encontrado o expirado"})}\n\n'
+        response = StreamingHttpResponse(_not_found(), content_type='text/event-stream')
+        response['Cache-Control'] = 'no-cache'
+        return response
+
+    response = StreamingHttpResponse(
+        event_stream(job, request.user.id),
+        content_type='text/event-stream'
+    )
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response
 
 
 @login_required

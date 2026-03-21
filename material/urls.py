@@ -55,6 +55,7 @@ urlpatterns = [
     
     # AI Question Generation
     path('doc-processor/generate-questions/', doc_views.generate_questions_from_chapters, name='generate_questions_from_chapters'),
+    path('doc-processor/generate-questions/stream/<str:job_id>/', doc_views.stream_questions, name='stream_questions'),
     path('doc-processor/save-questions/', doc_views.save_generated_questions, name='save_generated_questions'),
 
 

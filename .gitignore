@@ -21,3 +21,6 @@ __pycache__/
 # Ignorar archivos de medios subidos por usuarios (si no quieres subirlos)
 # tal vez sirva no subir media, pero ahora lo comenté porque estoy con las 2 notebooks y 
 #media/
+
+# Archivos temporales del procesador de documentos (sesiones IA)
+media/doc_sessions/
