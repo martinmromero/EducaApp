@@ -145,7 +145,7 @@ def get_questions_by_topics(request):
     topic_ids = [int(t) for t in topics.split(',') if t]
     questions = Question.objects.none()
     if all_topics and subject_id:
-        questions = Question.objects.filter(subject_id=subject_id)
+        questions = Question.objects.filter(subjects__id=subject_id)
     elif topic_ids:
         questions = Question.objects.filter(topic_id__in=topic_ids)
     data = [
@@ -284,6 +284,7 @@ def upload_contenido(request):  # Antes upload_material
             contenido = form.save(commit=False)
             contenido.uploaded_by = request.user
             contenido.save()
+            form.save_m2m()  # Guardar relaciones M2M (materias)
             messages.success(request, 'Los archivos se subieron correctamente.', extra_tags='contenidos')
             return redirect('material:mis_contenidos')
     else:
@@ -373,20 +374,20 @@ def save_selected_questions(request, contenido_id):
         contenido = Contenido.objects.get(id=contenido_id)
         selected_questions = request.POST.getlist('selected_questions')
         questions_list = request.session.get('generated_questions', [])
-        default_subject = Subject.objects.get_or_create(Nombre="Generado por IA")[0]
-        default_topic = Topic.objects.get_or_create(name="Generado por IA", subject=default_subject)[0]
+        default_subject, _ = Subject.objects.get_or_create(name='Generado por IA')
+        default_topic, _ = Topic.objects.get_or_create(name='Generado por IA', subject=default_subject)
         
         for i, question in enumerate(questions_list):
             if str(i) in selected_questions:
-                Question.objects.create(
+                q = Question.objects.create(
                     contenido=contenido,
-                    subject=default_subject,
                     question_text=question,
-                    answer_text="Respuesta generada por IA",
+                    answer_text='Respuesta generada por IA',
                     topic=default_topic,
                     subtopic=None,
                     user=request.user
                 )
+                q.subjects.add(default_subject)
         messages.success(request, 'Preguntas guardadas correctamente.', extra_tags='preguntas')
         return redirect('material:lista_preguntas')
 
@@ -971,11 +972,11 @@ def mis_examenes(request):
 @login_required
 def lista_preguntas(request):
     # Obtener todas las preguntas del usuario
-    preguntas = Question.objects.filter(user=request.user).select_related('subject', 'topic', 'subtopic', 'contenido')
+    preguntas = Question.objects.filter(user=request.user).prefetch_related('subjects').select_related('topic', 'subtopic', 'contenido')
 
     # Obtener materias que tienen preguntas del usuario
     subjects = Subject.objects.filter(
-        question__in=preguntas
+        questions__in=preguntas
     ).distinct().order_by('name')
 
     # Aplicar filtros
@@ -985,7 +986,7 @@ def lista_preguntas(request):
 
     # Filtrar por materia si corresponde
     if subject_id and subject_id.isdigit():
-        preguntas = preguntas.filter(subject_id=int(subject_id))
+        preguntas = preguntas.filter(subjects__id=int(subject_id))
     # Filtrar por tema si corresponde
     if topic_id and topic_id.isdigit() and int(topic_id) > 0:
         preguntas = preguntas.filter(topic_id=int(topic_id))
@@ -1217,9 +1218,8 @@ def process_csv_file(file, contenido, user):
                 )
             
             # Crear la pregunta solo con campos que existen en el modelo
-            Question.objects.create(
+            q = Question.objects.create(
                 contenido=contenido,
-                subject=subject,
                 question_text=row['pregunta'],
                 answer_text=row['respuesta'],
                 topic=topic,
@@ -1227,6 +1227,7 @@ def process_csv_file(file, contenido, user):
                 source_page=int(row['pagina']) if row.get('pagina') and row.get('pagina').strip().isdigit() else None,
                 user=user
             )
+            q.subjects.add(subject)
             questions_created += 1
         except Exception as e:
             error_msg = f"Fila {row_number}: {str(e)}"
@@ -1300,9 +1301,8 @@ def create_question_from_dict(data, contenido, user):
         )
     
     # Crear la pregunta solo con campos que existen en el modelo
-    Question.objects.create(
+    q = Question.objects.create(
         contenido=contenido,
-        subject=subject,
         question_text=data.get('pregunta', ''),
         answer_text=data.get('respuesta', ''),
         topic=topic,
@@ -1310,6 +1310,7 @@ def create_question_from_dict(data, contenido, user):
         source_page=int(data.get('pagina')) if data.get('pagina') and str(data.get('pagina')).strip().isdigit() else None,
         user=user
     )
+    q.subjects.add(subject)
 
 
 def download_template(request, format):
@@ -2504,7 +2505,7 @@ def validate_oral_exam(request):
         
         # Obtener preguntas disponibles
         available_questions = Question.objects.filter(
-            subject_id=subject_id,
+            subjects__id=subject_id,
             topic_id__in=topic_ids,
             user=request.user
         ).select_related('topic', 'subtopic')
@@ -2622,7 +2623,7 @@ def generate_oral_exam_questions(oral_exam):
     
     # Obtener todas las preguntas disponibles de los temas seleccionados
     available_questions = Question.objects.filter(
-        subject=oral_exam.subject,
+        subjects=oral_exam.subject,
         topic__in=oral_exam.topics.all(),
         user=oral_exam.user
     ).select_related('topic', 'subtopic')
@@ -2933,7 +2934,7 @@ def get_available_questions(request):
         # FILTRADAS POR LOS TEMAS SELECCIONADOS en el examen
         available_questions = Question.objects.filter(
             user=request.user,
-            subject=subject,
+            subjects=subject,
             topic__in=selected_topics  # Solo preguntas de los temas seleccionados
         ).exclude(
             id__in=used_questions
@@ -2945,7 +2946,7 @@ def get_available_questions(request):
                 # Usar Q objects para incluir la pregunta actual
                 from django.db.models import Q
                 available_questions = Question.objects.filter(
-                    Q(user=request.user, subject=subject, topic__in=selected_topics) & 
+                    Q(user=request.user, subjects=subject, topic__in=selected_topics) & 
                     (Q(id=current_question_id) | ~Q(id__in=used_questions))
                 ).select_related('topic')
             except Question.DoesNotExist:

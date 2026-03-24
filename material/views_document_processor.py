@@ -4,7 +4,7 @@ Vistas para Document Processing en EducaApp
 Endpoints para procesar documentos, contar tokens y preparar contenido para IA.
 """
 
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
@@ -41,15 +41,19 @@ def upload_and_process_document(request):
     """
     Vista para subir y procesar un documento (PDF, DOCX, PPTX).
     Retorna estructura completa con capítulos, tokens, metadata.
+    También guarda el archivo como Contenido en la base de datos.
     
     POST params:
         - documento: archivo subido
+        - contenido_title: título para Mis Contenidos (opcional)
         - remove_headers: bool (opcional, default True)
         - remove_footers: bool (opcional, default True)
     
     Returns:
         JSON con estructura procesada del documento
     """
+    from material.models import Contenido
+
     if 'documento' not in request.FILES:
         return JsonResponse({
             'success': False,
@@ -59,6 +63,7 @@ def upload_and_process_document(request):
     archivo = request.FILES['documento']
     remove_headers = request.POST.get('remove_headers', 'true').lower() == 'true'
     remove_footers = request.POST.get('remove_footers', 'true').lower() == 'true'
+    contenido_title = request.POST.get('contenido_title', '').strip()
     
     # Validar extensión
     nombre = archivo.name
@@ -68,42 +73,46 @@ def upload_and_process_document(request):
             'success': False,
             'error': f'Formato no soportado: {ext}'
         }, status=400)
-    
+
+    if not contenido_title:
+        contenido_title = os.path.splitext(nombre)[0].replace('_', ' ').replace('-', ' ')
+
     try:
-        # Guardar temporalmente para procesamiento
-        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_file:
-            for chunk in archivo.chunks():
-                tmp_file.write(chunk)
-            tmp_path = tmp_file.name
-        
+        # Guardar el archivo definitivamente en contenidos/ (también sirve para sesión)
+        saved_relative = default_storage.save(f'contenidos/{nombre}', ContentFile(archivo.read()))
+        file_path = os.path.join(settings.MEDIA_ROOT, saved_relative)
+
         # Procesar con DocumentProcessor
         result = extract_text_advanced(
-            tmp_path,
+            file_path,
             remove_headers=remove_headers,
             remove_footers=remove_footers
         )
-        
-        # --- Persistir archivo en sesión (no eliminarlo) ---
-        # Eliminar archivo previo de esta sesión si existe
+
+        # Crear entrada en Contenido (Mis Contenidos)
+        contenido = Contenido(
+            title=contenido_title,
+            uploaded_by=request.user,
+        )
+        contenido.file = saved_relative
+        contenido.save()
+        contenido_id = contenido.id
+
+        # --- Actualizar sesión ---
+        # Eliminar archivo previo de session temporal si era una sesión de doc_sessions
         prev_session = request.session.get('doc_processor', {})
-        prev_path = prev_session.get('file_path')
-        if prev_path and os.path.exists(prev_path):
+        prev_path = prev_session.get('file_path', '')
+        sessions_dir = os.path.join(settings.MEDIA_ROOT, 'doc_sessions')
+        if prev_path and prev_path.startswith(str(sessions_dir)) and os.path.exists(prev_path):
             try:
                 os.unlink(prev_path)
             except OSError:
                 pass
 
-        # Mover a directorio de sesiones persistentes
         doc_id = str(uuid.uuid4())
-        sessions_dir = os.path.join(settings.MEDIA_ROOT, 'doc_sessions')
-        os.makedirs(sessions_dir, exist_ok=True)
-        session_file_path = os.path.join(sessions_dir, f'{doc_id}{ext}')
-        shutil.move(tmp_path, session_file_path)
-
-        # Guardar en sesión: ruta del archivo + índice de capítulos
         request.session['doc_processor'] = {
             'doc_id': doc_id,
-            'file_path': session_file_path,
+            'file_path': file_path,
             'filename': nombre,
             'remove_headers': remove_headers,
             'remove_footers': remove_footers,
@@ -116,6 +125,7 @@ def upload_and_process_document(request):
             'success': True,
             'doc_id': doc_id,
             'filename': nombre,
+            'contenido_id': contenido_id,
             'metadata': result.get('metadata', {}),
             'stats': result.get('stats', {}),
             'chapters': [
@@ -134,9 +144,9 @@ def upload_and_process_document(request):
         
     except Exception as e:
         # Limpiar en caso de error
-        if 'tmp_path' in locals() and os.path.exists(tmp_path):
+        if 'file_path' in locals() and os.path.exists(file_path):
             try:
-                os.unlink(tmp_path)
+                os.unlink(file_path)
             except OSError:
                 pass
         
@@ -260,6 +270,7 @@ def document_processor_dashboard(request):
     """
     Vista HTML para el dashboard de procesamiento de documentos.
     """
+    from material.models import Subject
     # Verificar estado del servidor local de IA
     local_ai_status = local_ai.get_status()
     
@@ -270,65 +281,75 @@ def document_processor_dashboard(request):
         'local_ai_connected': local_ai_status['connected'],
         'local_ai_url': local_ai_status['url'],
         'selected_model': local_ai_status.get('selected_model', 'llama3.1:8b'),
-        'default_model': local_ai_status.get('default_model', 'llama3.1:8b')
+        'default_model': local_ai_status.get('default_model', 'llama3.1:8b'),
+        'subjects': Subject.objects.all().order_by('name'),
+        'preselected_contenido_id': request.GET.get('contenido_id', ''),
     }
     
     return render(request, 'material/document_processor_dashboard.html', context)
 
 
 @login_required
-@require_http_methods(["POST"])
-def optimize_text_view(request):
+def process_contenido_by_id(request, contenido_id):
     """
-    Optimiza texto para reducir tokens sin perder información.
-    
-    POST params:
-        - text: texto a optimizar
-        - remove_whitespace: bool (default: true)
-    
-    Returns:
-        JSON con texto optimizado y stats
+    Procesa un Contenido ya guardado en el servidor y devuelve el mismo
+    formato JSON que upload_and_process_document, para preseleccionarlo
+    en el dashboard del doc-processor.
     """
-    text = request.POST.get('text', '')
-    remove_whitespace = request.POST.get('remove_whitespace', 'true').lower() == 'true'
-    
-    if not text:
-        return JsonResponse({
-            'success': False,
-            'error': 'No se proporcionó texto'
-        }, status=400)
-    
+    from material.models import Contenido
+    from django.http import JsonResponse
+
+    contenido = get_object_or_404(Contenido, id=contenido_id, uploaded_by=request.user)
+
+    file_path = contenido.file.path
+    ext = os.path.splitext(file_path)[1].lower()
+
+    if ext not in ['.pdf', '.docx', '.pptx', '.txt']:
+        return JsonResponse({'success': False, 'error': f'Formato no soportado: {ext}'}, status=400)
+
     try:
-        # Contar tokens antes
-        tokens_before = count_tokens(text)
-        
-        # Optimizar
-        optimized_text = optimize_text_for_ai(
-            text,
-            remove_extra_whitespace=remove_whitespace
-        )
-        
-        # Contar tokens después
-        tokens_after = count_tokens(optimized_text)
-        
-        # Calcular ahorro
-        tokens_saved = tokens_before - tokens_after
-        percentage_saved = (tokens_saved / tokens_before * 100) if tokens_before > 0 else 0
-        
+        result = extract_text_advanced(file_path, remove_headers=True, remove_footers=True)
+
+        # Limpiar sesion previa
+        prev_session = request.session.get('doc_processor', {})
+        prev_path = prev_session.get('file_path')
+        if prev_path and os.path.exists(prev_path) and not prev_path.startswith(str(settings.MEDIA_ROOT).rstrip('/') + '/contenidos'):
+            try:
+                os.unlink(prev_path)
+            except OSError:
+                pass
+
+        doc_id = str(uuid.uuid4())
+        request.session['doc_processor'] = {
+            'doc_id': doc_id,
+            'file_path': file_path,
+            'filename': contenido.file.name.split('/')[-1],
+            'remove_headers': True,
+            'remove_footers': True,
+        }
+        request.session.modified = True
+
+        nombre = contenido.file.name.split('/')[-1]
         return JsonResponse({
             'success': True,
-            'original_tokens': tokens_before,
-            'optimized_tokens': tokens_after,
-            'tokens_saved': tokens_saved,
-            'percentage_saved': round(percentage_saved, 2),
-            'optimized_text': optimized_text
+            'doc_id': doc_id,
+            'filename': nombre,
+            'metadata': result.get('metadata', {}),
+            'stats': result.get('stats', {}),
+            'chapters': [
+                {
+                    'title': ch.get('title', ''),
+                    'tokens': ch.get('tokens', 0),
+                    'content_preview': ch.get('content', '')[:6000],
+                    'pages': ch.get('pages', [])
+                }
+                for ch in result.get('chapters', [])
+            ],
+            'toc': result.get('toc', [])
         })
-        
+
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=500)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 # ============================================
@@ -854,16 +875,24 @@ def save_generated_questions(request):
         approved = data.get('approved', [])
         rejected = data.get('rejected', [])
         filename = data.get('filename', 'Documento')
+        subject_ids = data.get('subject_ids', [])
         
         saved_count = 0
         
-        # Obtener o crear materia por defecto
-        default_subject = Subject.objects.first()
-        if not default_subject:
-            return JsonResponse({
-                'success': False,
-                'error': 'No hay materias configuradas en el sistema'
-            }, status=400)
+        # Resolver materias seleccionadas por el usuario
+        selected_subjects = list(Subject.objects.filter(id__in=subject_ids)) if subject_ids else []
+        if not selected_subjects:
+            # Fallback: primera materia disponible
+            fallback = Subject.objects.first()
+            if not fallback:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No hay materias configuradas en el sistema'
+                }, status=400)
+            selected_subjects = [fallback]
+        
+        # Usar la primera materia seleccionada para anclar el tema
+        default_subject = selected_subjects[0]
         
         # Obtener o crear tema por defecto
         default_topic = Topic.objects.filter(subject=default_subject).first()
@@ -876,7 +905,6 @@ def save_generated_questions(request):
         # Guardar preguntas aprobadas
         for q_data in approved:
             question = Question(
-                subject=default_subject,
                 topic=default_topic,
                 question_type='opcion_multiple',
                 question_text=q_data.get('pregunta', ''),
@@ -896,12 +924,12 @@ def save_generated_questions(request):
                 question.source_chapters = q_data['source_chapters']
             
             question.save()
+            question.subjects.set(selected_subjects)
             saved_count += 1
         
         # Guardar preguntas rechazadas (para registro)
         for q_data in rejected:
             question = Question(
-                subject=default_subject,
                 topic=default_topic,
                 question_type='opcion_multiple',
                 question_text=q_data.get('pregunta', ''),
@@ -919,6 +947,7 @@ def save_generated_questions(request):
                 question.source_chapters = q_data['source_chapters']
             
             question.save()
+            question.subjects.set(selected_subjects)
         
         return JsonResponse({
             'success': True,

@@ -217,21 +217,32 @@ class DocumentProcessor:
                                    footers: List[str]) -> List[Dict]:
         """
         Extrae contenido organizado por capítulos según TOC.
+        Detecta automáticamente el nivel más granular: si un nivel-1 tiene
+        hijos en nivel-2, usa esos hijos como capítulos (con prefijo de la
+        parte). Si un nivel-1 no tiene hijos, lo considera capítulo directo.
         """
         chapters = []
-        
-        # Filtrar solo capítulos de nivel 1 (principales)
-        main_chapters = [item for item in toc if item['level'] == 1]
-        
-        for i, chapter in enumerate(main_chapters):
-            start_page = chapter['page'] - 1  # PyMuPDF usa índice 0
-            
-            # Determinar página final (hasta siguiente capítulo o fin del documento)
-            if i < len(main_chapters) - 1:
-                end_page = main_chapters[i + 1]['page'] - 1
+
+        flat_items = self._flatten_toc_to_chapters(toc)
+
+        # Fallback: si no se obtuvo nada, usar nivel-1 original
+        if not flat_items:
+            flat_items = [
+                {'display_title': item['title'].strip(), 'page': item['page']}
+                for item in toc if item['level'] == 1
+            ]
+
+        for i, item in enumerate(flat_items):
+            start_page = max(0, item['page'] - 1)  # PyMuPDF índice 0
+
+            # Página final: inicio del siguiente ítem o fin del documento
+            if i < len(flat_items) - 1:
+                end_page = flat_items[i + 1]['page'] - 1
             else:
                 end_page = doc.page_count
-            
+
+            end_page = max(start_page + 1, min(end_page, doc.page_count))
+
             # Extraer texto de páginas del capítulo
             chapter_text = []
             for page_num in range(start_page, end_page):
@@ -239,17 +250,70 @@ class DocumentProcessor:
                     text = doc[page_num].get_text()
                     text = self._remove_repetitive_patterns(text, headers, footers)
                     chapter_text.append(text.strip())
-            
+
             content = '\n\n'.join(chapter_text)
-            
+
             chapters.append({
-                'title': chapter['title'],
+                'title': item['display_title'],
                 'content': content,
                 'tokens': self.count_tokens(content),
                 'pages': list(range(start_page + 1, end_page + 1))
             })
-        
+
         return chapters
+
+    def _flatten_toc_to_chapters(self, toc: List[Dict]) -> List[Dict]:
+        """
+        Aplana el TOC eligiendo el nivel más granular por sección.
+
+        Reglas:
+        - Si un nivel-1 tiene hijos en nivel-2 → reemplaza al nivel-1 con
+          sus hijos de nivel-2, usando 'PARTE › Capítulo' como título.
+          Los niveles 3+ dentro de un nivel-2 se ignoran como separadores
+          (su contenido queda incluido en el rango de páginas del nivel-2).
+        - Si un nivel-1 NO tiene hijos → se conserva como capítulo directo.
+        - Entradas de nivel > 1 sin padre nivel-1 previo → se agregan tal cual.
+        """
+        flat_items = []
+        i = 0
+
+        while i < len(toc):
+            item = toc[i]
+            level = item['level']
+
+            if level == 1:
+                parent_title = item['title'].strip()
+                i += 1  # avanzar al siguiente ítem
+
+                children_added = 0
+                # Consumir todos los descendientes (nivel > 1)
+                while i < len(toc) and toc[i]['level'] > 1:
+                    child = toc[i]
+                    if child['level'] == 2:
+                        flat_items.append({
+                            'display_title': f"{parent_title} \u203a {child['title'].strip()}",
+                            'page': child['page'],
+                        })
+                        children_added += 1
+                    # nivel 3+: ignorar como separador (incluido en rango del nivel-2)
+                    i += 1
+
+                if children_added == 0:
+                    # Nivel-1 sin hijos nivel-2 → usarlo como capítulo
+                    flat_items.append({
+                        'display_title': parent_title,
+                        'page': item['page'],
+                    })
+            else:
+                # Nivel > 1 sin padre nivel-1 previo → agregar directamente
+                flat_items.append({
+                    'display_title': item['title'].strip(),
+                    'page': item['page'],
+                })
+                i += 1
+
+        return flat_items
+
     
     def _remove_repetitive_patterns(self, text: str, 
                                     headers: List[str], 

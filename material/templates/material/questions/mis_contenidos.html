@@ -32,13 +32,10 @@
                         <td>{{ contenido.file.name }}</td>
                         <td>{{ contenido.uploaded_at }}</td>
                         <td>
-                            <form method="post" action="{% url 'material:generate_questions' contenido.id %}" style="display:inline;">
-                                {% csrf_token %}
-                                <div class="input-group">
-                                    <input type="number" name="num_questions" class="form-control" value="20" min="1" max="50" style="width: 100px;">
-                                    <button type="submit" class="btn btn-sm btn-primary">Analizar con IA</button>
-                                </div>
-                            </form>
+                            <a href="{% url 'material:document_processor_dashboard' %}?contenido_id={{ contenido.id }}"
+                               class="btn btn-sm btn-primary">
+                                Analizar con IA
+                            </a>
                         </td>
                     </tr>
                     {% empty %}

@@ -59,9 +59,9 @@ document.addEventListener('DOMContentLoaded', function() {
             <form method="post" enctype="multipart/form-data" id="singleForm">
                 {% csrf_token %}
                 <div class="form-group">
-                    <label for="{{ form.subject.id_for_label }}">Materia</label>
+                    <label for="{{ form.subjects.id_for_label }}">Materias</label>
                     <div class="input-group">
-                        {{ form.subject }}
+                        {{ form.subjects }}
                     </div>
                 </div>
 
@@ -253,14 +253,17 @@ capitulo: Capítulo 2
                             }
                         });
                     }
-                    $('#{{ form.subject.id_for_label }}').change(function() {
-                        loadTopics($(this).val());
+                    $('#{{ form.subjects.id_for_label }}').change(function() {
+                        const selected = $(this).val();
+                        const subjectId = selected && selected.length > 0 ? selected[0] : null;
+                        loadTopics(subjectId);
                     });
                     $('#id_topic').change(function() {
                         loadSubtopics($(this).val());
                     });
                     // Inicialización
-                    const subjectId = $('#{{ form.subject.id_for_label }}').val();
+                    const selectedSubjects = $('#{{ form.subjects.id_for_label }}').val();
+                    const subjectId = selectedSubjects && selectedSubjects.length > 0 ? selectedSubjects[0] : null;
                     if (subjectId) {
                         loadTopics(subjectId);
                     }
@@ -276,7 +279,8 @@ capitulo: Capítulo 2
                     });
                     $('#saveNewTopic').click(function() {
                         const name = $('#new_topic').val().trim();
-                        const subjectId = $('#{{ form.subject.id_for_label }}').val();
+                        const selected = $('#{{ form.subjects.id_for_label }}').val();
+                        const subjectId = selected && selected.length > 0 ? selected[0] : null;
                         if (!name || !subjectId) return;
                         $.ajax({
                             url: '{% url "material:add_topic" %}',

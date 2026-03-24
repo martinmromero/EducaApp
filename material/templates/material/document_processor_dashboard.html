@@ -59,11 +59,6 @@
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="optimize-tab" data-bs-toggle="tab" data-bs-target="#optimize" type="button" role="tab">
-                <i class="fas fa-compress"></i> Optimizador
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
             <button class="nav-link" id="models-tab" data-bs-toggle="tab" data-bs-target="#models" type="button" role="tab">
                 <i class="fas fa-brain"></i> Modelos Locales <span id="modelsCountBadge" class="badge bg-secondary ms-1">0</span>
             </button>
@@ -86,6 +81,11 @@
                                     <label class="form-label">Archivo</label>
                                     <input type="file" class="form-control" id="documentFile" name="documento" accept=".pdf,.docx,.pptx,.txt" required>
                                     <small class="text-muted">Formatos: PDF, DOCX, PPTX, TXT (máx {{ max_file_size_mb }}MB)</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Título <small class="text-muted">(se guardará en Mis Contenidos)</small></label>
+                                    <input type="text" class="form-control" id="contenidoTitle" name="contenido_title" placeholder="Se completa al elegir el archivo">
                                 </div>
 
                                 <div class="mb-3">
@@ -173,59 +173,6 @@
             </div>
         </div>
 
-        <!-- Tab 3: Optimizador de Texto -->
-        <div class="tab-pane fade" id="optimize" role="tabpanel">
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header bg-warning">
-                            <h5 class="mb-0"><i class="fas fa-compress"></i> Optimizar Texto</h5>
-                        </div>
-                        <div class="card-body">
-                            <p>Reduce tokens sin perder información eliminando espacios extras y contenido redundante.</p>
-                            <form id="optimizeForm">
-                                {% csrf_token %}
-                                <div class="mb-3">
-                                    <label class="form-label">Texto a Optimizar</label>
-                                    <textarea class="form-control" id="inputText" name="text" rows="8" required placeholder="Pega aquí el texto a optimizar..."></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="removeWhitespace" name="remove_whitespace" checked>
-                                        <label class="form-check-label" for="removeWhitespace">
-                                            Eliminar espacios y saltos de línea extras
-                                        </label>
-                                    </div>
-                                </div>
-                                <button type="submit" class="btn btn-warning w-100">
-                                    <i class="fas fa-magic"></i> Optimizar
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div id="optimizeResultCard" class="card" style="display:none;">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="mb-0"><i class="fas fa-check"></i> Texto Optimizado</h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="optimizeResultContent"></div>
-                            <hr>
-                            <div class="mb-3">
-                                <label class="form-label">Texto Resultante</label>
-                                <textarea class="form-control" id="optimizedText" rows="8" readonly></textarea>
-                            </div>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="copyOptimizedText()">
-                                <i class="fas fa-copy"></i> Copiar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Tab 4: Modelos Locales de IA -->
         <div class="tab-pane fade" id="models" role="tabpanel">
             <div class="row">
@@ -301,6 +248,40 @@
     </div>
 </div>
 
+<!-- Modal para selección de materias antes de guardar -->
+<div class="modal fade" id="subjectPickerModal" tabindex="-1" aria-labelledby="subjectPickerLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="subjectPickerLabel">
+                    <i class="fas fa-book"></i> Asignar materias
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Seleccioná una o más materias a las que asignar las preguntas guardadas:</p>
+                <div id="subjectPickerList">
+                    {% for subject in subjects %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input subject-picker-cb" type="checkbox"
+                               value="{{ subject.id }}" id="spSubject{{ subject.id }}">
+                        <label class="form-check-label" for="spSubject{{ subject.id }}">{{ subject.name }}</label>
+                    </div>
+                    {% empty %}
+                    <p class="text-warning">No hay materias cargadas en el sistema.</p>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmSaveWithSubjectsBtn">
+                    <i class="fas fa-save"></i> Confirmar y guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal para Preguntas Generadas -->
 <div class="modal fade" id="questionsModal" tabindex="-1" aria-labelledby="questionsModalLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -335,7 +316,48 @@
 </div>
 
 <script>
+// Auto-procesar si se llega desde "Mis Contenidos" con un contenido preseleccionado
+(function() {
+    const contenidoId = '{{ preselected_contenido_id }}';
+    if (!contenidoId) return;
+
+    const progressDiv = document.getElementById('uploadProgress');
+    const resultCard = document.getElementById('resultCard');
+
+    progressDiv.style.display = 'block';
+    resultCard.style.display = 'none';
+
+    fetch(`{% url "material:process_contenido_by_id" contenido_id=0 %}`.replace('/0/', `/${contenidoId}/`), {
+        method: 'GET',
+        headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+    })
+    .then(r => r.json())
+    .then(data => {
+        progressDiv.style.display = 'none';
+        if (data.success) {
+            displayDocumentResult(data);
+            resultCard.style.display = 'block';
+        } else {
+            alert('Error al cargar documento: ' + data.error);
+        }
+    })
+    .catch(err => {
+        progressDiv.style.display = 'none';
+        alert('Error al cargar documento: ' + err);
+    });
+})();
+
 // Form: Procesar Documento
+// Auto-completar título desde el nombre del archivo
+document.getElementById('documentFile').addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) return;
+    const titleInput = document.getElementById('contenidoTitle');
+    if (!titleInput.value) {
+        titleInput.value = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-]+/g, ' ');
+    }
+});
+
 document.getElementById('uploadDocumentForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
@@ -372,7 +394,9 @@ document.getElementById('uploadDocumentForm').addEventListener('submit', async f
 
 function displayDocumentResult(data) {
     let html = `
-        <h5>${data.filename}</h5>
+        <h5>${data.filename}
+            ${data.contenido_id ? `<a id="contenidoSavedBadge" href="{% url 'material:mis_contenidos' %}" class="badge bg-success ms-2 text-decoration-none"><i class="fas fa-check"></i> Guardado en Mis Contenidos</a>` : ''}
+        </h5>
         <div class="row mb-3">
             <div class="col-md-6">
                 <strong>Páginas/Slides:</strong> ${data.stats.total_pages || data.stats.total_slides || 'N/A'}<br>
@@ -407,11 +431,11 @@ function displayDocumentResult(data) {
                             Seleccionar ${chapter.title}
                         </label>
                     </div>
-                    <button class="accordion-button ${index > 0 ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" data-bs-target="#chapter${index}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#chapter${index}">
                         ${chapter.title} <span class="badge bg-secondary ms-2">${chapter.tokens} tokens</span>
                     </button>
                 </h2>
-                <div id="chapter${index}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" data-bs-parent="#chaptersAccordion">
+                <div id="chapter${index}" class="accordion-collapse collapse" data-bs-parent="#chaptersAccordion">
                     <div class="accordion-body">
                         <p><small class="text-muted">Páginas: ${chapter.pages.join(', ')}</small></p>
                         <p>${chapter.content_preview}</p>
@@ -480,57 +504,7 @@ document.getElementById('countTokensForm').addEventListener('submit', async func
     }
 });
 
-// Form: Optimizador
-document.getElementById('optimizeForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(this);
-    const resultCard = document.getElementById('optimizeResultCard');
-    
-    try {
-        const response = await fetch('{% url "material:optimize_text" %}', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            document.getElementById('optimizeResultContent').innerHTML = `
-                <div class="row text-center">
-                    <div class="col-md-4">
-                        <h5>${data.original_tokens}</h5>
-                        <small>Tokens originales</small>
-                    </div>
-                    <div class="col-md-4">
-                        <h5>${data.optimized_tokens}</h5>
-                        <small>Tokens optimizados</small>
-                    </div>
-                    <div class="col-md-4">
-                        <h5 class="text-success">-${data.percentage_saved}%</h5>
-                        <small>Ahorro</small>
-                    </div>
-                </div>
-            `;
-            document.getElementById('optimizedText').value = data.optimized_text;
-            resultCard.style.display = 'block';
-        } else {
-            alert('Error: ' + data.error);
-        }
-    } catch (error) {
-        alert('Error: ' + error);
-    }
-});
 
-function copyOptimizedText() {
-    const text = document.getElementById('optimizedText');
-    text.select();
-    document.execCommand('copy');
-    alert('Texto copiado al portapapeles');
-}
 
 // ============================================
 // Funciones para servidor local de IA
@@ -1098,6 +1072,59 @@ async function saveGeneratedQuestions() {
         alert('No hay preguntas para guardar');
         return;
     }
+
+    // Advertir si el análisis progresivo todavía está en curso
+    if (window._activeEventSource) {
+        const continuar = confirm(
+            'Todavía no se terminó de analizar todo el capítulo elegido.\n' +
+            '¿Desea guardar hasta acá?\n\n' +
+            'Esto detiene el análisis faltante.'
+        );
+        if (!continuar) return;
+        // Detener el stream
+        window._activeEventSource.close();
+        window._activeEventSource = null;
+        const header = document.getElementById('streamHeader');
+        if (header) {
+            header.className = 'alert alert-warning mb-3';
+            header.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Análisis detenido. Guardando preguntas generadas hasta ahora.';
+        }
+    }
+
+    // Resetear checkboxes del picker
+    document.querySelectorAll('.subject-picker-cb').forEach(cb => cb.checked = false);
+
+    // Cerrar questionsModal primero para evitar stacking de modales Bootstrap
+    const questionsModalEl = document.getElementById('questionsModal');
+    const questionsModalInst = bootstrap.Modal.getInstance(questionsModalEl);
+
+    const showSubjectPicker = function() {
+        const pickerModal = new bootstrap.Modal(document.getElementById('subjectPickerModal'));
+        pickerModal.show();
+        document.getElementById('confirmSaveWithSubjectsBtn').onclick = async function() {
+            const subjectIds = Array.from(
+                document.querySelectorAll('.subject-picker-cb:checked')
+            ).map(cb => parseInt(cb.value));
+            if (subjectIds.length === 0) {
+                alert('Seleccioná al menos una materia.');
+                return;
+            }
+            pickerModal.hide();
+            await doSaveQuestions(subjectIds);
+        };
+    };
+
+    if (questionsModalInst) {
+        questionsModalEl.addEventListener('hidden.bs.modal', showSubjectPicker, { once: true });
+        questionsModalInst.hide();
+    } else {
+        showSubjectPicker();
+    }
+}
+
+async function doSaveQuestions(subjectIds) {
+    const selectedCheckboxes = document.querySelectorAll('.question-approve-checkbox:checked');
+    const unselectedCheckboxes = document.querySelectorAll('.question-approve-checkbox:not(:checked)');
     
     // Recopilar preguntas aprobadas y rechazadas
     const approvedQuestions = [];
@@ -1138,7 +1165,8 @@ async function saveGeneratedQuestions() {
             body: JSON.stringify({
                 approved: approvedQuestions,
                 rejected: rejectedQuestions,
-                filename: window.currentDocumentData.filename
+                filename: window.currentDocumentData.filename,
+                subject_ids: subjectIds
             })
         });
         
@@ -1147,10 +1175,7 @@ async function saveGeneratedQuestions() {
         if (data.success) {
             alert(`✅ ${data.saved_count} preguntas guardadas exitosamente`);
             
-            // Cerrar modal
-            bootstrap.Modal.getInstance(document.getElementById('questionsModal')).hide();
-            
-            // Limpiar checkboxes
+            // Limpiar checkboxes (questionsModal ya fue cerrado antes de guardar)
             document.querySelectorAll('.chapter-checkbox').forEach(cb => cb.checked = false);
             updateGenerateButton();
         } else {

@@ -378,11 +378,11 @@ class Contenido(models.Model):
     file = models.FileField(upload_to='contenidos/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    subject = models.ForeignKey(
+    subjects = models.ManyToManyField(
         Subject,
-        on_delete=models.SET_DEFAULT,
-        default=1,
-        verbose_name="Subject"
+        blank=True,
+        verbose_name='Materias',
+        related_name='contenidos'
     )
     isbn = models.CharField(max_length=20, blank=True, null=True)
     edition = models.CharField(max_length=50, blank=True, null=True)
@@ -397,7 +397,8 @@ class Contenido(models.Model):
     )
 
     def __str__(self):
-        return f"{self.subject} - {self.title}"
+        subjects = ', '.join(str(s) for s in self.subjects.all()) or 'Sin materia'
+        return f"{subjects} - {self.title}"
 
 class Question(models.Model):
     QUESTION_TYPE_CHOICES = [
@@ -414,11 +415,11 @@ class Question(models.Model):
         blank=True,
         related_name='preguntas'
     )
-    subject = models.ForeignKey(
+    subjects = models.ManyToManyField(
         'Subject',
-        on_delete=models.SET_DEFAULT,
-        default=1,
-        verbose_name='Materia'
+        blank=True,
+        verbose_name='Materias',
+        related_name='questions'
     )
     topic = models.ForeignKey(
         'Topic',
@@ -498,7 +499,7 @@ class Question(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['subject', 'topic', 'subtopic', 'difficulty']
+        ordering = ['topic', 'subtopic', 'difficulty']
         verbose_name = 'Pregunta'
         verbose_name_plural = 'Preguntas'
 

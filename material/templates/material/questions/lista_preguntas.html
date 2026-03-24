@@ -98,7 +98,7 @@
                     <tbody>
                         {% for pregunta in preguntas %}
                         <tr>
-                            <td>{{ pregunta.subject.name }}</td>
+                            <td>{% for s in pregunta.subjects.all %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
                             <td>{{ pregunta.topic.name|default:"-" }}</td>
                             <td>{{ pregunta.subtopic.name|default:"-" }}</td>
                             <td>{{ pregunta.question_text|truncatechars:100 }}</td>

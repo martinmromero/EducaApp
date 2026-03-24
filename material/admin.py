@@ -122,22 +122,32 @@ class SubjectAdmin(admin.ModelAdmin):
 
 @admin.register(Contenido)
 class ContenidoAdmin(admin.ModelAdmin):
-    list_display = ('title', 'subject', 'uploaded_by', 'uploaded_at', 'chapter')
-    list_filter = ('subject', 'uploaded_by')
-    search_fields = ('title', 'subject__name')
+    list_display = ('title', 'subjects_list', 'uploaded_by', 'uploaded_at', 'chapter')
+    list_filter = ('uploaded_by',)
+    search_fields = ('title', 'subjects__name')
     date_hierarchy = 'uploaded_at'
-    raw_id_fields = ('uploaded_by', 'subject')
+    raw_id_fields = ('uploaded_by',)
+    filter_horizontal = ('subjects',)
+
+    def subjects_list(self, obj):
+        return ', '.join(s.name for s in obj.subjects.all()) or '-'
+    subjects_list.short_description = 'Materias'
 
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
-    list_display = ('question_short', 'subject', 'difficulty', 'question_type', 'contenido', 'source_page')
-    list_filter = ('subject', 'difficulty', 'question_type')
+    list_display = ('question_short', 'subjects_list', 'difficulty', 'question_type', 'contenido', 'source_page')
+    list_filter = ('difficulty', 'question_type')
     search_fields = ('question_text', 'answer_text')
-    raw_id_fields = ('contenido', 'subject', 'topic', 'subtopic', 'user')
+    raw_id_fields = ('contenido', 'topic', 'subtopic', 'user')
+    filter_horizontal = ('subjects',)
 
     def question_short(self, obj):
         return f"{obj.question_text[:50]}..."
     question_short.short_description = 'Pregunta'
+
+    def subjects_list(self, obj):
+        return ', '.join(s.name for s in obj.subjects.all()) or '-'
+    subjects_list.short_description = 'Materias'
 
 @admin.register(Exam)
 class ExamAdmin(admin.ModelAdmin):

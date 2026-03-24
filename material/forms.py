@@ -36,15 +36,16 @@ class LearningOutcomeForm(forms.ModelForm):
     # Eliminada la validación de longitud mínima para description
 
 class ContenidoForm(forms.ModelForm):
-    subject = forms.ModelChoiceField(
-        queryset=Subject.objects.all(),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        label="Subject"
+    subjects = forms.ModelMultipleChoiceField(
+        queryset=Subject.objects.all().order_by('name'),
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
+        required=False,
+        label="Materias"
     )
 
     class Meta:
         model = Contenido
-        fields = ['subject', 'title', 'file', 'isbn', 'edition', 'pages', 'publisher', 'year']
+        fields = ['subjects', 'title', 'file', 'isbn', 'edition', 'pages', 'publisher', 'year']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
             'isbn': forms.TextInput(attrs={'class': 'form-control'}),
@@ -58,6 +59,12 @@ class ContenidoForm(forms.ModelForm):
         }
 
 class QuestionForm(forms.ModelForm):
+    subjects = forms.ModelMultipleChoiceField(
+        queryset=Subject.objects.all().order_by('name'),
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
+        required=False,
+        label="Materias"
+    )
     topic = forms.ModelChoiceField(
         queryset=Topic.objects.none(),
         required=True,
@@ -71,7 +78,7 @@ class QuestionForm(forms.ModelForm):
 
     class Meta:
         model = Question
-        fields = ['subject', 'topic', 'subtopic', 'question_text', 'answer_text', 
+        fields = ['subjects', 'topic', 'subtopic', 'question_text', 'answer_text', 
                  'question_image', 'answer_image', 'contenido', 'source_page']
         widgets = {
             'question_text': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
@@ -85,9 +92,6 @@ class QuestionForm(forms.ModelForm):
         self.current_user = kwargs.pop('current_user', None)
         super().__init__(*args, **kwargs)
         
-        self.fields['subject'].queryset = Subject.objects.all()
-        self.fields['subject'].widget.attrs.update({'class': 'form-control'})
-        
         self.fields['contenido'].queryset = Contenido.objects.filter(
             uploaded_by=self.current_user
         ) if self.current_user else Contenido.objects.none()
@@ -97,15 +101,18 @@ class QuestionForm(forms.ModelForm):
         self.fields['subtopic'].widget.attrs.update({'class': 'form-control'})
 
         # Si ya hay una instancia, cargar los temas/subtemas correspondientes
-        if self.instance.pk and self.instance.subject:
-            self.fields['topic'].queryset = Topic.objects.filter(subject=self.instance.subject)
+        if self.instance.pk and self.instance.subjects.exists():
+            first_subject = self.instance.subjects.first()
+            self.fields['topic'].queryset = Topic.objects.filter(subject=first_subject)
             if self.instance.topic:
                 self.fields['subtopic'].queryset = Subtopic.objects.filter(topic=self.instance.topic)
         # Si hay datos en el POST, actualizar los querysets
-        elif 'subject' in self.data:
+        elif 'subjects' in self.data:
             try:
-                subject_id = int(self.data.get('subject'))
-                self.fields['topic'].queryset = Topic.objects.filter(subject_id=subject_id)
+                subject_ids = self.data.getlist('subjects')
+                if subject_ids:
+                    subject_id = int(subject_ids[0])
+                    self.fields['topic'].queryset = Topic.objects.filter(subject_id=subject_id)
                 
                 if 'topic' in self.data:
                     topic_id = int(self.data.get('topic'))
