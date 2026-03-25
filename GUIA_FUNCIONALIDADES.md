@@ -1,7 +1,7 @@
 # 🎓 ¿Qué hace EducaApp? - Guía Funcional Completa
 
 > **Guía para usuarios, instituciones educativas y tomadores de decisiones**  
-> Versión: Enero 2026
+> Versión: Marzo 2026
 
 ---
 
@@ -157,6 +157,17 @@ Esta es una de las funcionalidades **más potentes** de EducaApp:
    - Crear (nivel más complejo)
    
    Esto ayuda a crear exámenes balanceados que evalúen diferentes niveles cognitivos.
+
+#### **Motor de Inteligencia Artificial**
+
+EducaApp utiliza un **servidor Ollama local** con el modelo `llama3.1:8b` para la generación de preguntas:
+
+- 🏠 **Servidor en intranet**: No depende de servicios externos de pago (OpenAI, etc.)
+- 🔒 **Tokens ilimitados**: Al ser local, no hay límite ni costo por generación
+- ⚡ **Velocidad**: ~14 segundos por generación con `llama3.1:8b`
+- 🌐 **Requiere VPN**: El servidor IA solo es accesible desde la red local o vía VPN
+
+> Para configuración técnica del servidor IA, ver `LOCAL_AI_SETUP_SUMMARY.md`
 
 #### **Beneficios**
 - ⏱️ **Ahorro de tiempo**: Reduce horas de trabajo creando preguntas
@@ -477,7 +488,9 @@ Para más información técnica, consultar:
 - **README.md**: Documentación técnica completa
 - **DOCUMENT_PROCESSOR_GUIDE.md**: Guía del procesador de documentos
 - **METADATA_EXTRACTION_FEATURE.md**: Detalles de extracción de metadata
-- **EDUCAAPP_INTEGRATION.md**: Integración de módulos
+- **LOCAL_AI_SETUP_SUMMARY.md**: Configuración y estado del servidor IA local (Ollama)
+- **SOLUCION_ERROR_IA.md**: Solución de problemas de conectividad con el servidor IA
+- **EDUCAAPP_INTEGRATION.md**: Referencia técnica de integración de módulos (para desarrolladores)
 
 ---
 

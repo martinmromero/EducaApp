@@ -213,11 +213,36 @@
         {% if questions_texts %}
         <div class="section">
             <h3>Preguntas:</h3>
-            <ul class="questions-list">
+            <ol class="questions-list">
                 {% for question in questions_texts %}
-                <li>{{ question }}</li>
+                <li style="margin-bottom:1em;">
+                    {% if question.type %}
+                        {# Pregunta con estructura enriquecida (dict) #}
+                        <strong>{{ question.text }}</strong>
+                        {% if question.type == 'opcion_multiple' %}
+                            {% if question.options %}
+                            <ul style="list-style:none;padding-left:1.2em;margin-top:0.4em;">
+                                {% for opt in question.options %}
+                                <li>{{ opt }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        {% elif question.type == 'verdadero_falso' %}
+                            <span style="margin-left:1em;">
+                                &#9711; Verdadero &nbsp;&nbsp; &#9711; Falso
+                            </span>
+                        {% elif question.type == 'completar_blank' %}
+                            {# El [___] ya está en el texto de la pregunta #}
+                        {% elif question.type == 'desarrollo' %}
+                            <div style="margin-top:0.6em;border-bottom:1px solid #aaa;min-height:3em;"></div>
+                        {% endif %}
+                    {% else %}
+                        {# Fallback: texto plano (compatibilidad) #}
+                        {{ question }}
+                    {% endif %}
+                </li>
                 {% endfor %}
-            </ul>
+            </ol>
         </div>
         {% endif %}
 

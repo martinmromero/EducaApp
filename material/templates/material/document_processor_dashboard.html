@@ -220,6 +220,43 @@
             <div class="modal-body">
                 <div id="preflightChapterList"></div>
                 <hr>
+                <h6><i class="fas fa-list-ul"></i> Tipos de preguntas a generar</h6>
+                <p class="text-muted small mb-2">Seleccioná qué tipos incluir (se mezclarán en las preguntas generadas):</p>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="form-check">
+                            <input class="form-check-input question-type-cb" type="checkbox" value="opcion_multiple" id="qt_opcion_multiple" checked>
+                            <label class="form-check-label" for="qt_opcion_multiple">
+                                <i class="fas fa-list-ol text-primary"></i> <strong>Opción múltiple</strong>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-check">
+                            <input class="form-check-input question-type-cb" type="checkbox" value="verdadero_falso" id="qt_verdadero_falso" checked>
+                            <label class="form-check-label" for="qt_verdadero_falso">
+                                <i class="fas fa-check-circle text-success"></i> <strong>Verdadero/Falso</strong>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-check">
+                            <input class="form-check-input question-type-cb" type="checkbox" value="completar_blank" id="qt_completar_blank" checked>
+                            <label class="form-check-label" for="qt_completar_blank">
+                                <i class="fas fa-pen text-warning"></i> <strong>Completar el espacio</strong>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-check">
+                            <input class="form-check-input question-type-cb" type="checkbox" value="desarrollo" id="qt_desarrollo" checked>
+                            <label class="form-check-label" for="qt_desarrollo">
+                                <i class="fas fa-paragraph text-secondary"></i> <strong>Desarrollo</strong>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <hr>
                 <h6><i class="fas fa-sliders-h"></i> Modo de visualización</h6>
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="radio" name="streamMode" id="streamModeProgressive" value="true" checked>
@@ -792,6 +829,14 @@ function showPreflightModal(indices, chapters) {
 async function startGeneration() {
     const streamMode = document.querySelector('input[name="streamMode"]:checked').value === 'true';
 
+    // Recolectar tipos de preguntas seleccionados
+    const checkedTypes = [...document.querySelectorAll('.question-type-cb:checked')].map(cb => cb.value);
+    if (checkedTypes.length === 0) {
+        alert('Seleccioná al menos un tipo de pregunta.');
+        return;
+    }
+    window._selectedQuestionTypes = checkedTypes;
+
     // Cerrar modal preflight
     bootstrap.Modal.getInstance(document.getElementById('preflightModal')).hide();
 
@@ -831,7 +876,8 @@ async function generateBatch() {
                 chapters: window._preflightChapters,
                 doc_id: window.currentDocumentData.doc_id,
                 filename: window.currentDocumentData.filename,
-                stream_mode: false
+                stream_mode: false,
+                question_types: window._selectedQuestionTypes || []
             })
         });
 
@@ -880,7 +926,8 @@ async function generateStreaming() {
                 chapters: window._preflightChapters,
                 doc_id: window.currentDocumentData.doc_id,
                 filename: window.currentDocumentData.filename,
-                stream_mode: true
+                stream_mode: true,
+                question_types: window._selectedQuestionTypes || []
             })
         });
         const jobData = await resp.json();
@@ -966,6 +1013,77 @@ async function generateStreaming() {
     };
 }
 
+function bloomBadge(nivel) {
+    if (!nivel) return '';
+    const labels = {1:'Recordar',2:'Comprender',3:'Aplicar',4:'Analizar',5:'Evaluar',6:'Crear'};
+    const colors = {1:'secondary',2:'info',3:'primary',4:'warning',5:'danger',6:'dark'};
+    return `<span class="badge bg-${colors[nivel] || 'secondary'} ms-1" title="Taxonomía de Bloom">🧠 Bloom ${nivel}: ${labels[nivel] || nivel}</span>`;
+}
+
+function questionBodyHTML(q) {
+    const tipo = q.tipo || 'opcion_multiple';
+    if (tipo === 'opcion_multiple') {
+        const optionsHTML = q.opciones ? q.opciones.map((opt, i) =>
+            `<li class="${i === q.respuesta_correcta_index ? 'text-success fw-bold' : ''}">${opt}</li>`
+        ).join('') : '';
+        return `
+            <p class="fw-bold mb-3">${q.pregunta}</p>
+            ${optionsHTML ? `<ul class="mb-3">${optionsHTML}</ul>` : ''}
+            <div class="alert alert-light mb-0">
+                <strong>Respuesta correcta:</strong> ${q.respuesta}<br>
+                ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
+            </div>`;
+    }
+    if (tipo === 'verdadero_falso') {
+        const correct = (q.respuesta || '').trim();
+        const badge = correct === 'Verdadero'
+            ? '<span class="badge bg-success fs-6">✔ Verdadero</span>'
+            : '<span class="badge bg-danger fs-6">✘ Falso</span>';
+        return `
+            <p class="fw-bold mb-3">${q.pregunta}</p>
+            <div class="alert alert-light mb-0">
+                <strong>Respuesta:</strong> ${badge}<br>
+                ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
+            </div>`;
+    }
+    if (tipo === 'completar_blank') {
+        const highlighted = (q.pregunta || '').replace(/\[___\]/g, '<span class="badge bg-warning text-dark fs-6">[___]</span>');
+        return `
+            <p class="fw-bold mb-3">${highlighted}</p>
+            <div class="alert alert-light mb-0">
+                <strong>Respuesta:</strong> <em>${q.respuesta || ''}</em><br>
+                ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
+            </div>`;
+    }
+    if (tipo === 'desarrollo') {
+        return `
+            <p class="fw-bold mb-3">${q.pregunta}</p>
+            <div class="alert alert-secondary mb-0">
+                <small class="text-muted"><i class="fas fa-chalkboard-teacher"></i> Solo docente:</small><br>
+                <strong>Respuesta de referencia:</strong> ${q.respuesta || ''}<br>
+                ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
+            </div>`;
+    }
+    // Fallback genérico
+    return `
+        <p class="fw-bold mb-3">${q.pregunta}</p>
+        <div class="alert alert-light mb-0">
+            <strong>Respuesta:</strong> ${q.respuesta || ''}<br>
+            ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
+        </div>`;
+}
+
+function tipoBadge(tipo) {
+    const map = {
+        'opcion_multiple': ['primary', 'Opción múltiple'],
+        'verdadero_falso': ['success', 'Verdadero/Falso'],
+        'completar_blank': ['warning', 'Completar espacio'],
+        'desarrollo': ['secondary', 'Desarrollo'],
+    };
+    const [color, label] = map[tipo] || ['info', tipo || 'Desconocido'];
+    return `<span class="badge bg-${color}">${label}</span>`;
+}
+
 function appendGeneratedQuestions(questions) {
     if (!window.generatedQuestions) window.generatedQuestions = [];
 
@@ -973,9 +1091,6 @@ function appendGeneratedQuestions(questions) {
     questions.forEach((q) => {
         const index = window.generatedQuestions.length;
         window.generatedQuestions.push(q);
-        const optionsHTML = q.opciones ? q.opciones.map((opt, i) =>
-            `<li class="${i === q.respuesta_correcta_index ? 'text-success fw-bold' : ''}">${opt}</li>`
-        ).join('') : '';
 
         const card = document.createElement('div');
         card.className = 'card mb-3 question-card';
@@ -987,17 +1102,13 @@ function appendGeneratedQuestions(questions) {
                     <label class="form-check-label fw-bold" for="question${index}">Pregunta ${index + 1}</label>
                 </div>
                 <div>
-                    <span class="badge bg-info">${q.tipo || 'Opción múltiple'}</span>
+                    ${tipoBadge(q.tipo)}
                     <span class="badge bg-secondary">Dificultad: ${q.dificultad || 3}/5</span>
+                    ${bloomBadge(q.bloom_nivel)}
                 </div>
             </div>
             <div class="card-body">
-                <p class="fw-bold mb-3">${q.pregunta}</p>
-                ${optionsHTML ? `<ul class="mb-3">${optionsHTML}</ul>` : ''}
-                <div class="alert alert-light mb-0">
-                    <strong>Respuesta correcta:</strong> ${q.respuesta}<br>
-                    ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
-                </div>
+                ${questionBodyHTML(q)}
             </div>`;
         container.appendChild(card);
     });
@@ -1009,7 +1120,7 @@ function displayGeneratedQuestions(questions) {
         <div class="alert alert-info">
             <i class="fas fa-info-circle"></i>
             <strong>${questions.length} preguntas generadas</strong>
-            <br><small>Revisa cada pregunta y marca las que deseas guardar</small>
+            <br><small>Revisá cada pregunta y marcá las que deseas guardar</small>
         </div>
         <div class="mb-3">
             <button class="btn btn-sm btn-outline-primary" onclick="selectAllQuestions(true)">
@@ -1022,10 +1133,6 @@ function displayGeneratedQuestions(questions) {
     `;
     
     questions.forEach((q, index) => {
-        const optionsHTML = q.opciones ? q.opciones.map((opt, i) => 
-            `<li class="${i === q.respuesta_correcta_index ? 'text-success fw-bold' : ''}">${opt}</li>`
-        ).join('') : '';
-        
         html += `
             <div class="card mb-3 question-card" data-question-index="${index}">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -1036,26 +1143,19 @@ function displayGeneratedQuestions(questions) {
                         </label>
                     </div>
                     <div>
-                        <span class="badge bg-info">${q.tipo || 'Opción múltiple'}</span>
+                        ${tipoBadge(q.tipo)}
                         <span class="badge bg-secondary">Dificultad: ${q.dificultad || 3}/5</span>
+                        ${bloomBadge(q.bloom_nivel)}
                     </div>
                 </div>
                 <div class="card-body">
-                    <p class="fw-bold mb-3">${q.pregunta}</p>
-                    ${optionsHTML ? `<ul class="mb-3">${optionsHTML}</ul>` : ''}
-                    <div class="alert alert-light mb-0">
-                        <strong>Respuesta correcta:</strong> ${q.respuesta}<br>
-                        ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
-                    </div>
+                    ${questionBodyHTML(q)}
                 </div>
             </div>
         `;
     });
     
     document.getElementById('questionsContent').innerHTML = html;
-    
-    // Guardar preguntas globalmente
-    window.generatedQuestions = questions;
 }
 
 function selectAllQuestions(select) {

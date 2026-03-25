@@ -38,19 +38,30 @@ def preview_exam(request):
     outcomes_texts = []
     topics_texts = []
     
-    # Mostrar textos de preguntas (respetando orden y todos los valores)
+    # Mostrar preguntas con toda su información (tipo + opciones)
     if exam.get('questions'):
         question_ids = []
         if isinstance(exam['questions'], list):
-            # Los datos ahora vienen como lista directamente desde getlist()
             question_ids = [int(q) for q in exam['questions'] if str(q).isdigit()]
         elif isinstance(exam['questions'], str):
-            # Fallback para casos donde venga como string
             question_ids = [int(q) for q in exam['questions'].replace('[','').replace(']','').replace(' ','').split(',') if q.strip().isdigit()]
         if question_ids:
-            preguntas = Question.objects.filter(pk__in=question_ids)
-            preguntas_dict = {q.pk: q.question_text for q in preguntas}
-            questions_texts = [preguntas_dict.get(qid, f"Pregunta ID: {qid}") for qid in question_ids]
+            preguntas_qs = Question.objects.filter(pk__in=question_ids)
+            preguntas_dict = {q.pk: q for q in preguntas_qs}
+            for qid in question_ids:
+                q = preguntas_dict.get(qid)
+                if q:
+                    questions_texts.append({
+                        'text': q.question_text,
+                        'type': q.question_type,
+                        'options': q.options or [],
+                    })
+                else:
+                    questions_texts.append({
+                        'text': f'Pregunta ID: {qid}',
+                        'type': 'opcion_multiple',
+                        'options': [],
+                    })
     
     # Mostrar textos de temas evaluados (respetando orden y todos los valores)
     if exam.get('topics'):
@@ -983,6 +994,7 @@ def lista_preguntas(request):
     subject_id = request.GET.get('subject', '')
     topic_id = request.GET.get('topic', '')
     subtopic_id = request.GET.get('subtopic', '')
+    ai_approval = request.GET.get('ai_approval', '')
 
     # Filtrar por materia si corresponde
     if subject_id and subject_id.isdigit():
@@ -993,6 +1005,15 @@ def lista_preguntas(request):
     # Filtrar por subtema si corresponde
     if subtopic_id and subtopic_id.isdigit() and int(subtopic_id) > 0:
         preguntas = preguntas.filter(subtopic_id=int(subtopic_id))
+    # Filtrar por estado de aprobación IA
+    if ai_approval == 'aprobada':
+        preguntas = preguntas.filter(generated_by_ai=True, ai_approved=True)
+    elif ai_approval == 'rechazada':
+        preguntas = preguntas.filter(generated_by_ai=True, ai_approved=False)
+    elif ai_approval == 'sin_revisar':
+        preguntas = preguntas.filter(generated_by_ai=True, ai_approved__isnull=True)
+    elif ai_approval == 'ia_todas':
+        preguntas = preguntas.filter(generated_by_ai=True)
 
     # Obtener temas y subtemas basados en los filtros actuales
     topics = Topic.objects.none()
@@ -1022,6 +1043,7 @@ def lista_preguntas(request):
         'selected_subject': subject_id if subject_id.isdigit() else '',
         'selected_topic': topic_id if topic_id.isdigit() else '',
         'selected_subtopic': subtopic_id if subtopic_id.isdigit() else '',
+        'selected_ai_approval': ai_approval,
     }
     return render(request, 'material/questions/lista_preguntas.html', context)
 
@@ -1055,6 +1077,60 @@ def eliminar_pregunta(request, pk):
     return render(request, 'material/questions/confirmar_eliminar.html', {
         'pregunta': pregunta
     })
+
+@login_required
+@require_POST
+def bulk_eliminar_preguntas(request):
+    from urllib.parse import urlencode
+
+    delete_all_filtered = request.POST.get('delete_all_filtered') == '1'
+
+    if delete_all_filtered:
+        preguntas = Question.objects.filter(user=request.user)
+        subject_id = request.POST.get('subject', '')
+        topic_id = request.POST.get('topic', '')
+        subtopic_id = request.POST.get('subtopic', '')
+        ai_approval = request.POST.get('ai_approval', '')
+        if subject_id and subject_id.isdigit():
+            preguntas = preguntas.filter(subjects__id=int(subject_id))
+        if topic_id and topic_id.isdigit() and int(topic_id) > 0:
+            preguntas = preguntas.filter(topic_id=int(topic_id))
+        if subtopic_id and subtopic_id.isdigit() and int(subtopic_id) > 0:
+            preguntas = preguntas.filter(subtopic_id=int(subtopic_id))
+        if ai_approval == 'aprobada':
+            preguntas = preguntas.filter(generated_by_ai=True, ai_approved=True)
+        elif ai_approval == 'rechazada':
+            preguntas = preguntas.filter(generated_by_ai=True, ai_approved=False)
+        elif ai_approval == 'sin_revisar':
+            preguntas = preguntas.filter(generated_by_ai=True, ai_approved__isnull=True)
+        elif ai_approval == 'ia_todas':
+            preguntas = preguntas.filter(generated_by_ai=True)
+        count = preguntas.count()
+        preguntas.delete()
+    else:
+        ids_raw = request.POST.getlist('pregunta_ids')
+        ids = [int(i) for i in ids_raw if i.isdigit()]
+        if not ids:
+            messages.error(request, 'No se seleccionó ninguna pregunta para eliminar.', extra_tags='preguntas')
+            return redirect('material:lista_preguntas')
+        preguntas = Question.objects.filter(pk__in=ids, user=request.user)
+        count = preguntas.count()
+        preguntas.delete()
+
+    if count == 1:
+        messages.success(request, 'Se eliminó 1 pregunta correctamente.', extra_tags='preguntas')
+    else:
+        messages.success(request, f'Se eliminaron {count} preguntas correctamente.', extra_tags='preguntas')
+
+    params = {}
+    for key in ['subject', 'topic', 'subtopic', 'ai_approval']:
+        val = request.POST.get(key, '')
+        if val:
+            params[key] = val
+    redirect_url = reverse('material:lista_preguntas')
+    if params:
+        redirect_url += '?' + urlencode(params)
+    return redirect(redirect_url)
 
 @login_required
 def mis_contenidos(request):

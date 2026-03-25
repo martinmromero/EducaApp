@@ -40,6 +40,8 @@ EducaApp es un sistema integral de gestión educativa desarrollado en Django que
 - **Procesamiento Avanzado de Documentos**: Dashboard completo con soporte para PDF, DOCX, PPTX
 - **Extracción Automática de Metadata**: Pre-llenado de formularios desde PDFs (ISBN, edición, páginas, editorial, año)
 - **Análisis de Tokens**: Contador de tokens y división inteligente en chunks
+- **IA Local con Ollama**: Generación automática de preguntas via servidor Ollama (`llama3.1:8b`) en intranet
+- **Curación de Preguntas IA**: Flujo de revisión, aprobación y clasificación de preguntas generadas
 - **Interfaz Responsiva**: Design moderno con Bootstrap 5
 - **Sidebar Colapsable**: Navegación optimizada
 - **Filtros Dinámicos**: Sistema de filtros cascada con AJAX
@@ -230,7 +232,20 @@ python manage.py test material.tests
 
 ## 📝 Changelog
 
-### [Actual] - 2026-01-24
+### [2026-03-24]
+- ✅ **Cleanup**: Limpieza de archivos obsoletos, backups y documentos de instalación históricos
+- ✅ **Backup**: Nuevo backup de base de datos `db_backup_20260324.sqlite3`
+
+### [2026-02-08]
+- ✅ **Feature**: Integración completa con servidor IA local Ollama (`192.168.12.236:11434`)
+- ✅ **Feature**: Generación de preguntas desde capítulos via `llama3.1:8b`
+- ✅ **Feature**: Dashboard de modelos con selector y estado de conexión en tiempo real
+- ✅ **Feature**: Endpoints REST para gestión de IA local (`/doc-processor/local-ai/*`)
+- ✅ **Feature**: Stream de generación de preguntas por capítulos
+- ✅ **Improvement**: Timeout extendido a 120s, validación previa de conexión
+- ✅ **Improvement**: Round Robin como modo por defecto en exámenes orales + persistencia en localStorage
+
+### [2026-01-24]
 - ✅ **Feature**: Sistema completo de procesamiento avanzado de documentos
 - ✅ **Feature**: Extracción automática de metadata de PDFs
 - ✅ **Feature**: Análisis de tokens y división en chunks para IA

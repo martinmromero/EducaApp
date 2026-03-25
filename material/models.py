@@ -404,7 +404,17 @@ class Question(models.Model):
     QUESTION_TYPE_CHOICES = [
         ('opcion_multiple', 'Opción múltiple'),
         ('verdadero_falso', 'Verdadero/Falso'),
+        ('completar_blank', 'Completar el espacio'),
         ('desarrollo', 'Desarrollo'),
+    ]
+
+    BLOOM_LEVEL_CHOICES = [
+        (1, 'Recordar'),
+        (2, 'Comprender'),
+        (3, 'Aplicar'),
+        (4, 'Analizar'),
+        (5, 'Evaluar'),
+        (6, 'Crear'),
     ]
 
     contenido = models.ForeignKey(
@@ -464,6 +474,13 @@ class Question(models.Model):
         default=1,
         validators=[MinValueValidator(1), MaxValueValidator(5)],
         verbose_name='Dificultad (1-5)'
+    )
+    bloom_level = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        choices=BLOOM_LEVEL_CHOICES,
+        verbose_name='Nivel Bloom',
+        help_text='Nivel cognitivo según taxonomía de Bloom (1=Recordar … 6=Crear). Solo visible para el docente.'
     )
     source_page = models.IntegerField(
         null=True,
@@ -539,7 +556,9 @@ class Question(models.Model):
                 raise ValidationError(f'Formato no válido para {field_name}. Use JPG, PNG o SVG.')
 
     def __str__(self):
-        return f"{self.subject} - {self.question_text[:50]}..."
+        first_subject = self.subjects.first()
+        subject_name = first_subject.name if first_subject else 'Sin materia'
+        return f"{subject_name} - {self.question_text[:50]}..."
 
 class Exam(models.Model):
     title = models.CharField(

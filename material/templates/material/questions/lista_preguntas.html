@@ -59,7 +59,21 @@
                         </select>
                     </div>
                 </div>
-                
+
+                <div class="form-row">
+                    <!-- Filtro por Estado IA -->
+                    <div class="form-group col-md-4">
+                        <label for="filter-ai-approval">Estado IA</label>
+                        <select name="ai_approval" id="filter-ai-approval" class="form-control">
+                            <option value="" {% if selected_ai_approval == '' %}selected{% endif %}>Todas las preguntas</option>
+                            <option value="ia_todas" {% if selected_ai_approval == 'ia_todas' %}selected{% endif %}>Generadas por IA</option>
+                            <option value="aprobada" {% if selected_ai_approval == 'aprobada' %}selected{% endif %}>✅ Aprobadas</option>
+                            <option value="rechazada" {% if selected_ai_approval == 'rechazada' %}selected{% endif %}>❌ Rechazadas</option>
+                            <option value="sin_revisar" {% if selected_ai_approval == 'sin_revisar' %}selected{% endif %}>⏳ Sin revisar (IA)</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group col-md-12 d-flex justify-content-between">
                         <a href="{% url 'material:lista_preguntas' %}" class="btn btn-secondary">
@@ -84,24 +98,60 @@
             </span>
         </div>
         <div class="card-body">
+            <form id="bulk-delete-form" method="post" action="{% url 'material:bulk_eliminar_preguntas' %}">
+                {% csrf_token %}
+                <input type="hidden" name="subject" value="{{ selected_subject }}">
+                <input type="hidden" name="topic" value="{{ selected_topic }}">
+                <input type="hidden" name="subtopic" value="{{ selected_subtopic }}">
+                <input type="hidden" name="ai_approval" value="{{ selected_ai_approval }}">
+                <input type="hidden" name="delete_all_filtered" id="delete-all-filtered" value="0">
+
+                <!-- Barra de acción masiva -->
+                <div id="bulk-action-bar" class="alert alert-warning d-none mb-3 d-flex align-items-center justify-content-between">
+                    <span id="bulk-action-label" class="font-weight-bold"></span>
+                    <button type="button" id="bulk-delete-btn" class="btn btn-danger btn-sm ml-3">
+                        <i class="fas fa-trash"></i> Eliminar seleccionadas
+                    </button>
+                </div>
+
             <div class="table-responsive">
                 <table class="table table-striped {% if dark_mode %}table-dark{% endif %}">
                     <thead>
                         <tr>
+                            <th style="width:40px;">
+                                <input type="checkbox" id="select-all" title="Seleccionar todo">
+                            </th>
                             <th>Materia</th>
                             <th>Tema</th>
                             <th>Subtema</th>
                             <th>Pregunta</th>
+                            <th>Estado IA</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for pregunta in preguntas %}
                         <tr>
+                            <td>
+                                <input type="checkbox" name="pregunta_ids" value="{{ pregunta.pk }}" class="pregunta-checkbox">
+                            </td>
                             <td>{% for s in pregunta.subjects.all %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
                             <td>{{ pregunta.topic.name|default:"-" }}</td>
                             <td>{{ pregunta.subtopic.name|default:"-" }}</td>
                             <td>{{ pregunta.question_text|truncatechars:100 }}</td>
+                            <td>
+                                {% if pregunta.generated_by_ai %}
+                                    {% if pregunta.ai_approved is None %}
+                                        <span class="badge badge-warning">⏳ Sin revisar</span>
+                                    {% elif pregunta.ai_approved %}
+                                        <span class="badge badge-success">✅ Aprobada</span>
+                                    {% else %}
+                                        <span class="badge badge-danger">❌ Rechazada</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 <a href="{% url 'material:editar_pregunta' pregunta.pk %}" class="btn btn-sm btn-primary">Editar</a>
                                 <a href="{% url 'material:eliminar_pregunta' pregunta.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
@@ -109,7 +159,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center">No hay preguntas disponibles</td>
+                            <td colspan="7" class="text-center">No hay preguntas disponibles</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -121,9 +171,9 @@
             <div class="pagination mt-4">
                 <span class="step-links">
                     {% if preguntas.has_previous %}
-                        <a href="?page=1{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}" 
+                        <a href="?page=1{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">&laquo; Primera</a>
-                        <a href="?page={{ preguntas.previous_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}" 
+                        <a href="?page={{ preguntas.previous_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">Anterior</a>
                     {% endif %}
                     
@@ -132,14 +182,15 @@
                     </span>
                     
                     {% if preguntas.has_next %}
-                        <a href="?page={{ preguntas.next_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}" 
+                        <a href="?page={{ preguntas.next_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">Siguiente</a>
-                        <a href="?page={{ preguntas.paginator.num_pages }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}" 
+                        <a href="?page={{ preguntas.paginator.num_pages }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">Última &raquo;</a>
                     {% endif %}
                 </span>
             </div>
             {% endif %}
+            </form>
         </div>
     </div>
 </div>
@@ -212,6 +263,14 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('📤 Enviando formulario para filtrar por subtema');
         document.getElementById('filter-form').submit();
     });
+
+    // EVENTO: Cambio de estado IA
+    const aiApprovalSelect = document.getElementById('filter-ai-approval');
+    if (aiApprovalSelect) {
+        aiApprovalSelect.addEventListener('change', function() {
+            document.getElementById('filter-form').submit();
+        });
+    }
     
     // FUNCIONES AUXILIARES
     function initializeDropdowns() {
@@ -305,6 +364,73 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('❌ Error cargando subtemas:', error);
                 subtopicSelect.innerHTML = '<option value="">Error cargando subtemas</option>';
             });
+    }
+});
+</script>
+
+<script>
+// ===== SELECCIÓN MASIVA Y BORRADO EN LOTE =====
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('select-all');
+    const rowCheckboxes = document.querySelectorAll('.pregunta-checkbox');
+    const deleteAllInput = document.getElementById('delete-all-filtered');
+    const actionBar = document.getElementById('bulk-action-bar');
+    const actionLabel = document.getElementById('bulk-action-label');
+    const deleteBtn = document.getElementById('bulk-delete-btn');
+    const totalFiltered = {{ preguntas.paginator.count }};
+
+    function checkedOnPage() {
+        return document.querySelectorAll('.pregunta-checkbox:checked').length;
+    }
+
+    function updateActionBar() {
+        const isAllFiltered = deleteAllInput.value === '1';
+        const count = isAllFiltered ? totalFiltered : checkedOnPage();
+        if (count > 0) {
+            actionBar.classList.remove('d-none');
+            if (isAllFiltered) {
+                actionLabel.textContent = 'Todas las ' + totalFiltered + ' preguntas filtradas seleccionadas';
+            } else {
+                actionLabel.textContent = count + ' pregunta' + (count !== 1 ? 's' : '') + ' seleccionada' + (count !== 1 ? 's' : '');
+            }
+        } else {
+            actionBar.classList.add('d-none');
+        }
+    }
+
+    // "Seleccionar todo" → marca todas las de esta página Y activa borrado de todas las filtradas
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            rowCheckboxes.forEach(cb => cb.checked = this.checked);
+            deleteAllInput.value = this.checked ? '1' : '0';
+            updateActionBar();
+        });
+    }
+
+    // Checkbox individual → desmarca "select all" y sale del modo "todas filtradas"
+    rowCheckboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            if (!this.checked) {
+                selectAll.checked = false;
+                deleteAllInput.value = '0';
+            }
+            updateActionBar();
+        });
+    });
+
+    // Confirmación antes de borrar
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function() {
+            const isAllFiltered = deleteAllInput.value === '1';
+            const count = isAllFiltered ? totalFiltered : checkedOnPage();
+            if (count === 0) return;
+            const msg = isAllFiltered
+                ? '¿Estás seguro de que querés eliminar TODAS las ' + count + ' preguntas con los filtros actuales?\n\nEsta acción no se puede deshacer.'
+                : '¿Estás seguro de que querés eliminar ' + count + ' pregunta' + (count !== 1 ? 's' : '') + '?\n\nEsta acción no se puede deshacer.';
+            if (confirm(msg)) {
+                document.getElementById('bulk-delete-form').submit();
+            }
+        });
     }
 });
 </script>

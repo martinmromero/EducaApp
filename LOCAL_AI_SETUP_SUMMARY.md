@@ -88,21 +88,23 @@ Body: model=command-r7b:latest
 
 ---
 
-### 📝 PRÓXIMOS PASOS SUGERIDOS
+### 📝 ESTADO ACTUAL Y PRÓXIMOS PASOS
 
-#### Opción A: Procesamiento Automático de Documentos
-Implementar análisis automático de PDFs usando llama3.1:8b para:
-- Detectar capítulos y secciones
-- Extraer conceptos clave
-- Generar preguntas automáticamente
+#### ✅ Opción A: Procesamiento Automático de Documentos — IMPLEMENTADO
+El análisis automático de PDFs usando `llama3.1:8b` está activo:
+- ✅ Detecta capítulos y secciones (vía `document_processor.py`)
+- ✅ Extrae conceptos clave del contenido
+- ✅ Genera preguntas automáticamente desde capítulos seleccionados
+- **Endpoint:** `POST /doc-processor/generate-questions/`
 
-#### Opción B: Generación de Preguntas desde Contenidos
-Crear endpoint que tome un contenido educativo y genere:
-- Preguntas de opción múltiple
-- Preguntas de desarrollo
-- Respuestas correctas
+#### ✅ Opción B: Generación de Preguntas desde Contenidos — IMPLEMENTADO
+Los endpoints de generación de preguntas están activos:
+- ✅ Preguntas de opción múltiple y desarrollo
+- ✅ Respuestas correctas generadas por el modelo
+- ✅ Stream en tiempo real (Server-Sent Events)
+- **Endpoints:** `POST /doc-processor/generate-questions/`, `GET /doc-processor/generate-questions/stream/<job_id>/`, `POST /doc-processor/save-questions/`
 
-#### Opción C: Asistente de Chat con Contexto
+#### ⏳ Opción C: Asistente de Chat con Contexto — PENDIENTE
 Sistema de chat que:
 - Responde preguntas sobre documentos cargados
 - Mantiene contexto conversacional

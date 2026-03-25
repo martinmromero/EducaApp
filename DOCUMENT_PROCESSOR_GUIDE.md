@@ -15,16 +15,13 @@ Se ha instalado exitosamente el **Stack Completo** de procesamiento de documento
 
 ---
 
-## 🎯 Archivos Creados
+## 🎯 Archivos del Módulo
 
 | Archivo | Descripción |
 |---------|-------------|
 | `document_processor.py` | Módulo principal con clase `DocumentProcessor` |
 | `example_document_processor.py` | Ejemplos completos de uso |
-| `requirements.txt` | Actualizado con nuevas dependencias |
-| `requirements_document_processing.txt` | Versión detallada con comentarios |
-| `DOCUMENT_PROCESSING_ANALYSIS.md` | Análisis completo y recomendaciones |
-| `INSTALL_DOCUMENT_PROCESSING.ps1` | Scripts de instalación |
+| `requirements.txt` | Dependencias del proyecto (incluye stack completo) |
 
 ---
 
@@ -284,7 +281,9 @@ Archivos generados:
 
 ## 🔧 Integración con Django (EducaApp)
 
-### Opción 1: Agregar a `material/ia_processor.py`
+El módulo está integrado en EducaApp mediante `material/ia_processor.py`, que importa `DocumentProcessor` desde el raíz del proyecto. Las vistas REST están en `material/views_document_processor.py`.
+
+### Cómo está integrado en `material/ia_processor.py`
 
 ```python
 # En material/ia_processor.py
@@ -305,7 +304,7 @@ class IAProcessor:
         }
 ```
 
-### Opción 2: Vista para procesar documentos
+### Cómo está integrado en `material/views_document_processor.py`
 
 ```python
 # En material/views.py
@@ -406,7 +405,7 @@ for page in pdf.pages[:5]:  # Solo primeras 5 en vez de 10
 - [x] `requirements.txt` actualizado
 - [x] Módulo `document_processor.py` creado
 - [x] Ejemplos ejecutados exitosamente
-- [ ] Integrado en tu proyecto Django (opcional)
+- [x] Integrado en EducaApp (`material/ia_processor.py` + vistas REST) ✅
 - [ ] Probado con tus propios documentos
 
 ---
@@ -419,21 +418,19 @@ for page in pdf.pages[:5]:  # Solo primeras 5 en vez de 10
    print(processor.get_stats_summary(result))
    ```
 
-2. **Integrar con EducaApp**
-   - Agregar vista para subir documentos
-   - Procesar y extraer preguntas automáticamente
-   - Usar tokens para fragmentar contenido largo
+2. **Optimizar para la IA local (Ollama)**
+   - Siempre contar tokens antes de enviar al modelo
+   - Dividir documentos grandes en chunks por límite de contexto
+   - Limpiar texto repetitivo para mejorar calidad de respuestas
 
-3. **Optimizar para costos de IA**
-   - Siempre contar tokens antes de enviar
-   - Dividir documentos grandes en chunks
-   - Limpiar texto repetitivo
+3. **Ver también**
+   - `EDUCAAPP_INTEGRATION.md` — Referencia de endpoints REST disponibles
+   - `LOCAL_AI_SETUP_SUMMARY.md` — Configuración del servidor Ollama
 
 ---
 
 **¿Dudas o necesitás ayuda?**
 - Revisá `example_document_processor.py` para ver todos los casos de uso
 - Ejecutá los ejemplos paso a paso
-- Consultá la documentación en los archivos creados
 
 **Listo para usar** ✅

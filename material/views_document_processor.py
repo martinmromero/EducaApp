@@ -491,9 +491,12 @@ def generate_questions_from_chapters(request):
                 'error': 'Servidor local de IA no disponible. Verifica la conexión VPN (192.168.12.236:11434).'
             }, status=503)
 
+        # question_types enviados por el cliente (lista de strings)
+        question_types = data.get('question_types') or []
+
         # Modo streaming: guardar job y retornar job_id al cliente
         if stream_mode:
-            job_id = _store_streaming_job(request, chapter_indices, chapters_from_request, filename)
+            job_id = _store_streaming_job(request, chapter_indices, chapters_from_request, filename, question_types)
             return JsonResponse({
                 'success': True,
                 'job_id': job_id,
@@ -567,7 +570,8 @@ def generate_questions_from_chapters(request):
 
             for chunk_idx, chunk in enumerate(chunks):
                 chunk_questions = _generate_questions_for_chunk(
-                    chunk, title, questions_per_chunk, chunk_idx, len(chunks)
+                    chunk, title, questions_per_chunk, chunk_idx, len(chunks),
+                    question_types=question_types
                 )
                 all_questions.extend(chunk_questions)
                 logger.info(f"  chunk {chunk_idx + 1}/{len(chunks)}: {len(chunk_questions)} preguntas")
@@ -594,7 +598,7 @@ def generate_questions_from_chapters(request):
         }, status=500)
 
 
-def _store_streaming_job(request, chapter_indices, chapters_from_request, filename):
+def _store_streaming_job(request, chapter_indices, chapters_from_request, filename, question_types=None):
     """Guarda los parámetros del job en memoria y retorna el job_id."""
     job_id = str(uuid.uuid4())
     with _jobs_lock:
@@ -608,6 +612,7 @@ def _store_streaming_job(request, chapter_indices, chapters_from_request, filena
             'chapter_indices': chapter_indices,
             'chapters_from_request': chapters_from_request,
             'filename': filename,
+            'question_types': question_types or [],
             'doc_session': dict(request.session.get('doc_processor', {})),
             'user_id': request.user.id,
             'created_at': now,
@@ -663,39 +668,107 @@ def _split_into_chunks(content, max_tokens=3000):
     return chunks if chunks else [content]
 
 
-def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks):
-    """Genera preguntas para un fragmento de capítulo usando la IA local."""
+def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None):
+    """Genera preguntas para un fragmento de capítulo usando la IA local.
+
+    Args:
+        content: Texto del fragmento a procesar.
+        chapter_title: Título del capítulo.
+        num_questions: Número total de preguntas a generar.
+        chunk_idx: Índice del fragmento actual (0-based).
+        total_chunks: Total de fragmentos del capítulo.
+        question_types: Lista de tipos habilitados, e.g. ['opcion_multiple', 'verdadero_falso'].
+                        Si es None o vacío, usa todos los tipos.
+    """
     import json as json_module
+
+    # Tipos disponibles y sus descripciones para el prompt
+    ALL_TYPES = {
+        'opcion_multiple': 'Opción múltiple (4 opciones A/B/C/D, una correcta)',
+        'verdadero_falso': 'Verdadero/Falso (afirmación clara)',
+        'completar_blank': 'Completar el espacio (usa [___] en la pregunta para el espacio en blanco)',
+        'desarrollo': 'Desarrollo (pregunta abierta con respuesta de referencia para el docente)',
+    }
+
+    if not question_types:
+        question_types = list(ALL_TYPES.keys())
+
+    enabled_descriptions = '\n'.join(
+        f'  - "{t}": {ALL_TYPES[t]}'
+        for t in question_types
+        if t in ALL_TYPES
+    )
 
     context_note = f"(parte {chunk_idx + 1} de {total_chunks})" if total_chunks > 1 else ""
 
-    prompt = f"""Analiza el siguiente texto educativo del capítulo "{chapter_title}" {context_note} y genera exactamente {num_questions} preguntas de opción múltiple.
+    # Niveles de Bloom para el prompt
+    bloom_desc = (
+        "bloom_nivel: nivel cognitivo de Bloom (1=Recordar, 2=Comprender, 3=Aplicar, "
+        "4=Analizar, 5=Evaluar, 6=Crear)"
+    )
+
+    prompt = f"""Analizá el siguiente texto educativo del capítulo "{chapter_title}" {context_note} y generá exactamente {num_questions} preguntas variadas.
 
 TEXTO:
 {content}
 
-IMPORTANTE:
-- Genera exactamente {num_questions} preguntas basadas únicamente en el texto anterior
-- Varía la dificultad: algunas fáciles (dificultad 1-2), otras medias (3), otras difíciles (4-5)
-- No incluyas referencias a páginas, títulos de sección ni numeración
-- Responde SOLO con JSON válido, sin bloques de código markdown
+TIPOS DE PREGUNTAS HABILITADOS:
+{enabled_descriptions}
+
+REGLAS:
+- Generá exactamente {num_questions} preguntas basándote ÚNICAMENTE en el texto anterior.
+- Distribuí los tipos de manera relativamente pareja entre los tipos habilitados.
+- Variá la dificultad: dificultad 1-2 (fácil), 3 (media), 4-5 (difícil).
+- Para "opcion_multiple": siempre 4 opciones con prefijo A), B), C), D).
+- Para "completar_blank": escribí la pregunta con [___] donde va la respuesta.
+- Para "verdadero_falso": la respuesta debe ser exactamente "Verdadero" o "Falso".
+- Para "desarrollo": la respuesta es la respuesta de referencia del docente (no del alumno).
+- No incluyas referencias a páginas, títulos de sección ni numeración.
+- Respondé SOLO con JSON válido, sin bloques de código markdown.
 
 Formato JSON requerido:
 {{
   "preguntas": [
     {{
       "pregunta": "texto de la pregunta",
+      "tipo": "opcion_multiple",
       "opciones": ["A) opción 1", "B) opción 2", "C) opción 3", "D) opción 4"],
       "respuesta_correcta_index": 0,
       "respuesta": "A) texto de la opción correcta",
       "explicacion": "breve explicación de por qué es correcta",
       "dificultad": 2,
-      "tipo": "opcion_multiple"
+      "bloom_nivel": 1
+    }},
+    {{
+      "pregunta": "Afirmación concreta. ¿Verdadero o Falso?",
+      "tipo": "verdadero_falso",
+      "respuesta": "Verdadero",
+      "explicacion": "...",
+      "dificultad": 1,
+      "bloom_nivel": 1
+    }},
+    {{
+      "pregunta": "El proceso por el cual las plantas obtienen energía se llama [___].",
+      "tipo": "completar_blank",
+      "respuesta": "fotosíntesis",
+      "explicacion": "...",
+      "dificultad": 2,
+      "bloom_nivel": 1
+    }},
+    {{
+      "pregunta": "Explicá cómo ocurre el proceso X.",
+      "tipo": "desarrollo",
+      "respuesta": "Respuesta de referencia: El proceso X ocurre cuando...",
+      "explicacion": "Evalúa comprensión profunda del proceso.",
+      "dificultad": 4,
+      "bloom_nivel": 3
     }}
   ]
-}}"""
+}}
 
-    result = local_ai.generate(prompt=prompt, temperature=0.4, max_tokens=3000)
+Nota sobre bloom_nivel: {bloom_desc}"""
+
+    result = local_ai.generate(prompt=prompt, temperature=0.4, max_tokens=4000)
 
     if not result['success']:
         logger.warning(f"IA falló para chunk {chunk_idx + 1}: {result.get('error', '')}")
@@ -707,8 +780,16 @@ Formato JSON requerido:
         if ai_response.startswith('```'):
             lines = ai_response.split('\n')
             ai_response = '\n'.join(line for line in lines if not line.startswith('```'))
+        # Intentar extraer el JSON si viene con texto alrededor
+        start = ai_response.find('{')
+        end = ai_response.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            ai_response = ai_response[start:end + 1]
         questions_data = json_module.loads(ai_response)
-        return questions_data.get('preguntas', [])
+        questions = questions_data.get('preguntas', [])
+        # Filtrar solo los tipos habilitados (la IA puede equivocarse)
+        questions = [q for q in questions if q.get('tipo', 'opcion_multiple') in question_types]
+        return questions
     except Exception as e:
         logger.warning(f"No se pudo parsear JSON del chunk {chunk_idx + 1}: {e}")
         return []
@@ -746,6 +827,7 @@ def stream_questions(request, job_id):
         chapters_from_request = job['chapters_from_request']
         filename = job['filename']
         doc_session = job['doc_session']
+        question_types = job.get('question_types') or []
 
         # Obtener contenido completo (misma lógica que generate_questions_from_chapters)
         chapters_to_process = []
@@ -804,7 +886,8 @@ def stream_questions(request, job_id):
                 chunk_idx_global += 1
                 try:
                     raw_questions = _generate_questions_for_chunk(
-                        chunk, title, questions_per_chunk, i, len(chunks)
+                        chunk, title, questions_per_chunk, i, len(chunks),
+                        question_types=question_types
                     )
                     new_qs = []
                     for q in raw_questions:
@@ -906,10 +989,11 @@ def save_generated_questions(request):
         for q_data in approved:
             question = Question(
                 topic=default_topic,
-                question_type='opcion_multiple',
+                question_type=q_data.get('tipo', 'opcion_multiple'),
                 question_text=q_data.get('pregunta', ''),
                 answer_text=q_data.get('respuesta', ''),
                 difficulty=q_data.get('dificultad', 3),
+                bloom_level=q_data.get('bloom_nivel') or None,
                 user=request.user,
                 generated_by_ai=True,
                 ai_approved=True
@@ -931,10 +1015,11 @@ def save_generated_questions(request):
         for q_data in rejected:
             question = Question(
                 topic=default_topic,
-                question_type='opcion_multiple',
+                question_type=q_data.get('tipo', 'opcion_multiple'),
                 question_text=q_data.get('pregunta', ''),
                 answer_text=q_data.get('respuesta', ''),
                 difficulty=q_data.get('dificultad', 3),
+                bloom_level=q_data.get('bloom_nivel') or None,
                 user=request.user,
                 generated_by_ai=True,
                 ai_approved=False

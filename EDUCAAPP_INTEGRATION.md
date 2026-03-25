@@ -17,7 +17,7 @@ Se ha integrado exitosamente el módulo de **Document Processor** en EducaApp co
 
 2. **Nuevas Vistas y Endpoints**
    - ✅ `material/views_document_processor.py` creado
-   - ✅ 5 endpoints REST nuevos
+   - ✅ 11 endpoints REST bajo `/doc-processor/`
    - ✅ Dashboard interactivo con interfaz web
 
 3. **URLs Configuradas**
@@ -49,10 +49,17 @@ Interface completa con 3 funcionalidades:
 
 | Endpoint | Método | Descripción |
 |----------|--------|-------------|
+| `/doc-processor/` | GET | Dashboard interactivo con 3 tabs |
 | `/doc-processor/upload/` | POST | Procesar documento con extracción completa |
 | `/doc-processor/count-tokens/` | POST | Conteo rápido de tokens y estimación de costos |
 | `/doc-processor/split-chunks/` | POST | Dividir texto en chunks por límite de tokens |
-| `/doc-processor/optimize/` | POST | Optimizar texto para reducir tokens |
+| `/doc-processor/local-ai/status/` | GET | Estado del servidor Ollama |
+| `/doc-processor/local-ai/models/` | GET | Listar modelos disponibles en Ollama |
+| `/doc-processor/local-ai/set-model/` | POST | Cambiar modelo activo |
+| `/doc-processor/generate-questions/` | POST | Generar preguntas con IA desde capítulos |
+| `/doc-processor/generate-questions/stream/<job_id>/` | GET | Stream SSE de preguntas (tiempo real) |
+| `/doc-processor/save-questions/` | POST | Guardar preguntas generadas en la BD |
+| `/doc-processor/process-contenido/<id>/` | POST | Procesar contenido educativo por ID |
 
 ---
 
@@ -274,8 +281,6 @@ http://127.0.0.1:8000/doc-processor/
 ### Documentación
 - ✅ `DOCUMENT_PROCESSING_ANALYSIS.md`
 - ✅ `DOCUMENT_PROCESSOR_GUIDE.md`
-- ✅ `requirements_document_processing.txt`
-- ✅ `INSTALL_DOCUMENT_PROCESSING.ps1`
 - ✅ `EDUCAAPP_INTEGRATION.md` (este archivo)
 
 ---
@@ -391,9 +396,11 @@ Revisar que las URLs en el fetch coincidan con las configuradas.
    - Verificar que detecta capítulos correctamente
    - Validar conteo de tokens
 
-2. **Integrar con generación de preguntas**
-   - Usar el texto limpio para generar preguntas
-   - Aprovechar la división por capítulos
+2. **Generación de preguntas con IA local** — ✅ IMPLEMENTADO
+   - Endpoint activo: `POST /doc-processor/generate-questions/`
+   - Stream en tiempo real: `GET /doc-processor/generate-questions/stream/<job_id>/`
+   - Guardado en BD: `POST /doc-processor/save-questions/`
+   - Ver `LOCAL_AI_SETUP_SUMMARY.md` para detalles del servidor Ollama
 
 3. **Agregar almacenamiento**
    - Guardar resultados en BD
