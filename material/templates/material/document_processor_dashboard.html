@@ -319,6 +319,136 @@
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- Modal Visor de Páginas (PDF.js / docx-preview / PPTX cards) -->
+<!-- ============================================================ -->
+<div class="modal fade" id="pagePreviewModal" tabindex="-1" aria-labelledby="pagePreviewModalLabel" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:92vw">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title" id="pagePreviewModalLabel">
+          <i class="fas fa-file-alt me-2"></i>
+          <span id="previewModalTitle">Vista previa del documento</span>
+        </h5>
+        <div class="ms-auto d-flex align-items-center gap-2 me-3">
+          <button class="btn btn-sm btn-outline-light" id="previewSelectAllBtn" onclick="previewSelectAll(true)" title="Seleccionar todas">
+            <i class="fas fa-check-square"></i> Todas
+          </button>
+          <button class="btn btn-sm btn-outline-light" onclick="previewSelectAll(false)" title="Deseleccionar todas">
+            <i class="fas fa-square"></i> Ninguna
+          </button>
+          <span class="badge bg-warning text-dark ms-2" id="previewSelectedCount">0 seleccionadas</span>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-0">
+        <!-- Tabs: Páginas | Capítulos -->
+        <ul class="nav nav-tabs px-3 pt-2 bg-light border-bottom" id="previewTabs">
+          <li class="nav-item">
+            <button class="nav-link active" id="previewPagesTab" data-bs-toggle="tab" data-bs-target="#previewPagesPane" type="button">
+              <i class="fas fa-th-large me-1"></i> <span id="previewPagesTabLabel">Páginas</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" id="previewChaptersTab" data-bs-toggle="tab" data-bs-target="#previewChaptersPane" type="button">
+              <i class="fas fa-list-ul me-1"></i> Capítulos detectados
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <!-- Pestaña: páginas / slides / secciones -->
+          <div class="tab-pane fade show active p-3" id="previewPagesPane">
+            <div id="previewLoadingIndicator" class="text-center py-5">
+              <div class="spinner-border text-primary"></div>
+              <p class="mt-2 text-muted">Cargando documento...</p>
+            </div>
+
+            <!-- PDF viewer (PDF.js) -->
+            <div id="pdfViewerContainer" style="display:none">
+              <div class="alert alert-info py-2 mb-3 d-flex align-items-center gap-2">
+                <i class="fas fa-info-circle"></i>
+                <small>Marcá el checkbox en cada página para incluirla en el análisis de IA.</small>
+              </div>
+              <div id="pdfPagesGrid" class="row g-3"></div>
+            </div>
+
+            <!-- PPTX viewer (tarjetas de texto) -->
+            <div id="pptxViewerContainer" style="display:none">
+              <div class="alert alert-info py-2 mb-3">
+                <i class="fas fa-info-circle"></i>
+                <small>Cada tarjeta representa un slide. Marcá los que querés analizar.</small>
+              </div>
+              <div id="pptxSlidesGrid" class="row g-3"></div>
+            </div>
+
+            <!-- DOCX viewer (docx-preview.js + sección checkboxes) -->
+            <div id="docxViewerContainer" style="display:none">
+              <div class="row g-0" style="min-height:60vh">
+                <!-- Panel izquierdo: render del documento -->
+                <div class="col-md-8 border-end" style="overflow-y:auto;max-height:70vh">
+                  <div class="p-2 bg-light border-bottom">
+                    <small class="text-muted"><i class="fas fa-eye me-1"></i>Vista del documento (solo lectura)</small>
+                  </div>
+                  <div id="docxRenderTarget" style="padding:20px;background:white"></div>
+                </div>
+                <!-- Panel derecho: secciones con checkboxes -->
+                <div class="col-md-4" style="overflow-y:auto;max-height:70vh">
+                  <div class="p-2 bg-light border-bottom">
+                    <small class="text-muted"><i class="fas fa-check-square me-1"></i>Secciones a analizar</small>
+                  </div>
+                  <div id="docxSectionsList" class="p-3"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- DOCX tarjetas de sección (Opción D) -->
+            <!-- ROLLBACK: borrar este bloque y cambiar _renderDocxCards por _loadDocxPreview(() => _renderDocx(...)) en openPagePreview -->
+            <div id="docxCardsContainer" style="display:none">
+              <div class="alert alert-info py-2 mb-3">
+                <i class="fas fa-info-circle"></i>
+                <small>Cada tarjeta es una sección del documento. Hacé click o tildá el checkbox para seleccionarla.</small>
+              </div>
+              <div id="docxCardsGrid" class="row g-3"></div>
+            </div>
+
+            <!-- TXT viewer -->
+            <div id="txtViewerContainer" style="display:none">
+              <div class="alert alert-info py-2 mb-3">
+                <i class="fas fa-info-circle"></i>
+                <small>Cada bloque representa ~50 líneas. Marcá los que querés analizar.</small>
+              </div>
+              <div id="txtBlocksGrid" class="row g-3"></div>
+            </div>
+          </div>
+
+          <!-- Pestaña: capítulos (vista original) -->
+          <div class="tab-pane fade p-3" id="previewChaptersPane">
+            <div class="alert alert-secondary py-2 mb-3">
+              <i class="fas fa-info-circle"></i>
+              <small>Capítulos detectados automáticamente por el procesador. Seleccioná los que querés enviar a IA.</small>
+            </div>
+            <div id="previewChaptersList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="text-muted me-auto small">
+          <i class="fas fa-magic text-success"></i>
+          El texto de las unidades seleccionadas se enviará a la IA para generar preguntas.
+        </div>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" id="previewGenerateBtn" onclick="generateFromPageSelection()" disabled>
+          <i class="fas fa-magic"></i> Generar preguntas con IA
+          <span id="previewGenerateBadge" class="badge bg-light text-dark ms-1">0</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal para Preguntas Generadas -->
 <div class="modal fade" id="questionsModal" tabindex="-1" aria-labelledby="questionsModalLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -448,9 +578,14 @@ function displayDocumentResult(data) {
         <hr>
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h6>Capítulos Detectados:</h6>
-            <button id="generateQuestionsBtn" class="btn btn-success" onclick="generateQuestionsFromSelected()" disabled>
-                <i class="fas fa-magic"></i> Generar Preguntas con IA
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary" onclick="openPagePreview()">
+                    <i class="fas fa-eye"></i> Vista previa de páginas
+                </button>
+                <button id="generateQuestionsBtn" class="btn btn-success" onclick="generateQuestionsFromSelected()" disabled>
+                    <i class="fas fa-magic"></i> Generar con IA (por capítulo)
+                </button>
+            </div>
         </div>
         <div class="accordion" id="chaptersAccordion">
     `;
@@ -1292,7 +1427,463 @@ async function doSaveQuestions(subjectIds) {
 
 </script>
 
+<!-- ============================================================ -->
+<!-- PDF.js + docx-preview CDN (cargados lazy al abrir el visor) -->
+<!-- ============================================================ -->
+<script>
+// ============================================================
+// VISOR DE PÁGINAS — lógica completa
+// ============================================================
+
+window._previewState = {
+  fileType: null,
+  totalPages: 0,
+  selected: new Set(),    // números de página/slide/sección seleccionados
+  pdfDoc: null,           // instancia PDF.js
+  fileUrl: null,
+  slides: [],
+  sections: [],
+};
+
+// --- Carga lazy de PDF.js ---
+let _pdfJsLoaded = false;
+function _loadPdfJs(callback) {
+  if (_pdfJsLoaded) { callback(); return; }
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+  script.onload = () => {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    _pdfJsLoaded = true;
+    callback();
+  };
+  document.head.appendChild(script);
+}
+
+// --- Carga lazy de docx-preview ---
+let _docxPreviewLoaded = false;
+function _loadDocxPreview(callback) {
+  if (_docxPreviewLoaded) { callback(); return; }
+  // Primero cargar JSZip (dependencia de docx-preview)
+  const jszipScript = document.createElement('script');
+  jszipScript.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+  jszipScript.onload = () => {
+    const dpScript = document.createElement('script');
+    dpScript.src = 'https://cdn.jsdelivr.net/npm/docx-preview/dist/docx-preview.min.js';
+    dpScript.onload = () => { _docxPreviewLoaded = true; callback(); };
+    dpScript.onerror = () => { callback(); };  // falla silenciosamente
+    document.head.appendChild(dpScript);
+  };
+  jszipScript.onerror = () => { callback(); };
+  document.head.appendChild(jszipScript);
+}
+
+// --- Abrir el modal ---
+async function openPagePreview() {
+  if (!window.currentDocumentData) {
+    alert('Primero sube o seleccioná un documento.');
+    return;
+  }
+
+  // Mostrar modal inmediatamente con spinner
+  const modal = new bootstrap.Modal(document.getElementById('pagePreviewModal'));
+  modal.show();
+  document.getElementById('previewLoadingIndicator').style.display = 'block';
+  _hideAllViewers();
+  window._previewState.selected.clear();
+  _updatePreviewCount();
+
+  // Cargar metadata del servidor
+  let meta;
+  try {
+    const resp = await fetch('{% url "material:document_page_preview" %}');
+    meta = await resp.json();
+  } catch (e) {
+    document.getElementById('previewLoadingIndicator').innerHTML =
+      `<div class="alert alert-danger">Error al obtener el documento: ${e.message}</div>`;
+    return;
+  }
+
+  if (!meta.success) {
+    document.getElementById('previewLoadingIndicator').innerHTML =
+      `<div class="alert alert-danger">${meta.error}</div>`;
+    return;
+  }
+
+  const st = window._previewState;
+  st.fileType = meta.file_type;
+  st.totalPages = meta.total_pages;
+  st.fileUrl = meta.file_url || null;
+  st.slides = meta.slides || [];
+  st.sections = meta.sections || [];
+
+  document.getElementById('previewModalTitle').textContent =
+    meta.filename + ' — ' + meta.total_pages + ' ' + _unitLabel(meta.file_type, meta.total_pages);
+
+  // También poblar la pestaña de capítulos
+  _populateChaptersPane();
+
+  document.getElementById('previewLoadingIndicator').style.display = 'none';
+
+  if (meta.file_type === 'pdf') {
+    _loadPdfJs(() => _renderPdf(meta.file_url, meta.total_pages));
+  } else if (meta.file_type === 'pptx') {
+    _renderPptx(meta.slides);
+  } else if (meta.file_type === 'docx') {
+    _loadDocxPreview(() => _renderDocx(meta.file_url, meta.sections));
+  } else if (meta.file_type === 'txt') {
+    _renderTxt(meta.sections);
+  }
+}
+
+function _unitLabel(type, n) {
+  if (type === 'pdf') return n === 1 ? 'página' : 'páginas';
+  if (type === 'pptx') return n === 1 ? 'slide' : 'slides';
+  return n === 1 ? 'sección' : 'secciones';
+}
+
+function _hideAllViewers() {
+  ['pdfViewerContainer','pptxViewerContainer','docxViewerContainer','docxCardsContainer','txtViewerContainer']
+    .forEach(id => { const el = document.getElementById(id); if(el) el.style.display='none'; });
+}
+
+// ──────────────────────────────────────────
+// PDF: renderizar página a <canvas> con PDF.js
+// ──────────────────────────────────────────
+async function _renderPdf(fileUrl, totalPages) {
+  const container = document.getElementById('pdfViewerContainer');
+  const grid = document.getElementById('pdfPagesGrid');
+  grid.innerHTML = '';
+  container.style.display = 'block';
+
+  let pdfDoc;
+  try {
+    pdfDoc = await pdfjsLib.getDocument(fileUrl).promise;
+  } catch (e) {
+    grid.innerHTML = `<div class="col-12"><div class="alert alert-danger">No se pudo cargar el PDF: ${e.message}</div></div>`;
+    return;
+  }
+  window._previewState.pdfDoc = pdfDoc;
+
+  // Escala pequeña para thumbnails (1 col = ~200px ancho)
+  const SCALE = 0.4;
+
+  for (let pNum = 1; pNum <= totalPages; pNum++) {
+    const page = await pdfDoc.getPage(pNum);
+    const viewport = page.getViewport({ scale: SCALE });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+    const col = document.createElement('div');
+    col.className = 'col-6 col-md-4 col-lg-3';
+    col.innerHTML = `
+      <div class="card h-100 page-thumb-card" id="pageCard_${pNum}" style="cursor:pointer" onclick="togglePageSelection(${pNum}, 'page')">
+        <div class="card-body p-1 text-center position-relative">
+          <div class="position-absolute top-0 start-0 m-1">
+            <input type="checkbox" class="form-check-input page-select-cb" id="pageCb_${pNum}"
+              value="${pNum}" onclick="event.stopPropagation();togglePageSelection(${pNum},'page')">
+          </div>
+          <small class="text-muted d-block mb-1">Pág. ${pNum}</small>
+        </div>
+      </div>`;
+    // Insertar canvas dentro del card-body, antes del cierre
+    const cardBody = col.querySelector('.card-body');
+    cardBody.appendChild(canvas);
+    canvas.style.cssText = 'max-width:100%;border:1px solid #dee2e6;border-radius:4px';
+    grid.appendChild(col);
+  }
+}
+
+// ──────────────────────────────────────────
+// PPTX: tarjetas de texto por slide
+// ──────────────────────────────────────────
+function _renderPptx(slides) {
+  const container = document.getElementById('pptxViewerContainer');
+  const grid = document.getElementById('pptxSlidesGrid');
+  grid.innerHTML = '';
+  container.style.display = 'block';
+
+  slides.forEach(slide => {
+    const n = slide.slide_number;
+    const previewText = slide.text.length > 300 ? slide.text.slice(0, 300) + '…' : slide.text;
+    const col = document.createElement('div');
+    col.className = 'col-md-4 col-lg-3';
+    col.innerHTML = `
+      <div class="card h-100 page-thumb-card" id="pageCard_${n}" onclick="togglePageSelection(${n},'slide')">
+        <div class="card-header d-flex align-items-center gap-2 py-1 px-2" style="background:#f8f0ff">
+          <input type="checkbox" class="form-check-input page-select-cb" id="pageCb_${n}"
+            value="${n}" onclick="event.stopPropagation();togglePageSelection(${n},'slide')">
+          <small class="fw-bold text-purple">Slide ${n}</small>
+          <small class="text-muted ms-auto">${slide.char_count} chars</small>
+        </div>
+        <div class="card-body p-2" style="font-size:0.78rem;white-space:pre-wrap;overflow:hidden;max-height:160px">${_escapeHtml(previewText)}</div>
+      </div>`;
+    grid.appendChild(col);
+  });
+}
+
+// ──────────────────────────────────────────
+// DOCX Opción D: tarjetas de texto por sección (sin docx-preview)
+// ──────────────────────────────────────────
+function _renderDocxCards(sections) {
+  const container = document.getElementById('docxCardsContainer');
+  const grid = document.getElementById('docxCardsGrid');
+  grid.innerHTML = '';
+  container.style.display = 'block';
+
+  sections.forEach(sec => {
+    const n = sec.section_number;
+    const previewText = sec.text.length > 400 ? sec.text.slice(0, 400) + '…' : sec.text;
+    const col = document.createElement('div');
+    col.className = 'col-md-6 col-lg-4';
+    col.innerHTML = `
+      <div class="card h-100 page-thumb-card" id="pageCard_${n}" onclick="togglePageSelection(${n},'section')">
+        <div class="card-header d-flex align-items-center gap-2 py-2 px-3" style="background:#f0f4ff">
+          <input type="checkbox" class="form-check-input page-select-cb" id="pageCb_${n}"
+            value="${n}" onclick="event.stopPropagation();togglePageSelection(${n},'section')">
+          <span class="fw-semibold text-truncate" style="max-width:80%">${_escapeHtml(sec.title)}</span>
+          <span class="badge bg-light text-secondary ms-auto" style="font-size:0.68rem;white-space:nowrap">${sec.char_count} chars</span>
+        </div>
+        <div class="card-body p-3" style="font-size:0.8rem;white-space:pre-wrap;overflow:hidden;max-height:180px;color:#444">${_escapeHtml(previewText)}</div>
+      </div>`;
+    grid.appendChild(col);
+  });
+}
+
+// ──────────────────────────────────────────
+// DOCX legado: docx-preview en panel izquierdo + checkboxes en panel derecho
+// (mantenido para rollback — no se llama con Opción D activa)
+// ──────────────────────────────────────────
+async function _renderDocx(fileUrl, sections) {
+  const container = document.getElementById('docxViewerContainer');
+  container.style.display = 'block';
+
+  // Panel izquierdo: renderizar con docx-preview
+  const renderTarget = document.getElementById('docxRenderTarget');
+  try {
+    // Verificar que la librería cargó correctamente
+    const renderFn = (typeof docx !== 'undefined' && docx.renderAsync)
+      ? docx.renderAsync
+      : (typeof docxPreview !== 'undefined' && docxPreview.renderAsync)
+        ? docxPreview.renderAsync
+        : null;
+    if (!renderFn) throw new Error('Librería docx-preview no disponible');
+    const resp = await fetch(fileUrl);
+    const buf = await resp.arrayBuffer();
+    await renderFn(buf, renderTarget, null, {
+      className: 'docx-viewer',
+      inWrapper: false,
+      ignoreWidth: true,
+      ignoreHeight: true,
+    });
+  } catch (e) {
+    renderTarget.innerHTML = `<div class="alert alert-secondary text-center p-4">
+      <i class="fas fa-file-word fa-2x text-primary mb-2 d-block"></i>
+      <strong>Vista previa no disponible</strong><br>
+      <small class="text-muted">${_escapeHtml(e.message)}</small><br>
+      <small class="text-muted mt-1 d-block">Usá el panel derecho para seleccionar las secciones a analizar.</small>
+    </div>`;
+  }
+
+  // Panel derecho: lista de secciones con checkboxes
+  const list = document.getElementById('docxSectionsList');
+  list.innerHTML = sections.map(sec => `
+    <div class="form-check mb-2 p-2 rounded border" id="pageCard_${sec.section_number}"
+         style="cursor:pointer" onclick="togglePageSelection(${sec.section_number},'section')">
+      <input class="form-check-input page-select-cb" type="checkbox" id="pageCb_${sec.section_number}"
+        value="${sec.section_number}" onclick="event.stopPropagation();togglePageSelection(${sec.section_number},'section')">
+      <label class="form-check-label" style="pointer-events:none">
+        <strong>${_escapeHtml(sec.title)}</strong>
+        <small class="text-muted d-block">${sec.char_count} caracteres</small>
+      </label>
+    </div>`).join('');
+}
+
+// ──────────────────────────────────────────
+// TXT: bloques de líneas
+// ──────────────────────────────────────────
+function _renderTxt(sections) {
+  const container = document.getElementById('txtViewerContainer');
+  const grid = document.getElementById('txtBlocksGrid');
+  grid.innerHTML = '';
+  container.style.display = 'block';
+
+  sections.forEach(sec => {
+    const n = sec.section_number;
+    const previewText = sec.text.length > 300 ? sec.text.slice(0, 300) + '…' : sec.text;
+    const col = document.createElement('div');
+    col.className = 'col-md-6';
+    col.innerHTML = `
+      <div class="card h-100 page-thumb-card" id="pageCard_${n}" onclick="togglePageSelection(${n},'section')">
+        <div class="card-header d-flex align-items-center gap-2 py-1 px-2">
+          <input type="checkbox" class="form-check-input page-select-cb" id="pageCb_${n}"
+            value="${n}" onclick="event.stopPropagation();togglePageSelection(${n},'section')">
+          <small class="fw-bold">${_escapeHtml(sec.title)}</small>
+        </div>
+        <div class="card-body p-2" style="font-size:0.78rem;white-space:pre-wrap;overflow:hidden;max-height:120px">${_escapeHtml(previewText)}</div>
+      </div>`;
+    grid.appendChild(col);
+  });
+}
+
+// ──────────────────────────────────────────
+// Pestaña de capítulos (pane alternativo)
+// ──────────────────────────────────────────
+function _populateChaptersPane() {
+  const container = document.getElementById('previewChaptersList');
+  if (!window.currentDocumentData || !window.currentDocumentData.chapters) {
+    container.innerHTML = '<p class="text-muted">No hay capítulos detectados.</p>';
+    return;
+  }
+  const chapters = window.currentDocumentData.chapters;
+  container.innerHTML = chapters.map((ch, idx) => `
+    <div class="form-check mb-2 p-2 rounded border">
+      <input class="form-check-input chapter-preview-cb" type="checkbox" value="${idx}" id="chapPrevCb_${idx}">
+      <label class="form-check-label" for="chapPrevCb_${idx}">
+        <strong>${_escapeHtml(ch.title)}</strong>
+        <span class="badge bg-secondary ms-2">${ch.tokens} tokens</span>
+        <small class="text-muted d-block">Páginas: ${(ch.pages||[]).join(', ') || '—'}</small>
+      </label>
+    </div>`).join('');
+}
+
+// ──────────────────────────────────────────
+// Toggle selección de página/slide/sección
+// ──────────────────────────────────────────
+function togglePageSelection(num, type) {
+  const st = window._previewState;
+  const card = document.getElementById(`pageCard_${num}`);
+  const cb = document.getElementById(`pageCb_${num}`);
+
+  if (st.selected.has(num)) {
+    st.selected.delete(num);
+    if (card) card.classList.remove('border-success', 'border-2');
+    if (cb) cb.checked = false;
+  } else {
+    st.selected.add(num);
+    if (card) { card.classList.add('border-success', 'border-2'); }
+    if (cb) cb.checked = true;
+  }
+  _updatePreviewCount();
+}
+
+function previewSelectAll(checked) {
+  const st = window._previewState;
+  st.selected.clear();
+  document.querySelectorAll('.page-select-cb').forEach(cb => {
+    cb.checked = checked;
+    const num = parseInt(cb.value);
+    const card = document.getElementById(`pageCard_${num}`);
+    if (checked) {
+      st.selected.add(num);
+      if (card) card.classList.add('border-success','border-2');
+    } else {
+      if (card) card.classList.remove('border-success','border-2');
+    }
+  });
+  _updatePreviewCount();
+}
+
+function _updatePreviewCount() {
+  const n = window._previewState.selected.size;
+  document.getElementById('previewSelectedCount').textContent = `${n} seleccionadas`;
+  document.getElementById('previewGenerateBtn').disabled = n === 0;
+  document.getElementById('previewGenerateBadge').textContent = n;
+}
+
+// ──────────────────────────────────────────
+// Generar preguntas desde la selección de páginas
+// ──────────────────────────────────────────
+async function generateFromPageSelection() {
+  const st = window._previewState;
+
+  // Verificar si estamos en la pestaña de capítulos
+  const chaptersTabActive = document.getElementById('previewChaptersTab').classList.contains('active');
+  if (chaptersTabActive) {
+    // Usar selección de capítulos
+    const checked = [...document.querySelectorAll('.chapter-preview-cb:checked')].map(cb => parseInt(cb.value));
+    if (checked.length === 0) { alert('Seleccioná al menos un capítulo.'); return; }
+    // Cerrar preview y usar el flujo existente
+    bootstrap.Modal.getInstance(document.getElementById('pagePreviewModal')).hide();
+    // Simular selección en el accordion y lanzar preflight
+    window._preflightIndices = checked;
+    window._preflightChapters = checked.map(i => window.currentDocumentData.chapters[i]);
+    showPreflightModal(checked, window._preflightChapters);
+    return;
+  }
+
+  if (st.selected.size === 0) { alert('Seleccioná al menos una página.'); return; }
+
+  // Verificar servidor IA
+  try {
+    const statusResp = await fetch('{% url "material:check_local_ai_status" %}');
+    const statusData = await statusResp.json();
+    if (!statusData.connected) {
+      alert('⚠️ Servidor de IA no disponible. Verificá la conexión VPN.');
+      return;
+    }
+  } catch (e) {
+    alert('❌ No se pudo verificar el servidor de IA.');
+    return;
+  }
+
+  // Construir payload según tipo
+  const payload = {};
+  if (st.fileType === 'pdf') payload.pages = [...st.selected];
+  else if (st.fileType === 'pptx') payload.slides = [...st.selected];
+  else payload.sections = [...st.selected];
+
+  // Obtener texto de las páginas seleccionadas
+  let pagesData;
+  try {
+    const resp = await fetch('{% url "material:get_pages_text" %}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+      },
+      body: JSON.stringify(payload),
+    });
+    pagesData = await resp.json();
+  } catch (e) {
+    alert('Error al obtener el texto de las páginas: ' + e.message);
+    return;
+  }
+
+  if (!pagesData.success) {
+    alert('Error: ' + pagesData.error);
+    return;
+  }
+
+  // Cerrar modal de preview y abrir flujo de generación
+  bootstrap.Modal.getInstance(document.getElementById('pagePreviewModal')).hide();
+
+  // Adaptar al formato que espera showPreflightModal / startGeneration
+  window._preflightIndices = [];
+  window._preflightChapters = pagesData.chapters;
+  showPreflightModal([], pagesData.chapters);
+}
+
+function _escapeHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+</script>
+
 <style>
+.page-thumb-card {
+  transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+}
+.page-thumb-card:hover {
+  box-shadow: 0 0 0 2px #0d6efd55;
+}
+.page-thumb-card.border-success {
+  box-shadow: 0 0 0 3px #198754aa;
+}
 .accordion-button {
     font-size: 0.95rem;
 }

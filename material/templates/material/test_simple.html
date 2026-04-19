@@ -63,16 +63,19 @@
                                     <span class="badge badge-success">Activo</span>
                                 </td>
                                 <td>
-                                    <a href="#" class="btn btn-sm btn-primary" title="Ver examen">
+                                    <a href="{% url 'material:ver_examen' examen.pk %}" class="btn btn-sm btn-primary" title="Ver examen">
                                         <i class="fas fa-eye"></i> Ver
                                     </a>
-                                    <a href="#" class="btn btn-sm btn-secondary" title="Editar examen">
+                                    <a href="#" class="btn btn-sm btn-secondary" title="Editar examen" onclick="alert('Próximamente: edición de examen guardado.')">
                                         <i class="fas fa-edit"></i> Editar
                                     </a>
-                                    <a href="#" class="btn btn-sm btn-danger" title="Eliminar examen" 
-                                       onclick="return confirm('¿Estás seguro de que deseas eliminar este examen?')">
-                                        <i class="fas fa-trash"></i> Eliminar
-                                    </a>
+                                    <form method="post" action="{% url 'material:eliminar_examen' examen.pk %}" style="display:inline;"
+                                          onsubmit="return confirm('¿Estás seguro de que deseas eliminar este examen?')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Eliminar examen">
+                                            <i class="fas fa-trash"></i> Eliminar
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                             {% endfor %}

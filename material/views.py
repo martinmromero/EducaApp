@@ -3,12 +3,76 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.utils import timezone
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Helper: distribución de niveles de Bloom para un queryset de preguntas
+# ──────────────────────────────────────────────────────────────────────────────
+def _compute_bloom_display(question_qs):
+    """
+    Recibe un QuerySet de Question y retorna una lista de 6 dicts
+    ordenada de nivel 6 (Crear) a nivel 1 (Recordar), lista para
+    renderizar el componente _bloom_pyramid.html.
+    """
+    from django.db.models import Count
+
+    raw = {
+        item['bloom_level']: item['n']
+        for item in question_qs.values('bloom_level').annotate(n=Count('id'))
+        if item['bloom_level'] is not None
+    }
+    max_count = max(raw.values()) if raw else 1
+
+    BLOOM_META = [
+        (6, 'Crear',      '#9b59b6', 'diseñar, construir, planificar, producir'),
+        (5, 'Evaluar',    '#3498db', 'juzgar, criticar, valorar, argumentar'),
+        (4, 'Analizar',   '#27ae60', 'diferenciar, comparar, organizar, atribuir'),
+        (3, 'Aplicar',    '#f39c12', 'ejecutar, implementar, usar, resolver'),
+        (2, 'Comprender', '#e67e22', 'interpretar, ejemplificar, resumir, inferir'),
+        (1, 'Recordar',   '#e74c3c', 'reconocer, listar, identificar, nombrar'),
+    ]
+
+    return [
+        {
+            'level': lvl,
+            'name': name,
+            'color': color,
+            'verbs': verbs,
+            'count': raw.get(lvl, 0),
+            'pct': round(raw.get(lvl, 0) / max_count * 100) if max_count else 0,
+        }
+        for lvl, name, color, verbs in BLOOM_META
+    ]
+
+
+@login_required
+def bloom_taxonomy(request):
+    """Página de referencia de la Taxonomía de Bloom con estadísticas del usuario."""
+    from .models import Question
+
+    qs = Question.objects.filter(user=request.user)
+    bloom_display = _compute_bloom_display(qs)
+    total_bloom_questions = sum(item['count'] for item in bloom_display)
+
+    context = {
+        'bloom_display': bloom_display,
+        'total_bloom_questions': total_bloom_questions,
+        'total_questions': qs.count(),
+    }
+    if request.GET.get('popup'):
+        return render(request, 'material/bloom_taxonomy_popup.html', context)
+    return render(request, 'material/bloom_taxonomy.html', context)
+
+
 @login_required
 def preview_exam(request):
-    exam = request.session.get('preview_exam')
-    if not exam:
+    raw_exam = request.session.get('preview_exam')
+    if not raw_exam:
         messages.error(request, 'No hay datos para mostrar el preview.', extra_tags='general')
         return redirect('material:create_exam')
+
+    # Work with a copy so we never mutate session data
+    exam = dict(raw_exam)
 
     # Debug: imprimir los datos recibidos
     print("DEBUG - Datos de exam en preview:", exam)
@@ -19,20 +83,33 @@ def preview_exam(request):
         subject = Subject.objects.filter(pk=exam['subject']).first()
         exam['subject'] = subject.name if subject else exam['subject']
     if exam.get('institucion'):
-        institucion = InstitutionV2.objects.filter(pk=exam['institucion']).first()
-        exam['institucion'] = institucion.name if institucion else exam['institucion']
+        if str(exam['institucion']).isdigit():
+            institucion = InstitutionV2.objects.filter(pk=exam['institucion']).first()
+            exam['institucion'] = institucion.name if institucion else exam['institucion']
+        elif exam['institucion'] == 'otro':
+            exam['institucion'] = exam.get('institucion_text') or 'Otro'
     if exam.get('facultad'):
-        facultad = FacultyV2.objects.filter(pk=exam['facultad']).first()
-        exam['facultad'] = facultad.name if facultad else exam['facultad']
+        if str(exam['facultad']).isdigit():
+            facultad = FacultyV2.objects.filter(pk=exam['facultad']).first()
+            exam['facultad'] = facultad.name if facultad else exam['facultad']
+        elif exam['facultad'] == 'otro':
+            exam['facultad'] = exam.get('facultad_text') or 'Otro'
     if exam.get('carrera'):
-        carrera = Career.objects.filter(pk=exam['carrera']).first()
-        exam['carrera'] = carrera.name if carrera else exam['carrera']
+        if str(exam['carrera']).isdigit():
+            carrera = Career.objects.filter(pk=exam['carrera']).first()
+            exam['carrera'] = carrera.name if carrera else exam['carrera']
+        elif exam['carrera'] == 'otro':
+            exam['carrera'] = exam.get('carrera_text') or 'Otro'
     if exam.get('sede'):
-        sede = CampusV2.objects.filter(pk=exam['sede']).first()
-        exam['sede'] = sede.name if sede else exam['sede']
+        if str(exam['sede']).isdigit():
+            sede = CampusV2.objects.filter(pk=exam['sede']).first()
+            exam['sede'] = sede.name if sede else exam['sede']
+        elif exam['sede'] == 'otro':
+            exam['sede'] = exam.get('sede_text') or 'Otro'
     if exam.get('profesor'):
-        profesor = User.objects.filter(pk=exam['profesor']).first()
-        exam['profesor'] = profesor.get_full_name() if profesor else exam['profesor']
+        if str(exam['profesor']).isdigit():
+            profesor = User.objects.filter(pk=exam['profesor']).first()
+            exam['profesor'] = profesor.get_full_name() if profesor else exam['profesor']
     # Variables temporales para textos completos
     questions_texts = []
     outcomes_texts = []
@@ -90,6 +167,28 @@ def preview_exam(request):
             outcomes = LearningOutcome.objects.filter(pk__in=outcome_ids)
             outcomes_dict = {o.pk: o.description for o in outcomes}
             outcomes_texts = [outcomes_dict.get(oid, f"Resultado ID: {oid}") for oid in outcome_ids]
+
+    # ── Distribución de Bloom para las preguntas del examen ──
+    bloom_display = []
+    total_exam_questions = len(questions_texts)
+    if exam.get('questions'):
+        question_ids_for_bloom = []
+        if isinstance(exam['questions'], list):
+            question_ids_for_bloom = [int(q) for q in exam['questions'] if str(q).isdigit()]
+        elif isinstance(exam['questions'], str):
+            question_ids_for_bloom = [int(q) for q in exam['questions'].replace('[','').replace(']','').replace(' ','').split(',') if q.strip().isdigit()]
+        if question_ids_for_bloom:
+            bloom_display = _compute_bloom_display(
+                Question.objects.filter(pk__in=question_ids_for_bloom)
+            )
+
+    _TIPO_EXAMEN_LABELS = {
+        '1er_parcial': '1er Parcial', '2do_parcial': '2do Parcial',
+        '3er_parcial': '3er Parcial', 'final': 'Final',
+        'recuperatorio': 'Recuperatorio', 'practico': 'Práctico',
+    }
+    _TIPO_MODALIDAD_LABELS = {'individual': 'Individual', 'grupal': 'Grupal'}
+
     return render(request, 'material/exams/preview_exam.html', {
         'exam': exam,
         'questions_texts': questions_texts,
@@ -101,9 +200,12 @@ def preview_exam(request):
         'subject': {'name': exam.get('subject', 'Materia')},
         'professor': {'get_full_name': exam.get('profesor', '-')},
         'current_date': exam.get('fecha', '-'),
-        'exam_type': exam.get('tipo_examen', '-'),
-        'exam_mode': exam.get('tipo_modalidad', '-'),
+        'exam_type': _TIPO_EXAMEN_LABELS.get(exam.get('tipo_examen', ''), exam.get('tipo_examen') or '-'),
+        'exam_mode': _TIPO_MODALIDAD_LABELS.get(exam.get('tipo_modalidad', ''), exam.get('tipo_modalidad') or '-'),
         'resolution_time': exam.get('duration_minutes', '-'),
+        'instructions': exam.get('instructions', ''),
+        'bloom_display': bloom_display,
+        'total_exam_questions': total_exam_questions,
     })
 from django.http import JsonResponse, Http404
 import os
@@ -433,11 +535,18 @@ def create_exam(request):
                         exam_data[field] = value
             # Campos extra del form manual
             exam_data['institucion'] = request.POST.get('institucion_dropdown')
-            exam_data['facultad'] = request.POST.get('facultad_dropdown')
-            exam_data['carrera'] = request.POST.get('carrera_dropdown')
+            exam_data['institucion_text'] = request.POST.get('institucion_text', '').strip()
+            facultad_val = request.POST.get('facultad_dropdown')
+            exam_data['facultad'] = facultad_val
+            exam_data['facultad_text'] = request.POST.get('facultad_text', '').strip()
+            carrera_val = request.POST.get('carrera_dropdown')
+            exam_data['carrera'] = carrera_val
+            exam_data['carrera_text'] = request.POST.get('carrera_text', '').strip()
             exam_data['sede'] = request.POST.get('sede_dropdown')
+            exam_data['sede_text'] = request.POST.get('sede_text', '').strip()
             exam_data['curso'] = request.POST.get('curso')
             exam_data['turno'] = request.POST.get('turno_dropdown')
+            exam_data['turno_text'] = request.POST.get('turno_text', '').strip()
             exam_data['profesor'] = request.POST.get('profesor_dropdown')
             exam_data['fecha'] = request.POST.get('fecha')
             exam_data['tipo_examen'] = request.POST.get('tipo_examen')
@@ -445,6 +554,8 @@ def create_exam(request):
             exam_data['modalidad_resolucion'] = request.POST.getlist('modalidad_resolucion')
             exam_data['alumno'] = request.POST.get('alumno')
             request.session['preview_exam'] = exam_data
+            if 'save' in request.POST:
+                return redirect('material:save_exam_from_session')
             return redirect('material:preview_exam')
         elif form.is_valid():
             exam = form.save(commit=False)
@@ -456,6 +567,8 @@ def create_exam(request):
     else:
         form = ExamForm()
 
+    import json as _json
+    prefill_data_json = _json.dumps(request.session.get('preview_exam') or {})
     context = {
         'form': form,
         'instituciones': instituciones,
@@ -465,8 +578,159 @@ def create_exam(request):
         'materias': materias,
         'profesores': profesores,
         'templates': templates,
+        'prefill_data_json': prefill_data_json,
     }
     return render(request, 'material/exams/create_exam.html', context)
+
+@login_required
+def save_exam_from_session(request):
+    """Saves the exam stored in session to the database and redirects to mis_examenes."""
+    exam_data = request.session.get('preview_exam')
+    if not exam_data:
+        messages.error(request, 'No hay datos de examen para guardar.', extra_tags='general')
+        return redirect('material:create_exam')
+
+    from .models import Subject, Question, Topic, LearningOutcome, Exam as ExamModel
+    from .models import InstitutionV2, FacultyV2, Career, CampusV2
+    from django.contrib.auth.models import User
+
+    # ── Subject ─────────────────────────────────────────────
+    subject = None
+    if exam_data.get('subject') and str(exam_data['subject']).isdigit():
+        subject = Subject.objects.filter(pk=int(exam_data['subject'])).first()
+    if not subject:
+        messages.error(request, 'No se pudo determinar la materia del examen.', extra_tags='general')
+        return redirect('material:preview_exam')
+
+    # ── Title ────────────────────────────────────────────────
+    tipo_map = {
+        '1er_parcial': '1er Parcial', '2do_parcial': '2do Parcial',
+        '3er_parcial': '3er Parcial', 'final': 'Final',
+        'recuperatorio': 'Recuperatorio', 'practico': 'Práctico',
+    }
+    tipo = tipo_map.get(exam_data.get('tipo_examen', ''), exam_data.get('tipo_examen') or 'Examen')
+    fecha = exam_data.get('fecha', '')
+    title = (exam_data.get('title') or '').strip() or \
+            f"{tipo} - {subject.name}" + (f" ({fecha})" if fecha else "")
+
+    duration = 60
+    try:
+        duration = int(exam_data.get('duration_minutes') or 60)
+    except (ValueError, TypeError):
+        pass
+
+    # ── Resolve text names from V2 PKs ───────────────────────
+    def _resolve_name(model_cls, raw_val, text_fallback):
+        if not raw_val:
+            return text_fallback or ''
+        if str(raw_val).isdigit():
+            obj = model_cls.objects.filter(pk=int(raw_val)).first()
+            return obj.name if obj else (text_fallback or '')
+        if raw_val == 'otro':
+            return text_fallback or 'Otro'
+        return str(raw_val)
+
+    institution_name = _resolve_name(
+        InstitutionV2, exam_data.get('institucion'), exam_data.get('institucion_text'))
+    faculty_name = _resolve_name(
+        FacultyV2, exam_data.get('facultad'), exam_data.get('facultad_text'))
+    campus_name = _resolve_name(
+        CampusV2, exam_data.get('sede'), exam_data.get('sede_text'))
+
+    # carrera: Career model name or text
+    carrera_raw = exam_data.get('carrera', '')
+    carrera_text = exam_data.get('carrera_text', '')
+    if str(carrera_raw).isdigit():
+        c_obj = Career.objects.filter(pk=int(carrera_raw)).first()
+        career_name = c_obj.name if c_obj else carrera_text
+    elif carrera_raw == 'otro':
+        career_name = carrera_text or 'Otro'
+    else:
+        career_name = str(carrera_raw) if carrera_raw else carrera_text
+
+    # professor FK
+    professor = None
+    prof_raw = exam_data.get('profesor', '')
+    if str(prof_raw).isdigit():
+        professor = User.objects.filter(pk=int(prof_raw)).first()
+
+    # turno / shift
+    shift_raw = exam_data.get('turno', '') or exam_data.get('turno_text', '')
+    valid_shifts = ['mañana', 'tarde', 'noche']
+    shift = shift_raw if shift_raw in valid_shifts else None
+
+    # exam_type — store raw value (CharField, no DB constraint)
+    exam_type = exam_data.get('tipo_examen') or None
+
+    # exam_group (individual / grupal) — this is tipo_modalidad from the form
+    exam_group_raw = exam_data.get('tipo_modalidad', '')
+    valid_groups = ['individual', 'grupal']
+    exam_group = exam_group_raw if exam_group_raw in valid_groups else 'individual'
+
+    # exam_mode (oral / escrito) — separate field, not used in the form currently
+    exam_mode = None
+
+    # resolution_time (modalidad_resolucion list or free text)
+    mod_res = exam_data.get('modalidad_resolucion', '')
+    if isinstance(mod_res, list):
+        resolution_time = ', '.join(mod_res)
+    else:
+        resolution_time = str(mod_res) if mod_res else ''
+
+    # year from fecha
+    year = None
+    if fecha:
+        try:
+            year = int(str(fecha).split('-')[0])
+        except (ValueError, IndexError):
+            pass
+
+    # ── Create the Exam object ────────────────────────────────
+    exam_obj = ExamModel(
+        title=title,
+        subject=subject,
+        created_by=request.user,
+        duration_minutes=duration,
+        instructions=exam_data.get('instructions') or '',
+        institution_name=institution_name,
+        faculty_name=faculty_name,
+        campus_name=campus_name,
+        career_name=career_name,
+        professor=professor,
+        exam_type=exam_type,
+        exam_mode=exam_mode,
+        exam_group=exam_group,
+        shift=shift,
+        year=year,
+        date_str=fecha,
+        resolution_time=resolution_time or None,
+        alumno=exam_data.get('alumno') or '',
+        curso=exam_data.get('curso') or '',
+        topics_to_evaluate=exam_data.get('topics_to_evaluate') or None,
+        notes_and_recommendations=exam_data.get('notes_and_recommendations') or None,
+    )
+    exam_obj.save()
+
+    # ── M2M relations ─────────────────────────────────────────
+    def _ids(key):
+        raw = exam_data.get(key, [])
+        if isinstance(raw, list):
+            return [int(v) for v in raw if str(v).isdigit()]
+        return []
+
+    q_ids = _ids('questions')
+    if q_ids:
+        exam_obj.questions.set(Question.objects.filter(pk__in=q_ids))
+    t_ids = _ids('topics')
+    if t_ids:
+        exam_obj.topics.set(Topic.objects.filter(pk__in=t_ids))
+    o_ids = _ids('learning_outcomes')
+    if o_ids:
+        exam_obj.learning_outcomes.set(LearningOutcome.objects.filter(pk__in=o_ids))
+
+    del request.session['preview_exam']
+    messages.success(request, f'Examen "{title}" guardado correctamente.', extra_tags='examenes')
+    return redirect('material:mis_examenes')
 
 @login_required
 def create_exam_template(request):
@@ -981,6 +1245,68 @@ def mis_examenes(request):
     return render(request, 'material/test_simple.html', {'examenes': examenes})
 
 @login_required
+def ver_examen(request, pk):
+    examen = get_object_or_404(Exam, pk=pk, created_by=request.user)
+    questions_texts = []
+    for q in examen.questions.all():
+        questions_texts.append({
+            'text': q.question_text,
+            'type': q.question_type,
+            'options': q.options or [],
+        })
+    outcomes_texts = [o.description for o in examen.learning_outcomes.all()]
+    topics_texts = [t.name for t in examen.topics.all()]
+    bloom_display = _compute_bloom_display(examen.questions.all())
+    total_exam_questions = examen.questions.count()
+
+    TIPO_EXAMEN_LABELS = {
+        '1er_parcial': '1er Parcial', '2do_parcial': '2do Parcial',
+        '3er_parcial': '3er Parcial', 'final': 'Final',
+        'recuperatorio': 'Recuperatorio', 'practico': 'Práctico',
+    }
+    TIPO_MODALIDAD_LABELS = {'individual': 'Individual', 'grupal': 'Grupal'}
+
+    exam_type_display = TIPO_EXAMEN_LABELS.get(examen.exam_type, examen.exam_type or '-')
+    exam_mode_display = TIPO_MODALIDAD_LABELS.get(examen.exam_group, examen.exam_group or '-')
+
+    # Pass professor as dict (same shape as preview_exam) so template works identically
+    if examen.professor:
+        professor = {'get_full_name': examen.professor.get_full_name() or examen.professor.username}
+    else:
+        professor = {'get_full_name': '-'}
+
+    # modalidad_resolucion list for template
+    modalidad_list = [m.strip() for m in (examen.resolution_time or '').split(',') if m.strip()]
+
+    return render(request, 'material/exams/ver_examen.html', {
+        'exam': examen,
+        'institution': {'name': examen.institution_name or '-'},
+        'faculty': {'name': examen.faculty_name or '-'},
+        'career': {'name': examen.career_name or '-'},
+        'subject': {'name': examen.subject.name if examen.subject else '-'},
+        'professor': professor,
+        'current_date': examen.date_str or '-',
+        'exam_type': exam_type_display,
+        'exam_mode': exam_mode_display,
+        'resolution_time': examen.duration_minutes,
+        'modalidad_resolucion': modalidad_list,
+        'instructions': examen.instructions or '',
+        'questions_texts': questions_texts,
+        'outcomes_texts': outcomes_texts,
+        'topics_texts': topics_texts,
+        'bloom_display': bloom_display,
+        'total_exam_questions': total_exam_questions,
+    })
+
+@login_required
+def eliminar_examen(request, pk):
+    examen = get_object_or_404(Exam, pk=pk, created_by=request.user)
+    if request.method == 'POST':
+        examen.delete()
+        messages.success(request, 'Examen eliminado correctamente.', extra_tags='examenes')
+    return redirect('material:mis_examenes')
+
+@login_required
 def lista_preguntas(request):
     # Obtener todas las preguntas del usuario
     preguntas = Question.objects.filter(user=request.user).prefetch_related('subjects').select_related('topic', 'subtopic', 'contenido')
@@ -1015,6 +1341,15 @@ def lista_preguntas(request):
     elif ai_approval == 'ia_todas':
         preguntas = preguntas.filter(generated_by_ai=True)
 
+    # Filtrar por nivel Bloom
+    bloom_filter = request.GET.get('bloom_filter', '')
+    if bloom_filter == 'con_bloom':
+        preguntas = preguntas.filter(bloom_level__isnull=False)
+    elif bloom_filter == 'sin_bloom':
+        preguntas = preguntas.filter(bloom_level__isnull=True)
+    elif bloom_filter.isdigit() and 1 <= int(bloom_filter) <= 6:
+        preguntas = preguntas.filter(bloom_level=int(bloom_filter))
+
     # Obtener temas y subtemas basados en los filtros actuales
     topics = Topic.objects.none()
     subtopics = Subtopic.objects.none()
@@ -1044,6 +1379,7 @@ def lista_preguntas(request):
         'selected_topic': topic_id if topic_id.isdigit() else '',
         'selected_subtopic': subtopic_id if subtopic_id.isdigit() else '',
         'selected_ai_approval': ai_approval,
+        'selected_bloom_filter': bloom_filter,
     }
     return render(request, 'material/questions/lista_preguntas.html', context)
 

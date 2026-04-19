@@ -18,10 +18,83 @@
 {% endif %}
 {% endblock %}
 
+{% block exam_content %}
+{{ block.super }}
+{% endblock %}
+
+{% block bloom_sidebar %}
+{% if bloom_display %}
+<div class="bloom-sidebar no-print" id="bloomSidebar">
+
+  <!-- Cabecera colapsable -->
+  <button onclick="toggleBloom()"
+    style="width:100%;display:flex;justify-content:space-between;align-items:center;
+           background:none;border:none;cursor:pointer;padding:0;margin:0">
+    <span class="bloom-sidebar-title" style="margin:0">Distribución Cognitiva &middot; Bloom</span>
+    <span id="bloomToggleIcon" style="font-size:1.1rem;color:#9b59b6">&#9660;</span>
+  </button>
+
+  <!-- Contenido colapsable -->
+  <div id="bloomContent" style="display:none;margin-top:12px">
+    <p style="color:#666;font-size:0.82rem;margin:0 0 10px">
+      {{ total_exam_questions }} pregunta{{ total_exam_questions|pluralize }} &mdash;
+      solo contabilizan las que tienen nivel de Bloom asignado.
+    </p>
+
+    <!-- Barras de distribución -->
+    <p style="font-size:11px;color:#888;margin:0 0 6px;font-style:italic">Distribución de preguntas por nivel:</p>
+    {% for item in bloom_display %}
+    <div style="display:flex;align-items:center;margin-bottom:5px;gap:6px">
+      <span style="width:88px;font-size:11px;font-weight:600;color:{{ item.color }};text-align:right;flex-shrink:0">{{ item.name }}</span>
+      <div style="flex:1;background:#ebebeb;border-radius:3px;height:16px;overflow:hidden">
+        <div style="width:{{ item.pct }}%;height:100%;background:{{ item.color }};
+                    display:flex;align-items:center;justify-content:flex-end;
+                    padding-right:4px;box-sizing:border-box;min-width:{% if item.count %}16px{% else %}0{% endif %}">
+          {% if item.count %}<span style="font-size:10px;color:white;font-weight:bold">{{ item.count }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <!-- Link pirámide genérica en popup -->
+    <div style="margin-top:14px;text-align:center">
+      <a href="{% url 'material:bloom_taxonomy' %}?popup=1"
+         onclick="window.open(this.href,'_bloom_ref','width=880,height=720,scrollbars=yes,resizable=yes');return false;"
+         style="font-size:0.8rem;color:#9b59b6;text-decoration:underline">
+        &#128214; Ver pirámide completa con definiciones y verbos
+      </a>
+    </div>
+
+    <div class="bloom-disclaimer">Este resumen no es parte del guardado ni impresión del documento.</div>
+  </div>
+
+</div>
+
+<script>
+function toggleBloom() {
+  var c = document.getElementById('bloomContent');
+  var i = document.getElementById('bloomToggleIcon');
+  if (c.style.display === 'none') {
+    c.style.display = 'block';
+    i.innerHTML = '&#9650;';
+  } else {
+    c.style.display = 'none';
+    i.innerHTML = '&#9660;';
+  }
+}
+</script>
+{% endif %}
+{% endblock %}
+
 {% block action_buttons %}
 <button onclick="window.print()">
     <i class="fas fa-print"></i> Imprimir Examen
 </button>
+<a href="{% url 'material:save_exam_from_session' %}">
+    <button style="background:#28a745;">
+        <i class="fas fa-save"></i> Guardar Examen
+    </button>
+</a>
 <a href="{% url 'material:create_exam' %}">
     <button class="secondary">
         <i class="fas fa-edit"></i> Editar

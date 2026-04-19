@@ -72,6 +72,22 @@
                             <option value="sin_revisar" {% if selected_ai_approval == 'sin_revisar' %}selected{% endif %}>⏳ Sin revisar (IA)</option>
                         </select>
                     </div>
+
+                    <!-- Filtro por Nivel Bloom -->
+                    <div class="form-group col-md-4">
+                        <label for="filter-bloom">Taxonomía de Bloom</label>
+                        <select name="bloom_filter" id="filter-bloom" class="form-control" onchange="document.getElementById('filter-form').submit()">
+                            <option value="" {% if selected_bloom_filter == '' %}selected{% endif %}>Todos los niveles</option>
+                            <option value="con_bloom" {% if selected_bloom_filter == 'con_bloom' %}selected{% endif %}>🎯 Con nivel asignado</option>
+                            <option value="sin_bloom" {% if selected_bloom_filter == 'sin_bloom' %}selected{% endif %}>— Sin nivel de Bloom</option>
+                            <option value="1" {% if selected_bloom_filter == '1' %}selected{% endif %}>N1 — Recordar</option>
+                            <option value="2" {% if selected_bloom_filter == '2' %}selected{% endif %}>N2 — Comprender</option>
+                            <option value="3" {% if selected_bloom_filter == '3' %}selected{% endif %}>N3 — Aplicar</option>
+                            <option value="4" {% if selected_bloom_filter == '4' %}selected{% endif %}>N4 — Analizar</option>
+                            <option value="5" {% if selected_bloom_filter == '5' %}selected{% endif %}>N5 — Evaluar</option>
+                            <option value="6" {% if selected_bloom_filter == '6' %}selected{% endif %}>N6 — Crear</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="form-row">
@@ -125,6 +141,7 @@
                             <th>Tema</th>
                             <th>Subtema</th>
                             <th>Pregunta</th>
+                            <th>Bloom</th>
                             <th>Estado IA</th>
                             <th>Acciones</th>
                         </tr>
@@ -139,6 +156,19 @@
                             <td>{{ pregunta.topic.name|default:"-" }}</td>
                             <td>{{ pregunta.subtopic.name|default:"-" }}</td>
                             <td>{{ pregunta.question_text|truncatechars:100 }}</td>
+                            <td>
+                                {% if pregunta.bloom_level %}
+                                    {% if pregunta.bloom_level == 1 %}<span class="badge" style="background:#e3f2fd;color:#1565c0;">N1 Recordar</span>
+                                    {% elif pregunta.bloom_level == 2 %}<span class="badge" style="background:#e8f5e9;color:#2e7d32;">N2 Comprender</span>
+                                    {% elif pregunta.bloom_level == 3 %}<span class="badge" style="background:#fff9c4;color:#f57f17;">N3 Aplicar</span>
+                                    {% elif pregunta.bloom_level == 4 %}<span class="badge" style="background:#fff3e0;color:#e65100;">N4 Analizar</span>
+                                    {% elif pregunta.bloom_level == 5 %}<span class="badge" style="background:#fce4ec;color:#880e4f;">N5 Evaluar</span>
+                                    {% elif pregunta.bloom_level == 6 %}<span class="badge" style="background:#f3e5f5;color:#4a148c;">N6 Crear</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if pregunta.generated_by_ai %}
                                     {% if pregunta.ai_approved is None %}
@@ -159,7 +189,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="text-center">No hay preguntas disponibles</td>
+                            <td colspan="8" class="text-center">No hay preguntas disponibles</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -171,9 +201,9 @@
             <div class="pagination mt-4">
                 <span class="step-links">
                     {% if preguntas.has_previous %}
-                        <a href="?page=1{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}" 
+                        <a href="?page=1{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}{% if selected_bloom_filter %}&bloom_filter={{ selected_bloom_filter }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">&laquo; Primera</a>
-                        <a href="?page={{ preguntas.previous_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}" 
+                        <a href="?page={{ preguntas.previous_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}{% if selected_bloom_filter %}&bloom_filter={{ selected_bloom_filter }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">Anterior</a>
                     {% endif %}
                     
@@ -182,9 +212,9 @@
                     </span>
                     
                     {% if preguntas.has_next %}
-                        <a href="?page={{ preguntas.next_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}" 
+                        <a href="?page={{ preguntas.next_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}{% if selected_bloom_filter %}&bloom_filter={{ selected_bloom_filter }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">Siguiente</a>
-                        <a href="?page={{ preguntas.paginator.num_pages }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}" 
+                        <a href="?page={{ preguntas.paginator.num_pages }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}{% if selected_bloom_filter %}&bloom_filter={{ selected_bloom_filter }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">Última &raquo;</a>
                     {% endif %}
                 </span>

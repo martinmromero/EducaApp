@@ -7,6 +7,7 @@ app_name = 'material'
 urlpatterns = [
     path('preview-exam/', material_views.preview_exam, name='preview_exam'),
     path('', material_views.index, name='index'),
+    path('bloom-taxonomy/', material_views.bloom_taxonomy, name='bloom_taxonomy'),
     path('get-career-name/<int:career_id>/', material_views.get_career_name, name='get_career_name'),
     path('upload/', material_views.upload_contenido, name='upload_contenido'),
     path('extract-metadata/', material_views.extract_metadata_from_upload, name='extract_metadata_from_upload'),
@@ -14,6 +15,7 @@ urlpatterns = [
     path('review-questions/<int:contenido_id>/', material_views.review_questions, name='review_questions'),
     path('save-questions/<int:contenido_id>/', material_views.save_selected_questions, name='save_selected_questions'),
     path('create-exam/', material_views.create_exam, name='create_exam'),
+    path('save-exam/', material_views.save_exam_from_session, name='save_exam_from_session'),
     path('create-exam-template/', material_views.create_exam_template, name='create_exam_template'),
     path('exam-templates/edit/<int:template_id>/', material_views.edit_exam_template, name='edit_exam_template'),
     path('exam-templates/preview/', material_views.preview_exam_template, name='preview_exam_template'),
@@ -26,6 +28,8 @@ urlpatterns = [
     path('users/delete/<int:user_id>/', material_views.delete_user, name='delete_user'),
     path('mis-datos/', material_views.mis_datos, name='mis_datos'),
     path('mis-examenes/', material_views.mis_examenes, name='mis_examenes'),
+    path('examenes/<int:pk>/', material_views.ver_examen, name='ver_examen'),
+    path('examenes/<int:pk>/eliminar/', material_views.eliminar_examen, name='eliminar_examen'),
     path('lista-preguntas/', material_views.lista_preguntas, name='lista_preguntas'),
     path('mis-contenidos/', material_views.mis_contenidos, name='mis_contenidos'),
     path('delete-contenido/', material_views.delete_contenido, name='delete_contenido'),
@@ -58,6 +62,8 @@ urlpatterns = [
     path('doc-processor/generate-questions/stream/<str:job_id>/', doc_views.stream_questions, name='stream_questions'),
     path('doc-processor/save-questions/', doc_views.save_generated_questions, name='save_generated_questions'),
     path('doc-processor/process-contenido/<int:contenido_id>/', doc_views.process_contenido_by_id, name='process_contenido_by_id'),
+    path('doc-processor/page-preview/', doc_views.document_page_preview, name='document_page_preview'),
+    path('doc-processor/pages-text/', doc_views.get_pages_text, name='get_pages_text'),
 
 
 

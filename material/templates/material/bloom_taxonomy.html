@@ -1,0 +1,129 @@
+{% extends 'material/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="row mb-4">
+    <div class="col-12">
+      <h2 class="fw-bold mb-1">
+        <i class="bi bi-diagram-3-fill me-2" style="color:#9b59b6"></i>
+        Taxonomía de Bloom Revisada
+      </h2>
+      <p class="text-muted mb-0">Anderson &amp; Krathwohl, 2001 — Marco cognitivo para la clasificación de objetivos de aprendizaje y preguntas.</p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- ═══ USO 1: Pirámide de referencia ═══ -->
+    <div class="col-xl-8 col-lg-10 mx-auto">
+      <div class="card shadow-sm h-100">
+        <div class="card-header" style="background:linear-gradient(135deg,#9b59b6,#3498db);color:white">
+          <h5 class="mb-0">
+            <i class="bi bi-info-circle me-2"></i>
+            Referencia taxonómica
+          </h5>
+          <small style="opacity:.85">Los 6 niveles cognitivos y sus verbos representativos</small>
+        </div>
+        <div class="card-body">
+          {% include 'material/components/_bloom_pyramid.html' with bloom_display=bloom_display %}
+          <hr class="my-3">
+          <div class="row text-center g-2" style="font-size:0.78rem">
+            <div class="col-6">
+              <div class="p-2 rounded" style="background:#fdf3ff;border:1px solid #e8d5f5">
+                <strong style="color:#9b59b6">Niveles superiores (4–6)</strong><br>
+                <span class="text-muted">Pensamiento de orden superior<br>Evalúan habilidades complejas</span>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="p-2 rounded" style="background:#fff8f0;border:1px solid #f5dfc0">
+                <strong style="color:#e67e22">Niveles inferiores (1–3)</strong><br>
+                <span class="text-muted">Pensamiento de orden inferior<br>Construyen la base del conocimiento</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% if total_bloom_questions > 0 %}
+        <div class="card-footer text-muted" style="font-size:0.8rem">
+          <i class="bi bi-bar-chart me-1"></i>
+          Basado en {{ total_bloom_questions }} de {{ total_questions }} preguntas con nivel asignado.
+          <a href="{% url 'material:lista_preguntas' %}" class="ms-2">Ver mis preguntas →</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div><!-- end row -->
+
+  <!-- ═══ Tabla comparativa de versiones ═══ -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light">
+          <h6 class="mb-0">
+            <i class="bi bi-table me-2"></i>
+            Comparativa: Bloom original (1956) vs. revisión de Anderson &amp; Krathwohl (2001)
+          </h6>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-bordered mb-0" style="font-size:0.85rem">
+            <thead class="table-light">
+              <tr>
+                <th class="text-center" style="width:60px">Nivel</th>
+                <th>Bloom original — <em>sustantivos</em> (1956)</th>
+                <th>Anderson &amp; Krathwohl — <em>verbos</em> (2001) ✅</th>
+                <th>Verbos representativos</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-center fw-bold" style="color:#9b59b6">6</td>
+                <td>Evaluación</td>
+                <td class="fw-bold" style="color:#9b59b6">Crear</td>
+                <td class="text-muted small">diseñar, construir, planificar, producir, idear</td>
+              </tr>
+              <tr>
+                <td class="text-center fw-bold" style="color:#3498db">5</td>
+                <td>Síntesis</td>
+                <td class="fw-bold" style="color:#3498db">Evaluar</td>
+                <td class="text-muted small">juzgar, criticar, valorar, justificar, argumentar</td>
+              </tr>
+              <tr>
+                <td class="text-center fw-bold" style="color:#27ae60">4</td>
+                <td>Análisis</td>
+                <td class="fw-bold" style="color:#27ae60">Analizar</td>
+                <td class="text-muted small">diferenciar, organizar, atribuir, comparar, descomponer</td>
+              </tr>
+              <tr>
+                <td class="text-center fw-bold" style="color:#f39c12">3</td>
+                <td>Aplicación</td>
+                <td class="fw-bold" style="color:#f39c12">Aplicar</td>
+                <td class="text-muted small">ejecutar, implementar, usar, resolver, demostrar</td>
+              </tr>
+              <tr>
+                <td class="text-center fw-bold" style="color:#e67e22">2</td>
+                <td>Comprensión</td>
+                <td class="fw-bold" style="color:#e67e22">Comprender</td>
+                <td class="text-muted small">interpretar, ejemplificar, clasificar, resumir, inferir</td>
+              </tr>
+              <tr>
+                <td class="text-center fw-bold" style="color:#e74c3c">1</td>
+                <td>Conocimiento</td>
+                <td class="fw-bold" style="color:#e74c3c">Recordar</td>
+                <td class="text-muted small">reconocer, recordar, listar, identificar, nombrar</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer text-muted small">
+          <i class="bi bi-lightbulb me-1"></i>
+          Los cambios clave en 2001: verbos en lugar de sustantivos, intercambio de niveles 5 y 6,
+          y adición de la dimensión del <em>conocimiento</em> (factual, conceptual, procedimental, metacognitivo).
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

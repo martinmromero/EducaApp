@@ -18,6 +18,10 @@ import tempfile
 import threading
 import time
 import logging
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    fitz = None
 
 # In-memory job store for SSE streaming jobs (job_id → params)
 _jobs = {}
@@ -934,6 +938,312 @@ def stream_questions(request, job_id):
     response['Cache-Control'] = 'no-cache'
     response['X-Accel-Buffering'] = 'no'
     return response
+
+
+@login_required
+@require_http_methods(["GET"])
+def document_page_preview(request):
+    """
+    Devuelve metadata del documento en sesión para el visor de páginas:
+    - Para PDF: número total de páginas y URL para servirlo en PDF.js
+    - Para DOCX: bloques de texto por sección (para docx-preview + checkboxes)
+    - Para PPTX: texto de cada slide (tarjeta por slide con checkbox)
+
+    GET params: ninguno (usa la sesión doc_processor)
+
+    Returns JSON:
+        {
+          "success": true,
+          "file_type": "pdf"|"docx"|"pptx"|"txt",
+          "filename": "...",
+          "total_pages": N,          # PDF
+          "file_url": "/media/...",  # PDF — para PDF.js
+          "slides": [...],           # PPTX
+          "sections": [...],         # DOCX/TXT
+        }
+    """
+    doc_session = request.session.get('doc_processor', {})
+    file_path = doc_session.get('file_path', '')
+    filename = doc_session.get('filename', '')
+
+    if not file_path or not os.path.exists(file_path):
+        return JsonResponse({'success': False, 'error': 'No hay documento en sesión. Sube o selecciona uno primero.'}, status=400)
+
+    ext = os.path.splitext(file_path)[1].lower()
+
+    try:
+        if ext == '.pdf':
+            doc = fitz.open(file_path)
+            total_pages = doc.page_count
+            doc.close()
+            # Construir URL relativa a MEDIA_ROOT
+            rel = os.path.relpath(file_path, settings.MEDIA_ROOT).replace('\\', '/')
+            from django.conf import settings as _s
+            file_url = _s.MEDIA_URL + rel
+            return JsonResponse({
+                'success': True,
+                'file_type': 'pdf',
+                'filename': filename,
+                'total_pages': total_pages,
+                'file_url': file_url,
+            })
+
+        elif ext == '.pptx':
+            from pptx import Presentation as _Prs
+            prs = _Prs(file_path)
+            slides = []
+            for i, slide in enumerate(prs.slides, 1):
+                texts = []
+                for shape in slide.shapes:
+                    if hasattr(shape, 'text') and shape.text.strip():
+                        texts.append(shape.text.strip())
+                slides.append({
+                    'slide_number': i,
+                    'text': '\n'.join(texts) or f'(Slide {i} sin texto)',
+                    'char_count': sum(len(t) for t in texts),
+                })
+            return JsonResponse({
+                'success': True,
+                'file_type': 'pptx',
+                'filename': filename,
+                'total_pages': len(slides),
+                'slides': slides,
+            })
+
+        elif ext == '.docx':
+            from docx import Document as _Doc
+            doc = _Doc(file_path)
+            # Agrupar párrafos en "secciones" de ~800 chars para que sean manejables
+            sections = []
+            current_text = []
+            current_chars = 0
+            section_idx = 1
+            heading_title = 'Inicio'
+
+            for para in doc.paragraphs:
+                text = para.text.strip()
+                if not text:
+                    continue
+                # Detectar headings como separadores de sección
+                if para.style.name.startswith('Heading'):
+                    if current_text:
+                        sections.append({
+                            'section_number': section_idx,
+                            'title': heading_title,
+                            'text': '\n'.join(current_text),
+                            'char_count': current_chars,
+                        })
+                        section_idx += 1
+                        current_text = []
+                        current_chars = 0
+                    heading_title = text
+                else:
+                    current_text.append(text)
+                    current_chars += len(text)
+                    # También dividir si el bloque es muy largo
+                    if current_chars > 1200:
+                        sections.append({
+                            'section_number': section_idx,
+                            'title': heading_title,
+                            'text': '\n'.join(current_text),
+                            'char_count': current_chars,
+                        })
+                        section_idx += 1
+                        current_text = []
+                        current_chars = 0
+            if current_text:
+                sections.append({
+                    'section_number': section_idx,
+                    'title': heading_title,
+                    'text': '\n'.join(current_text),
+                    'char_count': current_chars,
+                })
+            # URL del archivo para docx-preview.js
+            rel = os.path.relpath(file_path, settings.MEDIA_ROOT).replace('\\', '/')
+            from django.conf import settings as _s
+            file_url = _s.MEDIA_URL + rel
+            return JsonResponse({
+                'success': True,
+                'file_type': 'docx',
+                'filename': filename,
+                'total_pages': len(sections),
+                'file_url': file_url,
+                'sections': sections,
+            })
+
+        elif ext == '.txt':
+            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                lines = f.readlines()
+            # Dividir en bloques de ~50 líneas
+            block_size = 50
+            sections = []
+            for i in range(0, len(lines), block_size):
+                block = ''.join(lines[i:i + block_size]).strip()
+                sections.append({
+                    'section_number': i // block_size + 1,
+                    'title': f'Líneas {i+1}–{min(i+block_size, len(lines))}',
+                    'text': block,
+                    'char_count': len(block),
+                })
+            return JsonResponse({
+                'success': True,
+                'file_type': 'txt',
+                'filename': filename,
+                'total_pages': len(sections),
+                'sections': sections,
+            })
+
+        else:
+            return JsonResponse({'success': False, 'error': f'Formato no soportado para preview: {ext}'}, status=400)
+
+    except Exception as e:
+        logger.exception("Error en document_page_preview")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def get_pages_text(request):
+    """
+    Dado un conjunto de números de página/slide/sección seleccionados por el usuario,
+    extrae el texto de esas unidades del documento en sesión.
+    Devuelve el mismo formato de "chapters" que usa generate_questions_from_chapters.
+
+    POST JSON:
+        {
+          "pages": [1, 3, 5],        # para PDF: números de página (1-based)
+          "slides": [2, 4],          # para PPTX: números de slide (1-based)
+          "sections": [1, 2],        # para DOCX/TXT: números de sección (1-based)
+        }
+    Returns JSON:
+        {
+          "success": true,
+          "chapters": [{"title": "...", "content": "...", "tokens": N, "pages": [...]}]
+        }
+    """
+    import json as json_module
+    try:
+        data = json_module.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+
+    doc_session = request.session.get('doc_processor', {})
+    file_path = doc_session.get('file_path', '')
+    filename = doc_session.get('filename', '')
+
+    if not file_path or not os.path.exists(file_path):
+        return JsonResponse({'success': False, 'error': 'No hay documento en sesión.'}, status=400)
+
+    ext = os.path.splitext(file_path)[1].lower()
+
+    try:
+        chapters = []
+
+        if ext == '.pdf':
+            selected_pages = [int(p) for p in data.get('pages', [])]
+            if not selected_pages:
+                return JsonResponse({'success': False, 'error': 'No se enviaron páginas.'}, status=400)
+            doc = fitz.open(file_path)
+            for page_num in sorted(selected_pages):
+                if 1 <= page_num <= doc.page_count:
+                    page = doc[page_num - 1]
+                    text = page.get_text().strip()
+                    if text:
+                        chapters.append({
+                            'title': f'Página {page_num}',
+                            'content': text,
+                            'tokens': count_tokens(text),
+                            'pages': [page_num],
+                        })
+            doc.close()
+
+        elif ext == '.pptx':
+            from pptx import Presentation as _Prs
+            selected = set(int(s) for s in data.get('slides', []))
+            if not selected:
+                return JsonResponse({'success': False, 'error': 'No se enviaron slides.'}, status=400)
+            prs = _Prs(file_path)
+            for i, slide in enumerate(prs.slides, 1):
+                if i in selected:
+                    texts = []
+                    for shape in slide.shapes:
+                        if hasattr(shape, 'text') and shape.text.strip():
+                            texts.append(shape.text.strip())
+                    text = '\n'.join(texts)
+                    if text:
+                        chapters.append({
+                            'title': f'Slide {i}',
+                            'content': text,
+                            'tokens': count_tokens(text),
+                            'pages': [i],
+                        })
+
+        elif ext in ('.docx', '.txt'):
+            selected = set(int(s) for s in data.get('sections', []))
+            if not selected:
+                return JsonResponse({'success': False, 'error': 'No se enviaron secciones.'}, status=400)
+            # Re-usar la misma lógica de document_page_preview para extraer secciones
+            if ext == '.docx':
+                from docx import Document as _Doc
+                doc = _Doc(file_path)
+                sections_all = []
+                current_text = []
+                current_chars = 0
+                section_idx = 1
+                heading_title = 'Inicio'
+                for para in doc.paragraphs:
+                    text = para.text.strip()
+                    if not text:
+                        continue
+                    if para.style.name.startswith('Heading'):
+                        if current_text:
+                            sections_all.append((section_idx, heading_title, '\n'.join(current_text)))
+                            section_idx += 1
+                            current_text = []
+                            current_chars = 0
+                        heading_title = text
+                    else:
+                        current_text.append(text)
+                        current_chars += len(text)
+                        if current_chars > 1200:
+                            sections_all.append((section_idx, heading_title, '\n'.join(current_text)))
+                            section_idx += 1
+                            current_text = []
+                            current_chars = 0
+                if current_text:
+                    sections_all.append((section_idx, heading_title, '\n'.join(current_text)))
+            else:
+                with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    lines = f.readlines()
+                block_size = 50
+                sections_all = []
+                for i in range(0, len(lines), block_size):
+                    block = ''.join(lines[i:i + block_size]).strip()
+                    idx = i // block_size + 1
+                    sections_all.append((idx, f'Líneas {i+1}–{min(i+block_size, len(lines))}', block))
+
+            for sec_num, title, text in sections_all:
+                if sec_num in selected and text:
+                    chapters.append({
+                        'title': title,
+                        'content': text,
+                        'tokens': count_tokens(text),
+                        'pages': [sec_num],
+                    })
+
+        if not chapters:
+            return JsonResponse({'success': False, 'error': 'No se pudo extraer texto de las unidades seleccionadas.'}, status=400)
+
+        return JsonResponse({
+            'success': True,
+            'filename': filename,
+            'chapters': chapters,
+            'total_tokens': sum(ch['tokens'] for ch in chapters),
+        })
+
+    except Exception as e:
+        logger.exception("Error en get_pages_text")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required

@@ -78,14 +78,15 @@ class QuestionForm(forms.ModelForm):
 
     class Meta:
         model = Question
-        fields = ['subjects', 'topic', 'subtopic', 'question_text', 'answer_text', 
-                 'question_image', 'answer_image', 'contenido', 'source_page']
+        fields = ['subjects', 'topic', 'subtopic', 'question_text', 'answer_text',
+                 'question_image', 'answer_image', 'contenido', 'source_page', 'bloom_level']
         widgets = {
             'question_text': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'answer_text': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'question_image': forms.FileInput(attrs={'class': 'form-control-file'}),
             'answer_image': forms.FileInput(attrs={'class': 'form-control-file'}),
             'source_page': forms.NumberInput(attrs={'class': 'form-control'}),
+            'bloom_level': forms.Select(attrs={'class': 'form-control'}),
         }
 
     def __init__(self, *args, **kwargs):

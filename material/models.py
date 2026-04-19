@@ -690,7 +690,7 @@ class Exam(models.Model):
         blank=True,  
         verbose_name="Sede"  
     )  
-    career_name = models.CharField(max_length=255, verbose_name="Carrera")  
+    career_name = models.CharField(max_length=255, verbose_name="Carrera", blank=True, default='')  
     subject = models.ForeignKey(  
         'Subject',  
         on_delete=models.SET_NULL,  
@@ -705,11 +705,13 @@ class Exam(models.Model):
         blank=True,  
         verbose_name="Profesor"  
     )  
-    year = models.IntegerField(verbose_name="Año")  
+    year = models.IntegerField(verbose_name="Año", null=True, blank=True)  
     exam_type = models.CharField(  
         max_length=10,  
         choices=EXAM_TYPE_CHOICES,  
-        verbose_name="Tipo de examen"  
+        verbose_name="Tipo de examen",  
+        blank=True,  
+        null=True,  
     )  
     partial_number = models.CharField(  
         max_length=10,  
@@ -721,7 +723,9 @@ class Exam(models.Model):
     exam_mode = models.CharField(  
         max_length=10,  
         choices=EXAM_MODE_CHOICES,  
-        verbose_name="Modalidad de examen"  
+        verbose_name="Modalidad de examen",  
+        blank=True,  
+        null=True,  
     )  
     exam_group = models.CharField(  
         max_length=10,  
@@ -752,6 +756,30 @@ class Exam(models.Model):
         null=True,  
         verbose_name="Notas y recomendaciones"  
     )  
+    institution_name = models.CharField(max_length=255, blank=True, default='', verbose_name="Institución (texto)")
+    faculty_name = models.CharField(max_length=255, blank=True, default='', verbose_name="Facultad (texto)")
+    campus_name = models.CharField(max_length=255, blank=True, default='', verbose_name="Sede (texto)")
+    date_str = models.CharField(max_length=50, blank=True, default='', verbose_name="Fecha (texto)")
+    alumno = models.CharField(max_length=255, blank=True, default='', verbose_name="Alumno/a")
+    curso = models.CharField(max_length=100, blank=True, default='', verbose_name="Curso")
+
+    @property
+    def turno(self):
+        """Alias for 'shift' so templates using session-dict keys also work."""
+        return self.shift
+
+    @property
+    def sede(self):
+        """Alias for 'campus_name'."""
+        return self.campus_name
+
+    @property
+    def modalidad_resolucion(self):
+        """Return resolution_time as a list (mirrors session dict format)."""
+        if not self.resolution_time:
+            return []
+        return [m.strip() for m in self.resolution_time.split(',') if m.strip()]
+
     learning_outcomes = models.ManyToManyField(  
         'LearningOutcome',  
         blank=True,  

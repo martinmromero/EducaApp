@@ -1,0 +1,160 @@
+{% comment %}
+Componente Pirámide de Bloom — Anderson & Krathwohl (2001)
+
+Variables opcionales:
+  bloom_display : lista de dicts {level, name, color, verbs, count, pct} ordenada nivel 6→1.
+                  Si se omite, muestra solo la pirámide de referencia sin conteos.
+  pyramid_title : string para sobrescribir el subtítulo (opcional).
+
+Geometría SVG (viewBox 300×490):
+  - 6 bandas de 80 unidades de alto cada una (y=5 a y=485)
+  - Renderizado: width=165 height=269 → escala y = 269/490 = 0.549
+  - Cada banda renderizada: 80 × 0.549 = 43.9 px ≈ 44 px
+  - Offset superior: y=5 → 5 × 0.549 = 2.7 px → padding-top: 3px en las filas
+  → Garantiza alineación exacta entre cada franja del SVG y su fila de texto.
+{% endcomment %}
+<div style="font-family:Arial,sans-serif;max-width:680px">
+
+  <p style="text-align:center;font-weight:700;font-size:1rem;margin:0 0 2px">
+    Taxonomía de Bloom Revisada
+  </p>
+  <p style="text-align:center;color:#666;font-size:0.75rem;margin:0 0 16px">
+    {% if pyramid_title %}{{ pyramid_title }}{% else %}Anderson &amp; Krathwohl, 2001{% endif %}
+  </p>
+
+  <div style="display:flex;gap:12px;align-items:flex-start">
+
+    <!-- ═══ SVG PIRÁMIDE — sin texto interior ═══ -->
+    <!--
+      viewBox="0 0 480 490" centrado en x=240.
+      Pendiente uniforme: cada banda sube 80u → ancho decrece 80u (40 por lado).
+      Renderizado: width=263 height=269. Escala Y = 269/490 = 0.549.
+      Banda renderizada = 80 × 0.549 = 43.9 px ≈ 44px → coincide con height:44px de las filas.
+    -->
+    <div style="flex:0 0 auto;text-align:center">
+      <svg viewBox="0 0 480 490" width="263" height="269"
+           role="img" aria-label="Pirámide de Bloom con 6 niveles cognitivos">
+        <!-- L6 Crear — triángulo. Pendiente: 40/80 = 0.5 igual que el resto -->
+        <polygon points="240,5 280,85 200,85"
+                 fill="#9b59b6" stroke="white" stroke-width="2.5"/>
+        <!-- L5 Evaluar -->
+        <polygon points="200,85 280,85 320,165 160,165"
+                 fill="#3498db" stroke="white" stroke-width="2.5"/>
+        <!-- L4 Analizar -->
+        <polygon points="160,165 320,165 360,245 120,245"
+                 fill="#27ae60" stroke="white" stroke-width="2.5"/>
+        <!-- L3 Aplicar -->
+        <polygon points="120,245 360,245 400,325 80,325"
+                 fill="#f39c12" stroke="white" stroke-width="2.5"/>
+        <!-- L2 Comprender -->
+        <polygon points="80,325 400,325 440,405 40,405"
+                 fill="#e67e22" stroke="white" stroke-width="2.5"/>
+        <!-- L1 Recordar — base -->
+        <polygon points="40,405 440,405 480,485 0,485"
+                 fill="#e74c3c" stroke="white" stroke-width="2.5"/>
+      </svg>
+      <div style="font-size:9px;color:#888;margin-top:3px;line-height:1.5">
+        ▲ HOTS<br>▼ LOTS
+      </div>
+    </div>
+
+    <!-- ═══ FILAS ALINEADAS CON LAS BANDAS ═══ -->
+    <!--
+      padding-top:3px = offset del primer vértice (y=5 → 2.7px renderizados).
+      Cada fila: height:44px con box-sizing:border-box.
+    -->
+    <div style="flex:1;min-width:0;padding-top:3px">
+
+      {% if bloom_display %}
+
+        {% for item in bloom_display %}
+        <div style="height:44px;display:flex;align-items:center;gap:8px;
+                    border-bottom:1px solid #f0f0f0;box-sizing:border-box">
+          <span style="background:{{ item.color }};color:white;border-radius:50%;
+                       width:22px;height:22px;display:inline-flex;align-items:center;
+                       justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">
+            {{ item.level }}
+          </span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;color:{{ item.color }};font-size:13px;line-height:1.2">{{ item.name }}</div>
+            <div style="color:#888;font-size:12px;line-height:1.4;overflow:hidden;text-overflow:ellipsis">{{ item.verbs }}</div>
+          </div>
+          <span style="font-weight:700;font-size:15px;color:{{ item.color }};flex-shrink:0;min-width:24px;text-align:right">{{ item.count }}</span>
+        </div>
+        {% endfor %}
+
+      {% else %}
+
+        <!-- Modo referencia — sin conteos, 6 filas hardcodeadas -->
+        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f0f0f0;box-sizing:border-box">
+          <span style="background:#9b59b6;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">6</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;color:#9b59b6;font-size:13px;line-height:1.2">Crear</div>
+            <div style="color:#888;font-size:12px;line-height:1.4">diseñar, construir, planificar, producir</div>
+          </div>
+        </div>
+        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f0f0f0;box-sizing:border-box">
+          <span style="background:#3498db;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">5</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;color:#3498db;font-size:13px;line-height:1.2">Evaluar</div>
+            <div style="color:#888;font-size:12px;line-height:1.4">juzgar, criticar, valorar, argumentar</div>
+          </div>
+        </div>
+        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f0f0f0;box-sizing:border-box">
+          <span style="background:#27ae60;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">4</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;color:#27ae60;font-size:13px;line-height:1.2">Analizar</div>
+            <div style="color:#888;font-size:12px;line-height:1.4">diferenciar, comparar, organizar, atribuir</div>
+          </div>
+        </div>
+        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f0f0f0;box-sizing:border-box">
+          <span style="background:#f39c12;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">3</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;color:#f39c12;font-size:13px;line-height:1.2">Aplicar</div>
+            <div style="color:#888;font-size:12px;line-height:1.4">ejecutar, implementar, usar, resolver</div>
+          </div>
+        </div>
+        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f0f0f0;box-sizing:border-box">
+          <span style="background:#e67e22;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">2</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;color:#e67e22;font-size:13px;line-height:1.2">Comprender</div>
+            <div style="color:#888;font-size:12px;line-height:1.4">interpretar, ejemplificar, resumir, inferir</div>
+          </div>
+        </div>
+        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f0f0f0;box-sizing:border-box">
+          <span style="background:#e74c3c;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">1</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;color:#e74c3c;font-size:13px;line-height:1.2">Recordar</div>
+            <div style="color:#888;font-size:12px;line-height:1.4">reconocer, listar, identificar, nombrar</div>
+          </div>
+        </div>
+
+      {% endif %}
+
+    </div><!-- end filas -->
+  </div><!-- end flex principal -->
+
+  <!-- ═══ BARRAS DE DISTRIBUCIÓN (solo si hay datos de conteo) ═══ -->
+  {% if bloom_display %}
+  <div style="margin-top:14px">
+    <p style="font-size:11px;color:#888;margin:0 0 6px;font-style:italic">
+      Distribución de preguntas por nivel:
+    </p>
+    {% for item in bloom_display %}
+    <div style="display:flex;align-items:center;margin-bottom:4px;gap:6px">
+      <span style="width:88px;font-size:11px;font-weight:600;color:{{ item.color }};text-align:right;flex-shrink:0">
+        {{ item.name }}
+      </span>
+      <div style="flex:1;background:#ebebeb;border-radius:3px;height:14px;overflow:hidden">
+        <div style="width:{{ item.pct }}%;height:100%;background:{{ item.color }};
+                    display:flex;align-items:center;justify-content:flex-end;
+                    padding-right:4px;box-sizing:border-box;min-width:{% if item.count %}14px{% else %}0{% endif %}">
+          {% if item.count %}<span style="font-size:9px;color:white;font-weight:bold">{{ item.count }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>

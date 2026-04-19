@@ -285,3 +285,137 @@ function toggleTextbox(selectId, textboxId) {
         textbox.style.display = 'none';
     }
 }
+
+// ── Prefill form from session data (when coming back from preview via "Editar") ──
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof EXAM_PREFILL === 'undefined' || !EXAM_PREFILL || !Object.keys(EXAM_PREFILL).length) return;
+    var data = EXAM_PREFILL;
+
+    function isNumeric(v) { return v && /^\d+$/.test(String(v)); }
+
+    function setDropdownOrText(selectId, textId, value, customText) {
+        var sel = document.getElementById(selectId);
+        if (!sel) return;
+        if (value === 'otro') {
+            sel.value = 'otro';
+            toggleTextbox(selectId, textId);
+            var txt = document.getElementById(textId);
+            if (txt && customText) txt.value = customText;
+        } else if (value) {
+            sel.value = value;
+        }
+    }
+
+    // Static text inputs
+    var staticMap = { 'fecha': 'fecha', 'curso': 'curso', 'id_duration_minutes': 'duration_minutes', 'id_instructions': 'instructions', 'id_title': 'title' };
+    Object.keys(staticMap).forEach(function(elId) {
+        var el = document.getElementById(elId);
+        var val = data[staticMap[elId]];
+        if (el && val) el.value = val;
+    });
+
+    // Radio buttons
+    ['tipo_examen', 'tipo_modalidad'].forEach(function(name) {
+        if (data[name]) {
+            var r = document.querySelector('input[name="' + name + '"][value="' + data[name] + '"]');
+            if (r) r.checked = true;
+        }
+    });
+
+    // Checkboxes: modalidad_resolucion
+    if (data.modalidad_resolucion && Array.isArray(data.modalidad_resolucion)) {
+        data.modalidad_resolucion.forEach(function(val) {
+            var cb = document.querySelector('input[name="modalidad_resolucion"][value="' + val + '"]');
+            if (cb) cb.checked = true;
+        });
+    }
+
+    // Turno and Profesor (static dropdowns)
+    setDropdownOrText('turno_dropdown', 'turno_text', data.turno, data.turno_text);
+    if (data.profesor && isNumeric(data.profesor)) {
+        var profSel = document.getElementById('profesor_dropdown');
+        if (profSel) profSel.value = data.profesor;
+    }
+
+    // Subject → triggers AJAX load of topics + learning_outcomes
+    if (data.subject) {
+        var subjSel = document.getElementById('id_subject');
+        if (subjSel) {
+            subjSel.value = data.subject;
+            subjSel.dispatchEvent(new Event('change'));
+        }
+    }
+
+    // Institution → triggers AJAX load of faculties + campuses
+    if (data.institucion && isNumeric(data.institucion)) {
+        var instSel = document.getElementById('institucion_dropdown');
+        if (instSel) {
+            instSel.value = data.institucion;
+            instSel.dispatchEvent(new Event('change'));
+        }
+    }
+
+    // After AJAX: set faculty, select topics, select learning_outcomes
+    setTimeout(function() {
+        // Faculty
+        if (data.facultad) {
+            var facSel = document.getElementById('facultad_dropdown');
+            if (facSel) {
+                if (data.facultad === 'otro') {
+                    facSel.value = 'otro';
+                    toggleTextbox('facultad_dropdown', 'facultad_text');
+                    var ft = document.getElementById('facultad_text');
+                    if (ft && data.facultad_text) ft.value = data.facultad_text;
+                } else {
+                    facSel.value = data.facultad;
+                    if (isNumeric(data.facultad)) facSel.dispatchEvent(new Event('change'));
+                }
+            }
+        }
+        // Sede
+        if (data.sede && isNumeric(data.sede)) {
+            var sedeSel = document.getElementById('sede_dropdown');
+            if (sedeSel) sedeSel.value = data.sede;
+        }
+        // Topics: select + trigger change (which loads questions)
+        var topicsSel = document.getElementById('id_topics');
+        if (topicsSel && data.topics && Array.isArray(data.topics)) {
+            Array.from(topicsSel.options).forEach(function(opt) {
+                opt.selected = data.topics.some(function(v) { return String(v) === opt.value; });
+            });
+            topicsSel.dispatchEvent(new Event('change'));
+        }
+        // Learning outcomes checkboxes
+        if (data.learning_outcomes && Array.isArray(data.learning_outcomes)) {
+            var loContainer = document.getElementById('learning_outcomes_container');
+            if (loContainer) {
+                Array.from(loContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(cb) {
+                    cb.checked = data.learning_outcomes.some(function(v) { return String(v) === cb.value; });
+                });
+            }
+        }
+    }, 700);
+
+    // After topics AJAX loads questions: select them. Also set carrera.
+    setTimeout(function() {
+        if (data.carrera) {
+            var carrSel = document.getElementById('carrera_dropdown');
+            if (carrSel) {
+                if (data.carrera === 'otro') {
+                    carrSel.value = 'otro';
+                    toggleTextbox('carrera_dropdown', 'carrera_text');
+                    var ct = document.getElementById('carrera_text');
+                    if (ct && data.carrera_text) ct.value = data.carrera_text;
+                } else {
+                    carrSel.value = data.carrera;
+                }
+            }
+        }
+        var qSel = document.getElementById('id_questions');
+        if (qSel && data.questions && Array.isArray(data.questions)) {
+            Array.from(qSel.options).forEach(function(opt) {
+                opt.selected = data.questions.some(function(v) { return String(v) === opt.value; });
+            });
+        }
+    }, 1400);
+});
