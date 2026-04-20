@@ -142,4 +142,7 @@ path('oral-exams/assign-names/', material_views.assign_student_names, name='assi
 path('oral-exams/available-questions/', material_views.get_available_questions, name='get_available_questions'),
 path('oral-exams/exchange-question/', material_views.exchange_question, name='exchange_question'),
 
+    # ONBOARDING WIZARD — ROLLBACK: eliminar estas dos líneas
+    path('onboarding/step/', material_views.onboarding_save_step, name='onboarding_save_step'),
+
 ]

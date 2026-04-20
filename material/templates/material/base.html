@@ -263,6 +263,667 @@
     <!-- Bloque para JavaScript específico de cada página -->
     {% block javascript %}{% endblock %}
 
+    {# ═══ ONBOARDING WIZARD ═══════════════════════════════════════════════════════ #}
+    {# ROLLBACK: eliminar desde este comentario hasta FIN ONBOARDING WIZARD         #}
+    {% if user.is_authenticated %}
+    <div class="modal fade" id="onboardingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="onboardingModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+
+          <!-- Cabecera -->
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title" id="onboardingModalLabel">
+              <i class="bi bi-gear me-2"></i>Asistente de configuración
+            </h5>
+          </div>
+
+          <!-- Indicador de pasos -->
+          <div class="px-4 pt-3">
+            <div class="d-flex align-items-center gap-2 mb-1" id="onbStepIndicator">
+              <span class="badge rounded-pill onb-step-badge onb-step-active" data-step="1">1</span>
+              <div class="flex-grow-1 border-top"></div>
+              <span class="badge rounded-pill onb-step-badge" data-step="2">2</span>
+              <div class="flex-grow-1 border-top"></div>
+              <span class="badge rounded-pill onb-step-badge" data-step="3">3</span>
+            </div>
+            <div class="d-flex justify-content-between" style="font-size:.75rem;color:#888">
+              <span>Tu nombre</span><span>Institución</span><span>Materia</span>
+            </div>
+          </div>
+
+          <!-- Cuerpo: paneles de pasos -->
+          <div class="modal-body px-4">
+
+            <!-- ── Paso 1: Nombre ── -->
+            <div class="onb-panel" id="onbPanel1">
+              <div class="d-flex justify-content-between align-items-start mb-3">
+                <h6 class="fw-semibold mb-0"><i class="bi bi-person me-2 text-primary"></i>¿Cómo te llamas?</h6>
+                <button type="button" class="btn btn-link btn-sm text-muted p-0 onb-skip-step" data-skip-to="2">Saltar esta etapa</button>
+              </div>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Nombre</label>
+                  <input type="text" class="form-control" id="onbFirstName" placeholder="Ej: María" value="{{ user.first_name }}">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Apellido</label>
+                  <input type="text" class="form-control" id="onbLastName" placeholder="Ej: García" value="{{ user.last_name }}">
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Paso 2: Institución ── -->
+            <div class="onb-panel d-none" id="onbPanel2">
+              <div class="d-flex justify-content-between align-items-start mb-3">
+                <h6 class="fw-semibold mb-0"><i class="bi bi-buildings me-2 text-primary"></i>¿En qué institución trabajás?</h6>
+                <button type="button" class="btn btn-link btn-sm text-muted p-0 onb-skip-step" data-skip-to="3">Saltar esta etapa</button>
+              </div>
+
+              <!-- Instituciones ya vinculadas -->
+              <div id="onbCurrentInsts" class="mb-3 d-none">
+                <p class="text-muted mb-1" style="font-size:.82rem">Tus instituciones actuales:</p>
+                <div id="onbCurrentInstsChips" class="d-flex flex-wrap gap-1"></div>
+              </div>
+
+              <!-- Selector institución existente -->
+              <div class="mb-2">
+                <label class="form-label">Seleccionar institución existente</label>
+                <select class="form-select" id="onbInstExisting">
+                  <option value="">— seleccionar —</option>
+                  {% for inst in onboarding_institutions %}
+                  <option value="{{ inst.id }}">{{ inst.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Info de la institución seleccionada (se puebla por JS) -->
+              <div id="onbInstInfo" class="d-none mb-3">
+                <div class="row g-2 mt-1">
+                  <div class="col-md-6">
+                    <p class="text-muted mb-1" style="font-size:.82rem">Sedes:</p>
+                    <div id="onbInstCampusChips" class="d-flex flex-wrap gap-1"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <p class="text-muted mb-1" style="font-size:.82rem">Facultades:</p>
+                    <div id="onbInstFacultyChips" class="d-flex flex-wrap gap-1"></div>
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" id="onbInstEditBtn">
+                    <i class="bi bi-pencil me-1"></i>Editar esta institución
+                  </button>
+                </div>
+              </div>
+
+              <!-- Formulario edición institución existente -->
+              <div id="onbInstEditForm" class="d-none mb-3 p-2 border rounded border-warning-subtle bg-warning-subtle">
+                <div class="alert alert-warning py-2 px-3 mb-2" style="font-size:.82rem">
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                  <strong>Atención:</strong> Los exámenes ya guardados con esta institución <strong>no se modificarán</strong>. Este cambio solo afectará a nuevos exámenes.
+                </div>
+                <div class="mb-2">
+                  <label class="form-label" style="font-size:.85rem">Nombre de la institución</label>
+                  <input type="text" class="form-control form-control-sm" id="onbInstEditName">
+                </div>
+                <div class="mb-2">
+                  <label class="form-label" style="font-size:.85rem">Sedes</label>
+                  <ul class="list-group list-group-flush mb-1" id="onbInstEditCampusList"></ul>
+                  <div class="input-group input-group-sm mt-1">
+                    <input type="text" class="form-control" id="onbInstEditNewCampus" placeholder="Nueva sede…">
+                    <button class="btn btn-outline-primary" type="button" id="onbInstEditAddCampusBtn">Agregar</button>
+                  </div>
+                </div>
+                <div class="mb-1">
+                  <label class="form-label" style="font-size:.85rem">Facultades</label>
+                  <ul class="list-group list-group-flush mb-1" id="onbInstEditFacultyList"></ul>
+                  <div class="input-group input-group-sm mt-1">
+                    <input type="text" class="form-control" id="onbInstEditNewFaculty" placeholder="Nueva facultad…">
+                    <button class="btn btn-outline-primary" type="button" id="onbInstEditAddFacultyBtn">Agregar</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="text-center text-muted my-2" style="font-size:.85rem">— o crear una nueva —</div>
+
+              <div id="onbNewInstBlock">
+                <div class="mb-2">
+                  <label class="form-label">Nombre de la institución</label>
+                  <input type="text" class="form-control" id="onbInstName" placeholder="Ej: Universidad Nacional del Sur">
+                </div>
+                <div class="mb-2">
+                  <label class="form-label text-muted" style="font-size:.85rem">Sedes (opcional, una por línea)</label>
+                  <textarea class="form-control form-control-sm" id="onbCampuses" rows="2" placeholder="Sede Central&#10;Sede Norte"></textarea>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label text-muted" style="font-size:.85rem">Facultades (opcional, una por línea)</label>
+                  <textarea class="form-control form-control-sm" id="onbFaculties" rows="2" placeholder="Facultad de Ingeniería&#10;Facultad de Ciencias"></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Paso 3: Materias ── -->
+            <div class="onb-panel d-none" id="onbPanel3">
+              <div class="d-flex justify-content-between align-items-start mb-3">
+                <h6 class="fw-semibold mb-0"><i class="bi bi-book me-2 text-primary"></i>Materias</h6>
+                <button type="button" class="btn btn-link btn-sm text-muted p-0 onb-skip-step" data-skip-to="done">Saltar esta etapa</button>
+              </div>
+
+              <!-- Materias ya vinculadas al usuario -->
+              <div id="onbCurrentSubjects" class="mb-3 d-none">
+                <p class="text-muted mb-1" style="font-size:.82rem">Tus materias actuales:</p>
+                <div id="onbCurrentSubjectsChips" class="d-flex flex-wrap gap-1"></div>
+              </div>
+
+              <!-- Picker de materia existente -->
+              <div class="mb-2">
+                <label class="form-label">Agregar materia existente del sistema</label>
+                <select class="form-select" id="onbSubjectExisting">
+                  <option value="">— seleccionar —</option>
+                  {% for subj in onboarding_institutions %}{% endfor %}{# placeholder, se llena por JS #}
+                </select>
+              </div>
+
+              <!-- Detalle materia seleccionada -->
+              <div id="onbSubjectDetail" class="d-none mb-2 p-2 border rounded bg-light">
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <p class="text-muted mb-1" style="font-size:.78rem">Resultados de aprendizaje:</p>
+                    <div id="onbSubjOutcomeChips" class="d-flex flex-wrap gap-1"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <p class="text-muted mb-1" style="font-size:.78rem">Temas:</p>
+                    <div id="onbSubjTopicChips" class="d-flex flex-wrap gap-1"></div>
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" id="onbSubjEditBtn">
+                    <i class="bi bi-pencil me-1"></i>Editar esta materia
+                  </button>
+                </div>
+              </div>
+
+              <!-- Formulario edición materia existente -->
+              <div id="onbSubjEditForm" class="d-none mb-2 p-2 border rounded border-warning-subtle bg-warning-subtle">
+                <div class="alert alert-warning py-2 px-3 mb-2" style="font-size:.82rem">
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                  <strong>Atención:</strong> Los exámenes ya guardados con esta materia <strong>no se modificarán</strong>. Este cambio solo afectará a nuevos exámenes.
+                </div>
+                <div class="mb-2">
+                  <label class="form-label" style="font-size:.85rem">Nombre de la materia</label>
+                  <input type="text" class="form-control form-control-sm" id="onbSubjEditName">
+                </div>
+                <div class="mb-2">
+                  <label class="form-label" style="font-size:.85rem">Resultados de aprendizaje</label>
+                  <ul class="list-group list-group-flush mb-1" id="onbSubjEditOutcomeList"></ul>
+                  <div class="input-group input-group-sm mt-1">
+                    <input type="text" class="form-control" id="onbSubjEditNewOutcome" placeholder="Nuevo resultado…">
+                    <button class="btn btn-outline-primary" type="button" id="onbSubjEditAddOutcomeBtn">Agregar</button>
+                  </div>
+                </div>
+                <div class="mb-1">
+                  <label class="form-label" style="font-size:.85rem">Temas</label>
+                  <ul class="list-group list-group-flush mb-1" id="onbSubjEditTopicList"></ul>
+                  <div class="input-group input-group-sm mt-1">
+                    <input type="text" class="form-control" id="onbSubjEditNewTopic" placeholder="Nuevo tema…">
+                    <button class="btn btn-outline-primary" type="button" id="onbSubjEditAddTopicBtn">Agregar</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="text-center text-muted my-2" style="font-size:.85rem">— o crear una nueva —</div>
+
+              <div id="onbNewSubjectBlock">
+                <div class="mb-2">
+                  <label class="form-label">Nombre de la materia</label>
+                  <input type="text" class="form-control" id="onbSubjectName" placeholder="Ej: Álgebra Lineal">
+                </div>
+                <div class="mb-2">
+                  <label class="form-label text-muted" style="font-size:.85rem">Resultados de aprendizaje (opcional, uno por línea)</label>
+                  <textarea class="form-control form-control-sm" id="onbOutcomes" rows="3" placeholder="El estudiante comprende matrices&#10;El estudiante aplica transformaciones lineales"></textarea>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label text-muted" style="font-size:.85rem">Temas (opcional, uno por línea)</label>
+                  <textarea class="form-control form-control-sm" id="onbTopics" rows="2" placeholder="Vectores&#10;Matrices&#10;Espacios vectoriales"></textarea>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /modal-body -->
+
+          <!-- Footer -->
+          <div class="modal-footer d-flex justify-content-between">
+            <button type="button" class="btn btn-link text-muted btn-sm" id="onbSkipBtn">Cerrar</button>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="onbBackBtn">
+                <i class="bi bi-arrow-left me-1"></i>Anterior
+              </button>
+              <button type="button" class="btn btn-primary btn-sm" id="onbNextBtn">
+                Siguiente <i class="bi bi-arrow-right ms-1"></i>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <style>
+    /* ONBOARDING WIZARD CSS — ROLLBACK: eliminar este bloque <style> completo */
+    .onb-step-badge { width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;background:#dee2e6;color:#555;font-size:.8rem;transition:background .3s,color .3s; }
+    .onb-step-badge.onb-step-active { background:#0d6efd;color:#fff; }
+    .onb-step-badge.onb-step-done { background:#198754;color:#fff; }
+    /* FIN ONBOARDING WIZARD CSS */
+    </style>
+
+    <script>
+    /* ONBOARDING WIZARD JS — ROLLBACK: eliminar este bloque <script> completo */
+    (function () {
+      const STEPS = 3;
+      let currentStep = 1;
+      const csrfToken = '{{ csrf_token }}';
+      const saveUrl = '{% url "material:onboarding_save_step" %}';
+      const ONB_DATA = {{ onb_data_json|safe }};
+      let _autoOpened = ONB_DATA.autoShow;
+
+      const modal = new bootstrap.Modal(document.getElementById('onboardingModal'));
+      const skipBtn = document.getElementById('onbSkipBtn');
+
+      /* ── estado edición institución ── */
+      let instEditMode = false;
+      let instEditData = null;   // { id, name, campuses:[{id,name}], faculties:[{id,name}] }
+      let instRemovedCampusIds  = [];
+      let instRemovedFacultyIds = [];
+      let instAddedCampuses  = [];
+      let instAddedFaculties = [];
+
+      /* ── estado edición materia ── */
+      let subjEditMode = false;
+      let subjEditData = null;   // { id, name, outcomes:[{id,text}], topics:[{id,text}] }
+      let subjRemovedOutcomeIds = [];
+      let subjRemovedTopicIds   = [];
+      let subjAddedOutcomes = [];
+      let subjAddedTopics   = [];
+
+      /* ── poblar select de materias ── */
+      (function populateSubjectSelect() {
+        const sel = document.getElementById('onbSubjectExisting');
+        (ONB_DATA.allSubjects || []).forEach(function (s) {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = s.name;
+          sel.appendChild(opt);
+        });
+      })();
+
+      /* ── chips instituciones actuales ── */
+      function renderCurrentInsts() {
+        const list = ONB_DATA.userInstitutions || [];
+        if (!list.length) return;
+        const chips = document.getElementById('onbCurrentInstsChips');
+        chips.innerHTML = list.map(function (i) {
+          return '<span class="badge bg-light text-dark border" style="font-size:.82rem">' + i.name + '</span>';
+        }).join('');
+        document.getElementById('onbCurrentInsts').classList.remove('d-none');
+      }
+
+      /* ── chips materias actuales ── */
+      function renderCurrentSubjects() {
+        const list = ONB_DATA.userSubjects || [];
+        if (!list.length) return;
+        const chips = document.getElementById('onbCurrentSubjectsChips');
+        chips.innerHTML = list.map(function (s) {
+          return '<span class="badge bg-light text-dark border" style="font-size:.82rem">' + s.name + '</span>';
+        }).join('');
+        document.getElementById('onbCurrentSubjects').classList.remove('d-none');
+      }
+
+      /* ── indicador de pasos ── */
+      function showStep(n) {
+        currentStep = n;
+        for (var i = 1; i <= STEPS; i++) {
+          document.getElementById('onbPanel' + i).classList.toggle('d-none', i !== n);
+          var badge = document.querySelector('.onb-step-badge[data-step="' + i + '"]');
+          badge.classList.remove('onb-step-active', 'onb-step-done');
+          if (i < n) badge.classList.add('onb-step-done');
+          else if (i === n) badge.classList.add('onb-step-active');
+        }
+        document.getElementById('onbBackBtn').classList.toggle('d-none', n === 1);
+        var nextBtn = document.getElementById('onbNextBtn');
+        nextBtn.innerHTML = n === STEPS
+          ? 'Guardar <i class="bi bi-check2 ms-1"></i>'
+          : 'Siguiente <i class="bi bi-arrow-right ms-1"></i>';
+      }
+
+      /* ── helpers ── */
+      function lines(id) {
+        return document.getElementById(id).value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+      }
+
+      /* ── render lista editable (campus / facultades / outcomes / topics) ── */
+      function renderEditList(ulId, items, onRemove) {
+        var ul = document.getElementById(ulId);
+        ul.innerHTML = '';
+        items.forEach(function (item) {
+          var li = document.createElement('li');
+          li.className = 'list-group-item d-flex justify-content-between align-items-center py-1 px-2';
+          li.innerHTML = '<span style="font-size:.82rem">' + item.name + '</span>' +
+            '<button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Eliminar">' +
+            '<i class="bi bi-x-circle"></i></button>';
+          li.querySelector('button').addEventListener('click', function () {
+            onRemove(item);
+            li.remove();
+          });
+          ul.appendChild(li);
+        });
+      }
+
+      /* ── abrir modo edición institución ── */
+      document.getElementById('onbInstEditBtn').addEventListener('click', function () {
+        if (!instEditData) return;
+        instEditMode = true;
+        instRemovedCampusIds  = [];
+        instRemovedFacultyIds = [];
+        instAddedCampuses  = [];
+        instAddedFaculties = [];
+        document.getElementById('onbInstEditName').value = instEditData.name;
+        renderEditList('onbInstEditCampusList',
+          instEditData.campuses,
+          function (item) { instRemovedCampusIds.push(item.id); }
+        );
+        renderEditList('onbInstEditFacultyList',
+          instEditData.faculties,
+          function (item) { instRemovedFacultyIds.push(item.id); }
+        );
+        document.getElementById('onbInstInfo').classList.add('d-none');
+        document.getElementById('onbNewInstBlock').classList.add('d-none');
+        document.getElementById('onbInstEditForm').classList.remove('d-none');
+      });
+
+      /* ── agregar sede en edición ── */
+      document.getElementById('onbInstEditAddCampusBtn').addEventListener('click', function () {
+        var inp = document.getElementById('onbInstEditNewCampus');
+        var val = inp.value.trim();
+        if (!val) return;
+        instAddedCampuses.push(val);
+        var li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center py-1 px-2';
+        li.innerHTML = '<span style="font-size:.82rem">' + val + ' <span class="badge bg-success-subtle text-success ms-1">nueva</span></span>' +
+          '<button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2"><i class="bi bi-x-circle"></i></button>';
+        li.querySelector('button').addEventListener('click', function () {
+          instAddedCampuses = instAddedCampuses.filter(function (c) { return c !== val; });
+          li.remove();
+        });
+        document.getElementById('onbInstEditCampusList').appendChild(li);
+        inp.value = '';
+      });
+
+      /* ── agregar facultad en edición ── */
+      document.getElementById('onbInstEditAddFacultyBtn').addEventListener('click', function () {
+        var inp = document.getElementById('onbInstEditNewFaculty');
+        var val = inp.value.trim();
+        if (!val) return;
+        instAddedFaculties.push(val);
+        var li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center py-1 px-2';
+        li.innerHTML = '<span style="font-size:.82rem">' + val + ' <span class="badge bg-success-subtle text-success ms-1">nueva</span></span>' +
+          '<button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2"><i class="bi bi-x-circle"></i></button>';
+        li.querySelector('button').addEventListener('click', function () {
+          instAddedFaculties = instAddedFaculties.filter(function (f) { return f !== val; });
+          li.remove();
+        });
+        document.getElementById('onbInstEditFacultyList').appendChild(li);
+        inp.value = '';
+      });
+
+      /* ── abrir modo edición materia ── */
+      document.getElementById('onbSubjEditBtn').addEventListener('click', function () {
+        if (!subjEditData) return;
+        subjEditMode = true;
+        subjRemovedOutcomeIds = [];
+        subjRemovedTopicIds   = [];
+        subjAddedOutcomes = [];
+        subjAddedTopics   = [];
+        document.getElementById('onbSubjEditName').value = subjEditData.name;
+        renderEditList('onbSubjEditOutcomeList',
+          subjEditData.outcomes.map(function (o) { return { id: o.id, name: o.text }; }),
+          function (item) { subjRemovedOutcomeIds.push(item.id); }
+        );
+        renderEditList('onbSubjEditTopicList',
+          subjEditData.topics.map(function (t) { return { id: t.id, name: t.text }; }),
+          function (item) { subjRemovedTopicIds.push(item.id); }
+        );
+        document.getElementById('onbSubjectDetail').classList.add('d-none');
+        document.getElementById('onbNewSubjectBlock').classList.add('d-none');
+        document.getElementById('onbSubjEditForm').classList.remove('d-none');
+      });
+
+      /* ── agregar outcome en edición ── */
+      document.getElementById('onbSubjEditAddOutcomeBtn').addEventListener('click', function () {
+        var inp = document.getElementById('onbSubjEditNewOutcome');
+        var val = inp.value.trim();
+        if (!val) return;
+        subjAddedOutcomes.push(val);
+        var li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center py-1 px-2';
+        li.innerHTML = '<span style="font-size:.82rem">' + val + ' <span class="badge bg-success-subtle text-success ms-1">nuevo</span></span>' +
+          '<button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2"><i class="bi bi-x-circle"></i></button>';
+        li.querySelector('button').addEventListener('click', function () {
+          subjAddedOutcomes = subjAddedOutcomes.filter(function (o) { return o !== val; });
+          li.remove();
+        });
+        document.getElementById('onbSubjEditOutcomeList').appendChild(li);
+        inp.value = '';
+      });
+
+      /* ── agregar tema en edición ── */
+      document.getElementById('onbSubjEditAddTopicBtn').addEventListener('click', function () {
+        var inp = document.getElementById('onbSubjEditNewTopic');
+        var val = inp.value.trim();
+        if (!val) return;
+        subjAddedTopics.push(val);
+        var li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center py-1 px-2';
+        li.innerHTML = '<span style="font-size:.82rem">' + val + ' <span class="badge bg-success-subtle text-success ms-1">nuevo</span></span>' +
+          '<button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2"><i class="bi bi-x-circle"></i></button>';
+        li.querySelector('button').addEventListener('click', function () {
+          subjAddedTopics = subjAddedTopics.filter(function (t) { return t !== val; });
+          li.remove();
+        });
+        document.getElementById('onbSubjEditTopicList').appendChild(li);
+        inp.value = '';
+      });
+
+      /* ── guardar paso en backend ── */
+      async function saveStep(step, done) {
+        var body = { step: step, done: !!done };
+        if (step === 1) {
+          body.first_name = document.getElementById('onbFirstName').value.trim();
+          body.last_name  = document.getElementById('onbLastName').value.trim();
+        } else if (step === 2) {
+          var existing = document.getElementById('onbInstExisting').value;
+          if (existing && instEditMode) {
+            body.institution_id    = parseInt(existing, 10);
+            body.edit_institution  = true;
+            body.new_name          = document.getElementById('onbInstEditName').value.trim();
+            body.add_campuses      = instAddedCampuses;
+            body.remove_campus_ids = instRemovedCampusIds;
+            body.add_faculties      = instAddedFaculties;
+            body.remove_faculty_ids = instRemovedFacultyIds;
+          } else if (existing) {
+            body.institution_id = parseInt(existing, 10);
+          } else {
+            body.new_institution_name = document.getElementById('onbInstName').value.trim();
+            body.campuses  = lines('onbCampuses');
+            body.faculties = lines('onbFaculties');
+          }
+        } else if (step === 3) {
+          var existingSubj = document.getElementById('onbSubjectExisting').value;
+          if (existingSubj && subjEditMode) {
+            body.existing_subject_id = parseInt(existingSubj, 10);
+            body.edit_subject        = true;
+            body.new_name            = document.getElementById('onbSubjEditName').value.trim();
+            body.add_outcomes        = subjAddedOutcomes;
+            body.remove_outcome_ids  = subjRemovedOutcomeIds;
+            body.add_topics          = subjAddedTopics;
+            body.remove_topic_ids    = subjRemovedTopicIds;
+          } else if (existingSubj) {
+            body.existing_subject_id = parseInt(existingSubj, 10);
+          } else {
+            body.subject_name      = document.getElementById('onbSubjectName').value.trim();
+            body.learning_outcomes = lines('onbOutcomes');
+            body.topics            = lines('onbTopics');
+          }
+        }
+        try {
+          await fetch(saveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify(body),
+          });
+        } catch (_) {}
+      }
+
+      /* ── seleccionar institución existente → poblar chips + guardar datos para edición ── */
+      document.getElementById('onbInstExisting').addEventListener('change', async function () {
+        var instId = this.value;
+        var infoBlock  = document.getElementById('onbInstInfo');
+        var editForm   = document.getElementById('onbInstEditForm');
+        var newBlock   = document.getElementById('onbNewInstBlock');
+        instEditMode = false;
+        instEditData = null;
+        editForm.classList.add('d-none');
+        newBlock.classList.remove('d-none');
+        if (!instId) {
+          infoBlock.classList.add('d-none');
+          newBlock.style.opacity = '';
+          newBlock.style.pointerEvents = '';
+          return;
+        }
+        /* deshabilitar bloque nueva institución */
+        newBlock.style.opacity = '.35';
+        newBlock.style.pointerEvents = 'none';
+        /* limpiar chips anteriores */
+        document.getElementById('onbInstCampusChips').innerHTML = '<span class="text-muted" style="font-size:.8rem">cargando…</span>';
+        document.getElementById('onbInstFacultyChips').innerHTML = '';
+        infoBlock.classList.remove('d-none');
+        try {
+          var [cRes, fRes] = await Promise.all([
+            fetch('/get_campuses_by_institution/' + instId + '/'),
+            fetch('/get_faculties_by_institution/' + instId + '/')
+          ]);
+          var cData = await cRes.json();
+          var fData = await fRes.json();
+          var campuses  = cData.campuses  || [];
+          var faculties = fData.faculties || [];
+          /* guardar para modo edición */
+          var selOpt = this.options[this.selectedIndex];
+          instEditData = { id: parseInt(instId, 10), name: selOpt.textContent, campuses: campuses, faculties: faculties };
+          var campusChips = campuses.map(function (c) {
+            return '<span class="badge bg-light text-dark border" style="font-size:.82rem">' + c.name + '</span>';
+          }).join('') || '<span class="text-muted" style="font-size:.8rem">Sin sedes cargadas</span>';
+          var facChips = faculties.map(function (f) {
+            return '<span class="badge bg-light text-dark border" style="font-size:.82rem">' + f.name + '</span>';
+          }).join('') || '<span class="text-muted" style="font-size:.8rem">Sin facultades cargadas</span>';
+          document.getElementById('onbInstCampusChips').innerHTML = campusChips;
+          document.getElementById('onbInstFacultyChips').innerHTML = facChips;
+        } catch (_) {
+          document.getElementById('onbInstCampusChips').innerHTML = '<span class="text-muted" style="font-size:.8rem">—</span>';
+        }
+      });
+
+      /* ── seleccionar materia existente → deshabilitar form nueva + mostrar detalle ── */
+      document.getElementById('onbSubjectExisting').addEventListener('change', function () {
+        var newBlock    = document.getElementById('onbNewSubjectBlock');
+        var detailBlock = document.getElementById('onbSubjectDetail');
+        var editForm    = document.getElementById('onbSubjEditForm');
+        var subjId      = parseInt(this.value, 10);
+        subjEditMode = false;
+        subjEditData = null;
+        editForm.classList.add('d-none');
+        newBlock.classList.remove('d-none');
+        newBlock.style.opacity      = this.value ? '.35' : '';
+        newBlock.style.pointerEvents = this.value ? 'none' : '';
+        if (!this.value) {
+          detailBlock.classList.add('d-none');
+          return;
+        }
+        var subj = (ONB_DATA.allSubjects || []).find(function (s) { return s.id === subjId; });
+        if (!subj) { detailBlock.classList.add('d-none'); return; }
+        subjEditData = { id: subj.id, name: subj.name, outcomes: subj.outcomes, topics: subj.topics };
+        var outChips = (subj.outcomes || []).map(function (o) {
+          return '<span class="badge bg-white text-dark border" style="font-size:.78rem;white-space:normal;text-align:left">' + o.text + '</span>';
+        }).join('') || '<span class="text-muted" style="font-size:.78rem">Sin resultados cargados</span>';
+        var topChips = (subj.topics || []).map(function (t) {
+          return '<span class="badge bg-white text-dark border" style="font-size:.78rem">' + t.text + '</span>';
+        }).join('') || '<span class="text-muted" style="font-size:.78rem">Sin temas cargados</span>';
+        document.getElementById('onbSubjOutcomeChips').innerHTML = outChips;
+        document.getElementById('onbSubjTopicChips').innerHTML   = topChips;
+        detailBlock.classList.remove('d-none');
+      });
+
+      /* ── botones "Saltar esta etapa" dentro de cada panel ── */
+      document.querySelectorAll('.onb-skip-step').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var target = btn.getAttribute('data-skip-to');
+          if (target === 'done') {
+            if (_autoOpened) saveStep('done', true);
+            modal.hide();
+            if (_autoOpened) location.reload();
+          } else {
+            showStep(parseInt(target, 10));
+          }
+        });
+      });
+
+      /* ── Siguiente / Guardar ── */
+      document.getElementById('onbNextBtn').addEventListener('click', async function () {
+        this.disabled = true;
+        var done = currentStep === STEPS;
+        await saveStep(currentStep, done);
+        this.disabled = false;
+        if (done) {
+          modal.hide();
+          location.reload();
+        } else {
+          showStep(currentStep + 1);
+        }
+      });
+
+      document.getElementById('onbBackBtn').addEventListener('click', function () {
+        showStep(currentStep - 1);
+      });
+
+      /* ── Cerrar / Saltar configuración ── */
+      skipBtn.addEventListener('click', async function () {
+        this.disabled = true;
+        if (_autoOpened) await saveStep('done', true);
+        modal.hide();
+        if (_autoOpened) location.reload();
+        else this.disabled = false;
+      });
+
+      /* ── inicializar ── */
+      renderCurrentInsts();
+      renderCurrentSubjects();
+
+      if (ONB_DATA.autoShow) {
+        skipBtn.textContent = 'Saltar configuración';
+        modal.show();
+      }
+
+      /* ── función global para abrir desde el botón de inicio ── */
+      window.openOnboardingWizard = function () {
+        _autoOpened = false;
+        skipBtn.textContent = 'Cerrar';
+        showStep(1);
+        modal.show();
+      };
+    })();
+    /* FIN ONBOARDING WIZARD JS */
+    </script>
+    {% endif %}
+    {# ═══ FIN ONBOARDING WIZARD ══════════════════════════════════════════════════ #}
+
 </body>
 
 </html>

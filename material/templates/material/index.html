@@ -6,6 +6,12 @@
     <div class="d-grid gap-2 d-md-block">
         <a href="{% url 'material:upload_contenido' %}" class="btn btn-primary btn-lg">Subir Material</a>
         <a href="{% url 'material:create_exam' %}" class="btn btn-secondary btn-lg">Crear Examen</a>
+        {# ONBOARDING WIZARD — ROLLBACK: eliminar este botón #}
+        {% if user.is_authenticated %}
+        <button type="button" class="btn btn-outline-secondary btn-lg" onclick="openOnboardingWizard()">
+            <i class="bi bi-gear me-1"></i>Configurar perfil
+        </button>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

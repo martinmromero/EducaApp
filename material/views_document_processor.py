@@ -1013,51 +1013,65 @@ def document_page_preview(request):
         elif ext == '.docx':
             from docx import Document as _Doc
             doc = _Doc(file_path)
-            # Agrupar párrafos en "secciones" de ~800 chars para que sean manejables
+
+            # ── OPCIÓN D: páginas virtuales por cantidad de caracteres ──────────
+            # ROLLBACK: reemplazar este bloque con el bloque comentado de abajo
+            # para volver al modo de secciones por heading.
+            DOCX_PAGE_SIZE = 2800  # chars ≈ 1 página A4 en texto normal
             sections = []
             current_text = []
             current_chars = 0
-            section_idx = 1
-            heading_title = 'Inicio'
-
+            page_idx = 1
             for para in doc.paragraphs:
                 text = para.text.strip()
                 if not text:
                     continue
-                # Detectar headings como separadores de sección
-                if para.style.name.startswith('Heading'):
-                    if current_text:
-                        sections.append({
-                            'section_number': section_idx,
-                            'title': heading_title,
-                            'text': '\n'.join(current_text),
-                            'char_count': current_chars,
-                        })
-                        section_idx += 1
-                        current_text = []
-                        current_chars = 0
-                    heading_title = text
-                else:
-                    current_text.append(text)
-                    current_chars += len(text)
-                    # También dividir si el bloque es muy largo
-                    if current_chars > 1200:
-                        sections.append({
-                            'section_number': section_idx,
-                            'title': heading_title,
-                            'text': '\n'.join(current_text),
-                            'char_count': current_chars,
-                        })
-                        section_idx += 1
-                        current_text = []
-                        current_chars = 0
+                current_text.append(text)
+                current_chars += len(text) + 1
+                if current_chars >= DOCX_PAGE_SIZE:
+                    sections.append({
+                        'section_number': page_idx,
+                        'title': f'Página {page_idx}',
+                        'text': '\n'.join(current_text),
+                        'char_count': current_chars,
+                    })
+                    page_idx += 1
+                    current_text = []
+                    current_chars = 0
             if current_text:
                 sections.append({
-                    'section_number': section_idx,
-                    'title': heading_title,
+                    'section_number': page_idx,
+                    'title': f'Página {page_idx}',
                     'text': '\n'.join(current_text),
                     'char_count': current_chars,
                 })
+            # ── FIN OPCIÓN D ─────────────────────────────────────────────────────
+
+            # [ROLLBACK DOCX SECTIONS — secciones por heading, descommentar para revertir]
+            # sections = []
+            # current_text = []
+            # current_chars = 0
+            # section_idx = 1
+            # heading_title = 'Inicio'
+            # for para in doc.paragraphs:
+            #     text = para.text.strip()
+            #     if not text:
+            #         continue
+            #     if para.style.name.startswith('Heading'):
+            #         if current_text:
+            #             sections.append({'section_number': section_idx, 'title': heading_title,
+            #                              'text': '\n'.join(current_text), 'char_count': current_chars})
+            #             section_idx += 1; current_text = []; current_chars = 0
+            #         heading_title = text
+            #     else:
+            #         current_text.append(text); current_chars += len(text)
+            #         if current_chars > 1200:
+            #             sections.append({'section_number': section_idx, 'title': heading_title,
+            #                              'text': '\n'.join(current_text), 'char_count': current_chars})
+            #             section_idx += 1; current_text = []; current_chars = 0
+            # if current_text:
+            #     sections.append({'section_number': section_idx, 'title': heading_title,
+            #                      'text': '\n'.join(current_text), 'char_count': current_chars})
             # URL del archivo para docx-preview.js
             rel = os.path.relpath(file_path, settings.MEDIA_ROOT).replace('\\', '/')
             from django.conf import settings as _s
@@ -1186,32 +1200,47 @@ def get_pages_text(request):
             if ext == '.docx':
                 from docx import Document as _Doc
                 doc = _Doc(file_path)
+
+                # ── OPCIÓN D: páginas virtuales (debe coincidir con document_page_preview) ──
+                # ROLLBACK: reemplazar con el bloque comentado al final de este if
+                DOCX_PAGE_SIZE = 2800
                 sections_all = []
                 current_text = []
                 current_chars = 0
-                section_idx = 1
-                heading_title = 'Inicio'
+                page_idx = 1
                 for para in doc.paragraphs:
                     text = para.text.strip()
                     if not text:
                         continue
-                    if para.style.name.startswith('Heading'):
-                        if current_text:
-                            sections_all.append((section_idx, heading_title, '\n'.join(current_text)))
-                            section_idx += 1
-                            current_text = []
-                            current_chars = 0
-                        heading_title = text
-                    else:
-                        current_text.append(text)
-                        current_chars += len(text)
-                        if current_chars > 1200:
-                            sections_all.append((section_idx, heading_title, '\n'.join(current_text)))
-                            section_idx += 1
-                            current_text = []
-                            current_chars = 0
+                    current_text.append(text)
+                    current_chars += len(text) + 1
+                    if current_chars >= DOCX_PAGE_SIZE:
+                        sections_all.append((page_idx, f'Página {page_idx}', '\n'.join(current_text)))
+                        page_idx += 1
+                        current_text = []
+                        current_chars = 0
                 if current_text:
-                    sections_all.append((section_idx, heading_title, '\n'.join(current_text)))
+                    sections_all.append((page_idx, f'Página {page_idx}', '\n'.join(current_text)))
+                # ── FIN OPCIÓN D ────────────────────────────────────────────────────
+
+                # [ROLLBACK DOCX SECTIONS — descommentar para revertir]
+                # sections_all = []
+                # current_text = []; current_chars = 0; section_idx = 1; heading_title = 'Inicio'
+                # for para in doc.paragraphs:
+                #     text = para.text.strip()
+                #     if not text: continue
+                #     if para.style.name.startswith('Heading'):
+                #         if current_text:
+                #             sections_all.append((section_idx, heading_title, '\n'.join(current_text)))
+                #             section_idx += 1; current_text = []; current_chars = 0
+                #         heading_title = text
+                #     else:
+                #         current_text.append(text); current_chars += len(text)
+                #         if current_chars > 1200:
+                #             sections_all.append((section_idx, heading_title, '\n'.join(current_text)))
+                #             section_idx += 1; current_text = []; current_chars = 0
+                # if current_text:
+                #     sections_all.append((section_idx, heading_title, '\n'.join(current_text)))
             else:
                 with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
                     lines = f.readlines()

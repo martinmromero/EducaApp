@@ -759,6 +759,9 @@ class Exam(models.Model):
     institution_name = models.CharField(max_length=255, blank=True, default='', verbose_name="Institución (texto)")
     faculty_name = models.CharField(max_length=255, blank=True, default='', verbose_name="Facultad (texto)")
     campus_name = models.CharField(max_length=255, blank=True, default='', verbose_name="Sede (texto)")
+    subject_name = models.CharField(max_length=255, blank=True, default='', verbose_name="Materia (texto)")
+    topics_snapshot = models.JSONField(default=list, blank=True, verbose_name="Temas (snapshot)")
+    outcomes_snapshot = models.JSONField(default=list, blank=True, verbose_name="Resultados de aprendizaje (snapshot)")
     date_str = models.CharField(max_length=50, blank=True, default='', verbose_name="Fecha (texto)")
     alumno = models.CharField(max_length=255, blank=True, default='', verbose_name="Alumno/a")
     curso = models.CharField(max_length=100, blank=True, default='', verbose_name="Curso")
@@ -819,6 +822,12 @@ class Profile(models.Model):
         Institution,
         blank=True,
         verbose_name="Instituciones"
+    )
+    # ONBOARDING WIZARD — ROLLBACK: eliminar este campo y revertir migración 0020
+    onboarding_completed = models.BooleanField(
+        default=False,
+        verbose_name='Onboarding completado',
+        help_text='Indica si el usuario completó o saltó el wizard de configuración inicial.',
     )
 
     def __str__(self):
@@ -1131,6 +1140,15 @@ class ExamTemplate(models.Model):
         related_name='created_exam_templates',
         verbose_name="Creado por"
     )
+
+    # Snapshot fields — conservan los nombres en el momento de creación del examen
+    institution_name_snapshot = models.CharField(max_length=255, blank=True, default='', verbose_name="Institución (snapshot)")
+    faculty_name_snapshot = models.CharField(max_length=255, blank=True, default='', verbose_name="Facultad (snapshot)")
+    campus_name_snapshot = models.CharField(max_length=255, blank=True, default='', verbose_name="Sede (snapshot)")
+    career_name_snapshot = models.CharField(max_length=255, blank=True, default='', verbose_name="Carrera (snapshot)")
+    subject_name_snapshot = models.CharField(max_length=255, blank=True, default='', verbose_name="Materia (snapshot)")
+    topics_snapshot = models.JSONField(default=list, blank=True, verbose_name="Temas (snapshot)")
+    outcomes_snapshot = models.JSONField(default=list, blank=True, verbose_name="Resultados de aprendizaje (snapshot)")
 
     created_at = models.DateTimeField(
         auto_now_add=True,

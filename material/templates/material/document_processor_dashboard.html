@@ -403,14 +403,28 @@
               </div>
             </div>
 
-            <!-- DOCX tarjetas de sección (Opción D) -->
-            <!-- ROLLBACK: borrar este bloque y cambiar _renderDocxCards por _loadDocxPreview(() => _renderDocx(...)) en openPagePreview -->
+            <!-- DOCX tarjetas de páginas virtuales (Opción D activa) -->
+            <!-- ROLLBACK: en openPagePreview cambiar _renderDocxCards por _loadDocxPreview(() => _renderDocx(...)) -->
+            <!-- ROLLBACK layout: reemplazar todo este div con la versión de una sola columna (docxCardsGrid simple) -->
             <div id="docxCardsContainer" style="display:none">
-              <div class="alert alert-info py-2 mb-3">
-                <i class="fas fa-info-circle"></i>
-                <small>Cada tarjeta es una sección del documento. Hacé click o tildá el checkbox para seleccionarla.</small>
+              <div class="row g-0" style="min-height:60vh">
+                <!-- Panel izquierdo: texto completo con bloques resaltables (Opción D) -->
+                <div class="col-md-7 border-end" id="docxFullTextPanel" style="overflow-y:auto;max-height:70vh">
+                  <div class="p-2 bg-light border-bottom">
+                    <small class="text-muted"><i class="fas fa-align-left me-1"></i>Texto del documento — los segmentos seleccionados se resaltan</small>
+                  </div>
+                  <div id="docxFullTextBlocks" class="p-2"></div>
+                </div>
+                <!-- Panel derecho: tarjetas para selección (Opción D) -->
+                <div class="col-md-5" style="overflow-y:auto;max-height:70vh">
+                  <div class="p-2 bg-light border-bottom">
+                    <small class="text-muted"><i class="fas fa-check-square me-1"></i>Páginas a analizar</small>
+                  </div>
+                  <div class="px-3 pt-3">
+                    <div id="docxCardsGrid" class="row g-2"></div>
+                  </div>
+                </div>
               </div>
-              <div id="docxCardsGrid" class="row g-3"></div>
             </div>
 
             <!-- TXT viewer -->
@@ -1530,7 +1544,10 @@ async function openPagePreview() {
   } else if (meta.file_type === 'pptx') {
     _renderPptx(meta.slides);
   } else if (meta.file_type === 'docx') {
-    _loadDocxPreview(() => _renderDocx(meta.file_url, meta.sections));
+    // OPCIÓN D: tarjetas de páginas virtuales (sin docx-preview)
+    // ROLLBACK: reemplazar la línea de abajo con:
+    //   _loadDocxPreview(() => _renderDocx(meta.file_url, meta.sections));
+    _renderDocxCards(meta.sections);
   } else if (meta.file_type === 'txt') {
     _renderTxt(meta.sections);
   }
@@ -1539,6 +1556,7 @@ async function openPagePreview() {
 function _unitLabel(type, n) {
   if (type === 'pdf') return n === 1 ? 'página' : 'páginas';
   if (type === 'pptx') return n === 1 ? 'slide' : 'slides';
+  if (type === 'docx') return n === 1 ? 'página' : 'páginas';  // OPCIÓN D
   return n === 1 ? 'sección' : 'secciones';
 }
 
@@ -1626,30 +1644,121 @@ function _renderPptx(slides) {
 
 // ──────────────────────────────────────────
 // DOCX Opción D: tarjetas de texto por sección (sin docx-preview)
+// ROLLBACK: borrar esta función y el bloque #docxFullTextBlocks en el HTML
 // ──────────────────────────────────────────
 function _renderDocxCards(sections) {
   const container = document.getElementById('docxCardsContainer');
   const grid = document.getElementById('docxCardsGrid');
+  const fullText = document.getElementById('docxFullTextBlocks');
   grid.innerHTML = '';
+  fullText.innerHTML = '';
   container.style.display = 'block';
 
   sections.forEach(sec => {
     const n = sec.section_number;
-    const previewText = sec.text.length > 400 ? sec.text.slice(0, 400) + '…' : sec.text;
+    const previewText = sec.text.length > 300 ? sec.text.slice(0, 300) + '…' : sec.text;
+
+    // ── Panel izquierdo: bloque de texto completo (resaltable + clickeable) ──
+    const block = document.createElement('div');
+    block.id = `docxBlock_${n}`;
+    block.className = 'docx-full-block';
+    block.dataset.section = n;
+    // OPCIÓN D — ROLLBACK: quitar el onclick de abajo
+    block.onclick = () => togglePageSelection(n, 'section');
+    block.innerHTML = `
+      <div class="docx-block-label">${_escapeHtml(sec.title)}</div>
+      <div class="docx-block-text">${_escapeHtml(sec.text)}</div>`;
+    fullText.appendChild(block);
+
+    // ── Panel derecho: tarjeta compacta para selección ──
     const col = document.createElement('div');
-    col.className = 'col-md-6 col-lg-4';
+    col.className = 'col-12';
     col.innerHTML = `
-      <div class="card h-100 page-thumb-card" id="pageCard_${n}" onclick="togglePageSelection(${n},'section')">
-        <div class="card-header d-flex align-items-center gap-2 py-2 px-3" style="background:#f0f4ff">
+      <div class="card page-thumb-card" id="pageCard_${n}" onclick="togglePageSelection(${n},'section')">
+        <div class="card-header d-flex align-items-center gap-2 py-1 px-2" style="background:#f0f4ff">
           <input type="checkbox" class="form-check-input page-select-cb" id="pageCb_${n}"
             value="${n}" onclick="event.stopPropagation();togglePageSelection(${n},'section')">
-          <span class="fw-semibold text-truncate" style="max-width:80%">${_escapeHtml(sec.title)}</span>
-          <span class="badge bg-light text-secondary ms-auto" style="font-size:0.68rem;white-space:nowrap">${sec.char_count} chars</span>
+          <span class="fw-semibold text-truncate" style="max-width:75%;font-size:0.85rem">${_escapeHtml(sec.title)}</span>
+          <span class="badge bg-light text-secondary ms-auto" style="font-size:0.65rem;white-space:nowrap">${sec.char_count} chars</span>
         </div>
-        <div class="card-body p-3" style="font-size:0.8rem;white-space:pre-wrap;overflow:hidden;max-height:180px;color:#444">${_escapeHtml(previewText)}</div>
+        <div class="card-body p-2" style="font-size:0.75rem;white-space:pre-wrap;overflow:hidden;max-height:80px;color:#555">${_escapeHtml(previewText)}</div>
       </div>`;
     grid.appendChild(col);
   });
+
+  // OPCIÓN D — ROLLBACK: borrar esta llamada
+  _setupDocxScrollHighlight();
+}
+
+// ──────────────────────────────────────────
+// DOCX Opción D: scroll-tracking — borde verde al bloque visible en panel izquierdo
+// ROLLBACK: borrar estas dos funciones y la llamada en _renderDocxCards
+// ──────────────────────────────────────────
+let _docxScrollSyncing = false;
+
+function _setupDocxScrollHighlight() {
+  const panel = document.getElementById('docxFullTextPanel');
+  if (!panel) return;
+  panel.addEventListener('scroll', _onDocxPanelScroll, { passive: true });
+  // Trigger inicial para marcar el primer bloque
+  setTimeout(_onDocxPanelScroll, 80);
+}
+
+function _onDocxPanelScroll() {
+  const panel = document.getElementById('docxFullTextPanel');
+  if (!panel) return;
+
+  // Encontrar el bloque cuyo centro esté más cercano al centro del panel
+  const panelMid = panel.scrollTop + panel.clientHeight / 2;
+  let bestBlock = null;
+  let bestDist = Infinity;
+  document.querySelectorAll('.docx-full-block').forEach(block => {
+    const blockMid = block.offsetTop + block.offsetHeight / 2;
+    const dist = Math.abs(blockMid - panelMid);
+    if (dist < bestDist) { bestDist = dist; bestBlock = block; }
+  });
+
+  // Actualizar clase docx-block-in-view
+  document.querySelectorAll('.docx-full-block.docx-block-in-view').forEach(b => {
+    b.classList.remove('docx-block-in-view');
+  });
+  if (!bestBlock) return;
+  bestBlock.classList.add('docx-block-in-view');
+
+  // Sincronizar panel derecho: scroll a la tarjeta correspondiente
+  if (!_docxScrollSyncing) {
+    _docxScrollSyncing = true;
+    const n = bestBlock.dataset.section;
+    const card = document.getElementById(`pageCard_${n}`);
+    if (card) {
+      const rightPanel = card.closest('.col-md-5');
+      if (rightPanel) {
+        const cardTop = card.offsetTop - rightPanel.offsetTop;
+        rightPanel.scrollTo({ top: cardTop - 24, behavior: 'smooth' });
+      }
+    }
+    setTimeout(() => { _docxScrollSyncing = false; }, 400);
+  }
+}
+
+// ──────────────────────────────────────────
+// DOCX Opción D: resaltar bloque en panel izquierdo y hacer scroll
+// ROLLBACK: borrar esta función completa
+// ──────────────────────────────────────────
+function _highlightDocxBlock(num, selected) {
+  const block = document.getElementById(`docxBlock_${num}`);
+  if (!block) return;
+  if (selected) {
+    block.classList.add('docx-block-selected');
+    // Scroll suave al bloque en el panel izquierdo
+    const panel = document.getElementById('docxFullTextPanel');
+    if (panel) {
+      const blockTop = block.offsetTop - panel.offsetTop;
+      panel.scrollTo({ top: blockTop - 16, behavior: 'smooth' });
+    }
+  } else {
+    block.classList.remove('docx-block-selected');
+  }
 }
 
 // ──────────────────────────────────────────
@@ -1761,10 +1870,12 @@ function togglePageSelection(num, type) {
     st.selected.delete(num);
     if (card) card.classList.remove('border-success', 'border-2');
     if (cb) cb.checked = false;
+    _highlightDocxBlock(num, false);  // OPCIÓN D — ROLLBACK: borrar esta línea
   } else {
     st.selected.add(num);
     if (card) { card.classList.add('border-success', 'border-2'); }
     if (cb) cb.checked = true;
+    _highlightDocxBlock(num, true);   // OPCIÓN D — ROLLBACK: borrar esta línea
   }
   _updatePreviewCount();
 }
@@ -1782,6 +1893,7 @@ function previewSelectAll(checked) {
     } else {
       if (card) card.classList.remove('border-success','border-2');
     }
+    _highlightDocxBlock(num, checked);  // OPCIÓN D — ROLLBACK: borrar esta línea
   });
   _updatePreviewCount();
 }
@@ -1884,6 +1996,47 @@ function _escapeHtml(str) {
 .page-thumb-card.border-success {
   box-shadow: 0 0 0 3px #198754aa;
 }
+
+/* ── OPCIÓN D: bloques de texto en panel izquierdo DOCX ─────────────
+   ROLLBACK: borrar todo este bloque de CSS
+   ─────────────────────────────────────────────────────────────────── */
+.docx-full-block {
+  border-left: 3px solid #dee2e6;
+  margin: 0 0 2px 0;
+  padding: 10px 14px;
+  transition: background 0.15s, border-color 0.2s, box-shadow 0.2s;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: #333;
+}
+.docx-block-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #888;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.docx-full-block + .docx-full-block {
+  border-top: 1px solid #f0f0f0;
+}
+.docx-full-block.docx-block-selected {
+  background: #e8f5e9;
+  border-left: 4px solid #198754;
+  box-shadow: inset 0 0 0 1px #19875433;
+}
+/* Borde perimetral verde: bloque actualmente visible al scrollear (OPCIÓN D)
+   ROLLBACK: borrar esta regla */
+.docx-full-block.docx-block-in-view {
+  outline: 2px solid #198754;
+  outline-offset: -1px;
+  border-left-color: #198754 !important;
+}
+.docx-full-block {
+  cursor: pointer;  /* ROLLBACK: borrar esta línea */
+}
+/* ── FIN OPCIÓN D CSS ─────────────────────────────────────────────── */
 .accordion-button {
     font-size: 0.95rem;
 }

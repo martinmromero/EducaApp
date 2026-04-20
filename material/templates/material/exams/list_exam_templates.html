@@ -67,10 +67,10 @@
                     <td>
                         <input type="checkbox" name="template_ids" value="{{ template.id }}">
                     </td>
-                    <td>{{ template.institution.name|default:"-" }}</td>
-                    <td>{{ template.faculty.name|default:"-" }}</td>
-                    <td>{{ template.career.name|default:"-" }}</td>
-                    <td>{{ template.subject.name|default:"-" }}</td>
+                    <td>{% if template.institution_name_snapshot %}{{ template.institution_name_snapshot }}{% else %}{{ template.institution.name|default:"-" }}{% endif %}</td>
+                    <td>{% if template.faculty_name_snapshot %}{{ template.faculty_name_snapshot }}{% else %}{{ template.faculty.name|default:"-" }}{% endif %}</td>
+                    <td>{{ template.career_name_snapshot|default:template.career.name|default:"-" }}</td>
+                    <td>{% if template.subject_name_snapshot %}{{ template.subject_name_snapshot }}{% else %}{{ template.subject.name|default:"-" }}{% endif %}</td>
                     <td>
                         {% if template.professor %}
                             {{ template.professor.get_full_name }}

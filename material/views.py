@@ -768,6 +768,22 @@ def create_exam_template(request):
                     
                     exam_template.save()
                     form.save_m2m()
+
+                    # ── Poblar snapshots ──
+                    exam_template.institution_name_snapshot = exam_template.institution.name if exam_template.institution_id else ''
+                    exam_template.faculty_name_snapshot     = exam_template.faculty.name     if exam_template.faculty_id     else ''
+                    exam_template.campus_name_snapshot      = exam_template.campus.name      if exam_template.campus_id      else ''
+                    exam_template.career_name_snapshot      = exam_template.career.name      if exam_template.career_id      else ''
+                    exam_template.subject_name_snapshot     = exam_template.subject.name     if exam_template.subject_id     else ''
+                    raw_topics = exam_template.topics_to_evaluate or ''
+                    exam_template.topics_snapshot = [t.strip() for t in raw_topics.split('\n') if t.strip()]
+                    exam_template.outcomes_snapshot = list(
+                        exam_template.learning_outcomes.values_list('description', flat=True)
+                    )
+                    exam_template.save(update_fields=[
+                        'institution_name_snapshot', 'faculty_name_snapshot', 'campus_name_snapshot',
+                        'career_name_snapshot', 'subject_name_snapshot', 'topics_snapshot', 'outcomes_snapshot',
+                    ])
                     
                     InstitutionLog.objects.create(
                         institution=exam_template.institution,
@@ -944,6 +960,22 @@ def edit_exam_template(request, template_id):
                 # Guardar
                 exam_template.save()
                 form.save_m2m()
+
+                # ── Actualizar snapshots (el usuario editó conscientemente la plantilla) ──
+                exam_template.institution_name_snapshot = exam_template.institution.name if exam_template.institution_id else ''
+                exam_template.faculty_name_snapshot     = exam_template.faculty.name     if exam_template.faculty_id     else ''
+                exam_template.campus_name_snapshot      = exam_template.campus.name      if exam_template.campus_id      else ''
+                exam_template.career_name_snapshot      = exam_template.career.name      if exam_template.career_id      else ''
+                exam_template.subject_name_snapshot     = exam_template.subject.name     if exam_template.subject_id     else ''
+                raw_topics = exam_template.topics_to_evaluate or ''
+                exam_template.topics_snapshot = [t.strip() for t in raw_topics.split('\n') if t.strip()]
+                exam_template.outcomes_snapshot = list(
+                    exam_template.learning_outcomes.values_list('description', flat=True)
+                )
+                exam_template.save(update_fields=[
+                    'institution_name_snapshot', 'faculty_name_snapshot', 'campus_name_snapshot',
+                    'career_name_snapshot', 'subject_name_snapshot', 'topics_snapshot', 'outcomes_snapshot',
+                ])
                 
                 print(f"DEBUG: Después de save():")
                 print(f"  - ID final: {exam_template.id}")
@@ -3482,3 +3514,161 @@ def exchange_question(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+# --- ONBOARDING WIZARD ---------------------------------------------------------
+# ROLLBACK: eliminar este bloque completo (desde la linea marcada hasta FIN ONBOARDING)
+# y revertir migracion:  .venv\Scripts\python.exe manage.py migrate material 0019
+
+@require_POST
+@login_required
+def onboarding_save_step(request):
+    """
+    Endpoint AJAX para guardar cada paso del wizard de onboarding.
+    Pasos:
+      step=1  ? nombre del docente (first_name, last_name)
+      step=2  ? institucion (elegir existente o crear nueva + sedes + facultades opcionales)
+      step=3  ? materia (nombre + resultados de aprendizaje + temas opcionales)
+      step=done ? marca onboarding_completed=True
+    Siempre devuelve {"ok": true} - el frontend puede continuar aunque algo falle.
+    """
+    import json as _json
+
+    try:
+        body = _json.loads(request.body)
+    except _json.JSONDecodeError:
+        body = {}
+
+    step = body.get('step')
+    profile = request.user.profile
+
+    try:
+        if step == 1:
+            # Paso 1: nombre del docente
+            first_name = body.get('first_name', '').strip()
+            last_name = body.get('last_name', '').strip()
+            if first_name or last_name:
+                request.user.first_name = first_name
+                request.user.last_name = last_name
+                request.user.save(update_fields=['first_name', 'last_name'])
+
+        elif step == 2:
+            # Paso 2: institucion
+            institution_id = body.get('institution_id')
+            new_inst_name = body.get('new_institution_name', '').strip()
+
+            if institution_id and body.get('edit_institution'):
+                # Editar institución existente
+                try:
+                    inst = InstitutionV2.objects.get(pk=institution_id, is_active=True)
+                    UserInstitution.objects.get_or_create(user=request.user, institution=inst)
+                    # Renombrar si se indica un nombre nuevo
+                    new_name = body.get('new_name', '').strip()
+                    if new_name and new_name != inst.name:
+                        inst.name = new_name
+                        inst.save(update_fields=['name'])
+                    # Agregar sedes nuevas
+                    for cn in body.get('add_campuses', []):
+                        cn = cn.strip()
+                        if cn:
+                            CampusV2.objects.get_or_create(institution=inst, name=cn)
+                    # Eliminar sedes
+                    remove_ids = [int(x) for x in body.get('remove_campus_ids', []) if str(x).isdigit()]
+                    if remove_ids:
+                        CampusV2.objects.filter(pk__in=remove_ids, institution=inst).delete()
+                    # Agregar facultades nuevas
+                    for fn in body.get('add_faculties', []):
+                        fn = fn.strip()
+                        if fn:
+                            FacultyV2.objects.get_or_create(institution=inst, name=fn)
+                    # Eliminar facultades
+                    remove_fac_ids = [int(x) for x in body.get('remove_faculty_ids', []) if str(x).isdigit()]
+                    if remove_fac_ids:
+                        FacultyV2.objects.filter(pk__in=remove_fac_ids, institution=inst).delete()
+                except InstitutionV2.DoesNotExist:
+                    pass
+            elif institution_id:
+                # Solo vincular institución existente sin editar
+                try:
+                    inst = InstitutionV2.objects.get(pk=institution_id, is_active=True)
+                    UserInstitution.objects.get_or_create(user=request.user, institution=inst)
+                except InstitutionV2.DoesNotExist:
+                    pass
+            elif new_inst_name:
+                # Crear nueva institucion
+                inst, _ = InstitutionV2.objects.get_or_create(name=new_inst_name)
+                UserInstitution.objects.get_or_create(user=request.user, institution=inst)
+
+                # Sedes opcionales (lista de nombres)
+                for campus_name in body.get('campuses', []):
+                    campus_name = campus_name.strip()
+                    if campus_name:
+                        CampusV2.objects.get_or_create(institution=inst, name=campus_name)
+
+                # Facultades opcionales (lista de nombres)
+                for fac_name in body.get('faculties', []):
+                    fac_name = fac_name.strip()
+                    if fac_name:
+                        FacultyV2.objects.get_or_create(institution=inst, name=fac_name)
+
+        elif step == 3:
+            # Paso 3: materia — puede ser existente (solo link o edit) o nueva
+            existing_subject_id = body.get('existing_subject_id')
+            subject_name = body.get('subject_name', '').strip()
+
+            if existing_subject_id and body.get('edit_subject'):
+                # Editar materia existente
+                try:
+                    subj = Subject.objects.get(pk=existing_subject_id)
+                    new_name = body.get('new_name', '').strip()
+                    if new_name and new_name != subj.name:
+                        subj.name = new_name
+                        subj.save(update_fields=['name'])
+                    # Agregar outcomes nuevos
+                    for od in body.get('add_outcomes', []):
+                        od = od.strip()
+                        if od:
+                            LearningOutcome.objects.get_or_create(subject=subj, description=od)
+                    # Eliminar outcomes
+                    remove_outcome_ids = [int(x) for x in body.get('remove_outcome_ids', []) if str(x).isdigit()]
+                    if remove_outcome_ids:
+                        LearningOutcome.objects.filter(pk__in=remove_outcome_ids, subject=subj).delete()
+                    # Agregar temas nuevos
+                    for tn in body.get('add_topics', []):
+                        tn = tn.strip()
+                        if tn:
+                            Topic.objects.get_or_create(name=tn, subject=subj, defaults={'importance': 3})
+                    # Eliminar temas
+                    remove_topic_ids = [int(x) for x in body.get('remove_topic_ids', []) if str(x).isdigit()]
+                    if remove_topic_ids:
+                        Topic.objects.filter(pk__in=remove_topic_ids, subject=subj).delete()
+                except Subject.DoesNotExist:
+                    pass
+            elif existing_subject_id:
+                # Solo vincular — no editar
+                pass
+            elif subject_name:
+                subject, _ = Subject.objects.get_or_create(name=subject_name)
+
+                # Resultados de aprendizaje opcionales
+                for ra in body.get('learning_outcomes', []):
+                    ra = ra.strip()
+                    if ra:
+                        LearningOutcome.objects.get_or_create(subject=subject, description=ra)
+
+                # Temas opcionales
+                for topic_name in body.get('topics', []):
+                    topic_name = topic_name.strip()
+                    if topic_name:
+                        Topic.objects.get_or_create(name=topic_name, subject=subject,
+                                                    defaults={'importance': 3})
+
+        if body.get('done') or step == 'done':
+            profile.onboarding_completed = True
+            profile.save(update_fields=['onboarding_completed'])
+
+    except Exception as e:
+        logger.error(f"Error en onboarding_save_step (step={step}): {e}", exc_info=True)
+        # No fallamos - el wizard continua igual
+
+    return JsonResponse({'ok': True})
+# --- FIN ONBOARDING WIZARD -----------------------------------------------------
