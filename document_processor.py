@@ -378,7 +378,7 @@ class DocumentProcessor:
         
         for para in doc.paragraphs:
             # Detectar si es un título (Heading 1)
-            if para.style.name.startswith('Heading 1'):
+            if para.style and para.style.name and para.style.name.startswith('Heading 1'):
                 # Guardar capítulo anterior si existe
                 if current_chapter:
                     chapters_list.append(current_chapter)

@@ -1,6 +1,6 @@
 # ONBOARDING WIZARD — ROLLBACK: eliminar este archivo y quitar su entrada de settings.py TEMPLATES
 import json as _json
-from .models import InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic
+from .models import InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic, Contenido
 
 
 def onboarding_context(request):
@@ -52,12 +52,29 @@ def onboarding_context(request):
         for s in Subject.objects.order_by('name').values('id', 'name')
     ]
 
+    # Contenidos subidos por el usuario (últimos 20)
+    contenidos_qs = (
+        Contenido.objects.filter(uploaded_by=request.user)
+        .prefetch_related('subjects')
+        .order_by('-uploaded_at')[:20]
+    )
+    user_contenidos = [
+        {
+            'id': c.id,
+            'title': c.title,
+            'subjects': [s.name for s in c.subjects.all()],
+            'uploaded_at': c.uploaded_at.strftime('%d/%m/%Y'),
+        }
+        for c in contenidos_qs
+    ]
+
     onb_data = {
         'autoShow': not profile.onboarding_completed,
         'userInstIds': list(user_inst_ids),
         'userInstitutions': user_institutions,
         'userSubjects': user_subjects,
         'allSubjects': all_subjects,
+        'userContenidos': user_contenidos,
     }
 
     return {

@@ -301,7 +301,8 @@
                     {% for subject in subjects %}
                     <div class="form-check mb-2">
                         <input class="form-check-input subject-picker-cb" type="checkbox"
-                               value="{{ subject.id }}" id="spSubject{{ subject.id }}">
+                               value="{{ subject.id }}" id="spSubject{{ subject.id }}"
+                               {% if subject.id|stringformat:'s' == preselected_subject_id %}checked{% endif %}>
                         <label class="form-check-label" for="spSubject{{ subject.id }}">{{ subject.name }}</label>
                     </div>
                     {% empty %}
@@ -1340,8 +1341,11 @@ async function saveGeneratedQuestions() {
         }
     }
 
-    // Resetear checkboxes del picker
-    document.querySelectorAll('.subject-picker-cb').forEach(cb => cb.checked = false);
+    // Resetear checkboxes del picker y re-aplicar preselección del wizard si existe
+    const _preselectedSubjectId = '{{ preselected_subject_id }}';
+    document.querySelectorAll('.subject-picker-cb').forEach(cb => {
+        cb.checked = _preselectedSubjectId && cb.value === _preselectedSubjectId;
+    });
 
     // Cerrar questionsModal primero para evitar stacking de modales Bootstrap
     const questionsModalEl = document.getElementById('questionsModal');

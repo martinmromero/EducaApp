@@ -288,6 +288,7 @@ def document_processor_dashboard(request):
         'default_model': local_ai_status.get('default_model', 'llama3.1:8b'),
         'subjects': Subject.objects.all().order_by('name'),
         'preselected_contenido_id': request.GET.get('contenido_id', ''),
+        'preselected_subject_id': request.GET.get('subject_id', ''),
     }
     
     return render(request, 'material/document_processor_dashboard.html', context)

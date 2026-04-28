@@ -144,5 +144,6 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
 
     # ONBOARDING WIZARD — ROLLBACK: eliminar estas dos líneas
     path('onboarding/step/', material_views.onboarding_save_step, name='onboarding_save_step'),
+    path('onboarding/upload-contenido/', material_views.onboarding_upload_contenido, name='onboarding_upload_contenido'),
 
 ]

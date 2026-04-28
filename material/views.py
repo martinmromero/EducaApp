@@ -3671,4 +3671,51 @@ def onboarding_save_step(request):
         # No fallamos - el wizard continua igual
 
     return JsonResponse({'ok': True})
+
+
+@require_POST
+@login_required
+def onboarding_upload_contenido(request):
+    """
+    Endpoint multipart para subir un contenido desde el wizard de onboarding (paso 4).
+    Campos: title (texto), file (archivo), subject_id (opcional, int).
+    """
+    import os as _os
+    title = request.POST.get('title', '').strip()
+    uploaded_file = request.FILES.get('file')
+    subject_id = request.POST.get('subject_id', '').strip()
+
+    if not title or not uploaded_file:
+        return JsonResponse({'ok': False, 'error': 'Título y archivo son requeridos.'}, status=400)
+
+    allowed_extensions = {'.pdf', '.docx', '.doc', '.pptx', '.ppt'}
+    ext = _os.path.splitext(uploaded_file.name)[1].lower()
+    if ext not in allowed_extensions:
+        return JsonResponse({'ok': False, 'error': f'Tipo de archivo no permitido: {ext}'}, status=400)
+
+    try:
+        contenido = Contenido.objects.create(
+            title=title,
+            file=uploaded_file,
+            uploaded_by=request.user,
+        )
+        if subject_id.isdigit():
+            try:
+                subj = Subject.objects.get(pk=int(subject_id))
+                contenido.subjects.add(subj)
+            except Subject.DoesNotExist:
+                pass
+        return JsonResponse({
+            'ok': True,
+            'contenido': {
+                'id': contenido.id,
+                'title': contenido.title,
+                'subjects': [s.name for s in contenido.subjects.all()],
+                'uploaded_at': contenido.uploaded_at.strftime('%d/%m/%Y'),
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error en onboarding_upload_contenido: {e}", exc_info=True)
+        return JsonResponse({'ok': False, 'error': 'Error al subir el archivo.'}, status=500)
+
 # --- FIN ONBOARDING WIZARD -----------------------------------------------------

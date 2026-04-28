@@ -285,9 +285,13 @@
               <span class="badge rounded-pill onb-step-badge" data-step="2">2</span>
               <div class="flex-grow-1 border-top"></div>
               <span class="badge rounded-pill onb-step-badge" data-step="3">3</span>
+              <div class="flex-grow-1 border-top"></div>
+              <span class="badge rounded-pill onb-step-badge" data-step="4">4</span>
+              <div class="flex-grow-1 border-top"></div>
+              <span class="badge rounded-pill onb-step-badge" data-step="5">IA</span>
             </div>
             <div class="d-flex justify-content-between" style="font-size:.75rem;color:#888">
-              <span>Tu nombre</span><span>Institución</span><span>Materia</span>
+              <span>Tu nombre</span><span>Institución</span><span>Materia</span><span>Contenidos</span><span>Procesar</span>
             </div>
           </div>
 
@@ -405,7 +409,7 @@
             <div class="onb-panel d-none" id="onbPanel3">
               <div class="d-flex justify-content-between align-items-start mb-3">
                 <h6 class="fw-semibold mb-0"><i class="bi bi-book me-2 text-primary"></i>Materias</h6>
-                <button type="button" class="btn btn-link btn-sm text-muted p-0 onb-skip-step" data-skip-to="done">Saltar esta etapa</button>
+                <button type="button" class="btn btn-link btn-sm text-muted p-0 onb-skip-step" data-skip-to="4">Saltar esta etapa</button>
               </div>
 
               <!-- Materias ya vinculadas al usuario -->
@@ -488,6 +492,66 @@
               </div>
             </div>
 
+            <!-- ── Paso 4: Contenidos ── -->
+            <div class="onb-panel d-none" id="onbPanel4">
+              <div class="d-flex justify-content-between align-items-start mb-3">
+                <h6 class="fw-semibold mb-0"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Contenidos</h6>
+                <button type="button" class="btn btn-link btn-sm text-muted p-0 onb-skip-step" data-skip-to="done">Saltar esta etapa</button>
+              </div>
+
+              <!-- Contenidos existentes -->
+              <div id="onbCurrentContents" class="mb-3">
+                <p class="text-muted mb-1" style="font-size:.82rem">Seleccioná un contenido existente para procesarlo con IA:</p>
+                <div id="onbContentsList" style="max-height:220px;overflow-y:auto;border:1px solid #dee2e6;border-radius:.375rem;padding:.25rem .25rem"></div>
+              </div>
+
+              <div id="onbUploadDivider" class="text-center text-muted my-2" style="font-size:.85rem">— o subir nuevo contenido —</div>
+
+              <!-- Formulario de carga -->
+              <div id="onbUploadBlock">
+                <div class="mb-2">
+                  <label class="form-label">Título</label>
+                  <input type="text" class="form-control" id="onbContenidoTitle" placeholder="Ej: Álgebra Lineal – Unidad 1">
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Archivo <span class="text-muted" style="font-size:.82rem">(PDF, DOCX, PPTX)</span></label>
+                  <input type="file" class="form-control" id="onbContenidoFile" accept=".pdf,.doc,.docx,.ppt,.pptx">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label text-muted" style="font-size:.85rem">Materia (opcional)</label>
+                  <select class="form-select form-select-sm" id="onbContenidoSubject">
+                    <option value="">— seleccionar —</option>
+                  </select>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <button type="button" class="btn btn-outline-primary btn-sm" id="onbUploadBtn">
+                    <i class="bi bi-upload me-1"></i>Subir
+                  </button>
+                  <span id="onbUploadStatus" class="text-muted" style="font-size:.82rem"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Paso 5: Procesar con IA ── -->
+            <div class="onb-panel d-none" id="onbPanel5">
+              <div class="d-flex justify-content-between align-items-start mb-3">
+                <h6 class="fw-semibold mb-0"><i class="bi bi-cpu me-2 text-primary"></i>Procesar con IA</h6>
+                <button type="button" class="btn btn-link btn-sm text-muted p-0 onb-skip-step" data-skip-to="done">Omitir</button>
+              </div>
+              <div class="text-center py-2">
+                <div class="mb-3">
+                  <i class="bi bi-check-circle-fill text-success" style="font-size:2.5rem"></i>
+                </div>
+                <p class="fw-semibold mb-1" id="onbStep5Heading">¡Contenido listo!</p>
+                <p class="text-muted mb-3" id="onbUploadedDocName" style="font-size:.88rem"></p>
+                <div class="alert alert-info text-start py-2 px-3 mb-3" style="font-size:.85rem">
+                  <i class="bi bi-info-circle me-1"></i>
+                  <strong>Procesador de IA:</strong> EducaApp puede analizar el documento y generar preguntas automáticamente usando inteligencia artificial local.
+                </div>
+                <p class="text-muted" style="font-size:.83rem">¿Querés ir al procesador de IA para generar preguntas a partir de este documento?</p>
+              </div>
+            </div>
+
           </div><!-- /modal-body -->
 
           <!-- Footer -->
@@ -518,12 +582,16 @@
     <script>
     /* ONBOARDING WIZARD JS — ROLLBACK: eliminar este bloque <script> completo */
     (function () {
-      const STEPS = 3;
+      const STEPS = 5;
       let currentStep = 1;
       const csrfToken = '{{ csrf_token }}';
       const saveUrl = '{% url "material:onboarding_save_step" %}';
+      const uploadContenidoUrl = '{% url "material:onboarding_upload_contenido" %}';
+      const docProcessorBaseUrl = '{% url "material:document_processor_dashboard" %}';
       const ONB_DATA = {{ onb_data_json|safe }};
       let _autoOpened = ONB_DATA.autoShow;
+      let lastUploadedContenidoId = null;
+      let lastSelectedSubjectId = null;  // ID de la materia elegida en paso 3
 
       const modal = new bootstrap.Modal(document.getElementById('onboardingModal'));
       const skipBtn = document.getElementById('onbSkipBtn');
@@ -544,9 +612,20 @@
       let subjAddedOutcomes = [];
       let subjAddedTopics   = [];
 
-      /* ── poblar select de materias ── */
+      /* ── poblar select de materias (paso 3) ── */
       (function populateSubjectSelect() {
         const sel = document.getElementById('onbSubjectExisting');
+        (ONB_DATA.allSubjects || []).forEach(function (s) {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = s.name;
+          sel.appendChild(opt);
+        });
+      })();
+
+      /* ── poblar select de materias (paso 4 upload) ── */
+      (function populateContenidoSubjectSelect() {
+        const sel = document.getElementById('onbContenidoSubject');
         (ONB_DATA.allSubjects || []).forEach(function (s) {
           const opt = document.createElement('option');
           opt.value = s.id;
@@ -577,6 +656,59 @@
         document.getElementById('onbCurrentSubjects').classList.remove('d-none');
       }
 
+      /* ── lista contenidos actuales ── */
+      function renderCurrentContenidos(extraItem) {
+        var list = (ONB_DATA.userContenidos || []).slice();
+        if (extraItem) list.unshift(extraItem);
+        var container = document.getElementById('onbContentsList');
+        if (!list.length) {
+          container.innerHTML = '<p class="text-muted" style="font-size:.82rem">Aún no subiste contenidos.</p>';
+          return;
+        }
+        container.innerHTML = list.map(function (c) {
+          var subjLabel = (c.subjects && c.subjects.length)
+            ? c.subjects.join(', ')
+            : '<span class="text-muted">sin materia</span>';
+          return '<div class="onb-contenido-item d-flex align-items-start gap-2 mb-1 py-1 px-2 border-bottom rounded" data-id="' + c.id + '" data-title="' + c.title.replace(/"/g, '&quot;') + '" style="cursor:pointer;transition:background .15s">' +
+            '<i class="bi bi-file-earmark-text text-primary mt-1 flex-shrink-0" style="font-size:.95rem"></i>' +
+            '<div class="flex-grow-1">' +
+              '<div style="font-size:.85rem;font-weight:500">' + c.title + '</div>' +
+              '<div style="font-size:.78rem;color:#888">' + subjLabel + ' &middot; ' + c.uploaded_at + '</div>' +
+            '</div>' +
+            '<i class="bi bi-check-circle-fill text-success onb-check-icon d-none" style="font-size:1rem;margin-top:.15rem"></i>' +
+            '</div>';
+        }).join('');
+
+        // Bind click handlers
+        container.querySelectorAll('.onb-contenido-item').forEach(function (el) {
+          el.addEventListener('click', function () {
+            var isSelected = el.classList.contains('onb-selected');
+            // Deselect all
+            container.querySelectorAll('.onb-contenido-item').forEach(function (e) {
+              e.classList.remove('onb-selected');
+              e.style.background = '';
+              e.querySelector('.onb-check-icon').classList.add('d-none');
+            });
+            if (isSelected) {
+              // Toggle off
+              lastUploadedContenidoId = null;
+              document.getElementById('onbUploadDivider').classList.remove('d-none');
+              document.getElementById('onbUploadBlock').classList.remove('d-none');
+            } else {
+              // Select this one
+              el.classList.add('onb-selected');
+              el.style.background = '#e8f4fd';
+              el.querySelector('.onb-check-icon').classList.remove('d-none');
+              lastUploadedContenidoId = parseInt(el.dataset.id, 10);
+              document.getElementById('onbUploadedDocName').textContent = '\u201c' + el.dataset.title + '\u201d';
+              // Hide upload form since an existing one is selected
+              document.getElementById('onbUploadDivider').classList.add('d-none');
+              document.getElementById('onbUploadBlock').classList.add('d-none');
+            }
+          });
+        });
+      }
+
       /* ── indicador de pasos ── */
       function showStep(n) {
         currentStep = n;
@@ -589,9 +721,15 @@
         }
         document.getElementById('onbBackBtn').classList.toggle('d-none', n === 1);
         var nextBtn = document.getElementById('onbNextBtn');
-        nextBtn.innerHTML = n === STEPS
-          ? 'Guardar <i class="bi bi-check2 ms-1"></i>'
-          : 'Siguiente <i class="bi bi-arrow-right ms-1"></i>';
+        if (n === 5) {
+          nextBtn.innerHTML = 'Ir al Procesador de IA <i class="bi bi-arrow-right ms-1"></i>';
+        } else if (n === 4) {
+          nextBtn.innerHTML = 'Siguiente <i class="bi bi-arrow-right ms-1"></i>';
+        } else {
+          nextBtn.innerHTML = n === STEPS
+            ? 'Guardar <i class="bi bi-check2 ms-1"></i>'
+            : 'Siguiente <i class="bi bi-arrow-right ms-1"></i>';
+        }
       }
 
       /* ── helpers ── */
@@ -837,6 +975,7 @@
         var detailBlock = document.getElementById('onbSubjectDetail');
         var editForm    = document.getElementById('onbSubjEditForm');
         var subjId      = parseInt(this.value, 10);
+        lastSelectedSubjectId = this.value ? subjId : null;
         subjEditMode = false;
         subjEditData = null;
         editForm.classList.add('d-none');
@@ -863,10 +1002,10 @@
 
       /* ── botones "Saltar esta etapa" dentro de cada panel ── */
       document.querySelectorAll('.onb-skip-step').forEach(function (btn) {
-        btn.addEventListener('click', function () {
+        btn.addEventListener('click', async function () {
           var target = btn.getAttribute('data-skip-to');
           if (target === 'done') {
-            if (_autoOpened) saveStep('done', true);
+            if (_autoOpened) await saveStep('done', true);
             modal.hide();
             if (_autoOpened) location.reload();
           } else {
@@ -878,7 +1017,75 @@
       /* ── Siguiente / Guardar ── */
       document.getElementById('onbNextBtn').addEventListener('click', async function () {
         this.disabled = true;
+        // Paso 4: si ya se seleccionó un contenido existente, avanzar directo
+        if (currentStep === 4 && lastUploadedContenidoId) {
+          document.getElementById('onbStep5Heading').textContent = '¡Contenido seleccionado!';
+          showStep(5);
+          this.disabled = false;
+          return;
+        }
+        // Paso 4: si hay datos pendientes en el form, subirlos automáticamente;
+        //         si no, cerrar como done
+        if (currentStep === 4 && !lastUploadedContenidoId) {
+          var pendingTitle = document.getElementById('onbContenidoTitle').value.trim();
+          var pendingFile  = document.getElementById('onbContenidoFile').files[0];
+          if (pendingTitle && pendingFile) {
+            // Subir el contenido automáticamente antes de avanzar
+            var subjId = document.getElementById('onbContenidoSubject').value;
+            var status = document.getElementById('onbUploadStatus');
+            status.textContent = 'Subiendo\u2026';
+            status.className = 'text-muted';
+            var fd = new FormData();
+            fd.append('title', pendingTitle);
+            fd.append('file', pendingFile);
+            if (subjId) fd.append('subject_id', subjId);
+            try {
+              var resp = await fetch(uploadContenidoUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: fd,
+              });
+              var data = await resp.json();
+              if (data.ok) {
+                lastUploadedContenidoId = data.contenido.id;
+                document.getElementById('onbUploadedDocName').textContent = '\u201c' + data.contenido.title + '\u201d';
+                document.getElementById('onbContenidoTitle').value = '';
+                document.getElementById('onbContenidoFile').value = '';
+                document.getElementById('onbContenidoSubject').value = '';
+                status.textContent = '';
+                renderCurrentContenidos(data.contenido);
+                showStep(5);
+              } else {
+                status.textContent = data.error || 'Error al subir.';
+                status.className = 'text-danger';
+              }
+            } catch (_) {
+              status.textContent = 'Error de conexi\u00f3n.';
+              status.className = 'text-danger';
+            }
+            this.disabled = false;
+            return;
+          }
+          if (_autoOpened) await saveStep('done', true);
+          modal.hide();
+          if (_autoOpened) location.reload();
+          else this.disabled = false;
+          return;
+        }
+        // Paso 5: ir al procesador de IA
+        if (currentStep === 5) {
+          await saveStep('done', true);
+          var destUrl = docProcessorBaseUrl + '?contenido_id=' + lastUploadedContenidoId;
+          if (lastSelectedSubjectId) destUrl += '&subject_id=' + lastSelectedSubjectId;
+          window.location.href = destUrl;
+          return;
+        }
         var done = currentStep === STEPS;
+        // Capturar materia seleccionada al avanzar desde paso 3
+        if (currentStep === 3) {
+          var _subj3 = document.getElementById('onbSubjectExisting').value;
+          if (_subj3) lastSelectedSubjectId = parseInt(_subj3, 10);
+        }
         await saveStep(currentStep, done);
         this.disabled = false;
         if (done) {
@@ -902,9 +1109,56 @@
         else this.disabled = false;
       });
 
+      /* ── upload contenido (paso 4) ── */
+      document.getElementById('onbUploadBtn').addEventListener('click', async function () {
+        var title  = document.getElementById('onbContenidoTitle').value.trim();
+        var file   = document.getElementById('onbContenidoFile').files[0];
+        var subjId = document.getElementById('onbContenidoSubject').value;
+        var status = document.getElementById('onbUploadStatus');
+
+        if (!title) { status.textContent = 'Ingresá un título.'; status.className = 'text-danger'; return; }
+        if (!file)  { status.textContent = 'Seleccioná un archivo.'; status.className = 'text-danger'; return; }
+
+        this.disabled = true;
+        status.textContent = 'Subiendo…';
+        status.className = 'text-muted';
+
+        var fd = new FormData();
+        fd.append('title', title);
+        fd.append('file', file);
+        if (subjId) fd.append('subject_id', subjId);
+
+        try {
+          var resp = await fetch(uploadContenidoUrl, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: fd,
+          });
+          var data = await resp.json();
+          if (data.ok) {
+            lastUploadedContenidoId = data.contenido.id;
+            document.getElementById('onbUploadedDocName').textContent = '\u201c' + data.contenido.title + '\u201d';
+            document.getElementById('onbStep5Heading').textContent = '\u00a1Contenido subido correctamente!';
+            document.getElementById('onbContenidoTitle').value = '';
+            document.getElementById('onbContenidoFile').value = '';
+            document.getElementById('onbContenidoSubject').value = '';
+            renderCurrentContenidos(data.contenido);
+            showStep(5);
+          } else {
+            status.textContent = data.error || 'Error al subir.';
+            status.className = 'text-danger';
+          }
+        } catch (_) {
+          status.textContent = 'Error de conexión.';
+          status.className = 'text-danger';
+        }
+        this.disabled = false;
+      });
+
       /* ── inicializar ── */
       renderCurrentInsts();
       renderCurrentSubjects();
+      renderCurrentContenidos();
 
       if (ONB_DATA.autoShow) {
         skipBtn.textContent = 'Saltar configuración';
