@@ -26,7 +26,15 @@ EducaApp es un sistema integral de gestión educativa desarrollado en Django que
 - **Preguntas**: Banco de preguntas con filtros cascada (materia → tema → subtema)
 - **Contenidos Educativos**: Gestión de materiales con metadata automática (libros, PDFs, documentos)
 
-### 📝 Sistema de Exámenes
+### � Sistema de Rúbricas
+- **Biblioteca personal de rúbricas**: Creación, edición y eliminación de rúbricas propias
+- **Editor de grilla estructurada**: Diseño matricial de criterios (filas) × niveles de desempeño (columnas), similar a RubiStar
+- **Asociación a exámenes**: Cada rúbrica puede asociarse a uno o más exámenes de forma independiente
+- **Visibilidad configurable**: Toggle para mostrar u ocultar cada rúbrica en la vista del examen (ojo/ojo-tachado)
+- **Vista previa integrada**: Las rúbricas se muestran como tabla dentro de la vista de examen y al imprimir
+- **Menú dedicado**: Acceso desde el sidebar → Rúbricas (Nueva Rúbrica / Mis Rúbricas)
+
+### �📝 Sistema de Exámenes
 - **Plantillas de Examen**: Creación y reutilización de plantillas personalizables con configuración completa
 - **Exámenes Escritos**: Generación automática con selección de preguntas por temas
 - **Cuestionarios Orales**: Sistema avanzado de evaluación oral con algoritmos inteligentes
@@ -63,29 +71,31 @@ cd EducaApp
 ```
 
 ### Configurar Entorno Virtual
-```bash
-# Crear entorno virtual
-python -m venv venv
 
-# Activar entorno virtual
-# En Windows:
-venv\Scripts\activate
-# En macOS/Linux:
-source venv/bin/activate
+> **Importante — proyecto en OneDrive con múltiples equipos:**
+> El entorno virtual **no es portable** entre máquinas (contiene rutas absolutas al Python local).
+> Debe crearse una vez en cada equipo y **no sincronizarse via OneDrive**.
+> En OneDrive → click derecho sobre la carpeta `venv_local` → "No sincronizar este elemento".
+> El código, `requirements.txt` y `db.sqlite3` sí se sincronizan normalmente.
+
+```bash
+# Crear entorno virtual (solo la primera vez en cada equipo)
+python -m venv venv_local
+
+# Activar entorno virtual — Windows:
+venv_local\Scripts\activate
 ```
 
 ### Instalar Dependencias
 ```bash
+# Primera vez en cada equipo, o cuando requirements.txt cambie:
 pip install -r requirements.txt
 ```
 
 ### Configurar Base de Datos
 ```bash
-# Aplicar migraciones
+# Aplicar migraciones (necesario cuando llegan migraciones nuevas desde git/OneDrive)
 python manage.py migrate
-
-# Crear superusuario (opcional)
-python manage.py createsuperuser
 ```
 
 ### Ejecutar el Servidor
@@ -94,6 +104,15 @@ python manage.py runserver
 ```
 
 La aplicación estará disponible en `http://127.0.0.1:8000/`
+
+### Resumen del workflow multi-equipo
+
+| Acción | Frecuencia |
+|---|---|
+| `python -m venv venv_local` + `pip install -r requirements.txt` | **Una sola vez** por equipo nuevo |
+| `pip install -r requirements.txt` | Solo si alguien agregó una dependencia a `requirements.txt` |
+| `python manage.py migrate` | Cada vez que llegan migraciones nuevas vía git/OneDrive |
+| `python manage.py runserver` | Cada vez que querés levantar el servidor |
 
 ## 📦 Dependencias Principales
 

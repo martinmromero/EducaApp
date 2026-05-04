@@ -1,6 +1,8 @@
 # Ignorar el entorno virtual
 .venv/
+.venv_new/
 venv/
+venv_local/
 
 # Ignorar archivos de caché de Python
 __pycache__/

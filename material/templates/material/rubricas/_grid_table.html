@@ -1,0 +1,31 @@
+{% comment %}
+Include: renders a rubric grid dict as an HTML table.
+Usage: {% include 'material/rubricas/_grid_table.html' with grid=my_grid %}
+The grid dict has keys: title, levels (list of str), rows (list of {name, cells})
+{% endcomment %}
+{% if grid.levels %}
+<table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:0.82em;margin-top:6px;word-break:break-word;">
+    <thead>
+        <tr>
+            <th style="border:1px solid #ccc;padding:5px 8px;background:#e9ecef;text-align:left;width:22%;">Criterio</th>
+            {% for lv in grid.levels %}
+            <th style="border:1px solid #ccc;padding:5px 8px;background:#e9ecef;text-align:center;">{{ lv }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in grid.rows %}
+        <tr>
+            <td style="border:1px solid #ccc;padding:5px 8px;font-weight:600;vertical-align:top;background:#f8f9fa;">{{ row.name }}</td>
+            {% for cell in row.cells %}
+            <td style="border:1px solid #ccc;padding:5px 8px;vertical-align:top;">{{ cell }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% elif grid.body %}
+<div style="white-space:pre-wrap;font-size:0.9em;padding:8px 0;">{{ grid.body }}</div>
+{% else %}
+<p class="text-muted small">(Sin contenido)</p>
+{% endif %}

@@ -313,6 +313,18 @@
 
         {% endblock %}
 
+        {% if rubric_grids %}
+        <div class="section">
+            <h3>Rúbricas de evaluación:</h3>
+            {% for grid in rubric_grids %}
+            <div style="margin-bottom:2em;">
+                <strong style="display:block;margin-bottom:6px;font-size:1em;">{{ grid.title }}</strong>
+                {% include 'material/rubricas/_grid_table.html' with grid=grid %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <div class="print-button no-print">
             {% block action_buttons %}
             <button onclick="window.print()">

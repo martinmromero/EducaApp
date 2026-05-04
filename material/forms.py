@@ -7,7 +7,7 @@ from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
     Subject, Topic, Subtopic, LearningOutcome, User,
     InstitutionV2, CampusV2, FacultyV2, Career, InstitutionCareer, CareerSubject, UserInstitution,
-    OralExamSet
+    OralExamSet, Rubric, ExamRubric
 )
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
@@ -644,3 +644,24 @@ class OralExamForm(forms.ModelForm):
     def get_validation_info(self):
         """Método para obtener información de validación después del clean()"""
         return getattr(self, '_validation_info', {})
+
+
+class RubricForm(forms.ModelForm):
+    class Meta:
+        model = Rubric
+        fields = ['title', 'body']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Rúbrica de desarrollo argumentativo',
+            }),
+            'body': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 10,
+                'placeholder': 'Escribí el contenido de la rúbrica...',
+            }),
+        }
+        labels = {
+            'title': 'Título',
+            'body': 'Contenido',
+        }

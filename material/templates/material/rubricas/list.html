@@ -1,0 +1,77 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-card-checklist me-2"></i>Mis Rúbricas</h2>
+        <a href="{% url 'material:rubric_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> Nueva Rúbrica
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if rubricas %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Título</th>
+                        <th class="text-center">Niveles</th>
+                        <th class="text-center">Criterios</th>
+                        <th>Modificada</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rubrica in rubricas %}
+                    <tr>
+                        <td><strong>{{ rubrica.title }}</strong></td>
+                        <td class="text-center">
+                            {% if rubrica.level_count %}
+                                <span class="badge bg-primary">{{ rubrica.level_count }}</span>
+                            {% else %}
+                                <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if rubrica.criterion_count %}
+                                <span class="badge bg-success">{{ rubrica.criterion_count }}</span>
+                            {% else %}
+                                <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-nowrap text-muted small">{{ rubrica.updated_at|date:"d/m/Y H:i" }}</td>
+                        <td class="text-end text-nowrap">
+                            <a href="{% url 'material:rubric_edit' rubrica.pk %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil"></i> Editar
+                            </a>
+                            <form method="post" action="{% url 'material:rubric_delete' rubrica.pk %}" class="d-inline"
+                                  onsubmit="return confirm('¿Eliminar la rúbrica «{{ rubrica.title }}»?')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i> Eliminar
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            Todavía no creaste ninguna rúbrica.
+            <a href="{% url 'material:rubric_create' %}" class="alert-link ms-1">Crear mi primera rúbrica</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

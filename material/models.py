@@ -1392,6 +1392,130 @@ class OralExamStudentQuestion(models.Model):
         ordering = ['student', 'order']
         unique_together = [('student', 'order')]
 
+class Rubric(models.Model):
+    title = models.CharField(
+        max_length=255,
+        verbose_name="Título"
+    )
+    body = models.TextField(
+        verbose_name="Contenido de la rúbrica",
+        help_text="Texto libre (legacy). Las rúbricas nuevas usan la grilla estructurada.",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='rubrics',
+        verbose_name="Creado por"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Rúbrica"
+        verbose_name_plural = "Rúbricas"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
+
+
+class ExamRubric(models.Model):
+    exam = models.ForeignKey(
+        Exam,
+        on_delete=models.CASCADE,
+        related_name='exam_rubrics',
+        verbose_name="Examen"
+    )
+    rubric = models.ForeignKey(
+        Rubric,
+        on_delete=models.CASCADE,
+        related_name='exam_rubrics',
+        verbose_name="Rúbrica"
+    )
+    show_in_exam = models.BooleanField(
+        default=True,
+        verbose_name="Mostrar en examen",
+        help_text="Si está activo, la rúbrica se incluye al imprimir el examen"
+    )
+    position = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Orden"
+    )
+
+    class Meta:
+        verbose_name = "Rúbrica de examen"
+        verbose_name_plural = "Rúbricas de examen"
+        ordering = ['position', 'id']
+        unique_together = ('exam', 'rubric')
+
+    def __str__(self):
+        return f"{self.exam} — {self.rubric.title}"
+
+
+class RubricLevel(models.Model):
+    """Columna de la grilla (ej: 4, 3, 2, 1 o Excelente, Bien, etc.)"""
+    rubric = models.ForeignKey(
+        Rubric,
+        on_delete=models.CASCADE,
+        related_name='levels',
+        verbose_name="Rúbrica"
+    )
+    label = models.CharField(max_length=100, verbose_name="Etiqueta")
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Nivel de rúbrica"
+        ordering = ['order']
+
+    def __str__(self):
+        return f"{self.rubric.title} — {self.label}"
+
+
+class RubricCriterion(models.Model):
+    """Fila de la grilla (ej: Preparación, Recursos, etc.)"""
+    rubric = models.ForeignKey(
+        Rubric,
+        on_delete=models.CASCADE,
+        related_name='criteria',
+        verbose_name="Rúbrica"
+    )
+    name = models.CharField(max_length=255, verbose_name="Criterio")
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Criterio de rúbrica"
+        ordering = ['order']
+
+    def __str__(self):
+        return f"{self.rubric.title} — {self.name}"
+
+
+class RubricCell(models.Model):
+    """Descriptor textual para una intersección criterio × nivel."""
+    criterion = models.ForeignKey(
+        RubricCriterion,
+        on_delete=models.CASCADE,
+        related_name='cells',
+        verbose_name="Criterio"
+    )
+    level = models.ForeignKey(
+        RubricLevel,
+        on_delete=models.CASCADE,
+        related_name='cells',
+        verbose_name="Nivel"
+    )
+    description = models.TextField(blank=True, verbose_name="Descripción")
+
+    class Meta:
+        verbose_name = "Celda de rúbrica"
+        unique_together = ('criterion', 'level')
+
+    def __str__(self):
+        return f"{self.criterion} × {self.level.label}"
+
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:

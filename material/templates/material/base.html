@@ -74,6 +74,14 @@
             </div>
         </div>
 
+        <div class="menu-item" onclick="toggleSubmenu(this)">
+            <i class="bi bi-card-checklist me-2"></i> Rúbricas
+            <div class="submenu">
+                <a href="{% url 'material:rubric_create' %}"><i class="bi bi-plus-circle me-2"></i>Nueva Rúbrica</a>
+                <a href="{% url 'material:rubric_list' %}"><i class="bi bi-list-ul me-2"></i>Mis Rúbricas</a>
+            </div>
+        </div>
+
         <!-- Nuevo ítem para Instituciones V2 -->
         <div class="menu-item" onclick="toggleSubmenu(this)">
             <i class="bi bi-buildings me-2"></i> Instituciones

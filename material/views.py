@@ -301,13 +301,14 @@ from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404, reverse
 from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, 
     Subtopic, LearningOutcome, Career, 
-    OralExamSet, OralExamGroup, OralExamStudent, OralExamStudentQuestion)
+    OralExamSet, OralExamGroup, OralExamStudent, OralExamStudentQuestion,
+    Rubric, ExamRubric, RubricLevel, RubricCriterion, RubricCell)
 from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer)
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
     UserEditForm, ContenidoForm, 
     LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm,
-    OralExamForm  
+    OralExamForm, RubricForm
 )
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Prefetch, F, Value, CharField
@@ -1328,6 +1329,12 @@ def ver_examen(request, pk):
         'topics_texts': topics_texts,
         'bloom_display': bloom_display,
         'total_exam_questions': total_exam_questions,
+        'rubric_grids': [
+            _prepare_rubric_grid(er.rubric)
+            for er in ExamRubric.objects.filter(exam=examen, show_in_exam=True)
+                                        .select_related('rubric')
+                                        .order_by('position', 'id')
+        ],
     })
 
 @login_required
@@ -3719,3 +3726,191 @@ def onboarding_upload_contenido(request):
         return JsonResponse({'ok': False, 'error': 'Error al subir el archivo.'}, status=500)
 
 # --- FIN ONBOARDING WIZARD -----------------------------------------------------
+
+# --- RÚBRICAS ------------------------------------------------------------------
+
+def _prepare_rubric_grid(rubric):
+    """Devuelve un dict con la estructura de la rúbrica para renderizar en templates.
+    {'title', 'levels': [str], 'rows': [{'name', 'cells': [str]}], 'body'}
+    """
+    ordered_levels = list(rubric.levels.order_by('order'))
+    ordered_criteria = list(rubric.criteria.order_by('order'))
+    if not ordered_levels:
+        return {'title': rubric.title, 'levels': [], 'rows': [], 'body': rubric.body}
+    cells_map = {
+        (c.criterion_id, c.level_id): c.description
+        for c in RubricCell.objects.filter(criterion__rubric=rubric)
+    }
+    return {
+        'title': rubric.title,
+        'body': rubric.body,
+        'levels': [lv.label for lv in ordered_levels],
+        'rows': [
+            {
+                'name': cr.name,
+                'cells': [cells_map.get((cr.id, lv.id), '') for lv in ordered_levels],
+            }
+            for cr in ordered_criteria
+        ],
+    }
+
+
+@login_required
+def rubric_list(request):
+    from django.db.models import Count
+    rubricas = Rubric.objects.filter(created_by=request.user).annotate(
+        level_count=Count('levels', distinct=True),
+        criterion_count=Count('criteria', distinct=True),
+    )
+    return render(request, 'material/rubricas/list.html', {'rubricas': rubricas})
+
+
+def _save_rubric_grid(request, rubrica):
+    """Parsea la grilla del POST y guarda niveles, criterios y celdas."""
+    import json as _json
+    level_count = int(request.POST.get('level_count', 0) or 0)
+    criterion_count = int(request.POST.get('criterion_count', 0) or 0)
+
+    # Borrar estructura anterior (cascada a celdas)
+    rubrica.criteria.all().delete()
+    rubrica.levels.all().delete()
+
+    levels = []
+    for i in range(level_count):
+        label = request.POST.get(f'level_label_{i}', '').strip()
+        if label:
+            lv = RubricLevel.objects.create(rubric=rubrica, label=label, order=i)
+            levels.append((i, lv))
+
+    for j in range(criterion_count):
+        name = request.POST.get(f'criterion_name_{j}', '').strip()
+        if name:
+            cr = RubricCriterion.objects.create(rubric=rubrica, name=name, order=j)
+            for orig_i, lv in levels:
+                desc = request.POST.get(f'cell_{j}_{orig_i}', '')
+                RubricCell.objects.create(criterion=cr, level=lv, description=desc)
+
+
+@login_required
+def rubric_create(request):
+    import json as _json
+    DEFAULT_LEVELS = _json.dumps(['4', '3', '2', '1'])
+    DEFAULT_CRITERIA = _json.dumps([{'name': '', 'cells': ['', '', '', '']}])
+
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        if not title:
+            messages.error(request, 'El título es obligatorio.')
+        else:
+            with transaction.atomic():
+                rubrica = Rubric.objects.create(title=title, created_by=request.user)
+                _save_rubric_grid(request, rubrica)
+            messages.success(request, 'Rúbrica creada correctamente.')
+            return redirect('material:rubric_list')
+
+    return render(request, 'material/rubricas/form.html', {
+        'action': 'Crear',
+        'levels_json': DEFAULT_LEVELS,
+        'criteria_json': DEFAULT_CRITERIA,
+    })
+
+
+@login_required
+def rubric_edit(request, pk):
+    import json as _json
+    rubrica = get_object_or_404(Rubric, pk=pk, created_by=request.user)
+
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        if not title:
+            messages.error(request, 'El título es obligatorio.')
+        else:
+            with transaction.atomic():
+                rubrica.title = title
+                rubrica.body = None
+                rubrica.save()
+                _save_rubric_grid(request, rubrica)
+            messages.success(request, 'Rúbrica actualizada correctamente.')
+            return redirect('material:rubric_list')
+
+    # GET: cargar estructura existente
+    ordered_levels = list(rubrica.levels.order_by('order'))
+    ordered_criteria = list(rubrica.criteria.order_by('order'))
+    cells_map = {
+        (c.criterion_id, c.level_id): c.description
+        for c in RubricCell.objects.filter(criterion__rubric=rubrica)
+    }
+
+    if not ordered_levels:
+        levels_json = _json.dumps(['4', '3', '2', '1'])
+        criteria_json = _json.dumps([{'name': '', 'cells': ['', '', '', '']}])
+    else:
+        levels_json = _json.dumps([lv.label for lv in ordered_levels])
+        criteria_json = _json.dumps([
+            {
+                'name': cr.name,
+                'cells': [cells_map.get((cr.id, lv.id), '') for lv in ordered_levels],
+            }
+            for cr in ordered_criteria
+        ])
+
+    return render(request, 'material/rubricas/form.html', {
+        'action': 'Editar',
+        'rubrica': rubrica,
+        'levels_json': levels_json,
+        'criteria_json': criteria_json,
+    })
+
+
+@login_required
+def rubric_delete(request, pk):
+    rubrica = get_object_or_404(Rubric, pk=pk, created_by=request.user)
+    if request.method == 'POST':
+        rubrica.delete()
+        messages.success(request, 'Rúbrica eliminada.')
+    return redirect('material:rubric_list')
+
+
+@login_required
+def exam_rubrics(request, exam_pk):
+    examen = get_object_or_404(Exam, pk=exam_pk, created_by=request.user)
+    exam_rubric_qs = ExamRubric.objects.filter(exam=examen).select_related('rubric').order_by('position', 'id')
+    associated_ids = exam_rubric_qs.values_list('rubric_id', flat=True)
+    available_rubrics = Rubric.objects.filter(created_by=request.user).exclude(id__in=associated_ids)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'add':
+            rubric_id = request.POST.get('rubric_id')
+            rubrica = get_object_or_404(Rubric, pk=rubric_id, created_by=request.user)
+            ExamRubric.objects.get_or_create(exam=examen, rubric=rubrica)
+            messages.success(request, f'Rúbrica «{rubrica.title}» agregada.')
+        elif action == 'remove':
+            er_id = request.POST.get('exam_rubric_id')
+            ExamRubric.objects.filter(pk=er_id, exam=examen).delete()
+            messages.success(request, 'Rúbrica quitada del examen.')
+        elif action == 'toggle':
+            er_id = request.POST.get('exam_rubric_id')
+            er = get_object_or_404(ExamRubric, pk=er_id, exam=examen)
+            er.show_in_exam = not er.show_in_exam
+            er.save()
+        return redirect('material:exam_rubrics', exam_pk=exam_pk)
+
+    # Preparar grillas para preview
+    exam_rubric_grids = [
+        {'er': er, 'grid': _prepare_rubric_grid(er.rubric)}
+        for er in exam_rubric_qs
+    ]
+    available_rubric_grids = [
+        {'rubrica': r, 'grid': _prepare_rubric_grid(r)}
+        for r in available_rubrics
+    ]
+
+    return render(request, 'material/rubricas/exam_rubrics.html', {
+        'examen': examen,
+        'exam_rubric_grids': exam_rubric_grids,
+        'available_rubric_grids': available_rubric_grids,
+    })
+
+# --- FIN RÚBRICAS --------------------------------------------------------------
+

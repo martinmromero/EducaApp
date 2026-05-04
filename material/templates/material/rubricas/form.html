@@ -1,0 +1,186 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width:1300px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-card-checklist me-2"></i>{{ action }} Rúbrica</h2>
+        <a href="{% url 'material:rubric_list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Volver a Rúbricas
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-danger alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" id="rubricForm">
+        {% csrf_token %}
+        <input type="hidden" name="level_count"    id="level_count">
+        <input type="hidden" name="criterion_count" id="criterion_count">
+
+        <div class="mb-4" style="max-width:600px">
+            <label class="form-label fw-semibold">Título <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-control"
+                   value="{{ rubrica.title|default:'' }}" required
+                   placeholder="Ej: Rúbrica de evaluación oral">
+        </div>
+
+        <div class="mb-2 d-flex gap-2 align-items-center flex-wrap">
+            <span class="text-muted small">Estructura de la grilla:</span>
+            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddLevel">
+                <i class="bi bi-plus-lg"></i> Agregar nivel (columna)
+            </button>
+            <button type="button" class="btn btn-outline-success btn-sm" id="btnAddCriterion">
+                <i class="bi bi-plus-lg"></i> Agregar criterio (fila)
+            </button>
+        </div>
+
+        <div class="table-responsive border rounded bg-white mb-4" style="overflow-x:auto;">
+            <table class="table table-bordered mb-0" id="rubricTable" style="min-width:600px;">
+                <thead id="rubricHead"></thead>
+                <tbody id="rubricBody"></tbody>
+            </table>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save me-1"></i> Guardar rúbrica
+            </button>
+            <a href="{% url 'material:rubric_list' %}" class="btn btn-outline-secondary">
+                Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+(function () {
+    var levels   = {{ levels_json|safe }};
+    var criteria = {{ criteria_json|safe }};
+
+    function esc(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function renderGrid() {
+        /* ---- HEADER ---- */
+        var h = '<tr>';
+        h += '<th style="min-width:180px;background:#f1f3f5;vertical-align:middle;">Criterio / Categoría</th>';
+        for (var i = 0; i < levels.length; i++) {
+            h += '<th style="min-width:210px;background:#f1f3f5;">';
+            h += '<div class="d-flex align-items-center gap-1">';
+            h += '<input type="text" name="level_label_' + i + '" class="form-control form-control-sm fw-semibold" ';
+            h += 'value="' + esc(levels[i]) + '" placeholder="Nivel" data-level-idx="' + i + '" required>';
+            h += '<button type="button" class="btn btn-sm btn-outline-danger px-1 py-0" ';
+            h += 'data-remove-level="' + i + '" title="Quitar columna" style="line-height:1.2">×</button>';
+            h += '</div></th>';
+        }
+        h += '</tr>';
+        document.getElementById('rubricHead').innerHTML = h;
+
+        /* ---- ROWS ---- */
+        var rows = '';
+        for (var j = 0; j < criteria.length; j++) {
+            var cr = criteria[j];
+            while (cr.cells.length < levels.length) cr.cells.push('');
+            rows += '<tr>';
+            rows += '<td style="background:#f8f9fa;vertical-align:top;min-width:180px;">';
+            rows += '<div class="d-flex align-items-start gap-1">';
+            rows += '<input type="text" name="criterion_name_' + j + '" class="form-control form-control-sm" ';
+            rows += 'value="' + esc(cr.name) + '" placeholder="Nombre del criterio" data-crit-idx="' + j + '" required>';
+            rows += '<button type="button" class="btn btn-sm btn-outline-danger px-1 py-0 flex-shrink-0" ';
+            rows += 'data-remove-criterion="' + j + '" title="Quitar fila" style="line-height:1.2">×</button>';
+            rows += '</div></td>';
+            for (var i = 0; i < levels.length; i++) {
+                rows += '<td style="vertical-align:top;">';
+                rows += '<textarea name="cell_' + j + '_' + i + '" class="form-control form-control-sm" rows="5" ';
+                rows += 'data-cell-row="' + j + '" data-cell-col="' + i + '">' + esc(cr.cells[i] || '') + '</textarea>';
+                rows += '</td>';
+            }
+            rows += '</tr>';
+        }
+        document.getElementById('rubricBody').innerHTML = rows;
+
+        attachListeners();
+    }
+
+    function syncFromDOM() {
+        var tbl = document.getElementById('rubricTable');
+        tbl.querySelectorAll('[data-level-idx]').forEach(function (el) {
+            levels[parseInt(el.dataset.levelIdx)] = el.value;
+        });
+        tbl.querySelectorAll('[data-crit-idx]').forEach(function (el) {
+            criteria[parseInt(el.dataset.critIdx)].name = el.value;
+        });
+        tbl.querySelectorAll('[data-cell-row]').forEach(function (el) {
+            criteria[parseInt(el.dataset.cellRow)].cells[parseInt(el.dataset.cellCol)] = el.value;
+        });
+    }
+
+    function attachListeners() {
+        var tbl = document.getElementById('rubricTable');
+
+        tbl.querySelectorAll('[data-level-idx]').forEach(function (el) {
+            el.addEventListener('input', function () { levels[parseInt(this.dataset.levelIdx)] = this.value; });
+        });
+        tbl.querySelectorAll('[data-crit-idx]').forEach(function (el) {
+            el.addEventListener('input', function () { criteria[parseInt(this.dataset.critIdx)].name = this.value; });
+        });
+        tbl.querySelectorAll('[data-cell-row]').forEach(function (el) {
+            el.addEventListener('input', function () {
+                criteria[parseInt(this.dataset.cellRow)].cells[parseInt(this.dataset.cellCol)] = this.value;
+            });
+        });
+        tbl.querySelectorAll('[data-remove-level]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (levels.length <= 1) { alert('La rúbrica debe tener al menos un nivel.'); return; }
+                syncFromDOM();
+                var idx = parseInt(this.dataset.removeLevel);
+                levels.splice(idx, 1);
+                criteria.forEach(function (cr) { cr.cells.splice(idx, 1); });
+                renderGrid();
+            });
+        });
+        tbl.querySelectorAll('[data-remove-criterion]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (criteria.length <= 1) { alert('La rúbrica debe tener al menos un criterio.'); return; }
+                syncFromDOM();
+                criteria.splice(parseInt(this.dataset.removeCriterion), 1);
+                renderGrid();
+            });
+        });
+    }
+
+    document.getElementById('btnAddLevel').addEventListener('click', function () {
+        syncFromDOM();
+        levels.push('Nivel ' + (levels.length + 1));
+        criteria.forEach(function (cr) { cr.cells.push(''); });
+        renderGrid();
+    });
+
+    document.getElementById('btnAddCriterion').addEventListener('click', function () {
+        syncFromDOM();
+        criteria.push({ name: '', cells: levels.map(function () { return ''; }) });
+        renderGrid();
+    });
+
+    document.getElementById('rubricForm').addEventListener('submit', function () {
+        syncFromDOM();
+        document.getElementById('level_count').value    = levels.length;
+        document.getElementById('criterion_count').value = criteria.length;
+    });
+
+    renderGrid();
+})();
+</script>
+{% endblock %}
+

@@ -1,0 +1,116 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width:1200px;">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+            <h2><i class="bi bi-card-checklist me-2"></i>Rúbricas del examen</h2>
+            <p class="text-muted mb-0">
+                <strong>{{ examen.title|default:"Sin título" }}</strong>
+                {% if examen.subject %} — {{ examen.subject.name }}{% endif %}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'material:rubric_create' %}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-plus-circle me-1"></i> Nueva Rúbrica
+            </a>
+            <a href="{% url 'material:ver_examen' examen.pk %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver al examen
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show mt-3">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row mt-4 g-4">
+
+        <!-- Rúbricas asociadas al examen -->
+        <div class="col-lg-7">
+            <h5 class="mb-3">Rúbricas de este examen</h5>
+
+            {% if exam_rubric_grids %}
+                {% for item in exam_rubric_grids %}
+                <div class="card mb-3 shadow-sm">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2">
+                        <strong>{{ item.grid.title }}</strong>
+                        <div class="d-flex gap-1 align-items-center">
+                            {% if item.er.show_in_exam %}
+                                <span class="badge bg-success">Visible en examen</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Oculta en examen</span>
+                            {% endif %}
+                            <form method="post" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="toggle">
+                                <input type="hidden" name="exam_rubric_id" value="{{ item.er.pk }}">
+                                <button type="submit" class="btn btn-sm {% if item.er.show_in_exam %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                                        title="{% if item.er.show_in_exam %}Ocultar{% else %}Mostrar{% endif %} en examen">
+                                    <i class="bi {% if item.er.show_in_exam %}bi-eye-slash{% else %}bi-eye{% endif %}"></i>
+                                </button>
+                            </form>
+                            <form method="post" class="d-inline"
+                                  onsubmit="return confirm('¿Quitar esta rúbrica del examen?')">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="remove">
+                                <input type="hidden" name="exam_rubric_id" value="{{ item.er.pk }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Quitar del examen">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="card-body p-2 table-responsive">
+                        {% include 'material/rubricas/_grid_table.html' with grid=item.grid %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Este examen no tiene rúbricas asociadas. Seleccioná una de tu biblioteca.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Biblioteca del usuario -->
+        <div class="col-lg-5">
+            <h5 class="mb-3">Tu biblioteca de rúbricas</h5>
+
+            {% if available_rubric_grids %}
+                {% for item in available_rubric_grids %}
+                <div class="card mb-3 shadow-sm">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2">
+                        <strong>{{ item.grid.title }}</strong>
+                        <form method="post" class="flex-shrink-0">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="add">
+                            <input type="hidden" name="rubric_id" value="{{ item.rubrica.pk }}">
+                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-plus-lg"></i> Agregar
+                            </button>
+                        </form>
+                    </div>
+                    <div class="card-body p-2 table-responsive">
+                        {% include 'material/rubricas/_grid_table.html' with grid=item.grid %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-secondary">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Todas tus rúbricas ya están agregadas, o todavía no creaste ninguna.
+                    <a href="{% url 'material:rubric_create' %}" class="alert-link">Crear una nueva</a>
+                </div>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+{% endblock %}

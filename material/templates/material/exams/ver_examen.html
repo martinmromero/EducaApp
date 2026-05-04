@@ -69,9 +69,18 @@ function toggleBloom() {
 <button onclick="window.print()">
     <i class="fas fa-print"></i> Imprimir Examen
 </button>
+<a href="{% url 'material:exam_rubrics' exam.pk %}">
+    <button type="button" class="secondary">
+        <i class="bi bi-card-checklist"></i> Rúbricas
+    </button>
+</a>
 <a href="{% url 'material:mis_examenes' %}">
     <button class="secondary">
         <i class="fas fa-arrow-left"></i> Volver
     </button>
 </a>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
 {% endblock %}
