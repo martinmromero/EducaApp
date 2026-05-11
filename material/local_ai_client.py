@@ -6,6 +6,8 @@ Basado en ejemplos de integración del proyecto.
 """
 
 import requests
+import threading
+import time
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 import logging
@@ -248,6 +250,78 @@ class LocalAIClient:
         prompt += 'Asistente:'
         
         return self.generate(prompt, model, **kwargs)
+
+    def warmup_model(self, model: Optional[str] = None) -> bool:
+        """
+        Carga el modelo en GPU enviando una generación mínima.
+        Usa keep_alive=-1 para mantenerlo cargado indefinidamente
+        mientras el servidor esté activo.
+
+        Returns:
+            True si el calentamiento fue exitoso
+        """
+        if not self.check_connection():
+            logger.debug("Ollama no disponible, se omite warmup.")
+            return False
+
+        target_model = model or self.selected_model
+        try:
+            payload = {
+                'model': target_model,
+                'prompt': 'ok',
+                'stream': False,
+                'keep_alive': -1,   # mantener modelo en memoria indefinidamente
+                'options': {
+                    'num_predict': 1,   # generar mínimo posible
+                }
+            }
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json=payload,
+                timeout=60,
+            )
+            if response.status_code == 200:
+                logger.info(f"Ollama warmup exitoso – modelo '{target_model}' cargado en GPU.")
+                return True
+            else:
+                logger.warning(f"Ollama warmup respondió HTTP {response.status_code}.")
+                return False
+        except Exception as e:
+            logger.warning(f"Ollama warmup falló: {e}")
+            return False
+
+    def start_keepalive(self, interval_seconds: int = 240) -> None:
+        """
+        Inicia un hilo daemon que mantiene el modelo cargado en GPU.
+        Realiza un warmup inicial (con reintento si Ollama no responde aún)
+        y luego re-pingea cada `interval_seconds` segundos.
+
+        Args:
+            interval_seconds: Segundos entre pings de keepalive (default 240 = 4 min).
+        """
+        def _loop():
+            # Esperar a que Django termine de inicializarse
+            time.sleep(5)
+
+            # Intentar warmup inicial (hasta 3 intentos con back-off)
+            for attempt in range(1, 4):
+                if self.warmup_model():
+                    break
+                logger.debug(f"Warmup intento {attempt} fallido, reintentando en {attempt * 15}s…")
+                time.sleep(attempt * 15)
+
+            # Keepalive periódico
+            while True:
+                time.sleep(interval_seconds)
+                if self._is_available:
+                    self.warmup_model()
+                else:
+                    # Si se perdió la conexión, intentar reconectar silenciosamente
+                    self.warmup_model()
+
+        thread = threading.Thread(target=_loop, name="ollama-keepalive", daemon=True)
+        thread.start()
+        logger.info("Hilo keepalive de Ollama iniciado.")
 
 
 # Instancia global del cliente

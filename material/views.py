@@ -3914,3 +3914,68 @@ def exam_rubrics(request, exam_pk):
 
 # --- FIN RÚBRICAS --------------------------------------------------------------
 
+
+# ---------------------------------------------------------------------------
+# Configuración de proveedor de IA
+# ---------------------------------------------------------------------------
+@login_required
+def ai_config_view(request):
+    """Página donde el usuario elige su proveedor de IA."""
+    from .models import UserAIConfig, InstitutionV2, UserInstitution
+
+    config, _ = UserAIConfig.objects.get_or_create(user=request.user)
+
+    # Instituciones con configuración IA activa a las que el usuario pertenece
+    user_inst_ids = UserInstitution.objects.filter(
+        user=request.user
+    ).values_list('institution_id', flat=True)
+    institutions_with_ai = InstitutionV2.objects.filter(
+        pk__in=user_inst_ids,
+        ai_config__is_active=True,
+    ).select_related('ai_config')
+
+    if request.method == 'POST':
+        source = request.POST.get('source', 'ollama_local')
+        config.source = source
+
+        if source == 'byok':
+            config.provider = request.POST.get('provider', 'openai')
+            config.model = request.POST.get('model', '').strip() or 'gpt-4o-mini'
+            config.base_url = request.POST.get('base_url', '').strip() or None
+            raw_key = request.POST.get('api_key', '').strip()
+            if raw_key:  # no sobrescribir si el campo quedó vacío
+                config.api_key = raw_key
+
+        elif source == 'institutional':
+            inst_id = request.POST.get('institution_id', '').strip()
+            if inst_id:
+                try:
+                    config.institution = InstitutionV2.objects.get(pk=int(inst_id))
+                except (InstitutionV2.DoesNotExist, ValueError):
+                    pass
+
+        config.save()
+        messages.success(request, 'Configuración de IA guardada correctamente.')
+        return redirect('material:ai_config')
+
+    context = {
+        'config': config,
+        'institutions_with_ai': institutions_with_ai,
+        'has_api_key': bool(config.api_key_encrypted),
+    }
+    return render(request, 'material/ai_config.html', context)
+
+
+@login_required
+def ai_config_status(request):
+    """Endpoint JSON que devuelve el estado actual del backend configurado."""
+    from django.http import JsonResponse
+    from .ai_router import get_backend_for_user
+
+    backend = get_backend_for_user(request.user)
+    try:
+        status = backend.get_status()
+    except Exception as e:
+        status = {'connected': False, 'error': str(e)}
+    return JsonResponse(status)
+

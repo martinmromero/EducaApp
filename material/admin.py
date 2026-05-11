@@ -1,8 +1,10 @@
+from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
     Subject, Contenido, Question, Exam, ExamTemplate, Profile,
-    Topic, Subtopic, Institution, InstitutionV2, LearningOutcome, Career
+    Topic, Subtopic, Institution, InstitutionV2, LearningOutcome, Career,
+    InstitutionAIConfig, UserAIConfig, encrypt_api_key,
 )
 from .forms import SubjectForm
 from django.contrib.auth.admin import UserAdmin
@@ -206,3 +208,78 @@ class LearningOutcomeAdmin(admin.ModelAdmin):
         return obj.subject.name
     subject_name.short_description = 'Materia'
     subject_name.admin_order_field = 'subject__name'
+
+
+# ---------------------------------------------------------------------------
+# Admin de configuración IA
+# ---------------------------------------------------------------------------
+class InstitutionAIConfigAdminForm(forms.ModelForm):
+    """Form personalizado para manejar el campo api_key sin exponer el texto cifrado."""
+    api_key = forms.CharField(
+        label='API Key',
+        required=False,
+        widget=forms.PasswordInput(render_value=False),
+        help_text='Dejar vacío para no modificar la key existente.',
+    )
+
+    class Meta:
+        model = InstitutionAIConfig
+        exclude = ('api_key_encrypted',)
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        raw_key = self.cleaned_data.get('api_key', '').strip()
+        if raw_key:
+            instance.api_key_encrypted = encrypt_api_key(raw_key)
+        if commit:
+            instance.save()
+        return instance
+
+
+@admin.register(InstitutionAIConfig)
+class InstitutionAIConfigAdmin(admin.ModelAdmin):
+    form = InstitutionAIConfigAdminForm
+    list_display = ('institution', 'provider', 'model', 'is_active', 'updated_at')
+    list_filter = ('provider', 'is_active')
+    search_fields = ('institution__name',)
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        (None, {'fields': ('institution', 'provider', 'model', 'base_url', 'api_key', 'is_active')}),
+        ('Auditoría', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
+    )
+
+
+class UserAIConfigAdminForm(forms.ModelForm):
+    api_key = forms.CharField(
+        label='API Key',
+        required=False,
+        widget=forms.PasswordInput(render_value=False),
+        help_text='Dejar vacío para no modificar.',
+    )
+
+    class Meta:
+        model = UserAIConfig
+        exclude = ('api_key_encrypted',)
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        raw_key = self.cleaned_data.get('api_key', '').strip()
+        if raw_key:
+            instance.api_key_encrypted = encrypt_api_key(raw_key)
+        if commit:
+            instance.save()
+        return instance
+
+
+@admin.register(UserAIConfig)
+class UserAIConfigAdmin(admin.ModelAdmin):
+    form = UserAIConfigAdminForm
+    list_display = ('user', 'source', 'provider', 'model', 'institution')
+    list_filter = ('source', 'provider')
+    search_fields = ('user__username', 'user__email')
+    raw_id_fields = ('user', 'institution')
+    fieldsets = (
+        (None, {'fields': ('user', 'source')}),
+        ('BYOK', {'fields': ('provider', 'model', 'base_url', 'api_key'), 'classes': ('collapse',)}),
+        ('Institucional', {'fields': ('institution',), 'classes': ('collapse',)}),
+    )

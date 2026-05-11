@@ -1527,3 +1527,159 @@ def save_user_profile(sender, instance, **kwargs):
         instance.profile.save()
     else:
         Profile.objects.create(user=instance)
+
+
+# ---------------------------------------------------------------------------
+# Helpers de cifrado para API keys
+# ---------------------------------------------------------------------------
+import base64
+import hashlib
+
+def _get_fernet():
+    """Devuelve una instancia Fernet derivada del SECRET_KEY de Django."""
+    from django.conf import settings
+    from cryptography.fernet import Fernet
+    raw = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
+    return Fernet(base64.urlsafe_b64encode(raw))
+
+def encrypt_api_key(plaintext: str) -> str:
+    if not plaintext:
+        return ''
+    return _get_fernet().encrypt(plaintext.encode()).decode()
+
+def decrypt_api_key(ciphertext: str) -> str:
+    if not ciphertext:
+        return ''
+    try:
+        return _get_fernet().decrypt(ciphertext.encode()).decode()
+    except Exception:
+        return ''
+
+
+# ---------------------------------------------------------------------------
+# Configuración de IA Institucional
+# ---------------------------------------------------------------------------
+class InstitutionAIConfig(models.Model):
+    PROVIDER_CHOICES = [
+        ('openai', 'OpenAI (GPT-4o, GPT-4, etc.)'),
+        ('anthropic', 'Anthropic (Claude 3, etc.)'),
+        ('openai_compatible', 'Compatible con OpenAI (Groq, Mistral, OpenRouter…)'),
+    ]
+
+    institution = models.OneToOneField(
+        InstitutionV2,
+        on_delete=models.CASCADE,
+        related_name='ai_config',
+        verbose_name="Institución",
+    )
+    provider = models.CharField(
+        max_length=30,
+        choices=PROVIDER_CHOICES,
+        verbose_name="Proveedor",
+    )
+    api_key_encrypted = models.TextField(
+        blank=True,
+        verbose_name="API Key (cifrada)",
+    )
+    model = models.CharField(
+        max_length=100,
+        default='gpt-4o-mini',
+        verbose_name="Modelo",
+    )
+    base_url = models.URLField(
+        blank=True,
+        null=True,
+        verbose_name="URL base",
+        help_text="Solo para endpoints compatibles con OpenAI (ej. Groq, OpenRouter).",
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Activa")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración IA Institucional"
+        verbose_name_plural = "Configuraciones IA Institucionales"
+
+    def __str__(self):
+        return f"{self.institution.name} → {self.get_provider_display()}"
+
+    @property
+    def api_key(self):
+        return decrypt_api_key(self.api_key_encrypted)
+
+    @api_key.setter
+    def api_key(self, value):
+        self.api_key_encrypted = encrypt_api_key(value)
+
+
+# ---------------------------------------------------------------------------
+# Configuración de IA por Usuario
+# ---------------------------------------------------------------------------
+class UserAIConfig(models.Model):
+    SOURCE_CHOICES = [
+        ('ollama_local', 'IA Local (Ollama)'),
+        ('byok', 'Mi propia API Key (BYOK)'),
+        ('institutional', 'Configuración de la Institución'),
+    ]
+    PROVIDER_CHOICES = [
+        ('openai', 'OpenAI (GPT-4o, GPT-4, etc.)'),
+        ('anthropic', 'Anthropic (Claude 3, etc.)'),
+        ('openai_compatible', 'Compatible con OpenAI (Groq, Mistral, OpenRouter…)'),
+    ]
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='ai_config',
+        verbose_name="Usuario",
+    )
+    source = models.CharField(
+        max_length=20,
+        choices=SOURCE_CHOICES,
+        default='ollama_local',
+        verbose_name="Fuente de IA",
+    )
+    # Campos BYOK
+    provider = models.CharField(
+        max_length=30,
+        choices=PROVIDER_CHOICES,
+        blank=True,
+        verbose_name="Proveedor",
+    )
+    api_key_encrypted = models.TextField(blank=True, verbose_name="API Key (cifrada)")
+    model = models.CharField(
+        max_length=100,
+        blank=True,
+        default='gpt-4o-mini',
+        verbose_name="Modelo",
+    )
+    base_url = models.URLField(
+        blank=True,
+        null=True,
+        verbose_name="URL base",
+        help_text="Solo para endpoints compatibles con OpenAI.",
+    )
+    # Institutional
+    institution = models.ForeignKey(
+        InstitutionV2,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Institución",
+        related_name='ai_user_configs',
+    )
+
+    class Meta:
+        verbose_name = "Configuración IA de Usuario"
+        verbose_name_plural = "Configuraciones IA de Usuarios"
+
+    def __str__(self):
+        return f"{self.user.username} → {self.get_source_display()}"
+
+    @property
+    def api_key(self):
+        return decrypt_api_key(self.api_key_encrypted)
+
+    @api_key.setter
+    def api_key(self, value):
+        self.api_key_encrypted = encrypt_api_key(value) if value else ''

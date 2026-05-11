@@ -153,4 +153,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('rubricas/<int:pk>/eliminar/', material_views.rubric_delete, name='rubric_delete'),
     path('examenes/<int:exam_pk>/rubricas/', material_views.exam_rubrics, name='exam_rubrics'),
 
+    # AI Configuration (proveedor de IA del usuario)
+    path('configuracion-ia/', material_views.ai_config_view, name='ai_config'),
+    path('configuracion-ia/status/', material_views.ai_config_status, name='ai_config_status'),
 ]

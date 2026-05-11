@@ -1,0 +1,218 @@
+{% extends 'material/base.html' %}
+{% block content %}
+<div class="container py-4" style="max-width: 760px;">
+
+  <h2 class="mb-1"><i class="bi bi-cpu me-2"></i>Proveedor de IA</h2>
+  <p class="text-muted mb-4">Elegí cómo querés que EducaApp acceda a la inteligencia artificial.</p>
+
+  <!-- Estado actual -->
+  <div class="card mb-4">
+    <div class="card-body d-flex align-items-center gap-3">
+      <div id="status-icon" class="fs-2">⏳</div>
+      <div>
+        <div class="fw-semibold" id="status-text">Verificando conexión…</div>
+        <small class="text-muted" id="status-detail"></small>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="checkStatus()">
+        <i class="bi bi-arrow-clockwise"></i> Verificar
+      </button>
+    </div>
+  </div>
+
+  <!-- Formulario -->
+  <form method="post" id="ai-config-form">
+    {% csrf_token %}
+
+    <!-- Opciones -->
+    <div class="row g-3 mb-4">
+
+      <!-- Ollama local -->
+      <div class="col-12">
+        <label class="card p-3 d-flex flex-row align-items-start gap-3 cursor-pointer
+                      {% if config.source == 'ollama_local' %}border-primary bg-primary bg-opacity-10{% endif %}"
+               style="cursor:pointer" for="src_ollama">
+          <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="source"
+                 id="src_ollama" value="ollama_local"
+                 {% if config.source == 'ollama_local' %}checked{% endif %}
+                 onchange="onSourceChange()">
+          <div>
+            <div class="fw-semibold"><i class="bi bi-hdd-network me-1"></i>IA Local (Ollama)</div>
+            <small class="text-muted">Usa el servidor Ollama de la red interna. Sin costo, sin internet requerido,
+            privado. Ideal si hay conectividad con el servidor.</small>
+          </div>
+        </label>
+      </div>
+
+      <!-- BYOK -->
+      <div class="col-12">
+        <label class="card p-3 d-flex flex-row align-items-start gap-3 cursor-pointer
+                      {% if config.source == 'byok' %}border-primary bg-primary bg-opacity-10{% endif %}"
+               style="cursor:pointer" for="src_byok">
+          <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="source"
+                 id="src_byok" value="byok"
+                 {% if config.source == 'byok' %}checked{% endif %}
+                 onchange="onSourceChange()">
+          <div class="flex-grow-1">
+            <div class="fw-semibold"><i class="bi bi-key me-1"></i>Mi propia API Key (BYOK)</div>
+            <small class="text-muted">Usá tu cuenta personal de OpenAI, Anthropic, Groq, Mistral, etc.</small>
+
+            <!-- Campos BYOK (visibles solo cuando está seleccionado) -->
+            <div id="byok-fields" class="mt-3 {% if config.source != 'byok' %}d-none{% endif %}">
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Proveedor</label>
+                <select class="form-select" name="provider" id="byok-provider" onchange="onProviderChange()">
+                  <option value="openai"           {% if config.provider == 'openai'            %}selected{% endif %}>OpenAI (GPT-4o, GPT-4, etc.)</option>
+                  <option value="anthropic"        {% if config.provider == 'anthropic'         %}selected{% endif %}>Anthropic (Claude 3, etc.)</option>
+                  <option value="groq"             {% if config.provider == 'groq'              %}selected{% endif %}>Groq (Llama, Mixtral — rápido)</option>
+                  <option value="mistral"          {% if config.provider == 'mistral'           %}selected{% endif %}>Mistral AI</option>
+                  <option value="openrouter"       {% if config.provider == 'openrouter'        %}selected{% endif %}>OpenRouter (múltiples modelos)</option>
+                  <option value="openai_compatible"{% if config.provider == 'openai_compatible' %}selected{% endif %}>Otro compatible con OpenAI (URL personalizada)</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Modelo</label>
+                <input type="text" class="form-control" name="model"
+                       value="{{ config.model }}" placeholder="ej. gpt-4o-mini, claude-3-haiku-20240307">
+                <div class="form-text">Nombre exacto del modelo tal como lo indica el proveedor.</div>
+              </div>
+
+              <div class="mb-3" id="base-url-field"
+                   {% if config.provider not in 'openai_compatible' %}style="display:none"{% endif %}>
+                <label class="form-label fw-semibold">URL base</label>
+                <input type="url" class="form-control" name="base_url"
+                       value="{{ config.base_url|default:'' }}"
+                       placeholder="https://tu-servidor/v1">
+                <div class="form-text">Solo para endpoints compatibles con OpenAI con URL propia.</div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">API Key</label>
+                <div class="input-group">
+                  <input type="password" class="form-control" name="api_key" id="api-key-input"
+                         autocomplete="new-password"
+                         placeholder="{% if has_api_key %}••••••••  (guardada — dejar vacío para no cambiar){% else %}sk-...{% endif %}">
+                  <button class="btn btn-outline-secondary" type="button"
+                          onclick="toggleKeyVisibility()">
+                    <i class="bi bi-eye" id="eye-icon"></i>
+                  </button>
+                </div>
+                {% if has_api_key and config.source == 'byok' %}
+                  <div class="form-text text-success">
+                    <i class="bi bi-shield-lock me-1"></i>Key guardada y cifrada. Dejá el campo vacío para mantenerla.
+                  </div>
+                {% endif %}
+              </div>
+
+            </div><!-- /byok-fields -->
+          </div>
+        </label>
+      </div>
+
+      <!-- Institucional -->
+      <div class="col-12">
+        <label class="card p-3 d-flex flex-row align-items-start gap-3 cursor-pointer
+                      {% if config.source == 'institutional' %}border-primary bg-primary bg-opacity-10{% endif %}"
+               style="cursor:pointer" for="src_inst">
+          <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="source"
+                 id="src_inst" value="institutional"
+                 {% if config.source == 'institutional' %}checked{% endif %}
+                 {% if not institutions_with_ai %}disabled title="No hay instituciones con IA configurada"{% endif %}
+                 onchange="onSourceChange()">
+          <div class="flex-grow-1">
+            <div class="fw-semibold">
+              <i class="bi bi-buildings me-1"></i>Configuración de la Institución
+              {% if not institutions_with_ai %}
+                <span class="badge bg-secondary ms-2">No disponible</span>
+              {% endif %}
+            </div>
+            <small class="text-muted">Usa la API Key configurada por tu institución. No necesitás cuenta propia.</small>
+
+            <!-- Selector de institución -->
+            <div id="inst-fields" class="mt-3 {% if config.source != 'institutional' %}d-none{% endif %}">
+              {% if institutions_with_ai %}
+                <label class="form-label fw-semibold">Institución</label>
+                <select class="form-select" name="institution_id">
+                  <option value="">— Seleccioná una institución —</option>
+                  {% for inst in institutions_with_ai %}
+                    <option value="{{ inst.pk }}"
+                      {% if config.institution_id == inst.pk %}selected{% endif %}>
+                      {{ inst.name }} ({{ inst.ai_config.get_provider_display }})
+                    </option>
+                  {% endfor %}
+                </select>
+              {% else %}
+                <p class="text-muted small mb-0">
+                  Ninguna de tus instituciones tiene una configuración de IA activa.
+                  Pedile al administrador que configure una.
+                </p>
+              {% endif %}
+            </div>
+          </div>
+        </label>
+      </div>
+
+    </div><!-- /row -->
+
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-floppy me-1"></i>Guardar configuración
+      </button>
+      <a href="{% url 'material:index' %}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+
+<script>
+function onSourceChange() {
+  const src = document.querySelector('input[name="source"]:checked')?.value;
+  document.getElementById('byok-fields').classList.toggle('d-none', src !== 'byok');
+  document.getElementById('inst-fields').classList.toggle('d-none', src !== 'institutional');
+}
+
+function onProviderChange() {
+  const p = document.getElementById('byok-provider').value;
+  document.getElementById('base-url-field').style.display =
+    (p === 'openai_compatible') ? '' : 'none';
+}
+
+function toggleKeyVisibility() {
+  const inp = document.getElementById('api-key-input');
+  const icon = document.getElementById('eye-icon');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    icon.className = 'bi bi-eye-slash';
+  } else {
+    inp.type = 'password';
+    icon.className = 'bi bi-eye';
+  }
+}
+
+function checkStatus() {
+  document.getElementById('status-icon').textContent = '⏳';
+  document.getElementById('status-text').textContent = 'Verificando…';
+  document.getElementById('status-detail').textContent = '';
+  fetch('{% url "material:ai_config_status" %}')
+    .then(r => r.json())
+    .then(data => {
+      if (data.connected) {
+        document.getElementById('status-icon').textContent = '✅';
+        document.getElementById('status-text').textContent = 'Conectado';
+        document.getElementById('status-detail').textContent =
+          (data.provider || data.backend || '') + (data.model ? ' — ' + data.model : '');
+      } else {
+        document.getElementById('status-icon').textContent = '❌';
+        document.getElementById('status-text').textContent = 'Sin conexión';
+        document.getElementById('status-detail').textContent = data.error || '';
+      }
+    })
+    .catch(() => {
+      document.getElementById('status-icon').textContent = '❌';
+      document.getElementById('status-text').textContent = 'Error al verificar';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', checkStatus);
+</script>
+{% endblock %}
