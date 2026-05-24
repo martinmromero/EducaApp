@@ -156,4 +156,5 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     # AI Configuration (proveedor de IA del usuario)
     path('configuracion-ia/', material_views.ai_config_view, name='ai_config'),
     path('configuracion-ia/status/', material_views.ai_config_status, name='ai_config_status'),
+    path('configuracion-ia/institucional/', material_views.institution_ai_config_view, name='institution_ai_config'),
 ]

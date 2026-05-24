@@ -7,6 +7,15 @@
 
     {% show_messages "contenidos" %}
 
+    <!-- Aviso de expiración por sesión -->
+    <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+        <i class="bi bi-clock-history fs-5 mt-1 flex-shrink-0"></i>
+        <div>
+            <strong>Atención:</strong> El archivo físico se eliminará automáticamente al <strong>cerrar sesión</strong>.
+            Los metadatos del documento (título, ISBN, edición, editorial, etc.) y todas las preguntas generadas a partir de él se conservarán permanentemente.
+        </div>
+    </div>
+
     <!-- Metadata detectada automáticamente -->
     <div id="metadataAlert" class="alert alert-info d-none" role="alert">
         <i class="bi bi-magic me-2"></i>

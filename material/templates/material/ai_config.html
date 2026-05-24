@@ -28,17 +28,28 @@
 
       <!-- Ollama local -->
       <div class="col-12">
-        <label class="card p-3 d-flex flex-row align-items-start gap-3 cursor-pointer
+        <label class="card p-3 d-flex flex-row align-items-start gap-3
                       {% if config.source == 'ollama_local' %}border-primary bg-primary bg-opacity-10{% endif %}"
                style="cursor:pointer" for="src_ollama">
           <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="source"
                  id="src_ollama" value="ollama_local"
                  {% if config.source == 'ollama_local' %}checked{% endif %}
                  onchange="onSourceChange()">
-          <div>
+          <div class="flex-grow-1">
             <div class="fw-semibold"><i class="bi bi-hdd-network me-1"></i>IA Local (Ollama)</div>
             <small class="text-muted">Usa el servidor Ollama de la red interna. Sin costo, sin internet requerido,
             privado. Ideal si hay conectividad con el servidor.</small>
+
+            <!-- Configuración avanzada de Ollama -->
+            <div id="ollama-fields" class="mt-3 {% if config.source != 'ollama_local' %}d-none{% endif %}">
+              <div class="mb-2">
+                <label class="form-label fw-semibold small mb-1">URL del servidor Ollama</label>
+                <input type="url" class="form-control form-control-sm" name="ollama_url"
+                       value="{{ config.ollama_url|default:'' }}"
+                       placeholder="{{ default_ollama_url }}">
+                <div class="form-text">Dejá vacío para usar la URL por defecto: <code>{{ default_ollama_url }}</code></div>
+              </div>
+            </div>
           </div>
         </label>
       </div>
@@ -54,33 +65,62 @@
                  onchange="onSourceChange()">
           <div class="flex-grow-1">
             <div class="fw-semibold"><i class="bi bi-key me-1"></i>Mi propia API Key (BYOK)</div>
-            <small class="text-muted">Usá tu cuenta personal de OpenAI, Anthropic, Groq, Mistral, etc.</small>
+            <small class="text-muted">Usá tu cuenta personal de OpenAI, Google Gemini o Anthropic.</small>
 
             <!-- Campos BYOK (visibles solo cuando está seleccionado) -->
             <div id="byok-fields" class="mt-3 {% if config.source != 'byok' %}d-none{% endif %}">
 
+              <!-- Instructivo para obtener API Keys -->
+              <div class="alert alert-info py-2 px-3 mb-3" id="byok-instructivo">
+                <div class="fw-semibold mb-1"><i class="bi bi-info-circle me-1"></i>¿Cómo obtener tu API Key?</div>
+                <div id="info-openai" class="small">
+                  <strong>OpenAI:</strong> Ingresá a <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>, creá una cuenta y generá una nueva clave.
+                  Los modelos recomendados son <code>gpt-4o-mini</code> (económico) o <code>gpt-4o</code>.
+                </div>
+                <div id="info-gemini" class="small d-none">
+                  <strong>Google Gemini:</strong> Ingresá a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> y generá una clave gratis.
+                  Modelo recomendado: <code>gemini-1.5-flash</code> (gratuito con límites).
+                </div>
+                <div id="info-anthropic" class="small d-none">
+                  <strong>Anthropic (Claude):</strong> Ingresá a <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com/settings/keys</a> y creá una nueva clave.
+                  Modelo recomendado: <code>claude-3-haiku-20240307</code> (el más económico).
+                </div>
+                <div id="info-groq" class="small d-none">
+                  <strong>Groq:</strong> Ingresá a <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>. Es gratuito con límites generosos y muy rápido.
+                  Modelos: <code>llama-3.1-8b-instant</code> o <code>mixtral-8x7b-32768</code>.
+                </div>
+                <div id="info-other" class="small d-none">
+                  Consultá la documentación del proveedor para obtener tu API Key y la URL de su endpoint.
+                </div>
+              </div>
+
               <div class="mb-3">
                 <label class="form-label fw-semibold">Proveedor</label>
                 <select class="form-select" name="provider" id="byok-provider" onchange="onProviderChange()">
-                  <option value="openai"           {% if config.provider == 'openai'            %}selected{% endif %}>OpenAI (GPT-4o, GPT-4, etc.)</option>
-                  <option value="anthropic"        {% if config.provider == 'anthropic'         %}selected{% endif %}>Anthropic (Claude 3, etc.)</option>
-                  <option value="groq"             {% if config.provider == 'groq'              %}selected{% endif %}>Groq (Llama, Mixtral — rápido)</option>
-                  <option value="mistral"          {% if config.provider == 'mistral'           %}selected{% endif %}>Mistral AI</option>
-                  <option value="openrouter"       {% if config.provider == 'openrouter'        %}selected{% endif %}>OpenRouter (múltiples modelos)</option>
-                  <option value="openai_compatible"{% if config.provider == 'openai_compatible' %}selected{% endif %}>Otro compatible con OpenAI (URL personalizada)</option>
+                  <optgroup label="Principales">
+                    <option value="openai"    {% if config.provider == 'openai'    %}selected{% endif %}>OpenAI — GPT-4o, GPT-4o mini</option>
+                    <option value="gemini"    {% if config.provider == 'gemini'    %}selected{% endif %}>Google Gemini — Gemini 1.5 Flash / Pro</option>
+                    <option value="anthropic" {% if config.provider == 'anthropic' %}selected{% endif %}>Anthropic — Claude 3 Haiku / Sonnet</option>
+                  </optgroup>
+                  <optgroup label="Avanzado">
+                    <option value="groq"             {% if config.provider == 'groq'             %}selected{% endif %}>Groq (Llama, Mixtral — muy rápido, gratis)</option>
+                    <option value="mistral"          {% if config.provider == 'mistral'          %}selected{% endif %}>Mistral AI</option>
+                    <option value="openrouter"       {% if config.provider == 'openrouter'       %}selected{% endif %}>OpenRouter (múltiples modelos)</option>
+                    <option value="openai_compatible"{% if config.provider == 'openai_compatible'%}selected{% endif %}>Otro compatible con OpenAI (URL personalizada)</option>
+                  </optgroup>
                 </select>
               </div>
 
               <div class="mb-3">
                 <label class="form-label fw-semibold">Modelo</label>
-                <input type="text" class="form-control" name="model"
-                       value="{{ config.model }}" placeholder="ej. gpt-4o-mini, claude-3-haiku-20240307">
+                <input type="text" class="form-control" name="model" id="byok-model"
+                       value="{{ config.model }}" placeholder="ej. gpt-4o-mini">
                 <div class="form-text">Nombre exacto del modelo tal como lo indica el proveedor.</div>
               </div>
 
               <div class="mb-3" id="base-url-field"
-                   {% if config.provider not in 'openai_compatible' %}style="display:none"{% endif %}>
-                <label class="form-label fw-semibold">URL base</label>
+                   style="{% if config.provider != 'openai_compatible' %}display:none{% endif %}">
+                <label class="form-label fw-semibold">URL base del endpoint</label>
                 <input type="url" class="form-control" name="base_url"
                        value="{{ config.base_url|default:'' }}"
                        placeholder="https://tu-servidor/v1">
@@ -124,7 +164,7 @@
             <div class="fw-semibold">
               <i class="bi bi-buildings me-1"></i>Configuración de la Institución
               {% if not institutions_with_ai %}
-                <span class="badge bg-secondary ms-2">No disponible</span>
+                <span class="badge bg-secondary ms-2">No configurada</span>
               {% endif %}
             </div>
             <small class="text-muted">Usa la API Key configurada por tu institución. No necesitás cuenta propia.</small>
@@ -143,12 +183,17 @@
                   {% endfor %}
                 </select>
               {% else %}
-                <p class="text-muted small mb-0">
+                <p class="text-muted small mb-1">
                   Ninguna de tus instituciones tiene una configuración de IA activa.
-                  Pedile al administrador que configure una.
+                  {% if not is_staff %}Pedile al administrador que la configure.{% endif %}
                 </p>
               {% endif %}
             </div>
+            {% if is_staff and not institutions_with_ai %}
+              <a href="{% url 'material:institution_ai_config' %}" class="btn btn-sm btn-outline-primary mt-2">
+                <i class="bi bi-shield-lock me-1"></i>Configurar IA institucional
+              </a>
+            {% endif %}
           </div>
         </label>
       </div>
@@ -165,8 +210,19 @@
 </div>
 
 <script>
+const DEFAULT_MODELS = {
+  openai: 'gpt-4o-mini',
+  gemini: 'gemini-1.5-flash',
+  anthropic: 'claude-3-haiku-20240307',
+  groq: 'llama-3.1-8b-instant',
+  mistral: 'mistral-small-latest',
+  openrouter: 'openai/gpt-4o-mini',
+  openai_compatible: '',
+};
+
 function onSourceChange() {
   const src = document.querySelector('input[name="source"]:checked')?.value;
+  document.getElementById('ollama-fields').classList.toggle('d-none', src !== 'ollama_local');
   document.getElementById('byok-fields').classList.toggle('d-none', src !== 'byok');
   document.getElementById('inst-fields').classList.toggle('d-none', src !== 'institutional');
 }
@@ -175,6 +231,22 @@ function onProviderChange() {
   const p = document.getElementById('byok-provider').value;
   document.getElementById('base-url-field').style.display =
     (p === 'openai_compatible') ? '' : 'none';
+
+  // Sugerir modelo por defecto si el campo está vacío o tenía un default previo
+  const modelInput = document.getElementById('byok-model');
+  const currentModel = modelInput.value.trim();
+  const prevDefaults = Object.values(DEFAULT_MODELS);
+  if (!currentModel || prevDefaults.includes(currentModel)) {
+    modelInput.value = DEFAULT_MODELS[p] || '';
+  }
+
+  // Mostrar instructivo correspondiente
+  ['openai','gemini','anthropic','groq'].forEach(k => {
+    document.getElementById('info-' + k)?.classList.add('d-none');
+  });
+  document.getElementById('info-other')?.classList.add('d-none');
+  const infoEl = document.getElementById('info-' + p) || document.getElementById('info-other');
+  infoEl?.classList.remove('d-none');
 }
 
 function toggleKeyVisibility() {
@@ -189,6 +261,21 @@ function toggleKeyVisibility() {
   }
 }
 
+const STATUS_MSGS = {
+  ollama_local: {
+    ok:   'Servidor Ollama conectado',
+    fail: 'Servidor Ollama no disponible. Verificá que el servidor esté activo y accesible desde esta red.',
+  },
+  byok: {
+    ok:   'Proveedor externo conectado',
+    fail: 'No se pudo conectar con el proveedor. Verificá tu API Key y el proveedor seleccionado.',
+  },
+  institutional: {
+    ok:   'Configuración institucional activa',
+    fail: 'La configuración institucional no está disponible. Contactá al administrador.',
+  },
+};
+
 function checkStatus() {
   document.getElementById('status-icon').textContent = '⏳';
   document.getElementById('status-text').textContent = 'Verificando…';
@@ -196,20 +283,25 @@ function checkStatus() {
   fetch('{% url "material:ai_config_status" %}')
     .then(r => r.json())
     .then(data => {
+      const backend = data.backend || 'ollama_local';
+      const msgs = STATUS_MSGS[backend] || STATUS_MSGS['ollama_local'];
       if (data.connected) {
         document.getElementById('status-icon').textContent = '✅';
-        document.getElementById('status-text').textContent = 'Conectado';
-        document.getElementById('status-detail').textContent =
-          (data.provider || data.backend || '') + (data.model ? ' — ' + data.model : '');
+        document.getElementById('status-text').textContent = msgs.ok;
+        const detail = [];
+        if (data.provider && data.provider !== backend) detail.push(data.provider);
+        if (data.model) detail.push(data.model);
+        if (data.url)   detail.push(data.url);
+        document.getElementById('status-detail').textContent = detail.join(' — ');
       } else {
         document.getElementById('status-icon').textContent = '❌';
-        document.getElementById('status-text').textContent = 'Sin conexión';
+        document.getElementById('status-text').textContent = msgs.fail;
         document.getElementById('status-detail').textContent = data.error || '';
       }
     })
     .catch(() => {
       document.getElementById('status-icon').textContent = '❌';
-      document.getElementById('status-text').textContent = 'Error al verificar';
+      document.getElementById('status-text').textContent = 'Error al verificar el estado';
     });
 }
 

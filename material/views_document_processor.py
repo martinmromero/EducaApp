@@ -82,25 +82,89 @@ def upload_and_process_document(request):
         contenido_title = os.path.splitext(nombre)[0].replace('_', ' ').replace('-', ' ')
 
     try:
-        # Guardar el archivo definitivamente en contenidos/ (también sirve para sesión)
-        saved_relative = default_storage.save(f'contenidos/{nombre}', ContentFile(archivo.read()))
-        file_path = os.path.join(settings.MEDIA_ROOT, saved_relative)
+        import hashlib
+        import tempfile
+        from .cleanup import compute_file_hash
 
-        # Procesar con DocumentProcessor
-        result = extract_text_advanced(
-            file_path,
-            remove_headers=remove_headers,
-            remove_footers=remove_footers
-        )
+        # Leer los bytes del archivo UNA sola vez (el stream no es re-readable)
+        file_bytes = archivo.read()
+        file_hash = compute_file_hash(file_bytes)
 
-        # Crear entrada en Contenido (Mis Contenidos)
-        contenido = Contenido(
-            title=contenido_title,
-            uploaded_by=request.user,
-        )
-        contenido.file = saved_relative
-        contenido.save()
-        contenido_id = contenido.id
+        # ---- Deduplicación ----
+        existing = Contenido.objects.filter(
+            file_hash=file_hash, uploaded_by=request.user
+        ).first()
+
+        duplicate_message = None
+
+        if existing and existing.file_available:
+            # Archivo idéntico ya existe y sigue vigente — no guardamos un nuevo archivo
+            contenido_id = existing.id
+            duplicate_message = (
+                f'Este documento ya existe como "{existing.title}". '
+                f'Se usará el archivo guardado; no se creó un duplicado.'
+            )
+            # Procesar con archivo temporal (compatible con local y cloud)
+            ext = os.path.splitext(nombre)[1].lower()
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                tmp.write(file_bytes)
+                tmp_path = tmp.name
+            try:
+                result = extract_text_advanced(
+                    tmp_path,
+                    remove_headers=remove_headers,
+                    remove_footers=remove_footers
+                )
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+            file_path = tmp_path  # Solo para la sesión; apunta al archivo original en el caso disponible
+            # Para la sesión usamos el path del archivo existente si es local
+            try:
+                session_file_path = existing.file.path
+            except (ValueError, NotImplementedError, AttributeError):
+                session_file_path = tmp_path  # fallback cloud
+
+        elif existing and not existing.file_available:
+            # Archivo había expirado — restaurarlo con el nuevo upload
+            saved_relative = default_storage.save(f'contenidos/{nombre}', ContentFile(file_bytes))
+            file_path = os.path.join(settings.MEDIA_ROOT, saved_relative)
+            existing.file = saved_relative
+            existing.file_deleted_at = None
+            existing.save(update_fields=['file', 'file_deleted_at'])
+            contenido_id = existing.id
+            duplicate_message = (
+                f'El archivo de "{existing.title}" había expirado y fue restaurado correctamente.'
+            )
+            result = extract_text_advanced(
+                file_path,
+                remove_headers=remove_headers,
+                remove_footers=remove_footers
+            )
+            session_file_path = file_path
+
+        else:
+            # Documento nuevo
+            saved_relative = default_storage.save(f'contenidos/{nombre}', ContentFile(file_bytes))
+            file_path = os.path.join(settings.MEDIA_ROOT, saved_relative)
+
+            result = extract_text_advanced(
+                file_path,
+                remove_headers=remove_headers,
+                remove_footers=remove_footers
+            )
+
+            contenido = Contenido(
+                title=contenido_title,
+                uploaded_by=request.user,
+                file_hash=file_hash,
+            )
+            contenido.file = saved_relative
+            contenido.save()
+            contenido_id = contenido.id
+            session_file_path = file_path
 
         # --- Actualizar sesión ---
         # Eliminar archivo previo de session temporal si era una sesión de doc_sessions
@@ -116,7 +180,7 @@ def upload_and_process_document(request):
         doc_id = str(uuid.uuid4())
         request.session['doc_processor'] = {
             'doc_id': doc_id,
-            'file_path': file_path,
+            'file_path': session_file_path,
             'filename': nombre,
             'remove_headers': remove_headers,
             'remove_footers': remove_footers,
@@ -130,6 +194,7 @@ def upload_and_process_document(request):
             'doc_id': doc_id,
             'filename': nombre,
             'contenido_id': contenido_id,
+            'duplicate_message': duplicate_message,
             'metadata': result.get('metadata', {}),
             'stats': result.get('stats', {}),
             'chapters': [
@@ -365,17 +430,19 @@ def process_contenido_by_id(request, contenido_id):
 @require_http_methods(["GET"])
 def check_local_ai_status(request):
     """
-    Verifica el estado de conexión al servidor local de IA.
-    
+    Verifica el estado de conexión al proveedor de IA configurado por el usuario.
+
     Returns:
-        JSON con estado de conexión y modelos disponibles
+        JSON con estado de conexión y modelo activo
     """
     try:
-        status = local_ai.get_status()
-        return JsonResponse({
-            'success': True,
-            **status
-        })
+        from .ai_router import get_backend_for_user
+        from .models import UserAIConfig
+        config, _ = UserAIConfig.objects.get_or_create(user=request.user)
+        backend = get_backend_for_user(request.user)
+        status = backend.get_status()
+        status['backend'] = config.source
+        return JsonResponse({'success': True, **status})
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -490,10 +557,13 @@ def generate_questions_from_chapters(request):
             }, status=400)
 
         # Verificar servidor IA
-        if not local_ai.check_connection():
+        from .ai_router import get_backend_for_user
+        _ai_backend = get_backend_for_user(request.user)
+        _status = _ai_backend.get_status()
+        if not _status.get('connected'):
             return JsonResponse({
                 'success': False,
-                'error': 'Servidor local de IA no disponible. Verifica la conexión VPN (192.168.12.236:11434).'
+                'error': 'Proveedor de IA no disponible. Verificá tu configuración.'
             }, status=503)
 
         # question_types enviados por el cliente (lista de strings)
@@ -576,7 +646,7 @@ def generate_questions_from_chapters(request):
             for chunk_idx, chunk in enumerate(chunks):
                 chunk_questions = _generate_questions_for_chunk(
                     chunk, title, questions_per_chunk, chunk_idx, len(chunks),
-                    question_types=question_types
+                    question_types=question_types, backend=_ai_backend
                 )
                 all_questions.extend(chunk_questions)
                 logger.info(f"  chunk {chunk_idx + 1}/{len(chunks)}: {len(chunk_questions)} preguntas")
@@ -673,8 +743,8 @@ def _split_into_chunks(content, max_tokens=3000):
     return chunks if chunks else [content]
 
 
-def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None):
-    """Genera preguntas para un fragmento de capítulo usando la IA local.
+def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None):
+    """Genera preguntas para un fragmento de capítulo usando la IA configurada.
 
     Args:
         content: Texto del fragmento a procesar.
@@ -773,11 +843,15 @@ Formato JSON requerido:
 
 Nota sobre bloom_nivel: {bloom_desc}"""
 
-    result = local_ai.generate(prompt=prompt, temperature=0.4, max_tokens=4000)
+    if backend is not None:
+        result = backend.generate(prompt=prompt, temperature=0.4, max_tokens=4000)
+    else:
+        result = local_ai.generate(prompt=prompt, temperature=0.4, max_tokens=4000)
 
     if not result['success']:
-        logger.warning(f"IA falló para chunk {chunk_idx + 1}: {result.get('error', '')}")
-        return []
+        error_msg = result.get('error', 'Error desconocido del proveedor de IA')
+        logger.warning(f"IA falló para chunk {chunk_idx + 1}: {error_msg}")
+        raise RuntimeError(error_msg)
 
     try:
         ai_response = result['text'].strip()
@@ -822,7 +896,7 @@ def stream_questions(request, job_id):
     """
     import json as json_module
 
-    def event_stream(job, user_id):
+    def event_stream(job, user_id, backend):
         # Verificar usuario antes de procesar
         if job.get('user_id') != user_id:
             yield f'data: {json_module.dumps({"type": "error", "message": "No autorizado"})}\n\n'
@@ -892,7 +966,7 @@ def stream_questions(request, job_id):
                 try:
                     raw_questions = _generate_questions_for_chunk(
                         chunk, title, questions_per_chunk, i, len(chunks),
-                        question_types=question_types
+                        question_types=question_types, backend=backend
                     )
                     new_qs = []
                     for q in raw_questions:
@@ -932,8 +1006,11 @@ def stream_questions(request, job_id):
         response['Cache-Control'] = 'no-cache'
         return response
 
+    from .ai_router import get_backend_for_user
+    _sse_backend = get_backend_for_user(request.user)
+
     response = StreamingHttpResponse(
-        event_stream(job, request.user.id),
+        event_stream(job, request.user.id, _sse_backend),
         content_type='text/event-stream'
     )
     response['Cache-Control'] = 'no-cache'
@@ -1291,7 +1368,7 @@ def save_generated_questions(request):
         JSON con resultado de la operación
     """
     import json as json_module
-    from material.models import Question, Subject, Topic
+    from material.models import Question, Subject, Topic, Contenido
     
     try:
         data = json_module.loads(request.body)
@@ -1299,6 +1376,15 @@ def save_generated_questions(request):
         rejected = data.get('rejected', [])
         filename = data.get('filename', 'Documento')
         subject_ids = data.get('subject_ids', [])
+        contenido_id = data.get('contenido_id')
+
+        # Resolver el Contenido de origen si viene informado
+        contenido_origen = None
+        if contenido_id:
+            try:
+                contenido_origen = Contenido.objects.get(id=contenido_id, uploaded_by=request.user)
+            except Contenido.DoesNotExist:
+                pass
         
         saved_count = 0
         
@@ -1336,7 +1422,8 @@ def save_generated_questions(request):
                 bloom_level=q_data.get('bloom_nivel') or None,
                 user=request.user,
                 generated_by_ai=True,
-                ai_approved=True
+                ai_approved=True,
+                contenido=contenido_origen
             )
             
             # Guardar opciones si existen
@@ -1362,7 +1449,8 @@ def save_generated_questions(request):
                 bloom_level=q_data.get('bloom_nivel') or None,
                 user=request.user,
                 generated_by_ai=True,
-                ai_approved=False
+                ai_approved=False,
+                contenido=contenido_origen
             )
             
             if 'opciones' in q_data:

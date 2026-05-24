@@ -1,7 +1,7 @@
 # 🎓 ¿Qué hace EducaApp? - Guía Funcional Completa
 
 > **Guía para usuarios, instituciones educativas y tomadores de decisiones**  
-> Versión: Marzo 2026
+> Versión: Mayo 2026
 
 ---
 
@@ -91,6 +91,23 @@ El sistema acepta diferentes tipos de archivos:
 - **Word (.docx)**: Documentos de texto
 - **PowerPoint (.pptx)**: Presentaciones
 
+#### **Política de Almacenamiento de Archivos**
+
+Cada documento subido tiene un **ciclo de vida claro**:
+
+- 🟡 **Mientras la sesión está activa**: El archivo físico está disponible para procesamiento y generación de preguntas.
+- 🟠 **Al cerrar sesión (logout)**: El archivo físico se elimina automáticamente del servidor.
+- 🟢 **Los metadatos se conservan siempre**: Título, ISBN, edición, editorial, año, páginas y todas las preguntas generadas permanecen en la base de datos indefinidamente.
+
+> Esto significa que aunque no puedas volver a descargar el archivo, la información del libro y sus preguntas están siempre disponibles.
+
+#### **Prevención de Archivos Duplicados**
+
+El sistema detecta automáticamente si ya subiste el mismo archivo:
+
+- Si el archivo **está activo**: El sistema bloquea la re-subida y te avisa que ya existe.
+- Si el archivo **fue eliminado** (la sesión anterior cerró): El sistema lo restaura en lugar de crear un duplicado.
+
 #### **Extracción Automática de Información**
 Cuando sube un PDF, EducaApp **automáticamente extrae**:
 
@@ -141,8 +158,7 @@ Esta es una de las funcionalidades **más potentes** de EducaApp:
    - Revisa cada pregunta y respuesta
    - Marca las que son útiles y apropiadas
    - Descarta las que no cumplen los objetivos
-   - **Guarda TODAS** (útiles y no útiles) para referencia futura
-
+   - **Guarda TODAS** (útiles y no útiles) para referencia futura   - Cada pregunta guardada **registra automáticamente el documento de origen** (título, ISBN, edición) para trazabilidad completa
 6. **Clasificación Inteligente**: Para cada pregunta, el docente puede:
    - **Asignación Manual**: Seleccionar materia, tema y subtema
    - **Asignación Automática**: El sistema sugiere la clasificación más apropiada
@@ -395,10 +411,10 @@ Cada usuario puede:
 - Estadísticas de uso
 
 #### **Mis Contenidos**
-- Todos los documentos subidos
-- Información de cada archivo
-- Eliminar contenidos obsoletos
+- Todos los documentos subidos con su estado actual
+- **Estado del archivo**: Muestra si el archivo está disponible (🟡 se eliminará al cerrar sesión) o ya fue eliminado (🔘 fecha de eliminación)
 - Ver preguntas generadas por documento
+- Los metadatos (ISBN, edición, editorial) se conservan aunque el archivo haya sido eliminado
 
 #### **Historial de Instituciones**
 - Auditoría completa de cambios
@@ -413,14 +429,18 @@ Cada usuario puede:
 ### Flujo 1: Crear un Examen Escrito desde Material Nuevo
 
 1. ✅ Subir documento PDF del libro/capítulo
-2. ✅ El sistema extrae automáticamente ISBN, editorial, año, etc.
-3. ✅ La IA analiza el contenido y genera preguntas
-4. ✅ Revisar y aprobar las preguntas útiles
-5. ✅ Asignar tema/subtema y nivel de Bloom a cada pregunta
-6. ✅ Crear plantilla de examen con configuración institucional
-7. ✅ Seleccionar preguntas del banco
-8. ✅ Vista previa y generación del examen
-9. ✅ Imprimir o exportar
+2. ✅ El sistema detecta si ya subiste ese mismo archivo y lo restaura o bloquea el duplicado
+3. ✅ El sistema extrae automáticamente ISBN, editorial, año, etc.
+4. ✅ La IA analiza el contenido y genera preguntas
+5. ✅ Revisar y aprobar las preguntas útiles
+6. ✅ Cada pregunta queda vinculada al documento de origen (trazabilidad completa)
+7. ✅ Asignar tema/subtema y nivel de Bloom a cada pregunta
+8. ✅ Crear plantilla de examen con configuración institucional
+9. ✅ Seleccionar preguntas del banco
+10. ✅ Vista previa y generación del examen
+11. ✅ Imprimir o exportar
+
+> **Nota de almacenamiento**: El archivo físico se elimina al cerrar sesión. El banco de preguntas y los metadatos del libro quedan disponibles permanentemente.
 
 ### Flujo 2: Evaluar Estudiantes con Examen Oral
 

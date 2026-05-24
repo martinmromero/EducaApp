@@ -395,10 +395,51 @@ def upload_contenido(request):  # Antes upload_material
     if request.method == 'POST':
         form = ContenidoForm(request.POST, request.FILES)
         if form.is_valid():
+            from .cleanup import compute_file_hash
+
+            file_obj = request.FILES.get('file')
+            file_hash = compute_file_hash(file_obj) if file_obj else None
+
+            # --- Deduplicación ---
+            existing = None
+            if file_hash:
+                existing = Contenido.objects.filter(
+                    file_hash=file_hash, uploaded_by=request.user
+                ).first()
+
+            if existing and existing.file_available:
+                messages.warning(
+                    request,
+                    f'Este documento ya existe en tus contenidos: "{existing.title}". '
+                    f'No se creó un duplicado.',
+                    extra_tags='contenidos'
+                )
+                return redirect('material:mis_contenidos')
+
+            if existing and not existing.file_available:
+                # El archivo había expirado — restaurarlo
+                from django.core.files.storage import default_storage
+                from django.core.files.base import ContentFile
+                file_obj.seek(0)
+                saved_relative = default_storage.save(
+                    f'contenidos/{file_obj.name}', ContentFile(file_obj.read())
+                )
+                existing.file = saved_relative
+                existing.file_deleted_at = None
+                existing.save(update_fields=['file', 'file_deleted_at'])
+                messages.success(
+                    request,
+                    f'El archivo de "{existing.title}" había expirado y fue restaurado correctamente.',
+                    extra_tags='contenidos'
+                )
+                return redirect('material:mis_contenidos')
+
+            # --- Nuevo documento ---
             contenido = form.save(commit=False)
             contenido.uploaded_by = request.user
+            contenido.file_hash = file_hash
             contenido.save()
-            form.save_m2m()  # Guardar relaciones M2M (materias)
+            form.save_m2m()
             messages.success(request, 'Los archivos se subieron correctamente.', extra_tags='contenidos')
             return redirect('material:mis_contenidos')
     else:
@@ -499,7 +540,9 @@ def save_selected_questions(request, contenido_id):
                     answer_text='Respuesta generada por IA',
                     topic=default_topic,
                     subtopic=None,
-                    user=request.user
+                    user=request.user,
+                    generated_by_ai=True,
+                    ai_approved=True
                 )
                 q.subjects.add(default_subject)
         messages.success(request, 'Preguntas guardadas correctamente.', extra_tags='preguntas')
@@ -3938,7 +3981,11 @@ def ai_config_view(request):
         source = request.POST.get('source', 'ollama_local')
         config.source = source
 
-        if source == 'byok':
+        if source == 'ollama_local':
+            raw_ollama_url = request.POST.get('ollama_url', '').strip()
+            config.ollama_url = raw_ollama_url or None
+
+        elif source == 'byok':
             config.provider = request.POST.get('provider', 'openai')
             config.model = request.POST.get('model', '').strip() or 'gpt-4o-mini'
             config.base_url = request.POST.get('base_url', '').strip() or None
@@ -3962,20 +4009,103 @@ def ai_config_view(request):
         'config': config,
         'institutions_with_ai': institutions_with_ai,
         'has_api_key': bool(config.api_key_encrypted),
+        'is_staff': request.user.is_staff,
+        'default_ollama_url': 'http://192.168.12.236:11434',
     }
     return render(request, 'material/ai_config.html', context)
 
 
 @login_required
+@login_required
 def ai_config_status(request):
     """Endpoint JSON que devuelve el estado actual del backend configurado."""
     from django.http import JsonResponse
     from .ai_router import get_backend_for_user
+    from .models import UserAIConfig
 
+    config, _ = UserAIConfig.objects.get_or_create(user=request.user)
     backend = get_backend_for_user(request.user)
     try:
         status = backend.get_status()
+        # Siempre devolver el source real del usuario como 'backend'
+        status['backend'] = config.source
     except Exception as e:
-        status = {'connected': False, 'error': str(e)}
+        status = {'connected': False, 'error': str(e), 'backend': config.source}
     return JsonResponse(status)
+
+
+@login_required
+def institution_ai_config_view(request):
+    """Vista para que los administradores gestionen InstitutionAIConfig."""
+    from .models import InstitutionAIConfig, InstitutionV2
+
+    if not request.user.is_staff:
+        messages.error(request, 'No tenés permiso para acceder a esta sección.')
+        return redirect('material:ai_config')
+
+    # ── Eliminar ──
+    if 'delete' in request.GET and request.method == 'POST':
+        try:
+            cfg = InstitutionAIConfig.objects.get(pk=int(request.GET['delete']))
+            cfg.delete()
+            messages.success(request, 'Configuración eliminada.')
+        except (InstitutionAIConfig.DoesNotExist, ValueError):
+            messages.error(request, 'Configuración no encontrada.')
+        return redirect('material:institution_ai_config')
+
+    # ── Crear / Editar ──
+    if request.method == 'POST':
+        config_id = request.POST.get('config_id', '').strip()
+        institution_id = request.POST.get('institution_id', '').strip()
+        provider = request.POST.get('provider', 'openai').strip()
+        model = request.POST.get('model', '').strip() or 'gpt-4o-mini'
+        base_url = request.POST.get('base_url', '').strip() or None
+        raw_key = request.POST.get('api_key', '').strip()
+        is_active = bool(request.POST.get('is_active'))
+
+        if config_id:
+            try:
+                cfg = InstitutionAIConfig.objects.get(pk=int(config_id))
+            except (InstitutionAIConfig.DoesNotExist, ValueError):
+                messages.error(request, 'Configuración no encontrada.')
+                return redirect('material:institution_ai_config')
+        else:
+            try:
+                institution = InstitutionV2.objects.get(pk=int(institution_id))
+            except (InstitutionV2.DoesNotExist, ValueError):
+                messages.error(request, 'Institución no válida.')
+                return redirect('material:institution_ai_config')
+            cfg = InstitutionAIConfig(institution=institution)
+
+        cfg.provider = provider
+        cfg.model = model
+        cfg.base_url = base_url
+        cfg.is_active = is_active
+        if raw_key:
+            cfg.api_key = raw_key
+        cfg.save()
+        messages.success(request, f'Configuración para "{cfg.institution.name}" guardada correctamente.')
+        return redirect('material:institution_ai_config')
+
+    # ── GET ──
+    editing = None
+    if 'edit' in request.GET:
+        try:
+            editing = InstitutionAIConfig.objects.select_related('institution').get(
+                pk=int(request.GET['edit'])
+            )
+        except (InstitutionAIConfig.DoesNotExist, ValueError):
+            pass
+
+    configs = InstitutionAIConfig.objects.select_related('institution').order_by('institution__name')
+    configured_ids = configs.values_list('institution_id', flat=True)
+    available_institutions = InstitutionV2.objects.filter(
+        is_active=True
+    ).exclude(pk__in=configured_ids).order_by('name')
+
+    return render(request, 'material/institution_ai_config.html', {
+        'configs': configs,
+        'editing': editing,
+        'available_institutions': available_institutions,
+    })
 

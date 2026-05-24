@@ -375,7 +375,7 @@ class Subtopic(models.Model):
 
 class Contenido(models.Model):
     title = models.CharField(max_length=255)
-    file = models.FileField(upload_to='contenidos/')
+    file = models.FileField(upload_to='contenidos/', blank=True, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
     subjects = models.ManyToManyField(
@@ -395,6 +395,24 @@ class Contenido(models.Model):
         null=True,
         verbose_name='Capítulo (opcional)'
     )
+    file_deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Archivo eliminado el',
+        help_text='Fecha en que el archivo físico fue eliminado automáticamente (7 días tras la subida). Los metadatos se conservan.'
+    )
+    file_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        db_index=True,
+        verbose_name='Hash SHA-256 del archivo',
+        help_text='Huella digital del archivo para detectar duplicados. Se calcula al subir.'
+    )
+
+    @property
+    def file_available(self):
+        return bool(self.file) and self.file_deleted_at is None
 
     def __str__(self):
         subjects = ', '.join(str(s) for s in self.subjects.all()) or 'Sin materia'
@@ -1658,6 +1676,12 @@ class UserAIConfig(models.Model):
         null=True,
         verbose_name="URL base",
         help_text="Solo para endpoints compatibles con OpenAI.",
+    )
+    ollama_url = models.URLField(
+        blank=True,
+        null=True,
+        verbose_name="URL de Ollama",
+        help_text="URL del servidor Ollama. Por defecto: http://192.168.12.236:11434",
     )
     # Institutional
     institution = models.ForeignKey(

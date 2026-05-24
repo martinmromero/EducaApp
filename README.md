@@ -25,6 +25,9 @@ EducaApp es un sistema integral de gestión educativa desarrollado en Django que
 - **Temas y Subtemas**: Organización temática jerárquica del contenido educativo
 - **Preguntas**: Banco de preguntas con filtros cascada (materia → tema → subtema)
 - **Contenidos Educativos**: Gestión de materiales con metadata automática (libros, PDFs, documentos)
+- **Trazabilidad de Preguntas**: Cada pregunta guarda el documento de origen (Contenido), sea cargada manualmente o generada por IA
+- **Deduplicación de Archivos**: Hash SHA-256 por usuario; rechaza duplicados activos y restaura archivos expirados automáticamente
+- **Expiración por Sesión**: Los archivos físicos se eliminan al cerrar sesión (logout o restart de la app); metadatos y preguntas se conservan siempre
 
 ### � Sistema de Rúbricas
 - **Biblioteca personal de rúbricas**: Creación, edición y eliminación de rúbricas propias
@@ -235,6 +238,13 @@ python manage.py test material.tests
 - **División Inteligente**: Segmentación de texto en chunks optimizados
 - **Optimización de Texto**: Conversión y limpieza de contenido para procesamiento
 
+### Gestión del Ciclo de Vida de Archivos
+- **Trazabilidad**: `Question.contenido` FK opcional — guarda el documento de origen en preguntas manuales y generadas por IA
+- **Deduplicación SHA-256**: `Contenido.file_hash` previene subidas duplicadas por usuario; restaura archivos expirados si se re-sube el mismo documento
+- **Expiración por Sesión**: Archivos eliminados en logout (`user_logged_out` signal) y al reiniciar si no hay sesión activa (`cleanup_files_for_inactive_sessions()` en `AppConfig.ready()`)
+- **Cloud-compatible**: Toda eliminación usa `default_storage.delete()` con fallback a `os.remove()` para almacenamiento local
+- **Metadatos preservados**: `file_deleted_at`, `file_hash`, título, ISBN, etc. se conservan aunque el archivo físico sea eliminado
+
 ### Gestión Institucional Avanzada
 - **Relaciones Multi-nivel**: Instituciones, Facultades, Campus, Carreras y Materias
 - **Sistema de Logs**: Auditoría completa de cambios en instituciones
@@ -250,6 +260,16 @@ python manage.py test material.tests
 5. Abre un Pull Request
 
 ## 📝 Changelog
+
+### [2026-05-23]
+- ✅ **Feature**: Trazabilidad de documentos — cada pregunta almacena el `Contenido` de origen, tanto en carga manual como en generación por IA
+- ✅ **Feature**: Deduplicación de archivos con SHA-256 (`Contenido.file_hash`); bloquea re-subidas activas y restaura archivos expirados
+- ✅ **Feature**: Expiración de archivos por sesión — eliminación inmediata al logout via señal `user_logged_out` y al arranque via `cleanup_files_for_inactive_sessions()`
+- ✅ **Feature**: `material/cleanup.py` — módulo centralizado con `compute_file_hash()`, `cleanup_files_for_user()` y `cleanup_files_for_inactive_sessions()`
+- ✅ **Migration**: `0023_contenido_file_expiry` — campo `file` nullable + `file_deleted_at`
+- ✅ **Migration**: `0024_contenido_file_hash` — campo `file_hash` indexado
+- ✅ **Improvement**: `Mis Contenidos` muestra estado de archivo ("Se elimina al cerrar sesión" / "Eliminado el dd/mm/aaaa")
+- ✅ **Improvement**: Mensajes de alerta actualizados en templates de subida de contenido
 
 ### [2026-03-24]
 - ✅ **Cleanup**: Limpieza de archivos obsoletos, backups y documentos de instalación históricos

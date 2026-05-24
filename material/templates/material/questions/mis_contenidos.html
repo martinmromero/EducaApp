@@ -8,6 +8,15 @@
     <!-- Mensajes específicos de contenidos -->
     {% show_messages "contenidos" %}
 
+    <!-- Aviso general de política de expiración -->
+    <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="alert">
+        <i class="bi bi-clock-history fs-5 mt-1 flex-shrink-0"></i>
+        <div>
+            <strong>Política de almacenamiento:</strong> Los archivos físicos se eliminan al <strong>cerrar sesión</strong>.
+            Los metadatos y las preguntas vinculadas se conservan siempre.
+        </div>
+    </div>
+
     <!-- Formulario para eliminar contenidos seleccionados -->
     <form method="post" action="{% url 'material:delete_contenido' %}" id="deleteForm">
         {% csrf_token %}
@@ -19,6 +28,7 @@
                         <th>Título</th>
                         <th>Archivo</th>
                         <th>Fecha de subida</th>
+                        <th>Estado del archivo</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -29,18 +39,41 @@
                             <input type="checkbox" name="contenido_ids" value="{{ contenido.id }}">
                         </td>
                         <td>{{ contenido.title }}</td>
-                        <td>{{ contenido.file.name }}</td>
-                        <td>{{ contenido.uploaded_at }}</td>
                         <td>
+                            {% if contenido.file_available %}
+                                <span class="text-success"><i class="bi bi-file-earmark-check me-1"></i>{{ contenido.file.name }}</span>
+                            {% else %}
+                                <span class="text-muted"><i class="bi bi-file-earmark-x me-1"></i>Archivo eliminado</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ contenido.uploaded_at|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            {% if contenido.file_deleted_at %}
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-trash me-1"></i>Eliminado el {{ contenido.file_deleted_at|date:"d/m/Y" }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="bi bi-clock me-1"></i>Se elimina al cerrar sesión
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if contenido.file_available %}
                             <a href="{% url 'material:document_processor_dashboard' %}?contenido_id={{ contenido.id }}"
                                class="btn btn-sm btn-primary">
                                 Analizar con IA
                             </a>
+                            {% else %}
+                            <span class="btn btn-sm btn-secondary disabled" title="El archivo ya no está disponible">
+                                Archivo expirado
+                            </span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5">No hay contenidos subidos aún.</td>
+                        <td colspan="6">No hay contenidos subidos aún.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

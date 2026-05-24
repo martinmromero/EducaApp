@@ -18,20 +18,23 @@
                         {% if local_ai_connected %}
                         <span class="badge bg-success px-3 py-2">
                             <i class="fas fa-circle me-2 blink"></i>
-                            <span class="fw-bold">Servidor Local IA Conectado</span>
+                            <span class="fw-bold">IA Conectada</span>
                         </span>
                         {% else %}
                         <span class="badge bg-warning text-dark px-3 py-2">
                             <i class="fas fa-exclamation-circle me-2"></i>
-                            <span class="fw-bold">Servidor Local IA Desconectado</span>
+                            <span class="fw-bold">IA Desconectada</span>
                         </span>
                         {% endif %}
                         <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
                             <i class="fas fa-sync"></i>
                         </button>
+                        <a href="{% url 'material:ai_config' %}" class="btn btn-sm btn-outline-primary ms-1" title="Configurar proveedor de IA">
+                            <i class="fas fa-cog"></i>
+                        </a>
                     </div>
-                    <small class="text-muted d-block mt-1 text-end">
-                        {{ local_ai_url }}
+                    <small class="text-muted d-block mt-1 text-end" id="aiStatusDetail">
+                        {% if local_ai_connected %}{{ local_ai_url }}{% endif %}
                         <span id="unlimitedTokensBadge" style="display: {% if local_ai_connected %}inline{% else %}none{% endif %};">
                             | <i class="fas fa-infinity text-success"></i> <strong class="text-success">Tokens ilimitados</strong>
                         </span>
@@ -192,8 +195,8 @@
                             
                             <div id="modelsDisconnected" class="alert alert-warning" style="display:none;">
                                 <i class="fas fa-exclamation-triangle"></i> 
-                                No hay conexión con el servidor local de IA. 
-                                <br><small>Asegúrate de estar conectado a la VPN.</small>
+                                No hay conexión con el proveedor de IA configurado.
+                                <br><small><a href="{% url 'material:ai_config' %}">Verificar configuración de IA</a></small>
                             </div>
                             
                             <div id="modelsListContainer" class="table-responsive">
@@ -575,7 +578,12 @@ document.getElementById('uploadDocumentForm').addEventListener('submit', async f
 });
 
 function displayDocumentResult(data) {
-    let html = `
+    // Aviso de duplicado si aplica
+    const dupAlert = data.duplicate_message
+        ? `<div class="alert alert-warning py-2 mb-2"><i class="bi bi-exclamation-triangle me-1"></i>${data.duplicate_message}</div>`
+        : '';
+
+    let html = dupAlert + `
         <h5>${data.filename}
             ${data.contenido_id ? `<a id="contenidoSavedBadge" href="{% url 'material:mis_contenidos' %}" class="badge bg-success ms-2 text-decoration-none"><i class="fas fa-check"></i> Guardado en Mis Contenidos</a>` : ''}
         </h5>
@@ -705,17 +713,22 @@ async function checkLocalAIStatus() {
         const statusDiv = document.getElementById('localAIStatus');
         const unlimitedBadge = document.getElementById('unlimitedTokensBadge');
         
+        const aiConfigUrl = '{% url "material:ai_config" %}';
+        const providerLabel = data.provider || data.backend || 'IA';
         if (data.connected) {
             statusDiv.innerHTML = `
                 <span class="badge bg-success px-3 py-2">
                     <i class="fas fa-circle me-2 blink"></i>
-                    <span class="fw-bold">Servidor Local IA Conectado</span>
+                    <span class="fw-bold">IA Conectada (${providerLabel})</span>
                 </span>
                 <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
                     <i class="fas fa-sync"></i>
                 </button>
+                <a href="${aiConfigUrl}" class="btn btn-sm btn-outline-primary ms-1" title="Configurar proveedor de IA">
+                    <i class="fas fa-cog"></i>
+                </a>
             `;
-            unlimitedBadge.style.display = 'inline';
+            unlimitedBadge.style.display = data.backend === 'ollama_local' ? 'inline' : 'none';
             
             // Actualizar contador de modelos si está disponible
             if (data.models_count !== undefined) {
@@ -725,11 +738,14 @@ async function checkLocalAIStatus() {
             statusDiv.innerHTML = `
                 <span class="badge bg-warning text-dark px-3 py-2">
                     <i class="fas fa-exclamation-circle me-2"></i>
-                    <span class="fw-bold">Servidor Local IA Desconectado</span>
+                    <span class="fw-bold">IA Desconectada</span>
                 </span>
                 <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
                     <i class="fas fa-sync"></i>
                 </button>
+                <a href="${aiConfigUrl}" class="btn btn-sm btn-outline-primary ms-1" title="Configurar proveedor de IA">
+                    <i class="fas fa-cog"></i>
+                </a>
             `;
             unlimitedBadge.style.display = 'none';
             document.getElementById('modelsCountBadge').textContent = '0';
@@ -920,11 +936,12 @@ async function generateQuestionsFromSelected() {
         const statusData = await statusResponse.json();
 
         if (!statusData.connected) {
-            alert('⚠️ Servidor de IA no disponible\n\nAsegúrate de estar conectado a la VPN de la intranet antes de generar preguntas.\n\nServidor: 192.168.12.236:11434');
+            const providerMsg = statusData.provider || statusData.backend || 'IA';
+            alert(`⚠️ Proveedor de IA no disponible\n\nVerificá tu configuración en Proveedor de IA antes de generar preguntas.\n\nProveedor activo: ${providerMsg}`);
             return;
         }
     } catch (error) {
-        alert('❌ No se pudo verificar el servidor de IA. Revisa tu conexión VPN.');
+        alert('❌ No se pudo verificar el estado del proveedor de IA. Verificá tu conexión.');
         return;
     }
 
@@ -1041,7 +1058,7 @@ async function generateBatch() {
                 <div class="alert alert-warning">
                     <i class="fas fa-exclamation-triangle"></i>
                     <strong>No se pudieron generar preguntas</strong><br>
-                    ${data.error || 'Error desconocido. Intenta con otros capítulos o verifica la conexión VPN.'}
+                    ${data.error || 'Error desconocido. Intentá con otros capítulos o verificá tu configuración de IA.'}
                 </div>`;
         }
     } catch (error) {
@@ -1051,7 +1068,7 @@ async function generateBatch() {
                 <i class="fas fa-times-circle"></i>
                 <strong>Error de conexión</strong><br>
                 ${error.message}<br>
-                <small class="text-muted">Verifica que estés conectado a la VPN (192.168.12.236:11434)</small>
+                <small class="text-muted">Verificá tu <a href="{% url 'material:ai_config' %}">configuración de proveedor de IA</a></small>
             </div>`;
         console.error('Error:', error);
     }
@@ -1419,7 +1436,8 @@ async function doSaveQuestions(subjectIds) {
                 approved: approvedQuestions,
                 rejected: rejectedQuestions,
                 filename: window.currentDocumentData.filename,
-                subject_ids: subjectIds
+                subject_ids: subjectIds,
+                contenido_id: window.currentDocumentData.contenido_id || null
             })
         });
         
@@ -1937,7 +1955,7 @@ async function generateFromPageSelection() {
     const statusResp = await fetch('{% url "material:check_local_ai_status" %}');
     const statusData = await statusResp.json();
     if (!statusData.connected) {
-      alert('⚠️ Servidor de IA no disponible. Verificá la conexión VPN.');
+      alert('⚠️ Proveedor de IA no disponible. Verificá tu configuración.');
       return;
     }
   } catch (e) {

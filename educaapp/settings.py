@@ -1,13 +1,23 @@
 from pathlib import Path
 import os
 
+# Cargar variables de entorno desde .env si existe
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(Path(__file__).resolve().parent.parent, '.env'))
+except ImportError:
+    pass  # python-dotenv no instalado; usar variables del sistema
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Quick-start development settings - unsuitable for production
-SECRET_KEY = 'django-insecure-d-@xe!&5f3#io6!3ach#f3!k$3uj6%7)42gc$0)7@cbpbj%++b'
-DEBUG = True
-ALLOWED_HOSTS = []
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'django-insecure-d-@xe!&5f3#io6!3ach#f3!k$3uj6%7)42gc$0)7@cbpbj%++b'
+)
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h.strip()]
 
 # Application definition
 INSTALLED_APPS = [

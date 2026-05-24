@@ -24,11 +24,18 @@ logger = logging.getLogger(__name__)
 # Backend: Ollama local
 # ---------------------------------------------------------------------------
 class OllamaBackend:
-    """Delega en la instancia global de LocalAIClient."""
+    """Delega en la instancia global de LocalAIClient, con soporte para URL personalizada."""
 
-    def __init__(self):
-        from .local_ai_client import local_ai
-        self._client = local_ai
+    def __init__(self, ollama_url: Optional[str] = None):
+        from .local_ai_client import local_ai, LocalAIClient
+        if ollama_url:
+            from urllib.parse import urlparse
+            parsed = urlparse(ollama_url)
+            host = parsed.hostname or '192.168.12.236'
+            port = parsed.port or 11434
+            self._client = LocalAIClient(host=host, port=port)
+        else:
+            self._client = local_ai
 
     def is_available(self) -> bool:
         return self._client.is_available()
@@ -50,6 +57,7 @@ class OpenAICompatibleBackend:
 
     PRESET_URLS = {
         'openai': 'https://api.openai.com/v1',
+        'gemini': 'https://generativelanguage.googleapis.com/v1beta/openai',
         'groq': 'https://api.groq.com/openai/v1',
         'mistral': 'https://api.mistral.ai/v1',
         'openrouter': 'https://openrouter.ai/api/v1',
@@ -59,10 +67,14 @@ class OpenAICompatibleBackend:
 
     def __init__(self, api_key: str, model: str, base_url: Optional[str], provider: str):
         self.api_key = api_key
-        self.model = model or 'gpt-4o-mini'
         preset = self.PRESET_URLS.get(provider)
         self.base_url = (base_url or preset or 'https://api.openai.com/v1').rstrip('/')
         self.provider = provider
+        # Gemini requiere el prefijo "models/" en el nombre del modelo
+        raw_model = model or ('models/gemini-flash-lite-latest' if provider == 'gemini' else 'gpt-4o-mini')
+        if provider == 'gemini' and raw_model and not raw_model.startswith('models/'):
+            raw_model = f'models/{raw_model}'
+        self.model = raw_model
 
     def _headers(self):
         return {
@@ -213,7 +225,7 @@ def get_backend_for_user(user) -> 'OllamaBackend | OpenAICompatibleBackend | Ant
     source = config.source
 
     if source == 'ollama_local':
-        return OllamaBackend()
+        return OllamaBackend(ollama_url=config.ollama_url or None)
 
     if source == 'byok':
         if not config.api_key_encrypted:

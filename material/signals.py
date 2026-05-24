@@ -1,6 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth.models import User
+from django.contrib.auth.signals import user_logged_out
 from .models import Profile
 import logging
 
@@ -33,3 +34,21 @@ def save_user_profile(sender, instance, **kwargs):
         logger.debug(f"Perfil actualizado para {instance.username}")
     except Exception as e:
         logger.error(f"Error actualizando perfil de {instance.username}: {str(e)}")
+
+
+@receiver(user_logged_out)
+def delete_contenido_files_on_logout(sender, request, user, **kwargs):
+    """
+    Al cerrar sesión, elimina todos los archivos de Contenido del usuario.
+    Los metadatos (ISBN, título, etc.) y las preguntas vinculadas se conservan.
+    """
+    if user is None:
+        return
+    try:
+        from .cleanup import cleanup_files_for_user
+        cleanup_files_for_user(user)
+    except Exception as exc:
+        logger.warning(
+            "Error al limpiar archivos de contenido en logout de %s: %s",
+            getattr(user, 'username', '?'), exc
+        )
