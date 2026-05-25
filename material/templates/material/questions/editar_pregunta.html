@@ -1,14 +1,436 @@
 {% extends 'material/base.html' %}
-{% load crispy_forms_tags %}
 
 {% block content %}
-<div class="container">
-    <h2>Editar Pregunta</h2>
-    <form method="post">
-        {% csrf_token %}
-        {{ form|crispy }}
-        <button type="submit" class="btn btn-primary">Guardar cambios</button>
-        <a href="{% url 'material:lista_preguntas' %}" class="btn btn-secondary">Cancelar</a>
-    </form>
+<div class="container-lg py-4">
+
+  <!-- Encabezado -->
+  <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+    <a href="{% url 'material:lista_preguntas' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="fas fa-arrow-left me-1"></i> Volver
+    </a>
+    <h2 class="mb-0 fs-4 fw-bold">
+      <i class="fas fa-edit me-2 text-warning"></i>Editar pregunta
+    </h2>
+    {% if pregunta.generated_by_ai %}
+      <span class="badge bg-info text-dark"><i class="fas fa-robot me-1"></i>Generada por IA</span>
+    {% endif %}
+    {% if pregunta.question_type %}
+      <span class="badge bg-secondary">{{ pregunta.get_question_type_display }}</span>
+    {% endif %}
+  </div>
+
+  <form method="post" enctype="multipart/form-data" id="editarPreguntaForm">
+    {% csrf_token %}
+    {{ form.options_json }}
+
+    {% if form.errors %}
+    <div class="alert alert-danger mb-3">
+      <strong>Corregí los siguientes errores:</strong>
+      <ul class="mb-0 mt-1">
+        {% for field in form %}{% for error in field.errors %}
+          <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+        {% endfor %}{% endfor %}
+        {% for error in form.non_field_errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="row g-4">
+
+      <!-- ── Columna izquierda ───────────────────────────────────── -->
+      <div class="col-lg-8">
+
+        <!-- Card: Tipo + Texto de pregunta -->
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-primary text-white d-flex align-items-center gap-2">
+            <i class="fas fa-question-circle"></i>
+            <span class="fw-semibold">Pregunta</span>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Tipo de pregunta</label>
+              {{ form.question_type }}
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Texto de la pregunta <span class="text-danger">*</span></label>
+              {{ form.question_text }}
+            </div>
+            <!-- Imagen de pregunta — almacenada en Base64 -->
+            <div class="mb-0">
+              <label class="form-label fw-semibold text-muted small">Imagen de la pregunta <small>(opcional)</small></label>
+              {{ form.clear_question_image }}
+              {% if pregunta.question_image_b64 %}
+                <div class="mb-2 position-relative d-inline-block" id="qImgPreviewWrap">
+                  <img src="{{ pregunta.question_image_b64 }}" class="img-thumbnail" style="max-height:140px;display:block" alt="imagen pregunta" id="qImgPreview">
+                  <button type="button" class="btn btn-sm btn-danger mt-1" id="qImgClearBtn"
+                    onclick="clearImage('question_image','qImgPreviewWrap','clear_question_image')">
+                    <i class="fas fa-trash-alt me-1"></i>Eliminar imagen
+                  </button>
+                </div>
+              {% else %}
+                <div id="qImgPreviewWrap" style="display:none"></div>
+              {% endif %}
+              <div id="qImgNewBlock"{% if pregunta.question_image_b64 %} style="display:none"{% endif %}>
+                {{ form.question_image }}
+                <div class="form-text">JPG, PNG o SVG. Máx. recomendado: 1 MB.</div>
+              </div>
+              {% if pregunta.question_image_b64 %}
+              <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="qImgChangeBtn"
+                onclick="document.getElementById('qImgNewBlock').style.display='';this.style.display='none'">
+                <i class="fas fa-exchange-alt me-1"></i>Cambiar imagen
+              </button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Opciones múltiples (visible solo para opcion_multiple) -->
+        <div class="card shadow-sm mb-4" id="optionsCard" style="display:none">
+          <div class="card-header bg-info text-white d-flex align-items-center gap-2">
+            <i class="fas fa-list-ul"></i>
+            <span class="fw-semibold">Opciones</span>
+            <small class="ms-auto">A, B, C, D</small>
+          </div>
+          <div class="card-body">
+            <p class="text-muted small mb-3">Editá el texto de cada opción. La respuesta correcta se define en la sección siguiente.</p>
+            <div class="row g-2" id="optionInputsBlock">
+              <div class="col-12">
+                <div class="input-group mb-2">
+                  <span class="input-group-text fw-bold">A</span>
+                  <input type="text" class="form-control option-input" id="optA" placeholder="Opción A">
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="input-group mb-2">
+                  <span class="input-group-text fw-bold">B</span>
+                  <input type="text" class="form-control option-input" id="optB" placeholder="Opción B">
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="input-group mb-2">
+                  <span class="input-group-text fw-bold">C</span>
+                  <input type="text" class="form-control option-input" id="optC" placeholder="Opción C">
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="input-group mb-2">
+                  <span class="input-group-text fw-bold">D</span>
+                  <input type="text" class="form-control option-input" id="optD" placeholder="Opción D">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Respuesta -->
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-success text-white d-flex align-items-center gap-2">
+            <i class="fas fa-check-circle"></i>
+            <span class="fw-semibold" id="answerCardTitle">Respuesta correcta</span>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              {{ form.answer_text }}
+            </div>
+            <!-- Imagen de respuesta — almacenada en Base64 -->
+            <div class="mb-0">
+              <label class="form-label fw-semibold text-muted small">Imagen de la respuesta <small>(opcional)</small></label>
+              {{ form.clear_answer_image }}
+              {% if pregunta.answer_image_b64 %}
+                <div class="mb-2 position-relative d-inline-block" id="aImgPreviewWrap">
+                  <img src="{{ pregunta.answer_image_b64 }}" class="img-thumbnail" style="max-height:140px;display:block" alt="imagen respuesta" id="aImgPreview">
+                  <button type="button" class="btn btn-sm btn-danger mt-1"
+                    onclick="clearImage('answer_image','aImgPreviewWrap','clear_answer_image')">
+                    <i class="fas fa-trash-alt me-1"></i>Eliminar imagen
+                  </button>
+                </div>
+              {% else %}
+                <div id="aImgPreviewWrap" style="display:none"></div>
+              {% endif %}
+              <div id="aImgNewBlock"{% if pregunta.answer_image_b64 %} style="display:none"{% endif %}>
+                {{ form.answer_image }}
+                <div class="form-text">JPG, PNG o SVG. Máx. recomendado: 1 MB.</div>
+              </div>
+              {% if pregunta.answer_image_b64 %}
+              <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="aImgChangeBtn"
+                onclick="document.getElementById('aImgNewBlock').style.display='';this.style.display='none'">
+                <i class="fas fa-exchange-alt me-1"></i>Cambiar imagen
+              </button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /col-lg-8 -->
+
+      <!-- ── Columna derecha ────────────────────────────────────── -->
+      <div class="col-lg-4">
+
+        <!-- Card: Dificultad + Bloom -->
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-warning text-dark d-flex align-items-center gap-2">
+            <i class="fas fa-sliders-h"></i>
+            <span class="fw-semibold">Clasificación</span>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Dificultad</label>
+              {{ form.difficulty }}
+            </div>
+            <div class="mb-0">
+              <label class="form-label fw-semibold">Nivel de Bloom</label>
+              {{ form.bloom_level }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Materia, Tema, Subtema -->
+        <div class="card shadow-sm mb-4">
+          <div class="card-header d-flex align-items-center gap-2">
+            <i class="fas fa-book text-primary"></i>
+            <span class="fw-semibold">Materia y tema</span>
+          </div>
+          <div class="card-body">
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Materia(s)</label>
+              {{ form.subjects }}
+              <div class="form-text">Ctrl+clic para seleccionar varias.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Tema <span class="text-danger">*</span></label>
+              <div class="d-flex gap-1 align-items-center">
+                {{ form.topic }}
+                <span id="topicSpinner" class="spinner-border spinner-border-sm text-secondary ms-1" style="display:none!important" role="status"></span>
+              </div>
+              {% if form.topic.errors %}
+                <div class="text-danger small mt-1">{{ form.topic.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="mb-0">
+              <label class="form-label fw-semibold">Subtema <small class="text-muted">(opcional)</small></label>
+              {{ form.subtopic }}
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Card: Fuente -->
+        <div class="card shadow-sm mb-4">
+          <div class="card-header d-flex align-items-center gap-2">
+            <i class="fas fa-file-alt text-secondary"></i>
+            <span class="fw-semibold">Fuente del documento</span>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Contenido / Documento</label>
+              {{ form.contenido }}
+              <div class="form-text">Documento del que proviene esta pregunta.</div>
+            </div>
+            <div class="mb-0">
+              <label class="form-label fw-semibold">Página de referencia</label>
+              {{ form.source_page }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones de acción -->
+        <div class="d-grid gap-2">
+          <button type="submit" class="btn btn-primary btn-lg">
+            <i class="fas fa-save me-2"></i>Guardar cambios
+          </button>
+          <a href="{% url 'material:lista_preguntas' %}" class="btn btn-outline-secondary">
+            Cancelar
+          </a>
+        </div>
+
+      </div><!-- /col-lg-4 -->
+    </div><!-- /row -->
+  </form>
 </div>
+
+<script>
+(function () {
+  // ── Datos iniciales desde el servidor ──────────────────────────────────
+  const initialOptionsJson = {{ pregunta.options_json|default:"null"|safe }};
+  const initialType        = '{{ pregunta.question_type|default:"" }}';
+
+  // ── Referencias DOM ────────────────────────────────────────────────────
+  const typeSelect    = document.getElementById('id_question_type');
+  const optionsCard   = document.getElementById('optionsCard');
+  const optA          = document.getElementById('optA');
+  const optB          = document.getElementById('optB');
+  const optC          = document.getElementById('optC');
+  const optD          = document.getElementById('optD');
+  const optJsonHidden = document.getElementById('id_options_json');
+  const answerTitle   = document.getElementById('answerCardTitle');
+  const subjectsSel   = document.getElementById('id_subjects');
+  const topicSel      = document.getElementById('id_topic');
+  const subtopicSel   = document.getElementById('id_subtopic');
+  const topicSpinner  = document.getElementById('topicSpinner');
+
+  // ── Tipo de pregunta → mostrar / ocultar opciones ─────────────────────
+  function onTypeChange() {
+    const t = typeSelect ? typeSelect.value : '';
+    const showOpts = (t === 'opcion_multiple');
+    optionsCard.style.display = showOpts ? '' : 'none';
+    if (answerTitle) {
+      answerTitle.textContent = (t === 'verdadero_falso')
+        ? 'Valor correcto (Verdadero / Falso)'
+        : (t === 'completar_blank') ? 'Texto que completa el espacio'
+        : (t === 'desarrollo') ? 'Respuesta de desarrollo / pauta'
+        : 'Respuesta correcta';
+    }
+  }
+
+  // ── Cargar opciones A-D desde options_json ────────────────────────────
+  function loadOptionsFromJson(json) {
+    if (!Array.isArray(json)) return;
+    const inputs = [optA, optB, optC, optD];
+    json.forEach((val, i) => { if (inputs[i]) inputs[i].value = val || ''; });
+  }
+
+  // ── Serializar opciones A-D a options_json antes de submit ───────────
+  function serializeOptions() {
+    if (!optJsonHidden) return;
+    const t = typeSelect ? typeSelect.value : '';
+    if (t === 'opcion_multiple') {
+      const opts = [optA, optB, optC, optD].map(el => (el ? el.value.trim() : ''));
+      optJsonHidden.value = JSON.stringify(opts);
+    }
+    // Para otros tipos no tocamos options_json (puede estar vacío)
+  }
+
+  // ── AJAX: cargar temas al cambiar materia ─────────────────────────────
+  async function loadTopics(subjectId, keepTopicId) {
+    if (!topicSel) return;
+    topicSpinner.style.display = '';
+    topicSel.disabled = true;
+    subtopicSel.disabled = true;
+    subtopicSel.innerHTML = '<option value="">— Sin subtema —</option>';
+
+    try {
+      const url = '{% url "material:get_topics_by_subject" 0 %}'.replace('/0/', `/${subjectId}/`);
+      const resp = await fetch(url);
+      const data = await resp.json();
+      topicSel.innerHTML = '<option value="">— Sin tema —</option>';
+      if (data.success) {
+        data.topics.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.id;
+          opt.textContent = t.name;
+          opt.dataset.subtopics = JSON.stringify(t.subtopics);
+          if (keepTopicId && parseInt(keepTopicId) === t.id) opt.selected = true;
+          topicSel.appendChild(opt);
+        });
+      }
+    } catch (e) {
+      console.error('Error cargando temas:', e);
+    } finally {
+      topicSpinner.style.display = 'none';
+      topicSel.disabled = false;
+      subtopicSel.disabled = false;
+      onTopicChange();
+    }
+  }
+
+  function getSelectedSubjectId() {
+    if (!subjectsSel) return null;
+    const selected = [...subjectsSel.options].filter(o => o.selected);
+    return selected.length > 0 ? selected[0].value : null;
+  }
+
+  // ── Actualizar subtemas según tema seleccionado ───────────────────────
+  function onTopicChange() {
+    if (!topicSel || !subtopicSel) return;
+    const sel = topicSel.options[topicSel.selectedIndex];
+    subtopicSel.innerHTML = '<option value="">— Sin subtema —</option>';
+    if (!sel || !sel.value) return;
+    let subtopics = [];
+    try { subtopics = JSON.parse(sel.dataset.subtopics || '[]'); } catch(e) {}
+    const keepSubId = subtopicSel.dataset.keepId;
+    subtopics.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      if (keepSubId && parseInt(keepSubId) === s.id) opt.selected = true;
+      subtopicSel.appendChild(opt);
+    });
+  }
+
+  // ── Inicialización ────────────────────────────────────────────────────
+  function init() {
+    // Opciones múltiples
+    loadOptionsFromJson(initialOptionsJson);
+    onTypeChange();
+    if (typeSelect) typeSelect.addEventListener('change', onTypeChange);
+
+    // Guardar el subtopic actual para restaurarlo después del cascade
+    if (subtopicSel) {
+      subtopicSel.dataset.keepId = '{{ pregunta.subtopic_id|default:"" }}';
+    }
+
+    // Cargar subtemas para el tema inicial (ya están en el HTML del form)
+    // Poblar el data-subtopics del tema seleccionado mediante AJAX silencioso
+    const subId = getSelectedSubjectId();
+    if (subId) {
+      loadTopics(subId, '{{ pregunta.topic_id|default:"" }}');
+    }
+
+    // Eventos
+    if (subjectsSel) {
+      subjectsSel.addEventListener('change', () => {
+        const id = getSelectedSubjectId();
+        if (id) loadTopics(id, null);
+        else {
+          topicSel.innerHTML = '<option value="">— Seleccioná una materia —</option>';
+          subtopicSel.innerHTML = '<option value="">— Sin subtema —</option>';
+        }
+      });
+    }
+    if (topicSel) topicSel.addEventListener('change', onTopicChange);
+
+    // Serializar opciones antes de submit
+    document.getElementById('editarPreguntaForm')
+      .addEventListener('submit', serializeOptions);
+  }
+
+  // ── Eliminar imagen existente ─────────────────────────────────────────
+  window.clearImage = function(uploadField, previewWrapId, clearFieldId) {
+    document.getElementById(previewWrapId).style.display = 'none';
+    // Marcar el campo hidden clear_* = true
+    const inp = document.querySelector(`[name="${clearFieldId}"]`);
+    if (inp) inp.value = 'on';
+    // Mostrar el file input para que el usuario pueda subir otra si quiere
+    const newBlock = document.getElementById(uploadField === 'question_image' ? 'qImgNewBlock' : 'aImgNewBlock');
+    if (newBlock) newBlock.style.display = '';
+  };
+
+  // ── Preview live al seleccionar un archivo nuevo ───────────────────────
+  function attachLivePreview(inputId, previewWrapId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener('change', function () {
+      const file = this.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        let wrap = document.getElementById(previewWrapId);
+        if (!wrap) return;
+        wrap.style.display = '';
+        wrap.innerHTML = `<img src="${e.target.result}" class="img-thumbnail mt-2" style="max-height:140px;display:block" alt="preview">`;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  attachLivePreview('id_question_image', 'qImgPreviewWrap');
+  attachLivePreview('id_answer_image',   'aImgPreviewWrap');
+
+  init();
+})();
+</script>
 {% endblock %}

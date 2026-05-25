@@ -260,6 +260,17 @@
                     </div>
                 </div>
                 <hr>
+                <h6><i class="fas fa-sliders-h"></i> Cantidad de preguntas</h6>
+                <div class="mb-3">
+                    <label for="totalQuestionsInput" class="form-label">¿Cuántas preguntas en total?</label>
+                    <div class="input-group" style="max-width:220px">
+                        <input type="number" class="form-control" id="totalQuestionsInput"
+                               min="1" max="200" value="20" step="1">
+                        <span class="input-group-text text-muted">máx. 200</span>
+                    </div>
+                    <small class="text-muted">Se distribuyen entre los fragmentos del documento.</small>
+                </div>
+                <hr>
                 <h6><i class="fas fa-sliders-h"></i> Modo de visualización</h6>
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="radio" name="streamMode" id="streamModeProgressive" value="true" checked>
@@ -267,6 +278,23 @@
                         <strong>⚡ Progresivo</strong> — ver preguntas a medida que se generan<br>
                         <small class="text-muted">Ideal para documentos largos: verás resultados antes de terminar</small>
                     </label>
+                </div>
+                <!-- Opciones avanzadas del modo progresivo -->
+                <div id="progressiveOptions" class="ms-4 mt-2 mb-3 p-3 bg-light rounded border">
+                    <div class="mb-2">
+                        <label for="questionsPerBlockInput" class="form-label mb-1">
+                            Preguntas por bloque <small class="text-muted">(0 = calcular automáticamente)</small>
+                        </label>
+                        <input type="number" class="form-control form-control-sm" id="questionsPerBlockInput"
+                               min="0" max="50" value="0" step="1" style="max-width:120px">
+                    </div>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="pauseAfterBlockToggle">
+                        <label class="form-check-label" for="pauseAfterBlockToggle">
+                            <strong>Pausar después de cada bloque</strong><br>
+                            <small class="text-muted">Después de ver cada bloque podés decidir si continuar o detenerte.</small>
+                        </label>
+                    </div>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="streamMode" id="streamModeBatch" value="false">
@@ -290,16 +318,19 @@
 
 <!-- Modal para selección de materias antes de guardar -->
 <div class="modal fade" id="subjectPickerModal" tabindex="-1" aria-labelledby="subjectPickerLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="subjectPickerLabel">
-                    <i class="fas fa-book"></i> Asignar materias
+                    <i class="fas fa-book"></i> Asignar materia, tema y subtema
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted mb-3">Seleccioná una o más materias a las que asignar las preguntas guardadas:</p>
+
+                <!-- ── Paso 1: Materias ───────────────────────────────── -->
+                <h6 class="fw-bold mb-1"><i class="fas fa-book-open text-primary"></i> Materia(s)</h6>
+                <p class="text-muted small mb-2">Seleccioná una o más materias a las que asignar las preguntas:</p>
                 <div id="subjectPickerList">
                     {% for subject in subjects %}
                     <div class="form-check mb-2">
@@ -312,6 +343,48 @@
                     <p class="text-warning">No hay materias cargadas en el sistema.</p>
                     {% endfor %}
                 </div>
+
+                <!-- Advertencia múltiples materias -->
+                <div id="multiSubjectWarning" class="alert alert-warning py-2 mt-2 small" style="display:none">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Estás asignando a <strong>varias materias</strong>. El tema y subtema se crearán/vincularán
+                    únicamente desde la <strong>primera materia seleccionada</strong>, ya que cada tema pertenece
+                    a una sola materia.
+                </div>
+
+                <hr>
+
+                <!-- ── Paso 2: Tema ──────────────────────────────────── -->
+                <div id="topicSection">
+                    <h6 class="fw-bold mb-1"><i class="fas fa-tag text-success"></i> Tema <span class="text-muted fw-normal">(opcional)</span></h6>
+                    <div id="topicLoadingSpinner" class="text-muted small mb-2" style="display:none">
+                        <span class="spinner-border spinner-border-sm"></span> Cargando temas…
+                    </div>
+                    <select class="form-select mb-2" id="topicSelect">
+                        <option value="">— Seleccioná primero una materia —</option>
+                    </select>
+                    <div id="newTopicBlock" style="display:none">
+                        <label class="form-label small fw-bold">Nombre del nuevo tema</label>
+                        <input type="text" class="form-control form-control-sm" id="newTopicInput"
+                               placeholder="Ej: Unidad 1 — Introducción" maxlength="255">
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- ── Paso 3: Subtema ───────────────────────────────── -->
+                <div id="subtopicSection" style="display:none">
+                    <h6 class="fw-bold mb-1"><i class="fas fa-tags text-info"></i> Subtema <span class="text-muted fw-normal">(opcional)</span></h6>
+                    <select class="form-select mb-2" id="subtopicSelect">
+                        <option value="">— Sin subtema —</option>
+                    </select>
+                    <div id="newSubtopicBlock" style="display:none">
+                        <label class="form-label small fw-bold">Nombre del nuevo subtema</label>
+                        <input type="text" class="form-control form-control-sm" id="newSubtopicInput"
+                               placeholder="Ej: 1.2 — Conceptos clave" maxlength="255">
+                    </div>
+                </div>
+
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -494,6 +567,74 @@
                 </button>
                 <button type="button" class="btn btn-success" id="saveQuestionsBtn" onclick="saveGeneratedQuestions()">
                     <i class="fas fa-save"></i> Guardar Preguntas Seleccionadas
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Pregunta Generada -->
+<div class="modal fade" id="editQuestionModal" tabindex="-1" aria-labelledby="editQuestionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="editQuestionModalLabel">
+                    <i class="fas fa-edit"></i> Editar pregunta
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editQuestionIndex">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Texto de la pregunta</label>
+                    <textarea class="form-control" id="editQuestionText" rows="3"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Respuesta correcta</label>
+                    <textarea class="form-control" id="editQuestionAnswer" rows="2"></textarea>
+                </div>
+                <!-- Opciones (solo opción múltiple) -->
+                <div id="editOptionsBlock" class="mb-3" style="display:none">
+                    <label class="form-label fw-bold">Opciones (opción múltiple)</label>
+                    <div id="editOptionsList"></div>
+                    <div class="mt-2">
+                        <label class="form-label">Índice de la opción correcta (0=A, 1=B, 2=C, 3=D)</label>
+                        <input type="number" class="form-control form-control-sm" id="editCorrectIndex" min="0" max="3" style="max-width:80px">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Explicación <small class="text-muted">(opcional)</small></label>
+                    <textarea class="form-control" id="editQuestionExplanation" rows="2"></textarea>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Dificultad (1–5)</label>
+                        <select class="form-select" id="editQuestionDifficulty">
+                            <option value="1">1 — Muy fácil</option>
+                            <option value="2">2 — Fácil</option>
+                            <option value="3" selected>3 — Media</option>
+                            <option value="4">4 — Difícil</option>
+                            <option value="5">5 — Muy difícil</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Nivel de Bloom</label>
+                        <select class="form-select" id="editQuestionBloom">
+                            <option value="">— Sin asignar —</option>
+                            <option value="1">1 — Recordar</option>
+                            <option value="2">2 — Comprender</option>
+                            <option value="3">3 — Aplicar</option>
+                            <option value="4">4 — Analizar</option>
+                            <option value="5">5 — Evaluar</option>
+                            <option value="6">6 — Crear</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="saveEditedQuestion()">
+                    <i class="fas fa-save"></i> Guardar cambios
                 </button>
             </div>
         </div>
@@ -1004,6 +1145,13 @@ async function startGeneration() {
     }
     window._selectedQuestionTypes = checkedTypes;
 
+    // Cantidad de preguntas
+    window._totalQuestions = Math.max(1, Math.min(200, parseInt(document.getElementById('totalQuestionsInput').value) || 20));
+
+    // Opciones del modo progresivo
+    window._questionsPerBlock = Math.max(0, parseInt(document.getElementById('questionsPerBlockInput').value) || 0);
+    window._pauseAfterBlock = document.getElementById('pauseAfterBlockToggle').checked;
+
     // Cerrar modal preflight
     bootstrap.Modal.getInstance(document.getElementById('preflightModal')).hide();
 
@@ -1044,7 +1192,8 @@ async function generateBatch() {
                 doc_id: window.currentDocumentData.doc_id,
                 filename: window.currentDocumentData.filename,
                 stream_mode: false,
-                question_types: window._selectedQuestionTypes || []
+                question_types: window._selectedQuestionTypes || [],
+                total_questions: window._totalQuestions || 20
             })
         });
 
@@ -1094,7 +1243,9 @@ async function generateStreaming() {
                 doc_id: window.currentDocumentData.doc_id,
                 filename: window.currentDocumentData.filename,
                 stream_mode: true,
-                question_types: window._selectedQuestionTypes || []
+                question_types: window._selectedQuestionTypes || [],
+                total_questions: window._totalQuestions || 20,
+                questions_per_block: window._questionsPerBlock || 0
             })
         });
         const jobData = await resp.json();
@@ -1120,62 +1271,256 @@ async function generateStreaming() {
     const es = new EventSource(streamUrl);
     window._activeEventSource = es;
 
+    // Buffer para modo pausa-por-bloque
+    window._sseBuffer  = [];
+    window._ssePaused  = false;  // true = usuario debe pulsar "Siguiente" para ver más
+    window._sseWaiting = false;  // true = usuario pulsó "Siguiente" pero servidor aún no respondió
+    window._sseDone    = false;
+    window._sseDoneTotal = 0;
+
+    // ── Mostrar un ítem del buffer ──────────────────────────────────────────
+    function flushNextBlock() {
+        if (window._sseBuffer.length === 0) {
+            if (window._sseDone) finishStream(window._sseDoneTotal);
+            return;
+        }
+        const item = window._sseBuffer.shift();
+
+        if (item.type === 'done') {
+            finishStream(item.total);
+            return;
+        }
+
+        // Tipo 'questions'
+        const prog = document.getElementById('streamProgress');
+        if (prog) prog.textContent =
+            `${item.chunk} / ${item.total_chunks} fragmentos — capítulo: ${item.chapter_title}`;
+        if (item.questions && item.questions.length > 0) {
+            appendGeneratedQuestions(item.questions);
+        }
+
+        if (!window._pauseAfterBlock) {
+            // Modo auto: seguir vaciando
+            if (window._sseBuffer.length > 0) flushNextBlock();
+            else if (window._sseDone) finishStream(window._sseDoneTotal);
+        } else {
+            // Modo pausa: después de mostrar el bloque, ver si hay más o si terminó
+            if (window._sseDone && window._sseBuffer.length === 0) {
+                finishStream(window._sseDoneTotal);
+            } else {
+                showContinueButton();
+            }
+        }
+    }
+
+    // ── Barra de control (pausa) ────────────────────────────────────────────
+    function showContinueButton() {
+        document.getElementById('sseBlockControls')?.remove();
+        document.getElementById('sseWaitingBlock')?.remove();
+
+        const isLast = window._sseDone && window._sseBuffer.length === 0;
+        const buffered = window._sseBuffer.length;
+        const pendingText = isLast
+            ? 'Es el último bloque generado.'
+            : buffered > 0
+                ? `Hay ${buffered} bloque(s) listos.`
+                : 'La IA está procesando el siguiente bloque…';
+
+        const ctrl = document.createElement('div');
+        ctrl.id = 'sseBlockControls';
+        ctrl.className = 'alert alert-warning d-flex align-items-center gap-3 mb-3 flex-wrap';
+        ctrl.innerHTML = `
+            <i class="fas fa-pause-circle fs-5"></i>
+            <div class="flex-grow-1">
+                <strong>Bloque generado.</strong> ${pendingText}
+            </div>
+            <button class="btn btn-sm btn-success" onclick="resumeStream()">
+                <i class="fas fa-play"></i> ${isLast ? 'Ver resumen final' : 'Siguiente bloque'}
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="stopStream()">
+                <i class="fas fa-stop"></i> Detenerme acá
+            </button>`;
+        document.getElementById('streamQuestionsList')?.prepend(ctrl);
+    }
+
+    // ── Spinner mientras espera el siguiente bloque del servidor ───────────
+    function showWaitingSpinner() {
+        document.getElementById('sseBlockControls')?.remove();
+        document.getElementById('sseWaitingBlock')?.remove();
+
+        const div = document.createElement('div');
+        div.id = 'sseWaitingBlock';
+        div.className = 'alert alert-info d-flex align-items-center gap-3 mb-3';
+        div.innerHTML = `
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <div class="flex-grow-1">Esperando el siguiente bloque de la IA…</div>
+            <button class="btn btn-sm btn-outline-secondary" onclick="stopStream()">
+                <i class="fas fa-stop"></i> Detenerme acá
+            </button>`;
+        document.getElementById('streamQuestionsList')?.prepend(div);
+    }
+
+    // ── Acciones del usuario ────────────────────────────────────────────────
+    window.resumeStream = function() {
+        document.getElementById('sseBlockControls')?.remove();
+        window._ssePaused = false;
+
+        if (window._sseBuffer.length > 0) {
+            flushNextBlock();
+        } else if (window._sseDone) {
+            finishStream(window._sseDoneTotal);
+        } else {
+            // Servidor aún no envió el siguiente bloque; esperamos
+            window._sseWaiting = true;
+            showWaitingSpinner();
+        }
+    };
+
+    window.stopStream = function() {
+        if (window._activeEventSource) {
+            window._activeEventSource.close();
+            window._activeEventSource = null;
+        }
+        window._sseBuffer = [];
+        window._sseWaiting = false;
+        document.getElementById('sseBlockControls')?.remove();
+        document.getElementById('sseWaitingBlock')?.remove();
+        const header = document.getElementById('streamHeader');
+        if (header) {
+            header.className = 'alert alert-warning mb-3';
+            const count = (window.generatedQuestions || []).length;
+            header.innerHTML = `<i class="fas fa-stop-circle"></i> Generación detenida.
+                <strong>${count} pregunta(s)</strong> disponibles para guardar.
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-primary" onclick="selectAllQuestions(true)">
+                        <i class="fas fa-check-square"></i> Seleccionar todas
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary ms-2" onclick="selectAllQuestions(false)">
+                        <i class="fas fa-square"></i> Deseleccionar todas
+                    </button>
+                </div>`;
+        }
+    };
+
+    // ── Fin del stream ──────────────────────────────────────────────────────
+    function finishStream(total) {
+        if (window._streamFinished) return;
+        window._streamFinished = true;
+        if (window._activeEventSource) {
+            window._activeEventSource.close();
+            window._activeEventSource = null;
+        }
+        document.getElementById('sseBlockControls')?.remove();
+        document.getElementById('sseWaitingBlock')?.remove();
+        const header = document.getElementById('streamHeader');
+        if (header) {
+            header.className = 'alert alert-success mb-3';
+            header.innerHTML = `<i class="fas fa-check-circle"></i> <strong>${total} preguntas generadas</strong>
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-primary" onclick="selectAllQuestions(true)">
+                        <i class="fas fa-check-square"></i> Seleccionar todas
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary ms-2" onclick="selectAllQuestions(false)">
+                        <i class="fas fa-square"></i> Deseleccionar todas
+                    </button>
+                </div>`;
+        }
+    }
+
+    window._streamFinished = false;
+    const pauseMode = window._pauseAfterBlock || false;
+
+    // ── Manejador SSE ───────────────────────────────────────────────────────
     es.onmessage = function(event) {
         const msg = JSON.parse(event.data);
 
         if (msg.type === 'start') {
-            document.getElementById('streamProgress').textContent =
-                `0 / ${msg.total_chunks} fragmentos procesados`;
+            const prog = document.getElementById('streamProgress');
+            if (prog) prog.textContent = `0 / ${msg.total_chunks} fragmentos procesados`;
 
         } else if (msg.type === 'questions') {
-            document.getElementById('streamProgress').textContent =
-                `${msg.chunk} / ${msg.total_chunks} fragmentos — capítulo: ${msg.chapter_title}`;
-            if (msg.questions && msg.questions.length > 0) {
-                appendGeneratedQuestions(msg.questions);
+            if (pauseMode) {
+                window._sseBuffer.push(msg);
+                if (window._sseWaiting) {
+                    // Usuario ya pulsó "Siguiente" y estaba esperando → mostrar ahora
+                    window._sseWaiting = false;
+                    window._ssePaused = true;
+                    flushNextBlock();
+                } else if (!window._ssePaused) {
+                    // Primer bloque: mostrarlo directamente
+                    window._ssePaused = true;
+                    flushNextBlock();
+                }
+                // Si _ssePaused y !_sseWaiting → queda en buffer hasta que el usuario pulse
+            } else {
+                const prog = document.getElementById('streamProgress');
+                if (prog) prog.textContent =
+                    `${msg.chunk} / ${msg.total_chunks} fragmentos — capítulo: ${msg.chapter_title}`;
+                if (msg.questions && msg.questions.length > 0) {
+                    appendGeneratedQuestions(msg.questions);
+                }
             }
 
         } else if (msg.type === 'done') {
+            window._sseDone = true;
+            window._sseDoneTotal = msg.total;
+            if (pauseMode) {
+                if (window._sseWaiting) {
+                    // Usuario esperaba y ya no hay más → terminar
+                    window._sseWaiting = false;
+                    finishStream(msg.total);
+                } else if (window._sseBuffer.length === 0 && !window._ssePaused) {
+                    finishStream(msg.total);
+                } else {
+                    // Hay un bloque mostrándose o en buffer; actualizar texto del botón
+                    const ctrl = document.getElementById('sseBlockControls');
+                    if (ctrl) {
+                        const text = ctrl.querySelector('.flex-grow-1');
+                        if (text) text.innerHTML = '<strong>Bloque generado.</strong> Es el último bloque generado.';
+                        const btn = ctrl.querySelector('.btn-success');
+                        if (btn) btn.innerHTML = '<i class="fas fa-flag-checkered"></i> Ver resumen final';
+                    }
+                }
+            } else {
+                finishStream(msg.total);
+            }
+
+        } else if (msg.type === 'error') {
             es.close();
             window._activeEventSource = null;
+            document.getElementById('questionsContent').innerHTML =
+                `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> ${msg.message}</div>`;
+
+        } else if (msg.type === 'chunk_error') {
+            console.warn('SSE chunk_error:', msg.message);
+        }
+    };
+
+    // onerror se dispara también cuando el servidor cierra la conexión normalmente.
+    // Solo mostramos error real si el done nunca llegó y no hay preguntas en pausa.
+    es.onerror = function() {
+        es.close();
+        window._activeEventSource = null;
+
+        // Cierre normal post-done → ignorar
+        if (window._streamFinished || window._sseDone) return;
+
+        // Hay preguntas ya mostradas → advertencia suave sin destruir la UI
+        if (window.generatedQuestions && window.generatedQuestions.length > 0) {
             const header = document.getElementById('streamHeader');
-            if (header) {
-                header.className = 'alert alert-success mb-3';
-                header.innerHTML = `<i class="fas fa-check-circle"></i> <strong>${msg.total} preguntas generadas</strong>
+            if (header && !window._streamFinished) {
+                header.className = 'alert alert-warning mb-3';
+                header.innerHTML = `<i class="fas fa-exclamation-triangle"></i>
+                    Conexión interrumpida. Se muestran las preguntas generadas hasta ahora.
                     <div class="mt-2">
                         <button class="btn btn-sm btn-outline-primary" onclick="selectAllQuestions(true)">
                             <i class="fas fa-check-square"></i> Seleccionar todas
                         </button>
-                        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="selectAllQuestions(false)">
-                            <i class="fas fa-square"></i> Deseleccionar todas
-                        </button>
                     </div>`;
             }
-
-        } else if (msg.type === 'error' || msg.type === 'chunk_error') {
-            console.warn('SSE error:', msg.message);
-            if (msg.type === 'error') {
-                es.close();
-                window._activeEventSource = null;
-                document.getElementById('questionsContent').innerHTML = `
-                    <div class="alert alert-danger"><i class="fas fa-times-circle"></i> ${msg.message}</div>`;
-            }
-        }
-    };
-
-    es.onerror = function() {
-        es.close();
-        window._activeEventSource = null;
-        const sList = document.getElementById('streamQuestionsList');
-        if (sList && window.generatedQuestions && window.generatedQuestions.length > 0) {
-            // Hay preguntas parciales — informar al usuario
-            const header = document.getElementById('streamHeader');
-            if (header) {
-                header.className = 'alert alert-warning mb-3';
-                header.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Conexión interrumpida. Se muestran las preguntas generadas hasta ahora.`;
-            }
         } else {
-            document.getElementById('questionsContent').innerHTML = `
-                <div class="alert alert-danger"><i class="fas fa-times-circle"></i> Error en la conexión con el servidor.</div>`;
+            document.getElementById('questionsContent').innerHTML =
+                `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> Error en la conexión con el servidor.</div>`;
         }
     };
 }
@@ -1262,19 +1607,23 @@ function appendGeneratedQuestions(questions) {
         const card = document.createElement('div');
         card.className = 'card mb-3 question-card';
         card.dataset.questionIndex = index;
+        card.id = `questionCard${index}`;
         card.innerHTML = `
-            <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="form-check">
                     <input class="form-check-input question-approve-checkbox" type="checkbox" value="${index}" id="question${index}" checked>
                     <label class="form-check-label fw-bold" for="question${index}">Pregunta ${index + 1}</label>
                 </div>
-                <div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
                     ${tipoBadge(q.tipo)}
-                    <span class="badge bg-secondary">Dificultad: ${q.dificultad || 3}/5</span>
-                    ${bloomBadge(q.bloom_nivel)}
+                    <span class="badge bg-secondary">Dif: ${q.dificultad || 3}/5</span>
+                    <span id="bloomBadge${index}">${bloomBadge(q.bloom_nivel)}</span>
+                    <button class="btn btn-sm btn-outline-warning" onclick="editQuestion(${index})" title="Editar pregunta">
+                        <i class="fas fa-edit"></i> Editar
+                    </button>
                 </div>
             </div>
-            <div class="card-body">
+            <div class="card-body" id="questionBody${index}">
                 ${questionBodyHTML(q)}
             </div>`;
         container.appendChild(card);
@@ -1301,21 +1650,24 @@ function displayGeneratedQuestions(questions) {
     
     questions.forEach((q, index) => {
         html += `
-            <div class="card mb-3 question-card" data-question-index="${index}">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card mb-3 question-card" id="questionCard${index}" data-question-index="${index}">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div class="form-check">
                         <input class="form-check-input question-approve-checkbox" type="checkbox" value="${index}" id="question${index}" checked>
                         <label class="form-check-label fw-bold" for="question${index}">
                             Pregunta ${index + 1}
                         </label>
                     </div>
-                    <div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
                         ${tipoBadge(q.tipo)}
-                        <span class="badge bg-secondary">Dificultad: ${q.dificultad || 3}/5</span>
-                        ${bloomBadge(q.bloom_nivel)}
+                        <span class="badge bg-secondary">Dif: ${q.dificultad || 3}/5</span>
+                        <span id="bloomBadge${index}">${bloomBadge(q.bloom_nivel)}</span>
+                        <button class="btn btn-sm btn-outline-warning" onclick="editQuestion(${index})" title="Editar pregunta">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
                     </div>
                 </div>
-                <div class="card-body">
+                <div class="card-body" id="questionBody${index}">
                     ${questionBodyHTML(q)}
                 </div>
             </div>
@@ -1329,6 +1681,212 @@ function selectAllQuestions(select) {
     document.querySelectorAll('.question-approve-checkbox').forEach(checkbox => {
         checkbox.checked = select;
     });
+}
+
+// ─── Edición de preguntas ───────────────────────────────────────────────────
+
+function editQuestion(index) {
+    const q = window.generatedQuestions[index];
+    if (!q) return;
+
+    document.getElementById('editQuestionIndex').value = index;
+    document.getElementById('editQuestionText').value = q.pregunta || '';
+    document.getElementById('editQuestionAnswer').value = q.respuesta || '';
+    document.getElementById('editQuestionExplanation').value = q.explicacion || '';
+    document.getElementById('editQuestionDifficulty').value = q.dificultad || 3;
+    document.getElementById('editQuestionBloom').value = q.bloom_nivel || '';
+
+    // Opciones solo para opcion_multiple
+    const optionsBlock = document.getElementById('editOptionsBlock');
+    if (q.tipo === 'opcion_multiple' && Array.isArray(q.opciones)) {
+        optionsBlock.style.display = '';
+        const list = document.getElementById('editOptionsList');
+        list.innerHTML = '';
+        q.opciones.forEach((opt, i) => {
+            const div = document.createElement('div');
+            div.className = 'input-group mb-1';
+            div.innerHTML = `
+                <span class="input-group-text">${['A','B','C','D'][i] || i}</span>
+                <input type="text" class="form-control form-control-sm edit-option-input" data-opt-idx="${i}" value="${opt.replace(/^[A-D]\)\s*/,'').replace(/"/g,'&quot;')}">`;
+            list.appendChild(div);
+        });
+        document.getElementById('editCorrectIndex').value = q.respuesta_correcta_index ?? 0;
+    } else {
+        optionsBlock.style.display = 'none';
+    }
+
+    new bootstrap.Modal(document.getElementById('editQuestionModal')).show();
+}
+
+function saveEditedQuestion() {
+    const index = parseInt(document.getElementById('editQuestionIndex').value);
+    const q = window.generatedQuestions[index];
+    if (!q) return;
+
+    q.pregunta = document.getElementById('editQuestionText').value.trim();
+    q.respuesta = document.getElementById('editQuestionAnswer').value.trim();
+    q.explicacion = document.getElementById('editQuestionExplanation').value.trim();
+    q.dificultad = parseInt(document.getElementById('editQuestionDifficulty').value) || 3;
+    q.bloom_nivel = parseInt(document.getElementById('editQuestionBloom').value) || null;
+
+    if (q.tipo === 'opcion_multiple') {
+        const prefixes = ['A) ', 'B) ', 'C) ', 'D) '];
+        q.opciones = [...document.querySelectorAll('.edit-option-input')].map((inp, i) =>
+            prefixes[i] + inp.value.trim()
+        );
+        q.respuesta_correcta_index = parseInt(document.getElementById('editCorrectIndex').value) || 0;
+        q.respuesta = q.opciones[q.respuesta_correcta_index] || q.respuesta;
+    }
+
+    // Actualizar el badge de Bloom y el cuerpo de la card en el DOM
+    const bloomEl = document.getElementById(`bloomBadge${index}`);
+    if (bloomEl) bloomEl.innerHTML = bloomBadge(q.bloom_nivel);
+
+    const bodyEl = document.getElementById(`questionBody${index}`);
+    if (bodyEl) bodyEl.innerHTML = questionBodyHTML(q);
+
+    bootstrap.Modal.getInstance(document.getElementById('editQuestionModal')).hide();
+}
+
+// Mostrar/ocultar opciones de modo progresivo según selección
+document.addEventListener('DOMContentLoaded', function() {
+    function toggleProgressiveOptions() {
+        const isProgressive = document.getElementById('streamModeProgressive').checked;
+        document.getElementById('progressiveOptions').style.display = isProgressive ? '' : 'none';
+    }
+    document.getElementById('streamModeProgressive').addEventListener('change', toggleProgressiveOptions);
+    document.getElementById('streamModeBatch').addEventListener('change', toggleProgressiveOptions);
+    toggleProgressiveOptions();
+});
+
+// ─── Subject / Topic / Subtopic picker logic ────────────────────────────────
+
+function _initSubjectPicker() {
+    // Reset topic/subtopic dropdowns
+    const topicSel = document.getElementById('topicSelect');
+    const subtopicSel = document.getElementById('subtopicSelect');
+    topicSel.innerHTML = '<option value="">— Seleccioná primero una materia —</option>';
+    subtopicSel.innerHTML = '<option value="">— Sin subtema —</option>';
+    document.getElementById('newTopicBlock').style.display = 'none';
+    document.getElementById('newSubtopicBlock').style.display = 'none';
+    document.getElementById('subtopicSection').style.display = 'none';
+    document.getElementById('newTopicInput').value = '';
+    document.getElementById('newSubtopicInput').value = '';
+
+    // Escuchar cambios en los checkboxes de materia
+    document.querySelectorAll('.subject-picker-cb').forEach(cb => {
+        cb.removeEventListener('change', _onSubjectPickerChange);
+        cb.addEventListener('change', _onSubjectPickerChange);
+    });
+
+    // Escuchar cambio en el select de tema
+    topicSel.removeEventListener('change', _onTopicSelectChange);
+    topicSel.addEventListener('change', _onTopicSelectChange);
+
+    // Escuchar cambio en el select de subtema
+    subtopicSel.removeEventListener('change', _onSubtopicSelectChange);
+    subtopicSel.addEventListener('change', _onSubtopicSelectChange);
+
+    // Disparar si ya hay una materia preseleccionada
+    const firstChecked = document.querySelector('.subject-picker-cb:checked');
+    if (firstChecked) _loadTopicsForSubject(parseInt(firstChecked.value));
+
+    _updateMultiSubjectWarning();
+}
+
+function _updateMultiSubjectWarning() {
+    const checked = document.querySelectorAll('.subject-picker-cb:checked');
+    document.getElementById('multiSubjectWarning').style.display = checked.length > 1 ? '' : 'none';
+}
+
+function _onSubjectPickerChange() {
+    _updateMultiSubjectWarning();
+    // Cargar temas de la primera materia seleccionada
+    const firstChecked = document.querySelector('.subject-picker-cb:checked');
+    if (firstChecked) {
+        _loadTopicsForSubject(parseInt(firstChecked.value));
+    } else {
+        const topicSel = document.getElementById('topicSelect');
+        topicSel.innerHTML = '<option value="">— Seleccioná primero una materia —</option>';
+        document.getElementById('newTopicBlock').style.display = 'none';
+        document.getElementById('subtopicSection').style.display = 'none';
+    }
+}
+
+async function _loadTopicsForSubject(subjectId) {
+    const topicSel = document.getElementById('topicSelect');
+    const spinner = document.getElementById('topicLoadingSpinner');
+    spinner.style.display = '';
+    topicSel.disabled = true;
+    document.getElementById('subtopicSection').style.display = 'none';
+
+    try {
+        const url = `{% url "material:get_topics_by_subject" 0 %}`.replace('/0/', `/${subjectId}/`);
+        const resp = await fetch(url, {
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+        });
+        const data = await resp.json();
+
+        topicSel.innerHTML = '<option value="">— Sin tema —</option>';
+        if (data.success && data.topics.length > 0) {
+            data.topics.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name;
+                opt.dataset.subtopics = JSON.stringify(t.subtopics);
+                topicSel.appendChild(opt);
+            });
+        }
+        topicSel.innerHTML += '<option value="__new__">➕ Crear nuevo tema…</option>';
+    } catch (e) {
+        topicSel.innerHTML = '<option value="">— Error cargando temas —</option>' +
+                             '<option value="__new__">➕ Crear nuevo tema…</option>';
+    } finally {
+        spinner.style.display = 'none';
+        topicSel.disabled = false;
+    }
+}
+
+function _onTopicSelectChange() {
+    const topicSel = document.getElementById('topicSelect');
+    const newTopicBlock = document.getElementById('newTopicBlock');
+    const subtopicSection = document.getElementById('subtopicSection');
+    const subtopicSel = document.getElementById('subtopicSelect');
+
+    if (topicSel.value === '__new__') {
+        newTopicBlock.style.display = '';
+        subtopicSection.style.display = 'none';
+        return;
+    }
+    newTopicBlock.style.display = 'none';
+
+    if (!topicSel.value) {
+        subtopicSection.style.display = 'none';
+        return;
+    }
+
+    // Poblar subtemas del tema seleccionado
+    const selectedOpt = topicSel.options[topicSel.selectedIndex];
+    let subtopics = [];
+    try { subtopics = JSON.parse(selectedOpt.dataset.subtopics || '[]'); } catch (_) {}
+
+    subtopicSel.innerHTML = '<option value="">— Sin subtema —</option>';
+    subtopics.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        subtopicSel.appendChild(opt);
+    });
+    subtopicSel.innerHTML += '<option value="__new__">➕ Crear nuevo subtema…</option>';
+    document.getElementById('newSubtopicBlock').style.display = 'none';
+    document.getElementById('newSubtopicInput').value = '';
+    subtopicSection.style.display = '';
+}
+
+function _onSubtopicSelectChange() {
+    const val = document.getElementById('subtopicSelect').value;
+    document.getElementById('newSubtopicBlock').style.display = val === '__new__' ? '' : 'none';
+    if (val !== '__new__') document.getElementById('newSubtopicInput').value = '';
 }
 
 async function saveGeneratedQuestions() {
@@ -1371,6 +1929,10 @@ async function saveGeneratedQuestions() {
     const showSubjectPicker = function() {
         const pickerModal = new bootstrap.Modal(document.getElementById('subjectPickerModal'));
         pickerModal.show();
+
+        // ── Inicializar estado del picker ────────────────────────────────
+        _initSubjectPicker();
+
         document.getElementById('confirmSaveWithSubjectsBtn').onclick = async function() {
             const subjectIds = Array.from(
                 document.querySelectorAll('.subject-picker-cb:checked')
@@ -1379,8 +1941,38 @@ async function saveGeneratedQuestions() {
                 alert('Seleccioná al menos una materia.');
                 return;
             }
+
+            // Recopilar tema/subtema
+            const topicSel = document.getElementById('topicSelect');
+            const subtopicSel = document.getElementById('subtopicSelect');
+
+            let topicId = null;
+            let newTopicName = '';
+            let subtopicId = null;
+            let newSubtopicName = '';
+
+            if (topicSel.value === '__new__') {
+                newTopicName = document.getElementById('newTopicInput').value.trim();
+                if (!newTopicName) {
+                    alert('Ingresá el nombre del nuevo tema.');
+                    return;
+                }
+            } else if (topicSel.value) {
+                topicId = parseInt(topicSel.value);
+            }
+
+            if (subtopicSel.value === '__new__') {
+                newSubtopicName = document.getElementById('newSubtopicInput').value.trim();
+                if (!newSubtopicName) {
+                    alert('Ingresá el nombre del nuevo subtema.');
+                    return;
+                }
+            } else if (subtopicSel.value) {
+                subtopicId = parseInt(subtopicSel.value);
+            }
+
             pickerModal.hide();
-            await doSaveQuestions(subjectIds);
+            await doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, newSubtopicName);
         };
     };
 
@@ -1392,7 +1984,7 @@ async function saveGeneratedQuestions() {
     }
 }
 
-async function doSaveQuestions(subjectIds) {
+async function doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, newSubtopicName) {
     const selectedCheckboxes = document.querySelectorAll('.question-approve-checkbox:checked');
     const unselectedCheckboxes = document.querySelectorAll('.question-approve-checkbox:not(:checked)');
     
@@ -1437,6 +2029,10 @@ async function doSaveQuestions(subjectIds) {
                 rejected: rejectedQuestions,
                 filename: window.currentDocumentData.filename,
                 subject_ids: subjectIds,
+                topic_id: topicId || null,
+                new_topic_name: newTopicName || '',
+                subtopic_id: subtopicId || null,
+                new_subtopic_name: newSubtopicName || '',
                 contenido_id: window.currentDocumentData.contenido_id || null
             })
         });
@@ -1530,9 +2126,13 @@ async function openPagePreview() {
   _updatePreviewCount();
 
   // Cargar metadata del servidor
+  // Pasamos contenido_id para que el backend pueda recuperar la sesión si fue
+  // pisada por una condición de carrera con SESSION_SAVE_EVERY_REQUEST=True.
+  const _previewCid = (window.currentDocumentData && window.currentDocumentData.contenido_id)
+    ? encodeURIComponent(window.currentDocumentData.contenido_id) : '';
   let meta;
   try {
-    const resp = await fetch('{% url "material:document_page_preview" %}');
+    const resp = await fetch('{% url "material:document_page_preview" %}' + (_previewCid ? `?contenido_id=${_previewCid}` : ''));
     meta = await resp.json();
   } catch (e) {
     document.getElementById('previewLoadingIndicator').innerHTML =
@@ -1968,6 +2568,10 @@ async function generateFromPageSelection() {
   if (st.fileType === 'pdf') payload.pages = [...st.selected];
   else if (st.fileType === 'pptx') payload.slides = [...st.selected];
   else payload.sections = [...st.selected];
+  // Incluir contenido_id para que el backend pueda recuperar la sesión si fue pisada
+  if (window.currentDocumentData && window.currentDocumentData.contenido_id) {
+    payload.contenido_id = window.currentDocumentData.contenido_id;
+  }
 
   // Obtener texto de las páginas seleccionadas
   let pagesData;

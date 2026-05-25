@@ -75,33 +75,52 @@ class QuestionForm(forms.ModelForm):
         required=False,
         label="Subtema (opcional)"
     )
+    # Señales de "eliminar imagen actual" — vienen del template vía JS
+    clear_question_image = forms.BooleanField(required=False, widget=forms.HiddenInput())
+    clear_answer_image   = forms.BooleanField(required=False, widget=forms.HiddenInput())
 
     class Meta:
         model = Question
-        fields = ['subjects', 'topic', 'subtopic', 'question_text', 'answer_text',
-                 'question_image', 'answer_image', 'contenido', 'source_page', 'bloom_level']
+        fields = ['subjects', 'topic', 'subtopic', 'question_type', 'question_text',
+                  'answer_text', 'options_json', 'question_image', 'answer_image',
+                  'difficulty', 'bloom_level', 'contenido', 'source_page']
         widgets = {
-            'question_text': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+            'question_type': forms.Select(attrs={'class': 'form-select', 'id': 'id_question_type'}),
+            'question_text': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
             'answer_text': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
-            'question_image': forms.FileInput(attrs={'class': 'form-control-file'}),
-            'answer_image': forms.FileInput(attrs={'class': 'form-control-file'}),
-            'source_page': forms.NumberInput(attrs={'class': 'form-control'}),
-            'bloom_level': forms.Select(attrs={'class': 'form-control'}),
+            'options_json': forms.HiddenInput(),
+            'question_image': forms.FileInput(attrs={'class': 'form-control'}),
+            'answer_image': forms.FileInput(attrs={'class': 'form-control'}),
+            'difficulty': forms.Select(
+                choices=[(1,'1 — Muy fácil'),(2,'2 — Fácil'),(3,'3 — Media'),(4,'4 — Difícil'),(5,'5 — Muy difícil')],
+                attrs={'class': 'form-select'}
+            ),
+            'bloom_level': forms.Select(attrs={'class': 'form-select'}),
+            'source_page': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
         }
 
     def __init__(self, *args, **kwargs):
         self.current_user = kwargs.pop('current_user', None)
         super().__init__(*args, **kwargs)
         
-        self.fields['contenido'].queryset = Contenido.objects.filter(
-            uploaded_by=self.current_user
-        ) if self.current_user else Contenido.objects.none()
-        self.fields['contenido'].widget.attrs.update({'class': 'form-control'})
-        
-        self.fields['topic'].widget.attrs.update({'class': 'form-control'})
-        self.fields['subtopic'].widget.attrs.update({'class': 'form-control'})
+        self.fields['topic'].widget.attrs.update({'class': 'form-select'})
+        self.fields['subtopic'].widget.attrs.update({'class': 'form-select'})
 
-        # Si ya hay una instancia, cargar los temas/subtemas correspondientes
+        # Queryset de contenido: incluye siempre el contenido actual aunque el archivo
+        # haya sido limpiado, evitando que "la fuente no aparezca" en el editor.
+        from django.db.models import Q
+        if self.current_user:
+            cq = Q(uploaded_by=self.current_user)
+            if self.instance.pk and self.instance.contenido_id:
+                cq |= Q(pk=self.instance.contenido_id)
+            self.fields['contenido'].queryset = Contenido.objects.filter(cq).distinct().order_by('title')
+        else:
+            if self.instance.pk and self.instance.contenido_id:
+                self.fields['contenido'].queryset = Contenido.objects.filter(pk=self.instance.contenido_id)
+            else:
+                self.fields['contenido'].queryset = Contenido.objects.none()
+        self.fields['contenido'].widget.attrs.update({'class': 'form-select'})
+        self.fields['contenido'].required = False
         if self.instance.pk and self.instance.subjects.exists():
             first_subject = self.instance.subjects.first()
             self.fields['topic'].queryset = Topic.objects.filter(subject=first_subject)
@@ -120,7 +139,48 @@ class QuestionForm(forms.ModelForm):
                     self.fields['subtopic'].queryset = Subtopic.objects.filter(topic_id=topic_id)
             except (ValueError, TypeError):
                 pass
-            
+
+    def save(self, commit=True):
+        """
+        Convierte los uploads de imagen a Base64 antes de persistir.
+        Nunca escribe archivos al filesystem, por lo que funciona igual en
+        local (SQLite + disco efímero de Render) y en producción (Neon/PostgreSQL).
+        """
+        import base64
+        from django.core.files.uploadedfile import UploadedFile
+
+        instance = super().save(commit=False)
+
+        _image_fields = [
+            ('question_image', 'question_image_b64', 'clear_question_image'),
+            ('answer_image',   'answer_image_b64',   'clear_answer_image'),
+        ]
+        for upload_field, b64_field, clear_field in _image_fields:
+            clear   = self.cleaned_data.get(clear_field, False)
+            uploaded = self.cleaned_data.get(upload_field)
+
+            if clear:
+                # El usuario pidió eliminar la imagen existente
+                setattr(instance, b64_field, None)
+                setattr(instance, upload_field, None)
+            elif isinstance(uploaded, UploadedFile):
+                # Archivo nuevo: convertir a data-URI y no persistir en disco
+                try:
+                    uploaded.seek(0)
+                    img_bytes = uploaded.read()
+                    mime = getattr(uploaded, 'content_type', None) or 'image/jpeg'
+                    b64 = base64.b64encode(img_bytes).decode('utf-8')
+                    setattr(instance, b64_field, f"data:{mime};base64,{b64}")
+                except Exception:
+                    pass
+                setattr(instance, upload_field, None)   # nunca al disco
+            # else: sin cambio → conservar el b64 existente en la instancia
+
+        if commit:
+            instance.save()
+            self._save_m2m()
+        return instance
+
 class ExamForm(forms.ModelForm):
     learning_outcomes = forms.ModelMultipleChoiceField(
         queryset=LearningOutcome.objects.none(),

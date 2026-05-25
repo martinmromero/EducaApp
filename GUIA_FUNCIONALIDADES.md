@@ -205,12 +205,15 @@ EducaApp mantiene un **repositorio organizado** de todas las preguntas:
 #### **Información de cada Pregunta**
 - Texto de la pregunta
 - Respuesta correcta
-- Imágenes (opcional, tanto en pregunta como en respuesta)
+- **Imagen de la pregunta** (opcional) — se almacena de forma permanente en la base de datos como Base64, sin depender del filesystem
+- **Imagen de la respuesta** (opcional) — mismo almacenamiento persistente que la imagen de pregunta
+- Las imágenes se muestran automáticamente en la vista previa e impresión del examen
 - Materia asociada
 - Tema y subtema
 - Nivel de dificultad (1 a 5)
 - Nivel según Taxonomía de Bloom
 - Página de referencia en el material fuente
+- Documento de origen (Contenido) para trazabilidad completa
 - Fecha de creación
 
 #### **Carga Masiva**
@@ -297,9 +300,16 @@ Las plantillas permiten **reutilizar configuraciones** de exámenes:
    - Exportar a formato imprimible
    - Guardar para futuras referencias
 
----
+#### **Editor de Preguntas**
 
-### 8. 🗣️ Cuestionarios Orales Inteligentes
+El editor de preguntas cuenta con un diseño en dos columnas:
+
+- **Columna principal** (izquierda): tipo de pregunta, texto, opciones de opción múltiple y texto de respuesta
+- **Columna lateral** (derecha): clasificación (materia, tema, subtema, Bloom, dificultad) y fuente documental
+- **Imagen de pregunta / respuesta**: si ya hay una imagen guardada se muestra un preview al abrir el editor, con botones para eliminarla o cambiarla. Al seleccionar un archivo nuevo aparece un preview instantáneo antes de guardar.
+- Las imágenes se guardan **directamente en la base de datos** (no en el servidor), por lo que sobreviven reinicios del servidor y son compatibles con alojamiento en la nube.
+
+---
 
 Esta funcionalidad permite evaluar a grupos de estudiantes mediante exámenes orales con **distribución automática e inteligente** de preguntas.
 

@@ -132,6 +132,7 @@ def preview_exam(request):
                         'text': q.question_text,
                         'type': q.question_type,
                         'options': q.options or [],
+                        'question_image_b64': q.question_image_b64 or '',
                     })
                 else:
                     questions_texts.append({

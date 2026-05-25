@@ -404,6 +404,7 @@ def process_contenido_by_id(request, contenido_id):
             'success': True,
             'doc_id': doc_id,
             'filename': nombre,
+            'contenido_id': contenido.id,
             'metadata': result.get('metadata', {}),
             'stats': result.get('stats', {}),
             'chapters': [
@@ -569,9 +570,16 @@ def generate_questions_from_chapters(request):
         # question_types enviados por el cliente (lista de strings)
         question_types = data.get('question_types') or []
 
+        # Cantidad total de preguntas deseadas (usuario elige, default 20, máximo 200)
+        total_questions = max(1, min(200, int(data.get('total_questions', 20) or 20)))
+
         # Modo streaming: guardar job y retornar job_id al cliente
         if stream_mode:
-            job_id = _store_streaming_job(request, chapter_indices, chapters_from_request, filename, question_types)
+            questions_per_block = max(1, min(50, int(data.get('questions_per_block', 0) or 0)))
+            job_id = _store_streaming_job(
+                request, chapter_indices, chapters_from_request, filename,
+                question_types, total_questions, questions_per_block
+            )
             return JsonResponse({
                 'success': True,
                 'job_id': job_id,
@@ -640,8 +648,8 @@ def generate_questions_from_chapters(request):
             chunks = _split_into_chunks(content, max_tokens=3000)
             logger.info(f"  → {len(chunks)} chunk(s)")
 
-            # Preguntas por chunk: entre 4 y 8, proporcional a número de chunks
-            questions_per_chunk = max(4, min(8, 20 // max(len(chunks), 1)))
+            # Distribuir total_questions entre todos los chunks del capítulo
+            questions_per_chunk = max(2, total_questions // max(len(chunks), 1))
 
             for chunk_idx, chunk in enumerate(chunks):
                 chunk_questions = _generate_questions_for_chunk(
@@ -673,7 +681,8 @@ def generate_questions_from_chapters(request):
         }, status=500)
 
 
-def _store_streaming_job(request, chapter_indices, chapters_from_request, filename, question_types=None):
+def _store_streaming_job(request, chapter_indices, chapters_from_request, filename,
+                         question_types=None, total_questions=20, questions_per_block=0):
     """Guarda los parámetros del job en memoria y retorna el job_id."""
     job_id = str(uuid.uuid4())
     with _jobs_lock:
@@ -688,6 +697,8 @@ def _store_streaming_job(request, chapter_indices, chapters_from_request, filena
             'chapters_from_request': chapters_from_request,
             'filename': filename,
             'question_types': question_types or [],
+            'total_questions': total_questions,
+            'questions_per_block': questions_per_block,  # 0 = calcular automáticamente
             'doc_session': dict(request.session.get('doc_processor', {})),
             'user_id': request.user.id,
             'created_at': now,
@@ -907,6 +918,8 @@ def stream_questions(request, job_id):
         filename = job['filename']
         doc_session = job['doc_session']
         question_types = job.get('question_types') or []
+        total_questions = max(1, int(job.get('total_questions', 20) or 20))
+        questions_per_block_override = int(job.get('questions_per_block', 0) or 0)
 
         # Obtener contenido completo (misma lógica que generate_questions_from_chapters)
         chapters_to_process = []
@@ -959,7 +972,12 @@ def stream_questions(request, job_id):
         for chapter, chunks in zip(chapters_to_process, chapter_splits):
             title = chapter.get('title', 'Capítulo')
             pages = chapter.get('pages', [])
-            questions_per_chunk = max(4, min(8, 20 // max(len(chunks), 1)))
+            # Si el usuario pidió una cantidad fija por bloque, respetarla;
+            # si no, distribuir total_questions entre todos los chunks
+            if questions_per_block_override > 0:
+                questions_per_chunk = questions_per_block_override
+            else:
+                questions_per_chunk = max(2, total_questions // max(total_chunks_all, 1))
 
             for i, chunk in enumerate(chunks):
                 chunk_idx_global += 1
@@ -1045,7 +1063,27 @@ def document_page_preview(request):
     filename = doc_session.get('filename', '')
 
     if not file_path or not os.path.exists(file_path):
-        return JsonResponse({'success': False, 'error': 'No hay documento en sesión. Sube o selecciona uno primero.'}, status=400)
+        # Fallback: intentar recuperar desde contenido_id si la sesión fue
+        # pisada por una condición de carrera (SESSION_SAVE_EVERY_REQUEST).
+        contenido_id = request.GET.get('contenido_id', '').strip()
+        if contenido_id:
+            try:
+                from material.models import Contenido
+                contenido = Contenido.objects.get(id=int(contenido_id), uploaded_by=request.user)
+                candidate_path = contenido.file.path if contenido.file else ''
+                if candidate_path and os.path.exists(candidate_path):
+                    file_path = candidate_path
+                    filename = os.path.basename(file_path)
+                    # Re-establecer la sesión para llamadas posteriores
+                    request.session.setdefault('doc_processor', {})
+                    request.session['doc_processor']['file_path'] = file_path
+                    request.session['doc_processor']['filename'] = filename
+                    request.session.modified = True
+            except (Contenido.DoesNotExist, ValueError, AttributeError, OSError):
+                pass
+
+        if not file_path or not os.path.exists(file_path):
+            return JsonResponse({'success': False, 'error': 'No hay documento en sesión. Sube o selecciona uno primero.'}, status=400)
 
     ext = os.path.splitext(file_path)[1].lower()
 
@@ -1224,7 +1262,24 @@ def get_pages_text(request):
     filename = doc_session.get('filename', '')
 
     if not file_path or not os.path.exists(file_path):
-        return JsonResponse({'success': False, 'error': 'No hay documento en sesión.'}, status=400)
+        contenido_id = data.get('contenido_id', '')
+        if contenido_id:
+            try:
+                from material.models import Contenido
+                contenido = Contenido.objects.get(id=int(contenido_id), uploaded_by=request.user)
+                candidate_path = contenido.file.path if contenido.file else ''
+                if candidate_path and os.path.exists(candidate_path):
+                    file_path = candidate_path
+                    filename = os.path.basename(file_path)
+                    request.session.setdefault('doc_processor', {})
+                    request.session['doc_processor']['file_path'] = file_path
+                    request.session['doc_processor']['filename'] = filename
+                    request.session.modified = True
+            except (Contenido.DoesNotExist, ValueError, AttributeError, OSError):
+                pass
+
+        if not file_path or not os.path.exists(file_path):
+            return JsonResponse({'success': False, 'error': 'No hay documento en sesión.'}, status=400)
 
     ext = os.path.splitext(file_path)[1].lower()
 
@@ -1387,7 +1442,11 @@ def save_generated_questions(request):
                 pass
         
         saved_count = 0
-        
+        topic_id = data.get('topic_id')
+        subtopic_id = data.get('subtopic_id')
+        new_topic_name = (data.get('new_topic_name') or '').strip()
+        new_subtopic_name = (data.get('new_subtopic_name') or '').strip()
+
         # Resolver materias seleccionadas por el usuario
         selected_subjects = list(Subject.objects.filter(id__in=subject_ids)) if subject_ids else []
         if not selected_subjects:
@@ -1399,22 +1458,48 @@ def save_generated_questions(request):
                     'error': 'No hay materias configuradas en el sistema'
                 }, status=400)
             selected_subjects = [fallback]
-        
-        # Usar la primera materia seleccionada para anclar el tema
+
+        # El tema/subtema se ancla a la primera materia seleccionada
+        from material.models import Subtopic
         default_subject = selected_subjects[0]
-        
-        # Obtener o crear tema por defecto
-        default_topic = Topic.objects.filter(subject=default_subject).first()
+
+        # Resolver tema
+        default_topic = None
+        if topic_id:
+            try:
+                default_topic = Topic.objects.get(id=topic_id, subject=default_subject)
+            except Topic.DoesNotExist:
+                pass
+        if not default_topic and new_topic_name:
+            default_topic, _ = Topic.objects.get_or_create(
+                name=new_topic_name,
+                subject=default_subject
+            )
         if not default_topic:
-            default_topic = Topic.objects.create(
+            # Fallback automático
+            default_topic, _ = Topic.objects.get_or_create(
                 name=f"Preguntas de {filename}",
                 subject=default_subject
+            )
+
+        # Resolver subtema
+        default_subtopic = None
+        if subtopic_id:
+            try:
+                default_subtopic = Subtopic.objects.get(id=subtopic_id, topic=default_topic)
+            except Subtopic.DoesNotExist:
+                pass
+        if not default_subtopic and new_subtopic_name:
+            default_subtopic, _ = Subtopic.objects.get_or_create(
+                name=new_subtopic_name,
+                topic=default_topic
             )
         
         # Guardar preguntas aprobadas
         for q_data in approved:
             question = Question(
                 topic=default_topic,
+                subtopic=default_subtopic,
                 question_type=q_data.get('tipo', 'opcion_multiple'),
                 question_text=q_data.get('pregunta', ''),
                 answer_text=q_data.get('respuesta', ''),
@@ -1442,6 +1527,7 @@ def save_generated_questions(request):
         for q_data in rejected:
             question = Question(
                 topic=default_topic,
+                subtopic=default_subtopic,
                 question_type=q_data.get('tipo', 'opcion_multiple'),
                 question_text=q_data.get('pregunta', ''),
                 answer_text=q_data.get('respuesta', ''),
@@ -1475,4 +1561,32 @@ def save_generated_questions(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_topics_by_subject(request, subject_id):
+    """Retorna temas y subtemas para una materia — usado por el modal de guardado."""
+    from material.models import Topic
+    try:
+        topics = (
+            Topic.objects
+            .filter(subject_id=subject_id)
+            .order_by('name')
+            .prefetch_related('subtopic_set')
+        )
+        result = [
+            {
+                'id': t.id,
+                'name': t.name,
+                'subtopics': [
+                    {'id': s.id, 'name': s.name}
+                    for s in t.subtopic_set.all().order_by('name')
+                ],
+            }
+            for t in topics
+        ]
+        return JsonResponse({'success': True, 'topics': result})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 

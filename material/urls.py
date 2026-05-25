@@ -61,6 +61,7 @@ urlpatterns = [
     path('doc-processor/generate-questions/', doc_views.generate_questions_from_chapters, name='generate_questions_from_chapters'),
     path('doc-processor/generate-questions/stream/<str:job_id>/', doc_views.stream_questions, name='stream_questions'),
     path('doc-processor/save-questions/', doc_views.save_generated_questions, name='save_generated_questions'),
+    path('doc-processor/topics-by-subject/<int:subject_id>/', doc_views.get_topics_by_subject, name='get_topics_by_subject'),
     path('doc-processor/process-contenido/<int:contenido_id>/', doc_views.process_contenido_by_id, name='process_contenido_by_id'),
     path('doc-processor/page-preview/', doc_views.document_page_preview, name='document_page_preview'),
     path('doc-processor/pages-text/', doc_views.get_pages_text, name='get_pages_text'),

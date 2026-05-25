@@ -483,6 +483,19 @@ class Question(models.Model):
         blank=True,
         verbose_name='Imagen de la respuesta (opcional)'
     )
+    # Imágenes codificadas en Base64 — compatibles con SQLite (dev) y
+    # PostgreSQL/Neon (prod) sin depender del filesystem del servidor.
+    # El campo ImageField equivalente se vacía siempre tras la conversión.
+    question_image_b64 = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name='Imagen de pregunta (Base64)',
+    )
+    answer_image_b64 = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name='Imagen de respuesta (Base64)',
+    )
     options_json = models.TextField(
         blank=True,
         null=True,

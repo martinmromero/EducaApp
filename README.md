@@ -231,6 +231,14 @@ python manage.py test material.tests
 - Procesamiento de documentos (PDF, DOCX, PPTX)
 - Sistema de preview antes de confirmar importación
 
+### Imágenes en Preguntas — Almacenamiento Base64 Persistente
+- **Sin dependencia del filesystem**: Las imágenes se codifican en Base64 y se guardan directamente en la BD como `TextField`
+- **Compatible con Render + Neon**: No se pierden al reiniciar dynos ni al rotar workers; funciona idéntico en SQLite local y PostgreSQL en producción
+- **Campos dedicados**: `question_image_b64` y `answer_image_b64` en el modelo `Question`
+- **Editor visual**: Preview inline de la imagen existente, botón "Eliminar imagen", botón "Cambiar imagen" y preview live al seleccionar un archivo nuevo
+- **Vista de examen**: Las imágenes de preguntas se muestran automáticamente en la vista previa e impresión
+- **Migration 0026**: `AddField question_image_b64` y `answer_image_b64` — depende de ambas hojas del árbol de migraciones
+
 ### Procesamiento Avanzado de Documentos
 - **Dashboard de Procesamiento**: Interface completa para análisis de documentos
 - **Extracción de Metadata**: Obtención automática de ISBN, edición, páginas, editorial y año
@@ -260,6 +268,17 @@ python manage.py test material.tests
 5. Abre un Pull Request
 
 ## 📝 Changelog
+
+### [2026-05-24]
+- ✅ **Feature**: Almacenamiento de imágenes de preguntas/respuestas como Base64 en `TextField` — sin filesystem, compatible con Render + Neon PostgreSQL
+- ✅ **Model**: Nuevos campos `Question.question_image_b64` y `Question.answer_image_b64` (TextField nullable)
+- ✅ **Migration**: `0026_question_image_b64` con dependencias duales (0025_useraiconfig_ollama_url + 0024_contenido_file_hash)
+- ✅ **Form**: `QuestionForm.save()` convierte uploads a data-URI y nunca escribe al disco; nuevos campos `clear_question_image` / `clear_answer_image`
+- ✅ **UI**: Editor de preguntas rediseñado (dos columnas) — preview Base64 inline, botones "Eliminar" / "Cambiar", preview live al seleccionar archivo
+- ✅ **Feature**: Imágenes de preguntas visibles en vista previa del examen (`base_exam_preview.html`)
+- ✅ **Fix**: Race condition "No hay documento en sesión" resuelto — fallback a `contenido_id` como query param cuando `SESSION_SAVE_EVERY_REQUEST` sobreescribe la sesión
+- ✅ **Fix**: "Error cargando temas" en selector de materia — URL hardcodeada reemplazada con etiqueta `{% url %}` de Django
+- ✅ **Improvement**: `QuestionForm` incluye `question_type`, `difficulty` y `options_json` en `Meta.fields`; queryset de `contenido` usa `Q` para mostrar siempre el contenido asignado
 
 ### [2026-05-23]
 - ✅ **Feature**: Trazabilidad de documentos — cada pregunta almacena el `Contenido` de origen, tanto en carga manual como en generación por IA

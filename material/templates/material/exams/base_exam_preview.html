@@ -284,6 +284,13 @@
                     {% if question.type %}
                         {# Pregunta con estructura enriquecida (dict) #}
                         <strong>{{ question.text }}</strong>
+                        {% if question.question_image_b64 %}
+                        <div style="margin-top:0.5em;">
+                            <img src="{{ question.question_image_b64 }}"
+                                 style="max-width:100%;max-height:260px;border:1px solid #ddd;border-radius:4px;"
+                                 alt="imagen de la pregunta">
+                        </div>
+                        {% endif %}
                         {% if question.type == 'opcion_multiple' %}
                             {% if question.options %}
                             <ul style="list-style:none;padding-left:1.2em;margin-top:0.4em;">
