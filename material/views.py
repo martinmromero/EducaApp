@@ -133,6 +133,8 @@ def preview_exam(request):
                         'type': q.question_type,
                         'options': q.options or [],
                         'question_image_b64': q.question_image_b64 or '',
+                        'answer_text': q.answer_text or '',
+                        'answer_image_b64': q.answer_image_b64 or '',
                     })
                 else:
                     questions_texts.append({
@@ -1330,6 +1332,9 @@ def ver_examen(request, pk):
             'text': q.question_text,
             'type': q.question_type,
             'options': q.options or [],
+            'question_image_b64': q.question_image_b64 or '',
+            'answer_text': q.answer_text or '',
+            'answer_image_b64': q.answer_image_b64 or '',
         })
     outcomes_texts = [o.description for o in examen.learning_outcomes.all()]
     topics_texts = [t.name for t in examen.topics.all()]

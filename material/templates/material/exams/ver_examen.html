@@ -69,6 +69,37 @@ function toggleBloom() {
 <button onclick="window.print()">
     <i class="fas fa-print"></i> Imprimir Examen
 </button>
+<button id="toggleAnswersBtn" onclick="toggleAnswers()" class="secondary">
+    <i class="fas fa-eye"></i> Mostrar respuestas
+</button>
+<button onclick="printWithAnswers()" class="secondary">
+    <i class="fas fa-print"></i> Imprimir con respuestas
+</button>
+
+<!-- Descargar DOCX -->
+<a href="{% url 'material:exportar_examen_docx' exam.pk %}">
+    <button type="button" class="secondary">
+        <i class="fas fa-file-word"></i> Descargar DOCX
+    </button>
+</a>
+<a href="{% url 'material:exportar_examen_docx' exam.pk %}?con_respuestas=1">
+    <button type="button" class="secondary">
+        <i class="fas fa-file-word"></i> DOCX con respuestas
+    </button>
+</a>
+
+<!-- Descargar PDF -->
+<a href="{% url 'material:exportar_examen_pdf' exam.pk %}">
+    <button type="button" class="secondary">
+        <i class="fas fa-file-pdf"></i> Descargar PDF
+    </button>
+</a>
+<a href="{% url 'material:exportar_examen_pdf' exam.pk %}?con_respuestas=1">
+    <button type="button" class="secondary">
+        <i class="fas fa-file-pdf"></i> PDF con respuestas
+    </button>
+</a>
+
 <a href="{% url 'material:exam_rubrics' exam.pk %}">
     <button type="button" class="secondary">
         <i class="bi bi-card-checklist"></i> Rúbricas

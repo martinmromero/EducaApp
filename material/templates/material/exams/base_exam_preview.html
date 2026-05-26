@@ -56,6 +56,31 @@
             border-top: 1px dashed #ccc;
             text-align: center;
         }
+        /* ── Bloque de respuestas (visible solo en modo "con respuestas") ── */
+        .answer-block {
+            display: none;
+            margin-top: 0.55em;
+            padding: 0.45em 0.8em;
+            background: #eaf4ff;
+            border-left: 4px solid #0066cc;
+            border-radius: 0 4px 4px 0;
+            font-size: 0.93em;
+            color: #1a1a2e;
+        }
+        .answer-block .answer-label {
+            font-weight: 700;
+            color: #0066cc;
+            margin-bottom: 0.2em;
+            display: block;
+        }
+        body.show-answers .answer-block {
+            display: block;
+        }
+        @media print {
+            body.show-answers .answer-block {
+                display: block;
+            }
+        }
         .header {
             text-align: center;
             margin-bottom: 30px;
@@ -308,6 +333,22 @@
                         {% elif question.type == 'desarrollo' %}
                             <div style="margin-top:0.6em;border-bottom:1px solid #aaa;min-height:3em;"></div>
                         {% endif %}
+                        {# ── Bloque de respuesta (oculto hasta activar modo con-respuestas) ── #}
+                        {% if question.answer_text or question.answer_image_b64 %}
+                        <div class="answer-block">
+                            <span class="answer-label">&#10003; Respuesta:</span>
+                            {% if question.answer_text %}
+                            <div>{{ question.answer_text }}</div>
+                            {% endif %}
+                            {% if question.answer_image_b64 %}
+                            <div style="margin-top:0.4em;">
+                                <img src="{{ question.answer_image_b64 }}"
+                                     style="max-width:100%;max-height:200px;border-radius:3px;"
+                                     alt="imagen de la respuesta">
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     {% else %}
                         {# Fallback: texto plano (compatibilidad) #}
                         {{ question }}
@@ -356,6 +397,28 @@
         // Auto-print cuando viene del formulario de creación
         if(new URLSearchParams(window.location.search).has('from_creation')) {
             window.print();
+        }
+
+        // ── Toggle de respuestas ──────────────────────────────────────────
+        function toggleAnswers() {
+            var showing = document.body.classList.toggle('show-answers');
+            var btn = document.getElementById('toggleAnswersBtn');
+            if (btn) {
+                btn.innerHTML = showing
+                    ? '<i class="fas fa-eye-slash"></i> Ocultar respuestas'
+                    : '<i class="fas fa-eye"></i> Mostrar respuestas';
+                btn.style.background = showing ? '#5a6268' : '#6c757d';
+            }
+        }
+
+        // ── Imprimir con respuestas visibles ─────────────────────────────
+        function printWithAnswers() {
+            var wasShowing = document.body.classList.contains('show-answers');
+            document.body.classList.add('show-answers');
+            window.print();
+            if (!wasShowing) {
+                document.body.classList.remove('show-answers');
+            }
         }
     </script>
     {% endblock %}

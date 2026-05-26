@@ -1193,7 +1193,8 @@ async function generateBatch() {
                 filename: window.currentDocumentData.filename,
                 stream_mode: false,
                 question_types: window._selectedQuestionTypes || [],
-                total_questions: window._totalQuestions || 20
+                total_questions: window._totalQuestions || 20,
+                contenido_id: window.currentDocumentData.contenido_id || null
             })
         });
 
@@ -1201,6 +1202,12 @@ async function generateBatch() {
         document.getElementById('questionsLoadingIndicator').style.display = 'none';
 
         if (data.success && data.questions && data.questions.length > 0) {
+            if (data.existing_count > 0) {
+                const banner = document.createElement('div');
+                banner.className = 'alert alert-info py-2 mb-3';
+                banner.innerHTML = `<i class="fas fa-info-circle"></i> Este documento ya tenía <strong>${data.existing_count}</strong> pregunta${data.existing_count !== 1 ? 's' : ''} guardada${data.existing_count !== 1 ? 's' : ''} en sesiones previas. La IA generó preguntas distintas.`;
+                document.getElementById('questionsContent').prepend(banner);
+            }
             displayGeneratedQuestions(data.questions);
         } else {
             document.getElementById('questionsContent').innerHTML = `
@@ -1245,7 +1252,8 @@ async function generateStreaming() {
                 stream_mode: true,
                 question_types: window._selectedQuestionTypes || [],
                 total_questions: window._totalQuestions || 20,
-                questions_per_block: window._questionsPerBlock || 0
+                questions_per_block: window._questionsPerBlock || 0,
+                contenido_id: window.currentDocumentData.contenido_id || null
             })
         });
         const jobData = await resp.json();
@@ -1437,6 +1445,15 @@ async function generateStreaming() {
         if (msg.type === 'start') {
             const prog = document.getElementById('streamProgress');
             if (prog) prog.textContent = `0 / ${msg.total_chunks} fragmentos procesados`;
+            if (msg.existing_count > 0) {
+                const streamHeader = document.getElementById('streamHeader');
+                if (streamHeader) {
+                    const notice = document.createElement('div');
+                    notice.className = 'alert alert-info py-2 mt-2 mb-0';
+                    notice.innerHTML = `<i class="fas fa-info-circle"></i> Este documento ya tenía <strong>${msg.existing_count}</strong> pregunta${msg.existing_count !== 1 ? 's' : ''} guardada${msg.existing_count !== 1 ? 's' : ''} en sesiones previas. La IA generará preguntas distintas.`;
+                    streamHeader.after(notice);
+                }
+            }
 
         } else if (msg.type === 'questions') {
             if (pauseMode) {

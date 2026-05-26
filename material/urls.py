@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views as material_views  # Usar el mismo alias para todas las vistas
 from . import views_document_processor as doc_views  # Importar vistas del procesador de documentos
+from . import views_export as export_views  # Exportación DOCX / PDF
 
 app_name = 'material'
 
@@ -30,6 +31,8 @@ urlpatterns = [
     path('mis-examenes/', material_views.mis_examenes, name='mis_examenes'),
     path('examenes/<int:pk>/', material_views.ver_examen, name='ver_examen'),
     path('examenes/<int:pk>/eliminar/', material_views.eliminar_examen, name='eliminar_examen'),
+    path('examenes/<int:pk>/exportar/docx/', export_views.exportar_examen_docx, name='exportar_examen_docx'),
+    path('examenes/<int:pk>/exportar/pdf/',  export_views.exportar_examen_pdf,  name='exportar_examen_pdf'),
     path('lista-preguntas/', material_views.lista_preguntas, name='lista_preguntas'),
     path('mis-contenidos/', material_views.mis_contenidos, name='mis_contenidos'),
     path('delete-contenido/', material_views.delete_contenido, name='delete_contenido'),

@@ -573,17 +573,36 @@ def generate_questions_from_chapters(request):
         # Cantidad total de preguntas deseadas (usuario elige, default 20, máximo 200)
         total_questions = max(1, min(200, int(data.get('total_questions', 20) or 20)))
 
+        # --------------------------------------------------------
+        # Preguntas ya existentes para este documento (anti-repetición)
+        # --------------------------------------------------------
+        contenido_id = data.get('contenido_id')
+        existing_texts_set = set()
+        existing_questions_list = []
+        if contenido_id:
+            try:
+                existing_texts_set, existing_questions_list = _get_existing_questions_for_contenido(
+                    contenido_id, request.user
+                )
+                if existing_questions_list:
+                    logger.info(f"Contenido {contenido_id}: {len(existing_questions_list)} preguntas previas en BD → incluidas en prompt anti-repetición")
+            except Exception as _e:
+                logger.warning(f"No se pudo obtener preguntas existentes: {_e}")
+
         # Modo streaming: guardar job y retornar job_id al cliente
         if stream_mode:
             questions_per_block = max(1, min(50, int(data.get('questions_per_block', 0) or 0)))
             job_id = _store_streaming_job(
                 request, chapter_indices, chapters_from_request, filename,
-                question_types, total_questions, questions_per_block
+                question_types, total_questions, questions_per_block,
+                existing_questions_list=existing_questions_list,
+                existing_texts_set=existing_texts_set,
             )
             return JsonResponse({
                 'success': True,
                 'job_id': job_id,
                 'stream': True,
+                'existing_count': len(existing_questions_list),
             })
 
         # --------------------------------------------------------
@@ -654,13 +673,14 @@ def generate_questions_from_chapters(request):
             for chunk_idx, chunk in enumerate(chunks):
                 chunk_questions = _generate_questions_for_chunk(
                     chunk, title, questions_per_chunk, chunk_idx, len(chunks),
-                    question_types=question_types, backend=_ai_backend
+                    question_types=question_types, backend=_ai_backend,
+                    existing_questions=existing_questions_list,
                 )
                 all_questions.extend(chunk_questions)
                 logger.info(f"  chunk {chunk_idx + 1}/{len(chunks)}: {len(chunk_questions)} preguntas")
 
-        # Deduplicar y agregar metadata
-        all_questions = _deduplicate_questions(all_questions)
+        # Deduplicar contra preguntas ya en BD y entre sí
+        all_questions = _deduplicate_questions(all_questions, extra_seen=existing_texts_set)
         for q in all_questions:
             q['source_chapters'] = chapter_info
             q['source_file'] = filename
@@ -671,6 +691,7 @@ def generate_questions_from_chapters(request):
             'success': True,
             'questions': all_questions,
             'count': len(all_questions),
+            'existing_count': len(existing_questions_list),
         })
 
     except Exception as e:
@@ -682,7 +703,8 @@ def generate_questions_from_chapters(request):
 
 
 def _store_streaming_job(request, chapter_indices, chapters_from_request, filename,
-                         question_types=None, total_questions=20, questions_per_block=0):
+                         question_types=None, total_questions=20, questions_per_block=0,
+                         existing_questions_list=None, existing_texts_set=None):
     """Guarda los parámetros del job en memoria y retorna el job_id."""
     job_id = str(uuid.uuid4())
     with _jobs_lock:
@@ -702,6 +724,8 @@ def _store_streaming_job(request, chapter_indices, chapters_from_request, filena
             'doc_session': dict(request.session.get('doc_processor', {})),
             'user_id': request.user.id,
             'created_at': now,
+            'existing_questions_list': existing_questions_list or [],
+            'existing_texts_set': existing_texts_set or set(),
         }
     return job_id
 
@@ -754,7 +778,7 @@ def _split_into_chunks(content, max_tokens=3000):
     return chunks if chunks else [content]
 
 
-def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None):
+def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None, existing_questions=None):
     """Genera preguntas para un fragmento de capítulo usando la IA configurada.
 
     Args:
@@ -763,8 +787,8 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
         num_questions: Número total de preguntas a generar.
         chunk_idx: Índice del fragmento actual (0-based).
         total_chunks: Total de fragmentos del capítulo.
-        question_types: Lista de tipos habilitados, e.g. ['opcion_multiple', 'verdadero_falso'].
-                        Si es None o vacío, usa todos los tipos.
+        question_types: Lista de tipos habilitados.
+        existing_questions: lista de dicts {pregunta, respuesta, tipo} ya guardadas en BD.
     """
     import json as json_module
 
@@ -793,6 +817,18 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
         "4=Analizar, 5=Evaluar, 6=Crear)"
     )
 
+    # Bloque de preguntas ya existentes para evitar repeticiones
+    existing_block = ""
+    if existing_questions:
+        # Limitar a 40 para no inflar el prompt innecesariamente
+        sample = existing_questions[:40]
+        lines = [f'  {i+1}. [{q["tipo"]}] {q["pregunta"]}' for i, q in enumerate(sample)]
+        existing_block = (
+            f"\n\nPREGUNTAS YA GENERADAS PARA ESTE DOCUMENTO (NO REPETIR NI PARAFRASEAR):\n"
+            + "\n".join(lines)
+            + "\n\nGenerá preguntas completamente distintas a las anteriores, sobre aspectos o ángulos diferentes del texto.\n"
+        )
+
     prompt = f"""Analizá el siguiente texto educativo del capítulo "{chapter_title}" {context_note} y generá exactamente {num_questions} preguntas variadas.
 
 TEXTO:
@@ -800,7 +836,7 @@ TEXTO:
 
 TIPOS DE PREGUNTAS HABILITADOS:
 {enabled_descriptions}
-
+{existing_block}
 REGLAS:
 - Generá exactamente {num_questions} preguntas basándote ÚNICAMENTE en el texto anterior.
 - Distribuí los tipos de manera relativamente pareja entre los tipos habilitados.
@@ -885,16 +921,48 @@ Nota sobre bloom_nivel: {bloom_desc}"""
         return []
 
 
-def _deduplicate_questions(questions):
-    """Elimina preguntas duplicadas comparando los primeros 80 caracteres (case-insensitive)."""
-    seen = set()
+def _deduplicate_questions(questions, extra_seen=None):
+    """Elimina duplicados comparando los primeros 80 chars (case-insensitive).
+
+    extra_seen: set adicional de claves (primeros 120 chars) ya vistas en BD.
+    """
+    seen = set(extra_seen) if extra_seen else set()
     unique = []
     for q in questions:
-        key = q.get('pregunta', '').lower().strip()[:80]
-        if key and key not in seen:
-            seen.add(key)
+        key80  = q.get('pregunta', '').lower().strip()[:80]
+        key120 = q.get('pregunta', '').lower().strip()[:120]
+        if key80 and key80 not in seen and key120 not in seen:
+            seen.add(key80)
             unique.append(q)
     return unique
+
+
+def _get_existing_questions_for_contenido(contenido_id, user):
+    """
+    Devuelve (texts_set, summary_list) con todas las preguntas ya guardadas
+    en la BD que apuntan a este Contenido (sin importar estado IA).
+
+    texts_set   → set de str (primeros 120 chars en minúscula) para dedup rápido.
+    summary_list → lista de dicts {pregunta, respuesta, tipo} para incluir en el prompt.
+    """
+    from material.models import Question
+    qs = Question.objects.filter(
+        contenido_id=contenido_id,
+        user=user,
+    ).values('question_text', 'answer_text', 'question_type')
+
+    texts_set = set()
+    summary_list = []
+    for row in qs:
+        txt = row['question_text'].strip()
+        key = txt.lower()[:120]
+        texts_set.add(key)
+        summary_list.append({
+            'pregunta': txt,
+            'respuesta': (row['answer_text'] or '').strip(),
+            'tipo': row['question_type'],
+        })
+    return texts_set, summary_list
 
 
 @login_required
@@ -920,6 +988,8 @@ def stream_questions(request, job_id):
         question_types = job.get('question_types') or []
         total_questions = max(1, int(job.get('total_questions', 20) or 20))
         questions_per_block_override = int(job.get('questions_per_block', 0) or 0)
+        existing_questions_list = job.get('existing_questions_list') or []
+        existing_texts_set = set(job.get('existing_texts_set') or [])
 
         # Obtener contenido completo (misma lógica que generate_questions_from_chapters)
         chapters_to_process = []
@@ -963,9 +1033,9 @@ def stream_questions(request, job_id):
             chapter_splits.append(chunks)
             total_chunks_all += len(chunks)
 
-        yield f'data: {json_module.dumps({"type": "start", "total_chunks": total_chunks_all, "filename": filename})}\n\n'
+        yield f'data: {json_module.dumps({"type": "start", "total_chunks": total_chunks_all, "filename": filename, "existing_count": len(existing_questions_list)})}\n\n'
 
-        seen_keys = set()
+        seen_keys = set(existing_texts_set)  # inicializar con preguntas ya en BD
         total_generated = 0
         chunk_idx_global = 0
 
@@ -984,7 +1054,8 @@ def stream_questions(request, job_id):
                 try:
                     raw_questions = _generate_questions_for_chunk(
                         chunk, title, questions_per_chunk, i, len(chunks),
-                        question_types=question_types, backend=backend
+                        question_types=question_types, backend=backend,
+                        existing_questions=existing_questions_list,
                     )
                     new_qs = []
                     for q in raw_questions:

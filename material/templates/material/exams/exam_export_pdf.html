@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>{{ exam.title|default:"Examen" }}</title>
+<style>
+  /*
+   * Este template comparte exactamente la misma estructura de secciones que
+   * base_exam_preview.html. La única diferencia es que reemplaza
+   * "display:flex" por tablas CSS 2.1-compatibles para que xhtml2pdf
+   * (motor ReportLab) pueda renderizarlo sin errores.
+   */
+  @page {
+    size: A4;
+    margin: 2cm 2.5cm 2cm 2.5cm;
+  }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11pt;
+    color: #333;
+    line-height: 1.6;
+  }
+  /* ── Encabezado ── idéntico al .header de base_exam_preview */
+  .header {
+    text-align: center;
+    margin-bottom: 20pt;
+    padding-bottom: 12pt;
+    border-bottom: 2pt solid #0066cc;
+  }
+  .institution-logo { max-height: 80pt; max-width: 100%; margin-bottom: 8pt; }
+  h1 { color: #003366; font-size: 16pt; margin: 0 0 4pt; }
+  h2 { color: #003366; font-size: 12pt; margin: 2pt 0; font-weight: normal; }
+  h3 { color: #003366; font-size: 11pt; border-bottom: 1pt solid #ddd;
+       padding-bottom: 3pt; margin: 0 0 10pt; }
+  strong { color: #0066cc; }
+
+  /* ── exam-info: tabla 2 columnas sin bordes (reemplaza display:flex) ── */
+  .exam-info-table { width: 100%; border-collapse: collapse; border: none; margin-bottom: 14pt; font-size: 10pt; }
+  .exam-info-table td { vertical-align: top; width: 50%; padding: 2pt 6pt; border: none; }
+
+  /* ── Secciones ── idéntico al .section de base_exam_preview */
+  .section { margin-bottom: 18pt; padding-bottom: 10pt; border-bottom: 1pt solid #eee; }
+
+  /* ── Listas de outcomes y temas ── */
+  .outcomes-list, .topics-list {
+    list-style: none; padding-left: 0; margin: 6pt 0;
+  }
+  .outcomes-list li, .topics-list li {
+    margin-bottom: 5pt; padding-left: 18pt; position: relative;
+  }
+
+  /* ── Lista de preguntas ── */
+  .questions-list { list-style: decimal; padding-left: 18pt; margin: 6pt 0; }
+  .questions-list li { margin-bottom: 12pt; padding-left: 3pt; }
+
+  /* ── Opciones múltiple choice ── */
+  .options-list { list-style: none; padding-left: 14pt; margin: 3pt 0; }
+  .options-list li { margin-bottom: 2pt; }
+
+  /* ── Verdadero/Falso ── */
+  .vf-span { margin-left: 10pt; }
+
+  /* ── Líneas de desarrollo ── */
+  .blank-line { border-bottom: 1pt solid #aaa; height: 14pt; margin: 3pt 0; }
+
+  /* ── Bloque de respuesta ── idéntico al .answer-block de base_exam_preview */
+  .answer-block {
+    margin-top: 5pt; padding: 4pt 7pt;
+    background: #eaf4ff; border-left: 4pt solid #0066cc;
+    font-size: 10pt; color: #1a1a2e;
+  }
+  .answer-label { font-weight: bold; color: #0066cc; display: block; margin-bottom: 2pt; }
+
+  /* ── Imágenes ── */
+  .question-img { max-width: 12cm; margin: 5pt 0; }
+  .answer-img   { max-width: 10cm; margin: 3pt 0; }
+</style>
+</head>
+<body>
+
+<!-- ══ 1. ENCABEZADO INSTITUCIONAL ══════════════════════════════════════════ -->
+<div class="header">
+  <h1>{{ institution.name }}</h1>
+  <h2>{{ faculty.name }} &ndash; {{ career.name }}</h2>
+  <h2>{{ subject.name }}</h2>
+</div>
+
+<!-- ══ 2. DATOS DEL EXAMEN (2 columnas) ═════════════════════════════════════
+     Mismas columnas izquierda/derecha que base_exam_preview.html            -->
+<table class="exam-info-table"><tr>
+  <td>
+    <div><strong>Profesor/a:</strong> {{ professor.get_full_name }}</div>
+    <div><strong>Fecha:</strong> {{ current_date }}</div>
+    {% if exam.alumno %}<div><strong>Alumno/a:</strong> {{ exam.alumno }}</div>{% endif %}
+    {% if exam.curso  %}<div><strong>Curso/Comisi&oacute;n:</strong> {{ exam.curso }}</div>{% endif %}
+  </td>
+  <td>
+    <div><strong>Tipo de examen:</strong> {{ exam_type }}</div>
+    <div><strong>Modalidad:</strong> {{ exam_mode }}</div>
+    {% if resolution_time %}<div><strong>Duraci&oacute;n:</strong> {{ resolution_time }} minutos</div>{% endif %}
+    {% if modalidad_resolucion %}<div><strong>Mod. resoluci&oacute;n:</strong> {{ modalidad_resolucion|join:", " }}</div>{% endif %}
+  </td>
+</tr></table>
+
+<!-- ══ 3-6. CONTENIDO DEL EXAMEN (mismo orden que base_exam_preview.html) ══ -->
+
+{% if outcomes_texts %}
+<div class="section">
+  <h3>Resultados de aprendizaje evaluados:</h3>
+  <ul class="outcomes-list">
+    {% for o in outcomes_texts %}<li>&bull; {{ o }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if instructions %}
+<div class="section">
+  <h3>Instrucciones generales:</h3>
+  <div>{{ instructions }}</div>
+</div>
+{% endif %}
+
+{% if topics_texts %}
+<div class="section">
+  <h3>Temas a evaluar:</h3>
+  <ul class="topics-list">
+    {% for t in topics_texts %}<li>&bull; {{ t }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if questions_texts %}
+<div class="section">
+  <h3>Preguntas:</h3>
+  <ol class="questions-list">
+    {% for question in questions_texts %}
+    <li>
+      <strong>{{ question.text }}</strong>
+
+      {% if question.question_image_b64 %}
+      <div><img class="question-img" src="{{ question.question_image_b64 }}" alt="imagen pregunta"></div>
+      {% endif %}
+
+      {% if question.type == 'opcion_multiple' and question.options %}
+      <ul class="options-list">
+        {% for opt in question.options %}
+        <li>
+          {% if forloop.counter0 == 0 %}a)
+          {% elif forloop.counter0 == 1 %}b)
+          {% elif forloop.counter0 == 2 %}c)
+          {% elif forloop.counter0 == 3 %}d)
+          {% elif forloop.counter0 == 4 %}e)
+          {% else %}{{ forloop.counter }}){% endif %}
+          {{ opt }}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if question.type == 'verdadero_falso' %}
+      <span class="vf-span">&#9675; Verdadero &nbsp;&nbsp;&nbsp; &#9675; Falso</span>
+      {% endif %}
+
+      {% if question.type == 'desarrollo' %}
+      <div class="blank-line">&nbsp;</div>
+      <div class="blank-line">&nbsp;</div>
+      <div class="blank-line">&nbsp;</div>
+      <div class="blank-line">&nbsp;</div>
+      {% endif %}
+
+      {# Bloque de respuesta: visible si con_respuestas=True (equivalente a body.show-answers en browser) #}
+      {% if con_respuestas %}
+        {% if question.answer_text or question.answer_image_b64 %}
+        <div class="answer-block">
+          <span class="answer-label">&#10003; Respuesta:</span>
+          {% if question.answer_text %}{{ question.answer_text }}{% endif %}
+          {% if question.answer_image_b64 %}
+          <div><img class="answer-img" src="{{ question.answer_image_b64 }}" alt="respuesta"></div>
+          {% endif %}
+        </div>
+        {% endif %}
+      {% endif %}
+    </li>
+    {% empty %}
+    <li style="color:#888;">Este examen no tiene preguntas cargadas.</li>
+    {% endfor %}
+  </ol>
+</div>
+{% endif %}
+
+</body>
+</html>
+
+  /* ── Página ── */
+  @page {
+    size: A4;
+    margin: 2cm 2.5cm 2cm 2.5cm;
+    @frame header_frame {
+      -pdf-frame-content: page_header;
+      top: 0.5cm; left: 2.5cm; right: 2.5cm; height: 0.8cm;
+    }
+  }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11pt;
+    color: #222;
+    line-height: 1.5;
+  }
+
+  /* ── Encabezado ── */
+  .header { text-align: center; border-bottom: 2px solid #003366; padding-bottom: 10px; margin-bottom: 14px; }
+  .header h1 { font-size: 16pt; color: #003366; margin: 0 0 4px; }
+  .header .inst  { font-size: 12pt; font-weight: bold; color: #003366; margin: 0; }
+  .header .meta  { font-size: 9pt; color: #444; margin-top: 6px; }
+
+  /* ── Secciones ── */
+  .section-title {
+    font-size: 11pt;
+    font-weight: bold;
+    color: #003366;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 3px;
+    margin: 14px 0 8px;
+  }
+
+  /* ── Instrucciones ── */
+  .instructions { font-size: 10pt; color: #333; margin-bottom: 10px; }
+
+  /* ── Topics / outcomes ── */
+  .bullet-list { margin: 0 0 10px 16px; padding: 0; }
+  .bullet-list li { font-size: 10pt; margin-bottom: 3px; }
+
+  /* ── Preguntas ── */
+  .question-block { margin-bottom: 14px; }
+  .question-number { font-weight: bold; font-size: 11pt; }
+  .question-text { font-weight: bold; font-size: 11pt; }
+
+  /* Opciones de opción múltiple */
+  .options-list { margin: 4px 0 4px 20px; padding: 0; list-style: none; }
+  .options-list li { font-size: 10pt; margin-bottom: 2px; }
+
+  /* Verdadero / Falso */
+  .vf-line { font-size: 10pt; margin: 4px 0 4px 4px; }
+
+  /* Líneas de desarrollo */
+  .blank-line {
+    border-bottom: 1px solid #bbb;
+    height: 16pt;
+    margin: 4px 0;
+    font-size: 9pt;
+    color: #bbb;
+  }
+
+  /* Bloque de respuesta */
+  .answer-block {
+    margin-top: 6px;
+    padding: 5px 8px;
+    background: #eaf4ff;
+    border-left: 4px solid #0066cc;
+    font-size: 10pt;
+  }
+  .answer-label { font-weight: bold; color: #0066cc; }
+
+  /* Imágenes */
+  .question-img { max-width: 12cm; margin: 6px 0; }
+  .answer-img   { max-width: 10cm; margin: 4px 0; }
+
+  /* Separador de pregunta */
+  .question-sep { border: none; border-top: 1px dotted #ddd; margin: 12px 0 0; }
+</style>
+</head>
+<body>
+
+  <!-- ── ENCABEZADO ── -->
+  <div class="header">
+    {% if institution %}<p class="inst">{{ institution }}</p>{% endif %}
+    {% if faculty %}<p style="font-size:10pt;margin:2px 0;color:#003366;">{{ faculty }}</p>{% endif %}
+    {% if career %}<p style="font-size:10pt;margin:2px 0;">{{ career }}</p>{% endif %}
+    <h1>{{ title }}</h1>
+    <div class="meta">
+      {% if subject %}Materia: <strong>{{ subject }}</strong>{% endif %}
+      {% if exam_type %}  &nbsp;|&nbsp;  Tipo: {{ exam_type }}{% endif %}
+      {% if date %}  &nbsp;|&nbsp;  Fecha: {{ date }}{% endif %}
+      {% if duration %}  &nbsp;|&nbsp;  Duración: {{ duration }} min{% endif %}
+    </div>
+    {% if professor or alumno or curso %}
+    <div class="meta">
+      {% if professor %}Profesor/a: {{ professor }}{% endif %}
+      {% if alumno %}&nbsp;|&nbsp; Alumno/a: {{ alumno }}{% endif %}
+      {% if curso %}&nbsp;|&nbsp; Curso: {{ curso }}{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── INSTRUCCIONES ── -->
+  {% if instructions %}
+  <div class="section-title">Instrucciones generales</div>
+  <div class="instructions">{{ instructions }}</div>
+  {% endif %}
+
+  <!-- ── TEMAS ── -->
+  {% if topics %}
+  <div class="section-title">Temas a evaluar</div>
+  <ul class="bullet-list">
+    {% for t in topics %}<li>{{ t }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  <!-- ── PREGUNTAS ── -->
+  <div class="section-title">Preguntas</div>
+
+  {% for q in questions %}
+  <div class="question-block">
+    <span class="question-number">{{ forloop.counter }}.</span>
+    <span class="question-text">{{ q.text }}</span>
+
+    {% if q.question_image_b64 %}
+    <div><img class="question-img" src="{{ q.question_image_b64 }}" alt="imagen pregunta"></div>
+    {% endif %}
+
+    {% if q.type == 'opcion_multiple' and q.options %}
+    <ul class="options-list">
+      {% for opt in q.options %}
+      <li>
+        {% if forloop.counter0 == 0 %}a)
+        {% elif forloop.counter0 == 1 %}b)
+        {% elif forloop.counter0 == 2 %}c)
+        {% elif forloop.counter0 == 3 %}d)
+        {% elif forloop.counter0 == 4 %}e)
+        {% else %}{{ forloop.counter0 }}){% endif %}
+        {{ opt }}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if q.type == 'verdadero_falso' %}
+    <p class="vf-line">&#9675; Verdadero &nbsp;&nbsp;&nbsp; &#9675; Falso</p>
+    {% endif %}
+
+    {% if q.type == 'desarrollo' %}
+    <div class="blank-line">&nbsp;</div>
+    <div class="blank-line">&nbsp;</div>
+    <div class="blank-line">&nbsp;</div>
+    <div class="blank-line">&nbsp;</div>
+    {% endif %}
+
+    {% if con_respuestas and q.answer_text or con_respuestas and q.answer_image_b64 %}
+    <div class="answer-block">
+      <span class="answer-label">&#10003; Respuesta:&nbsp;</span>
+      {% if q.answer_text %}{{ q.answer_text }}{% endif %}
+      {% if q.answer_image_b64 %}
+      <div><img class="answer-img" src="{{ q.answer_image_b64 }}" alt="respuesta"></div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if not forloop.last %}<hr class="question-sep">{% endif %}
+  </div>
+  {% empty %}
+  <p style="color:#888;font-size:10pt;">Este examen no tiene preguntas cargadas.</p>
+  {% endfor %}
+
+  <!-- ── RESULTADOS DE APRENDIZAJE ── -->
+  {% if outcomes %}
+  <div class="section-title">Resultados de aprendizaje evaluados</div>
+  <ul class="bullet-list">
+    {% for o in outcomes %}<li>{{ o }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+</body>
+</html>
