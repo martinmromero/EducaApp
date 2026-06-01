@@ -70,10 +70,11 @@ class OpenAICompatibleBackend:
         preset = self.PRESET_URLS.get(provider)
         self.base_url = (base_url or preset or 'https://api.openai.com/v1').rstrip('/')
         self.provider = provider
-        # Gemini requiere el prefijo "models/" en el nombre del modelo
-        raw_model = model or ('models/gemini-flash-lite-latest' if provider == 'gemini' else 'gpt-4o-mini')
-        if provider == 'gemini' and raw_model and not raw_model.startswith('models/'):
-            raw_model = f'models/{raw_model}'
+        # Gemini OpenAI-compatible endpoint usa el nombre del modelo SIN prefijo "models/"
+        raw_model = model or ('gemini-1.5-flash' if provider == 'gemini' else 'gpt-4o-mini')
+        # Si el usuario ingresó el prefijo "models/" por error, quitarlo
+        if provider == 'gemini' and raw_model and raw_model.startswith('models/'):
+            raw_model = raw_model[len('models/'):]
         self.model = raw_model
 
     def _headers(self):

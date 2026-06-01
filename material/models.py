@@ -1654,8 +1654,12 @@ class UserAIConfig(models.Model):
     ]
     PROVIDER_CHOICES = [
         ('openai', 'OpenAI (GPT-4o, GPT-4, etc.)'),
+        ('gemini', 'Google Gemini (Gemini 1.5 Flash / Pro)'),
         ('anthropic', 'Anthropic (Claude 3, etc.)'),
-        ('openai_compatible', 'Compatible con OpenAI (Groq, Mistral, OpenRouter…)'),
+        ('groq', 'Groq (Llama, Mixtral)'),
+        ('mistral', 'Mistral AI'),
+        ('openrouter', 'OpenRouter'),
+        ('openai_compatible', 'Compatible con OpenAI (URL personalizada)'),
     ]
 
     user = models.OneToOneField(

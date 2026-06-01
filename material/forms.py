@@ -607,7 +607,7 @@ class OralExamForm(forms.ModelForm):
         # Filtrar materias por usuario
         if self.user:
             user_subjects = Subject.objects.filter(
-                question__user=self.user
+                questions__user=self.user
             ).distinct()
             self.fields['subject'].queryset = user_subjects
         
