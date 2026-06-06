@@ -10,6 +10,13 @@ django-extensions==3.2.3
 requests==2.31.0
 cryptography>=42.0.0
 
+# Producción / Deploy
+gunicorn==21.2.0
+whitenoise==6.7.0
+psycopg2-binary==2.9.9
+dj-database-url==2.2.0
+python-dotenv==1.0.1
+
 # Document Processing Stack (optimizado para IA)
 PyMuPDF==1.26.5
 pdfplumber==0.11.7

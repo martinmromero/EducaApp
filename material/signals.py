@@ -8,26 +8,30 @@ import logging
 logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
+def create_user_profile(sender, instance, created, raw=False, **kwargs):
     """
     Crea un perfil automáticamente al registrar un nuevo usuario.
-    Usa get_or_create para evitar duplicados en caso de señales duplicadas.
+    raw=True durante loaddata — se omite para no duplicar perfiles del fixture.
     """
-    if created:
-        try:
-            Profile.objects.get_or_create(
-                user=instance,
-                defaults={'role': 'user'}  # Valor por defecto para nuevos perfiles
-            )
-            logger.info(f"Perfil creado para usuario {instance.username}")
-        except Exception as e:
-            logger.error(f"Error creando perfil para {instance.username}: {str(e)}")
+    if raw or not created:
+        return
+    try:
+        Profile.objects.get_or_create(
+            user=instance,
+            defaults={'role': 'user'}
+        )
+        logger.info(f"Perfil creado para usuario {instance.username}")
+    except Exception as e:
+        logger.error(f"Error creando perfil para {instance.username}: {str(e)}")
 
 @receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
+def save_user_profile(sender, instance, raw=False, **kwargs):
     """
     Garantiza que el perfil se guarde correctamente tras actualizar el usuario.
+    raw=True durante loaddata — se omite para no duplicar perfiles del fixture.
     """
+    if raw:
+        return
     try:
         Profile.objects.get_or_create(user=instance)
         instance.profile.save()
