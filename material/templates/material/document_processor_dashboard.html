@@ -25,6 +25,9 @@
                             <i class="fas fa-exclamation-circle me-2"></i>
                             <span class="fw-bold">IA Desconectada</span>
                         </span>
+                        <a href="{% url 'material:ai_config' %}" class="btn btn-sm btn-warning ms-2" title="Configurar proveedor">
+                            <i class="fas fa-cog"></i> Configurar
+                        </a>
                         {% endif %}
                         <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
                             <i class="fas fa-sync"></i>
@@ -34,14 +37,20 @@
                         </a>
                     </div>
                     <small class="text-muted d-block mt-1 text-end" id="aiStatusDetail">
-                        {% if local_ai_connected %}{{ local_ai_url }}{% endif %}
-                        <span id="unlimitedTokensBadge" style="display: {% if local_ai_connected %}inline{% else %}none{% endif %};">
-                            | <i class="fas fa-infinity text-success"></i> <strong class="text-success">Tokens ilimitados</strong>
-                        </span>
-                        <br>
-                        <span id="currentModelBadge" style="display: {% if local_ai_connected %}inline{% else %}none{% endif %};">
-                            <i class="fas fa-brain text-info"></i> Modelo activo: <strong id="currentModelName">{{ selected_model }}</strong>
-                        </span>
+                        {% if local_ai_connected %}
+                            {{ local_ai_url }}
+                            <span id="unlimitedTokensBadge">
+                                | <i class="fas fa-infinity text-success"></i> <strong class="text-success">Tokens ilimitados</strong>
+                            </span>
+                            <br>
+                            <span id="currentModelBadge">
+                                <i class="fas fa-brain text-info"></i> Modelo activo: <strong id="currentModelName">{{ selected_model }}</strong>
+                            </span>
+                        {% else %}
+                            <span class="text-warning">
+                                <i class="fas fa-info-circle"></i> Configure un proveedor de IA para usar el generador de preguntas
+                            </span>
+                        {% endif %}
                     </small>
                 </div>
             </div>

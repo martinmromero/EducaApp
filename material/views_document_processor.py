@@ -340,17 +340,20 @@ def document_processor_dashboard(request):
     Vista HTML para el dashboard de procesamiento de documentos.
     """
     from material.models import Subject
-    # Verificar estado del servidor local de IA
-    local_ai_status = local_ai.get_status()
+    # Obtener backend configurado para este usuario (no la instancia global)
+    from .ai_router import get_backend_for_user
+    backend = get_backend_for_user(request.user)
+    ai_status = backend.get_status()
     
     context = {
         'page_title': 'Procesador de Documentos',
         'supported_formats': ['.pdf', '.docx', '.pptx', '.txt'],
         'max_file_size_mb': 10,
-        'local_ai_connected': local_ai_status['connected'],
-        'local_ai_url': local_ai_status['url'],
-        'selected_model': local_ai_status.get('selected_model', 'llama3.1:8b'),
-        'default_model': local_ai_status.get('default_model', 'llama3.1:8b'),
+        'local_ai_connected': ai_status.get('connected', False),
+        'local_ai_url': ai_status.get('url', 'No configurado'),
+        'selected_model': ai_status.get('selected_model', 'N/A'),
+        'default_model': ai_status.get('default_model', 'N/A'),
+        'backend_type': ai_status.get('backend', 'ollama_local'),
         'subjects': Subject.objects.all().order_by('name'),
         'preselected_contenido_id': request.GET.get('contenido_id', ''),
         'preselected_subject_id': request.GET.get('subject_id', ''),
@@ -562,9 +565,18 @@ def generate_questions_from_chapters(request):
         _ai_backend = get_backend_for_user(request.user)
         _status = _ai_backend.get_status()
         if not _status.get('connected'):
+            backend_type = _status.get('backend', 'ollama_local')
+            if backend_type == 'ollama_local':
+                error_msg = (
+                    'Servidor Ollama no disponible. '
+                    'Para usar el generador de IA en producción, configurá un proveedor '
+                    'en "Proveedor de IA" (BYOK con OpenAI, Anthropic, etc.).'
+                )
+            else:
+                error_msg = f'Proveedor de IA ({backend_type}) no disponible. Verificá tu configuración y API key.'
             return JsonResponse({
                 'success': False,
-                'error': 'Proveedor de IA no disponible. Verificá tu configuración.'
+                'error': error_msg
             }, status=503)
 
         # question_types enviados por el cliente (lista de strings)
