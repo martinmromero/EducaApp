@@ -3990,13 +3990,18 @@ def ai_config_view(request):
     config, _ = UserAIConfig.objects.get_or_create(user=request.user)
 
     # Instituciones con configuración IA activa a las que el usuario pertenece
-    user_inst_ids = UserInstitution.objects.filter(
-        user=request.user
-    ).values_list('institution_id', flat=True)
-    institutions_with_ai = InstitutionV2.objects.filter(
-        pk__in=user_inst_ids,
-        ai_config__is_active=True,
-    ).select_related('ai_config')
+    # Defensivo: puede que InstitutionAIConfig no exista en BD de producción
+    institutions_with_ai = []
+    try:
+        user_inst_ids = UserInstitution.objects.filter(
+            user=request.user
+        ).values_list('institution_id', flat=True)
+        institutions_with_ai = InstitutionV2.objects.filter(
+            pk__in=user_inst_ids,
+            ai_config__is_active=True,
+        ).select_related('ai_config')
+    except Exception:
+        pass  # Si falla, simplemente no muestra instituciones con IA
 
     if request.method == 'POST':
         source = request.POST.get('source', 'ollama_local')
