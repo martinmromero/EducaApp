@@ -151,15 +151,10 @@
         transform: translateX(0);
         box-shadow: 4px 0 15px rgba(0,0,0,0.3);
     }
-    .sidebar.collapsed {
-        transform: translateX(0);
-    }
+    /* En mobile no usamos collapsed - siempre empezamos cerrados */
     .main-content {
         margin-left: 0 !important;
         padding: 10px;
-    }
-    .main-content.expanded {
-        margin-left: 0 !important;
     }
     /* Overlay oscuro al abrir sidebar en mobile */
     .sidebar-overlay {
@@ -172,6 +167,10 @@
     }
     .sidebar-overlay.active {
         display: block;
+    }
+    /* Botón interno del sidebar: oculto en mobile */
+    .sidebar-toggle-internal {
+        display: none !important;
     }
     /* Botón hamburguesa visible en mobile */
     .sidebar-toggle-external {

@@ -5,14 +5,21 @@ on:
     - cron: '*/10 * * * *'  # cada 10 minutos
   workflow_dispatch:         # también ejecutable manualmente
 
+permissions:
+  contents: read
+
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
       - name: Ping health endpoint
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://educaapp.onrender.com/health/)
+          echo "Pinging https://educaapp.onrender.com/health/ at $(date)"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://educaapp.onrender.com/health/)
           echo "HTTP status: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "Warning: health check returned $STATUS"
+          if [ "$STATUS" -eq 200 ]; then
+            echo "✅ Health check successful"
+          else
+            echo "⚠️ Warning: health check returned $STATUS"
+            exit 0  # No fallar el workflow, solo advertir
           fi
