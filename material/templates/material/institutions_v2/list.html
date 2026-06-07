@@ -56,7 +56,7 @@
                                 </td>
                                 <td class="align-middle border-0 d-none d-md-table-cell">
                                     {% if institution.logo %}
-                                        <img src="{% if institution.logo_b64 %}{{ institution.logo_b64 }}{% else %}{{ institution.logo.url }}{% endif %}" alt="Logo" class="img-thumbnail" style="max-height: 50px; min-height: 50px;">
+                                        <img src="{% if institution.logo_b64|default:'' %}{{ institution.logo_b64 }}{% else %}{{ institution.logo.url }}{% endif %}" alt="Logo" class="img-thumbnail" style="max-height: 50px; min-height: 50px;">
                                     {% else %}
                                         <div style="height: 50px; display: flex; align-items: center;">
                                             <span class="text-muted no-logo-text">Sin logo</span>
@@ -121,7 +121,7 @@
                                         
                                         <div class="d-flex align-items-center gap-2">
                                             {% if institution.logo %}
-                                                <img src="{% if institution.logo_b64 %}{{ institution.logo_b64 }}{% else %}{{ institution.logo.url }}{% endif %}" alt="Logo" class="img-thumbnail" style="max-height: 50px; min-height: 50px;">
+                                                <img src="{% if institution.logo_b64|default:'' %}{{ institution.logo_b64 }}{% else %}{{ institution.logo.url }}{% endif %}" alt="Logo" class="img-thumbnail" style="max-height: 50px; min-height: 50px;">
                                             {% else %}
                                                 <span class="text-muted no-logo-text">Sin logo</span>
                                             {% endif %}

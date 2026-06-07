@@ -29,7 +29,7 @@
                 <div class="card-body">
                     <p><strong>Nombre:</strong> {{ institution.name }}</p>
                     {% if institution.logo %}
-                    <img src="{% if institution.logo_b64 %}{{ institution.logo_b64 }}{% else %}{{ institution.logo.url }}{% endif %}" alt="Logo" class="img-fluid mb-3 rounded" style="max-height: 150px;">
+                    <img src="{% if institution.logo_b64|default:'' %}{{ institution.logo_b64 }}{% else %}{{ institution.logo.url }}{% endif %}" alt="Logo" class="img-fluid mb-3 rounded" style="max-height: 150px;">
                     {% endif %}
                     <p><strong>Creada el:</strong> {{ institution.created_at|date:"d/m/Y H:i" }}</p>
                     <p><strong>Última actualización:</strong> {{ institution.updated_at|date:"d/m/Y H:i" }}</p>
