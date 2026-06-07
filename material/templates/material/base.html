@@ -2,19 +2,22 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>EducaApp</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-     {% load static %}
 </head>
 
 <body>
+    <!-- Overlay para mobile (cierra sidebar al tocar fuera) -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebarMobile()"></div>
+
     <!-- Botón toggle externo (aparece cuando sidebar está colapsado) -->
     <button class="sidebar-toggle-external" id="externalToggle" onclick="toggleSidebar()">
-        <i class="bi bi-chevron-right"></i>
+        <i class="bi bi-list" style="font-size:20px;"></i>
     </button>
 
     <!-- Menú lateral -->
@@ -197,78 +200,84 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Función para alternar el menú lateral
+        const isMobile = () => window.innerWidth <= 768;
+
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const mainContent = document.getElementById('mainContent');
-            sidebar.classList.toggle('collapsed');
-            mainContent.classList.toggle('expanded');
+            const externalToggle = document.getElementById('externalToggle');
+            const overlay = document.getElementById('sidebarOverlay');
+
+            if (isMobile()) {
+                // En mobile: toggle clase mobile-open + overlay
+                const isOpen = sidebar.classList.toggle('mobile-open');
+                overlay.classList.toggle('active', isOpen);
+            } else {
+                // En desktop: comportamiento original
+                sidebar.classList.toggle('collapsed');
+                mainContent.classList.toggle('expanded');
+                if (sidebar.classList.contains('collapsed')) {
+                    externalToggle.classList.add('show');
+                } else {
+                    externalToggle.classList.remove('show');
+                }
+            }
+        }
+
+        function closeSidebarMobile() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('active');
         }
 
         // Modo claro/oscuro
         const toggleModeButton = document.getElementById('toggleMode');
         const body = document.body;
-
-        // Verificar preferencia guardada
         const savedMode = localStorage.getItem('mode');
         if (savedMode === 'dark') {
             body.classList.add('dark-mode');
-            toggleModeButton.innerHTML = '<i class="bi bi-sun-fill"></i>';
+            if (toggleModeButton) toggleModeButton.innerHTML = '<i class="bi bi-sun-fill"></i>';
+        }
+        if (toggleModeButton) {
+            toggleModeButton.addEventListener('click', () => {
+                body.classList.toggle('dark-mode');
+                const isDarkMode = body.classList.contains('dark-mode');
+                localStorage.setItem('mode', isDarkMode ? 'dark' : 'light');
+                toggleModeButton.innerHTML = isDarkMode ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
+            });
         }
 
-        // Alternar modo
-        toggleModeButton.addEventListener('click', () => {
-            body.classList.toggle('dark-mode');
-            const isDarkMode = body.classList.contains('dark-mode');
-            localStorage.setItem('mode', isDarkMode ? 'dark' : 'light');
-            toggleModeButton.innerHTML = isDarkMode ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
-        });
-
-        // Menú responsive
+        // Al cargar: en mobile el sidebar empieza cerrado, botón hamburguesa visible
         window.addEventListener('load', () => {
-            if (window.innerWidth <= 768) {
-                document.getElementById('sidebar').classList.add('collapsed');
-                document.getElementById('mainContent').classList.add('expanded');
+            const externalToggle = document.getElementById('externalToggle');
+            if (isMobile()) {
+                externalToggle.classList.add('show');
             }
         });
 
         window.addEventListener('resize', () => {
-            if (window.innerWidth > 768) {
-                document.getElementById('sidebar').classList.remove('collapsed');
-                document.getElementById('mainContent').classList.remove('expanded');
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const externalToggle = document.getElementById('externalToggle');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (!isMobile()) {
+                sidebar.classList.remove('mobile-open');
+                overlay.classList.remove('active');
+                sidebar.classList.remove('collapsed');
+                mainContent.classList.remove('expanded');
+                externalToggle.classList.remove('show');
+            } else {
+                externalToggle.classList.add('show');
             }
         });
 
         // Submenús
         function toggleSubmenu(element) {
-            // Cierra todos los submenús excepto el clickeado
             const menuItems = document.querySelectorAll('.sidebar .menu-item');
-            menuItems.forEach(item => {
-                if (item !== element) {
-                    item.classList.remove('active');
-                }
-            });
-            // Alterna el submenú del elemento clickeado
+            menuItems.forEach(item => { if (item !== element) item.classList.remove('active'); });
             element.classList.toggle('active');
         }
-
-        // Toggle Sidebar
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-            const externalToggle = document.getElementById('externalToggle');
-            
-            sidebar.classList.toggle('collapsed');
-            mainContent.classList.toggle('expanded');
-            
-            // Mostrar/ocultar botón externo según el estado del sidebar
-            if (sidebar.classList.contains('collapsed')) {
-                externalToggle.classList.add('show');
-            } else {
-                externalToggle.classList.remove('show');
-            }
-        }
-
     </script>
 
     <!-- Bloque para JavaScript específico de cada página -->

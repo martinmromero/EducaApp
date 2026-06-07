@@ -5,7 +5,7 @@ Endpoints para procesar documentos, contar tokens y preparar contenido para IA.
 """
 
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse, StreamingHttpResponse
+from django.http import JsonResponse, StreamingHttpResponse, FileResponse, Http404
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.core.files.storage import default_storage
@@ -1163,10 +1163,8 @@ def document_page_preview(request):
             doc = fitz.open(file_path)
             total_pages = doc.page_count
             doc.close()
-            # Construir URL relativa a MEDIA_ROOT
-            rel = os.path.relpath(file_path, settings.MEDIA_ROOT).replace('\\', '/')
-            from django.conf import settings as _s
-            file_url = _s.MEDIA_URL + rel
+            # Usar endpoint interno para servir el archivo (funciona con DEBUG=False en Render)
+            file_url = '/doc-processor/serve-file/'
             return JsonResponse({
                 'success': True,
                 'file_type': 'pdf',
@@ -1260,9 +1258,7 @@ def document_page_preview(request):
             #     sections.append({'section_number': section_idx, 'title': heading_title,
             #                      'text': '\n'.join(current_text), 'char_count': current_chars})
             # URL del archivo para docx-preview.js
-            rel = os.path.relpath(file_path, settings.MEDIA_ROOT).replace('\\', '/')
-            from django.conf import settings as _s
-            file_url = _s.MEDIA_URL + rel
+            file_url = '/doc-processor/serve-file/'
             return JsonResponse({
                 'success': True,
                 'file_type': 'docx',
@@ -1660,4 +1656,40 @@ def get_topics_by_subject(request, subject_id):
         return JsonResponse({'success': True, 'topics': result})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def serve_doc_file(request):
+    """
+    Sirve el archivo del documento en sesión directamente via Django.
+    Necesario en producción (Render) donde DEBUG=False y /media/ no es servido.
+    Solo accesible para el usuario dueño de la sesión.
+    """
+    doc_session = request.session.get('doc_processor', {})
+    file_path = doc_session.get('file_path', '')
+
+    if not file_path or not os.path.exists(file_path):
+        raise Http404("Archivo no disponible")
+
+    # Validar que el path esté dentro de MEDIA_ROOT (seguridad)
+    try:
+        real_path = os.path.realpath(file_path)
+        media_real = os.path.realpath(settings.MEDIA_ROOT)
+        if not real_path.startswith(media_real):
+            raise Http404("Acceso denegado")
+    except Exception:
+        raise Http404("Archivo no disponible")
+
+    ext = os.path.splitext(file_path)[1].lower()
+    content_types = {
+        '.pdf': 'application/pdf',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        '.txt': 'text/plain',
+    }
+    content_type = content_types.get(ext, 'application/octet-stream')
+    response = FileResponse(open(file_path, 'rb'), content_type=content_type)
+    response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
+    return response
+
 

@@ -2071,6 +2071,14 @@ def create_institution_v2(request):
         if all([form.is_valid(), campus_formset.is_valid(), faculty_formset.is_valid()]):
             with transaction.atomic():
                 institution = form.save()
+
+                # Guardar logo en Base64 para producción (filesystem efímero)
+                if institution.logo:
+                    import base64
+                    institution.logo.seek(0)
+                    institution.logo_b64 = 'data:image/png;base64,' + base64.b64encode(institution.logo.read()).decode()
+                    institution.save(update_fields=['logo_b64'])
+
                 UserInstitution.objects.create(user=request.user, institution=institution)
 
                 # Procesar sedes
@@ -2142,6 +2150,13 @@ def edit_institution_v2(request, pk):
                 with transaction.atomic():
                     # Guardar institución (maneja logo automáticamente)
                     institution = form.save()
+
+                    # Actualizar logo_b64 si se subió un nuevo logo
+                    if request.FILES.get('logo'):
+                        import base64
+                        institution.logo.seek(0)
+                        institution.logo_b64 = 'data:image/png;base64,' + base64.b64encode(institution.logo.read()).decode()
+                        institution.save(update_fields=['logo_b64'])
 
                     # Procesar campus
                     for campus_form in campus_formset:
@@ -3123,7 +3138,7 @@ def generate_oral_exam_questions(oral_exam):
     
     # Obtener todas las preguntas disponibles de los temas seleccionados
     available_questions = Question.objects.filter(
-        subjects=oral_exam.subject,
+        subjects__id=oral_exam.subject.id,
         topic__in=oral_exam.topics.all(),
         user=oral_exam.user
     ).select_related('topic', 'subtopic')

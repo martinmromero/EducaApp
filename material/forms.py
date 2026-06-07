@@ -660,7 +660,7 @@ class OralExamForm(forms.ModelForm):
         
         user = self.initial.get('user') if hasattr(self, 'initial') else None
         available_questions = Question.objects.filter(
-            subject=subject,
+            subjects__id=subject.id,
             topic__in=topics,
             user=user
         ).select_related('topic', 'subtopic')

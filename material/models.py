@@ -25,6 +25,12 @@ class InstitutionV2(models.Model):
         verbose_name="Logo",
         help_text="Subir imagen del logo institucional"
     )
+    logo_b64 = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="Logo (Base64)",
+        help_text="Copia del logo en Base64 para producción sin filesystem persistente"
+    )
     is_active = models.BooleanField(
         default=True,
         verbose_name="Activa",

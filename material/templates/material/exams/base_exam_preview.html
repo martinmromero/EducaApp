@@ -221,7 +221,7 @@
         <div class="header">
             {% block header %}
             {% if institution.logo %}
-            <img src="{{ institution.logo.url }}" class="institution-logo" alt="Logo de {{ institution.name }}">
+            <img src="{% if institution.logo_b64 %}{{ institution.logo_b64 }}{% else %}{{ institution.logo.url }}{% endif %}" class="institution-logo" alt="Logo de {{ institution.name }}">
             {% endif %}
             <h1>{{ institution.name|default:"Institución" }}</h1>
             <h2>{{ faculty.name|default:"Facultad" }} - {{ career.name|default:"Carrera" }}</h2>

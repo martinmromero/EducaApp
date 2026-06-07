@@ -141,23 +141,53 @@
 
 /* Estilos para pantallas pequeñas */
 @media (max-width: 768px) {
+    /* En mobile el sidebar se oculta por defecto */
     .sidebar {
         transform: translateX(-250px);
+        z-index: 1050;
+    }
+    /* Cuando el usuario lo abre en mobile */
+    .sidebar.mobile-open {
+        transform: translateX(0);
+        box-shadow: 4px 0 15px rgba(0,0,0,0.3);
     }
     .sidebar.collapsed {
         transform: translateX(0);
     }
     .main-content {
-        margin-left: 0;
+        margin-left: 0 !important;
+        padding: 10px;
     }
     .main-content.expanded {
-        margin-left: 250px;
+        margin-left: 0 !important;
     }
-    
-    /* Botón toggle en móvil */
-    .sidebar-toggle {
-        left: 20px !important;
-        top: 20px;
+    /* Overlay oscuro al abrir sidebar en mobile */
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.4);
+        z-index: 1040;
+    }
+    .sidebar-overlay.active {
+        display: block;
+    }
+    /* Botón hamburguesa visible en mobile */
+    .sidebar-toggle-external {
+        display: flex !important;
+    }
+    /* Tablas responsivas */
+    table {
+        font-size: 0.85rem;
+    }
+    /* Cards más compactas */
+    .card {
+        margin-bottom: 0.75rem;
+    }
+    /* Formularios full-width */
+    .form-control, .form-select, .btn {
+        font-size: 1rem;
     }
 }
 

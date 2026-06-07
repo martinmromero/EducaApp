@@ -68,6 +68,7 @@ urlpatterns = [
     path('doc-processor/process-contenido/<int:contenido_id>/', doc_views.process_contenido_by_id, name='process_contenido_by_id'),
     path('doc-processor/page-preview/', doc_views.document_page_preview, name='document_page_preview'),
     path('doc-processor/pages-text/', doc_views.get_pages_text, name='get_pages_text'),
+    path('doc-processor/serve-file/', doc_views.serve_doc_file, name='serve_doc_file'),
 
 
 

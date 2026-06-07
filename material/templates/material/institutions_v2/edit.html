@@ -17,7 +17,7 @@
                         {% if form.instance.logo %}
                         <div class="d-flex align-items-center mb-3">
                             <div class="me-3">
-                                <img src="{{ form.instance.logo.url }}" alt="Logo actual" 
+                                <img src="{% if form.instance.logo_b64 %}{{ form.instance.logo_b64 }}{% else %}{{ form.instance.logo.url }}{% endif %}" alt="Logo actual" 
                                      class="img-thumbnail" style="max-height: 100px;" id="current-logo">
                             </div>
                             <button type="button" class="btn btn-outline-danger" id="delete-logo-btn"
