@@ -60,6 +60,24 @@ class InstitutionV2(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def logo_src(self):
+        # En producción puede existir drift de esquema (columna logo_b64 faltante temporalmente).
+        # Este fallback evita 500 y prioriza Base64 cuando está disponible.
+        try:
+            if self.logo_b64:
+                return self.logo_b64
+        except Exception:
+            pass
+
+        try:
+            if self.logo:
+                return self.logo.url
+        except Exception:
+            pass
+
+        return ''
+
 # UserInstitution DEBE estar inmediatamente después
 class UserInstitution(models.Model):
     user = models.ForeignKey('auth.User', on_delete=models.CASCADE)

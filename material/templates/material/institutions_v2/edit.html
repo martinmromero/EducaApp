@@ -14,10 +14,10 @@
                 <!-- Sección del Logo -->
                 <div class="mb-4">
                     <div id="logo-container">
-                        {% if form.instance.logo %}
+                        {% if form.instance.logo_src %}
                         <div class="d-flex align-items-center mb-3">
                             <div class="me-3">
-                                <img src="{% if form.instance.logo_b64|default:'' %}{{ form.instance.logo_b64 }}{% else %}{{ form.instance.logo.url }}{% endif %}" alt="Logo actual" 
+                                <img src="{{ form.instance.logo_src }}" alt="Logo actual" 
                                      class="img-thumbnail" style="max-height: 100px;" id="current-logo">
                             </div>
                             <button type="button" class="btn btn-outline-danger" id="delete-logo-btn"
@@ -27,7 +27,7 @@
                         </div>
                         {% endif %}
                         <div class="form-group">
-                            <label for="id_logo" class="form-label">{% if form.instance.logo %}Cambiar{% else %}Subir{% endif %} logo (opcional)</label>
+                            <label for="id_logo" class="form-label">{% if form.instance.logo_src %}Cambiar{% else %}Subir{% endif %} logo (opcional)</label>
                             <input type="file" name="logo" class="form-control" id="id_logo"
                                    accept=".jpg,.jpeg,.png,.svg">
                             <small class="form-text text-muted">Formatos aceptados: JPG, PNG, SVG (Máx. 2MB)</small>
