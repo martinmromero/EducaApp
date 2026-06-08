@@ -200,6 +200,20 @@ class GeminiBackend:
         if self.model in model_names:
             self._last_error = ''
             return True
+
+        # Aceptar alias/versiones frecuentes (ej: gemini-1.5-flash vs gemini-1.5-flash-latest)
+        wanted = self.model.lower().strip()
+        normalized = [m.lower().strip() for m in model_names]
+        if any(m.startswith(wanted) or wanted.startswith(m) for m in normalized):
+            self._last_error = ''
+            return True
+
+        # Fallback adicional para variantes '-latest'
+        alt_wanted = wanted.replace('-latest', '')
+        if any(m.replace('-latest', '').startswith(alt_wanted) for m in normalized):
+            self._last_error = ''
+            return True
+
         self._last_error = f'Modelo no disponible en Gemini: {self.model}'
         return False
 
