@@ -2020,36 +2020,44 @@ def delete_institution(request, pk):
 def institution_v2_list(request):
     name_query = request.GET.get('name', '')
     favorite_only = request.GET.get('favorites') == 'on'
+    from django.db import DatabaseError
 
-    # Filtrar solo instituciones activas (is_active=True)
-    institutions = InstitutionV2.objects.filter(
-        userinstitution__user=request.user,
-        is_active=True  # Solo mostrar instituciones activas
-    )
-
-    if name_query:
-        institutions = institutions.filter(name__icontains=name_query)
-
-    if favorite_only:
-        institutions = institutions.filter(
-            userinstitution__user=request.user, 
-            userinstitution__is_favorite=True
+    try:
+        # Filtrar solo instituciones activas (is_active=True)
+        institutions = InstitutionV2.objects.filter(
+            userinstitution__user=request.user,
+            is_active=True  # Solo mostrar instituciones activas
         )
 
-    institutions = institutions.prefetch_related(
-        'campusv2_set', 
-        'facultyv2_set'
-    ).distinct()
+        if name_query:
+            institutions = institutions.filter(name__icontains=name_query)
 
-    favorite_count = UserInstitution.objects.filter(
-        user=request.user, 
-        is_favorite=True,
-        institution__is_active=True  # Contar solo favoritos activos
-    ).count()
+        if favorite_only:
+            institutions = institutions.filter(
+                userinstitution__user=request.user,
+                userinstitution__is_favorite=True
+            )
 
-    paginator = Paginator(institutions, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+        institutions = institutions.prefetch_related(
+            'campusv2_set',
+            'facultyv2_set'
+        ).distinct()
+
+        favorite_count = UserInstitution.objects.filter(
+            user=request.user,
+            is_favorite=True,
+            institution__is_active=True  # Contar solo favoritos activos
+        ).count()
+
+        paginator = Paginator(institutions, 10)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+
+    except DatabaseError as e:
+        logger.error(f"Error DB en institution_v2_list: {str(e)}", exc_info=True)
+        messages.error(request, 'Se detecto un problema temporal de base de datos en Instituciones. Reintenta en unos minutos.')
+        page_obj = Paginator([], 10).get_page(1)
+        favorite_count = 0
 
     return render(request, 'material/institutions_v2/list.html', {
         'institutions': page_obj,

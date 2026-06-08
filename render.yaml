@@ -6,7 +6,7 @@ services:
       pip install -r requirements.txt
       python manage.py collectstatic --noinput --clear
       python manage.py migrate
-    startCommand: gunicorn educaapp.wsgi --workers 2 --threads 2 --timeout 120
+    startCommand: python manage.py migrate --noinput && gunicorn educaapp.wsgi --workers 2 --threads 2 --timeout 120
     envVars:
       - key: SECRET_KEY
         generateValue: true
