@@ -9,6 +9,19 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+      /* Fallback critico para produccion: evita depender de cache de static/css/styles.css */
+      @media (max-width: 768px) {
+        #externalToggle { z-index: 3000 !important; }
+        body.sidebar-open #sidebar {
+          transform: translateX(0) !important;
+          box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+        }
+        body.sidebar-open #sidebarOverlay {
+          display: block !important;
+        }
+      }
+    </style>
 </head>
 
 <body>
@@ -16,7 +29,7 @@
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="document.body.classList.remove('sidebar-open')"></div>
 
     <!-- Botón toggle externo (aparece cuando sidebar está colapsado) -->
-    <button class="sidebar-toggle-external" id="externalToggle" type="button" aria-label="Abrir menu lateral" onclick="document.body.classList.toggle('sidebar-open')">
+    <button class="sidebar-toggle-external" id="externalToggle" type="button" aria-label="Abrir menu lateral" onclick="toggleSidebarHard(event)">
         <i class="bi bi-list" style="font-size:20px;"></i>
     </button>
 
@@ -191,6 +204,25 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+      function toggleSidebarHard(event) {
+        if (event) event.preventDefault();
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const isMobileView = window.innerWidth <= 768;
+
+        if (!isMobileView) {
+          toggleSidebar();
+          return;
+        }
+
+        const opening = !document.body.classList.contains('sidebar-open');
+        document.body.classList.toggle('sidebar-open', opening);
+        sidebar.classList.toggle('mobile-open', opening);
+        overlay.classList.toggle('active', opening);
+        sidebar.style.transform = opening ? 'translateX(0)' : 'translateX(-250px)';
+        overlay.style.display = opening ? 'block' : 'none';
+      }
+
         const isMobile = () => window.innerWidth <= 768;
 
         function toggleSidebar() {
