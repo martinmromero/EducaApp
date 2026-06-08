@@ -142,9 +142,90 @@ class OpenAICompatibleBackend:
     def connected_and_ready(self) -> bool:
         if not self.is_available():
             return False
-        if self.provider == 'gemini':
-            return bool(self.model) and self.model.startswith('gemini-')
         return bool(self.model)
+
+
+# ---------------------------------------------------------------------------
+# Backend: Gemini nativo
+# ---------------------------------------------------------------------------
+class GeminiBackend:
+    """API nativa de Google Gemini para evitar falsos 404 del endpoint OpenAI-compatible."""
+
+    BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
+
+    def __init__(self, api_key: str, model: str = 'gemini-1.5-flash'):
+        self.api_key = api_key
+        self.model = (model or 'gemini-1.5-flash').strip()
+        if self.model.startswith('models/'):
+            self.model = self.model[len('models/'):]
+        if not self.model.startswith('gemini-'):
+            self.model = 'gemini-1.5-flash'
+
+    def _params(self):
+        return {'key': self.api_key}
+
+    def is_available(self) -> bool:
+        try:
+            r = requests.get(
+                f'{self.BASE_URL}/models/{self.model}',
+                params=self._params(),
+                timeout=5,
+            )
+            return r.status_code == 200
+        except Exception:
+            return False
+
+    def generate(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7, **kwargs) -> Dict[str, Any]:
+        try:
+            payload = {
+                'contents': [
+                    {
+                        'role': 'user',
+                        'parts': [{'text': prompt}],
+                    }
+                ],
+                'generationConfig': {
+                    'temperature': temperature,
+                    'maxOutputTokens': max_tokens,
+                },
+            }
+            r = requests.post(
+                f'{self.BASE_URL}/models/{self.model}:generateContent',
+                params=self._params(),
+                json=payload,
+                timeout=120,
+            )
+            r.raise_for_status()
+            data = r.json()
+            candidates = data.get('candidates') or []
+            text_parts = []
+            if candidates:
+                content = candidates[0].get('content', {}) or {}
+                for part in content.get('parts', []) or []:
+                    if isinstance(part, dict) and part.get('text'):
+                        text_parts.append(part['text'])
+            text = ''.join(text_parts).strip()
+            usage = data.get('usageMetadata', {})
+            return {
+                'success': True,
+                'text': text,
+                'tokens': usage.get('totalTokenCount', 0),
+                'model': self.model,
+            }
+        except Exception as e:
+            logger.error(f'Gemini backend error: {e}')
+            return {'success': False, 'error': str(e), 'text': None}
+
+    def get_status(self) -> Dict[str, Any]:
+        connected = self.is_available()
+        return {
+            'backend': 'gemini',
+            'connected': connected,
+            'ready_for_generation': connected,
+            'provider': 'gemini',
+            'model': self.model,
+            'base_url': self.BASE_URL,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -217,6 +298,8 @@ class AnthropicBackend:
 # ---------------------------------------------------------------------------
 def _build_external_backend(provider: str, api_key: str, model: str, base_url: Optional[str]):
     """Construye el backend correcto para un proveedor externo."""
+    if provider == 'gemini':
+        return GeminiBackend(api_key=api_key, model=model)
     if provider == 'anthropic':
         return AnthropicBackend(api_key=api_key, model=model)
     return OpenAICompatibleBackend(
