@@ -156,6 +156,7 @@ class GeminiBackend:
     def __init__(self, api_key: str, model: str = 'gemini-1.5-flash'):
         self.api_key = api_key
         self.model = (model or 'gemini-1.5-flash').strip()
+        self._last_error = ''
         if self.model.startswith('models/'):
             self.model = self.model[len('models/'):]
         if not self.model.startswith('gemini-'):
@@ -164,16 +165,47 @@ class GeminiBackend:
     def _params(self):
         return {'key': self.api_key}
 
-    def is_available(self) -> bool:
+    def _list_models(self):
         try:
             r = requests.get(
-                f'{self.BASE_URL}/models/{self.model}',
+                f'{self.BASE_URL}/models',
                 params=self._params(),
-                timeout=5,
+                timeout=8,
             )
-            return r.status_code == 200
-        except Exception:
+            if r.status_code != 200:
+                self._last_error = f'HTTP {r.status_code} al listar modelos de Gemini'
+                return False, []
+            data = r.json()
+            models = data.get('models', []) or []
+            names = []
+            for m in models:
+                name = (m.get('name') or '').strip()
+                if name.startswith('models/'):
+                    name = name[len('models/'):]
+                if name:
+                    names.append(name)
+            self._last_error = ''
+            return True, names
+        except Exception as e:
+            self._last_error = str(e)
+            return False, []
+
+    def _model_ready(self):
+        ok, model_names = self._list_models()
+        if not ok:
             return False
+        if not model_names:
+            self._last_error = 'No se pudieron obtener modelos desde Gemini'
+            return False
+        if self.model in model_names:
+            self._last_error = ''
+            return True
+        self._last_error = f'Modelo no disponible en Gemini: {self.model}'
+        return False
+
+    def is_available(self) -> bool:
+        ok, _ = self._list_models()
+        return ok
 
     def generate(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7, **kwargs) -> Dict[str, Any]:
         try:
@@ -218,10 +250,12 @@ class GeminiBackend:
 
     def get_status(self) -> Dict[str, Any]:
         connected = self.is_available()
+        ready = connected and self._model_ready()
         return {
             'backend': 'gemini',
             'connected': connected,
-            'ready_for_generation': connected,
+            'ready_for_generation': ready,
+            'error': self._last_error,
             'provider': 'gemini',
             'model': self.model,
             'base_url': self.BASE_URL,
