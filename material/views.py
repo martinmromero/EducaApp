@@ -2022,7 +2022,22 @@ def institution_v2_list(request):
     favorite_only = request.GET.get('favorites') == 'on'
     from django.db import DatabaseError
 
+    def ensure_logo_b64_column():
+        from django.db import connection
+        table_name = 'material_institutionv2'
+        column_name = 'logo_b64'
+        with connection.cursor() as cursor:
+            columns = [col.name for col in connection.introspection.get_table_description(cursor, table_name)]
+            if column_name in columns:
+                return
+            if connection.vendor == 'postgresql':
+                cursor.execute(f'ALTER TABLE "{table_name}" ADD COLUMN IF NOT EXISTS "{column_name}" TEXT NULL')
+            else:
+                cursor.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{column_name}" TEXT')
+
     try:
+        ensure_logo_b64_column()
+
         # Filtrar solo instituciones activas (is_active=True)
         institutions = InstitutionV2.objects.filter(
             userinstitution__user=request.user,
@@ -2120,7 +2135,28 @@ def create_institution_v2(request):
 
 @login_required
 def edit_institution_v2(request, pk):
-    institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
+    from django.db import DatabaseError
+
+    def ensure_logo_b64_column():
+        from django.db import connection
+        table_name = 'material_institutionv2'
+        column_name = 'logo_b64'
+        with connection.cursor() as cursor:
+            columns = [col.name for col in connection.introspection.get_table_description(cursor, table_name)]
+            if column_name in columns:
+                return
+            if connection.vendor == 'postgresql':
+                cursor.execute(f'ALTER TABLE "{table_name}" ADD COLUMN IF NOT EXISTS "{column_name}" TEXT NULL')
+            else:
+                cursor.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{column_name}" TEXT')
+
+    try:
+        ensure_logo_b64_column()
+        institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
+    except DatabaseError as e:
+        logger.error(f"Error DB en edit_institution_v2 (pk={pk}): {str(e)}", exc_info=True)
+        messages.error(request, 'Error de base de datos al abrir la edicion de la institucion.')
+        return redirect('material:institution_v2_list')
     
     CampusFormSet = modelformset_factory(
         CampusV2,
