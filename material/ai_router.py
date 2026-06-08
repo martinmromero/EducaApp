@@ -71,7 +71,17 @@ class OpenAICompatibleBackend:
         self.base_url = (base_url or preset or 'https://api.openai.com/v1').rstrip('/')
         self.provider = provider
         # Gemini OpenAI-compatible endpoint usa el nombre del modelo SIN prefijo "models/"
-        raw_model = model or ('gemini-1.5-flash' if provider == 'gemini' else 'gpt-4o-mini')
+        default_model = {
+            'gemini': 'gemini-1.5-flash',
+            'anthropic': 'claude-3-haiku-20240307',
+            'groq': 'llama-3.1-8b-instant',
+            'mistral': 'mistral-small-latest',
+            'openrouter': 'openai/gpt-4o-mini',
+            'openai': 'gpt-4o-mini',
+            'together': 'meta-llama/Llama-3.1-8B-Instruct-Turbo',
+            'openai_compatible': 'gpt-4o-mini',
+        }.get(provider, 'gpt-4o-mini')
+        raw_model = model or default_model
         # Si el usuario ingresó el prefijo "models/" por error, quitarlo
         if provider == 'gemini' and raw_model and raw_model.startswith('models/'):
             raw_model = raw_model[len('models/'):]
@@ -119,13 +129,22 @@ class OpenAICompatibleBackend:
             return {'success': False, 'error': str(e), 'text': None}
 
     def get_status(self) -> Dict[str, Any]:
+        ready = self.connected_and_ready()
         return {
             'backend': 'openai_compatible',
             'connected': self.is_available(),
+            'ready_for_generation': ready,
             'provider': self.provider,
             'model': self.model,
             'base_url': self.base_url,
         }
+
+    def connected_and_ready(self) -> bool:
+        if not self.is_available():
+            return False
+        if self.provider == 'gemini':
+            return bool(self.model) and self.model.startswith('gemini-')
+        return bool(self.model)
 
 
 # ---------------------------------------------------------------------------
@@ -232,10 +251,22 @@ def get_backend_for_user(user) -> 'OllamaBackend | OpenAICompatibleBackend | Ant
         if not config.api_key_encrypted:
             logger.warning('BYOK seleccionado pero sin API key. Usando Ollama.')
             return OllamaBackend()
+        provider_defaults = {
+            'gemini': 'gemini-1.5-flash',
+            'anthropic': 'claude-3-haiku-20240307',
+            'groq': 'llama-3.1-8b-instant',
+            'mistral': 'mistral-small-latest',
+            'openrouter': 'openai/gpt-4o-mini',
+            'openai': 'gpt-4o-mini',
+            'openai_compatible': 'gpt-4o-mini',
+        }
+        model = config.model or provider_defaults.get(config.provider or 'openai', 'gpt-4o-mini')
+        if config.provider == 'gemini' and not model.startswith('gemini-'):
+            model = 'gemini-1.5-flash'
         return _build_external_backend(
             provider=config.provider or 'openai',
             api_key=config.api_key,
-            model=config.model or 'gpt-4o-mini',
+            model=model,
             base_url=config.base_url or None,
         )
 
@@ -252,10 +283,15 @@ def get_backend_for_user(user) -> 'OllamaBackend | OpenAICompatibleBackend | Ant
         if not inst_cfg.is_active or not inst_cfg.api_key_encrypted:
             logger.warning(f'Configuración institucional de {institution.name} inactiva o sin key.')
             return OllamaBackend()
+        inst_model = inst_cfg.model or {
+            'openai': 'gpt-4o-mini',
+            'anthropic': 'claude-3-haiku-20240307',
+            'openai_compatible': 'gpt-4o-mini',
+        }.get(inst_cfg.provider, 'gpt-4o-mini')
         return _build_external_backend(
             provider=inst_cfg.provider,
             api_key=inst_cfg.api_key,
-            model=inst_cfg.model or 'gpt-4o-mini',
+            model=inst_model,
             base_url=inst_cfg.base_url or None,
         )
 

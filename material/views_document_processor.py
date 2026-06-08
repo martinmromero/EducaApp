@@ -350,9 +350,10 @@ def document_processor_dashboard(request):
         'supported_formats': ['.pdf', '.docx', '.pptx', '.txt'],
         'max_file_size_mb': 10,
         'local_ai_connected': ai_status.get('connected', False),
+        'local_ai_ready': ai_status.get('ready_for_generation', ai_status.get('connected', False)),
         'local_ai_url': ai_status.get('url', 'No configurado'),
-        'selected_model': ai_status.get('selected_model', 'N/A'),
-        'default_model': ai_status.get('default_model', 'N/A'),
+        'selected_model': ai_status.get('selected_model', ai_status.get('model', 'N/A')),
+        'default_model': ai_status.get('default_model', ai_status.get('model', 'N/A')),
         'backend_type': ai_status.get('backend', 'ollama_local'),
         'subjects': Subject.objects.all().order_by('name'),
         'preselected_contenido_id': request.GET.get('contenido_id', ''),
@@ -696,6 +697,19 @@ def generate_questions_from_chapters(request):
         for q in all_questions:
             q['source_chapters'] = chapter_info
             q['source_file'] = filename
+
+        if not all_questions:
+            backend_status = _ai_backend.get_status() if _ai_backend else {}
+            return JsonResponse({
+                'success': False,
+                'error': (
+                    'La IA respondió, pero no generó preguntas válidas. '
+                    'Revisá el proveedor y el modelo configurado, especialmente en Gemini.'
+                ),
+                'backend': backend_status.get('backend', 'unknown'),
+                'provider': backend_status.get('provider', ''),
+                'model': backend_status.get('model', ''),
+            }, status=422)
 
         logger.info(f"Total preguntas generadas (dedup): {len(all_questions)}")
 

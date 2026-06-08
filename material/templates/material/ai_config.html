@@ -286,12 +286,14 @@ function checkStatus() {
       const backend = data.backend || 'ollama_local';
       const msgs = STATUS_MSGS[backend] || STATUS_MSGS['ollama_local'];
       if (data.connected) {
-        document.getElementById('status-icon').textContent = '✅';
-        document.getElementById('status-text').textContent = msgs.ok;
+        const ready = data.ready_for_generation !== false;
+        document.getElementById('status-icon').textContent = ready ? '✅' : '⚠️';
+        document.getElementById('status-text').textContent = ready ? msgs.ok : 'Conectado, pero el modelo no está listo para generar';
         const detail = [];
         if (data.provider && data.provider !== backend) detail.push(data.provider);
         if (data.model) detail.push(data.model);
         if (data.url)   detail.push(data.url);
+        if (!ready) detail.push('revisá el modelo');
         document.getElementById('status-detail').textContent = detail.join(' — ');
       } else {
         document.getElementById('status-icon').textContent = '❌';

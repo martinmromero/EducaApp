@@ -15,10 +15,15 @@
                 <div>
                     <!-- Estado del servidor local de IA -->
                     <div id="localAIStatus" class="d-flex align-items-center">
-                        {% if local_ai_connected %}
+                        {% if local_ai_ready %}
                         <span class="badge bg-success px-3 py-2">
                             <i class="fas fa-circle me-2 blink"></i>
-                            <span class="fw-bold">IA Conectada</span>
+                            <span class="fw-bold">IA Lista para generar</span>
+                        </span>
+                        {% elif local_ai_connected %}
+                        <span class="badge bg-warning text-dark px-3 py-2">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <span class="fw-bold">IA conectada, pero modelo no listo</span>
                         </span>
                         {% else %}
                         <span class="badge bg-warning text-dark px-3 py-2">
@@ -37,7 +42,7 @@
                         </a>
                     </div>
                     <small class="text-muted d-block mt-1 text-end" id="aiStatusDetail">
-                        {% if local_ai_connected %}
+                        {% if local_ai_ready %}
                             {{ local_ai_url }}
                             <span id="unlimitedTokensBadge">
                                 | <i class="fas fa-infinity text-success"></i> <strong class="text-success">Tokens ilimitados</strong>
@@ -45,6 +50,11 @@
                             <br>
                             <span id="currentModelBadge">
                                 <i class="fas fa-brain text-info"></i> Modelo activo: <strong id="currentModelName">{{ selected_model }}</strong>
+                            </span>
+                        {% elif local_ai_connected %}
+                            <span class="text-warning">
+                                <i class="fas fa-exclamation-triangle"></i> La conexión responde, pero el modelo configurado no es compatible para generar preguntas.
+                                Revisá proveedor y modelo en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a>.
                             </span>
                         {% else %}
                             <span class="text-warning">

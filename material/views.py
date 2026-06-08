@@ -4057,7 +4057,23 @@ def ai_config_view(request):
 
         elif source == 'byok':
             config.provider = request.POST.get('provider', 'openai')
-            config.model = request.POST.get('model', '').strip() or 'gpt-4o-mini'
+            provider = config.provider or 'openai'
+            provider_defaults = {
+                'openai': 'gpt-4o-mini',
+                'gemini': 'gemini-1.5-flash',
+                'anthropic': 'claude-3-haiku-20240307',
+                'groq': 'llama-3.1-8b-instant',
+                'mistral': 'mistral-small-latest',
+                'openrouter': 'openai/gpt-4o-mini',
+                'openai_compatible': 'gpt-4o-mini',
+            }
+            model = request.POST.get('model', '').strip()
+            default_model = provider_defaults.get(provider, 'gpt-4o-mini')
+            if not model or model == 'gpt-4o-mini':
+                model = default_model
+            if provider == 'gemini' and not model.startswith('gemini-'):
+                model = 'gemini-1.5-flash'
+            config.model = model
             config.base_url = request.POST.get('base_url', '').strip() or None
             raw_key = request.POST.get('api_key', '').strip()
             if raw_key:  # no sobrescribir si el campo quedó vacío
