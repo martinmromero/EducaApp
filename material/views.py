@@ -4060,7 +4060,7 @@ def ai_config_view(request):
             provider = config.provider or 'openai'
             provider_defaults = {
                 'openai': 'gpt-4o-mini',
-                'gemini': 'gemini-1.5-flash',
+                'gemini': 'gemini-2.5-flash',
                 'anthropic': 'claude-3-haiku-20240307',
                 'groq': 'llama-3.1-8b-instant',
                 'mistral': 'mistral-small-latest',
@@ -4072,7 +4072,7 @@ def ai_config_view(request):
             if not model or model == 'gpt-4o-mini':
                 model = default_model
             if provider == 'gemini' and not model.startswith('gemini-'):
-                model = 'gemini-1.5-flash'
+                model = 'gemini-2.5-flash'
             config.model = model
             config.base_url = request.POST.get('base_url', '').strip() or None
             raw_key = request.POST.get('api_key', '').strip()

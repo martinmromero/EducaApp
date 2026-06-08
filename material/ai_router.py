@@ -72,7 +72,7 @@ class OpenAICompatibleBackend:
         self.provider = provider
         # Gemini OpenAI-compatible endpoint usa el nombre del modelo SIN prefijo "models/"
         default_model = {
-            'gemini': 'gemini-1.5-flash',
+            'gemini': 'gemini-2.5-flash',
             'anthropic': 'claude-3-haiku-20240307',
             'groq': 'llama-3.1-8b-instant',
             'mistral': 'mistral-small-latest',
@@ -153,14 +153,14 @@ class GeminiBackend:
 
     BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 
-    def __init__(self, api_key: str, model: str = 'gemini-1.5-flash'):
+    def __init__(self, api_key: str, model: str = 'gemini-2.5-flash'):
         self.api_key = api_key
-        self.model = (model or 'gemini-1.5-flash').strip()
+        self.model = (model or 'gemini-2.5-flash').strip()
         self._last_error = ''
         if self.model.startswith('models/'):
             self.model = self.model[len('models/'):]
         if not self.model.startswith('gemini-'):
-            self.model = 'gemini-1.5-flash'
+            self.model = 'gemini-2.5-flash'
 
     def _params(self):
         return {'key': self.api_key}
@@ -201,7 +201,7 @@ class GeminiBackend:
             self._last_error = ''
             return True
 
-        # Aceptar alias/versiones frecuentes (ej: gemini-1.5-flash vs gemini-1.5-flash-latest)
+        # Aceptar alias/versiones frecuentes (ej: gemini-2.5-flash vs gemini-2.5-flash-latest)
         wanted = self.model.lower().strip()
         normalized = [m.lower().strip() for m in model_names]
         if any(m.startswith(wanted) or wanted.startswith(m) for m in normalized):
@@ -383,7 +383,7 @@ def get_backend_for_user(user) -> 'OllamaBackend | OpenAICompatibleBackend | Ant
             logger.warning('BYOK seleccionado pero sin API key. Usando Ollama.')
             return OllamaBackend()
         provider_defaults = {
-            'gemini': 'gemini-1.5-flash',
+            'gemini': 'gemini-2.5-flash',
             'anthropic': 'claude-3-haiku-20240307',
             'groq': 'llama-3.1-8b-instant',
             'mistral': 'mistral-small-latest',
@@ -393,7 +393,7 @@ def get_backend_for_user(user) -> 'OllamaBackend | OpenAICompatibleBackend | Ant
         }
         model = config.model or provider_defaults.get(config.provider or 'openai', 'gpt-4o-mini')
         if config.provider == 'gemini' and not model.startswith('gemini-'):
-            model = 'gemini-1.5-flash'
+            model = 'gemini-2.5-flash'
         return _build_external_backend(
             provider=config.provider or 'openai',
             api_key=config.api_key,
