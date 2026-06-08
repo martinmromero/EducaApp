@@ -13,10 +13,10 @@
 
 <body>
     <!-- Overlay para mobile (cierra sidebar al tocar fuera) -->
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebarMobile()"></div>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <!-- Botón toggle externo (aparece cuando sidebar está colapsado) -->
-    <button class="sidebar-toggle-external" id="externalToggle" onclick="toggleSidebar()">
+    <button class="sidebar-toggle-external" id="externalToggle" type="button" aria-label="Abrir menu lateral">
         <i class="bi bi-list" style="font-size:20px;"></i>
     </button>
 
@@ -264,6 +264,23 @@
                 externalToggle.classList.add('show');
             }
         });
+
+          // Fallback robusto: evita depender de onclick inline
+          document.addEventListener('DOMContentLoaded', () => {
+            const externalToggle = document.getElementById('externalToggle');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (externalToggle) {
+              externalToggle.addEventListener('click', (event) => {
+                event.preventDefault();
+                toggleSidebar();
+              });
+            }
+            if (overlay) {
+              overlay.addEventListener('click', () => {
+                closeSidebarMobile();
+              });
+            }
+          });
 
         // Submenús
         function toggleSubmenu(element) {

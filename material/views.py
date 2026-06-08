@@ -2024,7 +2024,7 @@ def institution_v2_list(request):
 
     try:
         # Filtrar solo instituciones activas (is_active=True)
-        institutions = InstitutionV2.objects.filter(
+        institutions = InstitutionV2.objects.defer('logo_b64').filter(
             userinstitution__user=request.user,
             is_active=True  # Solo mostrar instituciones activas
         )
