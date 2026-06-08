@@ -3,7 +3,7 @@
     position: fixed;
     top: 20px;
     left: 20px;
-    z-index: 1050;
+    z-index: 2000;
     background-color: #f8f9fa;
     color: #495057;
     border: 1px solid #dee2e6;
@@ -127,6 +127,10 @@
         transform: translateX(0);
         box-shadow: 4px 0 15px rgba(0,0,0,0.3);
     }
+    body.sidebar-open .sidebar {
+        transform: translateX(0);
+        box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+    }
     /* En mobile no usamos collapsed - siempre empezamos cerrados */
     .main-content {
         margin-left: 0 !important;
@@ -142,6 +146,9 @@
         z-index: 1040;
     }
     .sidebar-overlay.active {
+        display: block;
+    }
+    body.sidebar-open .sidebar-overlay {
         display: block;
     }
     /* Botón hamburguesa visible en mobile */
