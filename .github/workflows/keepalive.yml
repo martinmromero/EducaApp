@@ -2,7 +2,7 @@ name: Keepalive Render
 
 on:
   schedule:
-    - cron: '*/10 * * * *'  # cada 10 minutos
+    - cron: '* * * * *'  # cada 1 minuto (GitHub puede aplicar limitaciones de frecuencia)
   workflow_dispatch:         # también ejecutable manualmente
 
 permissions:
@@ -12,14 +12,26 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping health endpoint
+      - name: Ping health endpoint (1/2)
         run: |
           echo "Pinging https://educaapp.onrender.com/health/ at $(date)"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://educaapp.onrender.com/health/)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 --retry 2 --retry-delay 2 https://educaapp.onrender.com/health/)
           echo "HTTP status: $STATUS"
           if [ "$STATUS" -eq 200 ]; then
             echo "✅ Health check successful"
           else
             echo "⚠️ Warning: health check returned $STATUS"
+            exit 0  # No fallar el workflow, solo advertir
+          fi
+
+      - name: Ping root endpoint (2/2)
+        run: |
+          echo "Pinging https://educaapp.onrender.com/ at $(date)"
+          STATUS=$(curl -L -s -o /dev/null -w "%{http_code}" --max-time 30 --retry 2 --retry-delay 2 https://educaapp.onrender.com/)
+          echo "HTTP status: $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            echo "✅ Root ping successful"
+          else
+            echo "⚠️ Warning: root ping returned $STATUS"
             exit 0  # No fallar el workflow, solo advertir
           fi
