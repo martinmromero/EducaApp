@@ -4195,3 +4195,7 @@ def institution_ai_config_view(request):
         'available_institutions': available_institutions,
     })
 
+
+def health_check(request):
+    return HttpResponse("OK", status=200)
+
