@@ -1,9 +1,9 @@
 name: Keepalive Render
 
-on:
-  schedule:
-    - cron: '* * * * *'  # cada 1 minuto (GitHub puede aplicar limitaciones de frecuencia)
-  workflow_dispatch:         # también ejecutable manualmente
+# on:
+#   schedule:
+#     - cron: '* * * * *'  # cada 1 minuto (GitHub puede aplicar limitaciones de frecuencia)
+#   workflow_dispatch:         # también ejecutable manualmente
 
 permissions:
   contents: read
