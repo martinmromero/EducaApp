@@ -17,7 +17,14 @@ SECRET_KEY = os.environ.get(
     'django-insecure-d-@xe!&5f3#io6!3ach#f3!k$3uj6%7)42gc$0)7@cbpbj%++b'
 )
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+# Mantenés tu línea intacta para no romper la lectura de Render
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h.strip()]
+
+# Le sumás tus dominios explícitos de forma segura (se anexan a la lista anterior)
+ALLOWED_HOSTS.extend(['educaapp.vercel.app', 'localhost', '127.0.0.1'])
+
+# Configurás la lista de confianza para el login (CSRF)
+CSRF_TRUSTED_ORIGINS = ['https://educaapp.onrender.com', 'https://educaapp.vercel.app']
 
 # Application definition
 INSTALLED_APPS = [
