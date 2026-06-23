@@ -6,27 +6,27 @@
     <title>{% block title %}Previsualización de Examen{% endblock %} - {{ institution.name|default:"EducaApp" }}</title>
     <style>
         body {
-            font-family: 'Arial', sans-serif;
-            line-height: 1.6;
-            color: #333;
+            font-family: 'Times New Roman', Times, serif;
+            line-height: 1.35;
+            color: #111;
             margin: 0;
-            padding: 20px;
-            background-color: #f9f9f9;
+            padding: 14px;
+            background-color: #ececec;
         }
         .page-wrapper {
             display: flex;
             align-items: flex-start;
-            gap: 28px;
-            max-width: 1280px;
+            gap: 20px;
+            max-width: 1200px;
             margin: 0 auto;
         }
         .exam-container {
-            flex: 0 0 800px;
+            flex: 0 0 820px;
             min-width: 0;
-            padding: 30px;
+            padding: 14px;
             background: white;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-            border-radius: 5px;
+            box-shadow: 0 1px 8px rgba(0,0,0,0.08);
+            border: 1px solid #bdbdbd;
         }
         .bloom-sidebar {
             flex: 1 1 360px;
@@ -34,16 +34,16 @@
             position: sticky;
             top: 20px;
             background: #fff;
-            border: 2px solid #9b59b6;
+            border: 2px solid #8a8a8a;
             border-radius: 8px;
             padding: 20px;
-            box-shadow: 0 2px 12px rgba(155,89,182,0.12);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.09);
         }
         .bloom-sidebar-title {
-            color: #003366;
+            color: #1c1c1c;
             font-size: 1.05rem;
             font-weight: bold;
-            border-bottom: 2px solid #9b59b6;
+            border-bottom: 2px solid #8a8a8a;
             padding-bottom: 6px;
             margin: 0 0 10px;
         }
@@ -82,88 +82,147 @@
             }
         }
         .header {
+            margin-bottom: 8px;
+        }
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 12px;
+        }
+        .header-table td {
+            border: 1px solid #444;
+            padding: 4px 6px;
+            vertical-align: middle;
+        }
+        .header-logo-cell {
+            width: 64px;
             text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #0066cc;
+        }
+        .header-center-cell {
+            text-align: center;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 0.3px;
+        }
+        .header-right-cell {
+            width: 70px;
+            text-align: center;
+            font-size: 11px;
+        }
+        .header-meta-cell {
+            font-size: 14px;
+        }
+        .header-meta-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 1px 0;
+        }
+        .header-meta-item {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .institution-logo {
-            max-height: 100px;
-            max-width: 100%;
-            margin-bottom: 15px;
+            max-height: 40px;
+            max-width: 58px;
+            margin: 0;
         }
         .section {
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
+            margin-bottom: 9px;
+            padding-bottom: 0;
+            border-bottom: none;
         }
         .section:last-child {
             border-bottom: none;
         }
         .exam-info {
-            display: flex;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin: 10px 0 12px;
+            font-size: 16px;
         }
-        .exam-info-column {
-            width: 48%;
-            margin-bottom: 10px;
+        .exam-info td {
+            border: 1px solid #444;
+            padding: 6px 8px;
+        }
+        .exam-info td.label {
+            width: 18%;
+            font-weight: 700;
+            background: #f6f6f6;
+        }
+        .exam-info td.value {
+            width: 32%;
+            min-height: 26px;
+        }
+        .exam-theme {
+            text-align: center;
+            font-size: 32px;
+            letter-spacing: 1px;
+            font-weight: 800;
+        }
+        .empty-line {
+            display: inline-block;
+            min-width: 100%;
+            border-bottom: 1px solid #777;
+            line-height: 1;
+            transform: translateY(-3px);
         }
         .outcomes-list, .topics-list {
             list-style: none;
-            padding-left: 0;
-            margin-top: 10px;
+            padding-left: 18px;
+            margin-top: 6px;
         }
         .outcomes-list li, .topics-list li {
-            margin-bottom: 8px;
-            padding-left: 25px;
+            margin-bottom: 2px;
+            padding-left: 14px;
             position: relative;
+            font-size: 24px;
         }
         .outcomes-list li:before, .topics-list li:before {
             content: "•";
             position: absolute;
-            left: 10px;
+            left: 0;
             font-weight: bold;
-            color: #0066cc;
-            font-size: 1.2em;
+            color: #111;
+            font-size: 1.05em;
+        }
+        .notes-list {
+            margin: 4px 0 0;
+            padding-left: 26px;
+            font-size: 28px;
         }
         .questions-list {
             list-style: decimal;
-            padding-left: 1.5em;
-            margin-top: 10px;
+            padding-left: 30px;
+            margin-top: 6px;
         }
         .questions-list li {
-            margin-bottom: 12px;
-            padding-left: 4px;
+            margin-bottom: 5px;
+            padding-left: 2px;
+            font-size: 24px;
         }
         h1, h2, h3 {
-            color: #003366;
+            color: #111;
             margin-top: 0;
         }
-        h1 {
-            margin-bottom: 5px;
-            font-size: 1.8em;
-        }
-        h2 {
-            font-size: 1.3em;
-            margin-bottom: 15px;
-        }
         h3 {
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 5px;
-            margin-bottom: 15px;
-            font-size: 1.1em;
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 2px;
+            font-size: 30px;
         }
         strong {
-            color: #0066cc;
+            color: #111;
         }
         .print-button {
             text-align: center;
-            margin-top: 30px;
+            margin-top: 14px;
         }
         .print-button button {
-            background: #0066cc;
+            background: #2b2b2b;
             color: white;
             border: none;
             padding: 10px 20px;
@@ -174,7 +233,7 @@
             margin: 5px;
         }
         .print-button button:hover {
-            background: #004d99;
+            background: #111;
         }
         .print-button button.secondary {
             background: #666;
@@ -186,7 +245,7 @@
             body {
                 background: white;
                 padding: 0;
-                font-size: 12pt;
+                font-size: 11pt;
             }
             .page-wrapper {
                 display: block;
@@ -196,6 +255,7 @@
                 padding: 0;
                 flex: none;
                 width: 100%;
+                border: none;
             }
             .bloom-sidebar {
                 display: none;
@@ -212,6 +272,19 @@
             .no-print {
                 display: none;
             }
+            .header-table,
+            .exam-info {
+                page-break-inside: avoid;
+            }
+            h3 {
+                font-size: 12pt;
+            }
+            .questions-list li,
+            .outcomes-list li,
+            .topics-list li,
+            .notes-list {
+                font-size: 11pt;
+            }
         }
     </style>
 </head>
@@ -220,49 +293,73 @@
     <div class="exam-container">
         <div class="header">
             {% block header %}
-            {% if institution.logo %}
-            {% if institution.logo %}
-                <img src="{% if institution.logo_b64|default:'' %}{{ institution.logo_b64 }}{% else %}{{ institution.logo.url }}{% endif %}" class="institution-logo" alt="Logo de {{ institution.name }}">
-            {% endif %}
-            {% endif %}
-            <h1>{{ institution.name|default:"Institución" }}</h1>
-            <h2>{{ faculty.name|default:"Facultad" }} - {{ career.name|default:"Carrera" }}</h2>
-            <h2>{{ subject.name|default:"Materia" }}</h2>
+            <table class="header-table">
+                <tr>
+                    <td class="header-logo-cell">
+                        {% if institution.logo %}
+                        <img src="{% if institution.logo_b64|default:'' %}{{ institution.logo_b64 }}{% else %}{{ institution.logo.url }}{% endif %}" class="institution-logo" alt="Logo de {{ institution.name }}">
+                        {% endif %}
+                    </td>
+                    <td class="header-center-cell">{{ institution.name|default:"INSTITUCION"|upper }}</td>
+                    <td class="header-right-cell">Año<br>{{ exam.year|default:current_date|slice:":4"|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="header-logo-cell"></td>
+                    <td class="header-meta-cell">
+                        <div class="header-meta-row">
+                            <span class="header-meta-item"><strong>Carrera:</strong> {{ career.name|default:"-" }}</span>
+                            <span class="header-meta-item"><strong>Profesor:</strong> {{ professor.get_full_name|default:"-" }}</span>
+                        </div>
+                        <div class="header-meta-row">
+                            <span class="header-meta-item"><strong>Materia:</strong> {{ subject.name|default:"-" }}</span>
+                            <span class="header-meta-item"><strong>{% if exam_type and exam_type != '-' %}{{ exam_type }}{% else %}Examen{% endif %}</strong></span>
+                        </div>
+                    </td>
+                    <td class="header-right-cell"></td>
+                </tr>
+            </table>
             {% endblock %}
         </div>
 
-        <div class="exam-info">
-            <div class="exam-info-column">
-                {% block exam_info_left %}
-                <div><strong>Profesor:</strong> {{ professor.get_full_name|default:"-" }}</div>
-                <div><strong>Fecha:</strong> {{ current_date|default:"-" }}</div>
-                {% if exam.alumno %}
-                <div><strong>Alumno/a:</strong> {{ exam.alumno }}</div>
-                {% endif %}
-                {% if exam.curso %}
-                <div><strong>Curso / Comisión:</strong> {{ exam.curso }}</div>
-                {% endif %}
-                {% if exam.turno %}
-                <div><strong>Turno:</strong> {{ exam.turno }}</div>
-                {% endif %}
-                {% if exam.sede %}
-                <div><strong>Sede / Localización:</strong> {{ exam.sede }}</div>
-                {% endif %}
-                {% endblock %}
-            </div>
-            <div class="exam-info-column">
-                {% block exam_info_right %}
-                <div><strong>Tipo de examen:</strong> {{ exam_type|default:"-" }}</div>
-                <div><strong>Modalidad:</strong> {{ exam_mode|default:"-" }}</div>
-                <div><strong>Duración:</strong> {{ resolution_time|default:exam.duration_minutes|default:"-" }}{% if exam.duration_minutes %} minutos{% endif %}</div>
-                {% if exam.modalidad_resolucion %}
-                <div><strong>Modalidad de resolución:</strong> {{ exam.modalidad_resolucion|join:', ' }}</div>
-                {% endif %}
-                {% endblock %}
-            </div>
-        </div>
+        <table class="exam-info">
+            <tr>
+                <td class="label">Nombre</td>
+                <td class="value"><span class="empty-line">&nbsp;</span></td>
+                <td class="label">Apellido</td>
+                <td class="value"><span class="empty-line">&nbsp;</span></td>
+            </tr>
+            <tr>
+                <td class="label">Fecha</td>
+                <td class="value">{{ current_date|default:" " }}</td>
+                <td class="exam-theme" colspan="2">
+                    {% if exam_type and exam_type != '-' %}{{ exam_type|upper }}{% else %}EXAMEN{% endif %}
+                </td>
+            </tr>
+        </table>
 
         {% block exam_content %}
+        {% if notes_and_recommendations %}
+        <div class="section">
+            <h3>Notas y recomendaciones:</h3>
+            <div>{{ notes_and_recommendations|linebreaks }}</div>
+        </div>
+        {% endif %}
+
+        {% if topics_to_evaluate or topics_texts %}
+        <div class="section">
+            <h3>Temas a evaluar:</h3>
+            {% if topics_texts %}
+            <ul class="topics-list">
+                {% for topic in topics_texts %}
+                <li>{{ topic }}</li>
+                {% endfor %}
+            </ul>
+            {% elif topics_to_evaluate %}
+            <div>{{ topics_to_evaluate|linebreaks }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
         {% if learning_outcomes or outcomes_texts %}
         <div class="section">
             <h3>Resultados de aprendizaje evaluados:</h3>
@@ -284,21 +381,6 @@
         <div class="section">
             <h3>Instrucciones generales:</h3>
             <div>{{ instructions|default:exam.instructions|linebreaks }}</div>
-        </div>
-        {% endif %}
-
-        {% if topics_to_evaluate or topics_texts %}
-        <div class="section">
-            <h3>Temas a evaluar:</h3>
-            {% if topics_texts %}
-            <ul class="topics-list">
-                {% for topic in topics_texts %}
-                <li>{{ topic }}</li>
-                {% endfor %}
-            </ul>
-            {% elif topics_to_evaluate %}
-            <div>{{ topics_to_evaluate|linebreaks }}</div>
-            {% endif %}
         </div>
         {% endif %}
 

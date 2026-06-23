@@ -207,6 +207,7 @@ def preview_exam(request):
         'exam_mode': _TIPO_MODALIDAD_LABELS.get(exam.get('tipo_modalidad', ''), exam.get('tipo_modalidad') or '-'),
         'resolution_time': exam.get('duration_minutes', '-'),
         'instructions': exam.get('instructions', ''),
+        'notes_and_recommendations': exam.get('notes_and_recommendations', ''),
         'bloom_display': bloom_display,
         'total_exam_questions': total_exam_questions,
     })
@@ -1373,6 +1374,7 @@ def ver_examen(request, pk):
         'resolution_time': examen.duration_minutes,
         'modalidad_resolucion': modalidad_list,
         'instructions': examen.instructions or '',
+        'notes_and_recommendations': examen.notes_and_recommendations or '',
         'questions_texts': questions_texts,
         'outcomes_texts': outcomes_texts,
         'topics_texts': topics_texts,

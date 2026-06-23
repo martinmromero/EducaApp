@@ -87,6 +87,7 @@ def _build_export_context(examen, con_respuestas=False):
         'resolution_time': examen.duration_minutes,
         'modalidad_resolucion': modalidad_list,
         'instructions': examen.instructions or '',
+        'notes_and_recommendations': examen.notes_and_recommendations or '',
         'questions_texts': questions_texts,
         'outcomes_texts': outcomes_texts,
         'topics_texts': topics_texts,
