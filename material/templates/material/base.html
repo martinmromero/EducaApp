@@ -12,7 +12,18 @@
     <style>
       /* Fallback critico para produccion: evita depender de cache de static/css/styles.css */
       @media (max-width: 768px) {
-        #externalToggle { z-index: 3000 !important; }
+        #externalToggle {
+          z-index: 2001 !important;
+          left: 12px !important;
+          top: 12px !important;
+          transition: left 0.25s ease, transform 0.2s ease, opacity 0.2s ease;
+        }
+        #externalToggle:active {
+          transform: scale(0.96);
+        }
+        body.sidebar-open #externalToggle {
+          left: 262px !important;
+        }
         body.sidebar-open #sidebar {
           transform: translateX(0) !important;
           box-shadow: 4px 0 15px rgba(0,0,0,0.3);
@@ -20,13 +31,23 @@
         body.sidebar-open #sidebarOverlay {
           display: block !important;
         }
+        body.sidebar-open {
+          overflow: hidden;
+          touch-action: none;
+        }
+        #sidebar {
+          will-change: transform;
+        }
+        #sidebarOverlay {
+          transition: opacity 0.25s ease;
+        }
       }
     </style>
 </head>
 
 <body>
     <!-- Overlay para mobile (cierra sidebar al tocar fuera) -->
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="document.body.classList.remove('sidebar-open')"></div>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebarMobile()"></div>
 
     <!-- Botón toggle externo (aparece cuando sidebar está colapsado) -->
     <button class="sidebar-toggle-external" id="externalToggle" type="button" aria-label="Abrir menu lateral" onclick="toggleSidebarHard(event)">
@@ -206,24 +227,20 @@
     <script>
       function toggleSidebarHard(event) {
         if (event) event.preventDefault();
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('sidebarOverlay');
-        const isMobileView = window.innerWidth <= 768;
-
-        if (!isMobileView) {
-          toggleSidebar();
-          return;
-        }
-
-        const opening = !document.body.classList.contains('sidebar-open');
-        document.body.classList.toggle('sidebar-open', opening);
-        sidebar.classList.toggle('mobile-open', opening);
-        overlay.classList.toggle('active', opening);
-        sidebar.style.transform = opening ? 'translateX(0)' : 'translateX(-250px)';
-        overlay.style.display = opening ? 'block' : 'none';
+        toggleSidebar();
       }
 
         const isMobile = () => window.innerWidth <= 768;
+
+        function updateMobileToggleButton() {
+            const externalToggle = document.getElementById('externalToggle');
+            const icon = document.getElementById('externalToggle')?.querySelector('i');
+            if (!externalToggle || !icon) return;
+            const isOpen = document.body.classList.contains('sidebar-open');
+            icon.className = isOpen ? 'bi bi-x-lg' : 'bi bi-list';
+            externalToggle.setAttribute('aria-label', isOpen ? 'Cerrar menu lateral' : 'Abrir menu lateral');
+          externalToggle.style.opacity = isOpen ? '0.95' : '1';
+        }
 
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
@@ -235,7 +252,8 @@
                 // En mobile: toggle clase mobile-open + overlay
                 const isOpen = sidebar.classList.toggle('mobile-open');
                 overlay.classList.toggle('active', isOpen);
-              document.body.classList.toggle('sidebar-open', isOpen);
+                document.body.classList.toggle('sidebar-open', isOpen);
+                updateMobileToggleButton();
             } else {
                 // En desktop: comportamiento original
                 sidebar.classList.toggle('collapsed');
@@ -253,7 +271,8 @@
             const overlay = document.getElementById('sidebarOverlay');
             sidebar.classList.remove('mobile-open');
             overlay.classList.remove('active');
-          document.body.classList.remove('sidebar-open');
+            document.body.classList.remove('sidebar-open');
+            updateMobileToggleButton();
         }
 
         // Modo claro/oscuro
@@ -278,6 +297,9 @@
             const externalToggle = document.getElementById('externalToggle');
             if (isMobile()) {
                 externalToggle.classList.add('show');
+            closeSidebarMobile();
+          } else {
+            updateMobileToggleButton();
             }
         });
 
@@ -296,23 +318,19 @@
             } else {
                 externalToggle.classList.add('show');
             }
+            updateMobileToggleButton();
         });
 
           // Fallback robusto: evita depender de onclick inline
           document.addEventListener('DOMContentLoaded', () => {
             const externalToggle = document.getElementById('externalToggle');
             const overlay = document.getElementById('sidebarOverlay');
-            if (externalToggle) {
-              externalToggle.addEventListener('click', (event) => {
-                event.preventDefault();
-                toggleSidebar();
-              });
-            }
             if (overlay) {
               overlay.addEventListener('click', () => {
                 closeSidebarMobile();
               });
             }
+            updateMobileToggleButton();
           });
 
         // Submenús
