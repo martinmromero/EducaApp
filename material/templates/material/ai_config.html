@@ -27,7 +27,7 @@
     <div class="row g-3 mb-4">
 
       <!-- Ollama local -->
-      <div class="col-12">
+      <div class="col-12 order-3">
         <label class="card p-3 d-flex flex-row align-items-start gap-3
                       {% if config.source == 'ollama_local' %}border-primary bg-primary bg-opacity-10{% endif %}"
                style="cursor:pointer" for="src_ollama">
@@ -55,7 +55,7 @@
       </div>
 
       <!-- BYOK -->
-      <div class="col-12">
+      <div class="col-12 order-1">
         <label class="card p-3 d-flex flex-row align-items-start gap-3 cursor-pointer
                       {% if config.source == 'byok' %}border-primary bg-primary bg-opacity-10{% endif %}"
                style="cursor:pointer" for="src_byok">
@@ -64,7 +64,7 @@
                  {% if config.source == 'byok' %}checked{% endif %}
                  onchange="onSourceChange()">
           <div class="flex-grow-1">
-            <div class="fw-semibold"><i class="bi bi-key me-1"></i>Mi propia API Key (BYOK)</div>
+            <div class="fw-semibold"><i class="bi bi-key me-1"></i>Usar mi propia IA online</div>
             <small class="text-muted">Usá tu cuenta personal de OpenAI, Google Gemini o Anthropic.</small>
 
             <!-- Campos BYOK (visibles solo cuando está seleccionado) -->
@@ -73,7 +73,7 @@
               <!-- Instructivo para obtener API Keys -->
               <div class="alert alert-info py-2 px-3 mb-3" id="byok-instructivo">
                 <div class="fw-semibold mb-1"><i class="bi bi-info-circle me-1"></i>¿Cómo obtener tu API Key?</div>
-                <div id="info-openai" class="small">
+                <div id="info-openai" class="small d-none">
                   <strong>OpenAI:</strong> Ingresá a <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>, creá una cuenta y generá una nueva clave.
                   Los modelos recomendados son <code>gpt-4o-mini</code> (económico) o <code>gpt-4o</code>.
                 </div>
@@ -151,7 +151,7 @@
       </div>
 
       <!-- Institucional -->
-      <div class="col-12">
+      <div class="col-12 order-2">
         <label class="card p-3 d-flex flex-row align-items-start gap-3 cursor-pointer
                       {% if config.source == 'institutional' %}border-primary bg-primary bg-opacity-10{% endif %}"
                style="cursor:pointer" for="src_inst">
@@ -204,7 +204,8 @@
       <button type="submit" class="btn btn-primary">
         <i class="bi bi-floppy me-1"></i>Guardar configuración
       </button>
-      <a href="{% url 'material:index' %}" class="btn btn-outline-secondary">Cancelar</a>
+      <a href="{% url 'material:index' %}" class="btn btn-outline-secondary"
+        onclick="if (window.history.length > 1) { window.history.back(); return false; }">Cancelar</a>
     </div>
   </form>
 </div>
@@ -307,6 +308,10 @@ function checkStatus() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', checkStatus);
+document.addEventListener('DOMContentLoaded', () => {
+  onProviderChange();
+  onSourceChange();
+  checkStatus();
+});
 </script>
 {% endblock %}
