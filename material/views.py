@@ -897,6 +897,54 @@ def create_exam_template(request):
         context
     )
 
+
+@login_required
+def exam_templates_tabs(request):
+    from .models import ExamTemplate, InstitutionV2, LearningOutcome, Subject
+    from django.core.paginator import Paginator
+
+    user_institutions = InstitutionV2.objects.filter(
+        userinstitution__user=request.user,
+        is_active=True
+    )
+    subjects = Subject.objects.filter(
+        subject_institutions__institution__in=user_institutions
+    ).distinct()
+
+    create_form = ExamTemplateForm(
+        initial={'resolution_time_number': 60, 'resolution_time_unit': 'minutes'},
+        user=request.user
+    )
+
+    templates = ExamTemplate.objects.filter(
+        created_by=request.user
+    ).select_related(
+        'institution', 'faculty', 'career', 'subject', 'professor'
+    ).prefetch_related('learning_outcomes').order_by('-created_at')
+
+    subject_filter = request.GET.get('subject')
+    if subject_filter:
+        templates = templates.filter(subject_id=subject_filter)
+
+    exam_mode_filter = request.GET.get('exam_mode')
+    if exam_mode_filter:
+        templates = templates.filter(exam_mode=exam_mode_filter)
+
+    paginator = Paginator(templates, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'material/exams/exam_templates_tabs.html', {
+        'create_form': create_form,
+        'create_subjects': subjects,
+        'create_learning_outcomes': LearningOutcome.objects.filter(subject__in=subjects).select_related('subject'),
+        'create_edit_mode': False,
+        'create_template': None,
+        'list_exam_templates': page_obj,
+        'list_subjects': subjects,
+        'list_exam_modes': ExamTemplate.EXAM_TYPE_CHOICES,
+    })
+
 @require_POST
 @login_required
 def preview_exam_template(request):

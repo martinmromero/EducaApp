@@ -1,0 +1,64 @@
+{% extends 'material/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h2 class="mb-1">Plantillas</h2>
+      <p class="text-muted mb-0">Creá y administrá tus plantillas desde una sola pantalla.</p>
+    </div>
+  </div>
+
+  <ul class="nav nav-tabs mb-4" id="plantillasTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="crear-tab" data-bs-toggle="tab" data-bs-target="#crear-pane" type="button" role="tab" aria-controls="crear-pane" aria-selected="true">Crear plantilla</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="mis-tab" data-bs-toggle="tab" data-bs-target="#mis-pane" type="button" role="tab" aria-controls="mis-pane" aria-selected="false">Mis plantillas</button>
+    </li>
+  </ul>
+
+  <div class="tab-content border border-top-0 rounded-bottom bg-white p-2 p-md-3">
+    <div class="tab-pane fade show active" id="crear-pane" role="tabpanel" aria-labelledby="crear-tab">
+      {% include 'material/exams/_create_exam_template_fragment.html' with form=create_form subjects=create_subjects learning_outcomes=create_learning_outcomes edit_mode=create_edit_mode template=create_template %}
+    </div>
+    <div class="tab-pane fade" id="mis-pane" role="tabpanel" aria-labelledby="mis-tab">
+      {% include 'material/exams/_list_exam_templates_fragment.html' with exam_templates=list_exam_templates subjects=list_subjects exam_modes=list_exam_modes %}
+    </div>
+  </div>
+</div>
+
+<style>
+  .tab-content { overflow: hidden; }
+  .nav-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-tabs .nav-item {
+    flex: 0 0 auto;
+  }
+  .nav-tabs .nav-link {
+    width: auto;
+  }
+  @media (max-width: 768px) {
+    .nav-tabs {
+      gap: .25rem;
+    }
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const hash = window.location.hash;
+  if (hash === '#mis') {
+    const tab = document.getElementById('mis-tab');
+    tab?.click();
+  }
+});
+</script>
+{% endblock %}

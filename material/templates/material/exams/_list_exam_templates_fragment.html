@@ -1,0 +1,98 @@
+{% load message_tags %}
+<h2>Plantillas de Examen Guardadas</h2>
+{% show_messages "plantillas" %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <form method="get" class="form-inline">
+            <div class="form-group mr-3">
+                <label for="subject" class="mr-2">Materia:</label>
+                <select name="subject" id="subject" class="form-control">
+                    <option value="">Todas</option>
+                    {% for subject in subjects %}
+                        <option value="{{ subject.id }}" {% if request.GET.subject == subject.id|stringformat:"s" %}selected{% endif %}>{{ subject.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="exam_mode" class="mr-2">Tipo:</label>
+                <select name="exam_mode" id="exam_mode" class="form-control">
+                    <option value="">Todos</option>
+                    {% for mode in exam_modes %}
+                        <option value="{{ mode.0 }}" {% if request.GET.exam_mode == mode.0 %}selected{% endif %}>{{ mode.1 }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary ml-2">Filtrar</button>
+            <a href="{% url 'material:list_exam_templates' %}" class="btn btn-secondary ml-2">Limpiar</a>
+        </form>
+    </div>
+</div>
+<form method="post" action="{% url 'material:delete_exam_template' %}" id="deleteForm">
+    {% csrf_token %}
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+            <thead class="thead-light">
+                <tr>
+                    <th width="5%"><input type="checkbox" id="selectAll"></th>
+                    <th>Institución</th><th>Facultad</th><th>Carrera</th><th>Materia</th><th>Profesor</th><th>Año</th><th>Tipo</th><th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for template in exam_templates %}
+                <tr>
+                    <td><input type="checkbox" name="template_ids" value="{{ template.id }}"></td>
+                    <td>{% if template.institution_name_snapshot %}{{ template.institution_name_snapshot }}{% else %}{{ template.institution.name|default:"-" }}{% endif %}</td>
+                    <td>{% if template.faculty_name_snapshot %}{{ template.faculty_name_snapshot }}{% else %}{{ template.faculty.name|default:"-" }}{% endif %}</td>
+                    <td>{{ template.career_name_snapshot|default:template.career.name|default:"-" }}</td>
+                    <td>{% if template.subject_name_snapshot %}{{ template.subject_name_snapshot }}{% else %}{{ template.subject.name|default:"-" }}{% endif %}</td>
+                    <td>{% if template.professor %}{{ template.professor.get_full_name }}{% else %}-{% endif %}</td>
+                    <td>{{ template.year }}</td>
+                    <td>{{ template.get_exam_type_display|default:"-" }}</td>
+                    <td>
+                        <div class="btn-group">
+                            <a href="{% url 'material:view_exam_template' template.id %}" class="btn btn-sm btn-primary" title="Vista previa" target="_blank"><i class="fas fa-eye"></i></a>
+                            <a href="{% url 'material:edit_exam_template' template.id %}" class="btn btn-sm btn-secondary" title="Editar"><i class="fas fa-edit"></i></a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center py-4">
+                        <div class="alert alert-info">No hay plantillas guardadas. <a href="{% url 'material:create_exam_template' %}" class="alert-link">Crear nueva plantilla</a></div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="mb-4">
+        <button type="button" class="btn btn-danger" onclick="confirmDelete()"><i class="fas fa-trash-alt"></i> Eliminar seleccionadas</button>
+        <a href="{% url 'material:create_exam_template' %}" class="btn btn-success float-right"><i class="fas fa-plus"></i> Nueva plantilla</a>
+    </div>
+</form>
+{% if exam_templates.has_other_pages %}
+<div class="pagination justify-content-center">
+    <ul class="pagination">
+        {% if exam_templates.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page=1">&laquo; Primera</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ exam_templates.previous_page_number }}">Anterior</a></li>
+        {% endif %}
+        {% for num in exam_templates.paginator.page_range %}
+            {% if exam_templates.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > exam_templates.number|add:'-3' and num < exam_templates.number|add:'3' %}
+                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+            {% endif %}
+        {% endfor %}
+        {% if exam_templates.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ exam_templates.next_page_number }}">Siguiente</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ exam_templates.paginator.num_pages }}">Última &raquo;</a></li>
+        {% endif %}
+    </ul>
+</div>
+{% endif %}
+<script>
+document.getElementById('selectAll')?.addEventListener('change', function() { document.querySelectorAll('input[name="template_ids"]').forEach(cb => cb.checked = this.checked); });
+function confirmDelete() { const selected = document.querySelectorAll('input[name="template_ids"]:checked'); if (!selected.length) { alert('Seleccione al menos una plantilla'); return; } if (confirm(`¿Eliminar ${selected.length} plantilla(s) seleccionada(s)? Esta acción no se puede deshacer.`)) document.getElementById('deleteForm').submit(); }
+</script>
+<style>.table th,.table td{vertical-align:middle}.btn-group .btn{padding:.25rem .5rem}.pagination{margin-top:20px}</style>

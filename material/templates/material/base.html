@@ -45,7 +45,7 @@
     </style>
 </head>
 
-<body>
+<body class="{% if request.GET.embed %}embed-mode{% endif %}">
     <!-- Overlay para mobile (cierra sidebar al tocar fuera) -->
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebarMobile()"></div>
 
@@ -97,6 +97,7 @@
         <div class="menu-item" onclick="toggleSubmenu(this)">
             <i class="bi bi-file-earmark-text-fill me-2"></i> Plantillas
             <div class="submenu">
+            <a href="{% url 'material:exam_templates_tabs' %}"><i class="bi bi-layout-split me-2"></i>Plantillas (Tabs)</a>
                 <a href="{% url 'material:create_exam_template' %}"><i class="bi bi-file-earmark-plus me-2"></i>Crear Plantilla</a>
                 <a href="{% url 'material:list_exam_templates' %}"><i class="bi bi-files me-2"></i>Mis Plantillas</a>
                 </div>
@@ -660,6 +661,20 @@
     /* FIN ONBOARDING WIZARD CSS */
     </style>
 
+      body.embed-mode .sidebar,
+      body.embed-mode #sidebarOverlay,
+      body.embed-mode #externalToggle,
+      body.embed-mode .navbar,
+      body.embed-mode .modal {
+        display: none !important;
+      }
+      body.embed-mode .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+      }
+      body.embed-mode {
+        overflow: auto !important;
+      }
     <script>
     /* ONBOARDING WIZARD JS — ROLLBACK: eliminar este bloque <script> completo */
     (function () {

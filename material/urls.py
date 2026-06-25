@@ -18,6 +18,7 @@ urlpatterns = [
     path('create-exam/', material_views.create_exam, name='create_exam'),
     path('save-exam/', material_views.save_exam_from_session, name='save_exam_from_session'),
     path('create-exam-template/', material_views.create_exam_template, name='create_exam_template'),
+    path('exam-templates/tabs/', material_views.exam_templates_tabs, name='exam_templates_tabs'),
     path('exam-templates/edit/<int:template_id>/', material_views.edit_exam_template, name='edit_exam_template'),
     path('exam-templates/preview/', material_views.preview_exam_template, name='preview_exam_template'),
     path('exam-templates/', material_views.list_exam_templates, name='list_exam_templates'),
