@@ -283,6 +283,169 @@
 var EXAM_PREFILL = {{ prefill_data_json|safe }};
 </script>
 {% endif %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const subjectSelect = document.getElementById('id_subject');
+    const topicsSelect = document.getElementById('id_topics');
+    const questionsSelect = document.getElementById('id_questions');
+    const topicsContainer = document.getElementById('topics_checkbox_container');
+    const questionsContainer = document.getElementById('questions_checkbox_container');
+    if (!subjectSelect || !topicsSelect || !questionsSelect || !topicsContainer || !questionsContainer) return;
+
+    const topicsUrl = "{% url 'material:get_topics' %}";
+    const questionsUrl = "{% url 'material:get_questions_by_topics' %}";
+    const outcomesUrl = "{% url 'material:get_learning_outcomes' %}";
+
+    function renderTopics() {
+        topicsContainer.innerHTML = '';
+        Array.from(topicsSelect.options).filter(opt => opt.value !== 'all').forEach(function(option) {
+            const row = document.createElement('div');
+            row.className = 'form-check mb-1';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'form-check-input';
+            cb.checked = option.selected;
+            cb.dataset.topicValue = option.value;
+            const id = 'fallback_topic_cb_' + option.value;
+            cb.id = id;
+            const label = document.createElement('label');
+            label.className = 'form-check-label';
+            label.htmlFor = id;
+            label.textContent = option.textContent;
+            cb.addEventListener('change', function() {
+                Array.from(topicsSelect.options).forEach(function(opt) {
+                    opt.selected = false;
+                });
+                Array.from(topicsContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(node) {
+                    const match = Array.from(topicsSelect.options).find(function(opt) { return opt.value === node.dataset.topicValue; });
+                    if (match) match.selected = node.checked;
+                });
+                loadQuestions();
+            });
+            row.appendChild(cb);
+            row.appendChild(label);
+            topicsContainer.appendChild(row);
+        });
+    }
+
+    function renderQuestions(list) {
+        questionsSelect.innerHTML = '';
+        questionsContainer.innerHTML = '';
+        list.forEach(function(question) {
+            const option = document.createElement('option');
+            option.value = question.id;
+            option.textContent = question.text;
+            questionsSelect.appendChild(option);
+
+            const row = document.createElement('div');
+            row.className = 'form-check mb-1';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'form-check-input';
+            cb.checked = false;
+            cb.dataset.questionValue = question.id;
+            const id = 'fallback_question_cb_' + question.id;
+            cb.id = id;
+            const label = document.createElement('label');
+            label.className = 'form-check-label';
+            label.htmlFor = id;
+            label.textContent = question.text;
+            cb.addEventListener('change', function() {
+                option.selected = cb.checked;
+            });
+            row.appendChild(cb);
+            row.appendChild(label);
+            questionsContainer.appendChild(row);
+        });
+    }
+
+    function loadQuestions() {
+        const selectedTopics = Array.from(topicsSelect.options).filter(function(opt) { return opt.selected && opt.value !== 'all'; }).map(function(opt) { return opt.value; });
+        const subjectId = subjectSelect.value;
+        if (!subjectId) {
+            questionsSelect.innerHTML = '';
+            questionsContainer.innerHTML = '';
+            return;
+        }
+        const url = selectedTopics.length
+            ? questionsUrl + '?topics=' + selectedTopics.join(',') + '&subject_id=' + encodeURIComponent(subjectId)
+            : questionsUrl + '?all=true&subject_id=' + encodeURIComponent(subjectId);
+        fetch(url)
+            .then(function(response) { return response.json(); })
+            .then(function(data) { renderQuestions(Array.isArray(data) ? data : []); })
+            .catch(function() {
+                questionsSelect.innerHTML = '';
+                questionsContainer.innerHTML = '';
+            });
+    }
+
+    function loadTopics() {
+        const subjectId = subjectSelect.value;
+        topicsSelect.innerHTML = '';
+        topicsContainer.innerHTML = '';
+        questionsSelect.innerHTML = '';
+        questionsContainer.innerHTML = '';
+        if (!subjectId) return;
+        fetch(topicsUrl + '?subject_id=' + encodeURIComponent(subjectId))
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                const topics = Array.isArray(data) ? data : [];
+                topics.forEach(function(topic) {
+                    const option = document.createElement('option');
+                    option.value = topic.id;
+                    option.textContent = topic.name;
+                    topicsSelect.appendChild(option);
+                });
+                renderTopics();
+                loadQuestions();
+            })
+            .catch(function() {
+                topicsSelect.innerHTML = '';
+                topicsContainer.innerHTML = '';
+            });
+    }
+
+    async function loadLearningOutcomes() {
+        const subjectId = subjectSelect.value;
+        const container = document.getElementById('learning_outcomes_container');
+        if (!subjectId || !container) return;
+        try {
+            const response = await fetch(outcomesUrl + '?subject_id=' + encodeURIComponent(subjectId));
+            const data = await response.json();
+            container.innerHTML = '';
+            (Array.isArray(data) ? data : []).forEach(function(outcome) {
+                const div = document.createElement('div');
+                div.className = 'form-check';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'form-check-input';
+                checkbox.name = 'learning_outcomes';
+                checkbox.value = outcome.id;
+                checkbox.id = 'fallback_outcome_' + outcome.id;
+                const label = document.createElement('label');
+                label.className = 'form-check-label';
+                label.htmlFor = checkbox.id;
+                label.textContent = outcome.description;
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                container.appendChild(div);
+            });
+        } catch (error) {
+            container.innerHTML = '';
+        }
+    }
+
+    subjectSelect.addEventListener('change', function() {
+        loadTopics();
+        loadLearningOutcomes();
+    });
+
+    if (subjectSelect.value) {
+        loadTopics();
+        loadLearningOutcomes();
+    }
+});
+</script>
 <style>
 @media (min-width: 992px) {
     .exam-topics-questions-row {
