@@ -359,6 +359,26 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    function syncTopicsFromCheckboxes() {
+        Array.from(topicsSelect.options).forEach(function(opt) {
+            opt.selected = false;
+        });
+        Array.from(topicsContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(node) {
+            const match = Array.from(topicsSelect.options).find(function(opt) { return opt.value === node.dataset.topicValue; });
+            if (match) match.selected = node.checked;
+        });
+    }
+
+    function syncQuestionsFromCheckboxes() {
+        Array.from(questionsSelect.options).forEach(function(opt) {
+            opt.selected = false;
+        });
+        Array.from(questionsContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(node) {
+            const match = Array.from(questionsSelect.options).find(function(opt) { return opt.value === node.dataset.questionValue; });
+            if (match) match.selected = node.checked;
+        });
+    }
+
     function loadQuestions() {
         const selectedTopics = Array.from(topicsSelect.options).filter(function(opt) { return opt.selected && opt.value !== 'all'; }).map(function(opt) { return opt.value; });
         const subjectId = subjectSelect.value;
@@ -438,6 +458,36 @@ document.addEventListener('DOMContentLoaded', function() {
     subjectSelect.addEventListener('change', function() {
         loadTopics();
         loadLearningOutcomes();
+    });
+
+    document.getElementById('topics_select_all')?.addEventListener('click', function() {
+        Array.from(topicsContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(cb) {
+            cb.checked = true;
+        });
+        syncTopicsFromCheckboxes();
+        loadQuestions();
+    });
+
+    document.getElementById('topics_select_none')?.addEventListener('click', function() {
+        Array.from(topicsContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(cb) {
+            cb.checked = false;
+        });
+        syncTopicsFromCheckboxes();
+        loadQuestions();
+    });
+
+    document.getElementById('questions_select_all')?.addEventListener('click', function() {
+        Array.from(questionsContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(cb) {
+            cb.checked = true;
+        });
+        syncQuestionsFromCheckboxes();
+    });
+
+    document.getElementById('questions_select_none')?.addEventListener('click', function() {
+        Array.from(questionsContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(cb) {
+            cb.checked = false;
+        });
+        syncQuestionsFromCheckboxes();
     });
 
     if (subjectSelect.value) {
