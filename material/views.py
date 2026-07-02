@@ -317,6 +317,7 @@ from .forms import (
     OralExamForm, RubricForm
 )
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.db.utils import OperationalError, ProgrammingError
 from django.db.models import Prefetch, F, Value, CharField
 from django.db.models.functions import Concat
 from .ia_processor import extract_text_from_file, generate_questions_from_text, extract_book_metadata
@@ -1557,8 +1558,13 @@ def mis_datos(request):
 
 @login_required
 def mis_examenes(request):
-    examenes = Exam.objects.filter(created_by=request.user).select_related('subject', 'version_batch')
-    batches = ExamVersionBatch.objects.filter(created_by=request.user).select_related('subject')
+    try:
+        examenes = Exam.objects.filter(created_by=request.user).select_related('subject', 'version_batch')
+        batches = ExamVersionBatch.objects.filter(created_by=request.user).select_related('subject')
+    except (OperationalError, ProgrammingError):
+        logger.warning('ExamVersionBatch no disponible en la base actual; degradando mis_examenes sin lotes.')
+        examenes = Exam.objects.filter(created_by=request.user).select_related('subject')
+        batches = ExamVersionBatch.objects.none()
     return render(request, 'material/exams/mis_examenes_new.html', {
         'examenes': examenes,
         'batches': batches,
