@@ -350,7 +350,7 @@ LearningOutcomeFormSet = inlineformset_factory(
 
 def get_topics(request):
     subject_id = request.GET.get('subject_id')
-    topics = Topic.objects.filter(subject_id=subject_id, question__isnull=False).distinct().values('id', 'name')
+    topics = Topic.objects.filter(subject_id=subject_id).distinct().values('id', 'name')
     return JsonResponse(list(topics), safe=False)
 
 def get_subtopics(request):
