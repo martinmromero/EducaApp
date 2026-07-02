@@ -1558,16 +1558,53 @@ def mis_datos(request):
 
 @login_required
 def mis_examenes(request):
+    from django.db import connection
+
+    exam_table = Exam._meta.db_table
+    batch_table = ExamVersionBatch._meta.db_table
+    has_exam_version_fields = False
+    has_batch_table = False
+
     try:
-        examenes = list(
-            Exam.objects.filter(created_by=request.user).select_related('subject', 'version_batch')
-        )
-        batches = list(
-            ExamVersionBatch.objects.filter(created_by=request.user).select_related('subject')
-        )
+        table_names = set(connection.introspection.table_names())
+        has_batch_table = batch_table in table_names
+
+        if exam_table in table_names:
+            with connection.cursor() as cursor:
+                exam_columns = {
+                    col.name for col in connection.introspection.get_table_description(cursor, exam_table)
+                }
+            has_exam_version_fields = {
+                'version_batch_id',
+                'version_number',
+            }.issubset(exam_columns)
+    except Exception:
+        # Si falla introspeccion, seguimos con el camino mas conservador.
+        has_exam_version_fields = False
+        has_batch_table = False
+
+    try:
+        examenes_qs = Exam.objects.filter(created_by=request.user).select_related('subject')
+
+        if has_exam_version_fields:
+            examenes_qs = examenes_qs.select_related('version_batch')
+        else:
+            # Evita SELECT de columnas nuevas cuando Neon no corrio las migraciones.
+            examenes_qs = examenes_qs.defer('version_batch', 'version_number')
+
+        examenes = list(examenes_qs)
+
+        if has_batch_table and has_exam_version_fields:
+            batches = list(
+                ExamVersionBatch.objects.filter(created_by=request.user).select_related('subject')
+            )
+        else:
+            batches = []
     except (OperationalError, ProgrammingError, DatabaseError):
-        logger.warning('ExamVersionBatch no disponible en la base actual; degradando mis_examenes sin lotes.')
-        examenes = list(Exam.objects.filter(created_by=request.user).select_related('subject'))
+        logger.warning('Esquema de examenes desfasado en produccion; degradando mis_examenes sin lotes.')
+        examenes = list(
+            Exam.objects.filter(created_by=request.user).select_related('subject').defer('version_batch', 'version_number')
+        )
         batches = []
     return render(request, 'material/exams/mis_examenes_new.html', {
         'examenes': examenes,
