@@ -328,13 +328,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function renderQuestions(list) {
+    function renderQuestions(list, previouslySelectedIds) {
         questionsSelect.innerHTML = '';
         questionsContainer.innerHTML = '';
         list.forEach(function(question) {
             const option = document.createElement('option');
             option.value = question.id;
             option.textContent = question.text;
+            option.selected = previouslySelectedIds.has(String(question.id));
             questionsSelect.appendChild(option);
 
             const row = document.createElement('div');
@@ -342,7 +343,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.className = 'form-check-input';
-            cb.checked = false;
+            cb.checked = option.selected;
             cb.dataset.questionValue = question.id;
             const id = 'fallback_question_cb_' + question.id;
             cb.id = id;
@@ -382,6 +383,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadQuestions() {
         const selectedTopics = Array.from(topicsSelect.options).filter(function(opt) { return opt.selected && opt.value !== 'all'; }).map(function(opt) { return opt.value; });
         const subjectId = subjectSelect.value;
+        const previouslySelectedIds = new Set(Array.from(questionsSelect.options).filter(function(opt) { return opt.selected; }).map(function(opt) { return String(opt.value); }));
         if (!subjectId) {
             questionsSelect.innerHTML = '';
             questionsContainer.innerHTML = '';
@@ -392,7 +394,7 @@ document.addEventListener('DOMContentLoaded', function() {
             : questionsUrl + '?all=true&subject_id=' + encodeURIComponent(subjectId);
         fetch(url)
             .then(function(response) { return response.json(); })
-            .then(function(data) { renderQuestions(Array.isArray(data) ? data : []); })
+            .then(function(data) { renderQuestions(Array.isArray(data) ? data : [], previouslySelectedIds); })
             .catch(function() {
                 questionsSelect.innerHTML = '';
                 questionsContainer.innerHTML = '';
