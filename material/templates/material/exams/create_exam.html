@@ -457,10 +457,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    subjectSelect.addEventListener('change', function() {
+    subjectSelect.addEventListener('change', function(event) {
+        event.stopImmediatePropagation();
         loadTopics();
         loadLearningOutcomes();
-    });
+    }, true);
 
     document.getElementById('topics_select_all')?.addEventListener('click', function() {
         Array.from(topicsContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(cb) {
