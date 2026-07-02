@@ -1,0 +1,183 @@
+{% extends 'material/base.html' %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">{{ batch.name }}</h1>
+    <a href="{% url 'material:mis_examenes' %}" class="btn btn-secondary btn-sm">Volver</a>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <form method="post" action="{% url 'material:update_exam_batch_name' batch.id %}" class="row g-2 align-items-end">
+        {% csrf_token %}
+        <div class="col-md-8">
+          <label class="form-label">Nombre del lote</label>
+          <input type="text" name="name" class="form-control" value="{{ batch.name }}">
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-primary">Guardar nombre</button>
+        </div>
+      </form>
+      <hr>
+      <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'material:exportar_lote_docx' batch.id %}">DOCX lote</a>
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'material:exportar_lote_docx' batch.id %}?con_respuestas=1">DOCX lote c/respuestas</a>
+        <a class="btn btn-outline-danger btn-sm" href="{% url 'material:exportar_lote_pdf' batch.id %}">PDF lote</a>
+        <a class="btn btn-outline-danger btn-sm" href="{% url 'material:exportar_lote_pdf' batch.id %}?con_respuestas=1">PDF lote c/respuestas</a>
+      </div>
+    </div>
+  </div>
+
+  {% for exam in versions %}
+  <div class="card mb-3" data-exam-id="{{ exam.id }}">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>Versión {{ exam.version_number|default:forloop.counter }}</strong>
+      <div class="d-flex gap-2">
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'material:ver_examen' exam.id %}">Ver</a>
+        <a class="btn btn-sm btn-outline-primary" href="{% url 'material:exportar_examen_docx' exam.id %}">DOCX</a>
+        <a class="btn btn-sm btn-outline-primary" href="{% url 'material:exportar_examen_docx' exam.id %}?con_respuestas=1">DOCX c/r</a>
+        <a class="btn btn-sm btn-outline-danger" href="{% url 'material:exportar_examen_pdf' exam.id %}">PDF</a>
+        <a class="btn btn-sm btn-outline-danger" href="{% url 'material:exportar_examen_pdf' exam.id %}?con_respuestas=1">PDF c/r</a>
+      </div>
+    </div>
+    <div class="card-body">
+      <ol>
+        {% for q in exam.questions.all %}
+        <li class="mb-2" data-question-id="{{ q.id }}">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div>{{ q.question_text }}</div>
+              <small class="text-muted">Tema: {{ q.topic.name }}</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-warning js-change-question" data-exam="{{ exam.id }}" data-question="{{ q.id }}">Cambiar</button>
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="modal fade" id="batchQuestionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cambiar pregunta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-2" id="batchQuestionModalHelp">Preguntas posibles del mismo tema</p>
+        <div id="batchQuestionModalList" class="list-group"></div>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <button type="button" class="btn btn-outline-warning" id="batchRandomOtherTopicBtn">Random de otro tema</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  const modalEl = document.getElementById('batchQuestionModal');
+  let modal = null;
+  const listEl = document.getElementById('batchQuestionModalList');
+  const helpEl = document.getElementById('batchQuestionModalHelp');
+  const randomBtn = document.getElementById('batchRandomOtherTopicBtn');
+  let currentExamId = null;
+  let currentQuestionId = null;
+
+  function getModal() {
+    if (!modal) {
+      if (!window.bootstrap || !window.bootstrap.Modal) {
+        throw new Error('Bootstrap modal no disponible');
+      }
+      modal = new window.bootstrap.Modal(modalEl);
+    }
+    return modal;
+  }
+
+  async function submitReplace(payload) {
+      const form = new FormData();
+      Object.keys(payload).forEach(function(key) { form.append(key, payload[key]); });
+
+      const replaceRes = await fetch('{% url "material:replace_exam_version_question" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        body: form,
+      });
+      const replaceData = await replaceRes.json();
+      if (!replaceData.success) {
+        alert(replaceData.error || 'No se pudo cambiar la pregunta.');
+        return;
+      }
+      location.reload();
+  }
+
+  randomBtn.addEventListener('click', function () {
+    if (!currentExamId || !currentQuestionId) return;
+    submitReplace({
+      exam_id: currentExamId,
+      old_question_id: currentQuestionId,
+      replace_mode: 'random_other'
+    });
+  });
+
+  document.querySelectorAll('.js-change-question').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      currentExamId = this.dataset.exam;
+      currentQuestionId = this.dataset.question;
+      const res = await fetch(`{% url 'material:exam_version_available_questions' %}?exam_id=${currentExamId}&question_id=${currentQuestionId}`);
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error || 'No se pudieron cargar alternativas.');
+        return;
+      }
+
+      helpEl.textContent = data.current_topic
+        ? `Preguntas posibles del mismo tema: ${data.current_topic}`
+        : 'Preguntas posibles del mismo tema';
+      listEl.innerHTML = '';
+
+      if (!data.questions.length) {
+        listEl.innerHTML = '<div class="text-muted">No hay alternativas manuales del mismo tema.</div>';
+      } else {
+        data.questions.forEach(function (q) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'list-group-item list-group-item-action';
+          button.innerHTML = `<div><strong>#${q.id}</strong></div><div>${q.text}</div>`;
+          button.addEventListener('click', function () {
+            submitReplace({
+              exam_id: currentExamId,
+              old_question_id: currentQuestionId,
+              new_question_id: q.id,
+              replace_mode: 'same_topic'
+            });
+          });
+          listEl.appendChild(button);
+        });
+      }
+
+      getModal().show();
+    });
+  });
+})();
+</script>
+{% endblock %}

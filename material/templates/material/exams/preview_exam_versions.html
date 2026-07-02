@@ -1,0 +1,169 @@
+{% extends 'material/base.html' %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Ver los exámenes</h1>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="history.back()">Volver</button>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body d-flex gap-2 flex-wrap">
+      <a class="btn btn-outline-primary" href="{% url 'material:preview_exam' %}?print=1">
+        <i class="fas fa-print"></i> Vista previa de impresión
+      </a>
+      <a class="btn btn-success" href="{% url 'material:save_exam_from_session' %}">
+        <i class="fas fa-save"></i> Guardar examen
+      </a>
+      <button type="button" class="btn btn-secondary" onclick="history.back()">
+        <i class="fas fa-arrow-left"></i> Editar selección
+      </button>
+    </div>
+  </div>
+
+  {% for version in versions_preview %}
+  <div class="card mb-3">
+    <div class="card-header"><strong>Versión {{ version.number }}</strong></div>
+    <div class="card-body">
+      <ol>
+        {% for q in version.questions_texts %}
+        <li class="mb-2">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div style="flex:1;">
+              <div>{{ q.text }}</div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-sm btn-warning js-change-preview-question"
+              data-version="{{ version.number }}"
+              data-question="{{ q.id }}">Cambiar</button>
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="modal fade" id="previewQuestionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cambiar pregunta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-2" id="previewQuestionModalHelp">Preguntas posibles del mismo tema</p>
+        <div id="previewQuestionModalList" class="list-group"></div>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <button type="button" class="btn btn-outline-warning" id="previewRandomOtherTopicBtn">Random de otro tema</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  const modalEl = document.getElementById('previewQuestionModal');
+  let modal = null;
+  const listEl = document.getElementById('previewQuestionModalList');
+  const helpEl = document.getElementById('previewQuestionModalHelp');
+  const randomBtn = document.getElementById('previewRandomOtherTopicBtn');
+  let currentVersion = null;
+  let currentQuestionId = null;
+
+  function getModal() {
+    if (!modal) {
+      if (!window.bootstrap || !window.bootstrap.Modal) {
+        throw new Error('Bootstrap modal no disponible');
+      }
+      modal = new window.bootstrap.Modal(modalEl);
+    }
+    return modal;
+  }
+
+  async function submitReplace(payload) {
+      const form = new FormData();
+      Object.keys(payload).forEach(function(key) { form.append(key, payload[key]); });
+
+      const replaceRes = await fetch('{% url "material:preview_exam_replace_question" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        body: form,
+      });
+      const replaceData = await replaceRes.json();
+      if (!replaceData.success) {
+        alert(replaceData.error || 'No se pudo cambiar la pregunta.');
+        return;
+      }
+      location.reload();
+  }
+
+  randomBtn.addEventListener('click', function () {
+    if (!currentVersion || !currentQuestionId) return;
+    submitReplace({
+      version_number: currentVersion,
+      old_question_id: currentQuestionId,
+      replace_mode: 'random_other'
+    });
+  });
+
+  document.querySelectorAll('.js-change-preview-question').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      currentVersion = this.dataset.version;
+      currentQuestionId = this.dataset.question;
+      const res = await fetch(`{% url 'material:preview_exam_available_questions' %}?version_number=${currentVersion}&question_id=${currentQuestionId}`);
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error || 'No se pudieron cargar alternativas.');
+        return;
+      }
+
+      helpEl.textContent = data.current_topic
+        ? `Preguntas posibles del mismo tema: ${data.current_topic}`
+        : 'Preguntas posibles del mismo tema';
+      listEl.innerHTML = '';
+
+      if (!data.questions.length) {
+        listEl.innerHTML = '<div class="text-muted">No hay alternativas manuales del mismo tema.</div>';
+      } else {
+        data.questions.forEach(function (q) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'list-group-item list-group-item-action';
+          button.innerHTML = `<div><strong>#${q.id}</strong></div><div>${q.text}</div>`;
+          button.addEventListener('click', function () {
+            submitReplace({
+              version_number: currentVersion,
+              old_question_id: currentQuestionId,
+              new_question_id: q.id,
+              replace_mode: 'same_topic'
+            });
+          });
+          listEl.appendChild(button);
+        });
+      }
+
+      getModal().show();
+    });
+  });
+})();
+</script>
+{% endblock %}

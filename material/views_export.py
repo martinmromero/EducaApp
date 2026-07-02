@@ -19,7 +19,7 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 
-from .models import Exam
+from .models import Exam, ExamVersionBatch
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -365,6 +365,86 @@ def exportar_examen_pdf(request, pk):
     suffix = '_con_respuestas' if con_respuestas else ''
     filename = _safe_filename(examen.title or 'Examen', suffix) + '.pdf'
 
+    response = HttpResponse(buf.read(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+def exportar_lote_docx(request, batch_id):
+    from docx import Document
+    from docx.shared import Pt
+
+    batch = get_object_or_404(ExamVersionBatch, pk=batch_id, created_by=request.user)
+    con_respuestas = request.GET.get('con_respuestas') == '1'
+    versions = batch.versions.all().order_by('version_number', 'id')
+
+    doc = Document()
+    for idx, examen in enumerate(versions, start=1):
+        ctx = _build_export_context(examen, con_respuestas)
+        title = doc.add_heading(f"Version {examen.version_number or idx}", level=1)
+        title.runs[0].font.size = Pt(15)
+        doc.add_paragraph(f"Materia: {ctx['subject']['name']}")
+        doc.add_paragraph(f"Tipo: {ctx['exam_type']}")
+        if ctx['instructions']:
+            doc.add_paragraph(f"Instrucciones: {ctx['instructions']}")
+
+        for q_idx, q in enumerate(ctx['questions_texts'], start=1):
+            doc.add_paragraph(f"{q_idx}. {q.get('text', '')}")
+            if con_respuestas and q.get('answer_text'):
+                doc.add_paragraph(f"Respuesta: {q.get('answer_text')}")
+
+        if idx < len(versions):
+            doc.add_page_break()
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    suffix = '_con_respuestas' if con_respuestas else ''
+    filename = _safe_filename(batch.name or 'Lote', suffix) + '.docx'
+    response = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+def exportar_lote_pdf(request, batch_id):
+    batch = get_object_or_404(ExamVersionBatch, pk=batch_id, created_by=request.user)
+    con_respuestas = request.GET.get('con_respuestas') == '1'
+    versions = batch.versions.all().order_by('version_number', 'id')
+
+    contexts = []
+    for idx, examen in enumerate(versions, start=1):
+        ctx = _build_export_context(examen, con_respuestas)
+        ctx['version_label'] = f"Version {examen.version_number or idx}"
+        contexts.append(ctx)
+
+    try:
+        from xhtml2pdf import pisa
+    except Exception as _xhtml_err:
+        return HttpResponse(
+            f'Error al cargar xhtml2pdf: {_xhtml_err}',
+            status=503,
+            content_type='text/plain; charset=utf-8',
+        )
+
+    html_string = render_to_string('material/exams/exam_batch_export_pdf.html', {
+        'batch': batch,
+        'versions': contexts,
+        'con_respuestas': con_respuestas,
+    }, request=request)
+
+    buf = io.BytesIO()
+    pisa_status = pisa.pisaDocument(io.BytesIO(html_string.encode('utf-8')), buf)
+    if pisa_status.err:
+        return HttpResponse('Error al generar PDF del lote.', status=500)
+
+    buf.seek(0)
+    suffix = '_con_respuestas' if con_respuestas else ''
+    filename = _safe_filename(batch.name or 'Lote', suffix) + '.pdf'
     response = HttpResponse(buf.read(), content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response

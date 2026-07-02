@@ -203,19 +203,67 @@
         {{ form.instructions.label_tag }}
         {{ form.instructions }}
     </div>
-    <div class="mb-3">
-        <label for="id_topics">Temas evaluados</label>
-        <select multiple class="form-select" name="topics" id="id_topics">
-            <option value="all">Todos los temas</option>
-        </select>
-    </div>
-    <div class="mb-3">
-        {{ form.questions.label_tag }}
-        {{ form.questions }}
+    <div class="row mb-3 exam-topics-questions-row">
+        <div class="col-12 col-lg-4 exam-topics-col">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label mb-0">Temas evaluados</label>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-secondary" id="topics_select_all">Todo</button>
+                    <button type="button" class="btn btn-outline-secondary" id="topics_select_none">Ninguno</button>
+                </div>
+            </div>
+            <div id="topics_checkbox_container" class="border rounded p-2" style="min-height:240px;max-height:260px;overflow:auto;"></div>
+            <select multiple class="form-select d-none" name="topics" id="id_topics"></select>
+        </div>
+        <div class="col-12 col-lg-8 exam-questions-col mt-3 mt-lg-0">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label mb-0">Preguntas</label>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-secondary" id="questions_select_all">Todo</button>
+                    <button type="button" class="btn btn-outline-secondary" id="questions_select_none">Ninguno</button>
+                </div>
+            </div>
+            <div id="questions_checkbox_container" class="border rounded p-2" style="min-height:240px;max-height:260px;overflow:auto;"></div>
+            <select multiple class="form-select d-none" name="questions" id="id_questions"></select>
+        </div>
     </div>
     <div class="mb-3" style="display:none;">
     <label for="id_title">Título</label>
     <input type="text" class="form-control" name="title" id="id_title" maxlength="255" style="display:none;">
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header"><strong>Versiones del examen escrito</strong></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="num_versions" class="form-label">Cantidad de versiones</label>
+                    <input type="number" min="1" value="1" class="form-control" id="num_versions" name="num_versions">
+                </div>
+                <div class="col-md-4">
+                    <label for="questions_per_version" class="form-label">Preguntas por versión</label>
+                    <input type="number" min="1" class="form-control" id="questions_per_version" name="questions_per_version" placeholder="Ej: 10">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="balance_by_topic" name="balance_by_topic" checked>
+                        <label class="form-check-label" for="balance_by_topic">
+                            Distribución equitativa por tema
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-md-4">
+                    <label for="batch_semester" class="form-label">Cuatrimestre</label>
+                    <input type="text" class="form-control" id="batch_semester" name="batch_semester" placeholder="Ej: 1C">
+                </div>
+                <div class="col-md-8">
+                    <label for="batch_name" class="form-label">Nombre del lote (editable)</label>
+                    <input type="text" class="form-control" id="batch_name" name="batch_name" placeholder="Se sugiere automáticamente si se deja vacío">
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Campo Alumno/a oculto -->
@@ -235,4 +283,19 @@
 var EXAM_PREFILL = {{ prefill_data_json|safe }};
 </script>
 {% endif %}
+<style>
+@media (min-width: 992px) {
+    .exam-topics-questions-row {
+        display: flex;
+    }
+    .exam-topics-col {
+        flex: 0 0 30%;
+        max-width: 30%;
+    }
+    .exam-questions-col {
+        flex: 0 0 70%;
+        max-width: 70%;
+    }
+}
+</style>
 {% endblock %}

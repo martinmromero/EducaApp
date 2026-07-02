@@ -19,7 +19,76 @@
 {% endblock %}
 
 {% block exam_content %}
+{% if versions_preview and versions_preview|length > 1 %}
+{% if notes_and_recommendations %}
+<div class="section">
+    <h3>Notas y recomendaciones:</h3>
+    <div>{{ notes_and_recommendations|linebreaks }}</div>
+</div>
+{% endif %}
+
+{% if topics_texts %}
+<div class="section">
+    <h3>Temas a evaluar:</h3>
+    <ul class="topics-list">
+        {% for topic in topics_texts %}
+        <li>{{ topic }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if outcomes_texts %}
+<div class="section">
+    <h3>Resultados de aprendizaje evaluados:</h3>
+    <ul class="outcomes-list">
+        {% for outcome in outcomes_texts %}
+        <li>{{ outcome }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if instructions %}
+<div class="section">
+    <h3>Instrucciones generales:</h3>
+    <div>{{ instructions|linebreaks }}</div>
+</div>
+{% endif %}
+
+<div class="section" style="margin-top:24px;">
+  <h3>Versiones generadas (vista previa)</h3>
+  {% for version in versions_preview %}
+  <div style="border:1px solid #d9d9d9;border-radius:6px;padding:10px;margin-bottom:12px;">
+    <strong>Versión {{ version.number }}</strong>
+    <ol class="questions-list" style="margin-top:8px;">
+      {% for q in version.questions_texts %}
+      <li style="margin-bottom:1em;">
+        <strong>{{ q.text }}</strong>
+        {% if q.answer_text or q.answer_image_b64 %}
+        <div class="answer-block">
+            <span class="answer-label">&#10003; Respuesta:</span>
+            {% if q.answer_text %}
+            <div>{{ q.answer_text }}</div>
+            {% endif %}
+            {% if q.answer_image_b64 %}
+            <div style="margin-top:0.4em;">
+                <img src="{{ q.answer_image_b64 }}"
+                     style="max-width:100%;max-height:200px;border-radius:3px;"
+                     alt="imagen de la respuesta">
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
 {{ block.super }}
+{% endif %}
 {% endblock %}
 
 {% block bloom_sidebar %}
@@ -101,11 +170,9 @@ function toggleBloom() {
         <i class="fas fa-save"></i> Guardar Examen
     </button>
 </a>
-<a href="{% url 'material:create_exam' %}">
-    <button class="secondary">
-        <i class="fas fa-edit"></i> Editar
-    </button>
-</a>
+<button onclick="history.back()" class="secondary">
+  <i class="fas fa-edit"></i> Editar
+</button>
 <button onclick="history.back()" class="secondary">
     <i class="fas fa-arrow-left"></i> Volver
 </button>

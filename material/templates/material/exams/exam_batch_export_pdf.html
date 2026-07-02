@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 12px; }
+    .page-break { page-break-after: always; }
+    h1, h2 { margin: 0 0 8px 0; }
+    .meta { margin-bottom: 10px; }
+    .q { margin: 6px 0; }
+    .answer { color: #1f4e79; margin-left: 12px; }
+  </style>
+</head>
+<body>
+  <h1>{{ batch.name }}</h1>
+  {% for v in versions %}
+    <h2>{{ v.version_label }}</h2>
+    <div class="meta">
+      <div><strong>Materia:</strong> {{ v.subject.name }}</div>
+      <div><strong>Tipo:</strong> {{ v.exam_type }}</div>
+      {% if v.instructions %}<div><strong>Instrucciones:</strong> {{ v.instructions }}</div>{% endif %}
+    </div>
+
+    <ol>
+      {% for q in v.questions_texts %}
+        <li class="q">
+          {{ q.text }}
+          {% if con_respuestas and q.answer_text %}
+            <div class="answer"><strong>Respuesta:</strong> {{ q.answer_text }}</div>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+
+    {% if not forloop.last %}<div class="page-break"></div>{% endif %}
+  {% endfor %}
+</body>
+</html>

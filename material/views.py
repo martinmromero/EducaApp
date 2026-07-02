@@ -71,17 +71,13 @@ def preview_exam(request):
         messages.error(request, 'No hay datos para mostrar el preview.', extra_tags='general')
         return redirect('material:create_exam')
 
-    # Work with a copy so we never mutate session data
     exam = dict(raw_exam)
+    from .models import Subject, InstitutionV2, FacultyV2, Career, CampusV2, User, Question, Topic, LearningOutcome
 
-    # Debug: imprimir los datos recibidos
-    print("DEBUG - Datos de exam en preview:", exam)
+    subject_obj = None
+    if exam.get('subject') and str(exam.get('subject')).isdigit():
+        subject_obj = Subject.objects.filter(pk=int(exam['subject'])).first()
 
-    from .models import Subject, InstitutionV2, FacultyV2, Career, CampusV2, User, Question, Topic, LearningOutcome, InstitutionCareer
-    # Resolver los textos asociados a los PKs
-    if exam.get('subject'):
-        subject = Subject.objects.filter(pk=exam['subject']).first()
-        exam['subject'] = subject.name if subject else exam['subject']
     if exam.get('institucion'):
         if str(exam['institucion']).isdigit():
             institucion = InstitutionV2.objects.filter(pk=exam['institucion']).first()
@@ -106,84 +102,82 @@ def preview_exam(request):
             exam['sede'] = sede.name if sede else exam['sede']
         elif exam['sede'] == 'otro':
             exam['sede'] = exam.get('sede_text') or 'Otro'
-    if exam.get('profesor'):
-        if str(exam['profesor']).isdigit():
-            profesor = User.objects.filter(pk=exam['profesor']).first()
-            exam['profesor'] = profesor.get_full_name() if profesor else exam['profesor']
-    # Variables temporales para textos completos
-    questions_texts = []
-    outcomes_texts = []
-    topics_texts = []
-    
-    # Mostrar preguntas con toda su información (tipo + opciones)
-    if exam.get('questions'):
-        question_ids = []
-        if isinstance(exam['questions'], list):
-            question_ids = [int(q) for q in exam['questions'] if str(q).isdigit()]
-        elif isinstance(exam['questions'], str):
-            question_ids = [int(q) for q in exam['questions'].replace('[','').replace(']','').replace(' ','').split(',') if q.strip().isdigit()]
-        if question_ids:
-            preguntas_qs = Question.objects.filter(pk__in=question_ids)
-            preguntas_dict = {q.pk: q for q in preguntas_qs}
-            for qid in question_ids:
-                q = preguntas_dict.get(qid)
-                if q:
-                    questions_texts.append({
-                        'text': q.question_text,
-                        'type': q.question_type,
-                        'options': q.options or [],
-                        'question_image_b64': q.question_image_b64 or '',
-                        'answer_text': q.answer_text or '',
-                        'answer_image_b64': q.answer_image_b64 or '',
-                    })
-                else:
-                    questions_texts.append({
-                        'text': f'Pregunta ID: {qid}',
-                        'type': 'opcion_multiple',
-                        'options': [],
-                    })
-    
-    # Mostrar textos de temas evaluados (respetando orden y todos los valores)
-    if exam.get('topics'):
-        topic_ids = []
-        if isinstance(exam['topics'], list):
-            # Los datos ahora vienen como lista directamente desde getlist()
-            topic_ids = [int(t) for t in exam['topics'] if str(t).isdigit()]
-        elif isinstance(exam['topics'], str):
-            # Fallback para casos donde venga como string
-            topic_ids = [int(t) for t in exam['topics'].replace('[','').replace(']','').replace(' ','').split(',') if t.strip().isdigit()]
-        if topic_ids:
-            temas = Topic.objects.filter(pk__in=topic_ids)
-            temas_dict = {t.pk: t.name for t in temas}
-            topics_texts = [temas_dict.get(tid, f"Tema ID: {tid}") for tid in topic_ids]
-    
-    # Mostrar textos de resultados de aprendizaje (respetando orden y todos los valores)
-    if exam.get('learning_outcomes'):
-        outcome_ids = []
-        if isinstance(exam['learning_outcomes'], list):
-            # Los datos ahora vienen como lista directamente desde getlist()
-            outcome_ids = [int(o) for o in exam['learning_outcomes'] if str(o).isdigit()]
-        elif isinstance(exam['learning_outcomes'], str):
-            # Fallback para casos donde venga como string
-            outcome_ids = [int(o) for o in exam['learning_outcomes'].replace('[','').replace(']','').replace(' ','').split(',') if o.strip().isdigit()]
-        if outcome_ids:
-            outcomes = LearningOutcome.objects.filter(pk__in=outcome_ids)
-            outcomes_dict = {o.pk: o.description for o in outcomes}
-            outcomes_texts = [outcomes_dict.get(oid, f"Resultado ID: {oid}") for oid in outcome_ids]
+    if exam.get('profesor') and str(exam.get('profesor')).isdigit():
+        profesor = User.objects.filter(pk=exam['profesor']).first()
+        exam['profesor'] = profesor.get_full_name() if profesor else exam['profesor']
 
-    # ── Distribución de Bloom para las preguntas del examen ──
+    exam['subject'] = subject_obj.name if subject_obj else exam.get('subject')
+
+    topic_ids = [int(t) for t in exam.get('topics', []) if str(t).isdigit()]
+    outcome_ids = [int(o) for o in exam.get('learning_outcomes', []) if str(o).isdigit()]
+    manual_question_ids = [int(q) for q in exam.get('questions', []) if str(q).isdigit()]
+
+    selected_topics = Topic.objects.filter(pk__in=topic_ids) if topic_ids else (Topic.objects.filter(subject=subject_obj) if subject_obj else Topic.objects.none())
+    topics_texts = list(selected_topics.values_list('name', flat=True))
+
+    outcomes_texts = list(LearningOutcome.objects.filter(pk__in=outcome_ids).values_list('description', flat=True)) if outcome_ids else []
+
+    versions_count = 1
+    try:
+        versions_count = max(1, int(exam.get('num_versions') or 1))
+    except (TypeError, ValueError):
+        versions_count = 1
+
+    questions_per_version = 0
+    try:
+        questions_per_version = int(exam.get('questions_per_version') or 0)
+    except (TypeError, ValueError):
+        questions_per_version = 0
+
+    if questions_per_version <= 0:
+        questions_per_version = len(manual_question_ids) if manual_question_ids else max(1, selected_topics.count())
+
+    generated_versions = []
+    if versions_count == 1 and manual_question_ids:
+        generated_versions = [list(Question.objects.filter(pk__in=manual_question_ids, user=request.user).distinct())]
+    elif subject_obj:
+        balance_by_topic = str(exam.get('balance_by_topic', '1')) == '1'
+        generated_versions = _pick_questions_for_versions(
+            subject=subject_obj,
+            selected_topics=selected_topics,
+            user=request.user,
+            versions_count=versions_count,
+            questions_per_version=questions_per_version,
+            balance_by_topic=balance_by_topic,
+        )
+
+    versions_preview = []
+    preview_ids = []
+    for idx, q_list in enumerate(generated_versions, start=1):
+        version_ids = [q.id for q in q_list]
+        preview_ids.append(version_ids)
+        versions_preview.append({
+            'number': idx,
+            'question_ids': version_ids,
+            'questions_texts': [
+                {
+                    'id': q.id,
+                    'text': q.question_text,
+                    'type': q.question_type,
+                    'options': q.options or [],
+                    'question_image_b64': q.question_image_b64 or '',
+                    'answer_text': q.answer_text or '',
+                    'answer_image_b64': q.answer_image_b64 or '',
+                }
+                for q in q_list
+            ]
+        })
+
+    request.session['preview_generated_versions_ids'] = preview_ids
+
+    is_multiversion = len(versions_preview) > 1
+    print_preview = request.GET.get('print') == '1'
+    questions_texts = [] if is_multiversion else (versions_preview[0]['questions_texts'] if versions_preview else [])
+
     bloom_display = []
     total_exam_questions = len(questions_texts)
-    if exam.get('questions'):
-        question_ids_for_bloom = []
-        if isinstance(exam['questions'], list):
-            question_ids_for_bloom = [int(q) for q in exam['questions'] if str(q).isdigit()]
-        elif isinstance(exam['questions'], str):
-            question_ids_for_bloom = [int(q) for q in exam['questions'].replace('[','').replace(']','').replace(' ','').split(',') if q.strip().isdigit()]
-        if question_ids_for_bloom:
-            bloom_display = _compute_bloom_display(
-                Question.objects.filter(pk__in=question_ids_for_bloom)
-            )
+    if preview_ids and preview_ids[0]:
+        bloom_display = _compute_bloom_display(Question.objects.filter(pk__in=preview_ids[0]))
 
     _TIPO_EXAMEN_LABELS = {
         '1er_parcial': '1er Parcial', '2do_parcial': '2do Parcial',
@@ -192,9 +186,10 @@ def preview_exam(request):
     }
     _TIPO_MODALIDAD_LABELS = {'individual': 'Individual', 'grupal': 'Grupal'}
 
-    return render(request, 'material/exams/preview_exam.html', {
+    context = {
         'exam': exam,
         'questions_texts': questions_texts,
+        'versions_preview': versions_preview,
         'outcomes_texts': outcomes_texts,
         'topics_texts': topics_texts,
         'institution': {'name': exam.get('institucion', 'Institución')},
@@ -210,7 +205,11 @@ def preview_exam(request):
         'notes_and_recommendations': exam.get('notes_and_recommendations', ''),
         'bloom_display': bloom_display,
         'total_exam_questions': total_exam_questions,
-    })
+    }
+
+    if is_multiversion and not print_preview:
+        return render(request, 'material/exams/preview_exam_versions.html', context)
+    return render(request, 'material/exams/preview_exam.html', context)
 from django.http import JsonResponse, Http404
 import os
 # Endpoint para obtener el nombre de la carrera por ID
@@ -262,9 +261,12 @@ def get_questions_by_topics(request):
     topic_ids = [int(t) for t in topics.split(',') if t]
     questions = Question.objects.none()
     if all_topics and subject_id:
-        questions = Question.objects.filter(subjects__id=subject_id)
+        questions = Question.objects.filter(subjects__id=subject_id).distinct()
     elif topic_ids:
         questions = Question.objects.filter(topic_id__in=topic_ids)
+        if subject_id and str(subject_id).isdigit():
+            questions = questions.filter(subjects__id=int(subject_id))
+        questions = questions.distinct()
     data = [
         {'id': q.id, 'text': q.question_text[:80]}
         for q in questions
@@ -306,7 +308,7 @@ from django.shortcuts import render, redirect, get_object_or_404, reverse
 from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, 
     Subtopic, LearningOutcome, Career, 
     OralExamSet, OralExamGroup, OralExamStudent, OralExamStudentQuestion,
-    Rubric, ExamRubric, RubricLevel, RubricCriterion, RubricCell)
+    Rubric, ExamRubric, RubricLevel, RubricCriterion, RubricCell, ExamVersionBatch)
 from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer)
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
@@ -552,9 +554,158 @@ def save_selected_questions(request, contenido_id):
         messages.success(request, 'Preguntas guardadas correctamente.', extra_tags='preguntas')
         return redirect('material:lista_preguntas')
 
+def _collect_exam_post_data(request, form):
+    exam_data = {}
+    multiple_fields = ['questions', 'topics', 'learning_outcomes']
+    for field in form.fields:
+        if field in multiple_fields:
+            exam_data[field] = request.POST.getlist(field)
+        else:
+            exam_data[field] = request.POST.get(field)
+
+    exam_data['institucion'] = request.POST.get('institucion_dropdown')
+    exam_data['institucion_text'] = request.POST.get('institucion_text', '').strip()
+    exam_data['facultad'] = request.POST.get('facultad_dropdown')
+    exam_data['facultad_text'] = request.POST.get('facultad_text', '').strip()
+    exam_data['carrera'] = request.POST.get('carrera_dropdown')
+    exam_data['carrera_text'] = request.POST.get('carrera_text', '').strip()
+    exam_data['sede'] = request.POST.get('sede_dropdown')
+    exam_data['sede_text'] = request.POST.get('sede_text', '').strip()
+    exam_data['curso'] = request.POST.get('curso')
+    exam_data['turno'] = request.POST.get('turno_dropdown')
+    exam_data['turno_text'] = request.POST.get('turno_text', '').strip()
+    exam_data['profesor'] = request.POST.get('profesor_dropdown')
+    exam_data['fecha'] = request.POST.get('fecha')
+    exam_data['tipo_examen'] = request.POST.get('tipo_examen')
+    exam_data['tipo_modalidad'] = request.POST.get('tipo_modalidad')
+    exam_data['modalidad_resolucion'] = request.POST.getlist('modalidad_resolucion')
+    exam_data['alumno'] = request.POST.get('alumno')
+    exam_data['batch_name'] = request.POST.get('batch_name', '').strip()
+    exam_data['batch_semester'] = request.POST.get('batch_semester', '').strip()
+    exam_data['num_versions'] = request.POST.get('num_versions', '1').strip() or '1'
+    exam_data['questions_per_version'] = request.POST.get('questions_per_version', '').strip()
+    exam_data['balance_by_topic'] = '1' if request.POST.get('balance_by_topic') else '0'
+    return exam_data
+
+
+def _suggest_batch_name(subject, exam_data, institution_name, versions_count, year):
+    tipo_map = {
+        '1er_parcial': '1er parcial',
+        '2do_parcial': '2do parcial',
+        '3er_parcial': '3er parcial',
+        'final': 'final',
+        'recuperatorio': 'recuperatorio',
+        'practico': 'practico',
+    }
+    tipo = tipo_map.get(exam_data.get('tipo_examen', ''), 'examen')
+    materia = subject.name if subject else 'sin materia'
+    institucion = institution_name or 'sin institucion'
+    cuatri = exam_data.get('batch_semester') or 'sin cuatrimestre'
+    year_str = str(year) if year else 'sin anio'
+    return f"{tipo} - {materia} - {institucion} - {cuatri} - {year_str} - {versions_count} opciones"
+
+
+def _arrange_questions_avoiding_same_topic_consecutive(question_list):
+    from collections import defaultdict
+    grouped = defaultdict(list)
+    for q in question_list:
+        grouped[q.topic_id].append(q)
+
+    result = []
+    last_topic = None
+    while grouped:
+        candidates = [
+            (topic_id, items) for topic_id, items in grouped.items() if topic_id != last_topic and items
+        ]
+        if not candidates:
+            candidates = [(topic_id, items) for topic_id, items in grouped.items() if items]
+        candidates.sort(key=lambda item: len(item[1]), reverse=True)
+        topic_id, items = candidates[0]
+        result.append(items.pop())
+        last_topic = topic_id
+        if not items:
+            grouped.pop(topic_id, None)
+    return result
+
+
+def _pick_questions_for_versions(subject, selected_topics, user, versions_count, questions_per_version, balance_by_topic=True):
+    import random
+    from collections import defaultdict
+
+    pools = defaultdict(list)
+    base_qs = Question.objects.filter(
+        subjects__id=subject.id,
+        user=user,
+        topic__in=selected_topics
+    ).select_related('topic').distinct()
+
+    for q in base_qs:
+        pools[q.topic_id].append(q)
+    for topic_id in pools:
+        random.shuffle(pools[topic_id])
+
+    topic_ids = list(selected_topics.values_list('id', flat=True))
+    if not topic_ids:
+        return []
+
+    if balance_by_topic:
+        base = questions_per_version // len(topic_ids)
+        remainder = questions_per_version % len(topic_ids)
+        per_topic_required = {tid: base for tid in topic_ids}
+        for tid in topic_ids[:remainder]:
+            per_topic_required[tid] += 1
+    else:
+        per_topic_required = {tid: 0 for tid in topic_ids}
+
+    globally_used = set()
+    all_questions = list(base_qs)
+    versions = []
+
+    for _ in range(versions_count):
+        version_questions = []
+        used_in_version = set()
+
+        for tid in topic_ids:
+            needed = per_topic_required[tid]
+            if needed <= 0:
+                continue
+
+            strict = [q for q in pools.get(tid, []) if q.id not in used_in_version and q.id not in globally_used]
+            relaxed = [q for q in pools.get(tid, []) if q.id not in used_in_version]
+            chosen = strict[:needed]
+            if len(chosen) < needed:
+                missing = needed - len(chosen)
+                extra = [q for q in relaxed if q.id not in {x.id for x in chosen}][:missing]
+                chosen.extend(extra)
+
+            for q in chosen:
+                if q.id not in used_in_version:
+                    version_questions.append(q)
+                    used_in_version.add(q.id)
+                    globally_used.add(q.id)
+
+        if len(version_questions) < questions_per_version:
+            fallback = [q for q in all_questions if q.id not in used_in_version and q.id not in globally_used]
+            if len(fallback) < (questions_per_version - len(version_questions)):
+                fallback.extend([q for q in all_questions if q.id not in used_in_version and q not in fallback])
+
+            for q in fallback:
+                if len(version_questions) >= questions_per_version:
+                    break
+                if q.id in used_in_version:
+                    continue
+                version_questions.append(q)
+                used_in_version.add(q.id)
+                globally_used.add(q.id)
+
+        versions.append(_arrange_questions_avoiding_same_topic_consecutive(version_questions))
+
+    return versions
+
+
 @login_required
 def create_exam(request):
-    from .models import FacultyV2, Career, CampusV2, Subject, Profile, ExamTemplate, InstitutionV2
+    from .models import FacultyV2, Career, CampusV2, Subject, ExamTemplate, InstitutionV2
     from django.contrib.auth.models import User
 
     instituciones = InstitutionV2.objects.filter(is_active=True)
@@ -567,53 +718,14 @@ def create_exam(request):
 
     if request.method == 'POST':
         form = ExamForm(request.POST)
-        if 'preview' in request.POST:
-            exam_data = {}
-            # Campos múltiples que requieren getlist()
-            multiple_fields = ['questions', 'topics', 'learning_outcomes']
-            
-            for field in form.fields:
-                if field in multiple_fields:
-                    value = request.POST.getlist(field)
-                    if value:
-                        exam_data[field] = value
-                else:
-                    value = request.POST.get(field)
-                    if value:
-                        exam_data[field] = value
-            # Campos extra del form manual
-            exam_data['institucion'] = request.POST.get('institucion_dropdown')
-            exam_data['institucion_text'] = request.POST.get('institucion_text', '').strip()
-            facultad_val = request.POST.get('facultad_dropdown')
-            exam_data['facultad'] = facultad_val
-            exam_data['facultad_text'] = request.POST.get('facultad_text', '').strip()
-            carrera_val = request.POST.get('carrera_dropdown')
-            exam_data['carrera'] = carrera_val
-            exam_data['carrera_text'] = request.POST.get('carrera_text', '').strip()
-            exam_data['sede'] = request.POST.get('sede_dropdown')
-            exam_data['sede_text'] = request.POST.get('sede_text', '').strip()
-            exam_data['curso'] = request.POST.get('curso')
-            exam_data['turno'] = request.POST.get('turno_dropdown')
-            exam_data['turno_text'] = request.POST.get('turno_text', '').strip()
-            exam_data['profesor'] = request.POST.get('profesor_dropdown')
-            exam_data['fecha'] = request.POST.get('fecha')
-            exam_data['tipo_examen'] = request.POST.get('tipo_examen')
-            exam_data['tipo_modalidad'] = request.POST.get('tipo_modalidad')
-            exam_data['modalidad_resolucion'] = request.POST.getlist('modalidad_resolucion')
-            exam_data['alumno'] = request.POST.get('alumno')
-            request.session['preview_exam'] = exam_data
-            if 'save' in request.POST:
-                return redirect('material:save_exam_from_session')
-            return redirect('material:preview_exam')
-        elif form.is_valid():
-            exam = form.save(commit=False)
-            exam.created_by = request.user
-            exam.save()
-            form.save_m2m()
-            messages.success(request, 'Examen creado correctamente.', extra_tags='examenes')
-            return redirect('material:mis_examenes')
-    else:
-        form = ExamForm()
+        exam_data = _collect_exam_post_data(request, form)
+        request.session['preview_exam'] = exam_data
+
+        if 'save' in request.POST:
+            return redirect('material:save_exam_from_session')
+        return redirect('material:preview_exam')
+
+    form = ExamForm()
 
     import json as _json
     prefill_data_json = _json.dumps(request.session.get('preview_exam') or {})
@@ -632,7 +744,7 @@ def create_exam(request):
 
 @login_required
 def save_exam_from_session(request):
-    """Saves the exam stored in session to the database and redirects to mis_examenes."""
+    """Guarda examen/es desde sesión. Soporta lote de versiones para examen escrito."""
     exam_data = request.session.get('preview_exam')
     if not exam_data:
         messages.error(request, 'No hay datos de examen para guardar.', extra_tags='general')
@@ -733,52 +845,128 @@ def save_exam_from_session(request):
         except (ValueError, IndexError):
             pass
 
-    # ── Create the Exam object ────────────────────────────────
-    exam_obj = ExamModel(
-        title=title,
-        subject=subject,
-        created_by=request.user,
-        duration_minutes=duration,
-        instructions=exam_data.get('instructions') or '',
-        institution_name=institution_name,
-        faculty_name=faculty_name,
-        campus_name=campus_name,
-        career_name=career_name,
-        professor=professor,
-        exam_type=exam_type,
-        exam_mode=exam_mode,
-        exam_group=exam_group,
-        shift=shift,
-        year=year,
-        date_str=fecha,
-        resolution_time=resolution_time or None,
-        alumno=exam_data.get('alumno') or '',
-        curso=exam_data.get('curso') or '',
-        topics_to_evaluate=exam_data.get('topics_to_evaluate') or None,
-        notes_and_recommendations=exam_data.get('notes_and_recommendations') or None,
-    )
-    exam_obj.save()
-
-    # ── M2M relations ─────────────────────────────────────────
+    # ── M2M relations helper ───────────────────────────────────
     def _ids(key):
         raw = exam_data.get(key, [])
         if isinstance(raw, list):
             return [int(v) for v in raw if str(v).isdigit()]
         return []
 
-    q_ids = _ids('questions')
-    if q_ids:
-        exam_obj.questions.set(Question.objects.filter(pk__in=q_ids))
     t_ids = _ids('topics')
-    if t_ids:
-        exam_obj.topics.set(Topic.objects.filter(pk__in=t_ids))
+    if t_ids and 'all' not in [str(v) for v in exam_data.get('topics', [])]:
+        selected_topics = Topic.objects.filter(pk__in=t_ids)
+    else:
+        selected_topics = Topic.objects.filter(subject=subject)
+
     o_ids = _ids('learning_outcomes')
-    if o_ids:
-        exam_obj.learning_outcomes.set(LearningOutcome.objects.filter(pk__in=o_ids))
+    selected_outcomes = LearningOutcome.objects.filter(pk__in=o_ids) if o_ids else LearningOutcome.objects.none()
+
+    versions_count = 1
+    try:
+        versions_count = max(1, int(exam_data.get('num_versions') or 1))
+    except (ValueError, TypeError):
+        versions_count = 1
+
+    q_ids = _ids('questions')
+    questions_per_version = None
+    try:
+        raw_qpv = int(exam_data.get('questions_per_version') or 0)
+        if raw_qpv > 0:
+            questions_per_version = raw_qpv
+    except (ValueError, TypeError):
+        pass
+
+    if questions_per_version is None:
+        questions_per_version = len(q_ids) if q_ids else max(1, selected_topics.count())
+
+    if selected_topics.count() == 0:
+        messages.error(request, 'Debe seleccionar al menos un tema para generar versiones.', extra_tags='examenes')
+        return redirect('material:create_exam')
+
+    preview_version_ids = request.session.get('preview_generated_versions_ids') or []
+    if preview_version_ids:
+        chosen_versions = [
+            list(Question.objects.filter(pk__in=version_ids, user=request.user).distinct())
+            for version_ids in preview_version_ids
+            if version_ids
+        ]
+        versions_count = len(chosen_versions) if chosen_versions else versions_count
+    elif versions_count == 1 and q_ids:
+        chosen_versions = [list(Question.objects.filter(pk__in=q_ids, user=request.user).distinct())]
+    else:
+        balance_by_topic = str(exam_data.get('balance_by_topic', '1')) == '1'
+        chosen_versions = _pick_questions_for_versions(
+            subject=subject,
+            selected_topics=selected_topics,
+            user=request.user,
+            versions_count=versions_count,
+            questions_per_version=questions_per_version,
+            balance_by_topic=balance_by_topic,
+        )
+
+    if not chosen_versions or not chosen_versions[0]:
+        messages.error(request, 'No hay preguntas suficientes para generar el examen.', extra_tags='examenes')
+        return redirect('material:create_exam')
+
+    with transaction.atomic():
+        batch_name = (exam_data.get('batch_name') or '').strip()
+        if not batch_name:
+            batch_name = _suggest_batch_name(subject, exam_data, institution_name, versions_count, year)
+
+        batch = ExamVersionBatch.objects.create(
+            name=batch_name,
+            created_by=request.user,
+            subject=subject,
+            institution_name=institution_name,
+            exam_type=exam_type or '',
+            semester=exam_data.get('batch_semester') or '',
+            year=year,
+            version_count=versions_count,
+            questions_per_version=questions_per_version,
+        )
+
+        created_exams = []
+        for idx, version_questions in enumerate(chosen_versions, start=1):
+            exam_obj = ExamModel(
+                title=f"{title} - Version {idx}",
+                subject=subject,
+                created_by=request.user,
+                duration_minutes=duration,
+                instructions=exam_data.get('instructions') or '',
+                institution_name=institution_name,
+                faculty_name=faculty_name,
+                campus_name=campus_name,
+                career_name=career_name,
+                professor=professor,
+                exam_type=exam_type,
+                exam_mode=exam_mode,
+                exam_group=exam_group,
+                shift=shift,
+                year=year,
+                date_str=fecha,
+                resolution_time=resolution_time or None,
+                alumno=exam_data.get('alumno') or '',
+                curso=exam_data.get('curso') or '',
+                topics_to_evaluate=exam_data.get('topics_to_evaluate') or None,
+                notes_and_recommendations=exam_data.get('notes_and_recommendations') or None,
+                version_batch=batch,
+                version_number=idx,
+            )
+            exam_obj.save()
+            exam_obj.topics.set(selected_topics)
+            if selected_outcomes.exists():
+                exam_obj.learning_outcomes.set(selected_outcomes)
+            exam_obj.questions.set(version_questions)
+            created_exams.append(exam_obj)
 
     del request.session['preview_exam']
-    messages.success(request, f'Examen "{title}" guardado correctamente.', extra_tags='examenes')
-    return redirect('material:mis_examenes')
+    request.session.pop('preview_generated_versions_ids', None)
+    messages.success(
+        request,
+        f'Se guardo el lote "{batch.name}" con {len(created_exams)} versiones.',
+        extra_tags='examenes'
+    )
+    return redirect('material:view_exam_batch', batch_id=batch.id)
 
 @login_required
 def create_exam_template(request):
@@ -1369,8 +1557,190 @@ def mis_datos(request):
 
 @login_required
 def mis_examenes(request):
-    examenes = Exam.objects.filter(created_by=request.user)
-    return render(request, 'material/test_simple.html', {'examenes': examenes})
+    examenes = Exam.objects.filter(created_by=request.user).select_related('subject', 'version_batch')
+    batches = ExamVersionBatch.objects.filter(created_by=request.user).select_related('subject')
+    return render(request, 'material/exams/mis_examenes_new.html', {
+        'examenes': examenes,
+        'batches': batches,
+    })
+
+
+@login_required
+def view_exam_batch(request, batch_id):
+    batch = get_object_or_404(ExamVersionBatch, id=batch_id, created_by=request.user)
+    versions = batch.versions.all().prefetch_related('questions__topic').order_by('version_number', 'id')
+    return render(request, 'material/exams/view_exam_batch.html', {
+        'batch': batch,
+        'versions': versions,
+    })
+
+
+@login_required
+@require_POST
+def update_exam_batch_name(request, batch_id):
+    batch = get_object_or_404(ExamVersionBatch, id=batch_id, created_by=request.user)
+    new_name = request.POST.get('name', '').strip()
+    if new_name:
+        batch.name = new_name
+        batch.save(update_fields=['name'])
+        messages.success(request, 'Nombre del lote actualizado.', extra_tags='examenes')
+    else:
+        messages.error(request, 'El nombre del lote no puede estar vacio.', extra_tags='examenes')
+    return redirect('material:view_exam_batch', batch_id=batch.id)
+
+
+@login_required
+def exam_version_available_questions(request):
+    exam_id = request.GET.get('exam_id')
+    question_id = request.GET.get('question_id')
+    if not (str(exam_id).isdigit() and str(question_id).isdigit()):
+        return JsonResponse({'success': False, 'error': 'Parametros invalidos'}, status=400)
+
+    exam = get_object_or_404(Exam, id=int(exam_id), created_by=request.user)
+    current_question = get_object_or_404(Question, id=int(question_id), user=request.user)
+    used_ids = set(exam.questions.values_list('id', flat=True))
+    used_ids.discard(current_question.id)
+
+    candidates = Question.objects.filter(
+        user=request.user,
+        subjects__id=exam.subject_id,
+        topic_id=current_question.topic_id,
+    ).exclude(id__in=used_ids).distinct()[:80]
+
+    return JsonResponse({
+        'success': True,
+        'current_topic': current_question.topic.name if current_question.topic else '',
+        'questions': [
+            {'id': q.id, 'text': q.question_text, 'topic': q.topic.name if q.topic else ''}
+            for q in candidates
+        ]
+    })
+
+
+@login_required
+@require_POST
+def replace_exam_version_question(request):
+    exam_id = request.POST.get('exam_id')
+    old_question_id = request.POST.get('old_question_id')
+    new_question_id = request.POST.get('new_question_id')
+    if not (str(exam_id).isdigit() and str(old_question_id).isdigit() and str(new_question_id).isdigit()):
+        return JsonResponse({'success': False, 'error': 'Parametros invalidos'}, status=400)
+
+    exam = get_object_or_404(Exam, id=int(exam_id), created_by=request.user)
+    old_q = get_object_or_404(Question, id=int(old_question_id), user=request.user)
+    replace_mode = request.POST.get('replace_mode', 'same_topic')
+
+    if replace_mode == 'random_other':
+        import random
+        used_ids = set(exam.questions.values_list('id', flat=True))
+        used_ids.discard(old_q.id)
+        candidates = list(
+            Question.objects.filter(
+                user=request.user,
+                subjects__id=exam.subject_id,
+            ).exclude(id__in=used_ids).exclude(topic_id=old_q.topic_id).distinct()
+        )
+        if not candidates:
+            return JsonResponse({'success': False, 'error': 'No hay preguntas disponibles de otro tema.'}, status=400)
+        new_q = random.choice(candidates)
+    else:
+        new_q = get_object_or_404(Question, id=int(new_question_id), user=request.user)
+
+    if replace_mode != 'random_other' and old_q.topic_id != new_q.topic_id:
+        return JsonResponse({'success': False, 'error': 'La nueva pregunta debe ser del mismo tema.'}, status=400)
+    if exam.questions.filter(id=new_q.id).exists():
+        return JsonResponse({'success': False, 'error': 'La pregunta ya esta en esta version.'}, status=400)
+
+    exam.questions.remove(old_q)
+    exam.questions.add(new_q)
+    return JsonResponse({'success': True})
+
+
+@login_required
+def preview_exam_available_questions(request):
+    version_number = request.GET.get('version_number')
+    question_id = request.GET.get('question_id')
+    subject_id = request.session.get('preview_exam', {}).get('subject')
+    preview_versions = request.session.get('preview_generated_versions_ids') or []
+
+    if not (str(version_number).isdigit() and str(question_id).isdigit() and str(subject_id).isdigit()):
+        return JsonResponse({'success': False, 'error': 'Parametros invalidos'}, status=400)
+
+    version_index = int(version_number) - 1
+    if version_index < 0 or version_index >= len(preview_versions):
+        return JsonResponse({'success': False, 'error': 'Version invalida'}, status=400)
+
+    current_question = get_object_or_404(Question, id=int(question_id), user=request.user)
+    used_ids = set(preview_versions[version_index])
+    used_ids.discard(current_question.id)
+
+    candidates = Question.objects.filter(
+        user=request.user,
+        subjects__id=int(subject_id),
+        topic_id=current_question.topic_id,
+    ).exclude(id__in=used_ids).distinct()[:80]
+
+    return JsonResponse({
+        'success': True,
+        'current_topic': current_question.topic.name if current_question.topic else '',
+        'questions': [
+            {'id': q.id, 'text': q.question_text, 'topic': q.topic.name if q.topic else ''}
+            for q in candidates
+        ]
+    })
+
+
+@login_required
+@require_POST
+def preview_exam_replace_question(request):
+    version_number = request.POST.get('version_number')
+    old_question_id = request.POST.get('old_question_id')
+    new_question_id = request.POST.get('new_question_id')
+    preview_versions = request.session.get('preview_generated_versions_ids') or []
+
+    if not (str(version_number).isdigit() and str(old_question_id).isdigit() and str(new_question_id).isdigit()):
+        return JsonResponse({'success': False, 'error': 'Parametros invalidos'}, status=400)
+
+    version_index = int(version_number) - 1
+    if version_index < 0 or version_index >= len(preview_versions):
+        return JsonResponse({'success': False, 'error': 'Version invalida'}, status=400)
+
+    old_q = get_object_or_404(Question, id=int(old_question_id), user=request.user)
+    replace_mode = request.POST.get('replace_mode', 'same_topic')
+
+    if replace_mode == 'random_other':
+        import random
+        subject_id = request.session.get('preview_exam', {}).get('subject')
+        used_ids = set(preview_versions[version_index])
+        used_ids.discard(old_q.id)
+        candidates = list(
+            Question.objects.filter(
+                user=request.user,
+                subjects__id=int(subject_id),
+            ).exclude(id__in=used_ids).exclude(topic_id=old_q.topic_id).distinct()
+        )
+        if not candidates:
+            return JsonResponse({'success': False, 'error': 'No hay preguntas disponibles de otro tema.'}, status=400)
+        new_q = random.choice(candidates)
+    else:
+        new_q = get_object_or_404(Question, id=int(new_question_id), user=request.user)
+
+    if replace_mode != 'random_other' and old_q.topic_id != new_q.topic_id:
+        return JsonResponse({'success': False, 'error': 'La nueva pregunta debe ser del mismo tema.'}, status=400)
+    if int(new_q.id) in preview_versions[version_index]:
+        return JsonResponse({'success': False, 'error': 'La pregunta ya esta en esta version.'}, status=400)
+
+    updated = list(preview_versions[version_index])
+    try:
+        replace_at = updated.index(int(old_question_id))
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'La pregunta original no esta en la version.'}, status=400)
+
+    updated[replace_at] = int(new_q.id)
+    preview_versions[version_index] = updated
+    request.session['preview_generated_versions_ids'] = preview_versions
+    request.session.modified = True
+    return JsonResponse({'success': True})
 
 @login_required
 def ver_examen(request, pk):

@@ -666,6 +666,21 @@ class Exam(models.Model):
     related_name="created_exams",  # Cambiado a nombre único
     related_query_name="exam"      # Añadido para queries
     )
+
+    version_batch = models.ForeignKey(
+        'ExamVersionBatch',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='versions',
+        verbose_name='Lote de versiones'
+    )
+
+    version_number = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Numero de version'
+    )
     
     is_published = models.BooleanField(
         default=False,
@@ -1058,6 +1073,38 @@ class CareerSubject(models.Model):
     def __str__(self):
         optional_str = " (Optativa)" if self.is_optional else ""
         return f"{self.career.name} - {self.subject.name} (Sem {self.semester}){optional_str}"
+
+
+class ExamVersionBatch(models.Model):
+    name = models.CharField(max_length=255, verbose_name='Nombre del lote')
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='exam_version_batches',
+        verbose_name='Creado por'
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Materia'
+    )
+    institution_name = models.CharField(max_length=255, blank=True, default='')
+    exam_type = models.CharField(max_length=50, blank=True, default='')
+    semester = models.CharField(max_length=50, blank=True, default='')
+    year = models.IntegerField(null=True, blank=True)
+    version_count = models.PositiveIntegerField(default=1)
+    questions_per_version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Lote de versiones de examen'
+        verbose_name_plural = 'Lotes de versiones de examen'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
 
 class ExamTemplate(models.Model):
     # Opciones de modalidad

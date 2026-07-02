@@ -73,8 +73,8 @@
                     </div>
                     {% endfor %}
                 </div>
-                <div id="outcomes-error" class="text-danger mt-2 d-none">
-                    Debe ingresar al menos un resultado de aprendizaje
+                <div class="text-muted mt-2" style="font-size:0.9rem;">
+                    Opcional: puede guardar la materia sin resultados de aprendizaje.
                 </div>
             </div>
 
@@ -97,6 +97,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const formPrefix = 'outcomes';
     let totalForms = document.getElementById(`id_${formPrefix}-TOTAL_FORMS`);
     let formCount = parseInt(totalForms.value);
+
+    // Los resultados son opcionales en esta pantalla.
+    function makeOutcomesOptional(scope = document) {
+        scope.querySelectorAll('textarea[name$="-description"]').forEach((field) => {
+            field.removeAttribute('required');
+        });
+    }
     
     // Actualizar numeración
     function updateNumbers() {
@@ -105,19 +112,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Validación antes de enviar
-    document.getElementById('subject-form').addEventListener('submit', function(e) {
-        const outcomes = document.querySelectorAll('#outcomes-container .outcome-item:not([style*="display: none"])');
-        const errorElement = document.getElementById('outcomes-error');
-        
-        if (outcomes.length < 1) {
-            e.preventDefault();
-            errorElement.classList.remove('d-none');
-            return false;
-        }
-        errorElement.classList.add('d-none');
-        return true;
-    });
+    // Asegurar opcionalidad también en formularios renderizados inicialmente.
+    makeOutcomesOptional(document.getElementById('outcomes-container'));
     
     // Agregar nuevo outcome
     document.getElementById('add-outcome').addEventListener('click', function() {
@@ -142,6 +138,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+
+        makeOutcomesOptional(newForm);
         
         // Mostrar y aumentar contador
         container.appendChild(newForm);
