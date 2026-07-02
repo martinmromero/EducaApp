@@ -259,7 +259,7 @@ def get_questions_by_topics(request):
     subject_id = request.GET.get('subject_id')
     topics = request.GET.get('topics', '')
     topic_ids = [int(t) for t in topics.split(',') if t]
-    review_filter = models.Q(ai_approved=True) | models.Q(ai_approved__isnull=True)
+    review_filter = models.Q(ai_approved=True)
     questions = Question.objects.none()
     if all_topics and subject_id:
         questions = Question.objects.filter(subjects__id=subject_id).filter(review_filter).distinct()

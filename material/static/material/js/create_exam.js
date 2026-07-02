@@ -44,6 +44,12 @@ document.addEventListener('DOMContentLoaded', function() {
         var subjectId = document.getElementById('id_subject')?.value;
         if (!questionsSelect || !subjectId) return;
 
+        if (!selectedTopics.length) {
+            questionsSelect.innerHTML = '';
+            renderQuestionsCheckboxes();
+            return;
+        }
+
         var previouslySelected = Array.from(questionsSelect.options)
             .filter(function(opt) { return opt.selected; })
             .map(function(opt) { return String(opt.value); });
@@ -51,9 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
         questionsFetchToken += 1;
         var currentToken = questionsFetchToken;
 
-        var url = selectedTopics.length
-            ? '/get-questions-by-topics/?topics=' + selectedTopics.join(',')
-            : '/get-questions-by-topics/?all=true&subject_id=' + subjectId;
+        var url = '/get-questions-by-topics/?topics=' + selectedTopics.join(',') + '&subject_id=' + subjectId;
 
         fetch(url)
             .then(function(response) { return response.json(); })
@@ -320,7 +324,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     topicsSelect.appendChild(option);
                 });
                 renderTopicsCheckboxes();
-                loadQuestionsBySelectedTopics();
+                var questionsContainer = document.getElementById('questions_checkbox_container');
+                if (questionsContainer) questionsContainer.innerHTML = '';
             });
         // Resultados de aprendizaje como checkboxes
         fetch('/get-learning-outcomes/?subject_id=' + subjectId)

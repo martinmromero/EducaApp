@@ -188,33 +188,23 @@ document.addEventListener('DOMContentLoaded', function() {
     topicsSelect.addEventListener('change', function() {
         var selectedTopics = Array.from(topicsSelect.selectedOptions).map(function(opt) { return opt.value; });
         var questionsSelect = document.getElementById('id_questions');
-        if (selectedTopics.includes('all')) {
-            // Mostrar todas las preguntas de la materia seleccionada
-            var subjectId = document.getElementById('id_subject').value;
-            fetch('/get-questions-by-topics/?all=true&subject_id=' + subjectId)
-                .then(function(response) { return response.json(); })
-                .then(function(data) {
-                    questionsSelect.innerHTML = '';
-                    data.forEach(function(question) {
-                        var option = document.createElement('option');
-                        option.value = question.id;
-                        option.textContent = question.text;
-                        questionsSelect.appendChild(option);
-                    });
-                });
-        } else {
-            fetch('/get-questions-by-topics/?topics=' + selectedTopics.join(','))
-                .then(function(response) { return response.json(); })
-                .then(function(data) {
-                    questionsSelect.innerHTML = '';
-                    data.forEach(function(question) {
-                        var option = document.createElement('option');
-                        option.value = question.id;
-                        option.textContent = question.text;
-                        questionsSelect.appendChild(option);
-                    });
-                });
+        var filteredTopics = selectedTopics.filter(function(v) { return v !== 'all'; });
+        if (!filteredTopics.length) {
+            questionsSelect.innerHTML = '';
+            return;
         }
+        var subjectId = document.getElementById('id_subject').value;
+        fetch('/get-questions-by-topics/?topics=' + filteredTopics.join(',') + '&subject_id=' + subjectId)
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                questionsSelect.innerHTML = '';
+                data.forEach(function(question) {
+                    var option = document.createElement('option');
+                    option.value = question.id;
+                    option.textContent = question.text;
+                    questionsSelect.appendChild(option);
+                });
+            });
     });
 
     // Cascada institución → facultad → carrera y sede

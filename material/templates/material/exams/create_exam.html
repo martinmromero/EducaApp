@@ -389,9 +389,12 @@ document.addEventListener('DOMContentLoaded', function() {
             questionsContainer.innerHTML = '';
             return;
         }
-        const url = selectedTopics.length
-            ? questionsUrl + '?topics=' + selectedTopics.join(',') + '&subject_id=' + encodeURIComponent(subjectId)
-            : questionsUrl + '?all=true&subject_id=' + encodeURIComponent(subjectId);
+        if (!selectedTopics.length) {
+            questionsSelect.innerHTML = '';
+            questionsContainer.innerHTML = '';
+            return;
+        }
+        const url = questionsUrl + '?topics=' + selectedTopics.join(',') + '&subject_id=' + encodeURIComponent(subjectId);
         fetch(url)
             .then(function(response) { return response.json(); })
             .then(function(data) { renderQuestions(Array.isArray(data) ? data : [], previouslySelectedIds); })
