@@ -319,7 +319,7 @@ from django.urls import reverse_lazy
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods, require_POST
 from django.core.paginator import Paginator
-from django.db import models, transaction
+from django.db import models, transaction, connection
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404, reverse
 from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, 
@@ -724,9 +724,20 @@ def _pick_questions_for_versions(subject, selected_topics, user, versions_count,
     return versions
 
 
-def _get_exam_version_schema_state():
-    from django.db import connection
+def _get_table_columns(table_name):
+    try:
+        table_names = set(connection.introspection.table_names())
+        if table_name not in table_names:
+            return set()
+        with connection.cursor() as cursor:
+            return {
+                col.name for col in connection.introspection.get_table_description(cursor, table_name)
+            }
+    except Exception:
+        return set()
 
+
+def _get_exam_version_schema_state():
     exam_table = Exam._meta.db_table
     batch_table = ExamVersionBatch._meta.db_table
     has_exam_version_fields = False
@@ -737,10 +748,7 @@ def _get_exam_version_schema_state():
         has_batch_table = batch_table in table_names
 
         if exam_table in table_names:
-            with connection.cursor() as cursor:
-                exam_columns = {
-                    col.name for col in connection.introspection.get_table_description(cursor, exam_table)
-                }
+            exam_columns = _get_table_columns(exam_table)
             has_exam_version_fields = {
                 'version_batch_id',
                 'version_number',
@@ -750,6 +758,82 @@ def _get_exam_version_schema_state():
         has_batch_table = False
 
     return has_exam_version_fields, has_batch_table
+
+
+def _create_exam_with_compatible_schema(exam_kwargs, selected_topics, selected_outcomes, version_questions):
+    exam_table = Exam._meta.db_table
+    existing_columns = _get_table_columns(exam_table)
+    if not existing_columns:
+        exam_obj = Exam.objects.create(**exam_kwargs)
+        exam_obj.topics.set(selected_topics)
+        if selected_outcomes.exists():
+            exam_obj.learning_outcomes.set(selected_outcomes)
+        exam_obj.questions.set(version_questions)
+        return exam_obj
+
+    exam_obj = Exam(**exam_kwargs)
+    concrete_fields = []
+    values = []
+
+    for field in Exam._meta.local_concrete_fields:
+        if field.primary_key or not field.column or field.column not in existing_columns:
+            continue
+
+        if getattr(field, 'auto_now_add', False) or getattr(field, 'auto_now', False):
+            value = field.pre_save(exam_obj, add=True)
+            setattr(exam_obj, field.attname, value)
+        else:
+            value = getattr(exam_obj, field.attname)
+
+        value = field.get_db_prep_save(value, connection)
+
+        concrete_fields.append(field)
+        values.append(value)
+
+    if not concrete_fields:
+        raise DatabaseError('No hay columnas compatibles disponibles para insertar examenes.')
+
+    quoted_table = connection.ops.quote_name(exam_table)
+    column_sql = ', '.join(connection.ops.quote_name(field.column) for field in concrete_fields)
+    placeholder_sql = ', '.join(['%s'] * len(concrete_fields))
+
+    with connection.cursor() as cursor:
+        if connection.vendor == 'postgresql':
+            cursor.execute(
+                f'INSERT INTO {quoted_table} ({column_sql}) VALUES ({placeholder_sql}) RETURNING id',
+                values,
+            )
+            exam_id = cursor.fetchone()[0]
+        else:
+            cursor.execute(
+                f'INSERT INTO {quoted_table} ({column_sql}) VALUES ({placeholder_sql})',
+                values,
+            )
+            exam_id = cursor.lastrowid
+
+    topic_ids = list(selected_topics.values_list('id', flat=True))
+    if topic_ids:
+        Exam.topics.through.objects.bulk_create([
+            Exam.topics.through(exam_id=exam_id, topic_id=topic_id)
+            for topic_id in topic_ids
+        ])
+
+    outcome_ids = list(selected_outcomes.values_list('id', flat=True))
+    if outcome_ids:
+        Exam.learning_outcomes.through.objects.bulk_create([
+            Exam.learning_outcomes.through(exam_id=exam_id, learningoutcome_id=outcome_id)
+            for outcome_id in outcome_ids
+        ])
+
+    question_ids = [question.id for question in version_questions]
+    if question_ids:
+        Exam.questions.through.objects.bulk_create([
+            Exam.questions.through(exam_id=exam_id, question_id=question_id)
+            for question_id in question_ids
+        ])
+
+    exam_obj.pk = exam_id
+    return exam_obj
 
 
 @login_required
@@ -934,6 +1018,12 @@ def save_exam_from_session(request):
 
     has_exam_version_fields, has_batch_table = _get_exam_version_schema_state()
     supports_version_batches = has_exam_version_fields and has_batch_table
+    exam_columns = _get_table_columns(Exam._meta.db_table)
+    expected_exam_columns = {
+        field.column for field in Exam._meta.local_concrete_fields
+        if field.column and not field.primary_key
+    }
+    has_full_exam_write_schema = bool(exam_columns) and expected_exam_columns.issubset(exam_columns)
 
     preview_version_ids = request.session.get('preview_generated_versions_ids') or []
     if preview_version_ids:
@@ -1023,12 +1113,19 @@ def save_exam_from_session(request):
                 exam_kwargs['version_batch'] = batch
                 exam_kwargs['version_number'] = idx
 
-            exam_obj = ExamModel(**exam_kwargs)
-            exam_obj.save()
-            exam_obj.topics.set(selected_topics)
-            if selected_outcomes.exists():
-                exam_obj.learning_outcomes.set(selected_outcomes)
-            exam_obj.questions.set(version_questions)
+            if has_full_exam_write_schema:
+                exam_obj = ExamModel.objects.create(**exam_kwargs)
+                exam_obj.topics.set(selected_topics)
+                if selected_outcomes.exists():
+                    exam_obj.learning_outcomes.set(selected_outcomes)
+                exam_obj.questions.set(version_questions)
+            else:
+                exam_obj = _create_exam_with_compatible_schema(
+                    exam_kwargs,
+                    selected_topics,
+                    selected_outcomes,
+                    version_questions,
+                )
             created_exams.append(exam_obj)
 
     del request.session['preview_exam']
