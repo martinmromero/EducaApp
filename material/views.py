@@ -133,8 +133,24 @@ def preview_exam(request):
         questions_per_version = len(manual_question_ids) if manual_question_ids else max(1, selected_topics.count())
 
     generated_versions = []
-    if versions_count == 1 and manual_question_ids:
-        generated_versions = [list(Question.objects.filter(pk__in=manual_question_ids, user=request.user).distinct())]
+    if manual_question_ids and subject_obj:
+        if versions_count == 1:
+            generated_versions = [list(Question.objects.filter(
+                pk__in=manual_question_ids,
+                user=request.user,
+                ai_approved=True,
+            ).distinct())]
+        else:
+            balance_by_topic = str(exam.get('balance_by_topic', '1')) == '1'
+            generated_versions = _pick_questions_for_versions(
+                subject=subject_obj,
+                selected_topics=selected_topics,
+                user=request.user,
+                versions_count=versions_count,
+                questions_per_version=questions_per_version,
+                balance_by_topic=balance_by_topic,
+                allowed_question_ids=manual_question_ids,
+            )
     elif subject_obj:
         balance_by_topic = str(exam.get('balance_by_topic', '1')) == '1'
         generated_versions = _pick_questions_for_versions(
@@ -630,7 +646,7 @@ def _arrange_questions_avoiding_same_topic_consecutive(question_list):
     return result
 
 
-def _pick_questions_for_versions(subject, selected_topics, user, versions_count, questions_per_version, balance_by_topic=True):
+def _pick_questions_for_versions(subject, selected_topics, user, versions_count, questions_per_version, balance_by_topic=True, allowed_question_ids=None):
     import random
     from collections import defaultdict
 
@@ -638,8 +654,11 @@ def _pick_questions_for_versions(subject, selected_topics, user, versions_count,
     base_qs = Question.objects.filter(
         subjects__id=subject.id,
         user=user,
-        topic__in=selected_topics
+        topic__in=selected_topics,
+        ai_approved=True,
     ).select_related('topic').distinct()
+    if allowed_question_ids:
+        base_qs = base_qs.filter(pk__in=allowed_question_ids)
 
     for q in base_qs:
         pools[q.topic_id].append(q)
@@ -893,8 +912,24 @@ def save_exam_from_session(request):
             if version_ids
         ]
         versions_count = len(chosen_versions) if chosen_versions else versions_count
-    elif versions_count == 1 and q_ids:
-        chosen_versions = [list(Question.objects.filter(pk__in=q_ids, user=request.user).distinct())]
+    elif q_ids:
+        if versions_count == 1:
+            chosen_versions = [list(Question.objects.filter(
+                pk__in=q_ids,
+                user=request.user,
+                ai_approved=True,
+            ).distinct())]
+        else:
+            balance_by_topic = str(exam_data.get('balance_by_topic', '1')) == '1'
+            chosen_versions = _pick_questions_for_versions(
+                subject=subject,
+                selected_topics=selected_topics,
+                user=request.user,
+                versions_count=versions_count,
+                questions_per_version=questions_per_version,
+                balance_by_topic=balance_by_topic,
+                allowed_question_ids=q_ids,
+            )
     else:
         balance_by_topic = str(exam_data.get('balance_by_topic', '1')) == '1'
         chosen_versions = _pick_questions_for_versions(
@@ -905,7 +940,6 @@ def save_exam_from_session(request):
             questions_per_version=questions_per_version,
             balance_by_topic=balance_by_topic,
         )
-
     if not chosen_versions or not chosen_versions[0]:
         messages.error(request, 'No hay preguntas suficientes para generar el examen.', extra_tags='examenes')
         return redirect('material:create_exam')
