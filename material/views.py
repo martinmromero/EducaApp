@@ -724,6 +724,34 @@ def _pick_questions_for_versions(subject, selected_topics, user, versions_count,
     return versions
 
 
+def _get_exam_version_schema_state():
+    from django.db import connection
+
+    exam_table = Exam._meta.db_table
+    batch_table = ExamVersionBatch._meta.db_table
+    has_exam_version_fields = False
+    has_batch_table = False
+
+    try:
+        table_names = set(connection.introspection.table_names())
+        has_batch_table = batch_table in table_names
+
+        if exam_table in table_names:
+            with connection.cursor() as cursor:
+                exam_columns = {
+                    col.name for col in connection.introspection.get_table_description(cursor, exam_table)
+                }
+            has_exam_version_fields = {
+                'version_batch_id',
+                'version_number',
+            }.issubset(exam_columns)
+    except Exception:
+        has_exam_version_fields = False
+        has_batch_table = False
+
+    return has_exam_version_fields, has_batch_table
+
+
 @login_required
 def create_exam(request):
     from .models import FacultyV2, Career, CampusV2, Subject, ExamTemplate, InstitutionV2
@@ -904,10 +932,13 @@ def save_exam_from_session(request):
         messages.error(request, 'Debe seleccionar al menos un tema para generar versiones.', extra_tags='examenes')
         return redirect('material:create_exam')
 
+    has_exam_version_fields, has_batch_table = _get_exam_version_schema_state()
+    supports_version_batches = has_exam_version_fields and has_batch_table
+
     preview_version_ids = request.session.get('preview_generated_versions_ids') or []
     if preview_version_ids:
         chosen_versions = [
-            list(Question.objects.filter(pk__in=version_ids, user=request.user).distinct())
+            list(Question.objects.filter(pk__in=version_ids, user=request.user, ai_approved=True).distinct())
             for version_ids in preview_version_ids
             if version_ids
         ]
@@ -949,45 +980,50 @@ def save_exam_from_session(request):
         if not batch_name:
             batch_name = _suggest_batch_name(subject, exam_data, institution_name, versions_count, year)
 
-        batch = ExamVersionBatch.objects.create(
-            name=batch_name,
-            created_by=request.user,
-            subject=subject,
-            institution_name=institution_name,
-            exam_type=exam_type or '',
-            semester=exam_data.get('batch_semester') or '',
-            year=year,
-            version_count=versions_count,
-            questions_per_version=questions_per_version,
-        )
+        batch = None
+        if supports_version_batches:
+            batch = ExamVersionBatch.objects.create(
+                name=batch_name,
+                created_by=request.user,
+                subject=subject,
+                institution_name=institution_name,
+                exam_type=exam_type or '',
+                semester=exam_data.get('batch_semester') or '',
+                year=year,
+                version_count=versions_count,
+                questions_per_version=questions_per_version,
+            )
 
         created_exams = []
         for idx, version_questions in enumerate(chosen_versions, start=1):
-            exam_obj = ExamModel(
-                title=f"{title} - Version {idx}",
-                subject=subject,
-                created_by=request.user,
-                duration_minutes=duration,
-                instructions=exam_data.get('instructions') or '',
-                institution_name=institution_name,
-                faculty_name=faculty_name,
-                campus_name=campus_name,
-                career_name=career_name,
-                professor=professor,
-                exam_type=exam_type,
-                exam_mode=exam_mode,
-                exam_group=exam_group,
-                shift=shift,
-                year=year,
-                date_str=fecha,
-                resolution_time=resolution_time or None,
-                alumno=exam_data.get('alumno') or '',
-                curso=exam_data.get('curso') or '',
-                topics_to_evaluate=exam_data.get('topics_to_evaluate') or None,
-                notes_and_recommendations=exam_data.get('notes_and_recommendations') or None,
-                version_batch=batch,
-                version_number=idx,
-            )
+            exam_kwargs = {
+                'title': f"{title} - Version {idx}",
+                'subject': subject,
+                'created_by': request.user,
+                'duration_minutes': duration,
+                'instructions': exam_data.get('instructions') or '',
+                'institution_name': institution_name,
+                'faculty_name': faculty_name,
+                'campus_name': campus_name,
+                'career_name': career_name,
+                'professor': professor,
+                'exam_type': exam_type,
+                'exam_mode': exam_mode,
+                'exam_group': exam_group,
+                'shift': shift,
+                'year': year,
+                'date_str': fecha,
+                'resolution_time': resolution_time or None,
+                'alumno': exam_data.get('alumno') or '',
+                'curso': exam_data.get('curso') or '',
+                'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
+                'notes_and_recommendations': exam_data.get('notes_and_recommendations') or None,
+            }
+            if supports_version_batches:
+                exam_kwargs['version_batch'] = batch
+                exam_kwargs['version_number'] = idx
+
+            exam_obj = ExamModel(**exam_kwargs)
             exam_obj.save()
             exam_obj.topics.set(selected_topics)
             if selected_outcomes.exists():
@@ -997,12 +1033,20 @@ def save_exam_from_session(request):
 
     del request.session['preview_exam']
     request.session.pop('preview_generated_versions_ids', None)
+    if supports_version_batches and batch is not None:
+        messages.success(
+            request,
+            f'Se guardo el lote "{batch.name}" con {len(created_exams)} versiones.',
+            extra_tags='examenes'
+        )
+        return redirect('material:view_exam_batch', batch_id=batch.id)
+
     messages.success(
         request,
-        f'Se guardo el lote "{batch.name}" con {len(created_exams)} versiones.',
+        f'Se guardaron {len(created_exams)} examen(es). El agrupado por versiones quedara disponible cuando se apliquen las migraciones pendientes.',
         extra_tags='examenes'
     )
-    return redirect('material:view_exam_batch', batch_id=batch.id)
+    return redirect('material:mis_examenes')
 
 @login_required
 def create_exam_template(request):
@@ -1593,30 +1637,7 @@ def mis_datos(request):
 
 @login_required
 def mis_examenes(request):
-    from django.db import connection
-
-    exam_table = Exam._meta.db_table
-    batch_table = ExamVersionBatch._meta.db_table
-    has_exam_version_fields = False
-    has_batch_table = False
-
-    try:
-        table_names = set(connection.introspection.table_names())
-        has_batch_table = batch_table in table_names
-
-        if exam_table in table_names:
-            with connection.cursor() as cursor:
-                exam_columns = {
-                    col.name for col in connection.introspection.get_table_description(cursor, exam_table)
-                }
-            has_exam_version_fields = {
-                'version_batch_id',
-                'version_number',
-            }.issubset(exam_columns)
-    except Exception:
-        # Si falla introspeccion, seguimos con el camino mas conservador.
-        has_exam_version_fields = False
-        has_batch_table = False
+    has_exam_version_fields, has_batch_table = _get_exam_version_schema_state()
 
     try:
         examenes_qs = Exam.objects.filter(created_by=request.user).select_related('subject')
