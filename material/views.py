@@ -760,6 +760,32 @@ def _get_exam_version_schema_state():
     return has_exam_version_fields, has_batch_table
 
 
+def _ensure_exam_version_schema():
+    has_exam_version_fields, has_batch_table = _get_exam_version_schema_state()
+    if has_exam_version_fields and has_batch_table:
+        return True
+
+    try:
+        with connection.schema_editor() as schema_editor:
+            table_names = set(connection.introspection.table_names())
+
+            if not has_batch_table and ExamVersionBatch._meta.db_table not in table_names:
+                schema_editor.create_model(ExamVersionBatch)
+
+            exam_columns = _get_table_columns(Exam._meta.db_table)
+            if 'version_batch_id' not in exam_columns:
+                schema_editor.add_field(Exam, Exam._meta.get_field('version_batch'))
+                exam_columns.add('version_batch_id')
+            if 'version_number' not in exam_columns:
+                schema_editor.add_field(Exam, Exam._meta.get_field('version_number'))
+    except Exception:
+        logger.exception('No se pudo auto-crear el esquema de lotes de examenes en runtime.')
+        return False
+
+    has_exam_version_fields, has_batch_table = _get_exam_version_schema_state()
+    return has_exam_version_fields and has_batch_table
+
+
 def _create_exam_with_compatible_schema(exam_kwargs, selected_topics, selected_outcomes, version_questions):
     exam_table = Exam._meta.db_table
     existing_columns = _get_table_columns(exam_table)
@@ -1016,6 +1042,10 @@ def save_exam_from_session(request):
         messages.error(request, 'Debe seleccionar al menos un tema para generar versiones.', extra_tags='examenes')
         return redirect('material:create_exam')
 
+    preview_version_ids = request.session.get('preview_generated_versions_ids') or []
+    if versions_count > 1 or preview_version_ids:
+        _ensure_exam_version_schema()
+
     has_exam_version_fields, has_batch_table = _get_exam_version_schema_state()
     supports_version_batches = has_exam_version_fields and has_batch_table
     exam_columns = _get_table_columns(Exam._meta.db_table)
@@ -1025,7 +1055,6 @@ def save_exam_from_session(request):
     }
     has_full_exam_write_schema = bool(exam_columns) and expected_exam_columns.issubset(exam_columns)
 
-    preview_version_ids = request.session.get('preview_generated_versions_ids') or []
     if preview_version_ids:
         chosen_versions = [
             list(Question.objects.filter(pk__in=version_ids, user=request.user, ai_approved=True).distinct())
