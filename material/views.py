@@ -619,7 +619,7 @@ def _suggest_batch_name(subject, exam_data, institution_name, versions_count, ye
     materia = subject.name if subject else 'sin materia'
     institucion = institution_name or 'sin institucion'
     cuatri = exam_data.get('batch_semester') or 'sin cuatrimestre'
-    year_str = str(year) if year else 'sin anio'
+    year_str = str(year) if year else 'sin año'
     return f"{tipo} - {materia} - {institucion} - {cuatri} - {year_str} - {versions_count} opciones"
 
 
@@ -1094,68 +1094,77 @@ def save_exam_from_session(request):
         messages.error(request, 'No hay preguntas suficientes para generar el examen.', extra_tags='examenes')
         return redirect('material:create_exam')
 
-    with transaction.atomic():
-        batch_name = (exam_data.get('batch_name') or '').strip()
-        if not batch_name:
-            batch_name = _suggest_batch_name(subject, exam_data, institution_name, versions_count, year)
+    try:
+        with transaction.atomic():
+            batch_name = (exam_data.get('batch_name') or '').strip()
+            if not batch_name:
+                batch_name = _suggest_batch_name(subject, exam_data, institution_name, versions_count, year)
 
-        batch = None
-        if supports_version_batches:
-            batch = ExamVersionBatch.objects.create(
-                name=batch_name,
-                created_by=request.user,
-                subject=subject,
-                institution_name=institution_name,
-                exam_type=exam_type or '',
-                semester=exam_data.get('batch_semester') or '',
-                year=year,
-                version_count=versions_count,
-                questions_per_version=questions_per_version,
-            )
-
-        created_exams = []
-        for idx, version_questions in enumerate(chosen_versions, start=1):
-            exam_kwargs = {
-                'title': f"{title} - Version {idx}",
-                'subject': subject,
-                'created_by': request.user,
-                'duration_minutes': duration,
-                'instructions': exam_data.get('instructions') or '',
-                'institution_name': institution_name,
-                'faculty_name': faculty_name,
-                'campus_name': campus_name,
-                'career_name': career_name,
-                'professor': professor,
-                'exam_type': exam_type,
-                'exam_mode': exam_mode,
-                'exam_group': exam_group,
-                'shift': shift,
-                'year': year,
-                'date_str': fecha,
-                'resolution_time': resolution_time or None,
-                'alumno': exam_data.get('alumno') or '',
-                'curso': exam_data.get('curso') or '',
-                'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
-                'notes_and_recommendations': exam_data.get('notes_and_recommendations') or None,
-            }
+            batch = None
             if supports_version_batches:
-                exam_kwargs['version_batch'] = batch
-                exam_kwargs['version_number'] = idx
-
-            if has_full_exam_write_schema:
-                exam_obj = ExamModel.objects.create(**exam_kwargs)
-                exam_obj.topics.set(selected_topics)
-                if selected_outcomes.exists():
-                    exam_obj.learning_outcomes.set(selected_outcomes)
-                exam_obj.questions.set(version_questions)
-            else:
-                exam_obj = _create_exam_with_compatible_schema(
-                    exam_kwargs,
-                    selected_topics,
-                    selected_outcomes,
-                    version_questions,
+                batch = ExamVersionBatch.objects.create(
+                    name=batch_name,
+                    created_by=request.user,
+                    subject=subject,
+                    institution_name=institution_name,
+                    exam_type=exam_type or '',
+                    semester=exam_data.get('batch_semester') or '',
+                    year=year,
+                    version_count=versions_count,
+                    questions_per_version=questions_per_version,
                 )
-            created_exams.append(exam_obj)
+
+            created_exams = []
+            for idx, version_questions in enumerate(chosen_versions, start=1):
+                exam_kwargs = {
+                    'title': f"{title} - Version {idx}",
+                    'subject': subject,
+                    'created_by': request.user,
+                    'duration_minutes': duration,
+                    'instructions': exam_data.get('instructions') or '',
+                    'institution_name': institution_name,
+                    'faculty_name': faculty_name,
+                    'campus_name': campus_name,
+                    'career_name': career_name,
+                    'professor': professor,
+                    'exam_type': exam_type,
+                    'exam_mode': exam_mode,
+                    'exam_group': exam_group,
+                    'shift': shift,
+                    'year': year,
+                    'date_str': fecha,
+                    'resolution_time': resolution_time or None,
+                    'alumno': exam_data.get('alumno') or '',
+                    'curso': exam_data.get('curso') or '',
+                    'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
+                    'notes_and_recommendations': exam_data.get('notes_and_recommendations') or None,
+                }
+                if supports_version_batches:
+                    exam_kwargs['version_batch'] = batch
+                    exam_kwargs['version_number'] = idx
+
+                if has_full_exam_write_schema:
+                    exam_obj = ExamModel.objects.create(**exam_kwargs)
+                    exam_obj.topics.set(selected_topics)
+                    if selected_outcomes.exists():
+                        exam_obj.learning_outcomes.set(selected_outcomes)
+                    exam_obj.questions.set(version_questions)
+                else:
+                    exam_obj = _create_exam_with_compatible_schema(
+                        exam_kwargs,
+                        selected_topics,
+                        selected_outcomes,
+                        version_questions,
+                    )
+                created_exams.append(exam_obj)
+    except Exception:
+        logger.exception('Error guardando examenes desde /save-exam/.')
+        messages.error(
+            request,
+            'No se pudo guardar el examen. Intenta nuevamente en unos segundos.',
+            extra_tags='examenes'
+        )
+        return redirect('material:create_exam')
 
     del request.session['preview_exam']
     request.session.pop('preview_generated_versions_ids', None)
