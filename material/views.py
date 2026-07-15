@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.utils import timezone
+from django.db.models import Q
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -12,7 +13,7 @@ def _compute_bloom_display(question_qs):
     """
     Recibe un QuerySet de Question y retorna una lista de 6 dicts
     ordenada de nivel 6 (Crear) a nivel 1 (Recordar), lista para
-    renderizar el componente _bloom_pyramid.html.
+                    form.save_m2m()  # Save many-to-many relationships
     """
     from django.db.models import Count
 
@@ -884,6 +885,9 @@ def create_exam(request):
             return redirect('material:save_exam_from_session')
         return redirect('material:preview_exam')
 
+    if not request.session.get('preview_exam'):
+        request.session.pop('editing_exam_id', None)
+
     form = ExamForm()
 
     import json as _json
@@ -1094,6 +1098,11 @@ def save_exam_from_session(request):
         messages.error(request, 'No hay preguntas suficientes para generar el examen.', extra_tags='examenes')
         return redirect('material:create_exam')
 
+    editing_exam_id = request.session.get('editing_exam_id')
+    editing_exam = None
+    if str(editing_exam_id).isdigit():
+        editing_exam = Exam.objects.filter(pk=int(editing_exam_id), created_by=request.user).first()
+
     try:
         with transaction.atomic():
             batch_name = (exam_data.get('batch_name') or '').strip()
@@ -1101,7 +1110,7 @@ def save_exam_from_session(request):
                 batch_name = _suggest_batch_name(subject, exam_data, institution_name, versions_count, year)
 
             batch = None
-            if supports_version_batches:
+            if supports_version_batches and editing_exam is None:
                 batch = ExamVersionBatch.objects.create(
                     name=batch_name,
                     created_by=request.user,
@@ -1115,7 +1124,41 @@ def save_exam_from_session(request):
                 )
 
             created_exams = []
+
+            if editing_exam is not None:
+                exam_kwargs = {
+                    'title': title,
+                    'subject': subject,
+                    'duration_minutes': duration,
+                    'instructions': exam_data.get('instructions') or '',
+                    'institution_name': institution_name,
+                    'faculty_name': faculty_name,
+                    'campus_name': campus_name,
+                    'career_name': career_name,
+                    'professor': professor,
+                    'exam_type': exam_type,
+                    'exam_mode': exam_mode,
+                    'exam_group': exam_group,
+                    'shift': shift,
+                    'year': year,
+                    'date_str': fecha,
+                    'resolution_time': resolution_time or None,
+                    'alumno': exam_data.get('alumno') or '',
+                    'curso': exam_data.get('curso') or '',
+                    'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
+                    'notes_and_recommendations': exam_data.get('notes_and_recommendations') or None,
+                }
+                for field_name, field_value in exam_kwargs.items():
+                    setattr(editing_exam, field_name, field_value)
+                editing_exam.save()
+                editing_exam.topics.set(selected_topics)
+                editing_exam.learning_outcomes.set(selected_outcomes)
+                editing_exam.questions.set(chosen_versions[0])
+                created_exams.append(editing_exam)
+
             for idx, version_questions in enumerate(chosen_versions, start=1):
+                if editing_exam is not None:
+                    break
                 exam_kwargs = {
                     'title': f"{title} - Version {idx}",
                     'subject': subject,
@@ -1168,6 +1211,7 @@ def save_exam_from_session(request):
 
     del request.session['preview_exam']
     request.session.pop('preview_generated_versions_ids', None)
+    request.session.pop('editing_exam_id', None)
     if supports_version_batches and batch is not None:
         messages.success(
             request,
@@ -1176,11 +1220,14 @@ def save_exam_from_session(request):
         )
         return redirect('material:view_exam_batch', batch_id=batch.id)
 
-    messages.success(
-        request,
-        f'Se guardaron {len(created_exams)} examen(es). El agrupado por versiones quedara disponible cuando se apliquen las migraciones pendientes.',
-        extra_tags='examenes'
-    )
+    if editing_exam is not None:
+        messages.success(request, 'Examen actualizado correctamente.', extra_tags='examenes')
+    else:
+        messages.success(
+            request,
+            f'Se guardaron {len(created_exams)} examen(es). El agrupado por versiones quedara disponible cuando se apliquen las migraciones pendientes.',
+            extra_tags='examenes'
+        )
     return redirect('material:mis_examenes')
 
 @login_required
@@ -2044,6 +2091,74 @@ def ver_examen(request, pk):
         ],
     })
 
+
+@login_required
+def editar_examen(request, pk):
+    examen = get_object_or_404(Exam, pk=pk, created_by=request.user)
+    from .models import InstitutionV2, FacultyV2, Career, CampusV2
+
+    def _resolve_dropdown_value(model_cls, name_value):
+        if not name_value:
+            return '', ''
+        obj = model_cls.objects.filter(name__iexact=name_value).first()
+        if obj:
+            return str(obj.pk), ''
+        return 'otro', name_value
+
+    institucion, institucion_text = _resolve_dropdown_value(InstitutionV2, examen.institution_name)
+    facultad, facultad_text = _resolve_dropdown_value(FacultyV2, examen.faculty_name)
+    carrera, carrera_text = _resolve_dropdown_value(Career, examen.career_name)
+    sede, sede_text = _resolve_dropdown_value(CampusV2, examen.campus_name)
+
+    turno = ''
+    turno_text = ''
+    if examen.shift:
+        if examen.shift in ['mañana', 'tarde', 'noche']:
+            turno = examen.shift
+        else:
+            turno = 'otro'
+            turno_text = examen.shift
+
+    profesor = str(examen.professor_id) if examen.professor_id else ''
+    modalidad_resolucion = [m.strip() for m in (examen.resolution_time or '').split(',') if m.strip()]
+
+    request.session['preview_exam'] = {
+        'title': examen.title or '',
+        'subject': str(examen.subject_id) if examen.subject_id else '',
+        'topics': list(examen.topics.values_list('id', flat=True)),
+        'questions': list(examen.questions.values_list('id', flat=True)),
+        'learning_outcomes': list(examen.learning_outcomes.values_list('id', flat=True)),
+        'instructions': examen.instructions or '',
+        'duration_minutes': examen.duration_minutes,
+        'institucion': institucion,
+        'institucion_text': institucion_text,
+        'facultad': facultad,
+        'facultad_text': facultad_text,
+        'carrera': carrera,
+        'carrera_text': carrera_text,
+        'sede': sede,
+        'sede_text': sede_text,
+        'curso': examen.curso or '',
+        'turno': turno,
+        'turno_text': turno_text,
+        'profesor': profesor,
+        'fecha': examen.date_str or '',
+        'tipo_examen': examen.exam_type or '',
+        'tipo_modalidad': examen.exam_group or '',
+        'modalidad_resolucion': modalidad_resolucion,
+        'alumno': examen.alumno or '',
+        'batch_name': '',
+        'batch_semester': '',
+        'num_versions': '1',
+        'questions_per_version': '',
+        'balance_by_topic': '1',
+    }
+    request.session['editing_exam_id'] = examen.pk
+    request.session.pop('preview_generated_versions_ids', None)
+
+    messages.info(request, 'Puedes editar el examen y volver a previsualizar/guardar.', extra_tags='examenes')
+    return redirect('material:create_exam')
+
 @login_required
 def eliminar_examen(request, pk):
     examen = get_object_or_404(Exam, pk=pk, created_by=request.user)
@@ -2070,7 +2185,11 @@ def lista_preguntas(request):
 
     # Filtrar por materia si corresponde
     if subject_id and subject_id.isdigit():
-        preguntas = preguntas.filter(subjects__id=int(subject_id))
+        sid = int(subject_id)
+        preguntas = preguntas.filter(
+            Q(subjects__id=sid) |
+            Q(subjects__isnull=True, topic__subject_id=sid)
+        ).distinct()
     # Filtrar por tema si corresponde
     if topic_id and topic_id.isdigit() and int(topic_id) > 0:
         preguntas = preguntas.filter(topic_id=int(topic_id))
@@ -2101,16 +2220,10 @@ def lista_preguntas(request):
     subtopics = Subtopic.objects.none()
 
     if subject_id and subject_id.isdigit() and int(subject_id) > 0:
-        topics = Topic.objects.filter(
-            subject_id=int(subject_id),
-            question__in=preguntas
-        ).distinct().order_by('name')
+        topics = Topic.objects.filter(subject_id=int(subject_id)).distinct().order_by('name')
 
     if topic_id and topic_id.isdigit() and int(topic_id) > 0:
-        subtopics = Subtopic.objects.filter(
-            topic_id=int(topic_id),
-            question__in=preguntas
-        ).distinct().order_by('name')
+        subtopics = Subtopic.objects.filter(topic_id=int(topic_id)).distinct().order_by('name')
 
     paginator = Paginator(preguntas, 25)
     page_number = request.GET.get('page')
@@ -2288,6 +2401,7 @@ def upload_questions(request):
                     else:
                         question.contenido = None
                     question.save()
+                    form.save_m2m()
                     messages.success(request, 'Pregunta guardada correctamente.', extra_tags='preguntas')
                     return redirect('material:lista_preguntas')
                 
@@ -2297,7 +2411,20 @@ def upload_questions(request):
                     return redirect('material:upload_questions')
             
             else:
-                messages.error(request, 'Por favor corrija los errores en el formulario.', extra_tags='preguntas')
+                field_errors = []
+                for field_name, errors in form.errors.items():
+                    label = form.fields.get(field_name).label if field_name in form.fields else field_name
+                    for err in errors:
+                        field_errors.append(f"{label}: {err}")
+
+                if field_errors:
+                    messages.error(
+                        request,
+                        'Por favor corrija los errores en el formulario: ' + ' | '.join(field_errors),
+                        extra_tags='preguntas'
+                    )
+                else:
+                    messages.error(request, 'Por favor corrija los errores en el formulario.', extra_tags='preguntas')
     else:
         form = QuestionForm(current_user=request.user)
     
@@ -2310,6 +2437,57 @@ def upload_questions(request):
     return render(request, 'material/questions/upload_questions.html', context)
 
 # Funciones auxiliares para procesamiento de archivos
+def _normalize_question_type(raw_value):
+    raw = (raw_value or '').strip().lower()
+    mapping = {
+        'desarrollo': 'desarrollo',
+        'a_desarrollar': 'desarrollo',
+        'a desarrollar': 'desarrollo',
+        'opcion_multiple': 'opcion_multiple',
+        'opción_múltiple': 'opcion_multiple',
+        'opcion multiple': 'opcion_multiple',
+        'multiple_choice': 'opcion_multiple',
+        'multiple choice': 'opcion_multiple',
+        'verdadero_falso': 'verdadero_falso',
+        'verdadero/falso': 'verdadero_falso',
+        'verdadero falso': 'verdadero_falso',
+        'true_false': 'verdadero_falso',
+        'completar_blank': 'completar_blank',
+        'completar': 'completar_blank',
+        'completar el espacio': 'completar_blank',
+        'fill_blank': 'completar_blank',
+    }
+    return mapping.get(raw, 'desarrollo')
+
+
+def _normalize_true_false_answer(raw_answer):
+    val = (raw_answer or '').strip().lower()
+    if val in ['verdadero', 'v', 'true', '1', 'si', 'sí']:
+        return 'Verdadero'
+    if val in ['falso', 'f', 'false', '0', 'no']:
+        return 'Falso'
+    return raw_answer or ''
+
+
+def _parse_options_json(raw_options):
+    text = (raw_options or '').strip()
+    if not text:
+        return ''
+
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, list):
+            return json.dumps([str(v) for v in parsed[:4]])
+    except Exception:
+        pass
+
+    # Fallback: "A|B|C|D"
+    parts = [p.strip() for p in text.split('|') if p.strip()]
+    if parts:
+        return json.dumps(parts[:4])
+    return ''
+
+
 def process_csv_file(file, contenido, user):
     from .models import Subject, Topic, Subtopic, Question
     
@@ -2376,12 +2554,19 @@ def process_csv_file(file, contenido, user):
                 )
             
             # Crear la pregunta solo con campos que existen en el modelo
+            q_type = _normalize_question_type(row.get('tipo'))
+            answer_text = row['respuesta']
+            if q_type == 'verdadero_falso':
+                answer_text = _normalize_true_false_answer(answer_text)
+
             q = Question.objects.create(
                 contenido=contenido,
                 question_text=row['pregunta'],
-                answer_text=row['respuesta'],
+                answer_text=answer_text,
                 topic=topic,
                 subtopic=subtopic,
+                question_type=q_type,
+                options_json=_parse_options_json(row.get('opciones')) if q_type == 'opcion_multiple' else None,
                 source_page=int(row['pagina']) if row.get('pagina') and row.get('pagina').strip().isdigit() else None,
                 user=user
             )
@@ -2459,12 +2644,19 @@ def create_question_from_dict(data, contenido, user):
         )
     
     # Crear la pregunta solo con campos que existen en el modelo
+    q_type = _normalize_question_type(data.get('tipo'))
+    answer_text = data.get('respuesta', '')
+    if q_type == 'verdadero_falso':
+        answer_text = _normalize_true_false_answer(answer_text)
+
     q = Question.objects.create(
         contenido=contenido,
         question_text=data.get('pregunta', ''),
-        answer_text=data.get('respuesta', ''),
+        answer_text=answer_text,
         topic=topic,
         subtopic=subtopic,
+        question_type=q_type,
+        options_json=_parse_options_json(data.get('opciones')) if q_type == 'opcion_multiple' else None,
         source_page=int(data.get('pagina')) if data.get('pagina') and str(data.get('pagina')).strip().isdigit() else None,
         user=user
     )

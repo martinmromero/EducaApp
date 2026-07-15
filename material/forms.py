@@ -188,6 +188,11 @@ class ExamForm(forms.ModelForm):
         required=False,
         label="Resultados de aprendizaje"
     )
+    duration_minutes = forms.IntegerField(
+        required=False,
+        widget=forms.NumberInput(attrs={'class': 'form-control'}),
+        label="Duración (minutos)"
+    )
 
     class Meta:
         model = Exam

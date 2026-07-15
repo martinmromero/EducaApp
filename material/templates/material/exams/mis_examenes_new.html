@@ -88,6 +88,11 @@
                             <td>{{ examen.created_at|date:"d/m/Y H:i" }}</td>
                             <td>
                                 <a href="{% url 'material:ver_examen' examen.pk %}" class="btn btn-sm btn-primary">Ver</a>
+                                <a href="{% url 'material:editar_examen' examen.pk %}" class="btn btn-sm btn-secondary">Editar</a>
+                                <form method="post" action="{% url 'material:eliminar_examen' examen.pk %}" class="d-inline" onsubmit="return confirm('¿Eliminar este examen?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger">Borrar</button>
+                                </form>
                             </td>
                         </tr>
                         {% endfor %}

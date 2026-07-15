@@ -201,9 +201,9 @@
             <div class="pagination mt-4">
                 <span class="step-links">
                     {% if preguntas.has_previous %}
-                        <a href="?page=1{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}{% if selected_bloom_filter %}&bloom_filter={{ selected_bloom_filter }}{% endif %}" 
+                                <a href="?page=1{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_topic %}&topic={{ selected_topic }}{% endif %}{% if selected_subtopic %}&subtopic={{ selected_subtopic }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}{% if selected_bloom_filter %}&bloom_filter={{ selected_bloom_filter }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">&laquo; Primera</a>
-                        <a href="?page={{ preguntas.previous_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}{% if selected_bloom_filter %}&bloom_filter={{ selected_bloom_filter }}{% endif %}" 
+                                <a href="?page={{ preguntas.previous_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_topic %}&topic={{ selected_topic }}{% endif %}{% if selected_subtopic %}&subtopic={{ selected_subtopic }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}{% if selected_bloom_filter %}&bloom_filter={{ selected_bloom_filter }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">Anterior</a>
                     {% endif %}
                     
@@ -212,9 +212,9 @@
                     </span>
                     
                     {% if preguntas.has_next %}
-                        <a href="?page={{ preguntas.next_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}{% if selected_bloom_filter %}&bloom_filter={{ selected_bloom_filter }}{% endif %}" 
+                                <a href="?page={{ preguntas.next_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_topic %}&topic={{ selected_topic }}{% endif %}{% if selected_subtopic %}&subtopic={{ selected_subtopic }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}{% if selected_bloom_filter %}&bloom_filter={{ selected_bloom_filter }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">Siguiente</a>
-                        <a href="?page={{ preguntas.paginator.num_pages }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_contenido %}&contenido={{ selected_contenido }}{% endif %}{% if selected_question_type %}&question_type={{ selected_question_type }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}{% if selected_bloom_filter %}&bloom_filter={{ selected_bloom_filter }}{% endif %}" 
+                                <a href="?page={{ preguntas.paginator.num_pages }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}{% if selected_topic %}&topic={{ selected_topic }}{% endif %}{% if selected_subtopic %}&subtopic={{ selected_subtopic }}{% endif %}{% if selected_ai_approval %}&ai_approval={{ selected_ai_approval }}{% endif %}{% if selected_bloom_filter %}&bloom_filter={{ selected_bloom_filter }}{% endif %}" 
                            class="btn btn-sm btn-outline-primary">Última &raquo;</a>
                     {% endif %}
                 </span>

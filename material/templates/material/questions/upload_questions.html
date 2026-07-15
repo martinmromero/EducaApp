@@ -58,6 +58,24 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="tab-pane fade {% if current_tab == 'single' %}show active{% endif %}" id="single" role="tabpanel">
             <form method="post" enctype="multipart/form-data" id="singleForm">
                 {% csrf_token %}
+                {{ form.options_json }}
+
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <strong>Corregí estos campos:</strong>
+                    <ul class="mb-0 mt-1">
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
                 <div class="form-group">
                     <label for="{{ form.subjects.id_for_label }}">Materias</label>
                     <div class="input-group">
@@ -101,6 +119,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
 
                 <div class="form-group">
+                    <label for="{{ form.question_type.id_for_label }}">Tipo de pregunta</label>
+                    {{ form.question_type }}
+                </div>
+
+                <div class="card mb-3" id="mcOptionsCard" style="display:none;">
+                    <div class="card-body">
+                        <label class="form-label">Opciones (para opción múltiple)</label>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text">A</span>
+                            <input type="text" class="form-control" id="optA" placeholder="Opción A">
+                        </div>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text">B</span>
+                            <input type="text" class="form-control" id="optB" placeholder="Opción B">
+                        </div>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text">C</span>
+                            <input type="text" class="form-control" id="optC" placeholder="Opción C">
+                        </div>
+                        <div class="input-group mb-0">
+                            <span class="input-group-text">D</span>
+                            <input type="text" class="form-control" id="optD" placeholder="Opción D">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label for="{{ form.question_text.id_for_label }}">Pregunta</label>
                     {{ form.question_text }}
                 </div>
@@ -114,6 +159,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="form-group">
                     <label for="{{ form.answer_text.id_for_label }}">Respuesta</label>
                     {{ form.answer_text }}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.difficulty.id_for_label }}">Dificultad (1-5)</label>
+                    {{ form.difficulty }}
                 </div>
 
                 <div class="form-group">
@@ -160,22 +210,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 <div class="alert alert-info mt-3">
                     <strong>Formato esperado para CSV:</strong><br>
-                    <code>materia,pregunta,respuesta,tema,subtema,pagina</code><br>
+                    <code>materia,pregunta,respuesta,tema,subtema,pagina,tipo,opciones</code><br>
                     <em>Campos requeridos: materia, pregunta, respuesta, tema</em><br>
-                    <em>Campos opcionales: subtema, pagina</em><br>
+                    <em>Campos opcionales: subtema, pagina, tipo, opciones</em><br>
+                    <em>tipo: desarrollo | opcion_multiple | completar_blank | verdadero_falso</em><br>
+                    <em>opciones: solo para opcion_multiple (JSON o "A|B|C|D")</em><br>
                     Ejemplo:<br>
-                    <code>Matemáticas,¿Cuánto es 2+2?,4,Álgebra,,12</code><br>
-                    <code>Historia,¿Quién fue San Martín?,Libertador,Independencia,Argentina,34</code>
+                    <code>Matemáticas,¿Cuánto es 2+2?,4,Álgebra,,12,opcion_multiple,"[""1"",""2"",""3"",""4""]"</code><br>
+                    <code>Historia,¿San Martín cruzó los Andes?,Verdadero,Independencia,Argentina,34,verdadero_falso,</code>
                     <br><br>
                     <strong>Formato esperado para TXT:</strong><br>
                     <em>Campos requeridos: materia, pregunta, respuesta, tema</em><br>
-                    <em>Campos opcionales: subtema, pagina</em><br>
+                    <em>Campos opcionales: subtema, pagina, tipo, opciones</em><br>
                     <pre style="white-space: pre-line;">
 materia: Matemáticas
 pregunta: ¿Cuánto es 2+2?
 respuesta: 4
 tema: Álgebra
 pagina: 12
+tipo: opcion_multiple
+opciones: 1|2|3|4
 
 materia: Historia
 pregunta: ¿Quién fue San Martín?
@@ -220,6 +274,15 @@ capitulo: Capítulo 2
                     });
 
                     // --- Dropdowns dependientes ---
+                    function toggleQuestionTypeUI() {
+                        const t = $('#id_question_type').val();
+                        const showMc = t === 'opcion_multiple';
+                        $('#mcOptionsCard').toggle(showMc);
+                    }
+
+                    $('#id_question_type').on('change', toggleQuestionTypeUI);
+                    toggleQuestionTypeUI();
+
                     function loadTopics(subjectId, selectedTopicId = null) {
                         if (!subjectId) {
                             $('#id_topic').html('<option value="">Seleccione una materia primero</option>').prop('disabled', true);
@@ -339,6 +402,21 @@ capitulo: Capítulo 2
                                 }
                             }
                         });
+                    });
+
+                    $('#singleForm').on('submit', function() {
+                        const t = $('#id_question_type').val();
+                        if (t === 'opcion_multiple') {
+                            const opts = [
+                                $('#optA').val().trim(),
+                                $('#optB').val().trim(),
+                                $('#optC').val().trim(),
+                                $('#optD').val().trim()
+                            ];
+                            $('#id_options_json').val(JSON.stringify(opts));
+                        } else {
+                            $('#id_options_json').val('');
+                        }
                     });
                 });
                 </script>
