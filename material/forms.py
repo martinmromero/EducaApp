@@ -461,8 +461,8 @@ class CareerForm(forms.ModelForm):
         queryset=InstitutionV2.objects.all(),
         widget=forms.Select(attrs={'class': 'form-select'}),
         label="Institución",
-        required=True,
-        empty_label="Seleccione una institución"
+        required=False,
+        empty_label="Sin institución"
     )
     
     class Meta:
@@ -473,18 +473,9 @@ class CareerForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Ingrese el nombre de la carrera'
             }),
-            'faculties': forms.SelectMultiple(attrs={
-                'class': 'form-select',
-                'size': '6'
-            }),
-            'campus': forms.SelectMultiple(attrs={
-                'class': 'form-select',
-                'size': '6'
-            }),
-            'subjects': forms.SelectMultiple(attrs={
-                'class': 'form-select',
-                'size': '8'
-            }),
+            'faculties': forms.CheckboxSelectMultiple(),
+            'campus': forms.CheckboxSelectMultiple(),
+            'subjects': forms.CheckboxSelectMultiple(),
         }
         labels = {
             'name': 'Nombre de la Carrera *',
@@ -540,16 +531,9 @@ class InstitutionCareerForm(forms.ModelForm):
         model = InstitutionCareer
         fields = ['institution', 'career']
 
-class CareerSimpleForm(forms.ModelForm):
-    class Meta:
-        model = Career
-        fields = ['name']
-        widgets = {
-            'name': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Nombre de la carrera'
-            })
-        }
+class CareerSimpleForm(CareerForm):
+    """Compatibilidad: mantiene create simple pero con el mismo formulario completo."""
+    pass
 
 class OralExamForm(forms.ModelForm):
     topics = forms.ModelMultipleChoiceField(

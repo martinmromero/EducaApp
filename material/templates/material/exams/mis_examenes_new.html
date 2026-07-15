@@ -54,6 +54,10 @@
                                 <a href="{% url 'material:view_exam_batch' batch.id %}" class="btn btn-sm btn-info">
                                     <i class="fas fa-eye"></i> Ver lote
                                 </a>
+                                <form method="post" action="{% url 'material:eliminar_exam_batch' batch.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar este lote y todas sus versiones?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger">Borrar lote</button>
+                                </form>
                             </td>
                         </tr>
                         {% endfor %}

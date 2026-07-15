@@ -32,6 +32,7 @@ urlpatterns = [
     path('mis-examenes/', material_views.mis_examenes, name='mis_examenes'),
     path('examenes/lotes/<int:batch_id>/', material_views.view_exam_batch, name='view_exam_batch'),
     path('examenes/lotes/<int:batch_id>/rename/', material_views.update_exam_batch_name, name='update_exam_batch_name'),
+    path('examenes/lotes/<int:batch_id>/eliminar/', material_views.eliminar_exam_batch, name='eliminar_exam_batch'),
     path('examenes/<int:pk>/', material_views.ver_examen, name='ver_examen'),
     path('examenes/<int:pk>/editar/', material_views.editar_examen, name='editar_examen'),
     path('examenes/<int:pk>/eliminar/', material_views.eliminar_examen, name='eliminar_examen'),

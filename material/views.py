@@ -1875,6 +1875,25 @@ def update_exam_batch_name(request, batch_id):
 
 
 @login_required
+@require_POST
+def eliminar_exam_batch(request, batch_id):
+    batch = get_object_or_404(ExamVersionBatch, id=batch_id, created_by=request.user)
+    with transaction.atomic():
+        versions_qs = batch.versions.all()
+        versions_count = versions_qs.count()
+        versions_qs.delete()
+        batch_name = batch.name
+        batch.delete()
+
+    messages.success(
+        request,
+        f'Se eliminó el lote "{batch_name}" con {versions_count} version(es).',
+        extra_tags='examenes'
+    )
+    return redirect('material:mis_examenes')
+
+
+@login_required
 def exam_version_available_questions(request):
     exam_id = request.GET.get('exam_id')
     question_id = request.GET.get('question_id')
@@ -3381,14 +3400,27 @@ class CareerDetailView(DetailView):
 @login_required
 def career_create_simple(request):
     if request.method == 'POST':
-        form = CareerSimpleForm(request.POST)
+        form = CareerForm(request.POST)
         if form.is_valid():
-            form.save()
-            return redirect('material:career_list')  # Redirige a la lista de carreras
-    else:
-        form = CareerSimpleForm()
+            career = form.save()
 
-    return render(request, 'material/careers/form.html', {'form': form})
+            institution = form.cleaned_data.get('institution')
+            if institution:
+                InstitutionCareer.objects.update_or_create(
+                    career=career,
+                    defaults={'institution': institution, 'is_active': True}
+                )
+
+            messages.success(request, 'Carrera creada exitosamente', extra_tags='carreras')
+            return redirect('material:career_detail', pk=career.pk)
+    else:
+        form = CareerForm()
+
+    return render(request, 'material/careers/associations.html', {
+        'form': form,
+        'career': None,
+        'is_create': True,
+    })
 
 @login_required
 def career_associations(request, pk):
