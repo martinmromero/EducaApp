@@ -222,6 +222,12 @@ def preview_exam(request):
         'notes_and_recommendations': exam.get('notes_and_recommendations', ''),
         'bloom_display': bloom_display,
         'total_exam_questions': total_exam_questions,
+        'print_style': get_print_style_context(
+            resolve_print_format_for_context(
+                user=request.user,
+                institution_name=exam.get('institucion', '') or '',
+            )
+        ),
     }
 
     if is_multiversion and not print_preview:
@@ -326,13 +332,23 @@ from django.shortcuts import render, redirect, get_object_or_404, reverse
 from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, 
     Subtopic, LearningOutcome, Career, 
     OralExamSet, OralExamGroup, OralExamStudent, OralExamStudentQuestion,
-    Rubric, ExamRubric, RubricLevel, RubricCriterion, RubricCell, ExamVersionBatch)
+    Rubric, ExamRubric, RubricLevel, RubricCriterion, RubricCell, ExamVersionBatch,
+    FormatoImpresion)
 from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer)
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
     UserEditForm, ContenidoForm, 
     LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm,
-    OralExamForm, RubricForm
+    OralExamForm, RubricForm, FormatoImpresionForm
+)
+from .print_format_utils import (
+    assign_print_format_to_exam,
+    clear_existing_default_for_scope,
+    get_print_style_context,
+    get_visible_print_formats,
+    propagate_print_format_to_exams,
+    resolve_print_format_for_context,
+    resolve_print_format_for_exam,
 )
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.utils import OperationalError, ProgrammingError, DatabaseError
@@ -1154,6 +1170,10 @@ def save_exam_from_session(request):
                 editing_exam.topics.set(selected_topics)
                 editing_exam.learning_outcomes.set(selected_outcomes)
                 editing_exam.questions.set(chosen_versions[0])
+                if not hasattr(editing_exam, 'formato_impresion_asignado'):
+                    formato = resolve_print_format_for_exam(editing_exam)
+                    if formato:
+                        assign_print_format_to_exam(editing_exam, formato)
                 created_exams.append(editing_exam)
 
             for idx, version_questions in enumerate(chosen_versions, start=1):
@@ -1199,6 +1219,9 @@ def save_exam_from_session(request):
                         selected_outcomes,
                         version_questions,
                     )
+                formato = resolve_print_format_for_exam(exam_obj)
+                if formato:
+                    assign_print_format_to_exam(exam_obj, formato)
                 created_exams.append(exam_obj)
     except Exception:
         logger.exception('Error guardando examenes desde /save-exam/.')
@@ -1456,7 +1479,10 @@ def preview_exam_template(request):
             'topics_to_evaluate': request.POST.get('topics_to_evaluate', ''),
             'notes_and_recommendations': request.POST.get('notes_and_recommendations', ''),
             'learning_outcomes': outcomes_to_display,
-            'current_date': timezone.now().strftime("%d/%m/%Y")
+            'current_date': timezone.now().strftime("%d/%m/%Y"),
+            'print_style': get_print_style_context(
+                resolve_print_format_for_context(user=request.user, institution=institution)
+            ),
         }
 
         return render(request, 'material/exams/preview_exam_template.html', context)
@@ -1620,7 +1646,10 @@ def view_exam_template(request, template_id):
         'notes_and_recommendations': template.notes_and_recommendations,
         'learning_outcomes': outcomes_to_display,
         'current_date': timezone.now().strftime("%d/%m/%Y"),
-        'is_preview': False
+        'is_preview': False,
+        'print_style': get_print_style_context(
+            resolve_print_format_for_context(user=request.user, institution=template.institution)
+        ),
     }
 
     return render(request, 'material/exams/preview_exam_template.html', context)
@@ -2102,6 +2131,7 @@ def ver_examen(request, pk):
         'topics_texts': topics_texts,
         'bloom_display': bloom_display,
         'total_exam_questions': total_exam_questions,
+        'print_style': get_print_style_context(resolve_print_format_for_exam(examen)),
         'rubric_grids': [
             _prepare_rubric_grid(er.rubric)
             for er in ExamRubric.objects.filter(exam=examen, show_in_exam=True)
@@ -4859,6 +4889,102 @@ def rubric_delete(request, pk):
         rubrica.delete()
         messages.success(request, 'Rúbrica eliminada.')
     return redirect('material:rubric_list')
+
+
+def _can_manage_print_format(user, formato):
+    if is_admin(user):
+        return True
+    if formato.user_id == user.id:
+        return True
+    institution_ids = UserInstitution.objects.filter(user=user).values_list('institution_id', flat=True)
+    return formato.institution_id in institution_ids
+
+
+@login_required
+def formato_impresion_list(request):
+    formatos = get_visible_print_formats(request.user).distinct().order_by('nombre')
+    return render(request, 'material/formatos_impresion/list.html', {
+        'formatos': formatos,
+    })
+
+
+@login_required
+def formato_impresion_create(request):
+    if request.method == 'POST':
+        form = FormatoImpresionForm(request.POST, current_user=request.user)
+        if form.is_valid():
+            with transaction.atomic():
+                formato = form.save(commit=False)
+                if formato.es_default:
+                    clear_existing_default_for_scope(user=formato.user, institution=formato.institution)
+                formato.save()
+            messages.success(request, 'Formato de impresión creado correctamente.')
+            return redirect('material:formato_impresion_list')
+    else:
+        form = FormatoImpresionForm(current_user=request.user)
+
+    return render(request, 'material/formatos_impresion/form.html', {'form': form, 'action': 'Crear'})
+
+
+@login_required
+def formato_impresion_edit(request, pk):
+    formato = get_object_or_404(FormatoImpresion, pk=pk)
+    if not _can_manage_print_format(request.user, formato):
+        messages.error(request, 'No tienes permisos para editar este formato.')
+        return redirect('material:formato_impresion_list')
+
+    if request.method == 'POST':
+        form = FormatoImpresionForm(request.POST, instance=formato, current_user=request.user)
+        if form.is_valid():
+            with transaction.atomic():
+                formato = form.save(commit=False)
+                if formato.es_default:
+                    clear_existing_default_for_scope(user=formato.user, institution=formato.institution, exclude_id=formato.pk)
+                formato.save()
+                selected_exam_ids = [int(v) for v in request.POST.getlist('propagate_exam_ids') if str(v).isdigit()]
+                if selected_exam_ids:
+                    updated = propagate_print_format_to_exams(formato, selected_exam_ids)
+                    messages.info(request, f'Se actualizaron {updated} examen(es) vinculados a este formato.')
+            messages.success(request, 'Formato de impresión actualizado correctamente.')
+            return redirect('material:formato_impresion_list')
+    else:
+        form = FormatoImpresionForm(instance=formato, current_user=request.user)
+
+    assigned_exams = formato.formatos_asignados.select_related('exam', 'exam__subject').order_by('-updated_at') if formato.pk else []
+
+    return render(request, 'material/formatos_impresion/form.html', {
+        'form': form,
+        'action': 'Editar',
+        'formato': formato,
+        'assigned_exams': assigned_exams,
+    })
+
+
+@login_required
+@require_POST
+def formato_impresion_delete(request, pk):
+    formato = get_object_or_404(FormatoImpresion, pk=pk)
+    if not _can_manage_print_format(request.user, formato):
+        messages.error(request, 'No tienes permisos para eliminar este formato.')
+        return redirect('material:formato_impresion_list')
+    formato.delete()
+    messages.success(request, 'Formato de impresión eliminado.')
+    return redirect('material:formato_impresion_list')
+
+
+@login_required
+@require_POST
+def formato_impresion_set_default(request, pk):
+    formato = get_object_or_404(FormatoImpresion, pk=pk)
+    if not _can_manage_print_format(request.user, formato):
+        messages.error(request, 'No tienes permisos para marcar este formato como predeterminado.')
+        return redirect('material:formato_impresion_list')
+    with transaction.atomic():
+        clear_existing_default_for_scope(user=formato.user, institution=formato.institution, exclude_id=formato.pk)
+        formato.es_default = True
+        formato.save(update_fields=['es_default'])
+    messages.success(request, 'Formato marcado como predeterminado.')
+    return redirect('material:formato_impresion_list')
 
 
 @login_required

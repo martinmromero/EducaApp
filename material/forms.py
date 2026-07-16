@@ -7,7 +7,7 @@ from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
     Subject, Topic, Subtopic, LearningOutcome, User,
     InstitutionV2, CampusV2, FacultyV2, Career, InstitutionCareer, CareerSubject, UserInstitution,
-    OralExamSet, Rubric, ExamRubric
+    OralExamSet, Rubric, ExamRubric, FormatoImpresion
 )
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
@@ -714,3 +714,102 @@ class RubricForm(forms.ModelForm):
             'title': 'Título',
             'body': 'Contenido',
         }
+
+
+class FormatoImpresionForm(forms.ModelForm):
+    SCOPE_CHOICES = [
+        ('user', 'Usuario'),
+        ('institution', 'Institución'),
+        ('global', 'Global del sistema'),
+    ]
+
+    scope = forms.ChoiceField(choices=SCOPE_CHOICES, label='Alcance')
+    institution = forms.ModelChoiceField(
+        queryset=InstitutionV2.objects.filter(is_active=True).order_by('name'),
+        required=False,
+        label='Institución',
+        empty_label='Seleccione una institución'
+    )
+
+    class Meta:
+        model = FormatoImpresion
+        fields = [
+            'nombre', 'scope', 'institution', 'fuente', 'tamano_fuente', 'interlineado',
+            'margen_superior_cm', 'margen_inferior_cm', 'margen_izquierdo_cm', 'margen_derecho_cm',
+            'color_titulo', 'color_texto', 'es_default'
+        ]
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'scope': forms.Select(attrs={'class': 'form-select'}),
+            'institution': forms.Select(attrs={'class': 'form-select'}),
+            'fuente': forms.Select(attrs={'class': 'form-select'}),
+            'tamano_fuente': forms.NumberInput(attrs={'class': 'form-control', 'min': 8, 'max': 24}),
+            'interlineado': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.05', 'min': 1}),
+            'margen_superior_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
+            'margen_inferior_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
+            'margen_izquierdo_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
+            'margen_derecho_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
+            'color_titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '#000000'}),
+            'color_texto': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '#000000'}),
+            'es_default': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        labels = {
+            'nombre': 'Nombre',
+            'tamano_fuente': 'Tamaño de fuente (pt)',
+            'interlineado': 'Interlineado',
+            'margen_superior_cm': 'Margen superior (cm)',
+            'margen_inferior_cm': 'Margen inferior (cm)',
+            'margen_izquierdo_cm': 'Margen izquierdo (cm)',
+            'margen_derecho_cm': 'Margen derecho (cm)',
+            'color_titulo': 'Color de título',
+            'color_texto': 'Color de texto',
+            'es_default': 'Predeterminado',
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.current_user = kwargs.pop('current_user', None)
+        super().__init__(*args, **kwargs)
+
+        if self.current_user:
+            institution_ids = UserInstitution.objects.filter(user=self.current_user).values_list('institution_id', flat=True)
+            self.fields['institution'].queryset = InstitutionV2.objects.filter(id__in=institution_ids, is_active=True).order_by('name')
+            if not getattr(self.current_user, 'profile', None) or self.current_user.profile.role != 'admin':
+                self.fields['scope'].choices = [choice for choice in self.SCOPE_CHOICES if choice[0] != 'global']
+
+        if self.instance.pk:
+            if self.instance.user_id:
+                self.fields['scope'].initial = 'user'
+            elif self.instance.institution_id:
+                self.fields['scope'].initial = 'institution'
+            else:
+                self.fields['scope'].initial = 'global'
+        else:
+            self.fields['scope'].initial = 'user'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        scope = cleaned_data.get('scope')
+        institution = cleaned_data.get('institution')
+
+        if scope == 'institution' and not institution:
+            self.add_error('institution', 'Debe seleccionar una institución para este alcance.')
+        if scope == 'global' and self.current_user and self.current_user.profile.role != 'admin':
+            self.add_error('scope', 'Solo un administrador puede crear formatos globales.')
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        scope = self.cleaned_data['scope']
+        if scope == 'user':
+            instance.user = self.current_user
+            instance.institution = None
+        elif scope == 'institution':
+            instance.user = None
+            instance.institution = self.cleaned_data.get('institution')
+        else:
+            instance.user = None
+            instance.institution = None
+
+        if commit:
+            instance.save()
+        return instance

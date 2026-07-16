@@ -5,10 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Previsualización de Examen{% endblock %} - {{ institution.name|default:"EducaApp" }}</title>
     <style>
+        :root {
+            --exam-font-family: {{ print_style.font_family|default:'Arial' }};
+            --exam-font-size: {{ print_style.font_size_pt|default:'11pt' }};
+            --exam-line-height: {{ print_style.line_height|default:1.15 }};
+            --exam-text-color: {{ print_style.text_color|default:'#111111' }};
+            --exam-title-color: {{ print_style.title_color|default:'#111111' }};
+            --exam-margin-top: {{ print_style.margin_top_cm|default:'2.0cm' }};
+            --exam-margin-bottom: {{ print_style.margin_bottom_cm|default:'2.0cm' }};
+            --exam-margin-left: {{ print_style.margin_left_cm|default:'2.5cm' }};
+            --exam-margin-right: {{ print_style.margin_right_cm|default:'2.0cm' }};
+            --exam-base-px: {{ print_style.base_px|default:'14.67px' }};
+            --exam-h3-px: {{ print_style.h3_px|default:'18.34px' }};
+            --exam-list-px: {{ print_style.list_px|default:'14.67px' }};
+            --exam-theme-px: {{ print_style.theme_px|default:'19.8px' }};
+        }
         body {
-            font-family: 'Times New Roman', Times, serif;
-            line-height: 1.35;
-            color: #111;
+            font-family: var(--exam-font-family), serif;
+            font-size: var(--exam-font-size);
+            line-height: var(--exam-line-height);
+            color: var(--exam-text-color);
             margin: 0;
             padding: 14px;
             background-color: #ececec;
@@ -23,7 +39,7 @@
         .exam-container {
             flex: 0 0 820px;
             min-width: 0;
-            padding: 14px;
+            padding: var(--exam-margin-top) var(--exam-margin-right) var(--exam-margin-bottom) var(--exam-margin-left);
             background: white;
             box-shadow: 0 1px 8px rgba(0,0,0,0.08);
             border: 1px solid #bdbdbd;
@@ -102,8 +118,9 @@
         .header-center-cell {
             text-align: center;
             font-weight: 700;
-            font-size: 14px;
+            font-size: calc(var(--exam-base-px) * 1.05);
             letter-spacing: 0.3px;
+            color: var(--exam-title-color);
         }
         .header-right-cell {
             width: 70px;
@@ -111,7 +128,7 @@
             font-size: 11px;
         }
         .header-meta-cell {
-            font-size: 14px;
+            font-size: var(--exam-base-px);
         }
         .header-meta-row {
             display: flex;
@@ -159,9 +176,10 @@
         }
         .exam-theme {
             text-align: center;
-            font-size: 32px;
+            font-size: var(--exam-theme-px);
             letter-spacing: 1px;
             font-weight: 800;
+            color: var(--exam-title-color);
         }
         .empty-line {
             display: inline-block;
@@ -179,7 +197,7 @@
             margin-bottom: 2px;
             padding-left: 14px;
             position: relative;
-            font-size: 24px;
+            font-size: var(--exam-list-px);
         }
         .outcomes-list li:before, .topics-list li:before {
             content: "•";
@@ -192,7 +210,7 @@
         .notes-list {
             margin: 4px 0 0;
             padding-left: 26px;
-            font-size: 28px;
+            font-size: var(--exam-list-px);
         }
         .questions-list {
             list-style: decimal;
@@ -202,20 +220,20 @@
         .questions-list li {
             margin-bottom: 5px;
             padding-left: 2px;
-            font-size: 24px;
+            font-size: var(--exam-list-px);
         }
         h1, h2, h3 {
-            color: #111;
+            color: var(--exam-title-color);
             margin-top: 0;
         }
         h3 {
             border-bottom: none;
             padding-bottom: 0;
             margin-bottom: 2px;
-            font-size: 30px;
+            font-size: var(--exam-h3-px);
         }
         strong {
-            color: #111;
+            color: var(--exam-title-color);
         }
         .print-button {
             text-align: center;
@@ -242,10 +260,13 @@
             background: #555;
         }
         @media print {
+            @page {
+                margin: var(--exam-margin-top) var(--exam-margin-right) var(--exam-margin-bottom) var(--exam-margin-left);
+            }
             body {
                 background: white;
                 padding: 0;
-                font-size: 11pt;
+                font-size: var(--exam-font-size);
             }
             .page-wrapper {
                 display: block;
@@ -277,13 +298,13 @@
                 page-break-inside: avoid;
             }
             h3 {
-                font-size: 12pt;
+                font-size: var(--exam-h3-px);
             }
             .questions-list li,
             .outcomes-list li,
             .topics-list li,
             .notes-list {
-                font-size: 11pt;
+                font-size: var(--exam-list-px);
             }
         }
     </style>

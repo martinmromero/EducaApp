@@ -1556,6 +1556,130 @@ class ExamRubric(models.Model):
         return f"{self.exam} — {self.rubric.title}"
 
 
+class BaseFormatoImpresionFields(models.Model):
+    FONT_CHOICES = [
+        ('Arial', 'Arial'),
+        ('Times New Roman', 'Times New Roman'),
+        ('Calibri', 'Calibri'),
+        ('Helvetica', 'Helvetica'),
+    ]
+
+    fuente = models.CharField(max_length=50, choices=FONT_CHOICES, default='Arial')
+    tamano_fuente = models.PositiveSmallIntegerField(default=11)
+    interlineado = models.FloatField(default=1.15)
+
+    margen_superior_cm = models.DecimalField(max_digits=5, decimal_places=2, default=2.00)
+    margen_inferior_cm = models.DecimalField(max_digits=5, decimal_places=2, default=2.00)
+    margen_izquierdo_cm = models.DecimalField(max_digits=5, decimal_places=2, default=2.50)
+    margen_derecho_cm = models.DecimalField(max_digits=5, decimal_places=2, default=2.00)
+
+    color_titulo = models.CharField(max_length=7, blank=True, default='')
+    color_texto = models.CharField(max_length=7, blank=True, default='')
+
+    class Meta:
+        abstract = True
+
+    def clean(self):
+        super().clean()
+        for field_name in ['color_titulo', 'color_texto']:
+            value = getattr(self, field_name, '') or ''
+            if value and (len(value) != 7 or not value.startswith('#')):
+                raise ValidationError({field_name: 'Debe usar formato hex #RRGGBB'})
+
+
+class FormatoImpresion(BaseFormatoImpresionFields):
+    nombre = models.CharField(max_length=120)
+    es_default = models.BooleanField(default=False, verbose_name='Predeterminado')
+    user = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='formatos_impresion'
+    )
+    institution = models.ForeignKey(
+        InstitutionV2,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='formatos_impresion'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Formato de impresión'
+        verbose_name_plural = 'Formatos de impresión'
+        ordering = ['nombre']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'es_default'],
+                condition=models.Q(es_default=True, user__isnull=False, institution__isnull=True),
+                name='unique_default_print_format_per_user'
+            ),
+            models.UniqueConstraint(
+                fields=['institution', 'es_default'],
+                condition=models.Q(es_default=True, institution__isnull=False, user__isnull=True),
+                name='unique_default_print_format_per_institution'
+            ),
+            models.UniqueConstraint(
+                fields=['es_default'],
+                condition=models.Q(es_default=True, user__isnull=True, institution__isnull=True),
+                name='unique_default_print_format_global'
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.user_id and self.institution_id:
+            raise ValidationError('El formato no puede pertenecer a usuario e institución al mismo tiempo.')
+
+    def __str__(self):
+        return self.nombre
+
+
+class FormatoImpresionAsignado(BaseFormatoImpresionFields):
+    exam = models.OneToOneField(
+        Exam,
+        on_delete=models.CASCADE,
+        related_name='formato_impresion_asignado'
+    )
+    formato_base = models.ForeignKey(
+        FormatoImpresion,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='formatos_asignados'
+    )
+    nombre_snapshot = models.CharField(max_length=120, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Formato de impresión asignado'
+        verbose_name_plural = 'Formatos de impresión asignados'
+
+    def __str__(self):
+        return self.nombre_snapshot or f'Formato examen {self.exam_id}'
+
+    @classmethod
+    def crear_desde_formato(cls, exam, formato):
+        return cls.objects.create(
+            exam=exam,
+            formato_base=formato,
+            nombre_snapshot=formato.nombre,
+            fuente=formato.fuente,
+            tamano_fuente=formato.tamano_fuente,
+            interlineado=formato.interlineado,
+            margen_superior_cm=formato.margen_superior_cm,
+            margen_inferior_cm=formato.margen_inferior_cm,
+            margen_izquierdo_cm=formato.margen_izquierdo_cm,
+            margen_derecho_cm=formato.margen_derecho_cm,
+            color_titulo=formato.color_titulo,
+            color_texto=formato.color_texto,
+        )
+
+
 class RubricLevel(models.Model):
     """Columna de la grilla (ej: 4, 3, 2, 1 o Excelente, Bien, etc.)"""
     rubric = models.ForeignKey(

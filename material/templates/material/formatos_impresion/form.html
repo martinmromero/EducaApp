@@ -1,0 +1,92 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ action }} formato de impresión</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">{{ form.nombre.label }}</label>
+                {{ form.nombre }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">{{ form.scope.label }}</label>
+                {{ form.scope }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">{{ form.institution.label }}</label>
+                {{ form.institution }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">{{ form.fuente.label }}</label>
+                {{ form.fuente }}
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">{{ form.tamano_fuente.label }}</label>
+                {{ form.tamano_fuente }}
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">{{ form.interlineado.label }}</label>
+                {{ form.interlineado }}
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">{{ form.margen_superior_cm.label }}</label>
+                {{ form.margen_superior_cm }}
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">{{ form.margen_inferior_cm.label }}</label>
+                {{ form.margen_inferior_cm }}
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">{{ form.margen_izquierdo_cm.label }}</label>
+                {{ form.margen_izquierdo_cm }}
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">{{ form.margen_derecho_cm.label }}</label>
+                {{ form.margen_derecho_cm }}
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">{{ form.color_titulo.label }}</label>
+                {{ form.color_titulo }}
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">{{ form.color_texto.label }}</label>
+                {{ form.color_texto }}
+            </div>
+            <div class="col-12 mb-3 form-check">
+                {{ form.es_default }}
+                <label class="form-check-label" for="{{ form.es_default.id_for_label }}">{{ form.es_default.label }}</label>
+            </div>
+        </div>
+        {% if form.errors %}
+        <div class="alert alert-danger">
+            {% for field in form %}{% for error in field.errors %}<div>{{ field.label }}: {{ error }}</div>{% endfor %}{% endfor %}
+            {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+        </div>
+        {% endif %}
+
+        {% if assigned_exams %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Actualizar otros exámenes</h5>
+                <p class="text-muted mb-2">Si cambiás este formato, podés elegir qué exámenes ya guardados también actualizan su snapshot.</p>
+                <div style="max-height: 260px; overflow-y: auto;">
+                    {% for assigned in assigned_exams %}
+                    <div class="form-check mb-1">
+                        <input class="form-check-input" type="checkbox" name="propagate_exam_ids" value="{{ assigned.exam.id }}" id="propagate_exam_{{ assigned.exam.id }}">
+                        <label class="form-check-label" for="propagate_exam_{{ assigned.exam.id }}">
+                            {{ assigned.exam.title }}{% if assigned.exam.subject %} - {{ assigned.exam.subject.name }}{% endif %}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{% url 'material:formato_impresion_list' %}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}
