@@ -24,9 +24,14 @@ def build_exam_document_payload(exam: Any, *, include_answers: bool = False, inc
         {
             'tipo': 'encabezado',
             'institucion': getattr(exam, 'institution_name', '') or '',
+            'facultad': getattr(exam, 'faculty_name', '') or '',
+            'carrera': getattr(exam, 'career_name', '') or '',
             'materia': getattr(getattr(exam, 'subject', None), 'name', '') or getattr(exam, 'subject_name', ''),
             'profesor': getattr(getattr(exam, 'professor', None), 'get_full_name', lambda: '')() if getattr(exam, 'professor', None) else '',
             'fecha': getattr(exam, 'date_str', '') or '',
+            'tipo_examen': getattr(exam, 'exam_type', '') or '',
+            'modalidad': getattr(exam, 'exam_group', '') or '',
+            'duracion_minutos': getattr(exam, 'duration_minutes', None),
         },
         {
             'tipo': 'titulo',
@@ -38,25 +43,55 @@ def build_exam_document_payload(exam: Any, *, include_answers: bool = False, inc
     if instructions:
         blocks.append({'tipo': 'instrucciones', 'texto': instructions})
 
-    for idx, question in enumerate(getattr(exam, 'questions', []).all() if hasattr(getattr(exam, 'questions', None), 'all') else [], start=1):
+    outcomes = [o.description for o in exam.learning_outcomes.all()] if hasattr(exam, 'learning_outcomes') else []
+    if not outcomes:
+        outcomes = list(getattr(exam, 'outcomes_snapshot', None) or [])
+    if outcomes:
+        blocks.append({'tipo': 'lista_outcomes', 'items': outcomes})
+
+    topics = [t.name for t in exam.topics.all()] if hasattr(exam, 'topics') else []
+    if not topics:
+        topics = list(getattr(exam, 'topics_snapshot', None) or [])
+    if topics:
+        blocks.append({'tipo': 'lista_temas', 'items': topics})
+
+    questions_qs = getattr(exam, 'questions', None)
+    questions = questions_qs.order_by('pk').all() if hasattr(questions_qs, 'all') else []
+    for idx, question in enumerate(questions, start=1):
+        options = getattr(question, 'options', None) or []
         block = {
             'tipo': 'pregunta',
             'numero': idx,
             'texto': getattr(question, 'question_text', '') or '',
             'subtipo': getattr(question, 'question_type', '') or '',
-            'opciones': json.loads(question.options_json) if getattr(question, 'options_json', None) else [],
-            'puntaje': getattr(question, 'difficulty', None),
+            'opciones': options,
+            'dificultad': getattr(question, 'difficulty', None),
+            'imagen_pregunta_b64': getattr(question, 'question_image_b64', '') or '',
+            'imagen_respuesta_b64': getattr(question, 'answer_image_b64', '') or '',
         }
         if include_answers:
             block['respuesta'] = getattr(question, 'answer_text', '') or ''
         blocks.append(block)
 
     if include_rubrics and hasattr(exam, 'exam_rubrics'):
-        for exam_rubric in exam.exam_rubrics.filter(show_in_exam=True).select_related('rubric'):
+        rubric_links = exam.exam_rubrics.filter(show_in_exam=True).select_related('rubric').order_by('position', 'id')
+        for exam_rubric in rubric_links:
+            rubric = exam_rubric.rubric
+            level_objs = list(rubric.levels.order_by('order', 'id'))
+            levels = [lvl.label for lvl in level_objs]
+            criteria = list(rubric.criteria.order_by('order', 'id'))
+            rows = []
+            for criterion in criteria:
+                cells = {c.level_id: c.description for c in criterion.cells.select_related('level')}
+                rows.append({
+                    'criterio': criterion.name,
+                    'celdas': [cells.get(level.id, '') for level in level_objs],
+                })
             blocks.append({
                 'tipo': 'tabla_rubrica',
-                'titulo': exam_rubric.rubric.title,
-                'rubric_id': exam_rubric.rubric_id,
+                'titulo': rubric.title,
+                'columnas': levels,
+                'filas': rows,
             })
 
     return blocks
