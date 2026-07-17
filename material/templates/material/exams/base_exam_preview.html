@@ -317,8 +317,8 @@
             <table class="header-table">
                 <tr>
                     <td class="header-logo-cell">
-                        {% if institution.logo %}
-                        <img src="{% if institution.logo_b64|default:'' %}{{ institution.logo_b64 }}{% else %}{{ institution.logo.url }}{% endif %}" class="institution-logo" alt="Logo de {{ institution.name }}">
+                        {% if institution.logo_b64|default:'' or institution.logo_url|default:'' or institution.logo %}
+                        <img src="{% if institution.logo_b64|default:'' %}{{ institution.logo_b64 }}{% elif institution.logo_url|default:'' %}{{ institution.logo_url }}{% else %}{{ institution.logo.url }}{% endif %}" class="institution-logo" alt="Logo de {{ institution.name }}">
                         {% endif %}
                     </td>
                     <td class="header-center-cell">{{ institution.name|default:"INSTITUCION"|upper }}</td>

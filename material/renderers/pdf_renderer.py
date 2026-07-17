@@ -1,10 +1,12 @@
 import io
+import os
+import base64
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
-from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
 _FONT_MAP = {
@@ -141,38 +143,32 @@ def _append_payload(flow, payload, style_text, style_title, style_h2, *, include
     for block in payload:
         tipo = block.get('tipo')
 
-        if tipo == 'encabezado':
-            for line in [
-                block.get('institucion', ''),
-                ' - '.join([v for v in [block.get('facultad', ''), block.get('carrera', '')] if v]),
-                block.get('materia', ''),
-            ]:
-                if line:
-                    centered = ParagraphStyle('Centered', parent=style_text, alignment=1)
-                    flow.append(Paragraph(line, centered))
-            meta = []
-            if block.get('profesor'):
-                meta.append(f"Profesor/a: {block['profesor']}")
-            if block.get('fecha'):
-                meta.append(f"Fecha: {block['fecha']}")
-            if block.get('duracion_minutos'):
-                meta.append(f"Duracion: {block['duracion_minutos']} min")
-            if meta:
-                flow.append(Spacer(1, 4))
-                flow.append(Paragraph(' | '.join(meta), style_text))
+        if tipo in {'letterhead', 'encabezado'}:
+            flow.append(_build_letterhead_table(block, style_text, style_h2))
+            flow.append(Spacer(1, 6))
+
+        elif tipo == 'datos_alumno':
+            flow.append(_build_student_data_table(block, style_text, style_h2))
             flow.append(Spacer(1, 8))
 
         elif tipo == 'titulo' and block.get('texto'):
             flow.append(Paragraph(block['texto'], style_title))
 
-        elif tipo == 'instrucciones' and block.get('texto'):
+        elif tipo in {'instrucciones', 'instrucciones_generales'} and block.get('texto'):
             flow.append(Paragraph('Instrucciones generales', style_h2))
             flow.append(Paragraph(block['texto'].replace('\n', '<br/>'), style_text))
 
-        elif tipo == 'lista_outcomes' and block.get('items'):
+        elif tipo in {'lista_outcomes', 'resultados_aprendizaje'} and block.get('items'):
             flow.append(Paragraph('Resultados de aprendizaje evaluados', style_h2))
             for item in block['items']:
                 flow.append(Paragraph(f"• {item}", style_text))
+
+        elif tipo == 'requisitos_aprobar' and block.get('texto'):
+            flow.append(Paragraph('Requisitos para aprobar', style_h2))
+            flow.append(Paragraph(block['texto'].replace('\n', '<br/>'), style_text))
+
+        elif tipo == 'tiempo' and block.get('texto'):
+            flow.append(Paragraph(f"Tiempo: {block['texto']}", style_text))
 
         elif tipo == 'lista_temas' and block.get('items'):
             flow.append(Paragraph('Temas a evaluar', style_h2))
@@ -224,3 +220,93 @@ def _append_payload(flow, payload, style_text, style_title, style_h2, *, include
 
     if include_page_break:
         flow.append(PageBreak())
+
+
+def _decode_data_uri(data_uri):
+    if not data_uri or not str(data_uri).startswith('data:'):
+        return None
+    try:
+        _, encoded = str(data_uri).split(',', 1)
+        return base64.b64decode(encoded)
+    except Exception:
+        return None
+
+
+def _build_logo_flowable(block):
+    logo_b64 = block.get('logo_b64') or ''
+    logo_url = block.get('logo_url') or ''
+    logo_path = block.get('logo_path') or ''
+
+    img_bytes = _decode_data_uri(logo_b64) or _decode_data_uri(logo_url)
+    if img_bytes:
+        return Image(io.BytesIO(img_bytes), width=1.6 * cm, height=1.2 * cm)
+
+    for path_value in [logo_path, logo_url]:
+        if path_value and os.path.exists(path_value):
+            try:
+                return Image(path_value, width=1.6 * cm, height=1.2 * cm)
+            except Exception:
+                continue
+
+    return Paragraph('', ParagraphStyle('EmptyLogo', fontSize=1))
+
+
+def _build_letterhead_table(block, style_text, style_h2):
+    institution = (block.get('institucion') or '-').upper()
+    career = block.get('carrera') or '-'
+    subject = block.get('materia') or '-'
+    professor = block.get('profesor') or '-'
+    exam_type = block.get('tipo_examen') or 'Examen'
+    year = block.get('anio') or '-'
+
+    center_style = ParagraphStyle('LetterCenter', parent=style_h2, alignment=1, spaceBefore=0, spaceAfter=0)
+    meta_style = ParagraphStyle('LetterMeta', parent=style_text, spaceBefore=0, spaceAfter=0)
+    right_style = ParagraphStyle('LetterYear', parent=style_text, alignment=1, spaceBefore=0, spaceAfter=0)
+
+    meta_html = (
+        f"<b>Carrera:</b> {career} &nbsp;&nbsp;&nbsp; <b>Profesor:</b> {professor}<br/>"
+        f"<b>Materia:</b> {subject} &nbsp;&nbsp;&nbsp; <b>{exam_type}</b>"
+    )
+
+    data = [
+        [_build_logo_flowable(block), Paragraph(institution, center_style), Paragraph(f"Año<br/>{year}", right_style)],
+        ['', Paragraph(meta_html, meta_style), ''],
+    ]
+    table = Table(data, colWidths=[2.1 * cm, None, 2.3 * cm], hAlign='LEFT')
+    table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#444444')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 1), 'CENTER'),
+        ('ALIGN', (2, 0), (2, 1), 'CENTER'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    return table
+
+
+def _build_student_data_table(block, style_text, style_h2):
+    exam_type = (block.get('tipo_examen') or 'EXAMEN').upper()
+    fecha = block.get('fecha') or ''
+    label_style = ParagraphStyle('StudentLabel', parent=style_text, alignment=0)
+    value_style = ParagraphStyle('StudentValue', parent=style_text, alignment=0)
+    exam_style = ParagraphStyle('StudentExamType', parent=style_h2, alignment=1)
+
+    data = [
+        [Paragraph('<b>Nombre</b>', label_style), Paragraph('____________________', value_style), Paragraph('<b>Apellido</b>', label_style), Paragraph('____________________', value_style)],
+        [Paragraph('<b>Fecha</b>', label_style), Paragraph(fecha, value_style), Paragraph(exam_type, exam_style), ''],
+    ]
+    table = Table(data, colWidths=[2.4 * cm, None, 2.4 * cm, None], hAlign='LEFT')
+    table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#444444')),
+        ('SPAN', (2, 1), (3, 1)),
+        ('BACKGROUND', (0, 0), (0, 1), colors.HexColor('#f6f6f6')),
+        ('BACKGROUND', (2, 0), (2, 0), colors.HexColor('#f6f6f6')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
+    return table

@@ -79,12 +79,22 @@ def preview_exam(request):
     if exam.get('subject') and str(exam.get('subject')).isdigit():
         subject_obj = Subject.objects.filter(pk=int(exam['subject'])).first()
 
+    institution_obj = None
     if exam.get('institucion'):
         if str(exam['institucion']).isdigit():
             institucion = InstitutionV2.objects.filter(pk=exam['institucion']).first()
+            institution_obj = institucion
             exam['institucion'] = institucion.name if institucion else exam['institucion']
         elif exam['institucion'] == 'otro':
             exam['institucion'] = exam.get('institucion_text') or 'Otro'
+    if institution_obj is None and exam.get('institucion'):
+        institution_obj = InstitutionV2.objects.filter(name__iexact=exam.get('institucion')).first()
+
+    institution_payload = {
+        'name': exam.get('institucion', 'Institución'),
+        'logo_b64': getattr(institution_obj, 'logo_b64', '') if institution_obj else '',
+        'logo_url': (institution_obj.logo.url if institution_obj and getattr(institution_obj, 'logo', None) else ''),
+    }
     if exam.get('facultad'):
         if str(exam['facultad']).isdigit():
             facultad = FacultyV2.objects.filter(pk=exam['facultad']).first()
@@ -209,7 +219,7 @@ def preview_exam(request):
         'versions_preview': versions_preview,
         'outcomes_texts': outcomes_texts,
         'topics_texts': topics_texts,
-        'institution': {'name': exam.get('institucion', 'Institución')},
+        'institution': institution_payload,
         'faculty': {'name': exam.get('facultad', 'Facultad')},
         'career': {'name': exam.get('carrera', 'Carrera')},
         'subject': {'name': exam.get('subject', 'Materia')},
@@ -2078,6 +2088,12 @@ def preview_exam_replace_question(request):
 @login_required
 def ver_examen(request, pk):
     examen = get_object_or_404(Exam, pk=pk, created_by=request.user)
+    institution_obj = InstitutionV2.objects.filter(name__iexact=examen.institution_name).first() if examen.institution_name else None
+    institution_payload = {
+        'name': examen.institution_name or '-',
+        'logo_b64': getattr(institution_obj, 'logo_b64', '') if institution_obj else '',
+        'logo_url': (institution_obj.logo.url if institution_obj and getattr(institution_obj, 'logo', None) else ''),
+    }
     questions_texts = []
     for q in examen.questions.all():
         questions_texts.append({
@@ -2114,7 +2130,7 @@ def ver_examen(request, pk):
 
     return render(request, 'material/exams/ver_examen.html', {
         'exam': examen,
-        'institution': {'name': examen.institution_name or '-'},
+        'institution': institution_payload,
         'faculty': {'name': examen.faculty_name or '-'},
         'career': {'name': examen.career_name or '-'},
         'subject': {'name': examen.subject.name if examen.subject else '-'},

@@ -3,6 +3,36 @@
 from typing import Any
 
 
+def _resolve_institution_logo_data(exam: Any) -> dict:
+    """Resuelve logo institucional desde InstitutionV2 por nombre de institución."""
+    institution_name = (getattr(exam, 'institution_name', '') or '').strip()
+    if not institution_name:
+        return {'logo_url': None, 'logo_b64': '', 'logo_path': ''}
+
+    try:
+        from .models import InstitutionV2
+
+        institution = InstitutionV2.objects.filter(name__iexact=institution_name).first()
+        if not institution:
+            return {'logo_url': None, 'logo_b64': '', 'logo_path': ''}
+
+        logo_b64 = getattr(institution, 'logo_b64', '') or ''
+        logo_path = ''
+        try:
+            logo_path = institution.logo.path if institution.logo else ''
+        except Exception:
+            logo_path = ''
+
+        logo_url = logo_b64 or getattr(institution, 'logo_src', '') or None
+        return {
+            'logo_url': logo_url,
+            'logo_b64': logo_b64,
+            'logo_path': logo_path,
+        }
+    except Exception:
+        return {'logo_url': None, 'logo_b64': '', 'logo_path': ''}
+
+
 def build_document_payload(obj: Any, *, kind: str = 'exam', include_answers: bool = False, include_rubrics: bool = True) -> list[dict]:
     """Construye una estructura intermedia neutral para renderers PDF/DOCX/HTML."""
     if kind != 'exam':
@@ -20,18 +50,35 @@ def build_exam_document_payload(exam: Any, *, include_answers: bool = False, inc
 
     Retorna bloques neutrales; los renderers traducen estos bloques a PDF/DOCX.
     """
+    logo_data = _resolve_institution_logo_data(exam)
+    exam_type = getattr(exam, 'exam_type', '') or ''
+    exam_year = getattr(exam, 'year', None)
+    date_str = getattr(exam, 'date_str', '') or ''
+    if not exam_year and date_str and len(date_str) >= 4:
+        maybe_year = ''.join(ch for ch in date_str if ch.isdigit())
+        exam_year = maybe_year[-4:] if len(maybe_year) >= 4 else ''
+
     blocks = [
         {
-            'tipo': 'encabezado',
+            'tipo': 'letterhead',
+            'logo_url': logo_data.get('logo_url') or None,
+            'logo_b64': logo_data.get('logo_b64') or '',
+            'logo_path': logo_data.get('logo_path') or '',
             'institucion': getattr(exam, 'institution_name', '') or '',
             'facultad': getattr(exam, 'faculty_name', '') or '',
             'carrera': getattr(exam, 'career_name', '') or '',
             'materia': getattr(getattr(exam, 'subject', None), 'name', '') or getattr(exam, 'subject_name', ''),
             'profesor': getattr(getattr(exam, 'professor', None), 'get_full_name', lambda: '')() if getattr(exam, 'professor', None) else '',
             'fecha': getattr(exam, 'date_str', '') or '',
-            'tipo_examen': getattr(exam, 'exam_type', '') or '',
+            'tipo_examen': exam_type,
             'modalidad': getattr(exam, 'exam_group', '') or '',
+            'anio': exam_year or '',
             'duracion_minutos': getattr(exam, 'duration_minutes', None),
+        },
+        {
+            'tipo': 'datos_alumno',
+            'fecha': date_str,
+            'tipo_examen': exam_type,
         },
         {
             'tipo': 'titulo',
@@ -41,13 +88,28 @@ def build_exam_document_payload(exam: Any, *, include_answers: bool = False, inc
 
     instructions = getattr(exam, 'instructions', '') or ''
     if instructions:
-        blocks.append({'tipo': 'instrucciones', 'texto': instructions})
+        blocks.append({'tipo': 'instrucciones_generales', 'texto': instructions})
 
     outcomes = [o.description for o in exam.learning_outcomes.all()] if hasattr(exam, 'learning_outcomes') else []
     if not outcomes:
         outcomes = list(getattr(exam, 'outcomes_snapshot', None) or [])
     if outcomes:
-        blocks.append({'tipo': 'lista_outcomes', 'items': outcomes})
+        blocks.append({'tipo': 'resultados_aprendizaje', 'items': outcomes})
+
+    requirements_text = ''
+    for field_name in ['requisitos_aprobar', 'requirements_to_pass', 'approval_requirements']:
+        value = getattr(exam, field_name, '') or ''
+        if value:
+            requirements_text = value
+            break
+    if requirements_text:
+        blocks.append({'tipo': 'requisitos_aprobar', 'texto': requirements_text})
+
+    time_text = (getattr(exam, 'resolution_time', '') or '').strip()
+    if not time_text and getattr(exam, 'duration_minutes', None):
+        time_text = f"{getattr(exam, 'duration_minutes')} minutos"
+    if time_text:
+        blocks.append({'tipo': 'tiempo', 'texto': time_text})
 
     topics = [t.name for t in exam.topics.all()] if hasattr(exam, 'topics') else []
     if not topics:
