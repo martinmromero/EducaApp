@@ -360,6 +360,7 @@ from .print_format_utils import (
     resolve_print_format_for_context,
     resolve_print_format_for_exam,
 )
+from .exam_labels import get_exam_mode_label, get_exam_type_label
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.utils import OperationalError, ProgrammingError, DatabaseError
 from django.db.models import Prefetch, F, Value, CharField
@@ -2109,15 +2110,8 @@ def ver_examen(request, pk):
     bloom_display = _compute_bloom_display(examen.questions.all())
     total_exam_questions = examen.questions.count()
 
-    TIPO_EXAMEN_LABELS = {
-        '1er_parcial': '1er Parcial', '2do_parcial': '2do Parcial',
-        '3er_parcial': '3er Parcial', 'final': 'Final',
-        'recuperatorio': 'Recuperatorio', 'practico': 'Práctico',
-    }
-    TIPO_MODALIDAD_LABELS = {'individual': 'Individual', 'grupal': 'Grupal'}
-
-    exam_type_display = TIPO_EXAMEN_LABELS.get(examen.exam_type, examen.exam_type or '-')
-    exam_mode_display = TIPO_MODALIDAD_LABELS.get(examen.exam_group, examen.exam_group or '-')
+    exam_type_display = get_exam_type_label(examen.exam_type) or '-'
+    exam_mode_display = get_exam_mode_label(examen.exam_group) or '-'
 
     # Pass professor as dict (same shape as preview_exam) so template works identically
     if examen.professor:

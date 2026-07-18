@@ -1,6 +1,7 @@
 import io
 import os
 import base64
+from PIL import Image as PILImage
 
 
 def render_exam_payload_to_docx(payload, formato):
@@ -10,6 +11,7 @@ def render_exam_payload_to_docx(payload, formato):
     doc = Document()
     _apply_margins(doc, formato)
     _append_payload(doc, payload, formato)
+    _enforce_font_name_in_document(doc, getattr(formato, 'fuente', 'Arial') or 'Arial')
 
     out = io.BytesIO()
     doc.save(out)
@@ -33,25 +35,13 @@ def render_exam_batch_payloads_to_docx(exam_documents):
     for idx, item in enumerate(exam_documents):
         formato = item['formato']
         payload = item['payload']
-        label = item.get('label') or f'Version {idx + 1}'
-        base_size = int(getattr(formato, 'tamano_fuente', 11) or 11)
-        title_rgb = _hex_to_rgb(getattr(formato, 'color_titulo', '') or '#111111')
-        text_rgb = _hex_to_rgb(getattr(formato, 'color_texto', '') or '#111111')
 
         if idx > 0:
             doc.add_page_break()
 
-        label_paragraph = _add_line(
-            doc,
-            label,
-            base_size=base_size,
-            text_rgb=text_rgb,
-            bold=True,
-            size=base_size + 3,
-            color=title_rgb,
-        )
-        label_paragraph.alignment = 1
         _append_payload(doc, payload, formato)
+
+    _enforce_font_name_in_document(doc, getattr(exam_documents[0]['formato'], 'fuente', 'Arial') or 'Arial')
 
     out = io.BytesIO()
     doc.save(out)
@@ -69,33 +59,65 @@ def _apply_margins(doc, formato):
         section.right_margin = Cm(float(getattr(formato, 'margen_derecho_cm', 2.0) or 2.0))
 
 
-def _add_line(doc, text, *, base_size, text_rgb, bold=False, size=None, color=None):
+def _set_run_font(run, *, font_name, size_pt=None, color_rgb=None, bold=None):
+    from docx.oxml.ns import qn
     from docx.shared import Pt, RGBColor
 
+    if bold is not None:
+        run.bold = bold
+    if size_pt is not None:
+        run.font.size = Pt(size_pt)
+    if color_rgb is not None:
+        run.font.color.rgb = RGBColor(*color_rgb)
+
+    run.font.name = font_name
+    r_pr = run._element.get_or_add_rPr()
+    r_fonts = r_pr.get_or_add_rFonts()
+    r_fonts.set(qn('w:ascii'), font_name)
+    r_fonts.set(qn('w:hAnsi'), font_name)
+    r_fonts.set(qn('w:cs'), font_name)
+    r_fonts.set(qn('w:eastAsia'), font_name)
+
+
+def _add_line(doc, text, *, base_size, text_rgb, font_name, bold=False, size=None, color=None):
     paragraph = doc.add_paragraph()
     run = paragraph.add_run(text)
-    run.bold = bold
-    run.font.size = Pt(size or base_size)
-    run.font.color.rgb = RGBColor(*(color or text_rgb))
+    _set_run_font(
+        run,
+        font_name=font_name,
+        size_pt=size or base_size,
+        color_rgb=(color or text_rgb),
+        bold=bold,
+    )
     return paragraph
 
 
 def _append_payload(doc, payload, formato):
     base_size = int(getattr(formato, 'tamano_fuente', 11) or 11)
+    font_name = getattr(formato, 'fuente', 'Arial') or 'Arial'
     title_rgb = _hex_to_rgb(getattr(formato, 'color_titulo', '') or '#111111')
     text_rgb = _hex_to_rgb(getattr(formato, 'color_texto', '') or '#111111')
 
     def add_line(text, bold=False, size=None, color=None):
-        return _add_line(doc, text, base_size=base_size, text_rgb=text_rgb, bold=bold, size=size, color=color)
+        return _add_line(
+            doc,
+            text,
+            base_size=base_size,
+            text_rgb=text_rgb,
+            font_name=font_name,
+            bold=bold,
+            size=size,
+            color=color,
+        )
 
     for block in payload:
         tipo = block.get('tipo')
 
         if tipo in {'letterhead', 'encabezado'}:
-            _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb)
+            _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_name)
 
         elif tipo == 'datos_alumno':
-            _append_student_data_table(doc, block, base_size, title_rgb, text_rgb)
+            _append_student_data_table(doc, block, base_size, title_rgb, text_rgb, font_name)
 
         elif tipo == 'titulo' and block.get('texto'):
             p = add_line(block['texto'], bold=True, size=base_size + 4, color=title_rgb)
@@ -140,14 +162,23 @@ def _append_payload(doc, payload, formato):
             add_line(block.get('titulo', 'Rubrica'), bold=True, size=base_size + 1, color=title_rgb)
             headers = ['Criterio'] + list(block.get('columnas', []))
             table = doc.add_table(rows=1, cols=len(headers))
+            _set_table_fixed_layout(table)
+            _apply_table_borders(table)
             for i, h in enumerate(headers):
-                table.rows[0].cells[i].text = h
+                _set_cell_text(
+                    table.rows[0].cells[i],
+                    h,
+                    font_name=font_name,
+                    size_pt=base_size,
+                    color_rgb=title_rgb,
+                    bold=True,
+                )
             for row in block['filas']:
                 cells = table.add_row().cells
-                cells[0].text = row.get('criterio', '')
+                _set_cell_text(cells[0], row.get('criterio', ''), font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
                 for i, value in enumerate(row.get('celdas', []), start=1):
                     if i < len(cells):
-                        cells[i].text = value
+                        _set_cell_text(cells[i], value, font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
 
 
 def _hex_to_rgb(hex_color):
@@ -202,15 +233,92 @@ def _apply_table_borders(table):
         borders.append(edge)
     tbl_pr.append(borders)
 
+    for row in table.rows:
+        for cell in row.cells:
+            tc_pr = cell._tc.get_or_add_tcPr()
+            tc_borders = OxmlElement('w:tcBorders')
+            for name in ['top', 'left', 'bottom', 'right']:
+                edge = OxmlElement(f'w:{name}')
+                edge.set(qn('w:val'), 'single')
+                edge.set(qn('w:sz'), '8')
+                edge.set(qn('w:space'), '0')
+                edge.set(qn('w:color'), '444444')
+                tc_borders.append(edge)
+            tc_pr.append(tc_borders)
 
-def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb):
-    from docx.shared import Cm, Pt, RGBColor
+
+def _set_table_fixed_layout(table):
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    table.autofit = False
+    tbl_pr = table._tbl.tblPr
+    tbl_layout = OxmlElement('w:tblLayout')
+    tbl_layout.set(qn('w:type'), 'fixed')
+    tbl_pr.append(tbl_layout)
+
+
+def _set_column_width(table, col_idx, width_cm):
+    from docx.shared import Cm
+
+    for row in table.rows:
+        row.cells[col_idx].width = Cm(width_cm)
+
+
+def _clear_cell(cell):
+    cell.text = ''
+    paragraph = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph('')
+    paragraph.clear()
+    return paragraph
+
+
+def _set_cell_text(cell, text, *, font_name, size_pt, color_rgb, bold=False, alignment=None):
+    paragraph = _clear_cell(cell)
+    if alignment is not None:
+        paragraph.alignment = alignment
+    run = paragraph.add_run(str(text or ''))
+    _set_run_font(
+        run,
+        font_name=font_name,
+        size_pt=size_pt,
+        color_rgb=color_rgb,
+        bold=bold,
+    )
+    return paragraph, run
+
+
+def _append_run(paragraph, text, *, font_name, size_pt, color_rgb, bold=False):
+    run = paragraph.add_run(str(text or ''))
+    _set_run_font(
+        run,
+        font_name=font_name,
+        size_pt=size_pt,
+        color_rgb=color_rgb,
+        bold=bold,
+    )
+    return run
+
+
+def _enforce_font_name_in_document(doc, font_name):
+    for paragraph in doc.paragraphs:
+        for run in paragraph.runs:
+            _set_run_font(run, font_name=font_name)
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    for run in paragraph.runs:
+                        _set_run_font(run, font_name=font_name)
+
+
+def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_name):
+    from docx.shared import Cm
 
     table = doc.add_table(rows=2, cols=3)
+    _set_table_fixed_layout(table)
+    _set_column_width(table, 0, 2.1)
+    _set_column_width(table, 2, 2.3)
     _apply_table_borders(table)
-
-    table.columns[0].width = Cm(2.1)
-    table.columns[2].width = Cm(2.3)
 
     institution = (block.get('institucion') or '-').upper()
     career = block.get('carrera') or '-'
@@ -219,70 +327,127 @@ def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb):
     exam_type = block.get('tipo_examen') or 'Examen'
     year = str(block.get('anio') or '-')
 
+    logo_cell = table.rows[0].cells[0].merge(table.rows[1].cells[0])
+    year_cell = table.rows[0].cells[2].merge(table.rows[1].cells[2])
+
     logo_stream, logo_path = _resolve_logo_bytes_or_path(block)
-    logo_paragraph = table.rows[0].cells[0].paragraphs[0]
+    logo_paragraph = _clear_cell(logo_cell)
+    logo_paragraph.alignment = 1
     if logo_stream or logo_path:
         run = logo_paragraph.add_run()
         try:
-            run.add_picture(logo_stream or logo_path, width=Cm(1.6))
+            width_cm, height_cm, constrain_by = _fit_logo_size_for_docx(logo_stream=logo_stream, logo_path=logo_path)
+            if constrain_by == 'width':
+                run.add_picture(logo_stream or logo_path, width=Cm(width_cm))
+            else:
+                run.add_picture(logo_stream or logo_path, height=Cm(height_cm))
         except Exception:
             pass
+        _set_run_font(run, font_name=font_name)
 
     center_top = table.rows[0].cells[1].paragraphs[0]
+    center_top.clear()
     center_top.alignment = 1
-    run = center_top.add_run(institution)
-    run.bold = True
-    run.font.size = Pt(base_size + 1)
-    run.font.color.rgb = RGBColor(*title_rgb)
+    _append_run(
+        center_top,
+        institution,
+        font_name=font_name,
+        size_pt=base_size + 1,
+        color_rgb=title_rgb,
+        bold=True,
+    )
 
-    right_top = table.rows[0].cells[2].paragraphs[0]
+    right_top = _clear_cell(year_cell)
     right_top.alignment = 1
-    rt1 = right_top.add_run('Año\n')
-    rt1.bold = True
-    rt1.font.size = Pt(base_size - 1 if base_size > 9 else base_size)
-    rt1.font.color.rgb = RGBColor(*text_rgb)
-    rt2 = right_top.add_run(year)
-    rt2.font.size = Pt(base_size)
-    rt2.font.color.rgb = RGBColor(*text_rgb)
+    _append_run(
+        right_top,
+        'Año',
+        font_name=font_name,
+        size_pt=base_size - 1 if base_size > 9 else base_size,
+        color_rgb=text_rgb,
+        bold=True,
+    )
+    right_top.add_run('\n')
+    _append_run(
+        right_top,
+        year,
+        font_name=font_name,
+        size_pt=base_size,
+        color_rgb=text_rgb,
+        bold=False,
+    )
 
     meta_cell = table.rows[1].cells[1]
-    p_meta = meta_cell.paragraphs[0]
-    m1 = p_meta.add_run(f'Carrera: {career}    Profesor: {professor}')
-    m1.font.size = Pt(base_size)
-    m1.font.color.rgb = RGBColor(*text_rgb)
+    p_meta = _clear_cell(meta_cell)
+    p_meta.alignment = 0
+    _append_run(p_meta, 'Carrera: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
+    _append_run(p_meta, career, font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
+    _append_run(p_meta, '    Profesor: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
+    _append_run(p_meta, professor, font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
+
     p_meta = meta_cell.add_paragraph()
-    m2 = p_meta.add_run(f'Materia: {subject}    {exam_type}')
-    m2.bold = True
-    m2.font.size = Pt(base_size)
-    m2.font.color.rgb = RGBColor(*text_rgb)
+    _append_run(p_meta, 'Materia: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
+    _append_run(p_meta, subject, font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
+    _append_run(p_meta, '    ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
+    _append_run(p_meta, exam_type, font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
 
 
-def _append_student_data_table(doc, block, base_size, title_rgb, text_rgb):
-    from docx.shared import Pt, RGBColor
-
+def _append_student_data_table(doc, block, base_size, title_rgb, text_rgb, font_name):
     table = doc.add_table(rows=2, cols=4)
+    _set_table_fixed_layout(table)
+    _set_column_width(table, 0, 2.4)
+    _set_column_width(table, 2, 2.4)
     _apply_table_borders(table)
 
-    table.rows[0].cells[0].text = 'Nombre'
-    table.rows[0].cells[1].text = '____________________'
-    table.rows[0].cells[2].text = 'Apellido'
-    table.rows[0].cells[3].text = '____________________'
+    _set_cell_text(table.rows[0].cells[0], 'Nombre', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
+    _set_cell_text(table.rows[0].cells[1], '', font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
+    _set_cell_text(table.rows[0].cells[2], 'Apellido', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
+    _set_cell_text(table.rows[0].cells[3], '', font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
 
-    table.rows[1].cells[0].text = 'Fecha'
-    table.rows[1].cells[1].text = block.get('fecha') or ''
+    _set_cell_text(table.rows[1].cells[0], 'Fecha', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
+    _set_cell_text(table.rows[1].cells[1], block.get('fecha') or '', font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
+
     merged = table.rows[1].cells[2].merge(table.rows[1].cells[3])
-    merged.text = (block.get('tipo_examen') or 'EXAMEN').upper()
+    _set_cell_text(
+        merged,
+        block.get('tipo_examen_mayusculas') or (block.get('tipo_examen') or 'EXAMEN').upper(),
+        font_name=font_name,
+        size_pt=base_size,
+        color_rgb=title_rgb,
+        bold=True,
+        alignment=1,
+    )
 
-    for row_idx, row in enumerate(table.rows):
-        for col_idx, cell in enumerate(row.cells):
-            for paragraph in cell.paragraphs:
-                for run in paragraph.runs:
-                    run.font.size = Pt(base_size)
-                    run.font.color.rgb = RGBColor(*text_rgb)
-                    if (row_idx == 0 and col_idx in [0, 2]) or (row_idx == 1 and col_idx == 0):
-                        run.bold = True
-                if row_idx == 1 and col_idx >= 2:
-                    paragraph.alignment = 1
-                    for run in paragraph.runs:
-                        run.bold = True
-                        run.font.color.rgb = RGBColor(*title_rgb)
+
+def _fit_logo_size_for_docx(logo_stream=None, logo_path=None):
+    max_width_cm = 1.6
+    max_height_cm = 1.2
+
+    try:
+        if logo_stream is not None:
+            logo_stream.seek(0)
+            image = PILImage.open(logo_stream)
+        else:
+            image = PILImage.open(logo_path)
+
+        original_width, original_height = image.size
+        image.close()
+        if not original_width or not original_height:
+            return max_width_cm, max_height_cm, 'width'
+
+        width_scale = max_width_cm / float(original_width)
+        height_scale = max_height_cm / float(original_height)
+        scale = min(width_scale, height_scale, 1.0)
+
+        width_cm = original_width * scale
+        height_cm = original_height * scale
+        if logo_stream is not None:
+            logo_stream.seek(0)
+
+        if width_scale <= height_scale:
+            return width_cm, height_cm, 'width'
+        return width_cm, height_cm, 'height'
+    except Exception:
+        if logo_stream is not None:
+            logo_stream.seek(0)
+        return max_width_cm, max_height_cm, 'width'

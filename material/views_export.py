@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 
 from .document_builder import build_document_payload
+from .exam_labels import get_exam_mode_label, get_exam_type_label
 from .models import Exam, ExamVersionBatch
 from .print_format_utils import get_print_style_context, resolve_print_format_for_exam
 from .renderers import (
@@ -23,19 +24,6 @@ from .renderers import (
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers internos
 # ──────────────────────────────────────────────────────────────────────────────
-
-_TIPO_EXAMEN_LABELS = {
-    'final': 'Final',
-    'parcial': 'Parcial',
-    '1er_parcial': '1er Parcial',
-    '2do_parcial': '2do Parcial',
-    '3er_parcial': '3er Parcial',
-    'recuperatorio': 'Recuperatorio',
-    'practico': 'Práctico',
-}
-
-_TIPO_MODALIDAD_LABELS = {'individual': 'Individual', 'grupal': 'Grupal'}
-
 
 def _as_bool_param(raw_value, default=False):
     if raw_value is None:
@@ -85,8 +73,8 @@ def _build_export_context(examen, con_respuestas=False):
         'subject':     {'name': examen.subject.name if examen.subject else '-'},
         'professor':   {'get_full_name': professor_name},
         'current_date': examen.date_str or '-',
-        'exam_type':  _TIPO_EXAMEN_LABELS.get(examen.exam_type or '', examen.exam_type or '-'),
-        'exam_mode':  _TIPO_MODALIDAD_LABELS.get(examen.exam_group or '', examen.exam_group or '-'),
+        'exam_type': get_exam_type_label(examen.exam_type) or '-',
+        'exam_mode': get_exam_mode_label(examen.exam_group) or '-',
         'resolution_time': examen.duration_minutes,
         'modalidad_resolucion': modalidad_list,
         'instructions': examen.instructions or '',

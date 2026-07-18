@@ -1,0 +1,6 @@
+=== cmp_single_latest ===
+native_pages=1 docx_pdf_pages=1 compared=1
+page 1: mean_diff_pct=1.84 diff_image=page_001.png
+=== cmp_batch_latest ===
+native_pages=1 docx_pdf_pages=1 compared=1
+page 1: mean_diff_pct=1.84 diff_image=page_001.png

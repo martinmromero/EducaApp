@@ -1,6 +1,11 @@
 """Document builder neutral para exportación e impresión."""
 
 from typing import Any
+from .exam_labels import get_exam_type_label
+
+
+def _resolve_exam_type_label(exam: Any) -> str:
+    return get_exam_type_label(getattr(exam, 'exam_type', '') or '')
 
 
 def _resolve_institution_logo_data(exam: Any) -> dict:
@@ -51,7 +56,8 @@ def build_exam_document_payload(exam: Any, *, include_answers: bool = False, inc
     Retorna bloques neutrales; los renderers traducen estos bloques a PDF/DOCX.
     """
     logo_data = _resolve_institution_logo_data(exam)
-    exam_type = getattr(exam, 'exam_type', '') or ''
+    exam_type_label = _resolve_exam_type_label(exam)
+    exam_type_upper = exam_type_label.upper() if exam_type_label else ''
     exam_year = getattr(exam, 'year', None)
     date_str = getattr(exam, 'date_str', '') or ''
     if not exam_year and date_str and len(date_str) >= 4:
@@ -70,7 +76,8 @@ def build_exam_document_payload(exam: Any, *, include_answers: bool = False, inc
             'materia': getattr(getattr(exam, 'subject', None), 'name', '') or getattr(exam, 'subject_name', ''),
             'profesor': getattr(getattr(exam, 'professor', None), 'get_full_name', lambda: '')() if getattr(exam, 'professor', None) else '',
             'fecha': getattr(exam, 'date_str', '') or '',
-            'tipo_examen': exam_type,
+            'tipo_examen': exam_type_label,
+            'tipo_examen_mayusculas': exam_type_upper,
             'modalidad': getattr(exam, 'exam_group', '') or '',
             'anio': exam_year or '',
             'duracion_minutos': getattr(exam, 'duration_minutes', None),
@@ -78,7 +85,8 @@ def build_exam_document_payload(exam: Any, *, include_answers: bool = False, inc
         {
             'tipo': 'datos_alumno',
             'fecha': date_str,
-            'tipo_examen': exam_type,
+            'tipo_examen': exam_type_label,
+            'tipo_examen_mayusculas': exam_type_upper,
         },
         {
             'tipo': 'titulo',

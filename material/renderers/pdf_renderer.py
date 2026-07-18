@@ -1,6 +1,7 @@
 import io
 import os
 import base64
+from PIL import Image as PILImage
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -85,9 +86,7 @@ def render_exam_batch_payloads_to_pdf(exam_documents):
     for idx, item in enumerate(exam_documents):
         payload = item['payload']
         formato = item['formato']
-        label = item.get('label') or f'Version {idx + 1}'
         style_text, style_title, style_h2 = _build_styles(formato)
-        flow.append(Paragraph(label, style_title))
         _append_payload(flow, payload, style_text, style_title, style_h2, include_page_break=idx < (len(exam_documents) - 1))
 
     doc.build(flow)
@@ -237,14 +236,18 @@ def _build_logo_flowable(block):
     logo_url = block.get('logo_url') or ''
     logo_path = block.get('logo_path') or ''
 
+    max_width = 1.6 * cm
+    max_height = 1.2 * cm
     img_bytes = _decode_data_uri(logo_b64) or _decode_data_uri(logo_url)
     if img_bytes:
-        return Image(io.BytesIO(img_bytes), width=1.6 * cm, height=1.2 * cm)
+        width, height = _fit_logo_size(img_bytes=img_bytes, max_width=max_width, max_height=max_height)
+        return Image(io.BytesIO(img_bytes), width=width, height=height)
 
     for path_value in [logo_path, logo_url]:
         if path_value and os.path.exists(path_value):
             try:
-                return Image(path_value, width=1.6 * cm, height=1.2 * cm)
+                width, height = _fit_logo_size(path=path_value, max_width=max_width, max_height=max_height)
+                return Image(path_value, width=width, height=height)
             except Exception:
                 continue
 
@@ -275,6 +278,8 @@ def _build_letterhead_table(block, style_text, style_h2):
     table = Table(data, colWidths=[2.1 * cm, None, 2.3 * cm], hAlign='LEFT')
     table.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#444444')),
+        ('SPAN', (0, 0), (0, 1)),
+        ('SPAN', (2, 0), (2, 1)),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (0, 1), 'CENTER'),
         ('ALIGN', (2, 0), (2, 1), 'CENTER'),
@@ -287,14 +292,14 @@ def _build_letterhead_table(block, style_text, style_h2):
 
 
 def _build_student_data_table(block, style_text, style_h2):
-    exam_type = (block.get('tipo_examen') or 'EXAMEN').upper()
+    exam_type = block.get('tipo_examen_mayusculas') or (block.get('tipo_examen') or 'EXAMEN').upper()
     fecha = block.get('fecha') or ''
     label_style = ParagraphStyle('StudentLabel', parent=style_text, alignment=0)
     value_style = ParagraphStyle('StudentValue', parent=style_text, alignment=0)
     exam_style = ParagraphStyle('StudentExamType', parent=style_h2, alignment=1)
 
     data = [
-        [Paragraph('<b>Nombre</b>', label_style), Paragraph('____________________', value_style), Paragraph('<b>Apellido</b>', label_style), Paragraph('____________________', value_style)],
+        [Paragraph('<b>Nombre</b>', label_style), Paragraph('', value_style), Paragraph('<b>Apellido</b>', label_style), Paragraph('', value_style)],
         [Paragraph('<b>Fecha</b>', label_style), Paragraph(fecha, value_style), Paragraph(exam_type, exam_style), ''],
     ]
     table = Table(data, colWidths=[2.4 * cm, None, 2.4 * cm, None], hAlign='LEFT')
@@ -310,3 +315,20 @@ def _build_student_data_table(block, style_text, style_h2):
         ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
     ]))
     return table
+
+
+def _fit_logo_size(*, img_bytes=None, path=None, max_width=1.6 * cm, max_height=1.2 * cm):
+    try:
+        if img_bytes is not None:
+            image = PILImage.open(io.BytesIO(img_bytes))
+        else:
+            image = PILImage.open(path)
+        original_width, original_height = image.size
+        image.close()
+        if not original_width or not original_height:
+            return max_width, max_height
+
+        scale = min(max_width / float(original_width), max_height / float(original_height), 1.0)
+        return original_width * scale, original_height * scale
+    except Exception:
+        return max_width, max_height
