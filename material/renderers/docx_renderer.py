@@ -53,6 +53,8 @@ def _apply_margins(doc, formato):
     from docx.shared import Cm
 
     for section in doc.sections:
+        section.page_width = Cm(21.0)
+        section.page_height = Cm(29.7)
         section.top_margin = Cm(float(getattr(formato, 'margen_superior_cm', 2.0) or 2.0))
         section.bottom_margin = Cm(float(getattr(formato, 'margen_inferior_cm', 2.0) or 2.0))
         section.left_margin = Cm(float(getattr(formato, 'margen_izquierdo_cm', 2.5) or 2.5))
@@ -265,6 +267,11 @@ def _set_column_width(table, col_idx, width_cm):
         row.cells[col_idx].width = Cm(width_cm)
 
 
+def _usable_width_cm(doc):
+    section = doc.sections[0]
+    return section.page_width.cm - section.left_margin.cm - section.right_margin.cm
+
+
 def _clear_cell(cell):
     cell.text = ''
     paragraph = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph('')
@@ -316,8 +323,13 @@ def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_na
 
     table = doc.add_table(rows=2, cols=3)
     _set_table_fixed_layout(table)
-    _set_column_width(table, 0, 2.1)
-    _set_column_width(table, 2, 2.3)
+    LOGO_COL_CM = 2.1
+    YEAR_COL_CM = 2.3
+    usable_cm = _usable_width_cm(doc)
+    middle_cm = max(usable_cm - LOGO_COL_CM - YEAR_COL_CM, 4.0)
+    _set_column_width(table, 0, LOGO_COL_CM)
+    _set_column_width(table, 1, middle_cm)
+    _set_column_width(table, 2, YEAR_COL_CM)
     _apply_table_borders(table)
 
     institution = (block.get('institucion') or '-').upper()
@@ -395,8 +407,15 @@ def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_na
 def _append_student_data_table(doc, block, base_size, title_rgb, text_rgb, font_name):
     table = doc.add_table(rows=2, cols=4)
     _set_table_fixed_layout(table)
-    _set_column_width(table, 0, 2.4)
-    _set_column_width(table, 2, 2.4)
+    NOMBRE_LABEL_CM = 2.4
+    APELLIDO_LABEL_CM = 2.4
+    usable_cm = _usable_width_cm(doc)
+    remaining_cm = max(usable_cm - NOMBRE_LABEL_CM - APELLIDO_LABEL_CM, 4.0)
+    value_col_cm = remaining_cm / 2
+    _set_column_width(table, 0, NOMBRE_LABEL_CM)
+    _set_column_width(table, 1, value_col_cm)
+    _set_column_width(table, 2, APELLIDO_LABEL_CM)
+    _set_column_width(table, 3, value_col_cm)
     _apply_table_borders(table)
 
     _set_cell_text(table.rows[0].cells[0], 'Nombre', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
