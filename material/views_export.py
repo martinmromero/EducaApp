@@ -5,7 +5,12 @@ Exportación de exámenes a DOCX y PDF mediante builder + renderers unificados.
 Todas las respuestas se sirven como descarga HTTP; no se escribe a disco.
 """
 
+import logging
+
 from django.contrib.auth.decorators import login_required
+from django.db import connection
+from django.db.utils import DatabaseError, OperationalError, ProgrammingError
+from django.forms.models import model_to_dict
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 
@@ -21,6 +26,9 @@ from .renderers import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers internos
 # ──────────────────────────────────────────────────────────────────────────────
@@ -29,6 +37,87 @@ def _as_bool_param(raw_value, default=False):
     if raw_value is None:
         return default
     return str(raw_value).strip().lower() in {'1', 'true', 'yes', 'si', 'on'}
+
+
+def _get_table_columns(table_name):
+    try:
+        with connection.cursor() as cursor:
+            return {
+                col.name for col in connection.introspection.get_table_description(cursor, table_name)
+            }
+    except Exception:
+        return set()
+
+
+def _get_compatible_exam_queryset():
+    qs = Exam.objects.select_related('subject', 'professor')
+    exam_columns = _get_table_columns(Exam._meta.db_table)
+    if exam_columns and not {'version_batch_id', 'version_number'}.issubset(exam_columns):
+        qs = qs.defer('version_batch', 'version_number')
+    return qs
+
+
+def _get_compatible_exam_or_404(user, pk):
+    try:
+        return get_object_or_404(_get_compatible_exam_queryset(), pk=pk, created_by=user)
+    except (OperationalError, ProgrammingError, DatabaseError):
+        logger.warning('Esquema de examenes desfasado en produccion; degradando export del examen %s.', pk)
+        fallback_qs = Exam.objects.select_related('subject', 'professor').defer('version_batch', 'version_number')
+        return get_object_or_404(fallback_qs, pk=pk, created_by=user)
+
+
+def _resolve_print_format_safe(examen):
+    try:
+        return resolve_print_format_for_exam(examen)
+    except (OperationalError, ProgrammingError, DatabaseError):
+        logger.warning('No se pudo resolver el formato de impresion para el examen %s; usando defaults.', examen.pk)
+        return None
+
+
+def _build_payload_safe(examen, *, con_respuestas=False, include_rubrics=True):
+    try:
+        return build_document_payload(
+            examen,
+            kind='exam',
+            include_answers=con_respuestas,
+            include_rubrics=include_rubrics,
+        )
+    except (OperationalError, ProgrammingError, DatabaseError):
+        if include_rubrics:
+            logger.warning('No se pudieron cargar rubricas del examen %s; exportando sin rubricas.', examen.pk)
+            return build_document_payload(
+                examen,
+                kind='exam',
+                include_answers=con_respuestas,
+                include_rubrics=False,
+            )
+        raise
+
+
+def _clone_exam_without_assigned_format(examen):
+    field_names = [field.name for field in Exam._meta.concrete_fields if field.name != 'id']
+    cloned = Exam(**model_to_dict(examen, fields=field_names))
+    cloned.pk = examen.pk
+    cloned._state.adding = False
+    cloned._state.db = examen._state.db
+    for attr_name in ('subject', 'professor', 'created_by'):
+        if hasattr(examen, attr_name):
+            setattr(cloned, attr_name, getattr(examen, attr_name))
+    for relation_name in ('questions', 'topics', 'learning_outcomes'):
+        if hasattr(examen, relation_name):
+            setattr(cloned, relation_name, getattr(examen, relation_name))
+    return cloned
+
+
+def _prepare_export_payload_and_format(examen, *, con_respuestas=False, include_rubrics=True):
+    formato = _resolve_print_format_safe(examen)
+    payload_exam = examen if formato is not None else _clone_exam_without_assigned_format(examen)
+    payload = _build_payload_safe(
+        payload_exam,
+        con_respuestas=con_respuestas,
+        include_rubrics=include_rubrics,
+    )
+    return payload, formato
 
 def _build_export_context(examen, con_respuestas=False):
     """
@@ -109,14 +198,12 @@ def exportar_examen_docx(request, pk):
     Query params:
       ?con_respuestas=1   incluye la clave de respuestas de cada pregunta.
     """
-    examen = get_object_or_404(Exam, pk=pk, created_by=request.user)
+    examen = _get_compatible_exam_or_404(request.user, pk)
     con_respuestas = _as_bool_param(request.GET.get('con_respuestas'), default=False)
     include_rubrics = _as_bool_param(request.GET.get('include_rubrics'), default=True)
-    formato = resolve_print_format_for_exam(examen)
-    payload = build_document_payload(
+    payload, formato = _prepare_export_payload_and_format(
         examen,
-        kind='exam',
-        include_answers=con_respuestas,
+        con_respuestas=con_respuestas,
         include_rubrics=include_rubrics,
     )
     content = render_exam_payload_to_docx(payload, formato)
@@ -148,15 +235,13 @@ def exportar_examen_pdf(request, pk):
     Query params:
       ?con_respuestas=1   incluye la clave de respuestas de cada pregunta.
     """
-    examen = get_object_or_404(Exam, pk=pk, created_by=request.user)
+    examen = _get_compatible_exam_or_404(request.user, pk)
     con_respuestas = _as_bool_param(request.GET.get('con_respuestas'), default=False)
     include_rubrics = _as_bool_param(request.GET.get('include_rubrics'), default=True)
     try:
-        formato = resolve_print_format_for_exam(examen)
-        payload = build_document_payload(
+        payload, formato = _prepare_export_payload_and_format(
             examen,
-            kind='exam',
-            include_answers=con_respuestas,
+            con_respuestas=con_respuestas,
             include_rubrics=include_rubrics,
         )
         content = render_exam_payload_to_pdf(payload, formato)
@@ -184,15 +269,15 @@ def exportar_lote_docx(request, batch_id):
 
     exam_documents = []
     for idx, examen in enumerate(versions, start=1):
+        payload, formato = _prepare_export_payload_and_format(
+            examen,
+            con_respuestas=con_respuestas,
+            include_rubrics=include_rubrics,
+        )
         exam_documents.append({
-            'payload': build_document_payload(
-                examen,
-                kind='exam',
-                include_answers=con_respuestas,
-                include_rubrics=include_rubrics,
-            ),
-            'formato': resolve_print_format_for_exam(examen),
-            'label': f"Version {examen.version_number or idx}",
+            'payload': payload,
+            'formato': formato,
+            'label': f"Version {examen.__dict__.get('version_number') or idx}",
         })
 
     content = render_exam_batch_payloads_to_docx(exam_documents)
@@ -215,15 +300,15 @@ def exportar_lote_pdf(request, batch_id):
 
     exam_documents = []
     for idx, examen in enumerate(versions, start=1):
+        payload, formato = _prepare_export_payload_and_format(
+            examen,
+            con_respuestas=con_respuestas,
+            include_rubrics=include_rubrics,
+        )
         exam_documents.append({
-            'payload': build_document_payload(
-                examen,
-                kind='exam',
-                include_answers=con_respuestas,
-                include_rubrics=include_rubrics,
-            ),
-            'formato': resolve_print_format_for_exam(examen),
-            'label': f"Version {examen.version_number or idx}",
+            'payload': payload,
+            'formato': formato,
+            'label': f"Version {examen.__dict__.get('version_number') or idx}",
         })
 
     try:

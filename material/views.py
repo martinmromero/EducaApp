@@ -788,6 +788,31 @@ def _get_exam_version_schema_state():
     return has_exam_version_fields, has_batch_table
 
 
+def _get_compatible_exam_queryset():
+    qs = Exam.objects.select_related('subject', 'professor')
+    has_exam_version_fields, _ = _get_exam_version_schema_state()
+    if not has_exam_version_fields:
+        qs = qs.defer('version_batch', 'version_number')
+    return qs
+
+
+def _get_compatible_exam_or_404(user, pk):
+    try:
+        return get_object_or_404(_get_compatible_exam_queryset(), pk=pk, created_by=user)
+    except (OperationalError, ProgrammingError, DatabaseError):
+        logger.warning('Esquema de examenes desfasado en produccion; degradando carga de examen %s.', pk)
+        fallback_qs = Exam.objects.select_related('subject', 'professor').defer('version_batch', 'version_number')
+        return get_object_or_404(fallback_qs, pk=pk, created_by=user)
+
+
+def _resolve_exam_print_format_safe(examen):
+    try:
+        return resolve_print_format_for_exam(examen)
+    except (OperationalError, ProgrammingError, DatabaseError):
+        logger.warning('No se pudo resolver el formato de impresion para el examen %s; usando defaults.', examen.pk)
+        return None
+
+
 def _ensure_exam_version_schema():
     has_exam_version_fields, has_batch_table = _get_exam_version_schema_state()
     if has_exam_version_fields and has_batch_table:
@@ -2088,7 +2113,7 @@ def preview_exam_replace_question(request):
 
 @login_required
 def ver_examen(request, pk):
-    examen = get_object_or_404(Exam, pk=pk, created_by=request.user)
+    examen = _get_compatible_exam_or_404(request.user, pk)
     institution_obj = InstitutionV2.objects.filter(name__iexact=examen.institution_name).first() if examen.institution_name else None
     institution_payload = {
         'name': examen.institution_name or '-',
@@ -2112,6 +2137,7 @@ def ver_examen(request, pk):
 
     exam_type_display = get_exam_type_label(examen.exam_type) or '-'
     exam_mode_display = get_exam_mode_label(examen.exam_group) or '-'
+    print_format = _resolve_exam_print_format_safe(examen)
 
     # Pass professor as dict (same shape as preview_exam) so template works identically
     if examen.professor:
@@ -2121,6 +2147,17 @@ def ver_examen(request, pk):
 
     # modalidad_resolucion list for template
     modalidad_list = [m.strip() for m in (examen.resolution_time or '').split(',') if m.strip()]
+
+    try:
+        rubric_grids = [
+            _prepare_rubric_grid(er.rubric)
+            for er in ExamRubric.objects.filter(exam=examen, show_in_exam=True)
+                                        .select_related('rubric')
+                                        .order_by('position', 'id')
+        ]
+    except (OperationalError, ProgrammingError, DatabaseError):
+        logger.warning('No se pudieron cargar rubricas del examen %s; continuando sin rubricas.', examen.pk)
+        rubric_grids = []
 
     return render(request, 'material/exams/ver_examen.html', {
         'exam': examen,
@@ -2141,13 +2178,8 @@ def ver_examen(request, pk):
         'topics_texts': topics_texts,
         'bloom_display': bloom_display,
         'total_exam_questions': total_exam_questions,
-        'print_style': get_print_style_context(resolve_print_format_for_exam(examen)),
-        'rubric_grids': [
-            _prepare_rubric_grid(er.rubric)
-            for er in ExamRubric.objects.filter(exam=examen, show_in_exam=True)
-                                        .select_related('rubric')
-                                        .order_by('position', 'id')
-        ],
+        'print_style': get_print_style_context(print_format),
+        'rubric_grids': rubric_grids,
     })
 
 
