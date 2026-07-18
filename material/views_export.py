@@ -10,7 +10,6 @@ import logging
 from django.contrib.auth.decorators import login_required
 from django.db import connection
 from django.db.utils import DatabaseError, OperationalError, ProgrammingError
-from django.forms.models import model_to_dict
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 
@@ -95,8 +94,12 @@ def _build_payload_safe(examen, *, con_respuestas=False, include_rubrics=True):
 
 
 def _clone_exam_without_assigned_format(examen):
-    field_names = [field.name for field in Exam._meta.concrete_fields if field.name != 'id']
-    cloned = Exam(**model_to_dict(examen, fields=field_names))
+    field_values = {
+        field.attname: getattr(examen, field.attname)
+        for field in Exam._meta.concrete_fields
+        if not field.primary_key
+    }
+    cloned = Exam(**field_values)
     cloned.pk = examen.pk
     cloned._state.adding = False
     cloned._state.db = examen._state.db
