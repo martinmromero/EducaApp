@@ -259,17 +259,24 @@ def _set_table_fixed_layout(table):
     tbl_layout.set(qn('w:type'), 'fixed')
     tbl_pr.append(tbl_layout)
 
+    tbl_ind = OxmlElement('w:tblInd')
+    tbl_ind.set(qn('w:w'), '0')
+    tbl_ind.set(qn('w:type'), 'dxa')
+    tbl_pr.append(tbl_ind)
+
 
 def _set_column_width(table, col_idx, width_cm):
     from docx.shared import Cm
 
+    width = Cm(width_cm)
+    table.columns[col_idx].width = width
     for row in table.rows:
-        row.cells[col_idx].width = Cm(width_cm)
+        row.cells[col_idx].width = width
 
 
 def _usable_width_cm(doc):
     section = doc.sections[0]
-    return section.page_width.cm - section.left_margin.cm - section.right_margin.cm
+    return section.page_width.cm - section.left_margin.cm - section.right_margin.cm - 0.3
 
 
 def _clear_cell(cell):
