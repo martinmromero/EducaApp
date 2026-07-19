@@ -813,6 +813,67 @@ def _resolve_exam_print_format_safe(examen):
         return None
 
 
+def _build_preview_exam_payload_from_exam(examen):
+    from .models import InstitutionV2, FacultyV2, Career, CampusV2
+
+    def _resolve_dropdown_value(model_cls, name_value):
+        if not name_value:
+            return '', ''
+        obj = model_cls.objects.filter(name__iexact=name_value).first()
+        if obj:
+            return str(obj.pk), ''
+        return 'otro', name_value
+
+    institucion, institucion_text = _resolve_dropdown_value(InstitutionV2, examen.institution_name)
+    facultad, facultad_text = _resolve_dropdown_value(FacultyV2, examen.faculty_name)
+    carrera, carrera_text = _resolve_dropdown_value(Career, examen.career_name)
+    sede, sede_text = _resolve_dropdown_value(CampusV2, examen.campus_name)
+
+    turno = ''
+    turno_text = ''
+    if examen.shift:
+        if examen.shift in ['mañana', 'tarde', 'noche']:
+            turno = examen.shift
+        else:
+            turno = 'otro'
+            turno_text = examen.shift
+
+    profesor = str(examen.professor_id) if examen.professor_id else ''
+    modalidad_resolucion = [m.strip() for m in (examen.resolution_time or '').split(',') if m.strip()]
+
+    return {
+        'title': examen.title or '',
+        'subject': str(examen.subject_id) if examen.subject_id else '',
+        'topics': list(examen.topics.values_list('id', flat=True)),
+        'questions': list(examen.questions.values_list('id', flat=True)),
+        'learning_outcomes': list(examen.learning_outcomes.values_list('id', flat=True)),
+        'instructions': examen.instructions or '',
+        'duration_minutes': examen.duration_minutes,
+        'institucion': institucion,
+        'institucion_text': institucion_text,
+        'facultad': facultad,
+        'facultad_text': facultad_text,
+        'carrera': carrera,
+        'carrera_text': carrera_text,
+        'sede': sede,
+        'sede_text': sede_text,
+        'curso': examen.curso or '',
+        'turno': turno,
+        'turno_text': turno_text,
+        'profesor': profesor,
+        'fecha': examen.date_str or '',
+        'tipo_examen': examen.exam_type or '',
+        'tipo_modalidad': examen.exam_group or '',
+        'modalidad_resolucion': modalidad_resolucion,
+        'alumno': examen.alumno or '',
+        'batch_name': '',
+        'batch_semester': '',
+        'num_versions': '1',
+        'questions_per_version': '',
+        'balance_by_topic': '1',
+    }
+
+
 def _ensure_exam_version_schema():
     has_exam_version_fields, has_batch_table = _get_exam_version_schema_state()
     if has_exam_version_fields and has_batch_table:
@@ -937,13 +998,21 @@ def create_exam(request):
             return redirect('material:save_exam_from_session')
         return redirect('material:preview_exam')
 
-    if not request.session.get('preview_exam'):
-        request.session.pop('editing_exam_id', None)
-
     form = ExamForm()
 
     import json as _json
-    prefill_data_json = _json.dumps(request.session.get('preview_exam') or {})
+    prefill_data = request.session.get('preview_exam') or {}
+    if not prefill_data:
+        editing_exam_id = request.session.get('editing_exam_id')
+        if str(editing_exam_id).isdigit():
+            editing_exam = _get_compatible_exam_queryset().filter(
+                pk=int(editing_exam_id),
+                created_by=request.user,
+            ).first()
+            if editing_exam is not None:
+                prefill_data = _build_preview_exam_payload_from_exam(editing_exam)
+
+    prefill_data_json = _json.dumps(prefill_data)
     context = {
         'form': form,
         'instituciones': instituciones,
@@ -2185,65 +2254,8 @@ def ver_examen(request, pk):
 
 @login_required
 def editar_examen(request, pk):
-    examen = get_object_or_404(Exam, pk=pk, created_by=request.user)
-    from .models import InstitutionV2, FacultyV2, Career, CampusV2
-
-    def _resolve_dropdown_value(model_cls, name_value):
-        if not name_value:
-            return '', ''
-        obj = model_cls.objects.filter(name__iexact=name_value).first()
-        if obj:
-            return str(obj.pk), ''
-        return 'otro', name_value
-
-    institucion, institucion_text = _resolve_dropdown_value(InstitutionV2, examen.institution_name)
-    facultad, facultad_text = _resolve_dropdown_value(FacultyV2, examen.faculty_name)
-    carrera, carrera_text = _resolve_dropdown_value(Career, examen.career_name)
-    sede, sede_text = _resolve_dropdown_value(CampusV2, examen.campus_name)
-
-    turno = ''
-    turno_text = ''
-    if examen.shift:
-        if examen.shift in ['mañana', 'tarde', 'noche']:
-            turno = examen.shift
-        else:
-            turno = 'otro'
-            turno_text = examen.shift
-
-    profesor = str(examen.professor_id) if examen.professor_id else ''
-    modalidad_resolucion = [m.strip() for m in (examen.resolution_time or '').split(',') if m.strip()]
-
-    request.session['preview_exam'] = {
-        'title': examen.title or '',
-        'subject': str(examen.subject_id) if examen.subject_id else '',
-        'topics': list(examen.topics.values_list('id', flat=True)),
-        'questions': list(examen.questions.values_list('id', flat=True)),
-        'learning_outcomes': list(examen.learning_outcomes.values_list('id', flat=True)),
-        'instructions': examen.instructions or '',
-        'duration_minutes': examen.duration_minutes,
-        'institucion': institucion,
-        'institucion_text': institucion_text,
-        'facultad': facultad,
-        'facultad_text': facultad_text,
-        'carrera': carrera,
-        'carrera_text': carrera_text,
-        'sede': sede,
-        'sede_text': sede_text,
-        'curso': examen.curso or '',
-        'turno': turno,
-        'turno_text': turno_text,
-        'profesor': profesor,
-        'fecha': examen.date_str or '',
-        'tipo_examen': examen.exam_type or '',
-        'tipo_modalidad': examen.exam_group or '',
-        'modalidad_resolucion': modalidad_resolucion,
-        'alumno': examen.alumno or '',
-        'batch_name': '',
-        'batch_semester': '',
-        'num_versions': '1',
-        'questions_per_version': '',
-        'balance_by_topic': '1',
-    }
+    examen = _get_compatible_exam_or_404(request.user, pk)
+    request.session['preview_exam'] = _build_preview_exam_payload_from_exam(examen)
     request.session['editing_exam_id'] = examen.pk
     request.session.pop('preview_generated_versions_ids', None)
 
