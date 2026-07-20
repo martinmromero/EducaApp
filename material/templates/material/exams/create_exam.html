@@ -282,6 +282,115 @@
 <script>
 var EXAM_PREFILL = {{ prefill_data_json|safe }};
 </script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof EXAM_PREFILL === 'undefined' || !EXAM_PREFILL || !Object.keys(EXAM_PREFILL).length) return;
+    var data = EXAM_PREFILL;
+
+    function setValue(id, key) {
+        var el = document.getElementById(id);
+        if (el && data[key] !== undefined && data[key] !== null && data[key] !== '') {
+            el.value = data[key];
+        }
+    }
+
+    setValue('fecha', 'fecha');
+    setValue('curso', 'curso');
+    setValue('id_duration_minutes', 'duration_minutes');
+    setValue('id_instructions', 'instructions');
+    setValue('id_title', 'title');
+    setValue('num_versions', 'num_versions');
+    setValue('questions_per_version', 'questions_per_version');
+    setValue('batch_semester', 'batch_semester');
+    setValue('batch_name', 'batch_name');
+
+    ['tipo_examen', 'tipo_modalidad'].forEach(function(name) {
+        if (!data[name]) return;
+        var radio = document.querySelector('input[name="' + name + '"][value="' + data[name] + '"]');
+        if (radio) radio.checked = true;
+    });
+
+    if (Array.isArray(data.modalidad_resolucion)) {
+        data.modalidad_resolucion.forEach(function(v) {
+            var cb = document.querySelector('input[name="modalidad_resolucion"][value="' + v + '"]');
+            if (cb) cb.checked = true;
+        });
+    }
+
+    var balance = document.getElementById('balance_by_topic');
+    if (balance) balance.checked = String(data.balance_by_topic || '1') === '1';
+
+    var profSel = document.getElementById('profesor_dropdown');
+    if (profSel && data.profesor) profSel.value = String(data.profesor);
+
+    var turnoSel = document.getElementById('turno_dropdown');
+    if (turnoSel && data.turno) {
+        var turnoMap = { 'mañana': 'Mañana', 'tarde': 'Tarde', 'noche': 'Noche' };
+        turnoSel.value = turnoMap[data.turno] || data.turno;
+    }
+
+    var subjSel = document.getElementById('id_subject');
+    if (subjSel && data.subject) {
+        subjSel.value = String(data.subject);
+        subjSel.dispatchEvent(new Event('change'));
+    }
+
+    var instSel = document.getElementById('institucion_dropdown');
+    if (instSel && data.institucion) {
+        instSel.value = String(data.institucion);
+        instSel.dispatchEvent(new Event('change'));
+    }
+
+    var tries = 0;
+    var timer = setInterval(function() {
+        tries += 1;
+
+        var facSel = document.getElementById('facultad_dropdown');
+        if (facSel && data.facultad) facSel.value = String(data.facultad);
+        if (facSel && data.facultad && /^\d+$/.test(String(data.facultad))) facSel.dispatchEvent(new Event('change'));
+
+        var sedeSel = document.getElementById('sede_dropdown');
+        if (sedeSel && data.sede) sedeSel.value = String(data.sede);
+
+        var loOk = false;
+        if (Array.isArray(data.learning_outcomes)) {
+            var loNodes = document.querySelectorAll('#learning_outcomes_container input[type="checkbox"]');
+            if (loNodes.length) {
+                loNodes.forEach(function(cb) { cb.checked = data.learning_outcomes.some(function(v) { return String(v) === cb.value; }); });
+                loOk = true;
+            }
+        }
+
+        var topicsOk = false;
+        var topicsSel = document.getElementById('id_topics');
+        if (topicsSel && Array.isArray(data.topics) && topicsSel.options.length) {
+            Array.from(topicsSel.options).forEach(function(opt) {
+                opt.selected = data.topics.some(function(v) { return String(v) === opt.value; });
+            });
+            topicsSel.dispatchEvent(new Event('change'));
+            topicsOk = true;
+        }
+
+        var carrSel = document.getElementById('carrera_dropdown');
+        if (carrSel && data.carrera) carrSel.value = String(data.carrera);
+
+        var questionsOk = false;
+        var qSel = document.getElementById('id_questions');
+        if (qSel && Array.isArray(data.questions) && qSel.options.length) {
+            Array.from(qSel.options).forEach(function(opt) {
+                opt.selected = data.questions.some(function(v) { return String(v) === opt.value; });
+            });
+            var qNodes = document.querySelectorAll('#questions_checkbox_container input[type="checkbox"]');
+            qNodes.forEach(function(cb) { cb.checked = data.questions.some(function(v) { return String(v) === cb.dataset.questionValue; }); });
+            questionsOk = true;
+        }
+
+        if ((topicsOk && loOk && questionsOk) || tries >= 10) {
+            clearInterval(timer);
+        }
+    }, 350);
+});
+</script>
 {% endif %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
