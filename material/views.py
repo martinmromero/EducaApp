@@ -1002,6 +1002,18 @@ def create_exam(request):
 
     import json as _json
     prefill_data = request.session.get('preview_exam') or {}
+
+    edit_exam_id = request.GET.get('edit_exam_id', '')
+    if str(edit_exam_id).isdigit():
+        editing_exam = _get_compatible_exam_queryset().filter(
+            pk=int(edit_exam_id),
+            created_by=request.user,
+        ).first()
+        if editing_exam is not None:
+            prefill_data = _build_preview_exam_payload_from_exam(editing_exam)
+            request.session['editing_exam_id'] = editing_exam.pk
+            request.session.pop('preview_generated_versions_ids', None)
+
     if not prefill_data:
         editing_exam_id = request.session.get('editing_exam_id')
         if str(editing_exam_id).isdigit():
@@ -1222,7 +1234,7 @@ def save_exam_from_session(request):
     editing_exam_id = request.session.get('editing_exam_id')
     editing_exam = None
     if str(editing_exam_id).isdigit():
-        editing_exam = Exam.objects.filter(pk=int(editing_exam_id), created_by=request.user).first()
+        editing_exam = _get_compatible_exam_queryset().filter(pk=int(editing_exam_id), created_by=request.user).first()
 
     try:
         with transaction.atomic():
@@ -2260,7 +2272,7 @@ def editar_examen(request, pk):
     request.session.pop('preview_generated_versions_ids', None)
 
     messages.info(request, 'Puedes editar el examen y volver a previsualizar/guardar.', extra_tags='examenes')
-    return redirect('material:create_exam')
+    return redirect(f"{reverse('material:create_exam')}?edit_exam_id={examen.pk}")
 
 @login_required
 def eliminar_examen(request, pk):
