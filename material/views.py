@@ -2282,6 +2282,48 @@ def eliminar_examen(request, pk):
         messages.success(request, 'Examen eliminado correctamente.', extra_tags='examenes')
     return redirect('material:mis_examenes')
 
+def _aplicar_filtros_preguntas(preguntas, params):
+    """Aplica los filtros de materia/tema/subtema/aprobación IA/Bloom.
+
+    `params` es un QueryDict (sirve tanto request.GET como request.POST),
+    usado por lista_preguntas, bulk_eliminar_preguntas y exportar_preguntas
+    para mantener el mismo criterio de filtrado en las tres vistas.
+    """
+    subject_id = params.get('subject', '')
+    topic_id = params.get('topic', '')
+    subtopic_id = params.get('subtopic', '')
+    ai_approval = params.get('ai_approval', '')
+    bloom_filter = params.get('bloom_filter', '')
+
+    if subject_id and subject_id.isdigit():
+        sid = int(subject_id)
+        preguntas = preguntas.filter(
+            Q(subjects__id=sid) |
+            Q(subjects__isnull=True, topic__subject_id=sid)
+        ).distinct()
+    if topic_id and topic_id.isdigit() and int(topic_id) > 0:
+        preguntas = preguntas.filter(topic_id=int(topic_id))
+    if subtopic_id and subtopic_id.isdigit() and int(subtopic_id) > 0:
+        preguntas = preguntas.filter(subtopic_id=int(subtopic_id))
+    if ai_approval == 'aprobada':
+        preguntas = preguntas.filter(generated_by_ai=True, ai_approved=True)
+    elif ai_approval == 'rechazada':
+        preguntas = preguntas.filter(generated_by_ai=True, ai_approved=False)
+    elif ai_approval == 'sin_revisar':
+        preguntas = preguntas.filter(generated_by_ai=True, ai_approved__isnull=True)
+    elif ai_approval == 'ia_todas':
+        preguntas = preguntas.filter(generated_by_ai=True)
+
+    if bloom_filter == 'con_bloom':
+        preguntas = preguntas.filter(bloom_level__isnull=False)
+    elif bloom_filter == 'sin_bloom':
+        preguntas = preguntas.filter(bloom_level__isnull=True)
+    elif bloom_filter.isdigit() and 1 <= int(bloom_filter) <= 6:
+        preguntas = preguntas.filter(bloom_level=int(bloom_filter))
+
+    return preguntas
+
+
 @login_required
 def lista_preguntas(request):
     # Obtener todas las preguntas del usuario
@@ -2297,38 +2339,9 @@ def lista_preguntas(request):
     topic_id = request.GET.get('topic', '')
     subtopic_id = request.GET.get('subtopic', '')
     ai_approval = request.GET.get('ai_approval', '')
-
-    # Filtrar por materia si corresponde
-    if subject_id and subject_id.isdigit():
-        sid = int(subject_id)
-        preguntas = preguntas.filter(
-            Q(subjects__id=sid) |
-            Q(subjects__isnull=True, topic__subject_id=sid)
-        ).distinct()
-    # Filtrar por tema si corresponde
-    if topic_id and topic_id.isdigit() and int(topic_id) > 0:
-        preguntas = preguntas.filter(topic_id=int(topic_id))
-    # Filtrar por subtema si corresponde
-    if subtopic_id and subtopic_id.isdigit() and int(subtopic_id) > 0:
-        preguntas = preguntas.filter(subtopic_id=int(subtopic_id))
-    # Filtrar por estado de aprobación IA
-    if ai_approval == 'aprobada':
-        preguntas = preguntas.filter(generated_by_ai=True, ai_approved=True)
-    elif ai_approval == 'rechazada':
-        preguntas = preguntas.filter(generated_by_ai=True, ai_approved=False)
-    elif ai_approval == 'sin_revisar':
-        preguntas = preguntas.filter(generated_by_ai=True, ai_approved__isnull=True)
-    elif ai_approval == 'ia_todas':
-        preguntas = preguntas.filter(generated_by_ai=True)
-
-    # Filtrar por nivel Bloom
     bloom_filter = request.GET.get('bloom_filter', '')
-    if bloom_filter == 'con_bloom':
-        preguntas = preguntas.filter(bloom_level__isnull=False)
-    elif bloom_filter == 'sin_bloom':
-        preguntas = preguntas.filter(bloom_level__isnull=True)
-    elif bloom_filter.isdigit() and 1 <= int(bloom_filter) <= 6:
-        preguntas = preguntas.filter(bloom_level=int(bloom_filter))
+
+    preguntas = _aplicar_filtros_preguntas(preguntas, request.GET)
 
     # Obtener temas y subtemas basados en los filtros actuales
     topics = Topic.objects.none()
@@ -2393,28 +2406,11 @@ def eliminar_pregunta(request, pk):
 def bulk_eliminar_preguntas(request):
     from urllib.parse import urlencode
 
-    delete_all_filtered = request.POST.get('delete_all_filtered') == '1'
+    delete_all_filtered = request.POST.get('all_filtered_selected') == '1'
 
     if delete_all_filtered:
         preguntas = Question.objects.filter(user=request.user)
-        subject_id = request.POST.get('subject', '')
-        topic_id = request.POST.get('topic', '')
-        subtopic_id = request.POST.get('subtopic', '')
-        ai_approval = request.POST.get('ai_approval', '')
-        if subject_id and subject_id.isdigit():
-            preguntas = preguntas.filter(subjects__id=int(subject_id))
-        if topic_id and topic_id.isdigit() and int(topic_id) > 0:
-            preguntas = preguntas.filter(topic_id=int(topic_id))
-        if subtopic_id and subtopic_id.isdigit() and int(subtopic_id) > 0:
-            preguntas = preguntas.filter(subtopic_id=int(subtopic_id))
-        if ai_approval == 'aprobada':
-            preguntas = preguntas.filter(generated_by_ai=True, ai_approved=True)
-        elif ai_approval == 'rechazada':
-            preguntas = preguntas.filter(generated_by_ai=True, ai_approved=False)
-        elif ai_approval == 'sin_revisar':
-            preguntas = preguntas.filter(generated_by_ai=True, ai_approved__isnull=True)
-        elif ai_approval == 'ia_todas':
-            preguntas = preguntas.filter(generated_by_ai=True)
+        preguntas = _aplicar_filtros_preguntas(preguntas, request.POST)
         count = preguntas.count()
         preguntas.delete()
     else:
@@ -2433,7 +2429,7 @@ def bulk_eliminar_preguntas(request):
         messages.success(request, f'Se eliminaron {count} preguntas correctamente.', extra_tags='preguntas')
 
     params = {}
-    for key in ['subject', 'topic', 'subtopic', 'ai_approval']:
+    for key in ['subject', 'topic', 'subtopic', 'ai_approval', 'bloom_filter']:
         val = request.POST.get(key, '')
         if val:
             params[key] = val
@@ -2441,6 +2437,95 @@ def bulk_eliminar_preguntas(request):
     if params:
         redirect_url += '?' + urlencode(params)
     return redirect(redirect_url)
+
+
+def _pregunta_materia_nombre(pregunta):
+    if pregunta.topic_id and pregunta.topic.subject_id:
+        return pregunta.topic.subject.name
+    first_subject = pregunta.subjects.first()
+    return first_subject.name if first_subject else ''
+
+
+def _pregunta_opciones_export(pregunta):
+    if pregunta.question_type == 'opcion_multiple' and pregunta.options_json:
+        return pregunta.options_json
+    return ''
+
+
+def _export_preguntas_csv(preguntas):
+    response = HttpResponse(content_type='text/csv')
+    filename = f'preguntas_export_{timezone.now():%Y%m%d_%H%M%S}.csv'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.write('﻿')
+    writer = csv.writer(response)
+    writer.writerow(['materia', 'pregunta', 'respuesta', 'tema', 'subtema', 'pagina', 'tipo', 'opciones', 'dificultad', 'nivel_bloom'])
+    for p in preguntas:
+        writer.writerow([
+            _pregunta_materia_nombre(p),
+            p.question_text,
+            p.answer_text,
+            p.topic.name if p.topic else '',
+            p.subtopic.name if p.subtopic else '',
+            p.source_page if p.source_page is not None else '',
+            p.question_type,
+            _pregunta_opciones_export(p),
+            p.difficulty,
+            p.bloom_level if p.bloom_level is not None else '',
+        ])
+    return response
+
+
+def _export_preguntas_txt(preguntas):
+    bloques = []
+    for p in preguntas:
+        lineas = [
+            f'materia: {_pregunta_materia_nombre(p)}',
+            f'pregunta: {p.question_text}',
+            f'respuesta: {p.answer_text}',
+            f'tema: {p.topic.name if p.topic else ""}',
+        ]
+        if p.subtopic:
+            lineas.append(f'subtema: {p.subtopic.name}')
+        if p.source_page is not None:
+            lineas.append(f'pagina: {p.source_page}')
+        lineas.append(f'tipo: {p.question_type}')
+        opciones = _pregunta_opciones_export(p)
+        if opciones:
+            lineas.append(f'opciones: {opciones}')
+        lineas.append(f'dificultad: {p.difficulty}')
+        if p.bloom_level is not None:
+            lineas.append(f'nivel_bloom: {p.bloom_level}')
+        bloques.append('\n'.join(lineas))
+
+    content = '\n\n'.join(bloques) + '\n'
+    filename = f'preguntas_export_{timezone.now():%Y%m%d_%H%M%S}.txt'
+    response = HttpResponse(content, content_type='text/plain; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+@require_POST
+def exportar_preguntas(request):
+    formato = request.GET.get('formato', 'csv')
+
+    if request.POST.get('all_filtered_selected') == '1':
+        preguntas = Question.objects.filter(user=request.user)
+        preguntas = _aplicar_filtros_preguntas(preguntas, request.POST)
+    else:
+        ids_raw = request.POST.getlist('pregunta_ids')
+        ids = [int(i) for i in ids_raw if i.isdigit()]
+        if not ids:
+            messages.error(request, 'No se seleccionó ninguna pregunta para exportar.', extra_tags='preguntas')
+            return redirect('material:lista_preguntas')
+        preguntas = Question.objects.filter(pk__in=ids, user=request.user)
+
+    preguntas = preguntas.select_related('topic__subject', 'subtopic').prefetch_related('subjects').order_by('topic__name', 'subtopic__name', 'id')
+
+    if formato == 'txt':
+        return _export_preguntas_txt(preguntas)
+    return _export_preguntas_csv(preguntas)
+
 
 @login_required
 def mis_contenidos(request):
@@ -2584,6 +2669,21 @@ def _normalize_true_false_answer(raw_answer):
     return raw_answer or ''
 
 
+def _normalize_difficulty(raw_value):
+    val = (raw_value or '').strip()
+    if not val.isdigit():
+        return 1
+    return max(1, min(5, int(val)))
+
+
+def _normalize_bloom_level(raw_value):
+    val = (raw_value or '').strip()
+    if not val.isdigit():
+        return None
+    parsed = int(val)
+    return parsed if 1 <= parsed <= 6 else None
+
+
 def _parse_options_json(raw_options):
     text = (raw_options or '').strip()
     if not text:
@@ -2607,7 +2707,7 @@ def process_csv_file(file, contenido, user):
     from .models import Subject, Topic, Subtopic, Question
     
     # Intentar múltiples codificaciones
-    encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
+    encodings = ['utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
     decoded_file = None
     
     for encoding in encodings:
@@ -2683,6 +2783,8 @@ def process_csv_file(file, contenido, user):
                 question_type=q_type,
                 options_json=_parse_options_json(row.get('opciones')) if q_type == 'opcion_multiple' else None,
                 source_page=int(row['pagina']) if row.get('pagina') and row.get('pagina').strip().isdigit() else None,
+                difficulty=_normalize_difficulty(row.get('dificultad')),
+                bloom_level=_normalize_bloom_level(row.get('nivel_bloom')),
                 user=user
             )
             q.subjects.add(subject)
@@ -2703,7 +2805,7 @@ def process_csv_file(file, contenido, user):
 
 def process_txt_file(file, contenido, user):
     # Intentar múltiples codificaciones
-    encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
+    encodings = ['utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
     lines = None
     
     for encoding in encodings:
@@ -2773,6 +2875,8 @@ def create_question_from_dict(data, contenido, user):
         question_type=q_type,
         options_json=_parse_options_json(data.get('opciones')) if q_type == 'opcion_multiple' else None,
         source_page=int(data.get('pagina')) if data.get('pagina') and str(data.get('pagina')).strip().isdigit() else None,
+        difficulty=_normalize_difficulty(data.get('dificultad')),
+        bloom_level=_normalize_bloom_level(data.get('nivel_bloom')),
         user=user
     )
     q.subjects.add(subject)
@@ -2783,50 +2887,60 @@ def download_template(request, format):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="template.csv"'
         writer = csv.writer(response)
-        writer.writerow(['subject', 'question_text', 'answer_text', 'topic', 'subtopic', 'source_page', 'chapter'])
-        writer.writerow(['Matemáticas', '¿Cuál es la capital de Francia?', 'París', 'Geografía', 'Capitales', 1, 'Capítulo 1: Introducción'])
-        writer.writerow(['Literatura', '¿Quién escribió "Cien años de soledad"?', 'Gabriel García Márquez', 'Literatura', 'Autores', 2, 'Capítulo 2: Literatura Latinoamericana'])
+        writer.writerow(['materia', 'pregunta', 'respuesta', 'tema', 'subtema', 'pagina', 'tipo', 'opciones', 'dificultad', 'nivel_bloom'])
+        writer.writerow(['Matemáticas', '¿Cuál es la capital de Francia?', 'París', 'Geografía', 'Capitales', 1, 'desarrollo', '', 2, ''])
+        writer.writerow(['Literatura', '¿Quién escribió "Cien años de soledad"?', 'Gabriel García Márquez', 'Literatura', 'Autores', 2, 'opcion_multiple', '["Gabriel García Márquez","Jorge Luis Borges","Julio Cortázar","Mario Vargas Llosa"]', 3, 1])
         return response
     elif format == 'json':
         data = [
             {
-                "subject": "Matemáticas",
-                "question_text": "¿Cuál es la capital de Francia?",
-                "answer_text": "París",
-                "topic": "Geografía",
-                "subtopic": "Capitales",
-                "source_page": 1,
-                "chapter": "Capítulo 1: Introducción"
+                "materia": "Matemáticas",
+                "pregunta": "¿Cuál es la capital de Francia?",
+                "respuesta": "París",
+                "tema": "Geografía",
+                "subtema": "Capitales",
+                "pagina": 1,
+                "tipo": "desarrollo",
+                "opciones": "",
+                "dificultad": 2,
+                "nivel_bloom": ""
             },
             {
-                "subject": "Literatura",
-                "question_text": "¿Quién escribió 'Cien años de soledad'?",
-                "answer_text": "Gabriel García Márquez",
-                "topic": "Literatura",
-                "subtopic": "Autores",
-                "source_page": 2,
-                "chapter": "Capítulo 2: Literatura Latinoamericana"
+                "materia": "Literatura",
+                "pregunta": "¿Quién escribió 'Cien años de soledad'?",
+                "respuesta": "Gabriel García Márquez",
+                "tema": "Literatura",
+                "subtema": "Autores",
+                "pagina": 2,
+                "tipo": "opcion_multiple",
+                "opciones": ["Gabriel García Márquez", "Jorge Luis Borges", "Julio Cortázar", "Mario Vargas Llosa"],
+                "dificultad": 3,
+                "nivel_bloom": 1
             }
         ]
-        response = HttpResponse(json.dumps(data, indent=4), content_type='application/json')
+        response = HttpResponse(json.dumps(data, indent=4, ensure_ascii=False), content_type='application/json')
         response['Content-Disposition'] = 'attachment; filename="template.json"'
         return response
     elif format == 'txt':
-        content = """Subject: Matemáticas
-Pregunta: ¿Cuál es la capital de Francia?
-Respuesta: París
-Tema: Geografía
-Subtema: Capitales
-Página: 1
-Capítulo: Capítulo 1: Introducción
+        content = """materia: Matemáticas
+pregunta: ¿Cuál es la capital de Francia?
+respuesta: París
+tema: Geografía
+subtema: Capitales
+pagina: 1
+tipo: desarrollo
+dificultad: 2
 
-Subject: Literatura
-Pregunta: ¿Quién escribió 'Cien años de soledad'?
-Respuesta: Gabriel García Márquez
-Tema: Literatura
-Subtema: Autores
-Página: 2
-Capítulo: Capítulo 2: Literatura Latinoamericana"""
+materia: Literatura
+pregunta: ¿Quién escribió 'Cien años de soledad'?
+respuesta: Gabriel García Márquez
+tema: Literatura
+subtema: Autores
+pagina: 2
+tipo: opcion_multiple
+opciones: Gabriel García Márquez|Jorge Luis Borges|Julio Cortázar|Mario Vargas Llosa
+dificultad: 3
+nivel_bloom: 1"""
         response = HttpResponse(content, content_type='text/plain')
         response['Content-Disposition'] = 'attachment; filename="template.txt"'
         return response

@@ -1,3 +1,3 @@
-materia,pregunta,respuesta,tema,subtema,unidad,libro_referencia,pagina,capitulo
-Matemáticas,¿Cuánto es 2+2?,4,Álgebra,,1,Libro de Álgebra,12,Capítulo 1
-Historia,¿Quién fue San Martín?,Libertador,Independencia,Argentina,2,Libro de Historia,34,Capítulo 2
+materia,pregunta,respuesta,tema,subtema,pagina,tipo,opciones,dificultad,nivel_bloom
+Matemáticas,¿Cuánto es 2+2?,4,Álgebra,,12,opcion_multiple,"[""1"",""2"",""3"",""4""]",2,1
+Historia,¿San Martín cruzó los Andes?,Verdadero,Independencia,Argentina,34,verdadero_falso,,1,2

@@ -210,18 +210,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 <div class="alert alert-info mt-3">
                     <strong>Formato esperado para CSV:</strong><br>
-                    <code>materia,pregunta,respuesta,tema,subtema,pagina,tipo,opciones</code><br>
+                    <code>materia,pregunta,respuesta,tema,subtema,pagina,tipo,opciones,dificultad,nivel_bloom</code><br>
                     <em>Campos requeridos: materia, pregunta, respuesta, tema</em><br>
-                    <em>Campos opcionales: subtema, pagina, tipo, opciones</em><br>
+                    <em>Campos opcionales: subtema, pagina, tipo, opciones, dificultad, nivel_bloom</em><br>
                     <em>tipo: desarrollo | opcion_multiple | completar_blank | verdadero_falso</em><br>
                     <em>opciones: solo para opcion_multiple (JSON o "A|B|C|D")</em><br>
+                    <em>dificultad: 1 a 5 (default 1)</em><br>
+                    <em>nivel_bloom: 1 a 6 (1=Recordar … 6=Crear)</em><br>
                     Ejemplo:<br>
-                    <code>Matemáticas,¿Cuánto es 2+2?,4,Álgebra,,12,opcion_multiple,"[""1"",""2"",""3"",""4""]"</code><br>
-                    <code>Historia,¿San Martín cruzó los Andes?,Verdadero,Independencia,Argentina,34,verdadero_falso,</code>
+                    <code>Matemáticas,¿Cuánto es 2+2?,4,Álgebra,,12,opcion_multiple,"[""1"",""2"",""3"",""4""]",2,1</code><br>
+                    <code>Historia,¿San Martín cruzó los Andes?,Verdadero,Independencia,Argentina,34,verdadero_falso,,1,2</code>
                     <br><br>
                     <strong>Formato esperado para TXT:</strong><br>
                     <em>Campos requeridos: materia, pregunta, respuesta, tema</em><br>
-                    <em>Campos opcionales: subtema, pagina, tipo, opciones</em><br>
+                    <em>Campos opcionales: subtema, pagina, tipo, opciones, dificultad, nivel_bloom</em><br>
                     <pre style="white-space: pre-line;">
 materia: Matemáticas
 pregunta: ¿Cuánto es 2+2?
@@ -230,16 +232,18 @@ tema: Álgebra
 pagina: 12
 tipo: opcion_multiple
 opciones: 1|2|3|4
+dificultad: 2
+nivel_bloom: 1
 
 materia: Historia
-pregunta: ¿Quién fue San Martín?
-respuesta: Libertador
+pregunta: ¿San Martín cruzó los Andes?
+respuesta: Verdadero
 tema: Independencia
 subtema: Argentina
 pagina: 34
-libro_referencia: Libro de Historia
-pagina: 34
-capitulo: Capítulo 2
+tipo: verdadero_falso
+dificultad: 1
+nivel_bloom: 2
                     </pre>
                     <a href="/static/material/ejemplo_batch_preguntas.csv" class="btn btn-outline-secondary btn-sm mt-2" download>Descargar ejemplo CSV</a>
                     <a href="/static/material/ejemplo_batch_preguntas.txt" class="btn btn-outline-secondary btn-sm mt-2 ms-2" download>Descargar ejemplo TXT</a>
