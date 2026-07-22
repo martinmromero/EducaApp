@@ -7,7 +7,7 @@
 <form method="post">
     {% csrf_token %}
     {{ form.non_field_errors }}
-    <button type="button" class="btn btn-secondary" onclick="location.reload();">Limpiar datos</button>
+    <a href="{% url 'material:create_exam' %}?limpiar=1" class="btn btn-secondary">Limpiar datos</a>
     <button type="submit" name="preview" value="1" class="btn btn-info ms-2">Vista previa</button>
 
     <!-- Sección 2 columnas: Plantilla - Materia -->

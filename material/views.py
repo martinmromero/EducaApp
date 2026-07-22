@@ -998,6 +998,12 @@ def create_exam(request):
             return redirect('material:save_exam_from_session')
         return redirect('material:preview_exam')
 
+    if request.GET.get('limpiar') == '1':
+        request.session.pop('preview_exam', None)
+        request.session.pop('editing_exam_id', None)
+        request.session.pop('preview_generated_versions_ids', None)
+        return redirect('material:create_exam')
+
     form = ExamForm()
 
     import json as _json

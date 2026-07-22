@@ -1,6 +1,11 @@
+import logging
+
 from django.db import transaction
+from django.db.utils import DatabaseError, OperationalError, ProgrammingError
 
 from .models import FormatoImpresion, FormatoImpresionAsignado, UserInstitution
+
+logger = logging.getLogger(__name__)
 
 
 def get_user_institution_ids(user):
@@ -20,22 +25,26 @@ def get_visible_print_formats(user):
 
 
 def resolve_print_format_for_context(*, user=None, institution=None, institution_name=''):
-    if user:
-        formato = FormatoImpresion.objects.filter(user=user, es_default=True, institution__isnull=True).first()
-        if formato:
-            return formato
+    try:
+        if user:
+            formato = FormatoImpresion.objects.filter(user=user, es_default=True, institution__isnull=True).first()
+            if formato:
+                return formato
 
-    if institution is not None:
-        formato = FormatoImpresion.objects.filter(institution=institution, es_default=True, user__isnull=True).first()
-        if formato:
-            return formato
+        if institution is not None:
+            formato = FormatoImpresion.objects.filter(institution=institution, es_default=True, user__isnull=True).first()
+            if formato:
+                return formato
 
-    if institution_name:
-        formato = FormatoImpresion.objects.filter(institution__name__iexact=institution_name, es_default=True, user__isnull=True).first()
-        if formato:
-            return formato
+        if institution_name:
+            formato = FormatoImpresion.objects.filter(institution__name__iexact=institution_name, es_default=True, user__isnull=True).first()
+            if formato:
+                return formato
 
-    return FormatoImpresion.objects.filter(user__isnull=True, institution__isnull=True, es_default=True).first()
+        return FormatoImpresion.objects.filter(user__isnull=True, institution__isnull=True, es_default=True).first()
+    except (OperationalError, ProgrammingError, DatabaseError):
+        logger.warning('No se pudo resolver el formato de impresion (tabla desactualizada); usando defaults.')
+        return None
 
 
 def clear_existing_default_for_scope(*, user=None, institution=None, exclude_id=None):
