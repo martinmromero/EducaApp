@@ -2447,9 +2447,15 @@ def _pregunta_materia_nombre(pregunta):
 
 
 def _pregunta_opciones_export(pregunta):
-    if pregunta.question_type == 'opcion_multiple' and pregunta.options_json:
+    if pregunta.question_type != 'opcion_multiple' or not pregunta.options_json:
+        return ''
+    # Re-serializa sin \uXXXX: preguntas viejas se guardaron con json.dumps
+    # ensure_ascii=True (default), lo que deja los acentos escapados.
+    try:
+        parsed = json.loads(pregunta.options_json)
+        return json.dumps(parsed, ensure_ascii=False)
+    except (TypeError, ValueError):
         return pregunta.options_json
-    return ''
 
 
 def _export_preguntas_csv(preguntas):
@@ -2692,14 +2698,14 @@ def _parse_options_json(raw_options):
     try:
         parsed = json.loads(text)
         if isinstance(parsed, list):
-            return json.dumps([str(v) for v in parsed[:4]])
+            return json.dumps([str(v) for v in parsed[:4]], ensure_ascii=False)
     except Exception:
         pass
 
     # Fallback: "A|B|C|D"
     parts = [p.strip() for p in text.split('|') if p.strip()]
     if parts:
-        return json.dumps(parts[:4])
+        return json.dumps(parts[:4], ensure_ascii=False)
     return ''
 
 
