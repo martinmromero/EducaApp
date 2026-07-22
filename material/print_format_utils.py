@@ -62,8 +62,12 @@ def clear_existing_default_for_scope(*, user=None, institution=None, exclude_id=
 
 
 def resolve_print_format_for_exam(exam, *, explicit_format=None):
-    if hasattr(exam, 'formato_impresion_asignado'):
-        return exam.formato_impresion_asignado
+    try:
+        if hasattr(exam, 'formato_impresion_asignado'):
+            return exam.formato_impresion_asignado
+    except (OperationalError, ProgrammingError, DatabaseError):
+        logger.warning('No se pudo resolver formato_impresion_asignado (tabla desactualizada); usando defaults.')
+
     if explicit_format is not None:
         return explicit_format
     return resolve_print_format_for_context(

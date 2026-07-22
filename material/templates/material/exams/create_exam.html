@@ -4,7 +4,7 @@
 {% block content %}
 <script src="{% static 'material/js/create_exam.js' %}"></script>
 <h2>Crear Examen</h2>
-<form method="post">
+<form method="post" id="examCreateForm">
     {% csrf_token %}
     {{ form.non_field_errors }}
     <a href="{% url 'material:create_exam' %}?limpiar=1" class="btn btn-secondary">Limpiar datos</a>
@@ -273,10 +273,28 @@
     </div>
 
     <button type="submit" name="preview" value="1" class="btn btn-info me-2">Vista previa</button>
-    <button type="submit" name="save" value="1" class="btn btn-success mt-3">
+    <button type="submit" name="save" value="1" id="guardarExamenBtn" class="btn btn-success mt-3">
         <i class="fas fa-save"></i> Guardar Examen
     </button>
 </form>
+
+<div class="modal fade" id="examSavedModal" tabindex="-1" aria-labelledby="examSavedModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="examSavedModalLabel"><i class="fas fa-check-circle"></i> Examen guardado</h5>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0" id="examSavedModalMessage">El examen se guardó correctamente.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="examSavedModalOk">Ir a mis exámenes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="alert alert-danger d-none mt-3" id="examSaveErrorAlert" role="alert"></div>
 
 {% if prefill_data_json %}
 <script>
@@ -609,6 +627,52 @@ document.addEventListener('DOMContentLoaded', function() {
         loadTopics();
         loadLearningOutcomes();
     }
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('examCreateForm');
+    var saveBtn = document.getElementById('guardarExamenBtn');
+    var errorAlert = document.getElementById('examSaveErrorAlert');
+    var savedModalEl = document.getElementById('examSavedModal');
+    var savedModal = new bootstrap.Modal(savedModalEl);
+
+    savedModalEl.addEventListener('hidden.bs.modal', function() {
+        window.location.href = "{% url 'material:mis_examenes' %}";
+    });
+    document.getElementById('examSavedModalOk').addEventListener('click', function() {
+        savedModal.hide();
+    });
+
+    saveBtn.addEventListener('click', function(evt) {
+        evt.preventDefault();
+        errorAlert.classList.add('d-none');
+        saveBtn.disabled = true;
+
+        var formData = new FormData(form);
+        formData.append('save', '1');
+
+        fetch(form.action || window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            saveBtn.disabled = false;
+            if (data.success) {
+                savedModal.show();
+            } else {
+                errorAlert.textContent = data.message || 'No se pudo guardar el examen.';
+                errorAlert.classList.remove('d-none');
+            }
+        })
+        .catch(function() {
+            saveBtn.disabled = false;
+            errorAlert.textContent = 'No se pudo guardar el examen. Revisa tu conexión e intenta nuevamente.';
+            errorAlert.classList.remove('d-none');
+        });
+    });
 });
 </script>
 <style>

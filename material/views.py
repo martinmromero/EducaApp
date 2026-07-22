@@ -995,6 +995,8 @@ def create_exam(request):
         request.session['preview_exam'] = exam_data
 
         if 'save' in request.POST:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return save_exam_from_session(request)
             return redirect('material:save_exam_from_session')
         return redirect('material:preview_exam')
 
@@ -1047,10 +1049,17 @@ def create_exam(request):
 @login_required
 def save_exam_from_session(request):
     """Guarda examen/es desde sesión. Soporta lote de versiones para examen escrito."""
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
+    def _error(text):
+        if is_ajax:
+            return JsonResponse({'success': False, 'message': text})
+        messages.error(request, text, extra_tags='general')
+        return redirect('material:create_exam')
+
     exam_data = request.session.get('preview_exam')
     if not exam_data:
-        messages.error(request, 'No hay datos de examen para guardar.', extra_tags='general')
-        return redirect('material:create_exam')
+        return _error('No hay datos de examen para guardar.')
 
     from .models import Subject, Question, Topic, LearningOutcome, Exam as ExamModel
     from .models import InstitutionV2, FacultyV2, Career, CampusV2
@@ -1061,8 +1070,7 @@ def save_exam_from_session(request):
     if exam_data.get('subject') and str(exam_data['subject']).isdigit():
         subject = Subject.objects.filter(pk=int(exam_data['subject'])).first()
     if not subject:
-        messages.error(request, 'No se pudo determinar la materia del examen.', extra_tags='general')
-        return redirect('material:preview_exam')
+        return _error('No se pudo determinar la materia del examen.')
 
     # ── Title ────────────────────────────────────────────────
     tipo_map = {
@@ -1182,8 +1190,7 @@ def save_exam_from_session(request):
         questions_per_version = len(q_ids) if q_ids else max(1, selected_topics.count())
 
     if selected_topics.count() == 0:
-        messages.error(request, 'Debe seleccionar al menos un tema para generar versiones.', extra_tags='examenes')
-        return redirect('material:create_exam')
+        return _error('Debe seleccionar al menos un tema para generar versiones.')
 
     preview_version_ids = request.session.get('preview_generated_versions_ids') or []
     if versions_count > 1 or preview_version_ids:
@@ -1234,8 +1241,7 @@ def save_exam_from_session(request):
             balance_by_topic=balance_by_topic,
         )
     if not chosen_versions or not chosen_versions[0]:
-        messages.error(request, 'No hay preguntas suficientes para generar el examen.', extra_tags='examenes')
-        return redirect('material:create_exam')
+        return _error('No hay preguntas suficientes para generar el examen.')
 
     editing_exam_id = request.session.get('editing_exam_id')
     editing_exam = None
@@ -1348,33 +1354,34 @@ def save_exam_from_session(request):
                 created_exams.append(exam_obj)
     except Exception:
         logger.exception('Error guardando examenes desde /save-exam/.')
-        messages.error(
-            request,
-            'No se pudo guardar el examen. Intenta nuevamente en unos segundos.',
-            extra_tags='examenes'
-        )
-        return redirect('material:create_exam')
+        return _error('No se pudo guardar el examen. Intenta nuevamente en unos segundos.')
 
     del request.session['preview_exam']
     request.session.pop('preview_generated_versions_ids', None)
     request.session.pop('editing_exam_id', None)
-    if supports_version_batches and batch is not None:
-        messages.success(
-            request,
-            f'Se guardo el lote "{batch.name}" con {len(created_exams)} versiones.',
-            extra_tags='examenes'
-        )
-        return redirect('material:view_exam_batch', batch_id=batch.id)
 
-    if editing_exam is not None:
-        messages.success(request, 'Examen actualizado correctamente.', extra_tags='examenes')
+    if supports_version_batches and batch is not None:
+        success_message = f'Se guardo el lote "{batch.name}" con {len(created_exams)} versiones.'
+        success_redirect = ('material:view_exam_batch', {'batch_id': batch.id})
+    elif editing_exam is not None:
+        success_message = 'Examen actualizado correctamente.'
+        success_redirect = ('material:mis_examenes', {})
     else:
-        messages.success(
-            request,
-            f'Se guardaron {len(created_exams)} examen(es). El agrupado por versiones quedara disponible cuando se apliquen las migraciones pendientes.',
-            extra_tags='examenes'
+        success_message = (
+            f'Se guardaron {len(created_exams)} examen(es). '
+            'El agrupado por versiones quedara disponible cuando se apliquen las migraciones pendientes.'
         )
-    return redirect('material:mis_examenes')
+        success_redirect = ('material:mis_examenes', {})
+
+    if is_ajax:
+        return JsonResponse({
+            'success': True,
+            'message': 'Examen guardado.',
+            'redirect_url': reverse('material:mis_examenes'),
+        })
+
+    messages.success(request, success_message, extra_tags='examenes')
+    return redirect(success_redirect[0], **success_redirect[1])
 
 @login_required
 def create_exam_template(request):
