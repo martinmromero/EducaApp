@@ -1129,8 +1129,12 @@ def save_exam_from_session(request):
     valid_shifts = ['mañana', 'tarde', 'noche']
     shift = shift_raw if shift_raw in valid_shifts else None
 
-    # exam_type — store raw value (CharField, no DB constraint)
+    # exam_type — el radio del form manda valores como '1er_parcial'/'recuperatorio'
+    # que superan el max_length=10 de la columna. SQLite no lo valida, Postgres si
+    # (StringDataRightTruncation), asi que truncamos al limite real del campo.
     exam_type = exam_data.get('tipo_examen') or None
+    if exam_type:
+        exam_type = exam_type[:Exam._meta.get_field('exam_type').max_length]
 
     # exam_group (individual / grupal) — this is tipo_modalidad from the form
     exam_group_raw = exam_data.get('tipo_modalidad', '')
