@@ -60,9 +60,9 @@
       <a class="btn btn-outline-primary" href="{% url 'material:preview_exam' %}?print=1">
         <i class="fas fa-print"></i> Vista previa de impresión
       </a>
-      <a class="btn btn-success" href="{% url 'material:save_exam_from_session' %}">
+      <button type="button" class="btn btn-success" id="saveExamVersionsBtn">
         <i class="fas fa-save"></i> Guardar examen
-      </a>
+      </button>
       <button type="button" class="btn btn-secondary" onclick="history.back()">
         <i class="fas fa-arrow-left"></i> Editar selección
       </button>
@@ -213,6 +213,55 @@
       getModal().show();
     });
   });
+
+  const saveBtn = document.getElementById('saveExamVersionsBtn');
+  const savedModalEl = document.getElementById('examVersionsSavedModal');
+  const savedModal = new window.bootstrap.Modal(savedModalEl);
+
+  savedModalEl.addEventListener('hidden.bs.modal', function () {
+    window.location.href = "{% url 'material:mis_examenes' %}";
+  });
+
+  saveBtn.addEventListener('click', function () {
+    saveBtn.disabled = true;
+    fetch("{% url 'material:save_exam_from_session' %}", {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': getCookie('csrftoken'),
+      },
+    })
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        saveBtn.disabled = false;
+        if (data.success) {
+          document.getElementById('examVersionsSavedModalMessage').textContent = data.message || 'El examen se guardó correctamente.';
+          savedModal.show();
+        } else {
+          alert(data.message || 'No se pudo guardar el examen.');
+        }
+      })
+      .catch(function () {
+        saveBtn.disabled = false;
+        alert('No se pudo guardar el examen. Intenta nuevamente.');
+      });
+  });
 })();
 </script>
+
+<div class="modal fade" id="examVersionsSavedModal" tabindex="-1" aria-labelledby="examVersionsSavedModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="examVersionsSavedModalLabel"><i class="fas fa-check-circle"></i> Examen guardado</h5>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0" id="examVersionsSavedModalMessage">El examen se guardó correctamente.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Ir a mis exámenes</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

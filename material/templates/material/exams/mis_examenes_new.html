@@ -44,13 +44,18 @@
                             <td><span class="badge bg-info text-white">Lote &middot; {{ item.batch.version_count }} versiones</span></td>
                             <td>{{ item.batch.created_at|date:"d/m/Y H:i" }}</td>
                             <td>
-                                <a href="{% url 'material:view_exam_batch' item.batch.id %}" class="btn btn-sm btn-info">
-                                    <i class="fas fa-eye"></i> Ver lote
-                                </a>
-                                <form method="post" action="{% url 'material:eliminar_exam_batch' item.batch.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar este lote y todas sus versiones?');">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-danger">Borrar lote</button>
-                                </form>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'material:view_exam_batch' item.batch.id %}"
+                                       class="btn btn-sm btn-info" title="Ver lote">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <form method="post" action="{% url 'material:eliminar_exam_batch' item.batch.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar este lote y todas sus versiones?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Eliminar lote">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% else %}
@@ -60,12 +65,22 @@
                             <td><span class="badge bg-secondary text-white">Individual</span></td>
                             <td>{{ item.examen.created_at|date:"d/m/Y H:i" }}</td>
                             <td>
-                                <a href="{% url 'material:ver_examen' item.examen.pk %}" class="btn btn-sm btn-primary">Ver</a>
-                                <a href="{% url 'material:editar_examen' item.examen.pk %}" class="btn btn-sm btn-secondary">Editar</a>
-                                <form method="post" action="{% url 'material:eliminar_examen' item.examen.pk %}" class="d-inline" onsubmit="return confirm('¿Eliminar este examen?');">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-danger">Borrar</button>
-                                </form>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'material:ver_examen' item.examen.pk %}"
+                                       class="btn btn-sm btn-info" title="Ver examen">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'material:editar_examen' item.examen.pk %}"
+                                       class="btn btn-sm btn-warning" title="Editar examen">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form method="post" action="{% url 'material:eliminar_examen' item.examen.pk %}" class="d-inline" onsubmit="return confirm('¿Eliminar este examen?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Eliminar examen">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% endif %}

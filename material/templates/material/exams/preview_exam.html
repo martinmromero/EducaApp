@@ -165,11 +165,9 @@ function toggleBloom() {
 <button onclick="printWithAnswers()" style="background:#17a2b8;">
     <i class="fas fa-print"></i> Imprimir con respuestas
 </button>
-<a href="{% url 'material:save_exam_from_session' %}">
-    <button style="background:#28a745;">
-        <i class="fas fa-save"></i> Guardar Examen
-    </button>
-</a>
+<button style="background:#28a745;" onclick="saveExamAndShowModal(this)">
+    <i class="fas fa-save"></i> Guardar Examen
+</button>
 <button onclick="history.back()" class="secondary">
   <i class="fas fa-edit"></i> Editar
 </button>

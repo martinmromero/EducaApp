@@ -8,14 +8,14 @@
 
   <div class="card mb-3">
     <div class="card-body">
-      <form method="post" action="{% url 'material:update_exam_batch_name' batch.id %}" class="row g-2 align-items-end">
+      <form method="post" action="{% url 'material:update_exam_batch_name' batch.id %}" class="row g-2 align-items-end" id="batchRenameForm">
         {% csrf_token %}
         <div class="col-md-8">
           <label class="form-label">Nombre del lote</label>
           <input type="text" name="name" class="form-control" value="{{ batch.name }}">
         </div>
         <div class="col-md-4">
-          <button type="submit" class="btn btn-primary">Guardar nombre</button>
+          <button type="submit" class="btn btn-primary" id="batchRenameBtn">Guardar nombre</button>
         </div>
       </form>
       <hr>
@@ -178,6 +178,56 @@
       getModal().show();
     });
   });
+
+  const renameForm = document.getElementById('batchRenameForm');
+  const renameBtn = document.getElementById('batchRenameBtn');
+  const savedModalEl = document.getElementById('batchSavedModal');
+  const savedModal = new window.bootstrap.Modal(savedModalEl);
+
+  savedModalEl.addEventListener('hidden.bs.modal', function () {
+    window.location.href = "{% url 'material:mis_examenes' %}";
+  });
+
+  renameForm.addEventListener('submit', function (evt) {
+    evt.preventDefault();
+    renameBtn.disabled = true;
+
+    fetch(renameForm.action, {
+      method: 'POST',
+      body: new FormData(renameForm),
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    })
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        renameBtn.disabled = false;
+        if (data.success) {
+          document.getElementById('batchSavedModalMessage').textContent = data.message || 'Lote guardado correctamente.';
+          savedModal.show();
+        } else {
+          alert(data.message || 'No se pudo guardar el nombre del lote.');
+        }
+      })
+      .catch(function () {
+        renameBtn.disabled = false;
+        alert('No se pudo guardar el nombre del lote. Intenta nuevamente.');
+      });
+  });
 })();
 </script>
+
+<div class="modal fade" id="batchSavedModal" tabindex="-1" aria-labelledby="batchSavedModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="batchSavedModalLabel"><i class="fas fa-check-circle"></i> Lote guardado</h5>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0" id="batchSavedModalMessage">Lote guardado correctamente.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Ir a mis exámenes</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

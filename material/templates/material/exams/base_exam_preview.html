@@ -307,6 +307,49 @@
                 font-size: var(--exam-list-px);
             }
         }
+        .simple-modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .simple-modal-backdrop.show {
+            display: flex;
+        }
+        .simple-modal-box {
+            background: white;
+            border-radius: 6px;
+            max-width: 380px;
+            width: 90%;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+            overflow: hidden;
+        }
+        .simple-modal-header {
+            background: #28a745;
+            color: white;
+            padding: 14px 18px;
+            font-size: 1.05rem;
+            font-weight: bold;
+        }
+        .simple-modal-body {
+            padding: 18px;
+            color: #222;
+        }
+        .simple-modal-footer {
+            padding: 0 18px 18px;
+            text-align: right;
+        }
+        .simple-modal-footer button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -494,6 +537,16 @@
 
 </div><!-- /.page-wrapper -->
 
+<div class="simple-modal-backdrop no-print" id="examSavedBackdrop">
+    <div class="simple-modal-box">
+        <div class="simple-modal-header"><i class="fas fa-check-circle"></i> Examen guardado</div>
+        <div class="simple-modal-body" id="examSavedMessage">El examen se guardó correctamente.</div>
+        <div class="simple-modal-footer">
+            <button type="button" id="examSavedOkBtn">Ir a mis exámenes</button>
+        </div>
+    </div>
+</div>
+
     <!-- Font Awesome para íconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
@@ -525,6 +578,41 @@
                 document.body.classList.remove('show-answers');
             }
         }
+
+        // ── Guardar examen desde la vista previa (con modal) ──────────────
+        function getCsrfCookie() {
+            var match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+            return match ? decodeURIComponent(match[1]) : '';
+        }
+
+        function saveExamAndShowModal(btn) {
+            btn.disabled = true;
+            fetch("{% url 'material:save_exam_from_session' %}", {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCsrfCookie(),
+                },
+            })
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+                btn.disabled = false;
+                if (data.success) {
+                    document.getElementById('examSavedMessage').textContent = data.message || 'El examen se guardó correctamente.';
+                    document.getElementById('examSavedBackdrop').classList.add('show');
+                } else {
+                    alert(data.message || 'No se pudo guardar el examen.');
+                }
+            })
+            .catch(function () {
+                btn.disabled = false;
+                alert('No se pudo guardar el examen. Intenta nuevamente.');
+            });
+        }
+
+        document.getElementById('examSavedOkBtn').addEventListener('click', function () {
+            window.location.href = "{% url 'material:mis_examenes' %}";
+        });
     </script>
     {% endblock %}
 </body>

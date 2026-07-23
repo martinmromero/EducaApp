@@ -2068,13 +2068,26 @@ def view_exam_batch(request, batch_id):
 @require_POST
 def update_exam_batch_name(request, batch_id):
     batch = get_object_or_404(ExamVersionBatch, id=batch_id, created_by=request.user)
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     new_name = request.POST.get('name', '').strip()
+
     if new_name:
         batch.name = new_name
         batch.save(update_fields=['name'])
-        messages.success(request, 'Nombre del lote actualizado.', extra_tags='examenes')
-    else:
-        messages.error(request, 'El nombre del lote no puede estar vacio.', extra_tags='examenes')
+        message = 'Nombre del lote actualizado.'
+        if is_ajax:
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'redirect_url': reverse('material:mis_examenes'),
+            })
+        messages.success(request, message, extra_tags='examenes')
+        return redirect('material:mis_examenes')
+
+    message = 'El nombre del lote no puede estar vacio.'
+    if is_ajax:
+        return JsonResponse({'success': False, 'message': message})
+    messages.error(request, message, extra_tags='examenes')
     return redirect('material:view_exam_batch', batch_id=batch.id)
 
 
