@@ -2,6 +2,190 @@
 // JS para el formulario de creación de examen
 
 document.addEventListener('DOMContentLoaded', function() {
+    let questionsFetchToken = 0;
+
+    function getSelectedTopicIds() {
+        var topicsSelect = document.getElementById('id_topics');
+        if (!topicsSelect) return [];
+        return Array.from(topicsSelect.options)
+            .filter(function(opt) { return opt.selected && opt.value !== 'all'; })
+            .map(function(opt) { return opt.value; });
+    }
+
+    function syncTopicsSelectFromCheckboxes() {
+        var topicsSelect = document.getElementById('id_topics');
+        var container = document.getElementById('topics_checkbox_container');
+        if (!topicsSelect || !container) return;
+
+        var checkedIds = Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+            .map(function(cb) { return cb.dataset.topicValue; });
+
+        Array.from(topicsSelect.options).forEach(function(opt) {
+            opt.selected = checkedIds.includes(opt.value);
+        });
+    }
+
+    function syncQuestionsSelectFromCheckboxes() {
+        var questionsSelect = document.getElementById('id_questions');
+        var container = document.getElementById('questions_checkbox_container');
+        if (!questionsSelect || !container) return;
+
+        var checkedIds = Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+            .map(function(cb) { return cb.dataset.questionValue; });
+
+        Array.from(questionsSelect.options).forEach(function(opt) {
+            opt.selected = checkedIds.includes(opt.value);
+        });
+    }
+
+    function loadQuestionsBySelectedTopics() {
+        var selectedTopics = getSelectedTopicIds();
+        var questionsSelect = document.getElementById('id_questions');
+        var subjectId = document.getElementById('id_subject')?.value;
+        if (!questionsSelect || !subjectId) return;
+
+        if (!selectedTopics.length) {
+            questionsSelect.innerHTML = '';
+            renderQuestionsCheckboxes();
+            return;
+        }
+
+        var previouslySelected = Array.from(questionsSelect.options)
+            .filter(function(opt) { return opt.selected; })
+            .map(function(opt) { return String(opt.value); });
+
+        // Al precargar un examen para editar, las preguntas objetivo llegan
+        // via window.EXAM_PREFILL_QUESTIONS *antes* de que este fetch corra
+        // (dispara el 'change' de temas). Sin esto, el fetch reconstruye las
+        // opciones usando el snapshot vacio de arriba y pisa la seleccion
+        // que el script de precarga intenta aplicar despues.
+        if (window.EXAM_PREFILL_QUESTIONS && window.EXAM_PREFILL_QUESTIONS.length) {
+            var prefillIds = window.EXAM_PREFILL_QUESTIONS.map(String);
+            prefillIds.forEach(function(id) {
+                if (!previouslySelected.includes(id)) previouslySelected.push(id);
+            });
+        }
+
+        questionsFetchToken += 1;
+        var currentToken = questionsFetchToken;
+
+        var url = '/get-questions-by-topics/?topics=' + selectedTopics.join(',') + '&subject_id=' + subjectId;
+
+        fetch(url)
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (currentToken !== questionsFetchToken) return;
+                questionsSelect.innerHTML = '';
+                data.forEach(function(question) {
+                    var option = document.createElement('option');
+                    option.value = question.id;
+                    option.textContent = question.text;
+                    option.selected = previouslySelected.includes(String(question.id));
+                    questionsSelect.appendChild(option);
+                });
+                renderQuestionsCheckboxes();
+                window.EXAM_PREFILL_QUESTIONS = null;
+            });
+    }
+
+    function renderTopicsCheckboxes() {
+        var topicsSelect = document.getElementById('id_topics');
+        var container = document.getElementById('topics_checkbox_container');
+        if (!topicsSelect || !container) return;
+
+        container.innerHTML = '';
+        Array.from(topicsSelect.options).filter(function(option) { return option.value !== 'all'; }).forEach(function(option) {
+            var row = document.createElement('div');
+            row.className = 'form-check mb-1';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'form-check-input';
+            cb.id = 'topic_cb_' + option.value;
+            cb.checked = option.selected;
+            cb.dataset.topicValue = option.value;
+
+            var label = document.createElement('label');
+            label.className = 'form-check-label';
+            label.htmlFor = cb.id;
+            label.textContent = option.textContent;
+
+            cb.addEventListener('change', function() {
+                syncTopicsSelectFromCheckboxes();
+                loadQuestionsBySelectedTopics();
+            });
+
+            row.appendChild(cb);
+            row.appendChild(label);
+            container.appendChild(row);
+        });
+    }
+
+    function renderQuestionsCheckboxes() {
+        var questionsSelect = document.getElementById('id_questions');
+        var container = document.getElementById('questions_checkbox_container');
+        if (!questionsSelect || !container) return;
+
+        container.innerHTML = '';
+        Array.from(questionsSelect.options).forEach(function(option) {
+            var row = document.createElement('div');
+            row.className = 'form-check mb-1';
+
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'form-check-input';
+            cb.id = 'question_cb_' + option.value;
+            cb.checked = option.selected;
+            cb.dataset.questionValue = option.value;
+
+            var label = document.createElement('label');
+            label.className = 'form-check-label';
+            label.htmlFor = cb.id;
+            label.textContent = option.textContent;
+
+            cb.addEventListener('change', function() {
+                syncQuestionsSelectFromCheckboxes();
+            });
+
+            row.appendChild(cb);
+            row.appendChild(label);
+            container.appendChild(row);
+        });
+    }
+
+    function updateSuggestedBatchName() {
+        var batchInput = document.getElementById('batch_name');
+        if (!batchInput || batchInput.dataset.userEdited === '1') return;
+
+        var tipo = document.querySelector('input[name="tipo_examen"]:checked')?.value || 'examen';
+        var subject = document.getElementById('id_subject');
+        var institution = document.getElementById('institucion_dropdown');
+        var semester = document.getElementById('batch_semester')?.value || 'sin cuatrimestre';
+        var versions = document.getElementById('num_versions')?.value || '1';
+        var fecha = document.getElementById('fecha')?.value || '';
+        var year = fecha ? fecha.split('-')[0] : 'sin anio';
+
+        var tipoLabelMap = {
+            '1er_parcial': '1er parcial',
+            '2do_parcial': '2do parcial',
+            '3er_parcial': '3er parcial',
+            'final': 'final',
+            'recuperatorio': 'recuperatorio',
+            'practico': 'practico'
+        };
+        var tipoLabel = tipoLabelMap[tipo] || 'examen';
+        var subjectLabel = subject && subject.selectedOptions[0] ? subject.selectedOptions[0].textContent : 'sin materia';
+        var institutionLabel = institution && institution.selectedOptions[0] ? institution.selectedOptions[0].textContent : 'sin institucion';
+
+        batchInput.value = `${tipoLabel} - ${subjectLabel} - ${institutionLabel} - ${semester} - ${year} - ${versions} opciones`;
+    }
+
+    var batchNameInput = document.getElementById('batch_name');
+    if (batchNameInput) {
+        batchNameInput.addEventListener('input', function() {
+            this.dataset.userEdited = this.value.trim() ? '1' : '0';
+        });
+    }
+
     // Autocompletar campos al seleccionar una plantilla
     var plantillaSelect = document.getElementById('plantilla');
     plantillaSelect.addEventListener('change', function() {
@@ -146,17 +330,15 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/get-topics/?subject_id=' + subjectId)
             .then(function(response) { return response.json(); })
             .then(function(data) {
-                // Agregar opción 'Todos los temas' siempre
-                var allOption = document.createElement('option');
-                allOption.value = 'all';
-                allOption.textContent = 'Todos los temas';
-                topicsSelect.appendChild(allOption);
                 data.forEach(function(topic) {
                     var option = document.createElement('option');
                     option.value = topic.id;
                     option.textContent = topic.name;
                     topicsSelect.appendChild(option);
                 });
+                renderTopicsCheckboxes();
+                var questionsContainer = document.getElementById('questions_checkbox_container');
+                if (questionsContainer) questionsContainer.innerHTML = '';
             });
         // Resultados de aprendizaje como checkboxes
         fetch('/get-learning-outcomes/?subject_id=' + subjectId)
@@ -184,27 +366,40 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     });
 
-    // Filtrar preguntas por tema seleccionado
+    // Compatibilidad: si alguien cambia el select oculto manualmente
     topicsSelect.addEventListener('change', function() {
-        var selectedTopics = Array.from(topicsSelect.selectedOptions).map(function(opt) { return opt.value; });
-        var questionsSelect = document.getElementById('id_questions');
-        var filteredTopics = selectedTopics.filter(function(v) { return v !== 'all'; });
-        if (!filteredTopics.length) {
-            questionsSelect.innerHTML = '';
-            return;
-        }
-        var subjectId = document.getElementById('id_subject').value;
-        fetch('/get-questions-by-topics/?topics=' + filteredTopics.join(',') + '&subject_id=' + subjectId)
-            .then(function(response) { return response.json(); })
-            .then(function(data) {
-                questionsSelect.innerHTML = '';
-                data.forEach(function(question) {
-                    var option = document.createElement('option');
-                    option.value = question.id;
-                    option.textContent = question.text;
-                    questionsSelect.appendChild(option);
-                });
-            });
+        renderTopicsCheckboxes();
+        loadQuestionsBySelectedTopics();
+    });
+
+    document.getElementById('topics_select_all')?.addEventListener('click', function() {
+        var container = document.getElementById('topics_checkbox_container');
+        if (!container) return;
+        container.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = true; });
+        syncTopicsSelectFromCheckboxes();
+        loadQuestionsBySelectedTopics();
+    });
+
+    document.getElementById('topics_select_none')?.addEventListener('click', function() {
+        var container = document.getElementById('topics_checkbox_container');
+        if (!container) return;
+        container.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = false; });
+        syncTopicsSelectFromCheckboxes();
+        loadQuestionsBySelectedTopics();
+    });
+
+    document.getElementById('questions_select_all')?.addEventListener('click', function() {
+        var container = document.getElementById('questions_checkbox_container');
+        if (!container) return;
+        container.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = true; });
+        syncQuestionsSelectFromCheckboxes();
+    });
+
+    document.getElementById('questions_select_none')?.addEventListener('click', function() {
+        var container = document.getElementById('questions_checkbox_container');
+        if (!container) return;
+        container.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = false; });
+        syncQuestionsSelectFromCheckboxes();
     });
 
     // Cascada institución → facultad → carrera y sede
@@ -215,6 +410,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     institucionSelect.addEventListener('change', function() {
         var institucionId = this.value;
+        facultadSelect.innerHTML = '<option value="">Seleccionar facultad</option><option value="otro">Otro</option>';
+        carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
+        sedeSelect.innerHTML = '<option value="">Seleccionar sede</option><option value="otro">Otro</option>';
+        if (!institucionId || !/^\d+$/.test(institucionId)) {
+            return;
+        }
         // Filtrar facultades por institución
         fetch('/get_faculties_by_institution/' + institucionId + '/')
             .then(function(response) { return response.json(); })
@@ -229,8 +430,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 }
             });
-        // Limpiar carreras
-        carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
         // Filtrar sedes por institución
         fetch('/get_campuses_by_institution/' + institucionId + '/')
             .then(function(response) { return response.json(); })
@@ -249,6 +448,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     facultadSelect.addEventListener('change', function() {
         var facultadId = this.value;
+        if (!facultadId || !/^\d+$/.test(facultadId)) {
+            carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
+            return;
+        }
         // Filtrar carreras por facultad
         fetch('/get-careers-by-faculty/' + facultadId + '/')
             .then(function(response) { return response.json(); })
@@ -264,6 +467,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
     });
+
+    ['change', 'input'].forEach(function(evtName) {
+        document.getElementById('id_subject')?.addEventListener(evtName, updateSuggestedBatchName);
+        document.getElementById('institucion_dropdown')?.addEventListener(evtName, updateSuggestedBatchName);
+        document.getElementById('batch_semester')?.addEventListener(evtName, updateSuggestedBatchName);
+        document.getElementById('num_versions')?.addEventListener(evtName, updateSuggestedBatchName);
+        document.getElementById('fecha')?.addEventListener(evtName, updateSuggestedBatchName);
+        document.querySelectorAll('input[name="tipo_examen"]').forEach(function(radio) {
+            radio.addEventListener(evtName, updateSuggestedBatchName);
+        });
+    });
+
+    updateSuggestedBatchName();
+    renderTopicsCheckboxes();
+    renderQuestionsCheckboxes();
 });
 
 function toggleTextbox(selectId, textboxId) {
@@ -275,3 +493,158 @@ function toggleTextbox(selectId, textboxId) {
         textbox.style.display = 'none';
     }
 }
+
+// ── Prefill form from session data (when coming back from preview via "Editar") ──
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof EXAM_PREFILL === 'undefined' || !EXAM_PREFILL || !Object.keys(EXAM_PREFILL).length) return;
+    var data = EXAM_PREFILL;
+
+    function isNumeric(v) { return v && /^\d+$/.test(String(v)); }
+
+    function setDropdownOrText(selectId, textId, value, customText) {
+        var sel = document.getElementById(selectId);
+        if (!sel) return;
+        if (value === 'otro') {
+            sel.value = 'otro';
+            toggleTextbox(selectId, textId);
+            var txt = document.getElementById(textId);
+            if (txt && customText) txt.value = customText;
+        } else if (value) {
+            sel.value = value;
+        }
+    }
+
+    // Static text inputs
+    var staticMap = {
+        'fecha': 'fecha',
+        'curso': 'curso',
+        'id_duration_minutes': 'duration_minutes',
+        'id_instructions': 'instructions',
+        'id_title': 'title',
+        'num_versions': 'num_versions',
+        'questions_per_version': 'questions_per_version',
+        'batch_semester': 'batch_semester',
+        'batch_name': 'batch_name'
+    };
+    Object.keys(staticMap).forEach(function(elId) {
+        var el = document.getElementById(elId);
+        var val = data[staticMap[elId]];
+        if (el && val) el.value = val;
+    });
+
+    // Radio buttons
+    ['tipo_examen', 'tipo_modalidad'].forEach(function(name) {
+        if (data[name]) {
+            var r = document.querySelector('input[name="' + name + '"][value="' + data[name] + '"]');
+            if (r) r.checked = true;
+        }
+    });
+
+    // Checkboxes: modalidad_resolucion
+    if (data.modalidad_resolucion && Array.isArray(data.modalidad_resolucion)) {
+        data.modalidad_resolucion.forEach(function(val) {
+            var cb = document.querySelector('input[name="modalidad_resolucion"][value="' + val + '"]');
+            if (cb) cb.checked = true;
+        });
+    }
+
+    if (String(data.balance_by_topic || '') === '1') {
+        var balance = document.getElementById('balance_by_topic');
+        if (balance) balance.checked = true;
+    }
+
+    // Turno and Profesor (static dropdowns)
+    setDropdownOrText('turno_dropdown', 'turno_text', data.turno, data.turno_text);
+    if (data.profesor && isNumeric(data.profesor)) {
+        var profSel = document.getElementById('profesor_dropdown');
+        if (profSel) profSel.value = data.profesor;
+    }
+
+    // Subject → triggers AJAX load of topics + learning_outcomes
+    if (data.subject) {
+        var subjSel = document.getElementById('id_subject');
+        if (subjSel) {
+            subjSel.value = data.subject;
+            subjSel.dispatchEvent(new Event('change'));
+        }
+    }
+
+    // Institution → triggers AJAX load of faculties + campuses
+    if (data.institucion && isNumeric(data.institucion)) {
+        var instSel = document.getElementById('institucion_dropdown');
+        if (instSel) {
+            instSel.value = data.institucion;
+            instSel.dispatchEvent(new Event('change'));
+        }
+    }
+
+    // After AJAX: set faculty, select topics, select learning_outcomes
+    setTimeout(function() {
+        // Faculty
+        if (data.facultad) {
+            var facSel = document.getElementById('facultad_dropdown');
+            if (facSel) {
+                if (data.facultad === 'otro') {
+                    facSel.value = 'otro';
+                    toggleTextbox('facultad_dropdown', 'facultad_text');
+                    var ft = document.getElementById('facultad_text');
+                    if (ft && data.facultad_text) ft.value = data.facultad_text;
+                } else {
+                    facSel.value = data.facultad;
+                    if (isNumeric(data.facultad)) facSel.dispatchEvent(new Event('change'));
+                }
+            }
+        }
+        // Sede
+        if (data.sede && isNumeric(data.sede)) {
+            var sedeSel = document.getElementById('sede_dropdown');
+            if (sedeSel) sedeSel.value = data.sede;
+        }
+        // Topics: select + trigger change (which loads questions)
+        var topicsSel = document.getElementById('id_topics');
+        if (topicsSel && data.topics && Array.isArray(data.topics)) {
+            Array.from(topicsSel.options).forEach(function(opt) {
+                opt.selected = data.topics.some(function(v) { return String(v) === opt.value; });
+            });
+            topicsSel.dispatchEvent(new Event('change'));
+        }
+        // Learning outcomes checkboxes
+        if (data.learning_outcomes && Array.isArray(data.learning_outcomes)) {
+            var loContainer = document.getElementById('learning_outcomes_container');
+            if (loContainer) {
+                Array.from(loContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(cb) {
+                    cb.checked = data.learning_outcomes.some(function(v) { return String(v) === cb.value; });
+                });
+            }
+        }
+    }, 700);
+
+    // After topics AJAX loads questions: select them. Also set carrera.
+    setTimeout(function() {
+        if (data.carrera) {
+            var carrSel = document.getElementById('carrera_dropdown');
+            if (carrSel) {
+                if (data.carrera === 'otro') {
+                    carrSel.value = 'otro';
+                    toggleTextbox('carrera_dropdown', 'carrera_text');
+                    var ct = document.getElementById('carrera_text');
+                    if (ct && data.carrera_text) ct.value = data.carrera_text;
+                } else {
+                    carrSel.value = data.carrera;
+                }
+            }
+        }
+        var qSel = document.getElementById('id_questions');
+        if (qSel && data.questions && Array.isArray(data.questions)) {
+            Array.from(qSel.options).forEach(function(opt) {
+                opt.selected = data.questions.some(function(v) { return String(v) === opt.value; });
+            });
+            var qContainer = document.getElementById('questions_checkbox_container');
+            if (qContainer) {
+                Array.from(qContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(cb) {
+                    cb.checked = data.questions.some(function(v) { return String(v) === cb.dataset.questionValue; });
+                });
+            }
+        }
+    }, 1400);
+});
