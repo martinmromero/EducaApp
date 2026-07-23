@@ -976,6 +976,29 @@ def _create_exam_with_compatible_schema(exam_kwargs, selected_topics, selected_o
     return exam_obj
 
 
+def _safe_assign_print_format(exam_obj):
+    """Resuelve y asigna el formato de impresion en su propio savepoint.
+
+    Si la tabla de formatos/asignaciones no existe todavia en Postgres (Neon
+    desfasado), un DatabaseError sin savepoint deja la transaccion externa
+    'aborted': cualquier INSERT posterior (el siguiente examen del lote, o el
+    commit final) falla o se pierde en silencio. Por eso esto corre dentro de
+    su propio transaction.atomic() y absorbe el error ahi mismo.
+    """
+    try:
+        with transaction.atomic():
+            if hasattr(exam_obj, 'formato_impresion_asignado'):
+                return
+            formato = resolve_print_format_for_exam(exam_obj)
+            if formato:
+                assign_print_format_to_exam(exam_obj, formato)
+    except (OperationalError, ProgrammingError, DatabaseError):
+        logger.warning(
+            'No se pudo asignar formato de impresion al examen %s (tabla desactualizada); se omite.',
+            getattr(exam_obj, 'pk', None),
+        )
+
+
 @login_required
 def create_exam(request):
     from .models import FacultyV2, Career, CampusV2, Subject, ExamTemplate, InstitutionV2
@@ -1303,10 +1326,7 @@ def save_exam_from_session(request):
                 editing_exam.topics.set(selected_topics)
                 editing_exam.learning_outcomes.set(selected_outcomes)
                 editing_exam.questions.set(chosen_versions[0])
-                if not hasattr(editing_exam, 'formato_impresion_asignado'):
-                    formato = resolve_print_format_for_exam(editing_exam)
-                    if formato:
-                        assign_print_format_to_exam(editing_exam, formato)
+                _safe_assign_print_format(editing_exam)
                 created_exams.append(editing_exam)
 
             for idx, version_questions in enumerate(chosen_versions, start=1):
@@ -1352,9 +1372,7 @@ def save_exam_from_session(request):
                         selected_outcomes,
                         version_questions,
                     )
-                formato = resolve_print_format_for_exam(exam_obj)
-                if formato:
-                    assign_print_format_to_exam(exam_obj, formato)
+                _safe_assign_print_format(exam_obj)
                 created_exams.append(exam_obj)
     except Exception:
         logger.exception('Error guardando examenes desde /save-exam/.')

@@ -26,22 +26,26 @@ def get_visible_print_formats(user):
 
 def resolve_print_format_for_context(*, user=None, institution=None, institution_name=''):
     try:
-        if user:
-            formato = FormatoImpresion.objects.filter(user=user, es_default=True, institution__isnull=True).first()
-            if formato:
-                return formato
+        # Savepoint: si esto falla (tabla desactualizada en Postgres), que solo
+        # se deshaga esta consulta y no envenene la transaccion externa (p.ej.
+        # el guardado de un examen dentro de save_exam_from_session).
+        with transaction.atomic():
+            if user:
+                formato = FormatoImpresion.objects.filter(user=user, es_default=True, institution__isnull=True).first()
+                if formato:
+                    return formato
 
-        if institution is not None:
-            formato = FormatoImpresion.objects.filter(institution=institution, es_default=True, user__isnull=True).first()
-            if formato:
-                return formato
+            if institution is not None:
+                formato = FormatoImpresion.objects.filter(institution=institution, es_default=True, user__isnull=True).first()
+                if formato:
+                    return formato
 
-        if institution_name:
-            formato = FormatoImpresion.objects.filter(institution__name__iexact=institution_name, es_default=True, user__isnull=True).first()
-            if formato:
-                return formato
+            if institution_name:
+                formato = FormatoImpresion.objects.filter(institution__name__iexact=institution_name, es_default=True, user__isnull=True).first()
+                if formato:
+                    return formato
 
-        return FormatoImpresion.objects.filter(user__isnull=True, institution__isnull=True, es_default=True).first()
+            return FormatoImpresion.objects.filter(user__isnull=True, institution__isnull=True, es_default=True).first()
     except (OperationalError, ProgrammingError, DatabaseError):
         logger.warning('No se pudo resolver el formato de impresion (tabla desactualizada); usando defaults.')
         return None
@@ -63,8 +67,10 @@ def clear_existing_default_for_scope(*, user=None, institution=None, exclude_id=
 
 def resolve_print_format_for_exam(exam, *, explicit_format=None):
     try:
-        if hasattr(exam, 'formato_impresion_asignado'):
-            return exam.formato_impresion_asignado
+        # Savepoint por el mismo motivo que en resolve_print_format_for_context.
+        with transaction.atomic():
+            if hasattr(exam, 'formato_impresion_asignado'):
+                return exam.formato_impresion_asignado
     except (OperationalError, ProgrammingError, DatabaseError):
         logger.warning('No se pudo resolver formato_impresion_asignado (tabla desactualizada); usando defaults.')
 
