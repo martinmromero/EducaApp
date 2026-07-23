@@ -1376,8 +1376,9 @@ def save_exam_from_session(request):
     if is_ajax:
         return JsonResponse({
             'success': True,
-            'message': 'Examen guardado.',
+            'message': success_message,
             'redirect_url': reverse('material:mis_examenes'),
+            'created_exam_ids': [e.pk for e in created_exams],
         })
 
     messages.success(request, success_message, extra_tags='examenes')

@@ -661,6 +661,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(function(data) {
             saveBtn.disabled = false;
             if (data.success) {
+                document.getElementById('examSavedModalMessage').textContent = data.message || 'El examen se guardó correctamente.';
                 savedModal.show();
             } else {
                 errorAlert.textContent = data.message || 'No se pudo guardar el examen.';
