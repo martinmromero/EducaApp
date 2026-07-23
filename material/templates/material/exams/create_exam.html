@@ -305,6 +305,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof EXAM_PREFILL === 'undefined' || !EXAM_PREFILL || !Object.keys(EXAM_PREFILL).length) return;
     var data = EXAM_PREFILL;
 
+    // create_exam.js lee esto al recargar las preguntas por tema (fetch
+    // asincronico disparado por el 'change' de id_topics de abajo) para no
+    // pisar la seleccion original con un snapshot vacio.
+    window.EXAM_PREFILL_QUESTIONS = Array.isArray(data.questions) ? data.questions : [];
+
     function setValue(id, key) {
         var el = document.getElementById(id);
         if (el && data[key] !== undefined && data[key] !== null && data[key] !== '') {

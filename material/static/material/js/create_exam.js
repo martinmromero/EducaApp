@@ -54,6 +54,18 @@ document.addEventListener('DOMContentLoaded', function() {
             .filter(function(opt) { return opt.selected; })
             .map(function(opt) { return String(opt.value); });
 
+        // Al precargar un examen para editar, las preguntas objetivo llegan
+        // via window.EXAM_PREFILL_QUESTIONS *antes* de que este fetch corra
+        // (dispara el 'change' de temas). Sin esto, el fetch reconstruye las
+        // opciones usando el snapshot vacio de arriba y pisa la seleccion
+        // que el script de precarga intenta aplicar despues.
+        if (window.EXAM_PREFILL_QUESTIONS && window.EXAM_PREFILL_QUESTIONS.length) {
+            var prefillIds = window.EXAM_PREFILL_QUESTIONS.map(String);
+            prefillIds.forEach(function(id) {
+                if (!previouslySelected.includes(id)) previouslySelected.push(id);
+            });
+        }
+
         questionsFetchToken += 1;
         var currentToken = questionsFetchToken;
 
@@ -72,6 +84,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     questionsSelect.appendChild(option);
                 });
                 renderQuestionsCheckboxes();
+                window.EXAM_PREFILL_QUESTIONS = null;
             });
     }
 
