@@ -397,6 +397,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     institucionSelect.addEventListener('change', function() {
         var institucionId = this.value;
+        facultadSelect.innerHTML = '<option value="">Seleccionar facultad</option><option value="otro">Otro</option>';
+        carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
+        sedeSelect.innerHTML = '<option value="">Seleccionar sede</option><option value="otro">Otro</option>';
+        if (!institucionId || !/^\d+$/.test(institucionId)) {
+            return;
+        }
         // Filtrar facultades por institución
         fetch('/get_faculties_by_institution/' + institucionId + '/')
             .then(function(response) { return response.json(); })
@@ -411,8 +417,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 }
             });
-        // Limpiar carreras
-        carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
         // Filtrar sedes por institución
         fetch('/get_campuses_by_institution/' + institucionId + '/')
             .then(function(response) { return response.json(); })
@@ -431,6 +435,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     facultadSelect.addEventListener('change', function() {
         var facultadId = this.value;
+        if (!facultadId || !/^\d+$/.test(facultadId)) {
+            carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
+            return;
+        }
         // Filtrar carreras por facultad
         fetch('/get-careers-by-faculty/' + facultadId + '/')
             .then(function(response) { return response.json(); })

@@ -9,15 +9,7 @@
             <div class="card border-left-primary shadow h-100 py-2">
                 <div class="card-body">
                     <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Exámenes</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ examenes|length }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 mb-3">
-            <div class="card border-left-info shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Lotes de Versiones</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ batches|length }}</div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_count }}</div>
                 </div>
             </div>
         </div>
@@ -25,86 +17,64 @@
 
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-info">Lotes de versiones</h6>
+            <h6 class="m-0 font-weight-bold text-primary">Exámenes</h6>
             <a href="{% url 'material:create_exam' %}" class="btn btn-primary btn-sm">
                 <i class="fas fa-plus"></i> Crear Examen
             </a>
         </div>
         <div class="card-body">
-            {% if batches %}
+            {% if items %}
             <div class="table-responsive">
                 <table class="table table-striped">
                     <thead>
                         <tr>
                             <th>Nombre</th>
                             <th>Materia</th>
-                            <th>Versiones</th>
+                            <th>Tipo</th>
                             <th>Creado</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for batch in batches %}
+                        {% for item in items %}
+                        {% if item.kind == 'batch' %}
                         <tr>
-                            <td><strong>{{ batch.name }}</strong></td>
-                            <td>{{ batch.subject.name|default:'-' }}</td>
-                            <td>{{ batch.version_count }}</td>
-                            <td>{{ batch.created_at|date:"d/m/Y H:i" }}</td>
+                            <td><strong>{{ item.batch.name }}</strong></td>
+                            <td>{{ item.batch.subject.name|default:'-' }}</td>
+                            <td><span class="badge bg-info text-white">Lote &middot; {{ item.batch.version_count }} versiones</span></td>
+                            <td>{{ item.batch.created_at|date:"d/m/Y H:i" }}</td>
                             <td>
-                                <a href="{% url 'material:view_exam_batch' batch.id %}" class="btn btn-sm btn-info">
+                                <a href="{% url 'material:view_exam_batch' item.batch.id %}" class="btn btn-sm btn-info">
                                     <i class="fas fa-eye"></i> Ver lote
                                 </a>
-                                <form method="post" action="{% url 'material:eliminar_exam_batch' batch.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar este lote y todas sus versiones?');">
+                                <form method="post" action="{% url 'material:eliminar_exam_batch' item.batch.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar este lote y todas sus versiones?');">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-sm btn-danger">Borrar lote</button>
                                 </form>
                             </td>
                         </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <p class="text-muted mb-0">Aún no hay lotes de versiones.</p>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Exámenes individuales</h6>
-        </div>
-        <div class="card-body">
-            {% if examenes %}
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
+                        {% else %}
                         <tr>
-                            <th>Título</th>
-                            <th>Fecha</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for examen in examenes %}
-                        <tr>
-                            <td>{{ examen.title }}</td>
-                            <td>{{ examen.created_at|date:"d/m/Y H:i" }}</td>
+                            <td>{{ item.examen.title }}</td>
+                            <td>{{ item.examen.subject.name|default:'-' }}</td>
+                            <td><span class="badge bg-secondary text-white">Individual</span></td>
+                            <td>{{ item.examen.created_at|date:"d/m/Y H:i" }}</td>
                             <td>
-                                <a href="{% url 'material:ver_examen' examen.pk %}" class="btn btn-sm btn-primary">Ver</a>
-                                <a href="{% url 'material:editar_examen' examen.pk %}" class="btn btn-sm btn-secondary">Editar</a>
-                                <form method="post" action="{% url 'material:eliminar_examen' examen.pk %}" class="d-inline" onsubmit="return confirm('¿Eliminar este examen?');">
+                                <a href="{% url 'material:ver_examen' item.examen.pk %}" class="btn btn-sm btn-primary">Ver</a>
+                                <a href="{% url 'material:editar_examen' item.examen.pk %}" class="btn btn-sm btn-secondary">Editar</a>
+                                <form method="post" action="{% url 'material:eliminar_examen' item.examen.pk %}" class="d-inline" onsubmit="return confirm('¿Eliminar este examen?');">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-sm btn-danger">Borrar</button>
                                 </form>
                             </td>
                         </tr>
+                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             {% else %}
-            <p class="text-muted mb-0">No tienes exámenes individuales aún.</p>
+            <p class="text-muted mb-0">Aún no tenés exámenes creados.</p>
             {% endif %}
         </div>
     </div>

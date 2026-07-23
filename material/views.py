@@ -1255,7 +1255,7 @@ def save_exam_from_session(request):
                 batch_name = _suggest_batch_name(subject, exam_data, institution_name, versions_count, year)
 
             batch = None
-            if supports_version_batches and editing_exam is None:
+            if supports_version_batches and editing_exam is None and versions_count > 1:
                 batch = ExamVersionBatch.objects.create(
                     name=batch_name,
                     created_by=request.user,
@@ -1331,7 +1331,7 @@ def save_exam_from_session(request):
                     'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
                     'notes_and_recommendations': exam_data.get('notes_and_recommendations') or None,
                 }
-                if supports_version_batches:
+                if supports_version_batches and batch is not None:
                     exam_kwargs['version_batch'] = batch
                     exam_kwargs['version_number'] = idx
 
@@ -1360,17 +1360,21 @@ def save_exam_from_session(request):
     request.session.pop('preview_generated_versions_ids', None)
     request.session.pop('editing_exam_id', None)
 
-    if supports_version_batches and batch is not None:
+    if batch is not None:
         success_message = f'Se guardo el lote "{batch.name}" con {len(created_exams)} versiones.'
         success_redirect = ('material:view_exam_batch', {'batch_id': batch.id})
     elif editing_exam is not None:
         success_message = 'Examen actualizado correctamente.'
         success_redirect = ('material:mis_examenes', {})
-    else:
+    elif versions_count > 1:
+        # Se pidieron varias versiones pero el esquema de lotes no esta disponible todavia.
         success_message = (
-            f'Se guardaron {len(created_exams)} examen(es). '
+            f'Se guardaron {len(created_exams)} examen(es) individuales. '
             'El agrupado por versiones quedara disponible cuando se apliquen las migraciones pendientes.'
         )
+        success_redirect = ('material:mis_examenes', {})
+    else:
+        success_message = 'Examen guardado correctamente.'
         success_redirect = ('material:mis_examenes', {})
 
     if is_ajax:
@@ -1985,7 +1989,7 @@ def mis_examenes(request):
         examenes_qs = Exam.objects.filter(created_by=request.user).select_related('subject')
 
         if has_exam_version_fields:
-            examenes_qs = examenes_qs.select_related('version_batch')
+            examenes_qs = examenes_qs.select_related('version_batch').filter(version_batch__isnull=True)
         else:
             # Evita SELECT de columnas nuevas cuando Neon no corrio las migraciones.
             examenes_qs = examenes_qs.defer('version_batch', 'version_number')
@@ -2004,9 +2008,27 @@ def mis_examenes(request):
             Exam.objects.filter(created_by=request.user).select_related('subject').defer('version_batch', 'version_number')
         )
         batches = []
+
+    items = [
+        {
+            'kind': 'batch',
+            'sort_key': batch.created_at,
+            'batch': batch,
+        }
+        for batch in batches
+    ] + [
+        {
+            'kind': 'exam',
+            'sort_key': examen.created_at,
+            'examen': examen,
+        }
+        for examen in examenes
+    ]
+    items.sort(key=lambda item: item['sort_key'], reverse=True)
+
     return render(request, 'material/exams/mis_examenes_new.html', {
-        'examenes': examenes,
-        'batches': batches,
+        'items': items,
+        'total_count': len(examenes) + len(batches),
     })
 
 
