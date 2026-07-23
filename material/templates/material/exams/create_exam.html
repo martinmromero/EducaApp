@@ -365,12 +365,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     var tries = 0;
+    var facultadDispatched = false;
+    var topicsDispatched = false;
     var timer = setInterval(function() {
         tries += 1;
 
         var facSel = document.getElementById('facultad_dropdown');
         if (facSel && data.facultad) facSel.value = String(data.facultad);
-        if (facSel && data.facultad && /^\d+$/.test(String(data.facultad))) facSel.dispatchEvent(new Event('change'));
+        // Disparar el 'change' una sola vez: si se repite en cada tick,
+        // cancela/reinicia el fetch de carreras antes de que termine.
+        if (facSel && data.facultad && /^\d+$/.test(String(data.facultad)) && !facultadDispatched) {
+            facSel.dispatchEvent(new Event('change'));
+            facultadDispatched = true;
+        }
 
         var sedeSel = document.getElementById('sede_dropdown');
         if (sedeSel && data.sede) sedeSel.value = String(data.sede);
@@ -390,7 +397,12 @@ document.addEventListener('DOMContentLoaded', function() {
             Array.from(topicsSel.options).forEach(function(opt) {
                 opt.selected = data.topics.some(function(v) { return String(v) === opt.value; });
             });
-            topicsSel.dispatchEvent(new Event('change'));
+            // Idem: disparar 'change' una sola vez para que el fetch de
+            // preguntas-por-tema tenga tiempo de resolver antes del proximo tick.
+            if (!topicsDispatched) {
+                topicsSel.dispatchEvent(new Event('change'));
+                topicsDispatched = true;
+            }
             topicsOk = true;
         }
 
