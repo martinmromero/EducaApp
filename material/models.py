@@ -438,6 +438,24 @@ class Contenido(models.Model):
     def file_available(self):
         return bool(self.file) and self.file_deleted_at is None
 
+    def file_actually_exists(self):
+        """
+        Chequea contra el storage si el archivo sigue físicamente presente.
+        A diferencia de file_available, no confía en file_deleted_at: ese campo
+        solo se actualiza al cerrar sesión o al detectar sesiones inactivas, así
+        que si el archivo desaparece por otro motivo (reinicio/redeploy del
+        servidor, storage efímero, etc.) mientras la sesión sigue abierta,
+        file_deleted_at queda desactualizado y esta es la única forma confiable
+        de saberlo.
+        """
+        if not self.file or not self.file.name:
+            return False
+        from django.core.files.storage import default_storage
+        try:
+            return default_storage.exists(self.file.name)
+        except Exception:
+            return False
+
     def __str__(self):
         subjects = ', '.join(str(s) for s in self.subjects.all()) or 'Sin materia'
         return f"{subjects} - {self.title}"

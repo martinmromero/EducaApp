@@ -2606,23 +2606,73 @@ def exportar_preguntas(request):
 
 @login_required
 def mis_contenidos(request):
-    contenidos = Contenido.objects.filter(uploaded_by=request.user)
-    return render(request, 'material/questions/mis_contenidos.html', {'contenidos': contenidos})
+    from .cleanup import _delete_files_for_queryset
+
+    base_qs = Contenido.objects.filter(uploaded_by=request.user).prefetch_related('subjects')
+
+    vigentes = base_qs.filter(file_deleted_at__isnull=True).order_by('-uploaded_at')
+
+    # El archivo puede haber desaparecido sin que file_deleted_at se haya
+    # actualizado (la sesión sigue abierta pero el storage es efímero, hubo
+    # un redeploy, etc.). Reconciliamos contra el storage real antes de mostrar
+    # la lista para que "vigentes" no muestre archivos que ya no existen.
+    stale_ids = [c.id for c in vigentes if not c.file_actually_exists()]
+    if stale_ids:
+        _delete_files_for_queryset(Contenido.objects.filter(id__in=stale_ids))
+        vigentes = base_qs.filter(file_deleted_at__isnull=True).order_by('-uploaded_at')
+
+    borrados_qs = base_qs.filter(file_deleted_at__isnull=False)
+
+    q = request.GET.get('q', '').strip()
+    if q:
+        borrados_qs = borrados_qs.filter(Q(title__icontains=q) | Q(isbn__icontains=q))
+
+    materia_id = request.GET.get('materia', '').strip()
+    if materia_id.isdigit():
+        borrados_qs = borrados_qs.filter(subjects__id=materia_id)
+
+    fecha_desde = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta = request.GET.get('fecha_hasta', '').strip()
+    if fecha_desde:
+        borrados_qs = borrados_qs.filter(uploaded_at__date__gte=fecha_desde)
+    if fecha_hasta:
+        borrados_qs = borrados_qs.filter(uploaded_at__date__lte=fecha_hasta)
+
+    borrados_qs = borrados_qs.order_by('-uploaded_at').distinct()
+
+    paginator = Paginator(borrados_qs, 25)
+    borrados_page = paginator.get_page(request.GET.get('page'))
+
+    materias = Subject.objects.filter(contenidos__uploaded_by=request.user).distinct().order_by('name')
+
+    return render(request, 'material/questions/mis_contenidos.html', {
+        'vigentes': vigentes,
+        'borrados_page': borrados_page,
+        'materias': materias,
+        'q': q,
+        'materia_id': materia_id,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+    })
 
 @login_required
 def delete_contenido(request):
     if request.method == 'POST':
+        from .cleanup import _delete_files_for_queryset
         contenido_ids = request.POST.getlist('contenido_ids')
         if not contenido_ids:
             messages.error(request, 'No se seleccionó ningún documento para borrar.', extra_tags='contenidos')
             return redirect('material:mis_contenidos')
-        contenidos = Contenido.objects.filter(id__in=contenido_ids, uploaded_by=request.user)
-        count = contenidos.count()
-        contenidos.delete()
+        contenidos = Contenido.objects.filter(
+            id__in=contenido_ids, uploaded_by=request.user, file_deleted_at__isnull=True
+        ).exclude(file='')
+        count = _delete_files_for_queryset(contenidos)
         if count == 1:
-            messages.success(request, 'El documento ha sido borrado correctamente.', extra_tags='contenidos')
+            messages.success(request, 'El archivo ha sido borrado correctamente. El documento y las preguntas que lo citan como fuente se conservan.', extra_tags='contenidos')
+        elif count > 1:
+            messages.success(request, f'Los archivos de {count} documentos han sido borrados correctamente. Los documentos y las preguntas que los citan como fuente se conservan.', extra_tags='contenidos')
         else:
-            messages.success(request, f'Los {count} documentos han sido borrados correctamente.', extra_tags='contenidos')
+            messages.info(request, 'Los documentos seleccionados ya no tenían archivo disponible.', extra_tags='contenidos')
     return redirect('material:mis_contenidos')
 
 @login_required
