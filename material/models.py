@@ -399,7 +399,7 @@ class Subtopic(models.Model):
 
 class Contenido(models.Model):
     title = models.CharField(max_length=255)
-    file = models.FileField(upload_to='contenidos/', blank=True, null=True)
+    file = models.FileField(upload_to='contenidos/', blank=True, null=True, max_length=255)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
     subjects = models.ManyToManyField(

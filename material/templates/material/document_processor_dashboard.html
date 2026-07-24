@@ -461,6 +461,14 @@
               <p class="mt-2 text-muted">Cargando documento...</p>
             </div>
 
+            <!-- Aviso de filtro por capítulo seleccionado -->
+            <div id="previewFilterBanner" class="alert alert-primary py-2 mb-3 d-none align-items-center justify-content-between">
+              <span><i class="fas fa-filter me-1"></i> <span id="previewFilterBannerText"></span></span>
+              <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="_previewShowAll()">
+                Ver todo el documento
+              </button>
+            </div>
+
             <!-- PDF viewer (PDF.js) -->
             <div id="pdfViewerContainer" style="display:none">
               <div class="alert alert-info py-2 mb-3 d-flex align-items-center gap-2">
@@ -2111,7 +2119,56 @@ window._previewState = {
   fileUrl: null,
   slides: [],
   sections: [],
+  allowedPages: null,     // Set de páginas/slides/secciones de los capítulos tildados, o null si no hay filtro
 };
+
+// Si el usuario ya tildó capítulos en el dashboard antes de abrir la vista
+// previa, devuelve el set de números de página que cubren esos capítulos
+// (para mostrar solo esas páginas y agilizar la carga). Si no hay ningún
+// capítulo tildado, devuelve null (se muestra el documento completo, como antes).
+function _getSelectedChapterPages() {
+  const checked = document.querySelectorAll('.chapter-checkbox:checked');
+  if (!checked.length || !window.currentDocumentData || !window.currentDocumentData.chapters) return null;
+  const pages = new Set();
+  checked.forEach(cb => {
+    const idx = parseInt(cb.value, 10);
+    const ch = window.currentDocumentData.chapters[idx];
+    if (ch && Array.isArray(ch.pages)) {
+      ch.pages.forEach(p => pages.add(p));
+    }
+  });
+  return pages.size ? pages : null;
+}
+
+function _previewFilterBanner(allowedPages, totalCount, unitLabel) {
+  const banner = document.getElementById('previewFilterBanner');
+  const text = document.getElementById('previewFilterBannerText');
+  if (allowedPages) {
+    text.textContent = `Mostrando solo ${allowedPages.size} de ${totalCount} ${unitLabel} (capítulos seleccionados).`;
+    banner.classList.remove('d-none');
+    banner.classList.add('d-flex');
+  } else {
+    banner.classList.add('d-none');
+    banner.classList.remove('d-flex');
+  }
+}
+
+// Vuelve a renderizar el documento completo, sin el filtro de capítulos.
+function _previewShowAll() {
+  const st = window._previewState;
+  st.allowedPages = null;
+  _previewFilterBanner(null);
+  _hideAllViewers();
+  if (st.fileType === 'pdf') {
+    _renderPdf(st.fileUrl, st.totalPages, null);
+  } else if (st.fileType === 'pptx') {
+    _renderPptx(st.slides, null);
+  } else if (st.fileType === 'docx') {
+    _renderDocxCards(st.sections, null);
+  } else if (st.fileType === 'txt') {
+    _renderTxt(st.sections, null);
+  }
+}
 
 // --- Carga lazy de PDF.js ---
 let _pdfJsLoaded = false;
@@ -2188,9 +2245,11 @@ async function openPagePreview() {
   st.fileUrl = meta.file_url || null;
   st.slides = meta.slides || [];
   st.sections = meta.sections || [];
+  st.allowedPages = _getSelectedChapterPages();
 
   document.getElementById('previewModalTitle').textContent =
     meta.filename + ' — ' + meta.total_pages + ' ' + _unitLabel(meta.file_type, meta.total_pages);
+  _previewFilterBanner(st.allowedPages, meta.total_pages, _unitLabel(meta.file_type, meta.total_pages));
 
   // También poblar la pestaña de capítulos
   _populateChaptersPane();
@@ -2198,16 +2257,16 @@ async function openPagePreview() {
   document.getElementById('previewLoadingIndicator').style.display = 'none';
 
   if (meta.file_type === 'pdf') {
-    _loadPdfJs(() => _renderPdf(meta.file_url, meta.total_pages));
+    _loadPdfJs(() => _renderPdf(meta.file_url, meta.total_pages, st.allowedPages));
   } else if (meta.file_type === 'pptx') {
-    _renderPptx(meta.slides);
+    _renderPptx(meta.slides, st.allowedPages);
   } else if (meta.file_type === 'docx') {
     // OPCIÓN D: tarjetas de páginas virtuales (sin docx-preview)
     // ROLLBACK: reemplazar la línea de abajo con:
     //   _loadDocxPreview(() => _renderDocx(meta.file_url, meta.sections));
-    _renderDocxCards(meta.sections);
+    _renderDocxCards(meta.sections, st.allowedPages);
   } else if (meta.file_type === 'txt') {
-    _renderTxt(meta.sections);
+    _renderTxt(meta.sections, st.allowedPages);
   }
 }
 
@@ -2226,7 +2285,7 @@ function _hideAllViewers() {
 // ──────────────────────────────────────────
 // PDF: renderizar página a <canvas> con PDF.js
 // ──────────────────────────────────────────
-async function _renderPdf(fileUrl, totalPages) {
+async function _renderPdf(fileUrl, totalPages, allowedPages) {
   const container = document.getElementById('pdfViewerContainer');
   const grid = document.getElementById('pdfPagesGrid');
   grid.innerHTML = '';
@@ -2245,6 +2304,7 @@ async function _renderPdf(fileUrl, totalPages) {
   const SCALE = 0.4;
 
   for (let pNum = 1; pNum <= totalPages; pNum++) {
+    if (allowedPages && !allowedPages.has(pNum)) continue;
     const page = await pdfDoc.getPage(pNum);
     const viewport = page.getViewport({ scale: SCALE });
     const canvas = document.createElement('canvas');
@@ -2275,7 +2335,7 @@ async function _renderPdf(fileUrl, totalPages) {
 // ──────────────────────────────────────────
 // PPTX: tarjetas de texto por slide
 // ──────────────────────────────────────────
-function _renderPptx(slides) {
+function _renderPptx(slides, allowedPages) {
   const container = document.getElementById('pptxViewerContainer');
   const grid = document.getElementById('pptxSlidesGrid');
   grid.innerHTML = '';
@@ -2283,6 +2343,7 @@ function _renderPptx(slides) {
 
   slides.forEach(slide => {
     const n = slide.slide_number;
+    if (allowedPages && !allowedPages.has(n)) return;
     const previewText = slide.text.length > 300 ? slide.text.slice(0, 300) + '…' : slide.text;
     const col = document.createElement('div');
     col.className = 'col-md-4 col-lg-3';
@@ -2304,7 +2365,7 @@ function _renderPptx(slides) {
 // DOCX Opción D: tarjetas de texto por sección (sin docx-preview)
 // ROLLBACK: borrar esta función y el bloque #docxFullTextBlocks en el HTML
 // ──────────────────────────────────────────
-function _renderDocxCards(sections) {
+function _renderDocxCards(sections, allowedPages) {
   const container = document.getElementById('docxCardsContainer');
   const grid = document.getElementById('docxCardsGrid');
   const fullText = document.getElementById('docxFullTextBlocks');
@@ -2314,6 +2375,7 @@ function _renderDocxCards(sections) {
 
   sections.forEach(sec => {
     const n = sec.section_number;
+    if (allowedPages && !allowedPages.has(n)) return;
     const previewText = sec.text.length > 300 ? sec.text.slice(0, 300) + '…' : sec.text;
 
     // ── Panel izquierdo: bloque de texto completo (resaltable + clickeable) ──
@@ -2471,7 +2533,7 @@ async function _renderDocx(fileUrl, sections) {
 // ──────────────────────────────────────────
 // TXT: bloques de líneas
 // ──────────────────────────────────────────
-function _renderTxt(sections) {
+function _renderTxt(sections, allowedPages) {
   const container = document.getElementById('txtViewerContainer');
   const grid = document.getElementById('txtBlocksGrid');
   grid.innerHTML = '';
@@ -2479,6 +2541,7 @@ function _renderTxt(sections) {
 
   sections.forEach(sec => {
     const n = sec.section_number;
+    if (allowedPages && !allowedPages.has(n)) return;
     const previewText = sec.text.length > 300 ? sec.text.slice(0, 300) + '…' : sec.text;
     const col = document.createElement('div');
     col.className = 'col-md-6';
