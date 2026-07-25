@@ -1,1 +1,1 @@
-web: gunicorn educaapp.wsgi --workers 2 --threads 2 --timeout 120
+web: gunicorn educaapp.wsgi --workers 1 --threads 4 --timeout 120
