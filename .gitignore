@@ -20,6 +20,9 @@ __pycache__/
 # Ignorar archivos de VSCode
 .vscode/
 
+# Ignorar estado local de Claude Code (incluye worktrees temporales)
+.claude/
+
 # Ignorar archivos de medios subidos por usuarios (si no quieres subirlos)
 # tal vez sirva no subir media, pero ahora lo comenté porque estoy con las 2 notebooks y 
 #media/

@@ -106,9 +106,9 @@ def _clone_exam_without_assigned_format(examen):
     for attr_name in ('subject', 'professor', 'created_by'):
         if hasattr(examen, attr_name):
             setattr(cloned, attr_name, getattr(examen, attr_name))
-    for relation_name in ('questions', 'topics', 'learning_outcomes'):
-        if hasattr(examen, relation_name):
-            setattr(cloned, relation_name, getattr(examen, relation_name))
+    # questions/topics/learning_outcomes son M2M: no se copian por asignación
+    # directa (Django lo prohíbe). Como el clon comparte pk y DB con el
+    # original, sus managers M2M ya resuelven las mismas filas al consultarse.
     return cloned
 
 
