@@ -114,6 +114,7 @@
         .header-logo-cell {
             width: 64px;
             text-align: center;
+            vertical-align: middle;
         }
         .header-center-cell {
             text-align: center;
@@ -125,6 +126,7 @@
         .header-right-cell {
             width: 70px;
             text-align: center;
+            vertical-align: middle;
             font-size: 11px;
         }
         .header-meta-cell {
@@ -133,18 +135,20 @@
         .header-meta-row {
             display: flex;
             justify-content: space-between;
+            flex-wrap: wrap;
             gap: 12px;
             margin: 1px 0;
         }
         .header-meta-item {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
         }
         .institution-logo {
-            max-height: 40px;
+            display: block;
+            max-height: 62px;
             max-width: 58px;
-            margin: 0;
+            width: auto;
+            height: auto;
+            margin: 0 auto;
         }
         .section {
             margin-bottom: 9px;
@@ -180,13 +184,6 @@
             letter-spacing: 1px;
             font-weight: 800;
             color: var(--exam-title-color);
-        }
-        .empty-line {
-            display: inline-block;
-            min-width: 100%;
-            border-bottom: 1px solid #777;
-            line-height: 1;
-            transform: translateY(-3px);
         }
         .outcomes-list, .topics-list {
             list-style: none;
@@ -359,16 +356,15 @@
             {% block header %}
             <table class="header-table">
                 <tr>
-                    <td class="header-logo-cell">
+                    <td class="header-logo-cell" rowspan="2">
                         {% if institution.logo_b64|default:'' or institution.logo_url|default:'' or institution.logo %}
                         <img src="{% if institution.logo_b64|default:'' %}{{ institution.logo_b64 }}{% elif institution.logo_url|default:'' %}{{ institution.logo_url }}{% else %}{{ institution.logo.url }}{% endif %}" class="institution-logo" alt="Logo de {{ institution.name }}">
                         {% endif %}
                     </td>
                     <td class="header-center-cell">{{ institution.name|default:"INSTITUCION"|upper }}</td>
-                    <td class="header-right-cell">Año<br>{{ exam.year|default:current_date|slice:":4"|default:"-" }}</td>
+                    <td class="header-right-cell" rowspan="2">Año<br>{{ exam.year|default:"" }}</td>
                 </tr>
                 <tr>
-                    <td class="header-logo-cell"></td>
                     <td class="header-meta-cell">
                         <div class="header-meta-row">
                             <span class="header-meta-item"><strong>Carrera:</strong> {{ career.name|default:"-" }}</span>
@@ -379,7 +375,6 @@
                             <span class="header-meta-item"><strong>{% if exam_type and exam_type != '-' %}{{ exam_type }}{% else %}Examen{% endif %}</strong></span>
                         </div>
                     </td>
-                    <td class="header-right-cell"></td>
                 </tr>
             </table>
             {% endblock %}
@@ -388,16 +383,14 @@
         <table class="exam-info">
             <tr>
                 <td class="label">Nombre</td>
-                <td class="value"><span class="empty-line">&nbsp;</span></td>
+                <td class="value">&nbsp;</td>
                 <td class="label">Apellido</td>
-                <td class="value"><span class="empty-line">&nbsp;</span></td>
+                <td class="value">&nbsp;</td>
             </tr>
             <tr>
                 <td class="label">Fecha</td>
                 <td class="value">{{ current_date|default:" " }}</td>
-                <td class="exam-theme" colspan="2">
-                    {% if exam_type and exam_type != '-' %}{{ exam_type|upper }}{% else %}EXAMEN{% endif %}
-                </td>
+                <td class="exam-theme" colspan="2"></td>
             </tr>
         </table>
 

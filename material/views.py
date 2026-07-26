@@ -1154,9 +1154,9 @@ def save_exam_from_session(request):
     valid_shifts = ['mañana', 'tarde', 'noche']
     shift = shift_raw if shift_raw in valid_shifts else None
 
-    # exam_type — el radio del form manda valores como '1er_parcial'/'recuperatorio'
-    # que superan el max_length=10 de la columna. SQLite no lo valida, Postgres si
-    # (StringDataRightTruncation), asi que truncamos al limite real del campo.
+    # exam_type: se recorta al max_length real del campo como salvaguarda
+    # (nunca deberia disparar con los valores actuales de EXAM_TYPE_CHOICES,
+    # ver material/models.py:797 — max_length=20).
     exam_type = exam_data.get('tipo_examen') or None
     if exam_type:
         exam_type = exam_type[:Exam._meta.get_field('exam_type').max_length]
@@ -1623,6 +1623,7 @@ def preview_exam_template(request):
             'modalidad_resolucion': [],  # No disponible en plantillas
             'alumno': '',  # Campo vacío para plantillas
             'fecha': '',  # Campo vacío para plantillas
+            'year': '',  # Las plantillas no tienen año: se muestra en blanco
             'curso': '',  # No disponible en plantillas
             'turno': '',  # No disponible en plantillas
             'sede': ''   # No disponible en plantillas
@@ -1641,7 +1642,7 @@ def preview_exam_template(request):
             'topics_to_evaluate': request.POST.get('topics_to_evaluate', ''),
             'notes_and_recommendations': request.POST.get('notes_and_recommendations', ''),
             'learning_outcomes': outcomes_to_display,
-            'current_date': timezone.now().strftime("%d/%m/%Y"),
+            'current_date': '',  # Las plantillas no tienen fecha: se muestra en blanco
             'print_style': get_print_style_context(
                 resolve_print_format_for_context(user=request.user, institution=institution)
             ),
@@ -1790,7 +1791,8 @@ def view_exam_template(request, template_id):
         'turno': '',
         'sede': '',
         'alumno': '',
-        'fecha': timezone.now().strftime("%d/%m/%Y"),
+        'fecha': '',  # Las plantillas no tienen fecha: se muestra en blanco
+        'year': '',  # Las plantillas no tienen año: se muestra en blanco
         'modalidad_resolucion': '',
     }
 
@@ -1807,7 +1809,7 @@ def view_exam_template(request, template_id):
         'topics_to_evaluate': template.topics_to_evaluate,
         'notes_and_recommendations': template.notes_and_recommendations,
         'learning_outcomes': outcomes_to_display,
-        'current_date': timezone.now().strftime("%d/%m/%Y"),
+        'current_date': '',  # Las plantillas no tienen fecha: se muestra en blanco
         'is_preview': False,
         'print_style': get_print_style_context(
             resolve_print_format_for_context(user=request.user, institution=template.institution)

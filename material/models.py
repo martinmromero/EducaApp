@@ -793,12 +793,12 @@ class Exam(models.Model):
         blank=True,  
         verbose_name="Profesor"  
     )  
-    year = models.IntegerField(verbose_name="Año", null=True, blank=True)  
-    exam_type = models.CharField(  
-        max_length=10,  
-        choices=EXAM_TYPE_CHOICES,  
-        verbose_name="Tipo de examen",  
-        blank=True,  
+    year = models.IntegerField(verbose_name="Año", null=True, blank=True)
+    exam_type = models.CharField(
+        max_length=40,
+        choices=EXAM_TYPE_CHOICES,
+        verbose_name="Tipo de examen",
+        blank=True,
         null=True,  
     )  
     partial_number = models.CharField(  

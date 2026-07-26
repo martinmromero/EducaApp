@@ -436,7 +436,7 @@ def _append_student_data_table(doc, block, base_size, title_rgb, text_rgb, font_
     merged = table.rows[1].cells[2].merge(table.rows[1].cells[3])
     _set_cell_text(
         merged,
-        block.get('tipo_examen_mayusculas') or (block.get('tipo_examen') or 'EXAMEN').upper(),
+        '',
         font_name=font_name,
         size_pt=base_size,
         color_rgb=title_rgb,

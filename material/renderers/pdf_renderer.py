@@ -292,15 +292,13 @@ def _build_letterhead_table(block, style_text, style_h2):
 
 
 def _build_student_data_table(block, style_text, style_h2):
-    exam_type = block.get('tipo_examen_mayusculas') or (block.get('tipo_examen') or 'EXAMEN').upper()
     fecha = block.get('fecha') or ''
     label_style = ParagraphStyle('StudentLabel', parent=style_text, alignment=0)
     value_style = ParagraphStyle('StudentValue', parent=style_text, alignment=0)
-    exam_style = ParagraphStyle('StudentExamType', parent=style_h2, alignment=1)
 
     data = [
         [Paragraph('<b>Nombre</b>', label_style), Paragraph('', value_style), Paragraph('<b>Apellido</b>', label_style), Paragraph('', value_style)],
-        [Paragraph('<b>Fecha</b>', label_style), Paragraph(fecha, value_style), Paragraph(exam_type, exam_style), ''],
+        [Paragraph('<b>Fecha</b>', label_style), Paragraph(fecha, value_style), '', ''],
     ]
     table = Table(data, colWidths=[2.4 * cm, None, 2.4 * cm, None], hAlign='LEFT')
     table.setStyle(TableStyle([
