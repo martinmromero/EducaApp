@@ -2,10 +2,11 @@
 {% comment %}
 Panel de filtros para mobile (offcanvas), con los mismos filtros que los dropdowns de columna
 pero agrupados en un acordeón único, para no depender de menús anclados a headers de tabla
-que son difíciles de tocar en pantallas chicas con scroll horizontal.
-Variables esperadas: columns (lista de {field,label}), filter_options, selected_filters, filter_querystring.
+que son difíciles de tocar en pantallas chicas con scroll horizontal. Componente generico,
+reutilizable en cualquier listado que use material/column_filters.py.
+Variables esperadas: columns (lista de {field,label}), filter_options, selected_filters.
 {% endcomment %}
-<div class="offcanvas offcanvas-bottom exam-template-filters-offcanvas" tabindex="-1" id="templateFiltersOffcanvas" aria-labelledby="templateFiltersOffcanvasLabel">
+<div class="offcanvas offcanvas-bottom column-filters-offcanvas" tabindex="-1" id="templateFiltersOffcanvas" aria-labelledby="templateFiltersOffcanvasLabel">
     <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="templateFiltersOffcanvasLabel">Filtros</h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>

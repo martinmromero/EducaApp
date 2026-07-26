@@ -1,6 +1,17 @@
 {% comment %}
-CSS/JS compartidos por los filtros de columna (dropdown desktop + offcanvas mobile)
-de la tabla de plantillas. Incluir una sola vez por página.
+CSS/JS compartidos por los filtros de columna (dropdown desktop + offcanvas mobile).
+Componente generico, reutilizable en cualquier listado que use
+material/column_filters.py. Incluir una sola vez por página.
+
+Convenciones que debe respetar la página que lo incluye:
+- Un <form method="get" id="templateFiltersForm"></form> vacío en algún lugar
+  (los checkboxes se asocian vía atributo form="templateFiltersForm").
+- La <table> del listado debe tener la clase "column-filter-table" (y
+  "filters-visible" ya puesta si active_filter_count es > 0 en el render
+  inicial) para que el botón "Filtros" de desktop pueda mostrar/ocultar los
+  íconos por columna.
+- El botón "Filtros" de mobile debe abrir el offcanvas con
+  data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas".
 {% endcomment %}
 <style>
     .column-filter-toggle {
@@ -46,7 +57,7 @@ de la tabla de plantillas. Incluir una sola vez por página.
         display: none;
     }
     @media (min-width: 768px) {
-        .exam-template-table.filters-visible .column-filter-dropdown {
+        .column-filter-table.filters-visible .column-filter-dropdown {
             display: inline-block;
         }
         .mobile-filters-trigger {
@@ -58,21 +69,21 @@ de la tabla de plantillas. Incluir una sola vez por página.
             display: none;
         }
     }
-    .offcanvas.exam-template-filters-offcanvas {
+    .offcanvas.column-filters-offcanvas {
         height: 94vh !important;
         height: 94dvh !important;
     }
-    .exam-template-filters-offcanvas .offcanvas-body {
+    .column-filters-offcanvas .offcanvas-body {
         padding-bottom: 0;
     }
     /* Los headers colapsados del acordeon ocupaban mucho lugar y dejaban ver
        una sola columna a la vez; se reduce el padding para que entren mas
        filtros visibles sin scrollear. */
-    .exam-template-filters-offcanvas .accordion-button {
+    .column-filters-offcanvas .accordion-button {
         padding-top: .65rem;
         padding-bottom: .65rem;
     }
-    .exam-template-filters-offcanvas .accordion-body {
+    .column-filters-offcanvas .accordion-body {
         padding-top: .5rem;
         padding-bottom: .5rem;
     }
@@ -93,7 +104,7 @@ de la tabla de plantillas. Incluir una sola vez por página.
     }
 
     function toggleDesktopColumnFilters(btn) {
-        const table = document.querySelector('.exam-template-table');
+        const table = document.querySelector('.column-filter-table');
         if (!table) return;
         const visible = table.classList.toggle('filters-visible');
         btn.classList.toggle('active', visible);

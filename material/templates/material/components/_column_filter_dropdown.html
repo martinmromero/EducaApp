@@ -1,8 +1,10 @@
 {% comment %}
-Dropdown de filtro tipo Excel para una columna de la tabla de plantillas.
+Dropdown de filtro tipo Excel para una columna de una tabla (componente generico,
+reutilizable en cualquier listado que use material/column_filters.py).
 Variables esperadas: field, label, options (lista de {value,label}), selected (set de valores activos),
 prefix (para ids únicos cuando el partial se incluye más de una vez en la misma página).
-Los checkboxes usan form="templateFiltersForm" para asociarse al form GET externo sin anidar forms.
+Los checkboxes usan form="templateFiltersForm" para asociarse al form GET externo sin anidar forms;
+la página que lo incluye debe definir <form method="get" id="templateFiltersForm"></form> una vez.
 {% endcomment %}
 <div class="dropdown column-filter-dropdown">
     <button type="button"

@@ -15,22 +15,44 @@
         </div>
     </div>
 
+    {% include 'material/components/_column_filters_assets.html' %}
+
+    <form method="get" action="{% url 'material:mis_examenes' %}" id="templateFiltersForm"></form>
+
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="active-filters-summary small text-muted">
+            {% if active_filter_count %}
+                {{ active_filter_count }} filtro{{ active_filter_count|pluralize }} activo{{ active_filter_count|pluralize }}
+                <span class="d-md-none">&middot; <a href="{% url 'material:mis_examenes' %}">Limpiar filtros</a></span>
+            {% endif %}
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm mobile-filters-trigger" data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
+            <i class="fas fa-filter"></i> Filtros
+        </button>
+    </div>
+
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
             <h6 class="m-0 font-weight-bold text-primary">Exámenes</h6>
-            <a href="{% url 'material:create_exam' %}" class="btn btn-primary btn-sm">
-                <i class="fas fa-plus"></i> Crear Examen
-            </a>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm desktop-filters-trigger{% if active_filter_count %} active{% endif %}"
+                        onclick="{% if active_filter_count %}clearAllColumnFilters(){% else %}toggleDesktopColumnFilters(this){% endif %}">
+                    <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
+                </button>
+                <a href="{% url 'material:create_exam' %}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus"></i> Crear Examen
+                </a>
+            </div>
         </div>
         <div class="card-body">
             {% if items %}
             <div class="table-responsive">
-                <table class="table table-striped">
+                <table class="table table-striped column-filter-table{% if active_filter_count %} filters-visible{% endif %}">
                     <thead>
                         <tr>
                             <th>Nombre</th>
-                            <th>Materia</th>
-                            <th>Tipo</th>
+                            <th class="filterable-col">Materia {% include 'material/components/_column_filter_dropdown.html' with field='subject' label='Materia' options=filter_options.subject selected=selected_filters.subject prefix='d' %}</th>
+                            <th class="filterable-col">Tipo {% include 'material/components/_column_filter_dropdown.html' with field='kind' label='Tipo' options=filter_options.kind selected=selected_filters.kind prefix='d' %}</th>
                             <th>Creado</th>
                             <th>Acciones</th>
                         </tr>
@@ -88,10 +110,14 @@
                     </tbody>
                 </table>
             </div>
+            {% elif active_filter_count %}
+            <p class="text-muted mb-0">Ningún examen coincide con los filtros aplicados.</p>
             {% else %}
             <p class="text-muted mb-0">Aún no tenés exámenes creados.</p>
             {% endif %}
         </div>
     </div>
+
+    {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns %}
 </div>
 {% endblock %}

@@ -4,6 +4,14 @@ from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.db.models import Q
+from .column_filters import (
+    ColumnFilterField,
+    apply_column_filters,
+    get_active_filter_count,
+    get_filter_options,
+    get_filter_querystring,
+    get_selected_filters,
+)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -363,7 +371,7 @@ from .print_format_utils import (
 from .exam_labels import get_exam_mode_label, get_exam_type_label
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.utils import OperationalError, ProgrammingError, DatabaseError
-from django.db.models import Prefetch, F, Value, CharField
+from django.db.models import Prefetch, F, Value, CharField, Case, When, Exists, OuterRef
 from django.db.models.functions import Concat
 from .ia_processor import extract_text_from_file, generate_questions_from_text, extract_book_metadata
 from django.utils import timezone 
@@ -1533,52 +1541,6 @@ def create_exam_template(request):
     )
 
 
-@login_required
-def exam_templates_tabs(request):
-    from .models import ExamTemplate, InstitutionV2, LearningOutcome, Subject
-    from django.core.paginator import Paginator
-
-    user_institutions = InstitutionV2.objects.filter(
-        userinstitution__user=request.user,
-        is_active=True
-    )
-    subjects = Subject.objects.filter(
-        subject_institutions__institution__in=user_institutions
-    ).distinct()
-
-    create_form = ExamTemplateForm(
-        initial={'resolution_time_number': 60, 'resolution_time_unit': 'minutes'},
-        user=request.user
-    )
-
-    base_templates = ExamTemplate.objects.filter(
-        created_by=request.user
-    ).select_related(
-        'institution', 'faculty', 'career', 'subject', 'professor'
-    ).prefetch_related('learning_outcomes')
-
-    selected_filters = _exam_template_selected_filters(request)
-    filter_options = _exam_template_filter_options(base_templates, selected_filters)
-    templates = _apply_exam_template_filters(request, base_templates).order_by('-created_at')
-
-    paginator = Paginator(templates, 25)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    return render(request, 'material/exams/exam_templates_tabs.html', {
-        'create_form': create_form,
-        'create_subjects': subjects,
-        'create_learning_outcomes': LearningOutcome.objects.filter(subject__in=subjects).select_related('subject'),
-        'create_edit_mode': False,
-        'create_template': None,
-        'list_exam_templates': page_obj,
-        'filter_options': filter_options,
-        'selected_filters': selected_filters,
-        'active_filter_count': _exam_template_active_filter_count(selected_filters),
-        'filter_querystring': _exam_template_filter_querystring(request),
-        'filter_columns': EXAM_TEMPLATE_FILTER_COLUMNS,
-    })
-
 @require_POST
 @login_required
 def preview_exam_template(request):
@@ -1889,122 +1851,19 @@ def save_exam_template(request):
         'error': 'Método no permitido'
     }, status=405)
 
-EXAM_TEMPLATE_FILTER_FIELDS = ('institution', 'faculty', 'career', 'subject', 'professor', 'year', 'exam_type')
-
-EXAM_TEMPLATE_FILTER_LOOKUPS = {
-    'institution': 'institution_id__in',
-    'faculty': 'faculty_id__in',
-    'career': 'career_id__in',
-    'subject': 'subject_id__in',
-    'professor': 'professor_id__in',
-    'year': 'year__in',
-    'exam_type': 'exam_type__in',
-}
-
-
-def _exam_template_filter_options(base_qs, selected_filters):
-    """Calcula las opciones de filtro (valores distintos) para cada columna, en cascada:
-    las opciones de una columna solo consideran las plantillas que ya cumplen los
-    filtros ACTIVOS EN LAS DEMAS columnas (nunca el propio, para no autoexcluirse)."""
-
-    def _scoped(exclude_field):
-        qs = base_qs
-        for field, lookup in EXAM_TEMPLATE_FILTER_LOOKUPS.items():
-            if field == exclude_field:
-                continue
-            values = selected_filters.get(field)
-            if values:
-                qs = qs.filter(**{lookup: list(values)})
-        return qs
-
-    def _label(name, fallback):
-        return name.strip() if name and name.strip() else fallback
-
-    institutions = _scoped('institution').exclude(institution__isnull=True).values(
-        'institution_id', 'institution__name'
-    ).distinct().order_by('institution__name')
-    faculties = _scoped('faculty').exclude(faculty__isnull=True).values(
-        'faculty_id', 'faculty__name'
-    ).distinct().order_by('faculty__name')
-    careers = _scoped('career').exclude(career__isnull=True).values(
-        'career_id', 'career__name'
-    ).distinct().order_by('career__name')
-    subjects = _scoped('subject').exclude(subject__isnull=True).values(
-        'subject_id', 'subject__name'
-    ).distinct().order_by('subject__name')
-    professors = _scoped('professor').exclude(professor__isnull=True).values(
-        'professor_id', 'professor__first_name', 'professor__last_name'
-    ).distinct().order_by('professor__last_name', 'professor__first_name')
-    years = _scoped('year').values_list('year', flat=True).distinct().order_by('-year')
-    exam_types = _scoped('exam_type').exclude(exam_type__isnull=True).exclude(exam_type='').values_list(
-        'exam_type', flat=True
-    ).distinct()
-    exam_type_labels = dict(ExamTemplate.EXAM_TYPE_CHOICES)
-
-    return {
-        'institution': [
-            {'value': str(i['institution_id']), 'label': _label(i['institution__name'], f"Institución #{i['institution_id']}")}
-            for i in institutions
-        ],
-        'faculty': [
-            {'value': str(f['faculty_id']), 'label': _label(f['faculty__name'], f"Facultad #{f['faculty_id']}")}
-            for f in faculties
-        ],
-        'career': [
-            {'value': str(c['career_id']), 'label': _label(c['career__name'], f"Carrera #{c['career_id']}")}
-            for c in careers
-        ],
-        'subject': [
-            {'value': str(s['subject_id']), 'label': _label(s['subject__name'], f"Materia #{s['subject_id']}")}
-            for s in subjects
-        ],
-        'professor': [
-            {
-                'value': str(p['professor_id']),
-                'label': f"{p['professor__first_name']} {p['professor__last_name']}".strip() or f"Profesor #{p['professor_id']}",
-            }
-            for p in professors
-        ],
-        'year': [{'value': str(y), 'label': str(y)} for y in years],
-        'exam_type': [
-            {'value': et, 'label': exam_type_labels.get(et, et)} for et in exam_types
-        ],
-    }
-
-
-def _apply_exam_template_filters(request, qs):
-    """Aplica los filtros por columna (multi-selección) recibidos por querystring."""
-    for field, lookup in EXAM_TEMPLATE_FILTER_LOOKUPS.items():
-        values = request.GET.getlist(field)
-        if values:
-            qs = qs.filter(**{lookup: values})
-    return qs
-
-
-def _exam_template_selected_filters(request):
-    return {field: set(request.GET.getlist(field)) for field in EXAM_TEMPLATE_FILTER_FIELDS}
-
-
-def _exam_template_active_filter_count(selected_filters):
-    return sum(len(values) for values in selected_filters.values())
-
-
-def _exam_template_filter_querystring(request):
-    """Querystring con los filtros activos, sin 'page', para usarlo en los links de paginación."""
-    params = request.GET.copy()
-    params.pop('page', None)
-    return params.urlencode()
-
-
-EXAM_TEMPLATE_FILTER_COLUMNS = [
-    {'field': 'institution', 'label': 'Institución'},
-    {'field': 'faculty', 'label': 'Facultad'},
-    {'field': 'career', 'label': 'Carrera'},
-    {'field': 'subject', 'label': 'Materia'},
-    {'field': 'professor', 'label': 'Profesor'},
-    {'field': 'year', 'label': 'Año'},
-    {'field': 'exam_type', 'label': 'Tipo'},
+# Definicion de columnas filtrables de las plantillas de examen, usando el motor
+# generico de material/column_filters.py (tambien usado por "Mis examenes").
+EXAM_TEMPLATE_FILTER_FIELDS = [
+    ColumnFilterField('institution', 'Institución', label_field='institution__name'),
+    ColumnFilterField('faculty', 'Facultad', label_field='faculty__name'),
+    ColumnFilterField('career', 'Carrera', label_field='career__name'),
+    ColumnFilterField('subject', 'Materia', label_field='subject__name'),
+    ColumnFilterField('professor', 'Profesor', label_fields=['professor__first_name', 'professor__last_name']),
+    ColumnFilterField('year', 'Año'),
+    ColumnFilterField('exam_type', 'Tipo', choices=ExamTemplate.EXAM_TYPE_CHOICES),
 ]
+
+EXAM_TEMPLATE_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in EXAM_TEMPLATE_FILTER_FIELDS]
 
 
 @login_required
@@ -2022,9 +1881,9 @@ def list_exam_templates(request):
         'learning_outcomes'
     )
 
-    selected_filters = _exam_template_selected_filters(request)
-    filter_options = _exam_template_filter_options(base_templates, selected_filters)
-    templates = _apply_exam_template_filters(request, base_templates).order_by('-created_at')
+    selected_filters = get_selected_filters(request, EXAM_TEMPLATE_FILTER_FIELDS)
+    filter_options = get_filter_options(base_templates, EXAM_TEMPLATE_FILTER_FIELDS, selected_filters)
+    templates = apply_column_filters(request, base_templates, EXAM_TEMPLATE_FILTER_FIELDS).order_by('-created_at')
 
     # Paginación
     paginator = Paginator(templates, 25)
@@ -2035,8 +1894,8 @@ def list_exam_templates(request):
         'exam_templates': page_obj,
         'filter_options': filter_options,
         'selected_filters': selected_filters,
-        'active_filter_count': _exam_template_active_filter_count(selected_filters),
-        'filter_querystring': _exam_template_filter_querystring(request),
+        'active_filter_count': get_active_filter_count(selected_filters),
+        'filter_querystring': get_filter_querystring(request),
         'filter_columns': [c for c in EXAM_TEMPLATE_FILTER_COLUMNS if c['field'] != 'exam_type'],
     }
 
@@ -2117,6 +1976,23 @@ def mis_datos(request):
         'is_admin': is_admin(request.user)
     })
 
+# Columnas filtrables de "Mis examenes". 'kind' (Individual/Lote) no es un
+# campo real de DB -- es el discriminador entre Exam y ExamVersionBatch que
+# se combinan en este listado -- por eso no pasa por el motor generico de
+# material/column_filters.py y se resuelve a mano en la vista (ver mas abajo).
+MIS_EXAMENES_FILTER_FIELDS = [
+    ColumnFilterField('subject', 'Materia', label_field='subject__name'),
+]
+MIS_EXAMENES_KIND_OPTIONS = [
+    {'value': 'exam', 'label': 'Individual'},
+    {'value': 'batch', 'label': 'Lote'},
+]
+MIS_EXAMENES_FILTER_COLUMNS = [
+    {'field': 'subject', 'label': 'Materia'},
+    {'field': 'kind', 'label': 'Tipo'},
+]
+
+
 @login_required
 def mis_examenes(request):
     has_exam_version_fields, has_batch_table = _get_exam_version_schema_state()
@@ -2130,20 +2006,38 @@ def mis_examenes(request):
             # Evita SELECT de columnas nuevas cuando Neon no corrio las migraciones.
             examenes_qs = examenes_qs.defer('version_batch', 'version_number')
 
-        examenes = list(examenes_qs)
-
         if has_batch_table and has_exam_version_fields:
-            batches = list(
-                ExamVersionBatch.objects.filter(created_by=request.user).select_related('subject')
-            )
+            batches_qs = ExamVersionBatch.objects.filter(created_by=request.user).select_related('subject')
         else:
-            batches = []
+            batches_qs = ExamVersionBatch.objects.none()
     except (OperationalError, ProgrammingError, DatabaseError):
         logger.warning('Esquema de examenes desfasado en produccion; degradando mis_examenes sin lotes.')
-        examenes = list(
-            Exam.objects.filter(created_by=request.user).select_related('subject').defer('version_batch', 'version_number')
-        )
-        batches = []
+        examenes_qs = Exam.objects.filter(created_by=request.user).select_related('subject').defer('version_batch', 'version_number')
+        batches_qs = ExamVersionBatch.objects.none()
+
+    selected_filters = get_selected_filters(request, MIS_EXAMENES_FILTER_FIELDS)
+    selected_kind = set(request.GET.getlist('kind'))
+    selected_filters['kind'] = selected_kind
+
+    include_exams = not selected_kind or 'exam' in selected_kind
+    include_batches = not selected_kind or 'batch' in selected_kind
+
+    option_querysets = []
+    if include_exams:
+        option_querysets.append(examenes_qs)
+    if include_batches:
+        option_querysets.append(batches_qs)
+    if not option_querysets:
+        option_querysets = [examenes_qs.none()]
+
+    filter_options = get_filter_options(option_querysets, MIS_EXAMENES_FILTER_FIELDS, selected_filters)
+    filter_options['kind'] = MIS_EXAMENES_KIND_OPTIONS
+
+    examenes_qs = apply_column_filters(request, examenes_qs, MIS_EXAMENES_FILTER_FIELDS) if include_exams else examenes_qs.none()
+    batches_qs = apply_column_filters(request, batches_qs, MIS_EXAMENES_FILTER_FIELDS) if include_batches else batches_qs.none()
+
+    examenes = list(examenes_qs)
+    batches = list(batches_qs)
 
     items = [
         {
@@ -2165,6 +2059,11 @@ def mis_examenes(request):
     return render(request, 'material/exams/mis_examenes_new.html', {
         'items': items,
         'total_count': len(examenes) + len(batches),
+        'filter_options': filter_options,
+        'selected_filters': selected_filters,
+        'active_filter_count': get_active_filter_count(selected_filters),
+        'filter_querystring': get_filter_querystring(request),
+        'filter_columns': MIS_EXAMENES_FILTER_COLUMNS,
     })
 
 
@@ -3357,6 +3256,19 @@ def delete_institution(request, pk):
 
 # material/views.py - Agregar al final del archivo
 
+# "Logo"/"Sedes"/"Facultades" no son campos reales: se anotan como 'yes'/'no'
+# en la queryset (ver institution_v2_list) para poder ofrecerlos como filtros
+# categoricos tipo Excel via el motor generico de material/column_filters.py.
+# Nombre (busqueda libre) y Favoritos (toggle) se manejan aparte porque no son
+# listas de valores discretos.
+INSTITUTION_V2_FILTER_FIELDS = [
+    ColumnFilterField('has_logo', 'Logo', choices=[('yes', 'Con logo'), ('no', 'Sin logo')]),
+    ColumnFilterField('has_campus', 'Sedes', choices=[('yes', 'Con sedes'), ('no', 'Sin sedes')]),
+    ColumnFilterField('has_faculty', 'Facultades', choices=[('yes', 'Con facultades'), ('no', 'Sin facultades')]),
+]
+INSTITUTION_V2_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in INSTITUTION_V2_FILTER_FIELDS]
+
+
 @login_required
 def institution_v2_list(request):
     name_query = request.GET.get('name', '')
@@ -3394,6 +3306,24 @@ def institution_v2_list(request):
                 userinstitution__is_favorite=True
             )
 
+        institutions = institutions.annotate(
+            has_campus_flag=Exists(CampusV2.objects.filter(institution=OuterRef('pk'))),
+            has_faculty_flag=Exists(FacultyV2.objects.filter(institution=OuterRef('pk'))),
+        ).annotate(
+            has_logo=Case(
+                When(Q(logo_b64__isnull=False) & ~Q(logo_b64=''), then=Value('yes')),
+                When(Q(logo__isnull=False) & ~Q(logo=''), then=Value('yes')),
+                default=Value('no'),
+                output_field=CharField(),
+            ),
+            has_campus=Case(When(has_campus_flag=True, then=Value('yes')), default=Value('no'), output_field=CharField()),
+            has_faculty=Case(When(has_faculty_flag=True, then=Value('yes')), default=Value('no'), output_field=CharField()),
+        )
+
+        selected_filters = get_selected_filters(request, INSTITUTION_V2_FILTER_FIELDS)
+        filter_options = get_filter_options(institutions, INSTITUTION_V2_FILTER_FIELDS, selected_filters)
+        institutions = apply_column_filters(request, institutions, INSTITUTION_V2_FILTER_FIELDS)
+
         institutions = institutions.prefetch_related(
             'campusv2_set',
             'facultyv2_set'
@@ -3409,17 +3339,31 @@ def institution_v2_list(request):
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
+        active_filter_count = (
+            get_active_filter_count(selected_filters)
+            + (1 if name_query else 0)
+            + (1 if favorite_only else 0)
+        )
+
     except DatabaseError as e:
         logger.error(f"Error DB en institution_v2_list: {str(e)}", exc_info=True)
         messages.error(request, 'Se detecto un problema temporal de base de datos en Instituciones. Reintenta en unos minutos.')
         page_obj = Paginator([], 10).get_page(1)
         favorite_count = 0
+        selected_filters = get_selected_filters(request, INSTITUTION_V2_FILTER_FIELDS)
+        filter_options = {f.name: [] for f in INSTITUTION_V2_FILTER_FIELDS}
+        active_filter_count = 0
 
     return render(request, 'material/institutions_v2/list.html', {
         'institutions': page_obj,
         'name_query': name_query,
         'favorite_only': favorite_only,
         'favorite_count': favorite_count,
+        'filter_options': filter_options,
+        'selected_filters': selected_filters,
+        'active_filter_count': active_filter_count,
+        'filter_querystring': get_filter_querystring(request),
+        'filter_columns': INSTITUTION_V2_FILTER_COLUMNS,
     })
 
 @login_required

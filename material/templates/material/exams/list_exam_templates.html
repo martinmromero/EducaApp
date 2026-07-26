@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    {% include 'material/exams/_exam_template_filters_assets.html' %}
+    {% include 'material/components/_column_filters_assets.html' %}
 
     <form method="get" action="{% url 'material:list_exam_templates' %}" id="templateFiltersForm"></form>
 
@@ -56,16 +56,16 @@
             <div class="card-body">
                 {% if exam_templates %}
                 <div class="table-responsive">
-                    <table class="table table-striped exam-template-table{% if active_filter_count %} filters-visible{% endif %}">
+                    <table class="table table-striped column-filter-table{% if active_filter_count %} filters-visible{% endif %}">
                         <thead>
                             <tr>
                                 <th class="bulk-select-col d-none" style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
-                                <th class="filterable-col">Institución {% include 'material/exams/_column_filter_dropdown.html' with field='institution' label='Institución' options=filter_options.institution selected=selected_filters.institution prefix='d' %}</th>
-                                <th class="filterable-col">Facultad {% include 'material/exams/_column_filter_dropdown.html' with field='faculty' label='Facultad' options=filter_options.faculty selected=selected_filters.faculty prefix='d' %}</th>
-                                <th class="filterable-col">Carrera {% include 'material/exams/_column_filter_dropdown.html' with field='career' label='Carrera' options=filter_options.career selected=selected_filters.career prefix='d' %}</th>
-                                <th class="filterable-col">Materia {% include 'material/exams/_column_filter_dropdown.html' with field='subject' label='Materia' options=filter_options.subject selected=selected_filters.subject prefix='d' %}</th>
-                                <th class="filterable-col">Profesor {% include 'material/exams/_column_filter_dropdown.html' with field='professor' label='Profesor' options=filter_options.professor selected=selected_filters.professor prefix='d' %}</th>
-                                <th class="filterable-col">Año {% include 'material/exams/_column_filter_dropdown.html' with field='year' label='Año' options=filter_options.year selected=selected_filters.year prefix='d' %}</th>
+                                <th class="filterable-col">Institución {% include 'material/components/_column_filter_dropdown.html' with field='institution' label='Institución' options=filter_options.institution selected=selected_filters.institution prefix='d' %}</th>
+                                <th class="filterable-col">Facultad {% include 'material/components/_column_filter_dropdown.html' with field='faculty' label='Facultad' options=filter_options.faculty selected=selected_filters.faculty prefix='d' %}</th>
+                                <th class="filterable-col">Carrera {% include 'material/components/_column_filter_dropdown.html' with field='career' label='Carrera' options=filter_options.career selected=selected_filters.career prefix='d' %}</th>
+                                <th class="filterable-col">Materia {% include 'material/components/_column_filter_dropdown.html' with field='subject' label='Materia' options=filter_options.subject selected=selected_filters.subject prefix='d' %}</th>
+                                <th class="filterable-col">Profesor {% include 'material/components/_column_filter_dropdown.html' with field='professor' label='Profesor' options=filter_options.professor selected=selected_filters.professor prefix='d' %}</th>
+                                <th class="filterable-col">Año {% include 'material/components/_column_filter_dropdown.html' with field='year' label='Año' options=filter_options.year selected=selected_filters.year prefix='d' %}</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -170,7 +170,7 @@
     </div>
     {% endif %}
 
-    {% include 'material/exams/_exam_template_filters_offcanvas.html' with columns=filter_columns %}
+    {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns %}
 </div>
 
 <!-- Scripts -->
