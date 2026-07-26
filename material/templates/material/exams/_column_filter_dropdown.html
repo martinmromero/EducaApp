@@ -9,7 +9,6 @@ Los checkboxes usan form="templateFiltersForm" para asociarse al form GET extern
             class="btn btn-sm column-filter-toggle {% if selected %}active{% endif %}"
             data-bs-toggle="dropdown"
             data-bs-auto-close="outside"
-            data-bs-strategy="fixed"
             aria-expanded="false"
             title="Filtrar {{ label }}">
         <i class="bi {% if selected %}bi-funnel-fill{% else %}bi-funnel{% endif %}"></i>
@@ -32,10 +31,12 @@ Los checkboxes usan form="templateFiltersForm" para asociarse al form GET extern
             {% endfor %}
         </div>
         {% if options %}
-        <hr class="my-2">
-        <div class="d-flex justify-content-between">
-            <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="clearColumnFilter('{{ field }}')">Limpiar</button>
-            <button type="submit" form="templateFiltersForm" class="btn btn-sm btn-primary">Aplicar</button>
+        <div class="column-filter-footer">
+            <hr class="my-2">
+            <div class="d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="clearColumnFilter('{{ field }}')">Limpiar</button>
+                <button type="submit" form="templateFiltersForm" class="btn btn-sm btn-primary">Aplicar</button>
+            </div>
         </div>
         {% endif %}
     </div>

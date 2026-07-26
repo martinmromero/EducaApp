@@ -20,12 +20,15 @@ de la tabla de plantillas. Incluir una sola vez por página.
     .column-filter-menu {
         min-width: 220px;
         max-width: 280px;
-        max-height: 320px;
-        overflow-y: auto;
+        /* Sin max-height/scroll propio: el menu crece lo que haga falta para
+           mostrar todas las opciones. Si no entra en la ventana, se scrollea
+           la pagina (ver .table-responsive.filter-dropdown-open mas abajo). */
     }
-    .column-filter-options {
-        max-height: 220px;
-        overflow-y: auto;
+    /* Mientras hay un dropdown de columna abierto, el contenedor con scroll
+       horizontal de la tabla deja de recortar verticalmente para que el menu
+       no quede cortado por el borde de la tabla. */
+    .table-responsive.filter-dropdown-open {
+        overflow: visible;
     }
     th.filterable-col {
         white-space: nowrap;
@@ -86,4 +89,22 @@ de la tabla de plantillas. Incluir una sola vez por página.
             ? '<i class="fas fa-filter"></i> Ocultar filtros'
             : '<i class="fas fa-filter"></i> Filtros';
     }
+
+    // La tabla vive dentro de .table-responsive (overflow-x:auto para el scroll
+    // horizontal en pantallas angostas), lo que de paso recorta verticalmente
+    // cualquier dropdown que sobresalga. Mientras un dropdown de columna esta
+    // abierto, se desactiva ese recorte para que el menu pueda mostrar todas
+    // las opciones sin scroll propio (la pagina scrollea si hace falta).
+    document.addEventListener('show.bs.dropdown', function (event) {
+        const toggle = event.target;
+        if (!toggle.classList || !toggle.classList.contains('column-filter-toggle')) return;
+        const scrollParent = toggle.closest('.table-responsive');
+        if (scrollParent) scrollParent.classList.add('filter-dropdown-open');
+    });
+    document.addEventListener('hidden.bs.dropdown', function (event) {
+        const toggle = event.target;
+        if (!toggle.classList || !toggle.classList.contains('column-filter-toggle')) return;
+        const scrollParent = toggle.closest('.table-responsive');
+        if (scrollParent) scrollParent.classList.remove('filter-dropdown-open');
+    });
 </script>

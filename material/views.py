@@ -1557,8 +1557,8 @@ def exam_templates_tabs(request):
         'institution', 'faculty', 'career', 'subject', 'professor'
     ).prefetch_related('learning_outcomes')
 
-    filter_options = _exam_template_filter_options(base_templates)
     selected_filters = _exam_template_selected_filters(request)
+    filter_options = _exam_template_filter_options(base_templates, selected_filters)
     templates = _apply_exam_template_filters(request, base_templates).order_by('-created_at')
 
     paginator = Paginator(templates, 25)
@@ -1891,29 +1891,55 @@ def save_exam_template(request):
 
 EXAM_TEMPLATE_FILTER_FIELDS = ('institution', 'faculty', 'career', 'subject', 'professor', 'year', 'exam_type')
 
+EXAM_TEMPLATE_FILTER_LOOKUPS = {
+    'institution': 'institution_id__in',
+    'faculty': 'faculty_id__in',
+    'career': 'career_id__in',
+    'subject': 'subject_id__in',
+    'professor': 'professor_id__in',
+    'year': 'year__in',
+    'exam_type': 'exam_type__in',
+}
 
-def _exam_template_filter_options(base_qs):
-    """Calcula las opciones de filtro (valores distintos) para cada columna, en base
-    al conjunto completo de plantillas del usuario (sin aplicar filtros todavía)."""
-    institutions = base_qs.exclude(institution__isnull=True).values(
-        'institution_id', 'institution__name'
-    ).distinct().order_by('institution__name')
-    faculties = base_qs.exclude(faculty__isnull=True).values(
-        'faculty_id', 'faculty__name'
-    ).distinct().order_by('faculty__name')
-    careers = base_qs.exclude(career__isnull=True).values(
-        'career_id', 'career__name'
-    ).distinct().order_by('career__name')
-    subjects = base_qs.exclude(subject__isnull=True).values(
-        'subject_id', 'subject__name'
-    ).distinct().order_by('subject__name')
-    professors = base_qs.exclude(professor__isnull=True).values(
-        'professor_id', 'professor__first_name', 'professor__last_name'
-    ).distinct().order_by('professor__last_name', 'professor__first_name')
-    years = base_qs.values_list('year', flat=True).distinct().order_by('-year')
+
+def _exam_template_filter_options(base_qs, selected_filters):
+    """Calcula las opciones de filtro (valores distintos) para cada columna, en cascada:
+    las opciones de una columna solo consideran las plantillas que ya cumplen los
+    filtros ACTIVOS EN LAS DEMAS columnas (nunca el propio, para no autoexcluirse)."""
+
+    def _scoped(exclude_field):
+        qs = base_qs
+        for field, lookup in EXAM_TEMPLATE_FILTER_LOOKUPS.items():
+            if field == exclude_field:
+                continue
+            values = selected_filters.get(field)
+            if values:
+                qs = qs.filter(**{lookup: list(values)})
+        return qs
 
     def _label(name, fallback):
         return name.strip() if name and name.strip() else fallback
+
+    institutions = _scoped('institution').exclude(institution__isnull=True).values(
+        'institution_id', 'institution__name'
+    ).distinct().order_by('institution__name')
+    faculties = _scoped('faculty').exclude(faculty__isnull=True).values(
+        'faculty_id', 'faculty__name'
+    ).distinct().order_by('faculty__name')
+    careers = _scoped('career').exclude(career__isnull=True).values(
+        'career_id', 'career__name'
+    ).distinct().order_by('career__name')
+    subjects = _scoped('subject').exclude(subject__isnull=True).values(
+        'subject_id', 'subject__name'
+    ).distinct().order_by('subject__name')
+    professors = _scoped('professor').exclude(professor__isnull=True).values(
+        'professor_id', 'professor__first_name', 'professor__last_name'
+    ).distinct().order_by('professor__last_name', 'professor__first_name')
+    years = _scoped('year').values_list('year', flat=True).distinct().order_by('-year')
+    exam_types = _scoped('exam_type').exclude(exam_type__isnull=True).exclude(exam_type='').values_list(
+        'exam_type', flat=True
+    ).distinct()
+    exam_type_labels = dict(ExamTemplate.EXAM_TYPE_CHOICES)
 
     return {
         'institution': [
@@ -1940,22 +1966,15 @@ def _exam_template_filter_options(base_qs):
             for p in professors
         ],
         'year': [{'value': str(y), 'label': str(y)} for y in years],
-        'exam_type': [{'value': choice[0], 'label': choice[1]} for choice in ExamTemplate.EXAM_TYPE_CHOICES],
+        'exam_type': [
+            {'value': et, 'label': exam_type_labels.get(et, et)} for et in exam_types
+        ],
     }
 
 
 def _apply_exam_template_filters(request, qs):
     """Aplica los filtros por columna (multi-selección) recibidos por querystring."""
-    lookups = {
-        'institution': 'institution_id__in',
-        'faculty': 'faculty_id__in',
-        'career': 'career_id__in',
-        'subject': 'subject_id__in',
-        'professor': 'professor_id__in',
-        'year': 'year__in',
-        'exam_type': 'exam_type__in',
-    }
-    for field, lookup in lookups.items():
+    for field, lookup in EXAM_TEMPLATE_FILTER_LOOKUPS.items():
         values = request.GET.getlist(field)
         if values:
             qs = qs.filter(**{lookup: values})
@@ -2003,8 +2022,8 @@ def list_exam_templates(request):
         'learning_outcomes'
     )
 
-    filter_options = _exam_template_filter_options(base_templates)
     selected_filters = _exam_template_selected_filters(request)
+    filter_options = _exam_template_filter_options(base_templates, selected_filters)
     templates = _apply_exam_template_filters(request, base_templates).order_by('-created_at')
 
     # Paginación
