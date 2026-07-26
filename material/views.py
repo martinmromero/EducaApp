@@ -622,6 +622,7 @@ def _collect_exam_post_data(request, form):
     exam_data['turno_text'] = request.POST.get('turno_text', '').strip()
     exam_data['profesor'] = request.POST.get('profesor_dropdown')
     exam_data['fecha'] = request.POST.get('fecha')
+    exam_data['year'] = request.POST.get('year', '').strip()
     exam_data['tipo_examen'] = request.POST.get('tipo_examen')
     exam_data['tipo_modalidad'] = request.POST.get('tipo_modalidad')
     exam_data['modalidad_resolucion'] = request.POST.getlist('modalidad_resolucion')
@@ -862,6 +863,7 @@ def _build_preview_exam_payload_from_exam(examen):
         'turno_text': turno_text,
         'profesor': profesor,
         'fecha': examen.date_str or '',
+        'year': str(examen.year) if examen.year else '',
         'tipo_examen': examen.exam_type or '',
         'tipo_modalidad': examen.exam_group or '',
         'modalidad_resolucion': modalidad_resolucion,
@@ -1174,9 +1176,12 @@ def save_exam_from_session(request):
     else:
         resolution_time = str(mod_res) if mod_res else ''
 
-    # year from fecha
+    # year: explícito (campo "Año" del formulario) si se cargó; si no, se infiere de la fecha
     year = None
-    if fecha:
+    raw_year = exam_data.get('year')
+    if raw_year and str(raw_year).strip().isdigit():
+        year = int(str(raw_year).strip())
+    elif fecha:
         try:
             year = int(str(fecha).split('-')[0])
         except (ValueError, IndexError):
@@ -2424,6 +2429,15 @@ def lista_preguntas(request):
     if topic_id and topic_id.isdigit() and int(topic_id) > 0:
         subtopics = Subtopic.objects.filter(topic_id=int(topic_id)).distinct().order_by('name')
 
+    # Contadores dinámicos sobre el total filtrado (no solo la página actual)
+    materias_count = preguntas.exclude(subjects__isnull=True).values('subjects').distinct().count()
+    temas_count = preguntas.exclude(topic__isnull=True).values('topic').distinct().count()
+    subtemas_count = preguntas.exclude(subtopic__isnull=True).values('subtopic').distinct().count()
+    ia_generadas_count = preguntas.filter(generated_by_ai=True).count()
+    ia_aprobadas_count = preguntas.filter(generated_by_ai=True, ai_approved=True).count()
+    ia_rechazadas_count = preguntas.filter(generated_by_ai=True, ai_approved=False).count()
+    ia_sin_revisar_count = preguntas.filter(generated_by_ai=True, ai_approved__isnull=True).count()
+
     paginator = Paginator(preguntas, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -2438,13 +2452,25 @@ def lista_preguntas(request):
         'selected_subtopic': subtopic_id if subtopic_id.isdigit() else '',
         'selected_ai_approval': ai_approval,
         'selected_bloom_filter': bloom_filter,
+        'materias_count': materias_count,
+        'temas_count': temas_count,
+        'subtemas_count': subtemas_count,
+        'ia_generadas_count': ia_generadas_count,
+        'ia_aprobadas_count': ia_aprobadas_count,
+        'ia_rechazadas_count': ia_rechazadas_count,
+        'ia_sin_revisar_count': ia_sin_revisar_count,
     }
     return render(request, 'material/questions/lista_preguntas.html', context)
 
 @login_required
+def ver_pregunta(request, pk):
+    pregunta = get_object_or_404(Question, pk=pk, user=request.user)
+    return render(request, 'material/questions/ver_pregunta.html', {'pregunta': pregunta})
+
+@login_required
 def editar_pregunta(request, pk):
     pregunta = get_object_or_404(Question, pk=pk, user=request.user)
-    
+
     if request.method == 'POST':
         form = QuestionForm(request.POST, request.FILES, instance=pregunta, current_user=request.user)
         if form.is_valid():

@@ -96,9 +96,9 @@
         </div>
     </div>
 
-    <!-- Sección 3 columnas: Profesor - Fecha - Duración (minutos) -->
+    <!-- Sección 4 columnas: Profesor - Fecha - Año - Duración (minutos) -->
     <div class="row mb-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <label for="profesor_dropdown">Profesor</label>
             <select class="form-select" name="profesor_dropdown" id="profesor_dropdown" onchange="toggleTextbox('profesor_dropdown', 'profesor_text')">
                 <option value="">Seleccionar profesor</option>
@@ -109,11 +109,15 @@
             </select>
             <input type="text" class="form-control mt-2" name="profesor_text" id="profesor_text" placeholder="Ingrese profesor" style="display:none;">
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <label for="fecha">Fecha</label>
             <input type="date" class="form-control" name="fecha" id="fecha">
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <label for="year">Año <small class="text-muted">(opcional, para el encabezado)</small></label>
+            <input type="number" class="form-control" name="year" id="year" min="1900" max="2100" placeholder="Ej: 2026">
+        </div>
+        <div class="col-md-3">
             {{ form.duration_minutes.label_tag }}
             {{ form.duration_minutes }}
         </div>
@@ -318,6 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     setValue('fecha', 'fecha');
+    setValue('year', 'year');
     setValue('curso', 'curso');
     setValue('id_duration_minutes', 'duration_minutes');
     setValue('id_instructions', 'instructions');

@@ -107,11 +107,30 @@
 
     <!-- Lista de preguntas -->
     <div class="card shadow mb-4">
-        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h6 class="m-0 font-weight-bold text-primary">Listado de Preguntas</h6>
-            <span class="badge badge-primary">
-                {{ preguntas.paginator.count }} pregunta{{ preguntas.paginator.count|pluralize }}
-            </span>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="badge badge-primary">
+                    {{ preguntas.paginator.count }} pregunta{{ preguntas.paginator.count|pluralize }}
+                </span>
+                <span class="badge" style="background:#e7f1ff;color:#0d6efd;" title="Materias distintas en el listado filtrado">
+                    <i class="fas fa-book me-1"></i>{{ materias_count }} materia{{ materias_count|pluralize }}
+                </span>
+                <span class="badge" style="background:#e7f1ff;color:#0d6efd;" title="Temas distintos en el listado filtrado">
+                    <i class="fas fa-folder me-1"></i>{{ temas_count }} tema{{ temas_count|pluralize }}
+                </span>
+                {% if subtemas_count > 0 %}
+                <span class="badge" style="background:#e7f1ff;color:#0d6efd;" title="Subtemas distintos en el listado filtrado">
+                    <i class="fas fa-folder-open me-1"></i>{{ subtemas_count }} subtema{{ subtemas_count|pluralize }}
+                </span>
+                {% endif %}
+                <span class="badge" style="background:#e7f1ff;color:#0d6efd;" title="Generadas por IA: {{ ia_aprobadas_count }} aprobadas · {{ ia_rechazadas_count }} rechazadas · {{ ia_sin_revisar_count }} sin revisar">
+                    <i class="fas fa-robot me-1"></i>{{ ia_generadas_count }} IA
+                    {% if ia_generadas_count > 0 %}
+                        (✅{{ ia_aprobadas_count }} ❌{{ ia_rechazadas_count }} ⏳{{ ia_sin_revisar_count }})
+                    {% endif %}
+                </span>
+            </div>
         </div>
         <div class="card-body">
             <form id="bulk-delete-form" method="post" action="{% url 'material:bulk_eliminar_preguntas' %}">
@@ -147,7 +166,7 @@
                             </th>
                             <th>Materia</th>
                             <th>Tema</th>
-                            <th>Subtema</th>
+                            {% if subtemas_count > 0 %}<th>Subtema</th>{% endif %}
                             <th>Pregunta</th>
                             <th>Bloom</th>
                             <th>Estado IA</th>
@@ -162,7 +181,7 @@
                             </td>
                             <td>{% for s in pregunta.subjects.all %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
                             <td>{{ pregunta.topic.name|default:"-" }}</td>
-                            <td>{{ pregunta.subtopic.name|default:"-" }}</td>
+                            {% if subtemas_count > 0 %}<td>{{ pregunta.subtopic.name|default:"-" }}</td>{% endif %}
                             <td>{{ pregunta.question_text|truncatechars:100 }}</td>
                             <td>
                                 {% if pregunta.bloom_level %}
@@ -191,13 +210,25 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <a href="{% url 'material:editar_pregunta' pregunta.pk %}" class="btn btn-sm btn-primary">Editar</a>
-                                <a href="{% url 'material:eliminar_pregunta' pregunta.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'material:ver_pregunta' pregunta.pk %}"
+                                       class="btn btn-sm btn-info" title="Ver pregunta">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'material:editar_pregunta' pregunta.pk %}"
+                                       class="btn btn-sm btn-warning" title="Editar pregunta">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'material:eliminar_pregunta' pregunta.pk %}"
+                                       class="btn btn-sm btn-danger" title="Eliminar pregunta">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="text-center">No hay preguntas disponibles</td>
+                            <td colspan="{% if subtemas_count > 0 %}8{% else %}7{% endif %}" class="text-center">No hay preguntas disponibles</td>
                         </tr>
                         {% endfor %}
                     </tbody>

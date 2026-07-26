@@ -1,0 +1,132 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container-lg py-4">
+
+  <!-- Encabezado -->
+  <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+    <a href="{% url 'material:lista_preguntas' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="fas fa-arrow-left me-1"></i> Volver
+    </a>
+    <h2 class="mb-0 fs-4 fw-bold">
+      <i class="fas fa-eye me-2 text-info"></i>Ver pregunta
+    </h2>
+    {% if pregunta.generated_by_ai %}
+      <span class="badge bg-info text-dark"><i class="fas fa-robot me-1"></i>Generada por IA</span>
+    {% endif %}
+    {% if pregunta.question_type %}
+      <span class="badge bg-secondary">{{ pregunta.get_question_type_display }}</span>
+    {% endif %}
+  </div>
+
+  <div class="row g-4">
+
+    <!-- ── Columna izquierda ───────────────────────────────────── -->
+    <div class="col-lg-8">
+
+      <!-- Card: Pregunta -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white d-flex align-items-center gap-2">
+          <i class="fas fa-question-circle"></i>
+          <span class="fw-semibold">Pregunta</span>
+        </div>
+        <div class="card-body">
+          <p class="mb-0" style="white-space:pre-wrap">{{ pregunta.question_text }}</p>
+          {% if pregunta.question_image_b64 %}
+            <img src="{{ pregunta.question_image_b64 }}" class="img-thumbnail mt-3" style="max-height:220px" alt="imagen pregunta">
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Card: Opciones (solo opción múltiple) -->
+      {% if pregunta.question_type == 'opcion_multiple' and pregunta.options %}
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white d-flex align-items-center gap-2">
+          <i class="fas fa-list-ul"></i>
+          <span class="fw-semibold">Opciones</span>
+        </div>
+        <div class="card-body">
+          <ul class="list-group list-group-flush">
+            {% for opcion in pregunta.options %}
+              <li class="list-group-item d-flex gap-2">
+                <span class="fw-bold">{{ forloop.counter0|add:65|stringformat:"c" }}</span>
+                <span>{{ opcion }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Card: Respuesta -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success text-white d-flex align-items-center gap-2">
+          <i class="fas fa-check-circle"></i>
+          <span class="fw-semibold">Respuesta correcta</span>
+        </div>
+        <div class="card-body">
+          <p class="mb-0" style="white-space:pre-wrap">{{ pregunta.answer_text }}</p>
+          {% if pregunta.answer_image_b64 %}
+            <img src="{{ pregunta.answer_image_b64 }}" class="img-thumbnail mt-3" style="max-height:220px" alt="imagen respuesta">
+          {% endif %}
+        </div>
+      </div>
+
+    </div><!-- /col-lg-8 -->
+
+    <!-- ── Columna derecha ────────────────────────────────────── -->
+    <div class="col-lg-4">
+
+      <!-- Card: Dificultad + Bloom -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-warning text-dark d-flex align-items-center gap-2">
+          <i class="fas fa-sliders-h"></i>
+          <span class="fw-semibold">Clasificación</span>
+        </div>
+        <div class="card-body">
+          <p class="mb-2"><span class="fw-semibold">Dificultad:</span> {{ pregunta.difficulty }}/5</p>
+          <p class="mb-0"><span class="fw-semibold">Nivel de Bloom:</span> {{ pregunta.get_bloom_level_display|default:"—" }}</p>
+        </div>
+      </div>
+
+      <!-- Card: Materia, Tema, Subtema -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex align-items-center gap-2">
+          <i class="fas fa-book text-primary"></i>
+          <span class="fw-semibold">Materia y tema</span>
+        </div>
+        <div class="card-body">
+          <p class="mb-2"><span class="fw-semibold">Materia(s):</span>
+            {% for materia in pregunta.subjects.all %}{{ materia.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+          </p>
+          <p class="mb-2"><span class="fw-semibold">Tema:</span> {{ pregunta.topic|default:"—" }}</p>
+          <p class="mb-0"><span class="fw-semibold">Subtema:</span> {{ pregunta.subtopic|default:"—" }}</p>
+        </div>
+      </div>
+
+      <!-- Card: Fuente -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex align-items-center gap-2">
+          <i class="fas fa-file-alt text-secondary"></i>
+          <span class="fw-semibold">Fuente del documento</span>
+        </div>
+        <div class="card-body">
+          <p class="mb-2"><span class="fw-semibold">Contenido:</span> {{ pregunta.contenido.title|default:"—" }}</p>
+          <p class="mb-0"><span class="fw-semibold">Página de referencia:</span> {{ pregunta.source_page|default:"—" }}</p>
+        </div>
+      </div>
+
+      <!-- Botones de acción -->
+      <div class="d-grid gap-2">
+        <a href="{% url 'material:editar_pregunta' pregunta.pk %}" class="btn btn-warning">
+          <i class="fas fa-edit me-2"></i>Editar
+        </a>
+        <a href="{% url 'material:lista_preguntas' %}" class="btn btn-outline-secondary">
+          Volver
+        </a>
+      </div>
+
+    </div><!-- /col-lg-4 -->
+  </div><!-- /row -->
+</div>
+{% endblock %}

@@ -54,6 +54,7 @@ urlpatterns = [
     path('delete-contenido/', material_views.delete_contenido, name='delete_contenido'),
     path('upload-questions/', material_views.upload_questions, name='upload_questions'),
     path('download-template/<str:format>/', material_views.download_template, name='download_template'),
+    path('ver-pregunta/<int:pk>/', material_views.ver_pregunta, name='ver_pregunta'),
     path('editar-pregunta/<int:pk>/', material_views.editar_pregunta, name='editar_pregunta'),
     path('eliminar-pregunta/<int:pk>/', material_views.eliminar_pregunta, name='eliminar_pregunta'),
     path('eliminar-preguntas-bulk/', material_views.bulk_eliminar_preguntas, name='bulk_eliminar_preguntas'),

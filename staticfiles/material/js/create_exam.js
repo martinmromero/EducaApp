@@ -162,7 +162,8 @@ document.addEventListener('DOMContentLoaded', function() {
         var semester = document.getElementById('batch_semester')?.value || 'sin cuatrimestre';
         var versions = document.getElementById('num_versions')?.value || '1';
         var fecha = document.getElementById('fecha')?.value || '';
-        var year = fecha ? fecha.split('-')[0] : 'sin anio';
+        var yearInput = document.getElementById('year')?.value || '';
+        var year = yearInput ? yearInput : (fecha ? fecha.split('-')[0] : 'sin anio');
 
         var tipoLabelMap = {
             '1er_parcial': '1er parcial',
@@ -474,6 +475,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('batch_semester')?.addEventListener(evtName, updateSuggestedBatchName);
         document.getElementById('num_versions')?.addEventListener(evtName, updateSuggestedBatchName);
         document.getElementById('fecha')?.addEventListener(evtName, updateSuggestedBatchName);
+        document.getElementById('year')?.addEventListener(evtName, updateSuggestedBatchName);
         document.querySelectorAll('input[name="tipo_examen"]').forEach(function(radio) {
             radio.addEventListener(evtName, updateSuggestedBatchName);
         });
