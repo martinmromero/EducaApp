@@ -10,14 +10,15 @@
     <div class="active-filters-summary small text-muted">
         {% if active_filter_count %}
             {{ active_filter_count }} filtro{{ active_filter_count|pluralize }} activo{{ active_filter_count|pluralize }}
-            &middot; <a href="{% url 'material:exam_templates_tabs' %}#mis">Limpiar todos</a>
+            <span class="d-md-none">&middot; <a href="{% url 'material:exam_templates_tabs' %}#mis">Limpiar filtros</a></span>
         {% endif %}
     </div>
     <button type="button" class="btn btn-outline-secondary btn-sm mobile-filters-trigger" data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
         <i class="fas fa-filter"></i> Filtros
     </button>
-    <button type="button" class="btn btn-outline-secondary btn-sm desktop-filters-trigger{% if active_filter_count %} active{% endif %}" onclick="toggleDesktopColumnFilters(this)">
-        <i class="fas fa-filter"></i> {% if active_filter_count %}Ocultar filtros{% else %}Filtros{% endif %}
+    <button type="button" class="btn btn-outline-secondary btn-sm desktop-filters-trigger{% if active_filter_count %} active{% endif %}"
+            onclick="{% if active_filter_count %}clearAllColumnFilters(){% else %}toggleDesktopColumnFilters(this){% endif %}">
+        <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
     </button>
 </div>
 

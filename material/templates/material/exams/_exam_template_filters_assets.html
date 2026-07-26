@@ -58,11 +58,23 @@ de la tabla de plantillas. Incluir una sola vez por página.
             display: none;
         }
     }
-    .exam-template-filters-offcanvas {
-        height: 85vh;
+    .offcanvas.exam-template-filters-offcanvas {
+        height: 94vh !important;
+        height: 94dvh !important;
     }
     .exam-template-filters-offcanvas .offcanvas-body {
         padding-bottom: 0;
+    }
+    /* Los headers colapsados del acordeon ocupaban mucho lugar y dejaban ver
+       una sola columna a la vez; se reduce el padding para que entren mas
+       filtros visibles sin scrollear. */
+    .exam-template-filters-offcanvas .accordion-button {
+        padding-top: .65rem;
+        padding-bottom: .65rem;
+    }
+    .exam-template-filters-offcanvas .accordion-body {
+        padding-top: .5rem;
+        padding-bottom: .5rem;
     }
 </style>
 <script>
