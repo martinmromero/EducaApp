@@ -1,40 +1,41 @@
 {% load message_tags %}
 <h2>Plantillas de Examen Guardadas</h2>
 {% show_messages "plantillas" %}
-<div class="row mb-4">
-    <div class="col-md-6">
-        <form method="get" class="form-inline">
-            <div class="form-group mr-3">
-                <label for="subject" class="mr-2">Materia:</label>
-                <select name="subject" id="subject" class="form-control">
-                    <option value="">Todas</option>
-                    {% for subject in subjects %}
-                        <option value="{{ subject.id }}" {% if request.GET.subject == subject.id|stringformat:"s" %}selected{% endif %}>{{ subject.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="exam_mode" class="mr-2">Tipo:</label>
-                <select name="exam_mode" id="exam_mode" class="form-control">
-                    <option value="">Todos</option>
-                    {% for mode in exam_modes %}
-                        <option value="{{ mode.0 }}" {% if request.GET.exam_mode == mode.0 %}selected{% endif %}>{{ mode.1 }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary ml-2">Filtrar</button>
-            <a href="{% url 'material:list_exam_templates' %}" class="btn btn-secondary ml-2">Limpiar</a>
-        </form>
+
+{% include 'material/exams/_exam_template_filters_assets.html' %}
+
+<form method="get" action="{% url 'material:exam_templates_tabs' %}#mis" id="templateFiltersForm"></form>
+
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+    <div class="active-filters-summary small text-muted">
+        {% if active_filter_count %}
+            {{ active_filter_count }} filtro{{ active_filter_count|pluralize }} activo{{ active_filter_count|pluralize }}
+            &middot; <a href="{% url 'material:exam_templates_tabs' %}#mis">Limpiar todos</a>
+        {% endif %}
     </div>
+    <button type="button" class="btn btn-outline-secondary btn-sm mobile-filters-trigger" data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
+        <i class="fas fa-filter"></i> Filtros
+    </button>
+    <button type="button" class="btn btn-outline-secondary btn-sm desktop-filters-trigger{% if active_filter_count %} active{% endif %}" onclick="toggleDesktopColumnFilters(this)">
+        <i class="fas fa-filter"></i> {% if active_filter_count %}Ocultar filtros{% else %}Filtros{% endif %}
+    </button>
 </div>
+
 <form method="post" action="{% url 'material:delete_exam_template' %}" id="deleteForm">
     {% csrf_token %}
     <div class="table-responsive">
-        <table class="table table-bordered table-hover">
+        <table class="table table-bordered table-hover exam-template-table{% if active_filter_count %} filters-visible{% endif %}">
             <thead class="thead-light">
                 <tr>
                     <th width="5%"><input type="checkbox" id="selectAll"></th>
-                    <th>Institución</th><th>Facultad</th><th>Carrera</th><th>Materia</th><th>Profesor</th><th>Año</th><th>Tipo</th><th>Acciones</th>
+                    <th class="filterable-col">Institución {% include 'material/exams/_column_filter_dropdown.html' with field='institution' label='Institución' options=filter_options.institution selected=selected_filters.institution prefix='d' %}</th>
+                    <th class="filterable-col">Facultad {% include 'material/exams/_column_filter_dropdown.html' with field='faculty' label='Facultad' options=filter_options.faculty selected=selected_filters.faculty prefix='d' %}</th>
+                    <th class="filterable-col">Carrera {% include 'material/exams/_column_filter_dropdown.html' with field='career' label='Carrera' options=filter_options.career selected=selected_filters.career prefix='d' %}</th>
+                    <th class="filterable-col">Materia {% include 'material/exams/_column_filter_dropdown.html' with field='subject' label='Materia' options=filter_options.subject selected=selected_filters.subject prefix='d' %}</th>
+                    <th class="filterable-col">Profesor {% include 'material/exams/_column_filter_dropdown.html' with field='professor' label='Profesor' options=filter_options.professor selected=selected_filters.professor prefix='d' %}</th>
+                    <th class="filterable-col">Año {% include 'material/exams/_column_filter_dropdown.html' with field='year' label='Año' options=filter_options.year selected=selected_filters.year prefix='d' %}</th>
+                    <th class="filterable-col">Tipo {% include 'material/exams/_column_filter_dropdown.html' with field='exam_type' label='Tipo' options=filter_options.exam_type selected=selected_filters.exam_type prefix='d' %}</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -70,23 +71,26 @@
         <a href="{% url 'material:create_exam_template' %}" class="btn btn-success float-right"><i class="fas fa-plus"></i> Nueva plantilla</a>
     </div>
 </form>
+
+{% include 'material/exams/_exam_template_filters_offcanvas.html' with columns=filter_columns %}
+
 {% if exam_templates.has_other_pages %}
 <div class="pagination justify-content-center">
     <ul class="pagination">
         {% if exam_templates.has_previous %}
-            <li class="page-item"><a class="page-link" href="?page=1">&laquo; Primera</a></li>
-            <li class="page-item"><a class="page-link" href="?page={{ exam_templates.previous_page_number }}">Anterior</a></li>
+            <li class="page-item"><a class="page-link" href="?page=1{% if filter_querystring %}&{{ filter_querystring }}{% endif %}#mis">&laquo; Primera</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ exam_templates.previous_page_number }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}#mis">Anterior</a></li>
         {% endif %}
         {% for num in exam_templates.paginator.page_range %}
             {% if exam_templates.number == num %}
                 <li class="page-item active"><span class="page-link">{{ num }}</span></li>
             {% elif num > exam_templates.number|add:'-3' and num < exam_templates.number|add:'3' %}
-                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}#mis">{{ num }}</a></li>
             {% endif %}
         {% endfor %}
         {% if exam_templates.has_next %}
-            <li class="page-item"><a class="page-link" href="?page={{ exam_templates.next_page_number }}">Siguiente</a></li>
-            <li class="page-item"><a class="page-link" href="?page={{ exam_templates.paginator.num_pages }}">Última &raquo;</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ exam_templates.next_page_number }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}#mis">Siguiente</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ exam_templates.paginator.num_pages }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}#mis">Última &raquo;</a></li>
         {% endif %}
     </ul>
 </div>

@@ -24,7 +24,7 @@
       {% include 'material/exams/_create_exam_template_fragment.html' with form=create_form subjects=create_subjects learning_outcomes=create_learning_outcomes edit_mode=create_edit_mode template=create_template %}
     </div>
     <div class="tab-pane fade" id="mis-pane" role="tabpanel" aria-labelledby="mis-tab">
-      {% include 'material/exams/_list_exam_templates_fragment.html' with exam_templates=list_exam_templates subjects=list_subjects exam_modes=list_exam_modes %}
+      {% include 'material/exams/_list_exam_templates_fragment.html' with exam_templates=list_exam_templates filter_options=filter_options selected_filters=selected_filters filter_querystring=filter_querystring filter_columns=filter_columns %}
     </div>
   </div>
 </div>

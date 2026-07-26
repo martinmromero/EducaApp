@@ -1,0 +1,42 @@
+{% comment %}
+Dropdown de filtro tipo Excel para una columna de la tabla de plantillas.
+Variables esperadas: field, label, options (lista de {value,label}), selected (set de valores activos),
+prefix (para ids únicos cuando el partial se incluye más de una vez en la misma página).
+Los checkboxes usan form="templateFiltersForm" para asociarse al form GET externo sin anidar forms.
+{% endcomment %}
+<div class="dropdown column-filter-dropdown">
+    <button type="button"
+            class="btn btn-sm column-filter-toggle {% if selected %}active{% endif %}"
+            data-bs-toggle="dropdown"
+            data-bs-auto-close="outside"
+            data-bs-strategy="fixed"
+            aria-expanded="false"
+            title="Filtrar {{ label }}">
+        <i class="bi {% if selected %}bi-funnel-fill{% else %}bi-funnel{% endif %}"></i>
+    </button>
+    <div class="dropdown-menu column-filter-menu p-2">
+        <div class="fw-semibold small text-muted mb-2">{{ label }}</div>
+        <div class="column-filter-options">
+            {% for opt in options %}
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox"
+                       form="templateFiltersForm"
+                       name="{{ field }}"
+                       value="{{ opt.value }}"
+                       id="{{ prefix }}_{{ field }}_{{ forloop.counter }}"
+                       {% if opt.value in selected %}checked{% endif %}>
+                <label class="form-check-label small" for="{{ prefix }}_{{ field }}_{{ forloop.counter }}">{{ opt.label }}</label>
+            </div>
+            {% empty %}
+            <div class="text-muted small">Sin opciones</div>
+            {% endfor %}
+        </div>
+        {% if options %}
+        <hr class="my-2">
+        <div class="d-flex justify-content-between">
+            <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="clearColumnFilter('{{ field }}')">Limpiar</button>
+            <button type="submit" form="templateFiltersForm" class="btn btn-sm btn-primary">Aplicar</button>
+        </div>
+        {% endif %}
+    </div>
+</div>

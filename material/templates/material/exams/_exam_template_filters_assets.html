@@ -1,0 +1,89 @@
+{% comment %}
+CSS/JS compartidos por los filtros de columna (dropdown desktop + offcanvas mobile)
+de la tabla de plantillas. Incluir una sola vez por página.
+{% endcomment %}
+<style>
+    .column-filter-toggle {
+        border: none;
+        background: transparent;
+        color: #6c757d;
+        padding: .1rem .35rem;
+        line-height: 1;
+    }
+    .column-filter-toggle:hover,
+    .column-filter-toggle:focus {
+        color: #0d6efd;
+    }
+    .column-filter-toggle.active {
+        color: #0d6efd;
+    }
+    .column-filter-menu {
+        min-width: 220px;
+        max-width: 280px;
+        max-height: 320px;
+        overflow-y: auto;
+    }
+    .column-filter-options {
+        max-height: 220px;
+        overflow-y: auto;
+    }
+    th.filterable-col {
+        white-space: nowrap;
+    }
+    .active-filters-summary {
+        min-height: 1px;
+    }
+    .active-filters-summary .badge {
+        cursor: pointer;
+    }
+    /* Los íconos de filtro por columna arrancan ocultos siempre: en mobile porque son
+       incómodos con el scroll horizontal (se usa el offcanvas), en desktop porque
+       ensucian el header hasta que el usuario toca "Filtros". */
+    .column-filter-dropdown {
+        display: none;
+    }
+    @media (min-width: 768px) {
+        .exam-template-table.filters-visible .column-filter-dropdown {
+            display: inline-block;
+        }
+        .mobile-filters-trigger {
+            display: none;
+        }
+    }
+    @media (max-width: 767.98px) {
+        .desktop-filters-trigger {
+            display: none;
+        }
+    }
+    .exam-template-filters-offcanvas {
+        height: 85vh;
+    }
+    .exam-template-filters-offcanvas .offcanvas-body {
+        padding-bottom: 0;
+    }
+</style>
+<script>
+    function clearColumnFilter(field) {
+        document.querySelectorAll('input[form="templateFiltersForm"][name="' + field + '"]').forEach(function (cb) {
+            cb.checked = false;
+        });
+        document.getElementById('templateFiltersForm').submit();
+    }
+
+    function clearAllColumnFilters() {
+        document.querySelectorAll('input[form="templateFiltersForm"][type="checkbox"]').forEach(function (cb) {
+            cb.checked = false;
+        });
+        document.getElementById('templateFiltersForm').submit();
+    }
+
+    function toggleDesktopColumnFilters(btn) {
+        const table = document.querySelector('.exam-template-table');
+        if (!table) return;
+        const visible = table.classList.toggle('filters-visible');
+        btn.classList.toggle('active', visible);
+        btn.innerHTML = visible
+            ? '<i class="fas fa-filter"></i> Ocultar filtros'
+            : '<i class="fas fa-filter"></i> Filtros';
+    }
+</script>

@@ -1,0 +1,54 @@
+{% load filter_tags %}
+{% comment %}
+Panel de filtros para mobile (offcanvas), con los mismos filtros que los dropdowns de columna
+pero agrupados en un acordeón único, para no depender de menús anclados a headers de tabla
+que son difíciles de tocar en pantallas chicas con scroll horizontal.
+Variables esperadas: columns (lista de {field,label}), filter_options, selected_filters, filter_querystring.
+{% endcomment %}
+<div class="offcanvas offcanvas-bottom exam-template-filters-offcanvas" tabindex="-1" id="templateFiltersOffcanvas" aria-labelledby="templateFiltersOffcanvasLabel">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="templateFiltersOffcanvasLabel">Filtros</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+    </div>
+    <div class="offcanvas-body">
+        <div class="accordion" id="templateFiltersAccordion">
+            {% for col in columns %}
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mobFilterCollapse_{{ col.field }}">
+                        {{ col.label }}
+                        {% if selected_filters|get_item:col.field %}
+                            <span class="badge bg-primary ms-2">{{ selected_filters|get_item:col.field|length }}</span>
+                        {% endif %}
+                    </button>
+                </h2>
+                <div id="mobFilterCollapse_{{ col.field }}" class="accordion-collapse collapse" data-bs-parent="#templateFiltersAccordion">
+                    <div class="accordion-body py-2">
+                        {% with options=filter_options|get_item:col.field selected=selected_filters|get_item:col.field %}
+                        <div class="column-filter-options">
+                            {% for opt in options %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       form="templateFiltersForm"
+                                       name="{{ col.field }}"
+                                       value="{{ opt.value }}"
+                                       id="mob_{{ col.field }}_{{ forloop.counter }}"
+                                       {% if opt.value in selected %}checked{% endif %}>
+                                <label class="form-check-label small" for="mob_{{ col.field }}_{{ forloop.counter }}">{{ opt.label }}</label>
+                            </div>
+                            {% empty %}
+                            <div class="text-muted small">Sin opciones</div>
+                            {% endfor %}
+                        </div>
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="offcanvas-footer p-3 border-top d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary flex-fill" onclick="clearAllColumnFilters()">Limpiar todo</button>
+        <button type="submit" form="templateFiltersForm" class="btn btn-primary flex-fill">Aplicar filtros</button>
+    </div>
+</div>

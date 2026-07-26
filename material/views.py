@@ -1551,19 +1551,15 @@ def exam_templates_tabs(request):
         user=request.user
     )
 
-    templates = ExamTemplate.objects.filter(
+    base_templates = ExamTemplate.objects.filter(
         created_by=request.user
     ).select_related(
         'institution', 'faculty', 'career', 'subject', 'professor'
-    ).prefetch_related('learning_outcomes').order_by('-created_at')
+    ).prefetch_related('learning_outcomes')
 
-    subject_filter = request.GET.get('subject')
-    if subject_filter:
-        templates = templates.filter(subject_id=subject_filter)
-
-    exam_mode_filter = request.GET.get('exam_mode')
-    if exam_mode_filter:
-        templates = templates.filter(exam_mode=exam_mode_filter)
+    filter_options = _exam_template_filter_options(base_templates)
+    selected_filters = _exam_template_selected_filters(request)
+    templates = _apply_exam_template_filters(request, base_templates).order_by('-created_at')
 
     paginator = Paginator(templates, 25)
     page_number = request.GET.get('page')
@@ -1576,8 +1572,11 @@ def exam_templates_tabs(request):
         'create_edit_mode': False,
         'create_template': None,
         'list_exam_templates': page_obj,
-        'list_subjects': subjects,
-        'list_exam_modes': ExamTemplate.EXAM_TYPE_CHOICES,
+        'filter_options': filter_options,
+        'selected_filters': selected_filters,
+        'active_filter_count': _exam_template_active_filter_count(selected_filters),
+        'filter_querystring': _exam_template_filter_querystring(request),
+        'filter_columns': EXAM_TEMPLATE_FILTER_COLUMNS,
     })
 
 @require_POST
@@ -1890,47 +1889,136 @@ def save_exam_template(request):
         'error': 'Método no permitido'
     }, status=405)
 
+EXAM_TEMPLATE_FILTER_FIELDS = ('institution', 'faculty', 'career', 'subject', 'professor', 'year', 'exam_type')
+
+
+def _exam_template_filter_options(base_qs):
+    """Calcula las opciones de filtro (valores distintos) para cada columna, en base
+    al conjunto completo de plantillas del usuario (sin aplicar filtros todavía)."""
+    institutions = base_qs.exclude(institution__isnull=True).values(
+        'institution_id', 'institution__name'
+    ).distinct().order_by('institution__name')
+    faculties = base_qs.exclude(faculty__isnull=True).values(
+        'faculty_id', 'faculty__name'
+    ).distinct().order_by('faculty__name')
+    careers = base_qs.exclude(career__isnull=True).values(
+        'career_id', 'career__name'
+    ).distinct().order_by('career__name')
+    subjects = base_qs.exclude(subject__isnull=True).values(
+        'subject_id', 'subject__name'
+    ).distinct().order_by('subject__name')
+    professors = base_qs.exclude(professor__isnull=True).values(
+        'professor_id', 'professor__first_name', 'professor__last_name'
+    ).distinct().order_by('professor__last_name', 'professor__first_name')
+    years = base_qs.values_list('year', flat=True).distinct().order_by('-year')
+
+    def _label(name, fallback):
+        return name.strip() if name and name.strip() else fallback
+
+    return {
+        'institution': [
+            {'value': str(i['institution_id']), 'label': _label(i['institution__name'], f"Institución #{i['institution_id']}")}
+            for i in institutions
+        ],
+        'faculty': [
+            {'value': str(f['faculty_id']), 'label': _label(f['faculty__name'], f"Facultad #{f['faculty_id']}")}
+            for f in faculties
+        ],
+        'career': [
+            {'value': str(c['career_id']), 'label': _label(c['career__name'], f"Carrera #{c['career_id']}")}
+            for c in careers
+        ],
+        'subject': [
+            {'value': str(s['subject_id']), 'label': _label(s['subject__name'], f"Materia #{s['subject_id']}")}
+            for s in subjects
+        ],
+        'professor': [
+            {
+                'value': str(p['professor_id']),
+                'label': f"{p['professor__first_name']} {p['professor__last_name']}".strip() or f"Profesor #{p['professor_id']}",
+            }
+            for p in professors
+        ],
+        'year': [{'value': str(y), 'label': str(y)} for y in years],
+        'exam_type': [{'value': choice[0], 'label': choice[1]} for choice in ExamTemplate.EXAM_TYPE_CHOICES],
+    }
+
+
+def _apply_exam_template_filters(request, qs):
+    """Aplica los filtros por columna (multi-selección) recibidos por querystring."""
+    lookups = {
+        'institution': 'institution_id__in',
+        'faculty': 'faculty_id__in',
+        'career': 'career_id__in',
+        'subject': 'subject_id__in',
+        'professor': 'professor_id__in',
+        'year': 'year__in',
+        'exam_type': 'exam_type__in',
+    }
+    for field, lookup in lookups.items():
+        values = request.GET.getlist(field)
+        if values:
+            qs = qs.filter(**{lookup: values})
+    return qs
+
+
+def _exam_template_selected_filters(request):
+    return {field: set(request.GET.getlist(field)) for field in EXAM_TEMPLATE_FILTER_FIELDS}
+
+
+def _exam_template_active_filter_count(selected_filters):
+    return sum(len(values) for values in selected_filters.values())
+
+
+def _exam_template_filter_querystring(request):
+    """Querystring con los filtros activos, sin 'page', para usarlo en los links de paginación."""
+    params = request.GET.copy()
+    params.pop('page', None)
+    return params.urlencode()
+
+
+EXAM_TEMPLATE_FILTER_COLUMNS = [
+    {'field': 'institution', 'label': 'Institución'},
+    {'field': 'faculty', 'label': 'Facultad'},
+    {'field': 'career', 'label': 'Carrera'},
+    {'field': 'subject', 'label': 'Materia'},
+    {'field': 'professor', 'label': 'Profesor'},
+    {'field': 'year', 'label': 'Año'},
+    {'field': 'exam_type', 'label': 'Tipo'},
+]
+
+
 @login_required
 def list_exam_templates(request):
     # Consulta optimizada con select_related y prefetch_related
-    templates = ExamTemplate.objects.filter(
+    base_templates = ExamTemplate.objects.filter(
         created_by=request.user
     ).select_related(
-        'institution', 
-        'faculty', 
-        'career', 
+        'institution',
+        'faculty',
+        'career',
         'subject',
         'professor'
     ).prefetch_related(
         'learning_outcomes'
-    ).order_by('-created_at')
+    )
 
-    # Filtros
-    subject_filter = request.GET.get('subject')
-    if subject_filter:
-        templates = templates.filter(subject_id=subject_filter)
-
-    exam_mode_filter = request.GET.get('exam_mode')
-    if exam_mode_filter:
-        templates = templates.filter(exam_mode=exam_mode_filter)
+    filter_options = _exam_template_filter_options(base_templates)
+    selected_filters = _exam_template_selected_filters(request)
+    templates = _apply_exam_template_filters(request, base_templates).order_by('-created_at')
 
     # Paginación
     paginator = Paginator(templates, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Obtener materias para el filtro
-    user_institutions = InstitutionV2.objects.filter(
-        userinstitution__user=request.user
-    )
-    subjects = Subject.objects.filter(
-        subject_institutions__institution__in=user_institutions
-    ).distinct()
-
     context = {
         'exam_templates': page_obj,
-        'subjects': subjects,
-        'exam_modes': ExamTemplate.EXAM_TYPE_CHOICES,  # Cambiado a EXAM_TYPE_CHOICES
+        'filter_options': filter_options,
+        'selected_filters': selected_filters,
+        'active_filter_count': _exam_template_active_filter_count(selected_filters),
+        'filter_querystring': _exam_template_filter_querystring(request),
+        'filter_columns': [c for c in EXAM_TEMPLATE_FILTER_COLUMNS if c['field'] != 'exam_type'],
     }
 
     return render(request, 'material/exams/list_exam_templates.html', context)
