@@ -120,6 +120,7 @@ path('subjects/create/', material_views.SubjectCreateView.as_view(), name='creat
 path('subjects/<int:pk>/edit/', material_views.SubjectUpdateView.as_view(), name='edit_subject'),
 
 path('subjects/<int:pk>/delete/', material_views.delete_subject, name='delete_subject'),
+path('subjects/eliminar-bulk/', material_views.bulk_eliminar_subjects, name='bulk_eliminar_subjects'),
 path('subjects/<int:pk>/', material_views.SubjectDetailView.as_view(), name='subject_detail'),  
 path('subjects/<int:subject_id>/outcomes/', material_views.LearningOutcomeListView.as_view(), name='learningoutcome_list'),
 path('subjects/<int:subject_id>/outcomes/add/', material_views.LearningOutcomeCreateView.as_view(), name='learningoutcome_add'),

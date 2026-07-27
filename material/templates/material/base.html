@@ -114,41 +114,18 @@
             <i class="bi bi-buildings me-2"></i> Instituciones
         </a>
 
-<div class="menu-item" onclick="toggleSubmenu(this)">
+<a href="{% url 'material:career_list' %}" class="menu-item" style="text-decoration:none;">
     <i class="bi bi-mortarboard-fill me-2"></i> Carreras
-    <div class="submenu">
-          <a href="{% url 'material:career_create_simple' %}">
-            <i class="bi bi-plus-circle me-2"></i>Crear Carrera
-        </a>  
-        <a href="{% url 'material:career_list' %}">
-            <i class="bi bi-list-ul me-2"></i>Mis Carreras    </a>
+</a>
 
-    </div>
-</div>
-
-<div class="menu-item" onclick="toggleSubmenu(this)">
+<a href="{% url 'material:subject_list' %}" class="menu-item" style="text-decoration:none;">
     <i class="bi bi-book me-2"></i> Materias
-    <div class="submenu">
-        <a href="{% url 'material:create_subject' %}">
-            <i class="bi bi-plus-circle me-2"></i>Crear Materia
-        </a>
-        <a href="{% url 'material:subject_list' %}">
-            <i class="bi bi-list-ul me-2"></i>Mis Materias
-        </a>
-
-    </div>
-</div>
-
-
+</a>
 
         <!-- Cuestionarios Orales -->
-        <div class="menu-item" onclick="toggleSubmenu(this)">
+        <a href="{% url 'material:list_oral_exams' %}" class="menu-item" style="text-decoration:none;">
             <i class="bi bi-mic me-2"></i> Cuestionarios Orales
-            <div class="submenu">
-                <a href="{% url 'material:create_oral_exam' %}"><i class="bi bi-plus-circle me-2"></i>Crear Cuestionario</a>
-                <a href="{% url 'material:list_oral_exams' %}"><i class="bi bi-list-ul me-2"></i>Mis Cuestionarios</a>
-            </div>
-        </div>
+        </a>
 
         <!-- Menú de Administración (solo para administradores) -->
         {% if is_admin %}

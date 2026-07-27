@@ -56,16 +56,22 @@
   </div>
 
   <div class="card mb-3 preview-version-card">
-    <div class="card-body d-flex gap-2 flex-wrap">
-      <a class="btn btn-outline-primary" href="{% url 'material:preview_exam' %}?print=1">
-        <i class="fas fa-print"></i> Vista previa de impresión
-      </a>
-      <button type="button" class="btn btn-success" id="saveExamVersionsBtn">
-        <i class="fas fa-save"></i> Guardar examen
-      </button>
-      <button type="button" class="btn btn-secondary" onclick="history.back()">
-        <i class="fas fa-arrow-left"></i> Editar selección
-      </button>
+    <div class="card-body">
+      <div class="mb-3">
+        <label for="batchNameInput" class="form-label">Nombre del examen a guardar</label>
+        <input type="text" class="form-control" id="batchNameInput" value="{{ suggested_batch_name }}">
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-primary" href="{% url 'material:preview_exam' %}?print=1">
+          <i class="fas fa-print"></i> Vista previa de impresión
+        </a>
+        <button type="button" class="btn btn-success" id="saveExamVersionsBtn">
+          <i class="fas fa-save"></i> Guardar examen
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="history.back()">
+          <i class="fas fa-arrow-left"></i> Editar selección
+        </button>
+      </div>
     </div>
   </div>
 
@@ -108,6 +114,22 @@
       <div class="modal-footer justify-content-between">
         <button type="button" class="btn btn-outline-warning" id="previewRandomOtherTopicBtn">Random de otro tema</button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="examVersionsSavedModal" tabindex="-1" aria-labelledby="examVersionsSavedModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="examVersionsSavedModalLabel"><i class="fas fa-check-circle"></i> Examen guardado</h5>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0" id="examVersionsSavedModalMessage">El examen se guardó correctamente.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Ir a mis exámenes</button>
       </div>
     </div>
   </div>
@@ -216,7 +238,19 @@
 
   const saveBtn = document.getElementById('saveExamVersionsBtn');
   const savedModalEl = document.getElementById('examVersionsSavedModal');
-  const savedModal = new window.bootstrap.Modal(savedModalEl);
+  // Instancia perezosa (igual que getModal() mas arriba): construirla en
+  // cuanto carga el script rompia todo el IIFE (incluido el listener del
+  // boton "Guardar examen" que se registra mas abajo) porque en ese momento
+  // bootstrap.bundle.min.js -- cargado al final de material/base.html --
+  // todavia no se ejecuto, entonces "Guardar examen" quedaba sin click
+  // handler y el boton no hacia nada.
+  let savedModal = null;
+  function getSavedModal() {
+    if (!savedModal) {
+      savedModal = new window.bootstrap.Modal(savedModalEl);
+    }
+    return savedModal;
+  }
 
   savedModalEl.addEventListener('hidden.bs.modal', function () {
     window.location.href = "{% url 'material:mis_examenes' %}";
@@ -224,19 +258,25 @@
 
   saveBtn.addEventListener('click', function () {
     saveBtn.disabled = true;
+    const batchNameInput = document.getElementById('batchNameInput');
+    const formData = new FormData();
+    if (batchNameInput) {
+      formData.append('batch_name', batchNameInput.value);
+    }
     fetch("{% url 'material:save_exam_from_session' %}", {
       method: 'POST',
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
         'X-CSRFToken': getCookie('csrftoken'),
       },
+      body: formData,
     })
       .then(function (response) { return response.json(); })
       .then(function (data) {
         saveBtn.disabled = false;
         if (data.success) {
           document.getElementById('examVersionsSavedModalMessage').textContent = data.message || 'El examen se guardó correctamente.';
-          savedModal.show();
+          getSavedModal().show();
         } else {
           alert(data.message || 'No se pudo guardar el examen.');
         }
@@ -248,20 +288,4 @@
   });
 })();
 </script>
-
-<div class="modal fade" id="examVersionsSavedModal" tabindex="-1" aria-labelledby="examVersionsSavedModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header bg-success text-white">
-        <h5 class="modal-title" id="examVersionsSavedModalLabel"><i class="fas fa-check-circle"></i> Examen guardado</h5>
-      </div>
-      <div class="modal-body">
-        <p class="mb-0" id="examVersionsSavedModalMessage">El examen se guardó correctamente.</p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Ir a mis exámenes</button>
-      </div>
-    </div>
-  </div>
-</div>
 {% endblock %}

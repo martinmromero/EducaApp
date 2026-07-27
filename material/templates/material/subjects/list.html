@@ -1,73 +1,131 @@
 {% extends "material/base.html" %}
 {% block content %}
-<div class="card shadow">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Listado de Materias</h5>
-        <a href="{% url 'material:create_subject' %}" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Nueva Materia
-        </a>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Resultados de Aprendizaje</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for subject in subjects %}
-                    <tr>
-                        <td>{{ subject.name }}</td>
-                        <td>
-                            <div class="accordion" id="accordionOutcomes{{ subject.pk }}">
-                                <div class="accordion-item">
-                                    <h2 class="accordion-header" id="headingOutcomes{{ subject.pk }}">
-                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOutcomes{{ subject.pk }}" aria-expanded="false" aria-controls="collapseOutcomes{{ subject.pk }}">
-                                            Ver Resultados ({{ subject.get_all_outcomes|length }})
-                                        </button>
-                                    </h2>
-                                    <div id="collapseOutcomes{{ subject.pk }}" class="accordion-collapse collapse" aria-labelledby="headingOutcomes{{ subject.pk }}" data-bs-parent="#accordionOutcomes{{ subject.pk }}">
-                                        <div class="accordion-body">
-                                            {% if subject.get_all_outcomes %}
-                                                <ul class="mb-0">
-                                                    {% for outcome in subject.get_all_outcomes %}
-                                                        <li>{{ outcome.description }}</li>
-                                                    {% endfor %}
-                                                </ul>
-                                            {% else %}
-                                                <span class="text-muted">No hay resultados registrados.</span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
+<form method="post" action="{% url 'material:bulk_eliminar_subjects' %}" id="deleteForm">
+    {% csrf_token %}
+    <div class="card shadow">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Listado de Materias</h5>
+            <div class="d-flex gap-2">
+                <button type="button" id="toggleBulkSelectBtn" class="btn btn-outline-secondary btn-sm" onclick="toggleBulkSelect()"
+                        title="Seleccioná varias materias para borrarlas juntas">
+                    <i class="fas fa-check-square"></i> Selección múltiple
+                </button>
+                <a href="{% url 'material:create_subject' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nueva Materia
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th class="bulk-select-col d-none" style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
+                            <th>Nombre</th>
+                            <th>Resultados de Aprendizaje</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for subject in subjects %}
+                        <tr>
+                            <td class="bulk-select-col d-none">
+                                <input type="checkbox" name="subject_ids" value="{{ subject.pk }}">
+                            </td>
+                            <td>{{ subject.name }}</td>
+                            <td>
+                                {% with outcomes=subject.get_all_outcomes %}
+                                    {% if outcomes %}
+                                        <ul class="mb-0 ps-3">
+                                            {% for outcome in outcomes %}
+                                                <li>{{ outcome.description }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <span class="text-muted">No hay resultados registrados.</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'material:subject_detail' pk=subject.pk %}" class="btn btn-sm btn-info" title="Ver materia">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-warning" title="Editar materia">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button type="submit" form="deleteRowForm_{{ subject.pk }}"
+                                            class="btn btn-sm btn-danger" title="Eliminar materia">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
                                 </div>
-                            </div>
-                        </td>
-                        <td>
-                            <div class="btn-group">
-                                <a href="{% url 'material:subject_detail' pk=subject.pk %}" class="btn btn-sm btn-info">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-warning">
-                                    
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <a href="{% url 'material:delete_subject' pk=subject.pk %}" class="btn btn-sm btn-danger">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="3" class="text-center">No hay materias registradas</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">No hay materias registradas</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Acciones masivas -->
+            <div class="mt-3 bulk-select-col d-none">
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                    <i class="fas fa-trash-alt"></i> Eliminar seleccionadas
+                </button>
+            </div>
         </div>
     </div>
-</div>
+</form>
+
+<!-- Formularios individuales de eliminación (uno por materia, ligados al botón de la fila) -->
+{% for subject in subjects %}
+<form method="post" action="{% url 'material:delete_subject' pk=subject.pk %}" id="deleteRowForm_{{ subject.pk }}"
+      onsubmit="return confirm('¿Eliminar la materia \'{{ subject.name|escapejs }}\'?');">
+    {% csrf_token %}
+</form>
+{% endfor %}
+
+<script>
+    let bulkSelectActive = false;
+    function toggleBulkSelect() {
+        bulkSelectActive = !bulkSelectActive;
+        document.querySelectorAll('.bulk-select-col').forEach(function(el) {
+            el.classList.toggle('d-none', !bulkSelectActive);
+        });
+        const btn = document.getElementById('toggleBulkSelectBtn');
+        if (bulkSelectActive) {
+            btn.innerHTML = '<i class="fas fa-times"></i> Cancelar selección';
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-secondary');
+        } else {
+            btn.innerHTML = '<i class="fas fa-check-square"></i> Selección múltiple';
+            btn.classList.remove('btn-secondary');
+            btn.classList.add('btn-outline-secondary');
+            document.querySelectorAll('#deleteForm input[type="checkbox"][name="subject_ids"]').forEach(cb => cb.checked = false);
+            const selectAll = document.getElementById('selectAll');
+            if (selectAll) selectAll.checked = false;
+        }
+    }
+
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            document.querySelectorAll('#deleteForm input[type="checkbox"][name="subject_ids"]').forEach(cb => cb.checked = this.checked);
+        });
+    }
+
+    function confirmDelete() {
+        const selected = document.querySelectorAll('#deleteForm input[name="subject_ids"]:checked');
+        if (selected.length === 0) {
+            alert('Seleccioná al menos una materia');
+            return;
+        }
+        if (confirm(`¿Eliminar ${selected.length} materia(s) seleccionada(s)? Esta acción no se puede deshacer.`)) {
+            document.getElementById('deleteForm').submit();
+        }
+    }
+</script>
 {% endblock %}

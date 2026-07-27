@@ -221,6 +221,19 @@ def preview_exam(request):
     }
     _TIPO_MODALIDAD_LABELS = {'individual': 'Individual', 'grupal': 'Grupal'}
 
+    suggested_batch_name = ''
+    if is_multiversion:
+        raw_year = exam.get('year')
+        preview_year = int(raw_year) if raw_year and str(raw_year).strip().isdigit() else None
+        if not preview_year and exam.get('fecha'):
+            try:
+                preview_year = int(str(exam.get('fecha')).split('-')[0])
+            except (ValueError, IndexError):
+                preview_year = None
+        suggested_batch_name = (exam.get('batch_name') or '').strip() or _suggest_batch_name(
+            subject_obj, exam, exam.get('institucion', ''), len(versions_preview), preview_year
+        )
+
     context = {
         'exam': exam,
         'questions_texts': questions_texts,
@@ -241,6 +254,7 @@ def preview_exam(request):
         'notes_and_recommendations': exam.get('notes_and_recommendations', ''),
         'bloom_display': bloom_display,
         'total_exam_questions': total_exam_questions,
+        'suggested_batch_name': suggested_batch_name,
         'print_style': get_print_style_context(
             resolve_print_format_for_context(
                 user=request.user,
@@ -1027,6 +1041,12 @@ def create_exam(request):
         form = ExamForm(request.POST)
         exam_data = _collect_exam_post_data(request, form)
         request.session['preview_exam'] = exam_data
+        # Invalida el cache de versiones de una preview anterior: si no, un
+        # envio del formulario con otra materia/temas/cantidad de versiones
+        # podia reciclar preguntas de la preview vieja en save_exam_from_session
+        # (p.ej. guardar directo despues de haber abandonado una preview previa).
+        # preview_exam la vuelve a poblar mas abajo si el usuario pasa por ahi.
+        request.session.pop('preview_generated_versions_ids', None)
 
         if 'save' in request.POST:
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -1291,7 +1311,10 @@ def save_exam_from_session(request):
 
     try:
         with transaction.atomic():
-            batch_name = (exam_data.get('batch_name') or '').strip()
+            # El nombre puede venir editado desde la pantalla de validacion de
+            # preguntas (preview_exam_versions.html), que lo manda en el POST
+            # del guardado; si no, se usa lo que ya habia en el form original.
+            batch_name = (request.POST.get('batch_name') or exam_data.get('batch_name') or '').strip()
             if not batch_name:
                 batch_name = _suggest_batch_name(subject, exam_data, institution_name, versions_count, year)
 
@@ -3871,6 +3894,26 @@ def delete_subject(request, pk):
         messages.success(request, 'Materia eliminada exitosamente', extra_tags='materias')
         return redirect('material:subject_list')
     return render(request, 'material/subjects/confirm_delete.html', {'subject': subject})
+
+
+@login_required
+@require_POST
+def bulk_eliminar_subjects(request):
+    ids_raw = request.POST.getlist('subject_ids')
+    ids = [int(i) for i in ids_raw if i.isdigit()]
+    if not ids:
+        messages.error(request, 'No se seleccionó ninguna materia para eliminar.', extra_tags='materias')
+        return redirect('material:subject_list')
+
+    subjects = Subject.objects.filter(pk__in=ids)
+    count = subjects.count()
+    subjects.delete()
+
+    if count == 1:
+        messages.success(request, 'Se eliminó 1 materia exitosamente.', extra_tags='materias')
+    else:
+        messages.success(request, f'Se eliminaron {count} materias exitosamente.', extra_tags='materias')
+    return redirect('material:subject_list')
 
 class SubjectDetailView(DetailView):
     model = Subject
