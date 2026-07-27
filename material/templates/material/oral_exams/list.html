@@ -5,78 +5,166 @@
 {% block content %}
 <div class="container-fluid">
     <h1 class="h3 mb-4 text-gray-800">Mis Cuestionarios Orales</h1>
-    
+
     <!-- Mensajes específicos de cuestionarios orales -->
     {% show_messages "cuestionarios_orales" %}
-    
-    <div class="card shadow mb-4">
-        <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-primary">Listado de Cuestionarios Orales</h6>
-            <a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary">
-                <i class="fas fa-plus"></i> Crear Cuestionario Oral
-            </a>
-        </div>
-        <div class="card-body">
-            {% if oral_exams %}
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Materia</th>
-                                <th>Grupos</th>
-                                <th>Est. por Grupo</th>
-                                <th>Preg. por Est.</th>
-                                <th>Total Estudiantes</th>
-                                <th>Creado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for exam in oral_exams %}
-                            <tr>
-                                <td>{{ exam.name }}</td>
-                                <td>{{ exam.subject.name }}</td>
-                                <td>{{ exam.num_groups }}</td>
-                                <td>{{ exam.students_per_group }}</td>
-                                <td>{{ exam.questions_per_student }}</td>
-                                <td>{{ exam.total_students }}</td>
-                                <td>{{ exam.created_at|date:"d/m/Y" }}</td>
-                                <td>
-                                    <a href="{% url 'material:view_oral_exam' exam.id %}" 
-                                       class="btn btn-sm btn-primary" 
-                                       title="Ver cuestionario">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <form method="post" action="{% url 'material:delete_oral_exam' exam.id %}" 
-                                          style="display: inline;" 
-                                          onsubmit="return confirm('¿Estás seguro de que quieres eliminar el cuestionario &quot;{{ exam.name|escapejs }}&quot;? Esta acción no se puede deshacer.')">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-danger" 
-                                                title="Eliminar cuestionario">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="text-center py-5">
-                    <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
-                    <h5>No tienes cuestionarios orales creados</h5>
-                    <p class="text-muted">Crea tu primer cuestionario oral haciendo clic en el botón de arriba</p>
-                    <a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Crear Mi Primer Cuestionario
-                    </a>
-                </div>
+
+    {% include 'material/components/_column_filters_assets.html' %}
+
+    <form method="get" action="{% url 'material:list_oral_exams' %}" id="templateFiltersForm"></form>
+
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="active-filters-summary small text-muted">
+            {% if active_filter_count %}
+                {{ active_filter_count }} filtro{{ active_filter_count|pluralize }} activo{{ active_filter_count|pluralize }}
+                <span class="d-md-none">&middot; <a href="{% url 'material:list_oral_exams' %}">Limpiar filtros</a></span>
             {% endif %}
         </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm mobile-filters-trigger" data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
+            <i class="fas fa-filter"></i> Filtros
+        </button>
     </div>
+
+    <form method="post" action="{% url 'material:bulk_eliminar_cuestionarios_orales' %}" id="deleteForm">
+        {% csrf_token %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Listado de Cuestionarios Orales</h6>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm desktop-filters-trigger{% if active_filter_count %} active{% endif %}"
+                            onclick="{% if active_filter_count %}clearAllColumnFilters(){% else %}toggleDesktopColumnFilters(this){% endif %}">
+                        <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
+                    </button>
+                    <button type="button" id="toggleBulkSelectBtn" class="btn btn-outline-secondary btn-sm" onclick="toggleBulkSelect()"
+                            title="Seleccioná varios cuestionarios para borrarlos juntos">
+                        <i class="fas fa-check-square"></i> Selección múltiple
+                    </button>
+                    <a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus"></i> Crear Cuestionario Oral
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if oral_exams %}
+                    <div class="table-responsive">
+                        <table class="table table-striped column-filter-table{% if active_filter_count %} filters-visible{% endif %}">
+                            <thead>
+                                <tr>
+                                    <th class="bulk-select-col d-none" style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
+                                    <th>Nombre</th>
+                                    <th class="filterable-col">Materia {% include 'material/components/_column_filter_dropdown.html' with field='subject' label='Materia' options=filter_options.subject selected=selected_filters.subject prefix='d' %}</th>
+                                    <th class="filterable-col">Grupos {% include 'material/components/_column_filter_dropdown.html' with field='num_groups' label='Grupos' options=filter_options.num_groups selected=selected_filters.num_groups prefix='d' %}</th>
+                                    <th>Est. por Grupo</th>
+                                    <th>Preg. por Est.</th>
+                                    <th>Total Estudiantes</th>
+                                    <th>Creado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for exam in oral_exams %}
+                                <tr>
+                                    <td class="bulk-select-col d-none">
+                                        <input type="checkbox" name="oral_exam_ids" value="{{ exam.id }}">
+                                    </td>
+                                    <td>{{ exam.name }}</td>
+                                    <td>{{ exam.subject.name }}</td>
+                                    <td>{{ exam.num_groups }}</td>
+                                    <td>{{ exam.students_per_group }}</td>
+                                    <td>{{ exam.questions_per_student }}</td>
+                                    <td>{{ exam.total_students }}</td>
+                                    <td>{{ exam.created_at|date:"d/m/Y" }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'material:view_oral_exam' exam.id %}"
+                                               class="btn btn-sm btn-info"
+                                               title="Ver cuestionario">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <button type="submit" form="deleteRowForm_{{ exam.id }}"
+                                                    class="btn btn-sm btn-danger"
+                                                    title="Eliminar cuestionario">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% elif active_filter_count %}
+                    <p class="text-muted mb-0">Ningún cuestionario oral coincide con los filtros aplicados.</p>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                        <h5>No tienes cuestionarios orales creados</h5>
+                        <p class="text-muted">Crea tu primer cuestionario oral haciendo clic en el botón de arriba</p>
+                        <a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Crear Mi Primer Cuestionario
+                        </a>
+                    </div>
+                {% endif %}
+
+                <!-- Acciones masivas -->
+                <div class="mt-3 bulk-select-col d-none">
+                    <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                        <i class="fas fa-trash-alt"></i> Eliminar seleccionados
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Formularios individuales de eliminación (uno por cuestionario, ligados al botón de la fila) -->
+    {% for exam in oral_exams %}
+    <form method="post" action="{% url 'material:delete_oral_exam' exam.id %}" id="deleteRowForm_{{ exam.id }}"
+          onsubmit="return confirm('¿Estás seguro de que quieres eliminar el cuestionario &quot;{{ exam.name|escapejs }}&quot;? Esta acción no se puede deshacer.');">
+        {% csrf_token %}
+    </form>
+    {% endfor %}
+
+    {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns %}
 </div>
 
+<script>
+    let bulkSelectActive = false;
+    function toggleBulkSelect() {
+        bulkSelectActive = !bulkSelectActive;
+        document.querySelectorAll('.bulk-select-col').forEach(function(el) {
+            el.classList.toggle('d-none', !bulkSelectActive);
+        });
+        const btn = document.getElementById('toggleBulkSelectBtn');
+        if (bulkSelectActive) {
+            btn.innerHTML = '<i class="fas fa-times"></i> Cancelar selección';
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-secondary');
+        } else {
+            btn.innerHTML = '<i class="fas fa-check-square"></i> Selección múltiple';
+            btn.classList.remove('btn-secondary');
+            btn.classList.add('btn-outline-secondary');
+            document.querySelectorAll('#deleteForm input[type="checkbox"][name="oral_exam_ids"]').forEach(cb => cb.checked = false);
+            const selectAll = document.getElementById('selectAll');
+            if (selectAll) selectAll.checked = false;
+        }
+    }
 
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            document.querySelectorAll('#deleteForm input[type="checkbox"][name="oral_exam_ids"]').forEach(cb => cb.checked = this.checked);
+        });
+    }
 
+    function confirmDelete() {
+        const selected = document.querySelectorAll('#deleteForm input[name="oral_exam_ids"]:checked');
+        if (selected.length === 0) {
+            alert('Seleccioná al menos un cuestionario oral');
+            return;
+        }
+        if (confirm(`¿Eliminar ${selected.length} cuestionario(s) seleccionado(s)? Esta acción no se puede deshacer.`)) {
+            document.getElementById('deleteForm').submit();
+        }
+    }
+</script>
 {% endblock %}

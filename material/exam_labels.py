@@ -29,3 +29,19 @@ def get_exam_mode_label(raw_exam_mode):
     if not value:
         return ''
     return EXAM_MODE_LABELS.get(value.lower(), value)
+
+
+def format_fecha_ddmmaaaa(raw_date):
+    """Convierte 'AAAA-MM-DD' (formato nativo de <input type="date">) a 'DD-MM-AAAA'.
+
+    Si el valor no matchea ese patron (texto libre, ya formateado, vacio),
+    se devuelve tal cual para no romper datos existentes.
+    """
+    import re
+
+    value = (raw_date or '').strip()
+    match = re.match(r'^(\d{4})-(\d{2})-(\d{2})$', value)
+    if not match:
+        return value
+    year, month, day = match.groups()
+    return f"{day}-{month}-{year}"

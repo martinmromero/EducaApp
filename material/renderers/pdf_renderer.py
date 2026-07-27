@@ -51,9 +51,10 @@ def render_exam_payload_to_pdf(payload, formato):
     text_color = colors.HexColor(_to_hex_color(getattr(formato, 'color_texto', ''), '#111111'))
 
     style_text, style_title, style_h2 = _build_styles(formato)
+    content_width_cm = 21.0 - (left + right) / cm - 0.3
 
     flow = []
-    _append_payload(flow, payload, style_text, style_title, style_h2, include_page_break=False)
+    _append_payload(flow, payload, style_text, style_title, style_h2, include_page_break=False, content_width_cm=content_width_cm)
 
     doc.build(flow)
     buf.seek(0)
@@ -81,13 +82,14 @@ def render_exam_batch_payloads_to_pdf(exam_documents):
         bottomMargin=bottom,
         title='Lote de examenes',
     )
+    content_width_cm = 21.0 - (left + right) / cm - 0.3
 
     flow = []
     for idx, item in enumerate(exam_documents):
         payload = item['payload']
         formato = item['formato']
         style_text, style_title, style_h2 = _build_styles(formato)
-        _append_payload(flow, payload, style_text, style_title, style_h2, include_page_break=idx < (len(exam_documents) - 1))
+        _append_payload(flow, payload, style_text, style_title, style_h2, include_page_break=idx < (len(exam_documents) - 1), content_width_cm=content_width_cm)
 
     doc.build(flow)
     buf.seek(0)
@@ -134,7 +136,7 @@ def _build_styles(formato):
     return style_text, style_title, style_h2
 
 
-def _append_payload(flow, payload, style_text, style_title, style_h2, *, include_page_break):
+def _append_payload(flow, payload, style_text, style_title, style_h2, *, include_page_break, content_width_cm=16.2):
     base_font = style_text.fontName
     base_size = style_text.fontSize
     title_color = style_h2.textColor
@@ -143,15 +145,12 @@ def _append_payload(flow, payload, style_text, style_title, style_h2, *, include
         tipo = block.get('tipo')
 
         if tipo in {'letterhead', 'encabezado'}:
-            flow.append(_build_letterhead_table(block, style_text, style_h2))
+            flow.append(_build_letterhead_table(block, style_text, style_h2, content_width_cm))
             flow.append(Spacer(1, 6))
 
         elif tipo == 'datos_alumno':
-            flow.append(_build_student_data_table(block, style_text, style_h2))
+            flow.append(_build_student_data_table(block, style_text, style_h2, content_width_cm))
             flow.append(Spacer(1, 8))
-
-        elif tipo == 'titulo' and block.get('texto'):
-            flow.append(Paragraph(block['texto'], style_title))
 
         elif tipo in {'instrucciones', 'instrucciones_generales'} and block.get('texto'):
             flow.append(Paragraph('Instrucciones generales', style_h2))
@@ -167,7 +166,10 @@ def _append_payload(flow, payload, style_text, style_title, style_h2, *, include
             flow.append(Paragraph(block['texto'].replace('\n', '<br/>'), style_text))
 
         elif tipo == 'tiempo' and block.get('texto'):
-            flow.append(Paragraph(f"Tiempo: {block['texto']}", style_text))
+            flow.append(Paragraph(f"Duración: {block['texto']}", style_text))
+
+        elif tipo == 'modalidad_resolucion' and block.get('texto'):
+            flow.append(Paragraph(f"Modalidad de resolución: {block['texto']}", style_text))
 
         elif tipo == 'lista_temas' and block.get('items'):
             flow.append(Paragraph('Temas a evaluar', style_h2))
@@ -254,7 +256,7 @@ def _build_logo_flowable(block):
     return Paragraph('', ParagraphStyle('EmptyLogo', fontSize=1))
 
 
-def _build_letterhead_table(block, style_text, style_h2):
+def _build_letterhead_table(block, style_text, style_h2, content_width_cm=16.2):
     institution = (block.get('institucion') or '-').upper()
     career = block.get('carrera') or '-'
     subject = block.get('materia') or '-'
@@ -263,19 +265,42 @@ def _build_letterhead_table(block, style_text, style_h2):
     year = block.get('anio') or '-'
 
     center_style = ParagraphStyle('LetterCenter', parent=style_h2, alignment=1, spaceBefore=0, spaceAfter=0)
-    meta_style = ParagraphStyle('LetterMeta', parent=style_text, spaceBefore=0, spaceAfter=0)
     right_style = ParagraphStyle('LetterYear', parent=style_text, alignment=1, spaceBefore=0, spaceAfter=0)
+    meta_left_style = ParagraphStyle('LetterMetaLeft', parent=style_text, alignment=0, spaceBefore=0, spaceAfter=0)
+    meta_right_style = ParagraphStyle('LetterMetaRight', parent=style_text, alignment=2, spaceBefore=0, spaceAfter=0)
 
-    meta_html = (
-        f"<b>Carrera:</b> {career} &nbsp;&nbsp;&nbsp; <b>Profesor:</b> {professor}<br/>"
-        f"<b>Materia:</b> {subject} &nbsp;&nbsp;&nbsp; <b>{exam_type}</b>"
+    CELL_PAD_PT = 5
+    LOGO_COL_CM = 2.1
+    YEAR_COL_CM = 2.3
+    middle_cm = max(content_width_cm - LOGO_COL_CM - YEAR_COL_CM, 4.0)
+    # La celda que aloja meta_table tiene 5pt de LEFT/RIGHTPADDING (ver estilo
+    # de la tabla exterior mas abajo); sin descontarlos aca, colWidths suma mas
+    # que el espacio real disponible y el texto alineado a la derecha
+    # ("Profesor:", tipo de examen) se sale del borde de la tabla.
+    half_pt = (middle_cm * cm - 2 * CELL_PAD_PT) / 2
+
+    meta_table = Table(
+        [
+            [Paragraph(f"<b>Carrera:</b> {career}", meta_left_style), Paragraph(f"<b>Profesor:</b> {professor}", meta_right_style)],
+            [Paragraph(f"<b>Materia:</b> {subject}", meta_left_style), Paragraph(f"<b>{exam_type}</b>", meta_right_style)],
+        ],
+        colWidths=[half_pt, half_pt],
+        hAlign='LEFT',
     )
+    meta_table.setStyle(TableStyle([
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (0, 0), 2),
+        ('BOTTOMPADDING', (1, 0), (1, 0), 2),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
 
     data = [
         [_build_logo_flowable(block), Paragraph(institution, center_style), Paragraph(f"Año<br/>{year}", right_style)],
-        ['', Paragraph(meta_html, meta_style), ''],
+        ['', meta_table, ''],
     ]
-    table = Table(data, colWidths=[2.1 * cm, None, 2.3 * cm], hAlign='LEFT')
+    table = Table(data, colWidths=[LOGO_COL_CM * cm, middle_cm * cm, YEAR_COL_CM * cm], hAlign='LEFT')
     table.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#444444')),
         ('SPAN', (0, 0), (0, 1)),
@@ -283,24 +308,31 @@ def _build_letterhead_table(block, style_text, style_h2):
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (0, 1), 'CENTER'),
         ('ALIGN', (2, 0), (2, 1), 'CENTER'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 5),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), CELL_PAD_PT),
+        ('RIGHTPADDING', (0, 0), (-1, -1), CELL_PAD_PT),
         ('TOPPADDING', (0, 0), (-1, -1), 3),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
     return table
 
 
-def _build_student_data_table(block, style_text, style_h2):
+def _build_student_data_table(block, style_text, style_h2, content_width_cm=16.2):
     fecha = block.get('fecha') or ''
     label_style = ParagraphStyle('StudentLabel', parent=style_text, alignment=0)
     value_style = ParagraphStyle('StudentValue', parent=style_text, alignment=0)
+
+    # Mismo ancho total que la tabla del encabezado (content_width_cm), para
+    # que ambas tablas queden alineadas en vez de que esta quede mas angosta
+    # por el auto-ancho de columnas con colWidths=None.
+    NOMBRE_LABEL_CM = 2.4
+    APELLIDO_LABEL_CM = 2.4
+    value_col_cm = max((content_width_cm - NOMBRE_LABEL_CM - APELLIDO_LABEL_CM) / 2, 3.0)
 
     data = [
         [Paragraph('<b>Nombre</b>', label_style), Paragraph('', value_style), Paragraph('<b>Apellido</b>', label_style), Paragraph('', value_style)],
         [Paragraph('<b>Fecha</b>', label_style), Paragraph(fecha, value_style), '', ''],
     ]
-    table = Table(data, colWidths=[2.4 * cm, None, 2.4 * cm, None], hAlign='LEFT')
+    table = Table(data, colWidths=[NOMBRE_LABEL_CM * cm, value_col_cm * cm, APELLIDO_LABEL_CM * cm, value_col_cm * cm], hAlign='LEFT')
     table.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#444444')),
         ('SPAN', (2, 1), (3, 1)),

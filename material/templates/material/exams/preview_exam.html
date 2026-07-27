@@ -2,22 +2,6 @@
 
 {% block title %}Vista Previa del Examen{% endblock %}
 
-{% block header %}
-{% if exam.institucion %}
-<h1>{{ exam.institucion }}</h1>
-{% endif %}
-{% if exam.facultad or exam.carrera %}
-<h2>
-    {% if exam.facultad %}{{ exam.facultad }}{% endif %}
-    {% if exam.facultad and exam.carrera %} - {% endif %}
-    {% if exam.carrera %}{{ exam.carrera }}{% endif %}
-</h2>
-{% endif %}
-{% if exam.subject %}
-<h2>{{ exam.subject }}</h2>
-{% endif %}
-{% endblock %}
-
 {% block exam_content %}
 {% if versions_preview and versions_preview|length > 1 %}
 {% if notes_and_recommendations %}

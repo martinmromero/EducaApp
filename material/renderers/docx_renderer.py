@@ -121,10 +121,6 @@ def _append_payload(doc, payload, formato):
         elif tipo == 'datos_alumno':
             _append_student_data_table(doc, block, base_size, title_rgb, text_rgb, font_name)
 
-        elif tipo == 'titulo' and block.get('texto'):
-            p = add_line(block['texto'], bold=True, size=base_size + 4, color=title_rgb)
-            p.alignment = 1
-
         elif tipo in {'instrucciones', 'instrucciones_generales'} and block.get('texto'):
             add_line('Instrucciones generales', bold=True, size=base_size + 1, color=title_rgb)
             add_line(block['texto'])
@@ -139,7 +135,10 @@ def _append_payload(doc, payload, formato):
             add_line(block['texto'])
 
         elif tipo == 'tiempo' and block.get('texto'):
-            add_line(f"Tiempo: {block['texto']}", bold=False)
+            add_line(f"Duración: {block['texto']}", bold=False)
+
+        elif tipo == 'modalidad_resolucion' and block.get('texto'):
+            add_line(f"Modalidad de resolución: {block['texto']}", bold=False)
 
         elif tipo == 'lista_temas' and block.get('items'):
             add_line('Temas a evaluar', bold=True, size=base_size + 1, color=title_rgb)
@@ -325,6 +324,23 @@ def _enforce_font_name_in_document(doc, font_name):
                         _set_run_font(run, font_name=font_name)
 
 
+def _set_cell_vertical_center(cell):
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    tc_pr = cell._tc.get_or_add_tcPr()
+    v_align = OxmlElement('w:vAlign')
+    v_align.set(qn('w:val'), 'center')
+    tc_pr.append(v_align)
+
+
+def _add_right_tab_stop(paragraph, position_cm):
+    from docx.enum.text import WD_TAB_ALIGNMENT
+    from docx.shared import Cm
+
+    paragraph.paragraph_format.tab_stops.add_tab_stop(Cm(position_cm), WD_TAB_ALIGNMENT.RIGHT)
+
+
 def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_name):
     from docx.shared import Cm
 
@@ -348,6 +364,8 @@ def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_na
 
     logo_cell = table.rows[0].cells[0].merge(table.rows[1].cells[0])
     year_cell = table.rows[0].cells[2].merge(table.rows[1].cells[2])
+    _set_cell_vertical_center(logo_cell)
+    _set_cell_vertical_center(year_cell)
 
     logo_stream, logo_path = _resolve_logo_bytes_or_path(block)
     logo_paragraph = _clear_cell(logo_cell)
@@ -396,18 +414,24 @@ def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_na
         bold=False,
     )
 
+    # Ancho util de la celda meta (descontando el padding interno de la tabla).
+    meta_tab_cm = max(middle_cm - 0.3, 1.0)
+
     meta_cell = table.rows[1].cells[1]
     p_meta = _clear_cell(meta_cell)
     p_meta.alignment = 0
+    _add_right_tab_stop(p_meta, meta_tab_cm)
     _append_run(p_meta, 'Carrera: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
     _append_run(p_meta, career, font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
-    _append_run(p_meta, '    Profesor: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
+    p_meta.add_run('\t')
+    _append_run(p_meta, 'Profesor: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
     _append_run(p_meta, professor, font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
 
     p_meta = meta_cell.add_paragraph()
+    _add_right_tab_stop(p_meta, meta_tab_cm)
     _append_run(p_meta, 'Materia: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
     _append_run(p_meta, subject, font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
-    _append_run(p_meta, '    ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
+    p_meta.add_run('\t')
     _append_run(p_meta, exam_type, font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
 
 

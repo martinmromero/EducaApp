@@ -394,6 +394,13 @@
             </tr>
         </table>
 
+        {% if duracion_minutos or modalidad_resolucion %}
+        <div class="section">
+            {% if duracion_minutos %}<div><strong>Duración:</strong> {{ duracion_minutos }} minutos</div>{% endif %}
+            {% if modalidad_resolucion %}<div><strong>Modalidad de resolución:</strong> {{ modalidad_resolucion|join:", " }}</div>{% endif %}
+        </div>
+        {% endif %}
+
         {% block exam_content %}
         {% if notes_and_recommendations %}
         <div class="section">

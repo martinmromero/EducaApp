@@ -125,15 +125,23 @@ def _field_options(scoped_querysets, field):
     if field.choices is not None:
         present = set()
         for qs in scoped_querysets:
-            present.update(
-                qs.exclude(**{f'{field.value_field}__isnull': True})
-                .exclude(**{field.value_field: ''})
-                .values_list(field.value_field, flat=True)
-                .distinct()
-            )
+            qs = qs.exclude(**{f'{field.value_field}__isnull': True})
+            try:
+                # Descarta '' ademas de NULL para choices de texto (p.ej.
+                # exam_type). En choices numericos (p.ej. bloom_level,
+                # IntegerField) este exclude no aplica -- Django no puede
+                # preparar '' como valor de comparacion -- asi que se ignora.
+                qs = qs.exclude(**{field.value_field: ''})
+            except (ValueError, TypeError):
+                pass
+            present.update(qs.values_list(field.value_field, flat=True).distinct())
         labels = dict(field.choices)
         return sorted(
-            ({'value': v, 'label': labels.get(v, v)} for v in present),
+            # 'value' se castea a str: los filtros seleccionados llegan como
+            # strings desde el querystring (request.GET.getlist), y choices
+            # numericos (p.ej. bloom_level, IntegerField) devolverian ints
+            # de la DB que nunca matchean contra ese set de strings.
+            ({'value': str(v), 'label': labels.get(v, v)} for v in present),
             key=lambda o: o['label'],
         )
 

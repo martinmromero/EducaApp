@@ -232,10 +232,11 @@ def preview_exam(request):
         'career': {'name': exam.get('carrera', 'Carrera')},
         'subject': {'name': exam.get('subject', 'Materia')},
         'professor': {'get_full_name': exam.get('profesor', '-')},
-        'current_date': exam.get('fecha', '-'),
+        'current_date': format_fecha_ddmmaaaa(exam.get('fecha', '')) or '-',
         'exam_type': _TIPO_EXAMEN_LABELS.get(exam.get('tipo_examen', ''), exam.get('tipo_examen') or '-'),
         'exam_mode': _TIPO_MODALIDAD_LABELS.get(exam.get('tipo_modalidad', ''), exam.get('tipo_modalidad') or '-'),
-        'resolution_time': exam.get('duration_minutes', '-'),
+        'duracion_minutos': exam.get('duration_minutes', ''),
+        'modalidad_resolucion': exam.get('modalidad_resolucion', []),
         'instructions': exam.get('instructions', ''),
         'notes_and_recommendations': exam.get('notes_and_recommendations', ''),
         'bloom_display': bloom_display,
@@ -368,7 +369,7 @@ from .print_format_utils import (
     resolve_print_format_for_context,
     resolve_print_format_for_exam,
 )
-from .exam_labels import get_exam_mode_label, get_exam_type_label
+from .exam_labels import get_exam_mode_label, get_exam_type_label, format_fecha_ddmmaaaa
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.utils import OperationalError, ProgrammingError, DatabaseError
 from django.db.models import Prefetch, F, Value, CharField, Case, When, Exists, OuterRef
@@ -1865,6 +1866,82 @@ EXAM_TEMPLATE_FILTER_FIELDS = [
 
 EXAM_TEMPLATE_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in EXAM_TEMPLATE_FILTER_FIELDS]
 
+# Columnas filtrables de "Mis preguntas". 'subject' y 'ai_status' no pasan por
+# el motor generico: 'subject' es M2M con fallback a topic__subject para
+# preguntas viejas, y 'ai_status' combina generated_by_ai + ai_approved en un
+# unico set de estados (ver _apply_subject_filter/_apply_ai_status_filter).
+QUESTION_FILTER_FIELDS = [
+    ColumnFilterField('topic', 'Tema', label_field='topic__name'),
+    ColumnFilterField('subtopic', 'Subtema', label_field='subtopic__name'),
+    ColumnFilterField('bloom_level', 'Bloom', choices=[
+        (1, 'N1 — Recordar'), (2, 'N2 — Comprender'), (3, 'N3 — Aplicar'),
+        (4, 'N4 — Analizar'), (5, 'N5 — Evaluar'), (6, 'N6 — Crear'),
+    ]),
+]
+QUESTION_AI_STATUS_OPTIONS = [
+    {'value': 'aprobada', 'label': '✅ Aprobada'},
+    {'value': 'rechazada', 'label': '❌ Rechazada'},
+    {'value': 'sin_revisar', 'label': '⏳ Sin revisar'},
+]
+QUESTION_FILTER_COLUMNS = [
+    {'field': 'subject', 'label': 'Materia'},
+    {'field': 'topic', 'label': 'Tema'},
+    {'field': 'subtopic', 'label': 'Subtema'},
+    {'field': 'bloom_level', 'label': 'Bloom'},
+    {'field': 'ai_status', 'label': 'Estado IA'},
+]
+
+
+def _apply_subject_filter(qs, ids):
+    ids = [i for i in ids if str(i).isdigit()]
+    if not ids:
+        return qs
+    return qs.filter(
+        Q(subjects__id__in=ids) | Q(subjects__isnull=True, topic__subject_id__in=ids)
+    ).distinct()
+
+
+def _apply_ai_status_filter(qs, statuses):
+    if not statuses:
+        return qs
+    q = Q()
+    matched = False
+    if 'aprobada' in statuses:
+        q |= Q(generated_by_ai=True, ai_approved=True)
+        matched = True
+    if 'rechazada' in statuses:
+        q |= Q(generated_by_ai=True, ai_approved=False)
+        matched = True
+    if 'sin_revisar' in statuses:
+        q |= Q(generated_by_ai=True, ai_approved__isnull=True)
+        matched = True
+    return qs.filter(q) if matched else qs
+
+
+def _apply_column_filters_from_params(qs, fields, params):
+    """Como apply_column_filters de column_filters.py, pero recibe un
+    QueryDict directamente (request.GET o request.POST) en vez de asumir
+    siempre request.GET; lo necesitan bulk_eliminar_preguntas y
+    exportar_preguntas, que reciben los filtros vigentes como inputs
+    ocultos en un POST."""
+    for f in fields:
+        values = params.getlist(f.name)
+        if values:
+            qs = qs.filter(**{f.lookup: values})
+    return qs
+
+
+def _build_question_subject_options(qs):
+    """Opciones de la columna Materia: union de materias asignadas por M2M
+    y, para preguntas viejas sin M2M, la materia del tema (topic__subject)."""
+    seen = {}
+    m2m_rows = qs.exclude(subjects__isnull=True).values_list('subjects__id', 'subjects__name').distinct()
+    legacy_rows = qs.filter(subjects__isnull=True, topic__subject__isnull=False) \
+        .values_list('topic__subject__id', 'topic__subject__name').distinct()
+    for sid, sname in list(m2m_rows) + list(legacy_rows):
+        seen[str(sid)] = sname
+    return sorted(({'value': v, 'label': l} for v, l in seen.items()), key=lambda o: o['label'])
+
 
 @login_required
 def list_exam_templates(request):
@@ -2124,6 +2201,46 @@ def eliminar_exam_batch(request, batch_id):
 
 
 @login_required
+@require_POST
+def bulk_eliminar_examenes(request):
+    """Borrado multiple de 'Mis examenes': la lista mezcla Exam y
+    ExamVersionBatch (dos modelos, dos endpoints de borrado individual), asi
+    que cada checkbox viaja como '<kind>:<id>' (p.ej. 'exam:12', 'batch:5')
+    para poder separarlos aca."""
+    item_ids = request.POST.getlist('item_ids')
+    exam_ids = [i.split(':', 1)[1] for i in item_ids if i.startswith('exam:')]
+    batch_ids = [i.split(':', 1)[1] for i in item_ids if i.startswith('batch:')]
+    exam_ids = [int(i) for i in exam_ids if i.isdigit()]
+    batch_ids = [int(i) for i in batch_ids if i.isdigit()]
+
+    if not exam_ids and not batch_ids:
+        messages.error(request, 'No se seleccionó ningún examen para eliminar.', extra_tags='examenes')
+        return redirect('material:mis_examenes')
+
+    exams_count = 0
+    batches_count = 0
+    with transaction.atomic():
+        if exam_ids:
+            exams_qs = Exam.objects.filter(pk__in=exam_ids, created_by=request.user)
+            exams_count = exams_qs.count()
+            exams_qs.delete()
+        if batch_ids:
+            batches_qs = ExamVersionBatch.objects.filter(pk__in=batch_ids, created_by=request.user)
+            for batch in batches_qs:
+                batch.versions.all().delete()
+                batch.delete()
+                batches_count += 1
+
+    parts = []
+    if exams_count:
+        parts.append(f'{exams_count} examen{"es" if exams_count != 1 else ""}')
+    if batches_count:
+        parts.append(f'{batches_count} lote{"s" if batches_count != 1 else ""}')
+    messages.success(request, f'Se eliminaron {" y ".join(parts)}.', extra_tags='examenes')
+    return redirect('material:mis_examenes')
+
+
+@login_required
 def exam_version_available_questions(request):
     exam_id = request.GET.get('exam_id')
     question_id = request.GET.get('question_id')
@@ -2331,10 +2448,10 @@ def ver_examen(request, pk):
         'career': {'name': examen.career_name or '-'},
         'subject': {'name': examen.subject.name if examen.subject else '-'},
         'professor': professor,
-        'current_date': examen.date_str or '-',
+        'current_date': format_fecha_ddmmaaaa(examen.date_str or '') or '-',
         'exam_type': exam_type_display,
         'exam_mode': exam_mode_display,
-        'resolution_time': examen.duration_minutes,
+        'duracion_minutos': examen.duration_minutes,
         'modalidad_resolucion': modalidad_list,
         'instructions': examen.instructions or '',
         'notes_and_recommendations': examen.notes_and_recommendations or '',
@@ -2367,75 +2484,41 @@ def eliminar_examen(request, pk):
     return redirect('material:mis_examenes')
 
 def _aplicar_filtros_preguntas(preguntas, params):
-    """Aplica los filtros de materia/tema/subtema/aprobación IA/Bloom.
+    """Aplica los filtros por columna (materia/tema/subtema/bloom/estado IA).
 
     `params` es un QueryDict (sirve tanto request.GET como request.POST),
     usado por lista_preguntas, bulk_eliminar_preguntas y exportar_preguntas
     para mantener el mismo criterio de filtrado en las tres vistas.
     """
-    subject_id = params.get('subject', '')
-    topic_id = params.get('topic', '')
-    subtopic_id = params.get('subtopic', '')
-    ai_approval = params.get('ai_approval', '')
-    bloom_filter = params.get('bloom_filter', '')
-
-    if subject_id and subject_id.isdigit():
-        sid = int(subject_id)
-        preguntas = preguntas.filter(
-            Q(subjects__id=sid) |
-            Q(subjects__isnull=True, topic__subject_id=sid)
-        ).distinct()
-    if topic_id and topic_id.isdigit() and int(topic_id) > 0:
-        preguntas = preguntas.filter(topic_id=int(topic_id))
-    if subtopic_id and subtopic_id.isdigit() and int(subtopic_id) > 0:
-        preguntas = preguntas.filter(subtopic_id=int(subtopic_id))
-    if ai_approval == 'aprobada':
-        preguntas = preguntas.filter(generated_by_ai=True, ai_approved=True)
-    elif ai_approval == 'rechazada':
-        preguntas = preguntas.filter(generated_by_ai=True, ai_approved=False)
-    elif ai_approval == 'sin_revisar':
-        preguntas = preguntas.filter(generated_by_ai=True, ai_approved__isnull=True)
-    elif ai_approval == 'ia_todas':
-        preguntas = preguntas.filter(generated_by_ai=True)
-
-    if bloom_filter == 'con_bloom':
-        preguntas = preguntas.filter(bloom_level__isnull=False)
-    elif bloom_filter == 'sin_bloom':
-        preguntas = preguntas.filter(bloom_level__isnull=True)
-    elif bloom_filter.isdigit() and 1 <= int(bloom_filter) <= 6:
-        preguntas = preguntas.filter(bloom_level=int(bloom_filter))
-
+    preguntas = _apply_column_filters_from_params(preguntas, QUESTION_FILTER_FIELDS, params)
+    preguntas = _apply_subject_filter(preguntas, params.getlist('subject'))
+    preguntas = _apply_ai_status_filter(preguntas, set(params.getlist('ai_status')))
     return preguntas
 
 
 @login_required
 def lista_preguntas(request):
-    # Obtener todas las preguntas del usuario
-    preguntas = Question.objects.filter(user=request.user).prefetch_related('subjects').select_related('topic', 'subtopic', 'contenido')
+    base_preguntas = Question.objects.filter(user=request.user).prefetch_related('subjects').select_related('topic', 'subtopic', 'contenido')
 
-    # Obtener materias que tienen preguntas del usuario
-    subjects = Subject.objects.filter(
-        questions__in=preguntas
-    ).distinct().order_by('name')
+    selected_filters = get_selected_filters(request, QUESTION_FILTER_FIELDS)
+    subject_selected = set(request.GET.getlist('subject'))
+    ai_status_selected = set(request.GET.getlist('ai_status'))
+    selected_filters['subject'] = subject_selected
+    selected_filters['ai_status'] = ai_status_selected
 
-    # Aplicar filtros
-    subject_id = request.GET.get('subject', '')
-    topic_id = request.GET.get('topic', '')
-    subtopic_id = request.GET.get('subtopic', '')
-    ai_approval = request.GET.get('ai_approval', '')
-    bloom_filter = request.GET.get('bloom_filter', '')
+    # Opciones de tema/subtema/bloom en cascada respecto a materia y estado IA.
+    scoped_generic = _apply_subject_filter(base_preguntas, subject_selected)
+    scoped_generic = _apply_ai_status_filter(scoped_generic, ai_status_selected)
+    filter_options = get_filter_options(scoped_generic, QUESTION_FILTER_FIELDS, selected_filters)
 
-    preguntas = _aplicar_filtros_preguntas(preguntas, request.GET)
+    # Opciones de materia en cascada respecto a tema/subtema/bloom y estado IA
+    # (nunca respecto a la propia materia, para no autoexcluirse).
+    scoped_subject = _apply_column_filters_from_params(base_preguntas, QUESTION_FILTER_FIELDS, request.GET)
+    scoped_subject = _apply_ai_status_filter(scoped_subject, ai_status_selected)
+    filter_options['subject'] = _build_question_subject_options(scoped_subject)
+    filter_options['ai_status'] = QUESTION_AI_STATUS_OPTIONS
 
-    # Obtener temas y subtemas basados en los filtros actuales
-    topics = Topic.objects.none()
-    subtopics = Subtopic.objects.none()
-
-    if subject_id and subject_id.isdigit() and int(subject_id) > 0:
-        topics = Topic.objects.filter(subject_id=int(subject_id)).distinct().order_by('name')
-
-    if topic_id and topic_id.isdigit() and int(topic_id) > 0:
-        subtopics = Subtopic.objects.filter(topic_id=int(topic_id)).distinct().order_by('name')
+    preguntas = _aplicar_filtros_preguntas(base_preguntas, request.GET)
 
     # Contadores dinámicos sobre el total filtrado (no solo la página actual)
     materias_count = preguntas.exclude(subjects__isnull=True).values('subjects').distinct().count()
@@ -2452,14 +2535,11 @@ def lista_preguntas(request):
 
     context = {
         'preguntas': page_obj,
-        'subjects': subjects,
-        'topics': topics,
-        'subtopics': subtopics,
-        'selected_subject': subject_id if subject_id.isdigit() else '',
-        'selected_topic': topic_id if topic_id.isdigit() else '',
-        'selected_subtopic': subtopic_id if subtopic_id.isdigit() else '',
-        'selected_ai_approval': ai_approval,
-        'selected_bloom_filter': bloom_filter,
+        'filter_options': filter_options,
+        'selected_filters': selected_filters,
+        'active_filter_count': get_active_filter_count(selected_filters),
+        'filter_querystring': get_filter_querystring(request),
+        'filter_columns': QUESTION_FILTER_COLUMNS,
         'materias_count': materias_count,
         'temas_count': temas_count,
         'subtemas_count': subtemas_count,
@@ -2533,11 +2613,9 @@ def bulk_eliminar_preguntas(request):
     else:
         messages.success(request, f'Se eliminaron {count} preguntas correctamente.', extra_tags='preguntas')
 
-    params = {}
-    for key in ['subject', 'topic', 'subtopic', 'ai_approval', 'bloom_filter']:
-        val = request.POST.get(key, '')
-        if val:
-            params[key] = val
+    params = []
+    for key in ['subject', 'topic', 'subtopic', 'bloom_level', 'ai_status']:
+        params.extend((key, val) for val in request.POST.getlist(key))
     redirect_url = reverse('material:lista_preguntas')
     if params:
         redirect_url += '?' + urlencode(params)
@@ -3575,6 +3653,40 @@ def delete_institution_v2(request, pk):
         'faculties_count': institution.facultyv2_set.count()
     })
 
+
+@login_required
+@require_POST
+def bulk_eliminar_instituciones_v2(request):
+    """Borrado multiple de instituciones (mismo criterio que delete_institution_v2:
+    borra relaciones, campus, facultades y logs antes de la institucion)."""
+    ids_raw = request.POST.getlist('institution_ids')
+    ids = [int(i) for i in ids_raw if i.isdigit()]
+    if not ids:
+        messages.error(request, 'No se seleccionó ninguna institución para eliminar.')
+        return redirect('material:institution_v2_list')
+
+    institutions = InstitutionV2.objects.filter(pk__in=ids, userinstitution__user=request.user).distinct()
+    count = institutions.count()
+
+    try:
+        with transaction.atomic():
+            for institution in institutions:
+                UserInstitution.objects.filter(institution=institution, user=request.user).delete()
+                CampusV2.objects.filter(institution=institution).delete()
+                FacultyV2.objects.filter(institution=institution).delete()
+                InstitutionLog.objects.filter(institution=institution).delete()
+                institution.delete()
+    except Exception as e:
+        logger.error(f"Error en borrado multiple de instituciones: {str(e)}")
+        messages.error(request, 'Ocurrió un error al eliminar las instituciones seleccionadas.')
+        return redirect('material:institution_v2_list')
+
+    if count == 1:
+        messages.success(request, 'Se eliminó 1 institución permanentemente.')
+    else:
+        messages.success(request, f'Se eliminaron {count} instituciones permanentemente.')
+    return redirect('material:institution_v2_list')
+
 @login_required
 def toggle_favorite_institution(request, pk):
     institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
@@ -4457,17 +4569,54 @@ def view_oral_exam(request, exam_id):
         'total_questions': total_questions
     })
 
+ORAL_EXAM_FILTER_FIELDS = [
+    ColumnFilterField('subject', 'Materia', value_field='subject_id', label_field='subject__name'),
+    ColumnFilterField('num_groups', 'Grupos'),
+]
+ORAL_EXAM_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in ORAL_EXAM_FILTER_FIELDS]
+
+
 @login_required
 def list_oral_exams(request):
-    oral_exams = OralExamSet.objects.filter(user=request.user).order_by('-created_at')
-    
+    base_qs = OralExamSet.objects.filter(user=request.user)
+
+    selected_filters = get_selected_filters(request, ORAL_EXAM_FILTER_FIELDS)
+    filter_options = get_filter_options(base_qs, ORAL_EXAM_FILTER_FIELDS, selected_filters)
+    oral_exams = apply_column_filters(request, base_qs, ORAL_EXAM_FILTER_FIELDS).order_by('-created_at')
+
     # Agregar total de estudiantes a cada examen
     for exam in oral_exams:
         exam.total_students = exam.num_groups * exam.students_per_group
-    
+
     return render(request, 'material/oral_exams/list.html', {
-        'oral_exams': oral_exams
+        'oral_exams': oral_exams,
+        'filter_options': filter_options,
+        'selected_filters': selected_filters,
+        'active_filter_count': get_active_filter_count(selected_filters),
+        'filter_querystring': get_filter_querystring(request),
+        'filter_columns': ORAL_EXAM_FILTER_COLUMNS,
     })
+
+
+@login_required
+@require_POST
+def bulk_eliminar_cuestionarios_orales(request):
+    """Borrado multiple de cuestionarios orales (mismo criterio que delete_oral_exam)."""
+    ids_raw = request.POST.getlist('oral_exam_ids')
+    ids = [int(i) for i in ids_raw if i.isdigit()]
+    if not ids:
+        messages.error(request, 'No se seleccionó ningún cuestionario oral para eliminar.', extra_tags='cuestionarios_orales')
+        return redirect('material:list_oral_exams')
+
+    oral_exams = OralExamSet.objects.filter(pk__in=ids, user=request.user)
+    count = oral_exams.count()
+    oral_exams.delete()
+
+    if count == 1:
+        messages.success(request, 'Se eliminó 1 cuestionario oral permanentemente.', extra_tags='cuestionarios_orales')
+    else:
+        messages.success(request, f'Se eliminaron {count} cuestionarios orales permanentemente.', extra_tags='cuestionarios_orales')
+    return redirect('material:list_oral_exams')
 
 def generate_oral_exam_questions(oral_exam):
     """

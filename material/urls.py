@@ -34,6 +34,7 @@ urlpatterns = [
     path('formatos-impresion/<int:pk>/eliminar/', material_views.formato_impresion_delete, name='formato_impresion_delete'),
     path('formatos-impresion/<int:pk>/predeterminado/', material_views.formato_impresion_set_default, name='formato_impresion_set_default'),
     path('mis-examenes/', material_views.mis_examenes, name='mis_examenes'),
+    path('mis-examenes/eliminar-bulk/', material_views.bulk_eliminar_examenes, name='bulk_eliminar_examenes'),
     path('examenes/lotes/<int:batch_id>/', material_views.view_exam_batch, name='view_exam_batch'),
     path('examenes/lotes/<int:batch_id>/rename/', material_views.update_exam_batch_name, name='update_exam_batch_name'),
     path('examenes/lotes/<int:batch_id>/eliminar/', material_views.eliminar_exam_batch, name='eliminar_exam_batch'),
@@ -94,6 +95,7 @@ urlpatterns = [
     path('instituciones-v2/crear/', material_views.create_institution_v2, name='create_institution_v2'),
     path('instituciones-v2/editar/<int:pk>/', material_views.edit_institution_v2, name='edit_institution_v2'),
     path('instituciones-v2/eliminar/<int:pk>/', material_views.delete_institution_v2, name='delete_institution_v2'),
+    path('instituciones-v2/eliminar-bulk/', material_views.bulk_eliminar_instituciones_v2, name='bulk_eliminar_instituciones_v2'),
     path('instituciones-v2/favorito/<int:pk>/', material_views.toggle_favorite_institution, name='toggle_favorite_institution'),
     path('instituciones-v2/detalle/<int:pk>/', material_views.institution_v2_detail, name='institution_v2_detail'),
     path('instituciones-v2/logs/<int:pk>/', material_views.institution_v2_logs, name='institution_v2_logs'),
@@ -155,6 +157,7 @@ path('get-learning-outcomes/', material_views.get_learning_outcomes, name='get_l
 
 # Cuestionarios Orales
 path('oral-exams/', material_views.list_oral_exams, name='list_oral_exams'),
+path('oral-exams/bulk-delete/', material_views.bulk_eliminar_cuestionarios_orales, name='bulk_eliminar_cuestionarios_orales'),
 path('oral-exams/create/', material_views.create_oral_exam, name='create_oral_exam'),
 path('oral-exams/validate/', material_views.validate_oral_exam, name='validate_oral_exam'),
 path('oral-exams/<int:exam_id>/', material_views.view_oral_exam, name='view_oral_exam'),

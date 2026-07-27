@@ -31,93 +31,166 @@
         </button>
     </div>
 
-    <div class="card shadow mb-4">
-        <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-primary">Exámenes</h6>
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm desktop-filters-trigger{% if active_filter_count %} active{% endif %}"
-                        onclick="{% if active_filter_count %}clearAllColumnFilters(){% else %}toggleDesktopColumnFilters(this){% endif %}">
-                    <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
-                </button>
-                <a href="{% url 'material:create_exam' %}" class="btn btn-primary btn-sm">
-                    <i class="fas fa-plus"></i> Crear Examen
-                </a>
+    <form method="post" action="{% url 'material:bulk_eliminar_examenes' %}" id="deleteForm">
+        {% csrf_token %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Exámenes</h6>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm desktop-filters-trigger{% if active_filter_count %} active{% endif %}"
+                            onclick="{% if active_filter_count %}clearAllColumnFilters(){% else %}toggleDesktopColumnFilters(this){% endif %}">
+                        <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
+                    </button>
+                    <button type="button" id="toggleBulkSelectBtn" class="btn btn-outline-secondary btn-sm" onclick="toggleBulkSelect()"
+                            title="Seleccioná varios exámenes o lotes para borrarlos juntos">
+                        <i class="fas fa-check-square"></i> Selección múltiple
+                    </button>
+                    <a href="{% url 'material:create_exam' %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus"></i> Crear Examen
+                    </a>
+                </div>
             </div>
-        </div>
-        <div class="card-body">
-            {% if items %}
-            <div class="table-responsive">
-                <table class="table table-striped column-filter-table{% if active_filter_count %} filters-visible{% endif %}">
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th class="filterable-col">Materia {% include 'material/components/_column_filter_dropdown.html' with field='subject' label='Materia' options=filter_options.subject selected=selected_filters.subject prefix='d' %}</th>
-                            <th class="filterable-col">Tipo {% include 'material/components/_column_filter_dropdown.html' with field='kind' label='Tipo' options=filter_options.kind selected=selected_filters.kind prefix='d' %}</th>
-                            <th>Creado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in items %}
-                        {% if item.kind == 'batch' %}
-                        <tr>
-                            <td><strong>{{ item.batch.name }}</strong></td>
-                            <td>{{ item.batch.subject.name|default:'-' }}</td>
-                            <td><span class="badge bg-info text-white">Lote &middot; {{ item.batch.version_count }} versiones</span></td>
-                            <td>{{ item.batch.created_at|date:"d/m/Y H:i" }}</td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <a href="{% url 'material:view_exam_batch' item.batch.id %}"
-                                       class="btn btn-sm btn-info" title="Ver lote">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <form method="post" action="{% url 'material:eliminar_exam_batch' item.batch.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar este lote y todas sus versiones?');">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-danger" title="Eliminar lote">
+            <div class="card-body">
+                {% if items %}
+                <div class="table-responsive">
+                    <table class="table table-striped column-filter-table{% if active_filter_count %} filters-visible{% endif %}">
+                        <thead>
+                            <tr>
+                                <th class="bulk-select-col d-none" style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
+                                <th>Nombre</th>
+                                <th class="filterable-col">Materia {% include 'material/components/_column_filter_dropdown.html' with field='subject' label='Materia' options=filter_options.subject selected=selected_filters.subject prefix='d' %}</th>
+                                <th class="filterable-col">Tipo {% include 'material/components/_column_filter_dropdown.html' with field='kind' label='Tipo' options=filter_options.kind selected=selected_filters.kind prefix='d' %}</th>
+                                <th>Creado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            {% if item.kind == 'batch' %}
+                            <tr>
+                                <td class="bulk-select-col d-none">
+                                    <input type="checkbox" name="item_ids" value="batch:{{ item.batch.id }}">
+                                </td>
+                                <td><strong>{{ item.batch.name }}</strong></td>
+                                <td>{{ item.batch.subject.name|default:'-' }}</td>
+                                <td><span class="badge bg-info text-white">Lote &middot; {{ item.batch.version_count }} versiones</span></td>
+                                <td>{{ item.batch.created_at|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'material:view_exam_batch' item.batch.id %}"
+                                           class="btn btn-sm btn-info" title="Ver lote">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <button type="submit" form="deleteRowForm_batch_{{ item.batch.id }}"
+                                                class="btn btn-sm btn-danger" title="Eliminar lote">
                                             <i class="fas fa-trash"></i>
                                         </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td>{{ item.examen.title }}</td>
-                            <td>{{ item.examen.subject.name|default:'-' }}</td>
-                            <td><span class="badge bg-secondary text-white">Individual</span></td>
-                            <td>{{ item.examen.created_at|date:"d/m/Y H:i" }}</td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <a href="{% url 'material:ver_examen' item.examen.pk %}"
-                                       class="btn btn-sm btn-info" title="Ver examen">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <a href="{% url 'material:editar_examen' item.examen.pk %}"
-                                       class="btn btn-sm btn-warning" title="Editar examen">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <form method="post" action="{% url 'material:eliminar_examen' item.examen.pk %}" class="d-inline" onsubmit="return confirm('¿Eliminar este examen?');">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-danger" title="Eliminar examen">
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td class="bulk-select-col d-none">
+                                    <input type="checkbox" name="item_ids" value="exam:{{ item.examen.pk }}">
+                                </td>
+                                <td>{{ item.examen.title }}</td>
+                                <td>{{ item.examen.subject.name|default:'-' }}</td>
+                                <td><span class="badge bg-secondary text-white">Individual</span></td>
+                                <td>{{ item.examen.created_at|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'material:ver_examen' item.examen.pk %}"
+                                           class="btn btn-sm btn-info" title="Ver examen">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'material:editar_examen' item.examen.pk %}"
+                                           class="btn btn-sm btn-warning" title="Editar examen">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button type="submit" form="deleteRowForm_exam_{{ item.examen.pk }}"
+                                                class="btn btn-sm btn-danger" title="Eliminar examen">
                                             <i class="fas fa-trash"></i>
                                         </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% elif active_filter_count %}
+                <p class="text-muted mb-0">Ningún examen coincide con los filtros aplicados.</p>
+                {% else %}
+                <p class="text-muted mb-0">Aún no tenés exámenes creados.</p>
+                {% endif %}
+
+                <!-- Acciones masivas -->
+                <div class="mt-3 bulk-select-col d-none">
+                    <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                        <i class="fas fa-trash-alt"></i> Eliminar seleccionados
+                    </button>
+                </div>
             </div>
-            {% elif active_filter_count %}
-            <p class="text-muted mb-0">Ningún examen coincide con los filtros aplicados.</p>
-            {% else %}
-            <p class="text-muted mb-0">Aún no tenés exámenes creados.</p>
-            {% endif %}
         </div>
-    </div>
+    </form>
+
+    <!-- Formularios individuales de eliminación (uno por examen/lote, ligados al botón de la fila) -->
+    {% for item in items %}
+    {% if item.kind == 'batch' %}
+    <form method="post" action="{% url 'material:eliminar_exam_batch' item.batch.id %}" id="deleteRowForm_batch_{{ item.batch.id }}"
+          onsubmit="return confirm('¿Eliminar este lote y todas sus versiones?');">
+        {% csrf_token %}
+    </form>
+    {% else %}
+    <form method="post" action="{% url 'material:eliminar_examen' item.examen.pk %}" id="deleteRowForm_exam_{{ item.examen.pk }}"
+          onsubmit="return confirm('¿Eliminar este examen?');">
+        {% csrf_token %}
+    </form>
+    {% endif %}
+    {% endfor %}
 
     {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns %}
 </div>
+
+<script>
+    let bulkSelectActive = false;
+    function toggleBulkSelect() {
+        bulkSelectActive = !bulkSelectActive;
+        document.querySelectorAll('.bulk-select-col').forEach(function(el) {
+            el.classList.toggle('d-none', !bulkSelectActive);
+        });
+        const btn = document.getElementById('toggleBulkSelectBtn');
+        if (bulkSelectActive) {
+            btn.innerHTML = '<i class="fas fa-times"></i> Cancelar selección';
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-secondary');
+        } else {
+            btn.innerHTML = '<i class="fas fa-check-square"></i> Selección múltiple';
+            btn.classList.remove('btn-secondary');
+            btn.classList.add('btn-outline-secondary');
+            document.querySelectorAll('#deleteForm input[type="checkbox"][name="item_ids"]').forEach(cb => cb.checked = false);
+            const selectAll = document.getElementById('selectAll');
+            if (selectAll) selectAll.checked = false;
+        }
+    }
+
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            document.querySelectorAll('#deleteForm input[type="checkbox"][name="item_ids"]').forEach(cb => cb.checked = this.checked);
+        });
+    }
+
+    function confirmDelete() {
+        const selected = document.querySelectorAll('#deleteForm input[name="item_ids"]:checked');
+        if (selected.length === 0) {
+            alert('Seleccioná al menos un examen o lote');
+            return;
+        }
+        if (confirm(`¿Eliminar ${selected.length} elemento(s) seleccionado(s)? Esta acción no se puede deshacer.`)) {
+            document.getElementById('deleteForm').submit();
+        }
+    }
+</script>
 {% endblock %}

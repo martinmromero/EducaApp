@@ -1,7 +1,7 @@
 """Document builder neutral para exportación e impresión."""
 
 from typing import Any
-from .exam_labels import get_exam_type_label
+from .exam_labels import get_exam_type_label, format_fecha_ddmmaaaa
 
 
 def _resolve_exam_type_label(exam: Any) -> str:
@@ -63,6 +63,7 @@ def build_exam_document_payload(exam: Any, *, include_answers: bool = False, inc
     if not exam_year and date_str and len(date_str) >= 4:
         maybe_year = ''.join(ch for ch in date_str if ch.isdigit())
         exam_year = maybe_year[-4:] if len(maybe_year) >= 4 else ''
+    fecha_formateada = format_fecha_ddmmaaaa(date_str)
 
     blocks = [
         {
@@ -75,7 +76,7 @@ def build_exam_document_payload(exam: Any, *, include_answers: bool = False, inc
             'carrera': getattr(exam, 'career_name', '') or '',
             'materia': getattr(getattr(exam, 'subject', None), 'name', '') or getattr(exam, 'subject_name', ''),
             'profesor': getattr(getattr(exam, 'professor', None), 'get_full_name', lambda: '')() if getattr(exam, 'professor', None) else '',
-            'fecha': getattr(exam, 'date_str', '') or '',
+            'fecha': fecha_formateada,
             'tipo_examen': exam_type_label,
             'tipo_examen_mayusculas': exam_type_upper,
             'modalidad': getattr(exam, 'exam_group', '') or '',
@@ -84,13 +85,9 @@ def build_exam_document_payload(exam: Any, *, include_answers: bool = False, inc
         },
         {
             'tipo': 'datos_alumno',
-            'fecha': date_str,
+            'fecha': fecha_formateada,
             'tipo_examen': exam_type_label,
             'tipo_examen_mayusculas': exam_type_upper,
-        },
-        {
-            'tipo': 'titulo',
-            'texto': getattr(exam, 'title', '') or '',
         },
     ]
 
@@ -113,11 +110,17 @@ def build_exam_document_payload(exam: Any, *, include_answers: bool = False, inc
     if requirements_text:
         blocks.append({'tipo': 'requisitos_aprobar', 'texto': requirements_text})
 
-    time_text = (getattr(exam, 'resolution_time', '') or '').strip()
-    if not time_text and getattr(exam, 'duration_minutes', None):
-        time_text = f"{getattr(exam, 'duration_minutes')} minutos"
-    if time_text:
-        blocks.append({'tipo': 'tiempo', 'texto': time_text})
+    # 'tiempo' es la duracion en minutos (Exam.duration_minutes); la modalidad
+    # de resolucion (oral/domiciliario/etc, checkboxes guardados en
+    # Exam.resolution_time pese a su nombre) se muestra en un bloque aparte
+    # para no confundir ambos conceptos.
+    duration_minutes = getattr(exam, 'duration_minutes', None)
+    if duration_minutes:
+        blocks.append({'tipo': 'tiempo', 'texto': f"{duration_minutes} minutos"})
+
+    modalidad_text = (getattr(exam, 'resolution_time', '') or '').strip()
+    if modalidad_text:
+        blocks.append({'tipo': 'modalidad_resolucion', 'texto': modalidad_text})
 
     topics = [t.name for t in exam.topics.all()] if hasattr(exam, 'topics') else []
     if not topics:
