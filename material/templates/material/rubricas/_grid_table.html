@@ -24,8 +24,6 @@ The grid dict has keys: title, levels (list of str), rows (list of {name, cells}
         {% endfor %}
     </tbody>
 </table>
-{% elif grid.body %}
-<div style="white-space:pre-wrap;font-size:0.9em;padding:8px 0;">{{ grid.body }}</div>
 {% else %}
 <p class="text-muted small">(Sin contenido)</p>
 {% endif %}

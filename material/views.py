@@ -372,7 +372,7 @@ from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
     UserEditForm, ContenidoForm, 
     LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm,
-    OralExamForm, RubricForm, FormatoImpresionForm
+    OralExamForm, FormatoImpresionForm
 )
 from .print_format_utils import (
     assign_print_format_to_exam,
@@ -388,7 +388,7 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.utils import OperationalError, ProgrammingError, DatabaseError
 from django.db.models import Prefetch, F, Value, CharField, Case, When, Exists, OuterRef
 from django.db.models.functions import Concat
-from .ia_processor import extract_text_from_file, generate_questions_from_text, extract_book_metadata
+from .ia_processor import extract_book_metadata
 from django.utils import timezone 
 from .forms import LearningOutcomeForm, ProfileForm
 
@@ -575,53 +575,6 @@ def extract_metadata_from_upload(request):
             'metadata': {}
         }, status=500)
 
-
-@login_required
-def generate_questions(request, contenido_id):
-    contenido = Contenido.objects.get(id=contenido_id)
-    num_questions = int(request.POST.get('num_questions', 20))
-    try:
-        text = extract_text_from_file(contenido.file.path)
-    except ValueError as e:
-        messages.error(request, str(e), extra_tags='contenidos')
-        return redirect('material:mis_contenidos')
-    questions_text = generate_questions_from_text(text, num_questions)
-    request.session['generated_questions'] = questions_text.split('\n')
-    return redirect('material:review_questions', contenido_id=contenido.id)
-
-@login_required
-def review_questions(request, contenido_id):
-    contenido = Contenido.objects.get(id=contenido_id)
-    questions_list = request.session.get('generated_questions', [])
-    return render(request, 'material/review_questions.html', {
-        'contenido': contenido,
-        'questions': questions_list
-    })
-
-@login_required
-def save_selected_questions(request, contenido_id):
-    if request.method == 'POST':
-        contenido = Contenido.objects.get(id=contenido_id)
-        selected_questions = request.POST.getlist('selected_questions')
-        questions_list = request.session.get('generated_questions', [])
-        default_subject, _ = Subject.objects.get_or_create(name='Generado por IA')
-        default_topic, _ = Topic.objects.get_or_create(name='Generado por IA', subject=default_subject)
-        
-        for i, question in enumerate(questions_list):
-            if str(i) in selected_questions:
-                q = Question.objects.create(
-                    contenido=contenido,
-                    question_text=question,
-                    answer_text='Respuesta generada por IA',
-                    topic=default_topic,
-                    subtopic=None,
-                    user=request.user,
-                    generated_by_ai=True,
-                    ai_approved=True
-                )
-                q.subjects.add(default_subject)
-        messages.success(request, 'Preguntas guardadas correctamente.', extra_tags='preguntas')
-        return redirect('material:lista_preguntas')
 
 def _collect_exam_post_data(request, form):
     exam_data = {}
@@ -2485,6 +2438,7 @@ def ver_examen(request, pk):
         'total_exam_questions': total_exam_questions,
         'print_style': get_print_style_context(print_format),
         'rubric_grids': rubric_grids,
+        'has_rubrics': bool(rubric_grids),
     })
 
 
@@ -5334,14 +5288,13 @@ def _prepare_rubric_grid(rubric):
     ordered_levels = list(rubric.levels.order_by('order'))
     ordered_criteria = list(rubric.criteria.order_by('order'))
     if not ordered_levels:
-        return {'title': rubric.title, 'levels': [], 'rows': [], 'body': rubric.body}
+        return {'title': rubric.title, 'levels': [], 'rows': []}
     cells_map = {
         (c.criterion_id, c.level_id): c.description
         for c in RubricCell.objects.filter(criterion__rubric=rubric)
     }
     return {
         'title': rubric.title,
-        'body': rubric.body,
         'levels': [lv.label for lv in ordered_levels],
         'rows': [
             {
@@ -5425,7 +5378,6 @@ def rubric_edit(request, pk):
         else:
             with transaction.atomic():
                 rubrica.title = title
-                rubrica.body = None
                 rubrica.save()
                 _save_rubric_grid(request, rubrica)
             messages.success(request, 'Rúbrica actualizada correctamente.')
@@ -5688,6 +5640,29 @@ def ai_config_view(request):
 
 
 @login_required
+def ai_config_list_models(request):
+    """Endpoint JSON: consulta al proveedor la lista de modelos disponibles para la API key ingresada."""
+    from django.http import JsonResponse
+    from .ai_router import list_models_for_provider
+    from .models import UserAIConfig
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    provider = request.POST.get('provider', '').strip()
+    base_url = request.POST.get('base_url', '').strip() or None
+    api_key = request.POST.get('api_key', '').strip()
+
+    if not api_key:
+        # Si no se ingresó una key nueva, usar la ya guardada (si coincide el proveedor)
+        config, _ = UserAIConfig.objects.get_or_create(user=request.user)
+        if config.provider == provider and config.api_key_encrypted:
+            api_key = config.api_key
+
+    success, models, error = list_models_for_provider(provider, api_key, base_url)
+    return JsonResponse({'success': success, 'models': models, 'error': error})
+
+
 @login_required
 def ai_config_status(request):
     """Endpoint JSON que devuelve el estado actual del backend configurado."""

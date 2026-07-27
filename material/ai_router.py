@@ -342,6 +342,75 @@ class AnthropicBackend:
 
 
 # ---------------------------------------------------------------------------
+# Listado dinámico de modelos disponibles por proveedor
+# ---------------------------------------------------------------------------
+def list_models_for_provider(provider: str, api_key: str, base_url: Optional[str] = None):
+    """
+    Consulta al proveedor la lista de modelos disponibles para esa API key,
+    para no depender de una lista estática que queda obsoleta.
+    Devuelve (success: bool, models: list[str], error: str).
+    """
+    if not api_key:
+        return False, [], 'Ingresá una API Key para poder listar los modelos.'
+
+    try:
+        if provider == 'gemini':
+            r = requests.get(
+                f'{GeminiBackend.BASE_URL}/models',
+                params={'key': api_key},
+                timeout=10,
+            )
+            if r.status_code != 200:
+                return False, [], f'El proveedor respondió con error HTTP {r.status_code}.'
+            data = r.json()
+            models = []
+            for m in data.get('models', []) or []:
+                methods = m.get('supportedGenerationMethods') or []
+                if methods and 'generateContent' not in methods:
+                    continue
+                name = (m.get('name') or '').strip()
+                if name.startswith('models/'):
+                    name = name[len('models/'):]
+                if name:
+                    models.append(name)
+            return True, sorted(set(models)), ''
+
+        if provider == 'anthropic':
+            r = requests.get(
+                f'{AnthropicBackend.BASE_URL}/models',
+                headers={
+                    'x-api-key': api_key,
+                    'anthropic-version': AnthropicBackend.API_VERSION,
+                },
+                timeout=10,
+            )
+            if r.status_code != 200:
+                return False, [], f'El proveedor respondió con error HTTP {r.status_code}.'
+            data = r.json()
+            models = [m.get('id') for m in data.get('data', []) or [] if m.get('id')]
+            return True, models, ''
+
+        # OpenAI y compatibles (Groq, Mistral, OpenRouter, Together, endpoints propios)
+        preset = OpenAICompatibleBackend.PRESET_URLS.get(provider)
+        resolved_base_url = (base_url or preset or 'https://api.openai.com/v1').rstrip('/')
+        r = requests.get(
+            f'{resolved_base_url}/models',
+            headers={'Authorization': f'Bearer {api_key}'},
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return False, [], f'El proveedor respondió con error HTTP {r.status_code}.'
+        data = r.json()
+        entries = data.get('data', data if isinstance(data, list) else []) or []
+        models = [m.get('id') for m in entries if isinstance(m, dict) and m.get('id')]
+        return True, sorted(set(models)), ''
+
+    except Exception as e:
+        logger.error(f'Error listando modelos de {provider}: {e}')
+        return False, [], 'No se pudo conectar con el proveedor. Verificá la API Key e intentá de nuevo.'
+
+
+# ---------------------------------------------------------------------------
 # Helpers internos
 # ---------------------------------------------------------------------------
 def _build_external_backend(provider: str, api_key: str, model: str, base_url: Optional[str]):

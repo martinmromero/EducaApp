@@ -113,9 +113,27 @@
 
               <div class="mb-3">
                 <label class="form-label fw-semibold">Modelo</label>
-                <input type="text" class="form-control" name="model" id="byok-model"
-                       value="{{ config.model }}" placeholder="ej. gpt-4o-mini">
-                <div class="form-text">Nombre exacto del modelo tal como lo indica el proveedor.</div>
+                <div class="input-group mb-1">
+                  <select class="form-select" id="byok-model-select" onchange="onModelSelectChange()">
+                    <option value="">— Buscá los modelos disponibles con tu API Key —</option>
+                  </select>
+                  <button class="btn btn-outline-secondary" type="button" id="byok-fetch-models-btn" onclick="fetchModels()">
+                    <i class="bi bi-search"></i> Buscar modelos
+                  </button>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" id="byok-model-custom-toggle" onchange="toggleCustomModel()">
+                  <label class="form-check-label small" for="byok-model-custom-toggle">
+                    Prefiero escribir el nombre del modelo a mano
+                  </label>
+                </div>
+                <input type="text" class="form-control d-none" id="byok-model-custom"
+                       placeholder="ej. gpt-4o-mini" oninput="onCustomModelInput()">
+                <input type="hidden" name="model" id="byok-model" value="{{ config.model }}">
+                <div class="form-text" id="byok-model-help">
+                  Ingresá tu API Key más abajo y tocá "Buscar modelos" para ver los que están disponibles para tu cuenta.
+                </div>
+                <div class="small text-danger d-none" id="byok-model-error"></div>
               </div>
 
               <div class="mb-3" id="base-url-field"
@@ -211,16 +229,6 @@
 </div>
 
 <script>
-const DEFAULT_MODELS = {
-  openai: 'gpt-4o-mini',
-  gemini: 'gemini-2.5-flash',
-  anthropic: 'claude-3-haiku-20240307',
-  groq: 'llama-3.1-8b-instant',
-  mistral: 'mistral-small-latest',
-  openrouter: 'openai/gpt-4o-mini',
-  openai_compatible: '',
-};
-
 function onSourceChange() {
   const src = document.querySelector('input[name="source"]:checked')?.value;
   document.getElementById('ollama-fields').classList.toggle('d-none', src !== 'ollama_local');
@@ -233,13 +241,8 @@ function onProviderChange() {
   document.getElementById('base-url-field').style.display =
     (p === 'openai_compatible') ? '' : 'none';
 
-  // Sugerir modelo por defecto si el campo está vacío o tenía un default previo
-  const modelInput = document.getElementById('byok-model');
-  const currentModel = modelInput.value.trim();
-  const prevDefaults = Object.values(DEFAULT_MODELS);
-  if (!currentModel || prevDefaults.includes(currentModel)) {
-    modelInput.value = DEFAULT_MODELS[p] || '';
-  }
+  // Limpiar lista de modelos: cambia el proveedor, hay que volver a buscar
+  resetModelSelect();
 
   // Mostrar instructivo correspondiente
   ['openai','gemini','anthropic','groq'].forEach(k => {
@@ -248,6 +251,119 @@ function onProviderChange() {
   document.getElementById('info-other')?.classList.add('d-none');
   const infoEl = document.getElementById('info-' + p) || document.getElementById('info-other');
   infoEl?.classList.remove('d-none');
+}
+
+function resetModelSelect() {
+  const select = document.getElementById('byok-model-select');
+  select.innerHTML = '<option value="">— Buscá los modelos disponibles con tu API Key —</option>';
+  document.getElementById('byok-model-error').classList.add('d-none');
+}
+
+function setModelHiddenValue(value) {
+  document.getElementById('byok-model').value = value;
+}
+
+function populateModelSelect(models, selectedValue) {
+  const select = document.getElementById('byok-model-select');
+  select.innerHTML = '';
+  if (!models.length) {
+    select.innerHTML = '<option value="">(el proveedor no devolvió modelos)</option>';
+    return;
+  }
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = '— Elegí un modelo —';
+  select.appendChild(placeholder);
+  models.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    if (m === selectedValue) opt.selected = true;
+    select.appendChild(opt);
+  });
+  if (selectedValue && !models.includes(selectedValue)) {
+    // El modelo guardado ya no aparece en la lista actual del proveedor
+    const opt = document.createElement('option');
+    opt.value = selectedValue;
+    opt.textContent = selectedValue + ' (guardado)';
+    opt.selected = true;
+    select.appendChild(opt);
+  }
+}
+
+function onModelSelectChange() {
+  const select = document.getElementById('byok-model-select');
+  setModelHiddenValue(select.value);
+}
+
+function toggleCustomModel() {
+  const on = document.getElementById('byok-model-custom-toggle').checked;
+  const customInput = document.getElementById('byok-model-custom');
+  const select = document.getElementById('byok-model-select');
+  customInput.classList.toggle('d-none', !on);
+  select.disabled = on;
+  document.getElementById('byok-fetch-models-btn').disabled = on;
+  if (on) {
+    customInput.value = document.getElementById('byok-model').value || '';
+    setModelHiddenValue(customInput.value.trim());
+  } else {
+    setModelHiddenValue(select.value);
+  }
+}
+
+function onCustomModelInput() {
+  setModelHiddenValue(document.getElementById('byok-model-custom').value.trim());
+}
+
+function getCsrfToken() {
+  const input = document.querySelector('#ai-config-form input[name=csrfmiddlewaretoken]');
+  return input ? input.value : '';
+}
+
+function fetchModels() {
+  const provider = document.getElementById('byok-provider').value;
+  const baseUrl = document.querySelector('input[name="base_url"]')?.value || '';
+  const apiKeyInput = document.getElementById('api-key-input');
+  const errorEl = document.getElementById('byok-model-error');
+  const btn = document.getElementById('byok-fetch-models-btn');
+
+  errorEl.classList.add('d-none');
+  btn.disabled = true;
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Buscando…';
+
+  const body = new URLSearchParams();
+  body.set('provider', provider);
+  body.set('base_url', baseUrl);
+  body.set('api_key', apiKeyInput.value.trim());
+
+  fetch('{% url "material:ai_config_list_models" %}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-CSRFToken': getCsrfToken(),
+    },
+    body: body.toString(),
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        const currentModel = document.getElementById('byok-model').value;
+        populateModelSelect(data.models, currentModel);
+        setModelHiddenValue(document.getElementById('byok-model-select').value);
+      } else {
+        errorEl.textContent = data.error || 'No se pudieron obtener los modelos. Podés escribir el nombre manualmente.';
+        errorEl.classList.remove('d-none');
+      }
+    })
+    .catch(() => {
+      errorEl.textContent = 'No se pudo conectar con el servidor. Podés escribir el nombre manualmente.';
+      errorEl.classList.remove('d-none');
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    });
 }
 
 function toggleKeyVisibility() {
@@ -309,7 +425,15 @@ function checkStatus() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const savedModel = document.getElementById('byok-model').value;
+  if (savedModel) {
+    populateModelSelect([], savedModel);
+  }
   onProviderChange();
+  if (savedModel) {
+    // onProviderChange limpia la lista; si ya había un modelo guardado, lo dejamos visible
+    populateModelSelect([], savedModel);
+  }
   onSourceChange();
   checkStatus();
 });

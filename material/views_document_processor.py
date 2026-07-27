@@ -30,7 +30,6 @@ _jobs_lock = threading.Lock()
 from material.ia_processor import (
     extract_text_advanced,
     count_tokens,
-    count_tokens_file,
     split_text_by_tokens,
     optimize_text_for_ai
 )
@@ -218,69 +217,6 @@ def upload_and_process_document(request):
                 os.unlink(file_path)
             except OSError:
                 pass
-        
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=500)
-
-
-@login_required
-@require_http_methods(["POST"])
-def count_document_tokens(request):
-    """
-    Vista rápida para solo contar tokens de un documento.
-    Útil para estimar costos antes de procesar.
-    
-    POST params:
-        - documento: archivo subido
-    
-    Returns:
-        JSON con total de tokens
-    """
-    if 'documento' not in request.FILES:
-        return JsonResponse({
-            'success': False,
-            'error': 'No se envió ningún archivo'
-        }, status=400)
-    
-    archivo = request.FILES['documento']
-    ext = os.path.splitext(archivo.name)[1].lower()
-    
-    if ext not in ['.pdf', '.docx', '.pptx', '.txt']:
-        return JsonResponse({
-            'success': False,
-            'error': f'Formato no soportado: {ext}'
-        }, status=400)
-    
-    try:
-        # Guardar temporalmente
-        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_file:
-            for chunk in archivo.chunks():
-                tmp_file.write(chunk)
-            tmp_path = tmp_file.name
-        
-        # Contar tokens
-        total_tokens = count_tokens_file(tmp_path)
-        
-        # Limpiar
-        os.unlink(tmp_path)
-        
-        # Calcular costo estimado (GPT-4 pricing ejemplo)
-        COST_PER_1K_TOKENS = 0.03  # USD (ajustar según modelo)
-        estimated_cost = (total_tokens / 1000) * COST_PER_1K_TOKENS
-        
-        return JsonResponse({
-            'success': True,
-            'filename': archivo.name,
-            'total_tokens': total_tokens,
-            'estimated_cost_usd': round(estimated_cost, 4),
-            'model_reference': 'GPT-4 (input tokens)'
-        })
-        
-    except Exception as e:
-        if 'tmp_path' in locals() and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
         
         return JsonResponse({
             'success': False,
@@ -668,6 +604,7 @@ def generate_questions_from_chapters(request):
         # --------------------------------------------------------
         all_questions = []
         chapter_info = []
+        failed_chunks = []
 
         for chapter in chapters_to_process:
             title = chapter.get('title', 'Capítulo')
@@ -684,11 +621,16 @@ def generate_questions_from_chapters(request):
             questions_per_chunk = max(2, total_questions // max(len(chunks), 1))
 
             for chunk_idx, chunk in enumerate(chunks):
-                chunk_questions = _generate_questions_for_chunk(
-                    chunk, title, questions_per_chunk, chunk_idx, len(chunks),
-                    question_types=question_types, backend=_ai_backend,
-                    existing_questions=existing_questions_list,
-                )
+                try:
+                    chunk_questions = _generate_questions_for_chunk(
+                        chunk, title, questions_per_chunk, chunk_idx, len(chunks),
+                        question_types=question_types, backend=_ai_backend,
+                        existing_questions=existing_questions_list,
+                    )
+                except Exception as exc:
+                    logger.warning(f"Chunk {chunk_idx + 1}/{len(chunks)} de '{title}' falló: {exc}")
+                    failed_chunks.append({'chapter': title, 'chunk': chunk_idx + 1, 'total_chunks': len(chunks), 'error': str(exc)})
+                    continue
                 all_questions.extend(chunk_questions)
                 logger.info(f"  chunk {chunk_idx + 1}/{len(chunks)}: {len(chunk_questions)} preguntas")
 
@@ -700,12 +642,16 @@ def generate_questions_from_chapters(request):
 
         if not all_questions:
             backend_status = _ai_backend.get_status() if _ai_backend else {}
+            error_msg = (
+                f'La IA no pudo generar preguntas válidas en {len(failed_chunks)} de los fragmentos procesados.'
+                if failed_chunks else
+                'La IA respondió, pero no generó preguntas válidas. '
+                'Revisá el proveedor y el modelo configurado, especialmente en Gemini.'
+            )
             return JsonResponse({
                 'success': False,
-                'error': (
-                    'La IA respondió, pero no generó preguntas válidas. '
-                    'Revisá el proveedor y el modelo configurado, especialmente en Gemini.'
-                ),
+                'error': error_msg,
+                'failed_chunks': failed_chunks,
                 'backend': backend_status.get('backend', 'unknown'),
                 'provider': backend_status.get('provider', ''),
                 'model': backend_status.get('model', ''),
@@ -718,6 +664,7 @@ def generate_questions_from_chapters(request):
             'questions': all_questions,
             'count': len(all_questions),
             'existing_count': len(existing_questions_list),
+            'failed_chunks': failed_chunks,
         })
 
     except Exception as e:
@@ -944,7 +891,9 @@ Nota sobre bloom_nivel: {bloom_desc}"""
         return questions
     except Exception as e:
         logger.warning(f"No se pudo parsear JSON del chunk {chunk_idx + 1}: {e}")
-        return []
+        raise RuntimeError(
+            f'La IA respondió, pero el contenido no tenía el formato esperado (fragmento {chunk_idx + 1} de {total_chunks} de "{chapter_title}").'
+        ) from e
 
 
 def _deduplicate_questions(questions, extra_seen=None):
@@ -1106,7 +1055,7 @@ def stream_questions(request, job_id):
                     return
                 except Exception as exc:
                     logger.warning(f"SSE chunk {chunk_idx_global} error: {exc}")
-                    yield f'data: {json_module.dumps({"type": "chunk_error", "chunk": chunk_idx_global, "message": str(exc)})}\n\n'
+                    yield f'data: {json_module.dumps({"type": "chunk_error", "chunk": chunk_idx_global, "total_chunks": total_chunks_all, "chapter_title": title, "message": str(exc)})}\n\n'
 
         yield f'data: {json_module.dumps({"type": "done", "total": total_generated})}\n\n'
 

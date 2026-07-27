@@ -66,50 +66,103 @@ function toggleBloom() {
 {% endblock %}
 
 {% block action_buttons %}
-<button onclick="window.print()">
-    <i class="fas fa-print"></i> Imprimir Examen
-</button>
-<button id="toggleAnswersBtn" onclick="toggleAnswers()" class="secondary">
-    <i class="fas fa-eye"></i> Mostrar respuestas
-</button>
-<button onclick="printWithAnswers()" class="secondary">
-    <i class="fas fa-print"></i> Imprimir con respuestas
-</button>
+<div class="top-actions-row">
+    <a href="{% url 'material:exam_rubrics' exam.pk %}">
+        <button type="button" class="secondary">
+            <i class="bi bi-card-checklist"></i> {% if has_rubrics %}Gestionar rúbricas{% else %}Agregar rúbricas{% endif %}
+        </button>
+    </a>
+    <a href="{% url 'material:mis_examenes' %}">
+        <button class="secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </button>
+    </a>
+</div>
 
-<!-- Descargar DOCX -->
-<a href="{% url 'material:exportar_examen_docx' exam.pk %}">
-    <button type="button" class="secondary">
-        <i class="fas fa-file-word"></i> Descargar DOCX
-    </button>
-</a>
-<a href="{% url 'material:exportar_examen_docx' exam.pk %}?con_respuestas=1">
-    <button type="button" class="secondary">
-        <i class="fas fa-file-word"></i> DOCX con respuestas
-    </button>
-</a>
+<div class="option-panel">
+    <h4 class="option-panel-title"><i class="fas fa-desktop"></i> Ver en pantalla</h4>
+    <div class="view-toggles">
+        <label class="view-toggle">
+            <input type="checkbox" id="viewShowAnswers" onchange="onViewToggleChange()">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-label"><i class="fas fa-eye"></i> Mostrar respuestas</span>
+        </label>
+        {% if has_rubrics %}
+        <label class="view-toggle">
+            <input type="checkbox" id="viewShowRubrics" checked onchange="onViewToggleChange()">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-label"><i class="bi bi-card-checklist"></i> Mostrar rúbricas</span>
+        </label>
+        {% endif %}
+    </div>
+</div>
 
-<!-- Descargar PDF -->
-<a href="{% url 'material:exportar_examen_pdf' exam.pk %}">
-    <button type="button" class="secondary">
-        <i class="fas fa-file-pdf"></i> Descargar PDF
-    </button>
-</a>
-<a href="{% url 'material:exportar_examen_pdf' exam.pk %}?con_respuestas=1">
-    <button type="button" class="secondary">
-        <i class="fas fa-file-pdf"></i> PDF con respuestas
-    </button>
-</a>
+<div class="option-panel">
+    <h4 class="option-panel-title"><i class="fas fa-file-export"></i> Imprimir / Descargar</h4>
+    <div class="export-checkboxes">
+        <label>
+            <input type="checkbox" id="exportIncludeAnswers"> Incluir respuestas
+        </label>
+        {% if has_rubrics %}
+        <label>
+            <input type="checkbox" id="exportIncludeRubrics" checked> Incluir rúbricas
+        </label>
+        {% endif %}
+    </div>
+    <div class="action-buttons-row">
+        <button onclick="doPrint()">
+            <i class="fas fa-print"></i> Imprimir
+        </button>
+        <button onclick="doDownload('pdf')" class="secondary">
+            <i class="fas fa-file-pdf"></i> Descargar PDF
+        </button>
+        <button onclick="doDownload('docx')" class="secondary">
+            <i class="fas fa-file-word"></i> Descargar DOCX
+        </button>
+    </div>
+</div>
 
-<a href="{% url 'material:exam_rubrics' exam.pk %}">
-    <button type="button" class="secondary">
-        <i class="bi bi-card-checklist"></i> Rúbricas
-    </button>
-</a>
-<a href="{% url 'material:mis_examenes' %}">
-    <button class="secondary">
-        <i class="fas fa-arrow-left"></i> Volver
-    </button>
-</a>
+<script>
+    function onViewToggleChange() {
+        var withAnswers = document.getElementById('viewShowAnswers').checked;
+        document.body.classList.toggle('show-answers', withAnswers);
+        var rubricsCb = document.getElementById('viewShowRubrics');
+        if (rubricsCb) {
+            document.body.classList.toggle('hide-rubrics', !rubricsCb.checked);
+        }
+    }
+
+    function applyExportState() {
+        var withAnswers = document.getElementById('exportIncludeAnswers').checked;
+        var rubricsCb = document.getElementById('exportIncludeRubrics');
+        var withRubrics = rubricsCb ? rubricsCb.checked : true;
+        document.body.classList.toggle('show-answers', withAnswers);
+        document.body.classList.toggle('hide-rubrics', !withRubrics);
+    }
+
+    function restoreViewState() {
+        onViewToggleChange();
+    }
+
+    function doPrint() {
+        applyExportState();
+        window.addEventListener('afterprint', restoreViewState, { once: true });
+        window.print();
+    }
+
+    function doDownload(format) {
+        var withAnswers = document.getElementById('exportIncludeAnswers').checked;
+        var rubricsCb = document.getElementById('exportIncludeRubrics');
+        var withRubrics = rubricsCb ? rubricsCb.checked : true;
+        var params = new URLSearchParams();
+        if (withAnswers) params.set('con_respuestas', '1');
+        params.set('include_rubrics', withRubrics ? '1' : '0');
+        var baseUrl = format === 'pdf'
+            ? "{% url 'material:exportar_examen_pdf' exam.pk %}"
+            : "{% url 'material:exportar_examen_docx' exam.pk %}";
+        window.location.href = baseUrl + '?' + params.toString();
+    }
+</script>
 {% endblock %}
 
 {% block scripts %}

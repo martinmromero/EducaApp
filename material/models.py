@@ -1517,12 +1517,6 @@ class Rubric(models.Model):
         max_length=255,
         verbose_name="Título"
     )
-    body = models.TextField(
-        verbose_name="Contenido de la rúbrica",
-        help_text="Texto libre (legacy). Las rúbricas nuevas usan la grilla estructurada.",
-        blank=True,
-        null=True,
-    )
     created_by = models.ForeignKey(
         User,
         on_delete=models.CASCADE,

@@ -12,9 +12,6 @@ urlpatterns = [
     path('get-career-name/<int:career_id>/', material_views.get_career_name, name='get_career_name'),
     path('upload/', material_views.upload_contenido, name='upload_contenido'),
     path('extract-metadata/', material_views.extract_metadata_from_upload, name='extract_metadata_from_upload'),
-    path('questions/<int:contenido_id>/', material_views.generate_questions, name='generate_questions'),
-    path('review-questions/<int:contenido_id>/', material_views.review_questions, name='review_questions'),
-    path('save-questions/<int:contenido_id>/', material_views.save_selected_questions, name='save_selected_questions'),
     path('create-exam/', material_views.create_exam, name='create_exam'),
     path('save-exam/', material_views.save_exam_from_session, name='save_exam_from_session'),
     path('create-exam-template/', material_views.create_exam_template, name='create_exam_template'),
@@ -70,7 +67,6 @@ urlpatterns = [
 # Document Processor - Nuevas URLs para procesamiento avanzado de documentos
     path('doc-processor/', doc_views.document_processor_dashboard, name='document_processor_dashboard'),
     path('doc-processor/upload/', doc_views.upload_and_process_document, name='upload_and_process_document'),
-    path('doc-processor/count-tokens/', doc_views.count_document_tokens, name='count_document_tokens'),
     path('doc-processor/split-chunks/', doc_views.split_text_chunks, name='split_text_chunks'),
     
     # Local AI Server integration
@@ -182,5 +178,6 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     # AI Configuration (proveedor de IA del usuario)
     path('configuracion-ia/', material_views.ai_config_view, name='ai_config'),
     path('configuracion-ia/status/', material_views.ai_config_status, name='ai_config_status'),
+    path('configuracion-ia/modelos/', material_views.ai_config_list_models, name='ai_config_list_models'),
     path('configuracion-ia/institucional/', material_views.institution_ai_config_view, name='institution_ai_config'),
 ]

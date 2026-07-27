@@ -42,16 +42,16 @@
                         <strong>{{ item.grid.title }}</strong>
                         <div class="d-flex gap-1 align-items-center">
                             {% if item.er.show_in_exam %}
-                                <span class="badge bg-success">Visible en examen</span>
+                                <span class="badge bg-success" title="Al imprimir o exportar este examen, la casilla 'Incluir rúbricas' viene tildada por defecto. Podés destildarla puntualmente en cada exportación.">Incluida por defecto</span>
                             {% else %}
-                                <span class="badge bg-secondary">Oculta en examen</span>
+                                <span class="badge bg-secondary" title="Al imprimir o exportar este examen, la casilla 'Incluir rúbricas' viene destildada por defecto. Podés tildarla puntualmente en cada exportación.">Excluida por defecto</span>
                             {% endif %}
                             <form method="post" class="d-inline">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="toggle">
                                 <input type="hidden" name="exam_rubric_id" value="{{ item.er.pk }}">
                                 <button type="submit" class="btn btn-sm {% if item.er.show_in_exam %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
-                                        title="{% if item.er.show_in_exam %}Ocultar{% else %}Mostrar{% endif %} en examen">
+                                        title="{% if item.er.show_in_exam %}Excluir por defecto{% else %}Incluir por defecto{% endif %}">
                                     <i class="bi {% if item.er.show_in_exam %}bi-eye-slash{% else %}bi-eye{% endif %}"></i>
                                 </button>
                             </form>

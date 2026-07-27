@@ -695,27 +695,6 @@ class OralExamForm(forms.ModelForm):
         return getattr(self, '_validation_info', {})
 
 
-class RubricForm(forms.ModelForm):
-    class Meta:
-        model = Rubric
-        fields = ['title', 'body']
-        widgets = {
-            'title': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Ej: Rúbrica de desarrollo argumentativo',
-            }),
-            'body': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 10,
-                'placeholder': 'Escribí el contenido de la rúbrica...',
-            }),
-        }
-        labels = {
-            'title': 'Título',
-            'body': 'Contenido',
-        }
-
-
 class FormatoImpresionForm(forms.ModelForm):
     SCOPE_CHOICES = [
         ('user', 'Usuario'),

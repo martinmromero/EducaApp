@@ -179,43 +179,6 @@ def split_text_into_chapters(text):
     return [c.strip() for c in chapters if c.strip()]
 
 
-def generate_questions_from_text(text, num_questions):
-    """
-    Genera preguntas a partir del texto usando IA.
-    NOTA: Requiere transformers instalado (comentado por defecto).
-    
-    Args:
-        text: Texto a analizar
-        num_questions: Número de preguntas a generar
-    
-    Returns:
-        String con preguntas generadas
-    """
-    if not text.strip():
-        return "No se encontró texto para analizar."
-    
-    # NOTA: Esta función requiere transformers que es pesado (>500MB)
-    # Descomentar si se necesita:
-    # from transformers import pipeline
-    # generator = pipeline("summarization", model="facebook/bart-large-cnn")
-    # chapters = split_text_into_chapters(text)
-    # 
-    # questions_output = []
-    # for i, chapter in enumerate(chapters):
-    #     summary = generator(chapter[:1024], max_length=150, min_length=30, truncation=True)[0]['summary_text']
-    #     question = f"¿De qué trata este capítulo?\nRespuesta: {summary}\nReferencia: Capítulo {i+1}"
-    #     questions_output.append(question)
-    # 
-    # return "\n\n".join(questions_output)
-    
-    # Por ahora, retornar mensaje informativo
-    return (
-        "Generación de preguntas con IA requiere instalar transformers.\n"
-        "Para habilitarlo: pip install transformers torch\n"
-        f"Texto recibido: {len(text)} caracteres, ~{count_tokens(text)} tokens"
-    )
-
-
 def extract_book_metadata(file_path):
     """
     Extrae metadata de un libro PDF (ISBN, título, autor, edición, editorial, año, páginas).
