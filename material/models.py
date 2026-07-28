@@ -408,6 +408,7 @@ class Contenido(models.Model):
         verbose_name='Materias',
         related_name='contenidos'
     )
+    author = models.CharField(max_length=255, blank=True, null=True, verbose_name='Autor(es)')
     isbn = models.CharField(max_length=20, blank=True, null=True)
     edition = models.CharField(max_length=50, blank=True, null=True)
     pages = models.PositiveIntegerField(blank=True, null=True)
@@ -620,6 +621,46 @@ class Question(models.Model):
     def source_chapters(self, value):
         """Guarda los capítulos fuente como JSON"""
         self.source_chapters_json = json.dumps(value, ensure_ascii=False) if value else None
+
+    @property
+    def bibliographic_reference(self):
+        """Referencia bibliográfica de origen (libro + capítulo + página),
+        para preguntas cargadas a mano o generadas por IA."""
+        if not self.contenido_id:
+            return None
+
+        book_parts = [self.contenido.title]
+        if self.contenido.author:
+            book_parts.append(self.contenido.author)
+        if self.contenido.edition:
+            book_parts.append(f"{self.contenido.edition}ª ed.")
+        if self.contenido.publisher:
+            book_parts.append(self.contenido.publisher)
+        if self.contenido.year:
+            book_parts.append(str(self.contenido.year))
+        book = ', '.join(book_parts)
+
+        chapters = self.source_chapters
+        if chapters:
+            chapter_parts = []
+            for ch in chapters:
+                title = ch.get('title')
+                pages = ch.get('pages') or []
+                if title and pages:
+                    chapter_parts.append(f"{title} (pág. {pages[0]}{'–' + str(pages[-1]) if len(pages) > 1 else ''})")
+                elif title:
+                    chapter_parts.append(title)
+            if chapter_parts:
+                return f"{book} — {'; '.join(chapter_parts)}"
+
+        if self.contenido.chapter or self.source_page:
+            location = ', '.join(filter(None, [
+                self.contenido.chapter,
+                f"pág. {self.source_page}" if self.source_page else None,
+            ]))
+            return f"{book} — {location}" if location else book
+
+        return book
 
     def clean(self):
         super().clean()

@@ -62,6 +62,9 @@
                      alt="imagen de la respuesta">
             </div>
             {% endif %}
+            {% if q.bibliographic_reference %}
+            <div style="margin-top:0.4em;font-size:0.85em;color:#666;">Fuente: {{ q.bibliographic_reference }}</div>
+            {% endif %}
         </div>
         {% endif %}
       </li>

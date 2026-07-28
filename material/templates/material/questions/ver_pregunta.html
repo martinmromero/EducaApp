@@ -111,6 +111,11 @@
           <span class="fw-semibold">Fuente del documento</span>
         </div>
         <div class="card-body">
+          {% if pregunta.bibliographic_reference %}
+            <p class="mb-2"><span class="fw-semibold">Referencia:</span> {{ pregunta.bibliographic_reference }}</p>
+          {% else %}
+            <p class="mb-2 text-muted">Sin referencia bibliográfica cargada.</p>
+          {% endif %}
           <p class="mb-2"><span class="fw-semibold">Contenido:</span> {{ pregunta.contenido.title|default:"—" }}</p>
           <p class="mb-0"><span class="fw-semibold">Página de referencia:</span> {{ pregunta.source_page|default:"—" }}</p>
         </div>

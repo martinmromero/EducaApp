@@ -666,13 +666,12 @@ def generate_questions_from_chapters(request):
         # Generar preguntas por capítulo usando chunking
         # --------------------------------------------------------
         all_questions = []
-        chapter_info = []
         failed_chunks = []
 
         for chapter in chapters_to_process:
             title = chapter.get('title', 'Capítulo')
             content = chapter.get('content', chapter.get('content_preview', ''))
-            chapter_info.append({'title': title, 'pages': chapter.get('pages', [])})
+            pages = chapter.get('pages', [])
 
             logger.info(f"Procesando capítulo '{title}' ({len(content)} caracteres)")
 
@@ -694,14 +693,16 @@ def generate_questions_from_chapters(request):
                     logger.warning(f"Chunk {chunk_idx + 1}/{len(chunks)} de '{title}' falló: {exc}")
                     failed_chunks.append({'chapter': title, 'chunk': chunk_idx + 1, 'total_chunks': len(chunks), 'error': str(exc)})
                     continue
+                # Cada pregunta se etiqueta con el capítulo del que realmente salió
+                # (no con todos los capítulos de la tanda).
+                for q in chunk_questions:
+                    q['source_chapters'] = [{'title': title, 'pages': pages}]
+                    q['source_file'] = filename
                 all_questions.extend(chunk_questions)
                 logger.info(f"  chunk {chunk_idx + 1}/{len(chunks)}: {len(chunk_questions)} preguntas")
 
         # Deduplicar contra preguntas ya en BD y entre sí
         all_questions = _deduplicate_questions(all_questions, extra_seen=existing_texts_set)
-        for q in all_questions:
-            q['source_chapters'] = chapter_info
-            q['source_file'] = filename
 
         if not all_questions:
             backend_status = _ai_backend.get_status() if _ai_backend else {}
@@ -967,6 +968,16 @@ Nota sobre bloom_nivel: {bloom_desc}"""
         raise RuntimeError(
             f'La IA respondió, pero el contenido no tenía el formato esperado (fragmento {chunk_idx + 1} de {total_chunks} de "{chapter_title}").'
         ) from e
+
+
+def _first_source_page(source_chapters):
+    """Extrae la primera página detectada en source_chapters, para poblar
+    Question.source_page (mismo campo que usa la carga manual)."""
+    for chapter in source_chapters or []:
+        pages = chapter.get('pages') or []
+        if pages:
+            return pages[0]
+    return None
 
 
 def _deduplicate_questions(questions, extra_seen=None):
@@ -1643,7 +1654,8 @@ def save_generated_questions(request):
             # Guardar información de capítulos fuente
             if 'source_chapters' in q_data:
                 question.source_chapters = q_data['source_chapters']
-            
+                question.source_page = _first_source_page(q_data['source_chapters'])
+
             question.save()
             question.subjects.set(selected_subjects)
             saved_count += 1
@@ -1669,7 +1681,8 @@ def save_generated_questions(request):
             
             if 'source_chapters' in q_data:
                 question.source_chapters = q_data['source_chapters']
-            
+                question.source_page = _first_source_page(q_data['source_chapters'])
+
             question.save()
             question.subjects.set(selected_subjects)
         

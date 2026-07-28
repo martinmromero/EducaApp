@@ -194,8 +194,8 @@
                                         {% if sq.question.answer_image %}
                                             <img src="{{ sq.question.answer_image.url }}" class="img-fluid mt-2" style="max-width: 200px;">
                                         {% endif %}
-                                        {% if sq.question.source_page %}
-                                            <small class="text-muted d-block mt-2">Página de referencia: {{ sq.question.source_page }}</small>
+                                        {% if sq.question.bibliographic_reference %}
+                                            <small class="text-muted d-block mt-2"><i class="fas fa-book"></i> Fuente: {{ sq.question.bibliographic_reference }}</small>
                                         {% endif %}
                                     </div>
                                 </details>

@@ -198,6 +198,7 @@ def preview_exam(request):
                     'question_image_b64': q.question_image_b64 or '',
                     'answer_text': q.answer_text or '',
                     'answer_image_b64': q.answer_image_b64 or '',
+                    'bibliographic_reference': q.bibliographic_reference or '',
                 }
                 for q in q_list
             ]
@@ -2455,6 +2456,7 @@ def ver_examen(request, pk):
             'question_image_b64': q.question_image_b64 or '',
             'answer_text': q.answer_text or '',
             'answer_image_b64': q.answer_image_b64 or '',
+            'bibliographic_reference': q.bibliographic_reference or '',
         })
     outcomes_texts = [o.description for o in examen.learning_outcomes.all()]
     topics_texts = [t.name for t in examen.topics.all()]

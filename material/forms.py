@@ -46,9 +46,10 @@ class ContenidoForm(forms.ModelForm):
 
     class Meta:
         model = Contenido
-        fields = ['subjects', 'title', 'file', 'isbn', 'edition', 'pages', 'publisher', 'year']
+        fields = ['subjects', 'title', 'file', 'author', 'isbn', 'edition', 'pages', 'publisher', 'year']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'author': forms.TextInput(attrs={'class': 'form-control'}),
             'isbn': forms.TextInput(attrs={'class': 'form-control'}),
             'edition': forms.TextInput(attrs={'class': 'form-control'}),
             'pages': forms.NumberInput(attrs={'class': 'form-control'}),

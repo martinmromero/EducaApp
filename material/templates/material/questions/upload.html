@@ -51,6 +51,11 @@
                     {% if form.title.errors %}<div class="text-danger small">{{ form.title.errors }}</div>{% endif %}
                 </div>
                 <div class="col-md-6">
+                    <label class="form-label">Autor(es)</label>
+                    {{ form.author }}
+                    {% if form.author.errors %}<div class="text-danger small">{{ form.author.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6">
                     <label class="form-label">ISBN</label>
                     {{ form.isbn }}
                     {% if form.isbn.errors %}<div class="text-danger small">{{ form.isbn.errors }}</div>{% endif %}

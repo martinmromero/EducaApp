@@ -1591,8 +1591,21 @@ function bloomBadge(nivel) {
     return `<span class="badge bg-${colors[nivel] || 'secondary'} ms-1" title="Taxonomía de Bloom">🧠 Bloom ${nivel}: ${labels[nivel] || nivel}</span>`;
 }
 
+function sourceReferenceHTML(q) {
+    const chapters = Array.isArray(q.source_chapters) ? q.source_chapters : [];
+    const parts = chapters.map(ch => {
+        const pages = Array.isArray(ch.pages) && ch.pages.length
+            ? ` (pág. ${ch.pages[0]}${ch.pages.length > 1 ? '–' + ch.pages[ch.pages.length - 1] : ''})`
+            : '';
+        return `${ch.title || ''}${pages}`;
+    }).filter(Boolean).join('; ');
+    if (!parts) return '';
+    return `<div class="mt-2"><small class="text-muted"><i class="fas fa-book"></i> Fuente: ${parts}</small></div>`;
+}
+
 function questionBodyHTML(q) {
     const tipo = q.tipo || 'opcion_multiple';
+    const sourceHTML = sourceReferenceHTML(q);
     if (tipo === 'opcion_multiple') {
         const optionsHTML = q.opciones ? q.opciones.map((opt, i) =>
             `<li class="${i === q.respuesta_correcta_index ? 'text-success fw-bold' : ''}">${opt}</li>`
@@ -1603,7 +1616,8 @@ function questionBodyHTML(q) {
             <div class="alert alert-light mb-0">
                 <strong>Respuesta correcta:</strong> ${q.respuesta}<br>
                 ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
-            </div>`;
+            </div>
+            ${sourceHTML}`;
     }
     if (tipo === 'verdadero_falso') {
         const correct = (q.respuesta || '').trim();
@@ -1615,7 +1629,8 @@ function questionBodyHTML(q) {
             <div class="alert alert-light mb-0">
                 <strong>Respuesta:</strong> ${badge}<br>
                 ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
-            </div>`;
+            </div>
+            ${sourceHTML}`;
     }
     if (tipo === 'completar_blank') {
         const highlighted = (q.pregunta || '').replace(/\[___\]/g, '<span class="badge bg-warning text-dark fs-6">[___]</span>');
@@ -1624,7 +1639,8 @@ function questionBodyHTML(q) {
             <div class="alert alert-light mb-0">
                 <strong>Respuesta:</strong> <em>${q.respuesta || ''}</em><br>
                 ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
-            </div>`;
+            </div>
+            ${sourceHTML}`;
     }
     if (tipo === 'desarrollo') {
         return `
@@ -1633,7 +1649,8 @@ function questionBodyHTML(q) {
                 <small class="text-muted"><i class="fas fa-chalkboard-teacher"></i> Solo docente:</small><br>
                 <strong>Respuesta de referencia:</strong> ${q.respuesta || ''}<br>
                 ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
-            </div>`;
+            </div>
+            ${sourceHTML}`;
     }
     // Fallback genérico
     return `
@@ -1641,7 +1658,8 @@ function questionBodyHTML(q) {
         <div class="alert alert-light mb-0">
             <strong>Respuesta:</strong> ${q.respuesta || ''}<br>
             ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
-        </div>`;
+        </div>
+        ${sourceHTML}`;
 }
 
 function tipoBadge(tipo) {
