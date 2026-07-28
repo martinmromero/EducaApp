@@ -1,8 +1,10 @@
 {% extends 'material/base.html' %}
+{% load message_tags %}
 
 {% block content %}
 <div class="container">
     <h1>¿Estás seguro de que deseas eliminar a {{ user.username }}?</h1>
+    {% show_messages "usuarios" %}
     <form method="post">
         {% csrf_token %}
         <button type="submit" class="btn btn-danger w-100">Sí, eliminar</button>

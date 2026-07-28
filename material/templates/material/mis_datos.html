@@ -46,17 +46,15 @@
         <div class="mb-3">
             {{ form.email.label_tag }} {{ form.email }}
         </div>
-        {% if is_admin %}
-            <div class="mb-3">
-                {{ form.is_active.label_tag }} {{ form.is_active }}
-            </div>
-            <div class="mb-3">
-                {{ form.role.label_tag }} {{ form.role }}
-            </div>
-        {% endif %}
         <button type="submit" class="btn btn-primary">Guardar cambios</button>
         <a href="{% url 'material:index' %}" class="btn btn-secondary">Cancelar</a>
     </form>
+    {% if is_admin %}
+        <p class="mt-3">
+            Para cambiar el rol o desactivar usuarios, andá a
+            <a href="{% url 'material:user_list' %}">Gestión de usuarios</a>.
+        </p>
+    {% endif %}
 </div>
 
 <!-- Script para mostrar el modal automáticamente si hay mensajes -->

@@ -372,7 +372,7 @@ from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, 
 from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer)
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
-    UserEditForm, ContenidoForm, 
+    UserEditForm, UserSelfEditForm, ContenidoForm,
     LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm,
     OralExamForm, FormatoImpresionForm
 )
@@ -444,10 +444,22 @@ def get_campus_by_institution(request):
     return JsonResponse(list(campus), safe=False)
 
 def is_admin(user):
+    # Superuser siempre cuenta como admin de la app, aun si su Profile.role
+    # quedó en 'user' por default (el signal de creación de perfil no sabe
+    # de is_superuser). Este es el único criterio de "admin" a nivel app;
+    # es independiente de User.is_staff, que solo controla el acceso al
+    # panel /admin/ de Django (restringido a superusers, ver material/admin.py).
+    if user.is_superuser:
+        return True
     try:
         return user.profile.role == 'admin'
     except Profile.DoesNotExist:
         return False
+
+def _is_last_active_admin(user):
+    return not Profile.objects.filter(
+        role='admin', user__is_active=True
+    ).exclude(user_id=user.id).exists()
     
 
 class CustomLoginView(LoginView):
@@ -2047,6 +2059,17 @@ def edit_user(request, user_id):
     if request.method == 'POST':
         form = UserEditForm(request.POST, instance=user)
         if form.is_valid():
+            was_admin = is_admin(user)
+            demoting_or_deactivating = was_admin and (
+                form.cleaned_data.get('role') != 'admin'
+                or not form.cleaned_data.get('is_active')
+            )
+            if demoting_or_deactivating and user == request.user:
+                messages.error(request, 'No podés quitarte tu propio rol de administrador ni desactivar tu cuenta.', extra_tags='usuarios')
+                return redirect('material:edit_user', user_id=user.id)
+            if demoting_or_deactivating and _is_last_active_admin(user):
+                messages.error(request, 'No se puede quitar el rol de administrador ni desactivar al último administrador del sistema.', extra_tags='usuarios')
+                return redirect('material:edit_user', user_id=user.id)
             form.save()
             messages.success(request, 'Usuario actualizado correctamente.', extra_tags='usuarios')
             return redirect('material:user_list')
@@ -2059,6 +2082,12 @@ def edit_user(request, user_id):
 def delete_user(request, user_id):
     user = get_object_or_404(User, id=user_id)
     if request.method == 'POST':
+        if user == request.user:
+            messages.error(request, 'No podés eliminar tu propia cuenta.', extra_tags='usuarios')
+            return redirect('material:user_list')
+        if is_admin(user) and _is_last_active_admin(user):
+            messages.error(request, 'No se puede eliminar al último administrador del sistema.', extra_tags='usuarios')
+            return redirect('material:user_list')
         user.delete()
         messages.success(request, 'Usuario eliminado correctamente.', extra_tags='usuarios')
         return redirect('material:user_list')
@@ -2066,33 +2095,23 @@ def delete_user(request, user_id):
 
 @login_required
 def mis_datos(request):
+    # Usa UserSelfEditForm (no UserEditForm) a propósito: ese formulario no
+    # expone 'role'/'is_active'/'institutions', así que un usuario no-admin
+    # no puede auto-promoverse enviando esos campos por POST manual, sin
+    # depender de que la plantilla los oculte.
     user = request.user
-    import logging
-    logger = logging.getLogger(__name__)
     if request.method == 'POST':
-        logger.info(f"POST DATA: {request.POST}")
-        form = UserEditForm(request.POST, instance=user)
-        logger.info(f"Form valid: {form.is_valid()}")
+        form = UserSelfEditForm(request.POST, instance=user)
         if form.is_valid():
-            logger.info(f"Form cleaned_data: {form.cleaned_data}")
             if form.has_changed():
-                logger.info(f"ANTES DE GUARDAR: first_name={form.cleaned_data.get('first_name')}, last_name={form.cleaned_data.get('last_name')}")
                 user = form.save()
-                logger.info(f"DESPUES DE GUARDAR: first_name={user.first_name}, last_name={user.last_name}")
                 update_session_auth_hash(request, user)
                 messages.success(request, 'Sus cambios fueron guardados.')
             else:
-                logger.info("No se realizaron cambios detectados por el formulario.")
                 messages.info(request, 'No se realizaron cambios.')
             return redirect('material:mis_datos')
-        else:
-            logger.error(f"Errores en el formulario: {form.errors}")
     else:
-        initial_data = {
-            'role': user.profile.role,
-            'institutions': user.profile.institutions.all(),
-        }
-        form = UserEditForm(instance=user, initial=initial_data)
+        form = UserSelfEditForm(instance=user)
     return render(request, 'material/mis_datos.html', {
         'form': form,
         'is_admin': is_admin(request.user)
@@ -5773,7 +5792,7 @@ def ai_config_view(request):
         'config': config,
         'institutions_with_ai': institutions_with_ai,
         'has_api_key': bool(config.api_key_encrypted),
-        'is_staff': request.user.is_staff,
+        'is_staff': is_admin(request.user),
         'default_ollama_url': 'http://192.168.12.236:11434',
     }
     return render(request, 'material/ai_config.html', context)
@@ -5826,7 +5845,7 @@ def institution_ai_config_view(request):
     """Vista para que los administradores gestionen InstitutionAIConfig."""
     from .models import InstitutionAIConfig, InstitutionV2
 
-    if not request.user.is_staff:
+    if not is_admin(request.user):
         messages.error(request, 'No tenés permiso para acceder a esta sección.')
         return redirect('material:ai_config')
 

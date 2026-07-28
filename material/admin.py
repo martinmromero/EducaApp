@@ -10,6 +10,39 @@ from .forms import SubjectForm
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 
+
+def _superuser_only_has_permission(request):
+    """El panel /admin/ de Django es solo para superusers.
+
+    Los "admin" de la app (Profile.role == 'admin') tienen sus propios
+    permisos elevados dentro de la app (gestión de usuarios, config. de IA,
+    etc. vía is_admin()), pero eso es intencionalmente independiente de
+    is_staff/acceso a /admin/: ese panel expone edición directa y sin
+    scoping de todos los modelos, así que se restringe a superusers.
+    """
+    return bool(request.user and request.user.is_active and request.user.is_superuser)
+
+
+admin.site.has_permission = _superuser_only_has_permission
+
+
+class OwnerScopedAdminMixin:
+    """Scoping por propietario dentro de /admin/, como defensa adicional.
+
+    /admin/ ya está restringido a superusers (ver _superuser_only_has_permission
+    arriba), que de por sí ven todo. Este mixin es un resguardo extra por si
+    alguna vez se relaja esa restricción: evita que un staff no-superuser
+    vea/edite Contenidos, Preguntas o Exámenes de otros usuarios.
+    """
+    owner_field = None
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser or not self.owner_field:
+            return qs
+        return qs.filter(**{self.owner_field: request.user})
+
+
 # --- Institution Admin ---
 @admin.register(Institution)
 class InstitutionAdmin(admin.ModelAdmin):
@@ -123,7 +156,8 @@ class SubjectAdmin(admin.ModelAdmin):
         js = ('admin/js/subject_admin.js',)
 
 @admin.register(Contenido)
-class ContenidoAdmin(admin.ModelAdmin):
+class ContenidoAdmin(OwnerScopedAdminMixin, admin.ModelAdmin):
+    owner_field = 'uploaded_by'
     list_display = ('title', 'subjects_list', 'uploaded_by', 'uploaded_at', 'chapter')
     list_filter = ('uploaded_by',)
     search_fields = ('title', 'subjects__name')
@@ -136,7 +170,8 @@ class ContenidoAdmin(admin.ModelAdmin):
     subjects_list.short_description = 'Materias'
 
 @admin.register(Question)
-class QuestionAdmin(admin.ModelAdmin):
+class QuestionAdmin(OwnerScopedAdminMixin, admin.ModelAdmin):
+    owner_field = 'user'
     list_display = ('question_short', 'subjects_list', 'difficulty', 'question_type', 'contenido', 'source_page')
     list_filter = ('difficulty', 'question_type')
     search_fields = ('question_text', 'answer_text')
@@ -152,13 +187,15 @@ class QuestionAdmin(admin.ModelAdmin):
     subjects_list.short_description = 'Materias'
 
 @admin.register(Exam)
-class ExamAdmin(admin.ModelAdmin):
+class ExamAdmin(OwnerScopedAdminMixin, admin.ModelAdmin):
+    owner_field = 'created_by'
     list_display = ('title', 'subject', 'created_by', 'created_at')
     filter_horizontal = ('questions', 'topics', 'learning_outcomes')
     raw_id_fields = ('created_by', 'subject')
 
 @admin.register(ExamTemplate)
-class ExamTemplateAdmin(admin.ModelAdmin):
+class ExamTemplateAdmin(OwnerScopedAdminMixin, admin.ModelAdmin):
+    owner_field = 'created_by'
     list_display = ('subject', 'exam_type', 'year', 'created_by')
     list_filter = ('exam_type', 'year', 'subject')
     search_fields = ('subject__name', 'career_name')
@@ -166,6 +203,10 @@ class ExamTemplateAdmin(admin.ModelAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
+    # Cambiar 'role' acá equivale a promover/degradar administradores,
+    # saltandose las protecciones de auto-degradación y "último admin" que
+    # tiene la vista material:edit_user. Se restringe a superusers para que
+    # ese único camino siga siendo el punto de control real.
     list_display = ('user', 'role', 'institutions_list')
     list_filter = ('role',)
     filter_horizontal = ('institutions',)
@@ -173,6 +214,15 @@ class ProfileAdmin(admin.ModelAdmin):
     def institutions_list(self, obj):
         return ", ".join([i.name for i in obj.institutions.all()])
     institutions_list.short_description = 'Instituciones'
+
+    def has_add_permission(self, request):
+        return request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
 
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
