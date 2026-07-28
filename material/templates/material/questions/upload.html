@@ -37,7 +37,7 @@
                 </div>
                 {{ form.file }}
                 {% if form.file.errors %}<div class="text-danger small mt-1">{{ form.file.errors }}</div>{% endif %}
-                <small class="text-muted mt-1 d-block">El archivo se guardará en el servidor. Formatos soportados: PDF, DOCX, PPTX, TXT. Para PDFs se extraen los datos automáticamente.</small>
+                <small class="text-muted mt-1 d-block">El archivo se guardará en el servidor. Formatos soportados: PDF, DOCX, PPTX, TXT (máx. {{ max_upload_mb|default:8 }}MB). Para PDFs se extraen los datos automáticamente.</small>
             </div>
         </div>
 

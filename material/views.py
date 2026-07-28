@@ -261,6 +261,7 @@ def preview_exam(request):
                 institution_name=exam.get('institucion', '') or '',
             )
         ),
+        'wizard_active': request.session.get('onb2_wizard_active', False),
     }
 
     if is_multiversion and not print_preview:
@@ -519,7 +520,10 @@ def upload_contenido(request):  # Antes upload_material
             return redirect('material:mis_contenidos')
     else:
         form = ContenidoForm()
-    return render(request, 'material/questions/upload.html', {'form': form})
+    return render(request, 'material/questions/upload.html', {
+        'form': form,
+        'max_upload_mb': settings.CONTENIDO_MAX_UPLOAD_MB,
+    })
 
 @login_required
 def extract_metadata_from_upload(request):
@@ -982,6 +986,13 @@ def create_exam(request):
     from .models import FacultyV2, Career, CampusV2, Subject, ExamTemplate, InstitutionV2
     from django.contrib.auth.models import User
 
+    # ONBOARDING WIZARD V2: si venimos del asistente (?wizard=1), lo recordamos en
+    # sesión para mostrar el banner de continuidad en todo este sub-flujo
+    # (create_exam -> preview_exam -> save_exam_from_session).
+    if request.GET.get('wizard') == '1':
+        request.session['onb2_wizard_active'] = True
+    wizard_active = request.session.get('onb2_wizard_active', False)
+
     instituciones = InstitutionV2.objects.filter(is_active=True)
     facultades = FacultyV2.objects.filter(is_active=True)
     carreras = Career.objects.all()
@@ -1039,6 +1050,54 @@ def create_exam(request):
             if editing_exam is not None:
                 prefill_data = _build_preview_exam_payload_from_exam(editing_exam)
 
+    # ONBOARDING WIZARD V2: si venimos del asistente y todavía no hay ningún
+    # borrador de examen en curso, autocompletamos con lo que ya se cargó en
+    # los pasos anteriores (institución del paso 2, materia del paso 3/4,
+    # profesor = vos mismo, temas de las preguntas recién aprobadas en el
+    # paso 5). wizard_prefill_fields le dice al template qué campos resaltar.
+    wizard_prefill_fields = []
+    if wizard_active and not prefill_data:
+        from .models import Contenido, Question, UserInstitution
+
+        wiz_built = {}
+        wiz_contenido_id = request.GET.get('contenido_id', '')
+        wiz_subject_id = request.GET.get('subject_id', '')
+
+        subject_id_final = wiz_subject_id if wiz_subject_id.isdigit() else None
+        if not subject_id_final and wiz_contenido_id.isdigit():
+            contenido_obj = Contenido.objects.filter(
+                pk=int(wiz_contenido_id), uploaded_by=request.user
+            ).prefetch_related('subjects').first()
+            if contenido_obj:
+                first_subject = contenido_obj.subjects.first()
+                if first_subject:
+                    subject_id_final = str(first_subject.id)
+        if subject_id_final:
+            wiz_built['subject'] = subject_id_final
+            wizard_prefill_fields.append('subject')
+
+        user_institution = UserInstitution.objects.filter(
+            user=request.user
+        ).select_related('institution').first()
+        if user_institution:
+            wiz_built['institucion'] = str(user_institution.institution_id)
+            wizard_prefill_fields.append('institucion')
+
+        wiz_built['profesor'] = str(request.user.id)
+        wizard_prefill_fields.append('profesor')
+
+        if wiz_contenido_id.isdigit():
+            topic_ids = list(
+                Question.objects.filter(
+                    contenido_id=int(wiz_contenido_id), user=request.user, ai_approved=True
+                ).exclude(topic__isnull=True).values_list('topic_id', flat=True).distinct()
+            )
+            if topic_ids:
+                wiz_built['topics'] = [str(t) for t in topic_ids]
+                wizard_prefill_fields.append('topics')
+
+        prefill_data = wiz_built
+
     prefill_data_json = _json.dumps(prefill_data)
     context = {
         'form': form,
@@ -1050,6 +1109,8 @@ def create_exam(request):
         'profesores': profesores,
         'templates': templates,
         'prefill_data_json': prefill_data_json,
+        'wizard_active': wizard_active,
+        'wizard_prefill_fields_json': _json.dumps(wizard_prefill_fields),
     }
     return render(request, 'material/exams/create_exam.html', context)
 
@@ -1389,15 +1450,22 @@ def save_exam_from_session(request):
         success_message = 'Examen guardado correctamente.'
         success_redirect = ('material:mis_examenes', {})
 
+    # ONBOARDING WIZARD V2: si el examen se guardó estando en modo asistente,
+    # cerramos el flujo llevando a la pantalla final del wizard en vez de a
+    # "mis exámenes" directamente.
+    wizard_finished = bool(request.session.pop('onb2_wizard_active', False))
+
     if is_ajax:
         return JsonResponse({
             'success': True,
             'message': success_message,
-            'redirect_url': reverse('material:mis_examenes'),
+            'redirect_url': reverse('material:onboarding_v2_finish') if wizard_finished else reverse('material:mis_examenes'),
             'created_exam_ids': [e.pk for e in created_exams],
         })
 
     messages.success(request, success_message, extra_tags='examenes')
+    if wizard_finished:
+        return redirect('material:onboarding_v2_finish')
     return redirect(success_redirect[0], **success_redirect[1])
 
 @login_required
@@ -5099,6 +5167,7 @@ def onboarding_save_step(request):
 
     step = body.get('step')
     profile = request.user.profile
+    extra = {}  # institution_id/subject_id resueltos, para que el frontend los pueda usar sin adivinar
 
     try:
         if step == 1:
@@ -5120,6 +5189,7 @@ def onboarding_save_step(request):
                 try:
                     inst = InstitutionV2.objects.get(pk=institution_id, is_active=True)
                     UserInstitution.objects.get_or_create(user=request.user, institution=inst)
+                    extra['institution_id'] = inst.id
                     # Renombrar si se indica un nombre nuevo
                     new_name = body.get('new_name', '').strip()
                     if new_name and new_name != inst.name:
@@ -5150,12 +5220,14 @@ def onboarding_save_step(request):
                 try:
                     inst = InstitutionV2.objects.get(pk=institution_id, is_active=True)
                     UserInstitution.objects.get_or_create(user=request.user, institution=inst)
+                    extra['institution_id'] = inst.id
                 except InstitutionV2.DoesNotExist:
                     pass
             elif new_inst_name:
                 # Crear nueva institucion
                 inst, _ = InstitutionV2.objects.get_or_create(name=new_inst_name)
                 UserInstitution.objects.get_or_create(user=request.user, institution=inst)
+                extra['institution_id'] = inst.id
 
                 # Sedes opcionales (lista de nombres)
                 for campus_name in body.get('campuses', []):
@@ -5178,6 +5250,7 @@ def onboarding_save_step(request):
                 # Editar materia existente
                 try:
                     subj = Subject.objects.get(pk=existing_subject_id)
+                    extra['subject_id'] = subj.id
                     new_name = body.get('new_name', '').strip()
                     if new_name and new_name != subj.name:
                         subj.name = new_name
@@ -5204,9 +5277,10 @@ def onboarding_save_step(request):
                     pass
             elif existing_subject_id:
                 # Solo vincular — no editar
-                pass
+                extra['subject_id'] = int(existing_subject_id)
             elif subject_name:
                 subject, _ = Subject.objects.get_or_create(name=subject_name)
+                extra['subject_id'] = subject.id
 
                 # Resultados de aprendizaje opcionales
                 for ra in body.get('learning_outcomes', []):
@@ -5229,7 +5303,7 @@ def onboarding_save_step(request):
         logger.error(f"Error en onboarding_save_step (step={step}): {e}", exc_info=True)
         # No fallamos - el wizard continua igual
 
-    return JsonResponse({'ok': True})
+    return JsonResponse(dict({'ok': True}, **extra))
 
 
 @require_POST
@@ -5278,6 +5352,70 @@ def onboarding_upload_contenido(request):
         return JsonResponse({'ok': False, 'error': 'Error al subir el archivo.'}, status=500)
 
 # --- FIN ONBOARDING WIZARD -----------------------------------------------------
+
+# --- ONBOARDING WIZARD V2 (página completa) -------------------------------------
+# ROLLBACK: eliminar este bloque, la ruta /comenzar/ y sus endpoints, y revertir
+# la migracion:  .venv\Scripts\python.exe manage.py migrate material 0034
+
+@login_required
+def onboarding_v2_page(request):
+    """Página completa del nuevo asistente de configuración (alternativa al modal)."""
+    return render(request, 'material/onboarding_v2.html', {})
+
+
+@login_required
+def onboarding_v2_finish(request):
+    """
+    Pantalla final del wizard v2: se llega acá después de guardar un examen
+    estando en modo asistente (ver onb2_wizard_active en save_exam_from_session).
+    """
+    request.session.pop('onb2_wizard_active', None)
+    try:
+        profile = request.user.profile
+        if not profile.onboarding_completed:
+            profile.onboarding_completed = True
+            profile.save(update_fields=['onboarding_completed'])
+    except Exception:
+        pass
+    return render(request, 'material/onboarding_v2_finish.html', {})
+
+
+@require_POST
+@login_required
+def onboarding_v2_connect_gemini(request):
+    """
+    Permite pegar una API key de Gemini propia directamente desde el paso 5
+    del wizard nuevo, sin pasar por la pantalla "Proveedor de IA".
+    Valida la key contra la API de Gemini antes de guardarla.
+    """
+    import json as _json
+    from .ai_router import GeminiBackend
+    from .models import UserAIConfig
+
+    try:
+        body = _json.loads(request.body)
+    except _json.JSONDecodeError:
+        body = {}
+
+    api_key = (body.get('api_key') or '').strip()
+    if not api_key:
+        return JsonResponse({'ok': False, 'error': 'Ingresá una API key.'}, status=400)
+
+    backend = GeminiBackend(api_key=api_key)
+    if not backend.is_available():
+        error = backend._last_error or 'No se pudo validar la API key con Gemini.'
+        return JsonResponse({'ok': False, 'error': error}, status=400)
+
+    config, _created = UserAIConfig.objects.get_or_create(user=request.user)
+    config.source = 'byok'
+    config.provider = 'gemini'
+    config.api_key = api_key
+    config.model = config.model if config.model and config.model.startswith('gemini-') else 'gemini-2.5-flash'
+    config.save()
+
+    return JsonResponse({'ok': True, 'status': backend.get_status()})
+
+# --- FIN ONBOARDING WIZARD V2 ----------------------------------------------------
 
 # --- RÚBRICAS ------------------------------------------------------------------
 

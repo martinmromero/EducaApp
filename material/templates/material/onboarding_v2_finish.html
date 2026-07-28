@@ -1,0 +1,26 @@
+{% extends 'material/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="onb2-wrap" style="max-width:700px">
+  <div class="card shadow-sm" style="border-radius:1rem">
+    <div class="card-body p-5 text-center">
+      <i class="bi bi-check-circle-fill text-success" style="font-size:3rem"></i>
+      <h3 class="fw-bold mt-3 mb-2">¡Listo! Tu examen quedó creado</h3>
+      <p class="text-muted mb-4">
+        Completaste todo el recorrido: cargaste tus datos, subiste un contenido, generaste y aprobaste
+        preguntas con IA, y armaste tu examen. A partir de ahora podés ajustar cualquier cosa manualmente
+        desde los menús de la izquierda.
+      </p>
+      <div class="d-flex justify-content-center gap-2 flex-wrap">
+        <a href="{% url 'material:mis_examenes' %}" class="btn btn-primary btn-lg">
+          <i class="bi bi-file-earmark-text me-1"></i>Ver mis exámenes
+        </a>
+        <a href="{% url 'material:index' %}" class="btn btn-outline-secondary btn-lg">
+          <i class="bi bi-house me-1"></i>Volver al inicio
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

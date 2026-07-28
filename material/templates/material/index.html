@@ -11,6 +11,10 @@
         <button type="button" class="btn btn-outline-secondary btn-lg" onclick="openOnboardingWizard()">
             <i class="bi bi-gear me-1"></i>Configurar perfil
         </button>
+        {# ONBOARDING WIZARD V2 — ROLLBACK: eliminar este botón #}
+        <a href="{% url 'material:onboarding_v2_page' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-magic me-1"></i>Probar nuevo asistente (beta)
+        </a>
         {% endif %}
     </div>
 </div>

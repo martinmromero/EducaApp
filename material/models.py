@@ -1931,3 +1931,36 @@ class UserAIConfig(models.Model):
     @api_key.setter
     def api_key(self, value):
         self.api_key_encrypted = encrypt_api_key(value) if value else ''
+
+
+# ---------------------------------------------------------------------------
+# Configuración de IA global de demo (fallback, solo editable desde Django Admin)
+# ---------------------------------------------------------------------------
+class GlobalAIConfig(models.Model):
+    """
+    Config de IA compartida a nivel de todo el sistema, usada como último
+    fallback automático cuando un usuario no tiene proveedor propio
+    configurado y el Ollama local no está disponible.
+    Solo visible/editable desde Django Admin (superuser) — no aparece en
+    ninguna pantalla de la aplicación.
+    """
+    provider = models.CharField(max_length=30, default='gemini', verbose_name="Proveedor")
+    model = models.CharField(max_length=100, blank=True, verbose_name="Modelo")
+    api_key_encrypted = models.TextField(blank=True, verbose_name="API Key (cifrada)")
+    is_active = models.BooleanField(default=True, verbose_name="Activa")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración IA Global (demo)"
+        verbose_name_plural = "Configuración IA Global (demo)"
+
+    def __str__(self):
+        return f"Demo global → {self.provider} ({'activa' if self.is_active else 'inactiva'})"
+
+    @property
+    def api_key(self):
+        return decrypt_api_key(self.api_key_encrypted)
+
+    @api_key.setter
+    def api_key(self, value):
+        self.api_key_encrypted = encrypt_api_key(value) if value else ''

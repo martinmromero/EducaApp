@@ -48,19 +48,23 @@ class DocumentProcessor:
     # PDF PROCESSING (PyMuPDF + pdfplumber)
     # ========================================================================
     
-    def process_pdf(self, file_path: str, 
+    def process_pdf(self, file_path: str,
                    remove_headers: bool = True,
                    remove_footers: bool = True,
-                   extract_toc: bool = True) -> Dict:
+                   extract_toc: bool = True,
+                   max_pages: Optional[int] = None) -> Dict:
         """
         Procesa un PDF completo y extrae estructura + contenido limpio.
-        
+
         Args:
             file_path: Ruta al archivo PDF
             remove_headers: Si True, detecta y elimina headers repetitivos
             remove_footers: Si True, detecta y elimina footers repetitivos
             extract_toc: Si True, extrae tabla de contenidos si existe
-        
+            max_pages: Si se especifica, rechaza documentos con más páginas
+                antes de extraer el texto (resguardo independiente del peso
+                en MB: un PDF liviano puede tener igual muchísimas páginas)
+
         Returns:
             Diccionario con estructura:
             {
@@ -77,10 +81,18 @@ class DocumentProcessor:
             'full_text': '',
             'stats': {}
         }
-        
+
         # Abrir PDF con PyMuPDF
         doc = fitz.open(file_path)
-        
+
+        if max_pages and doc.page_count > max_pages:
+            page_count = doc.page_count
+            doc.close()
+            raise ValueError(
+                f'El documento tiene {page_count} páginas y supera el máximo permitido '
+                f'de {max_pages}. Subí solo las páginas o el capítulo que necesitás analizar.'
+            )
+
         # Extraer metadata
         result['metadata'] = {
             'title': doc.metadata.get('title', ''),
@@ -474,7 +486,20 @@ class DocumentProcessor:
             'total_slides': len(slides_list),
             'total_tokens': sum(s['tokens'] for s in slides_list)
         }
-        
+
+        # 'chapters' es el formato que consumen el generador de preguntas y el
+        # dashboard (uno por slide); sin esta clave, cualquier PPTX queda con
+        # 0 capítulos aunque la extracción haya funcionado.
+        result['chapters'] = [
+            {
+                'title': s['title'],
+                'content': s['content'] or s['title'],
+                'tokens': s['tokens'] or self.count_tokens(s['title']),
+                'pages': [s['slide_number']],
+            }
+            for s in slides_list if (s['content'] or s['title'])
+        ]
+
         return result
     
     # ========================================================================

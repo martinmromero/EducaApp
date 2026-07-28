@@ -4,7 +4,7 @@ from django.utils.html import format_html
 from .models import (
     Subject, Contenido, Question, Exam, ExamTemplate, Profile,
     Topic, Subtopic, Institution, InstitutionV2, LearningOutcome, Career,
-    InstitutionAIConfig, UserAIConfig, encrypt_api_key,
+    InstitutionAIConfig, UserAIConfig, GlobalAIConfig, encrypt_api_key,
 )
 from .forms import SubjectForm
 from django.contrib.auth.admin import UserAdmin
@@ -282,4 +282,37 @@ class UserAIConfigAdmin(admin.ModelAdmin):
         (None, {'fields': ('user', 'source')}),
         ('BYOK', {'fields': ('provider', 'model', 'base_url', 'api_key'), 'classes': ('collapse',)}),
         ('Institucional', {'fields': ('institution',), 'classes': ('collapse',)}),
+    )
+
+
+class GlobalAIConfigAdminForm(forms.ModelForm):
+    """Form personalizado para manejar el campo api_key sin exponer el texto cifrado."""
+    api_key = forms.CharField(
+        label='API Key',
+        required=False,
+        widget=forms.PasswordInput(render_value=False),
+        help_text='Dejar vacío para no modificar la key existente. Esta key se usa como fallback '
+                   'automático de demo para cualquier usuario sin proveedor propio configurado.',
+    )
+
+    class Meta:
+        model = GlobalAIConfig
+        exclude = ('api_key_encrypted',)
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        raw_key = self.cleaned_data.get('api_key', '').strip()
+        if raw_key:
+            instance.api_key_encrypted = encrypt_api_key(raw_key)
+        if commit:
+            instance.save()
+        return instance
+
+
+@admin.register(GlobalAIConfig)
+class GlobalAIConfigAdmin(admin.ModelAdmin):
+    form = GlobalAIConfigAdminForm
+    list_display = ('provider', 'model', 'is_active', 'updated_at')
+    fieldsets = (
+        (None, {'fields': ('provider', 'model', 'api_key', 'is_active')}),
     )

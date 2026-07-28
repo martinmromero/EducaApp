@@ -82,15 +82,18 @@ def extract_text_advanced(file_path, remove_headers=True, remove_footers=True):
     Returns:
         Dict con estructura completa del documento
     """
+    from django.conf import settings
+
     _, file_extension = os.path.splitext(file_path)
     file_extension = file_extension.lower()
-    
+
     if file_extension == '.pdf':
         return _processor.process_pdf(
             file_path,
             remove_headers=remove_headers,
             remove_footers=remove_footers,
-            extract_toc=True
+            extract_toc=True,
+            max_pages=getattr(settings, 'CONTENIDO_MAX_PAGES', None),
         )
     elif file_extension == '.docx':
         return _processor.process_docx(file_path)

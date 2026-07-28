@@ -1,4 +1,5 @@
 from django import forms
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
@@ -57,6 +58,17 @@ class ContenidoForm(forms.ModelForm):
         labels = {
             'title': 'Título del Contenido',
         }
+
+    def clean_file(self):
+        archivo = self.cleaned_data.get('file')
+        if archivo:
+            max_mb = settings.CONTENIDO_MAX_UPLOAD_MB
+            if archivo.size > max_mb * 1024 * 1024:
+                raise ValidationError(
+                    f'El archivo pesa {archivo.size / (1024 * 1024):.1f}MB y supera el máximo permitido '
+                    f'de {max_mb}MB. Si es un PDF escaneado, probá comprimirlo o subir solo las páginas necesarias.'
+                )
+        return archivo
 
 class QuestionForm(forms.ModelForm):
     subjects = forms.ModelMultipleChoiceField(

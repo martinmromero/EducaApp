@@ -55,7 +55,7 @@ def upload_and_process_document(request):
     Returns:
         JSON con estructura procesada del documento
     """
-    from material.models import Contenido
+    from material.models import Contenido, Subject
 
     if 'documento' not in request.FILES:
         return JsonResponse({
@@ -67,7 +67,19 @@ def upload_and_process_document(request):
     remove_headers = request.POST.get('remove_headers', 'true').lower() == 'true'
     remove_footers = request.POST.get('remove_footers', 'true').lower() == 'true'
     contenido_title = request.POST.get('contenido_title', '').strip()
-    
+    subject_id = request.POST.get('subject_id', '').strip()
+
+    # Validar tamaño (plan gratuito de Render: memoria y tiempo de request limitados)
+    max_upload_mb = settings.CONTENIDO_MAX_UPLOAD_MB
+    if archivo.size > max_upload_mb * 1024 * 1024:
+        return JsonResponse({
+            'success': False,
+            'error': (
+                f'El archivo pesa {archivo.size / (1024 * 1024):.1f}MB y supera el máximo permitido '
+                f'de {max_upload_mb}MB. Si es un PDF escaneado, probá comprimirlo o subir solo las páginas necesarias.'
+            )
+        }, status=400)
+
     # Validar extensión
     nombre = archivo.name
     ext = os.path.splitext(nombre)[1].lower()
@@ -96,7 +108,7 @@ def upload_and_process_document(request):
 
         duplicate_message = None
 
-        if existing and existing.file_available:
+        if existing and existing.file_available and existing.file_actually_exists():
             # Archivo idéntico ya existe y sigue vigente — no guardamos un nuevo archivo
             contenido_id = existing.id
             duplicate_message = (
@@ -126,8 +138,10 @@ def upload_and_process_document(request):
             except (ValueError, NotImplementedError, AttributeError):
                 session_file_path = tmp_path  # fallback cloud
 
-        elif existing and not existing.file_available:
-            # Archivo había expirado — restaurarlo con el nuevo upload
+        elif existing:
+            # Archivo había expirado, o el registro decía "vigente" pero el archivo
+            # físico ya no está (borrado por reinicio/limpieza sin actualizar
+            # file_deleted_at) — en ambos casos, restaurarlo con el nuevo upload.
             saved_relative = default_storage.save(f'contenidos/{nombre}', ContentFile(file_bytes))
             file_path = os.path.join(settings.MEDIA_ROOT, saved_relative)
             existing.file = saved_relative
@@ -164,6 +178,14 @@ def upload_and_process_document(request):
             contenido.save()
             contenido_id = contenido.id
             session_file_path = file_path
+        # Etiquetar la materia elegida (si vino informada) sobre el Contenido resultante,
+        # sea nuevo, restaurado o reusado por deduplicación.
+        if subject_id.isdigit():
+            try:
+                subj = Subject.objects.get(pk=int(subject_id))
+                Contenido.objects.get(pk=contenido_id).subjects.add(subj)
+            except Subject.DoesNotExist:
+                pass
 
         # --- Actualizar sesión ---
         # Eliminar archivo previo de session temporal si era una sesión de doc_sessions
@@ -187,6 +209,8 @@ def upload_and_process_document(request):
         request.session.modified = True
         # ---------------------------------------------------
         
+        total_tokens = result.get('stats', {}).get('total_tokens', 0)
+
         # Formatear respuesta (content_preview solo para mostrar en UI)
         response_data = {
             'success': True,
@@ -205,9 +229,15 @@ def upload_and_process_document(request):
                 }
                 for ch in result.get('chapters', [])
             ],
-            'toc': result.get('toc', [])
+            'toc': result.get('toc', []),
+            # Presupuestos de tokens, para que la UI oriente la selección de capítulos
+            'token_budget': {
+                'total_budget': settings.CONTENIDO_MAX_TOTAL_TOKENS,
+                'run_budget': settings.CONTENIDO_MAX_RUN_TOKENS,
+                'exceeds_total_budget': total_tokens > settings.CONTENIDO_MAX_TOTAL_TOKENS,
+            },
         }
-        
+
         return JsonResponse(response_data)
         
     except Exception as e:
@@ -280,11 +310,20 @@ def document_processor_dashboard(request):
     from .ai_router import get_backend_for_user
     backend = get_backend_for_user(request.user)
     ai_status = backend.get_status()
-    
+
+    # ONBOARDING WIZARD V2: si venimos del asistente (?wizard=1), lo recordamos en
+    # sesión para poder mostrar el banner de continuidad también en /crear-examen/
+    # más adelante, sin tener que pasar el parámetro a mano por todos lados.
+    if request.GET.get('wizard') == '1':
+        request.session['onb2_wizard_active'] = True
+    wizard_active = request.session.get('onb2_wizard_active', False)
+
     context = {
         'page_title': 'Procesador de Documentos',
         'supported_formats': ['.pdf', '.docx', '.pptx', '.txt'],
-        'max_file_size_mb': 10,
+        'max_file_size_mb': settings.CONTENIDO_MAX_UPLOAD_MB,
+        'total_token_budget': settings.CONTENIDO_MAX_TOTAL_TOKENS,
+        'run_token_budget': settings.CONTENIDO_MAX_RUN_TOKENS,
         'local_ai_connected': ai_status.get('connected', False),
         'local_ai_ready': ai_status.get('ready_for_generation', ai_status.get('connected', False)),
         'local_ai_url': ai_status.get('url', 'No configurado'),
@@ -294,6 +333,7 @@ def document_processor_dashboard(request):
         'subjects': Subject.objects.all().order_by('name'),
         'preselected_contenido_id': request.GET.get('contenido_id', ''),
         'preselected_subject_id': request.GET.get('subject_id', ''),
+        'wizard_active': wizard_active,
     }
     
     return render(request, 'material/document_processor_dashboard.html', context)
@@ -310,6 +350,13 @@ def process_contenido_by_id(request, contenido_id):
     from django.http import JsonResponse
 
     contenido = get_object_or_404(Contenido, id=contenido_id, uploaded_by=request.user)
+
+    if not contenido.file or not contenido.file_actually_exists():
+        return JsonResponse({
+            'success': False,
+            'error': f'El archivo de "{contenido.title}" ya no está disponible en el servidor '
+                     f'(se elimina automáticamente después de unos días). Subí el documento de nuevo.',
+        }, status=404)
 
     file_path = contenido.file.path
     ext = os.path.splitext(file_path)[1].lower()
@@ -356,7 +403,12 @@ def process_contenido_by_id(request, contenido_id):
                 }
                 for ch in result.get('chapters', [])
             ],
-            'toc': result.get('toc', [])
+            'toc': result.get('toc', []),
+            'token_budget': {
+                'total_budget': settings.CONTENIDO_MAX_TOTAL_TOKENS,
+                'run_budget': settings.CONTENIDO_MAX_RUN_TOKENS,
+                'exceeds_total_budget': result.get('stats', {}).get('total_tokens', 0) > settings.CONTENIDO_MAX_TOTAL_TOKENS,
+            },
         })
 
     except Exception as e:
@@ -599,6 +651,17 @@ def generate_questions_from_chapters(request):
                 'error': 'No se pudo obtener el contenido de los capítulos'
             }, status=400)
 
+        selected_tokens = _chapters_total_tokens(chapters_to_process)
+        run_budget = settings.CONTENIDO_MAX_RUN_TOKENS
+        if selected_tokens > run_budget:
+            return JsonResponse({
+                'success': False,
+                'error': (
+                    f'Seleccionaste {_fmt_es(selected_tokens)} tokens de contenido, y el máximo por '
+                    f'tanda es {_fmt_es(run_budget)}. Elegí menos capítulos y generá el resto en otra tanda.'
+                ),
+            }, status=400)
+
         # --------------------------------------------------------
         # Generar preguntas por capítulo usando chunking
         # --------------------------------------------------------
@@ -706,6 +769,16 @@ def _store_streaming_job(request, chapter_indices, chapters_from_request, filena
 # ============================================
 # Helpers para generación por chunks
 # ============================================
+
+def _chapters_total_tokens(chapters):
+    """Suma los tokens (ya calculados en la extracción) de una lista de capítulos."""
+    return sum(ch.get('tokens', 0) for ch in chapters)
+
+
+def _fmt_es(n):
+    """Formatea un entero con punto como separador de miles (convención local)."""
+    return f'{n:,}'.replace(',', '.')
+
 
 def _split_into_chunks(content, max_tokens=3000):
     """Divide el contenido en fragmentos de ≤ max_tokens tokens."""
@@ -997,6 +1070,16 @@ def stream_questions(request, job_id):
 
         if not chapters_to_process:
             yield f'data: {json_module.dumps({"type": "error", "message": "No se pudo obtener el contenido de los capítulos"})}\n\n'
+            return
+
+        selected_tokens = _chapters_total_tokens(chapters_to_process)
+        run_budget = settings.CONTENIDO_MAX_RUN_TOKENS
+        if selected_tokens > run_budget:
+            budget_msg = (
+                f'Seleccionaste {_fmt_es(selected_tokens)} tokens de contenido, y el máximo por '
+                f'tanda es {_fmt_es(run_budget)}. Elegí menos capítulos y generá el resto en otra tanda.'
+            )
+            yield f'data: {json_module.dumps({"type": "error", "message": budget_msg})}\n\n'
             return
 
         # Pre-calcular total de chunks para progress

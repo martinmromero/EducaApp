@@ -120,6 +120,16 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static'),
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# ---------------------------------------------------------------------------
+# Límites de contenidos/IA (pensados para el plan gratuito de Render: 1 solo
+# worker gunicorn, ~512MB de RAM y timeout de 120s por request. Ver análisis
+# en el chat del 2026-07-27 para el detalle de por qué estos números).
+# ---------------------------------------------------------------------------
+CONTENIDO_MAX_UPLOAD_MB = 8
+CONTENIDO_MAX_TOTAL_TOKENS = 50_000   # aviso: documento entero muy extenso, mejor generar por capítulos
+CONTENIDO_MAX_RUN_TOKENS = 45_000     # tope duro por corrida de generación (~15 chunks de 3000 tokens)
+CONTENIDO_MAX_PAGES = 100             # resguardo adicional independiente del tamaño en MB
+
 # Default primary key field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

@@ -427,6 +427,31 @@ def _build_external_backend(provider: str, api_key: str, model: str, base_url: O
     )
 
 
+def _global_demo_backend():
+    """
+    Devuelve el backend construido a partir de GlobalAIConfig (fallback de
+    demo, editable solo desde Django Admin) si hay uno activo y con key,
+    o None si no está configurado.
+    """
+    try:
+        from .models import GlobalAIConfig
+        cfg = GlobalAIConfig.objects.filter(is_active=True).first()
+    except Exception:
+        return None
+    if cfg is None or not cfg.api_key_encrypted:
+        return None
+    model = cfg.model or ('gemini-2.5-flash' if cfg.provider == 'gemini' else 'gpt-4o-mini')
+    try:
+        return _build_external_backend(
+            provider=cfg.provider or 'gemini',
+            api_key=cfg.api_key,
+            model=model,
+            base_url=None,
+        )
+    except Exception:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # API pública
 # ---------------------------------------------------------------------------
@@ -445,7 +470,14 @@ def get_backend_for_user(user) -> 'OllamaBackend | OpenAICompatibleBackend | Ant
     source = config.source
 
     if source == 'ollama_local':
-        return OllamaBackend(ollama_url=config.ollama_url or None)
+        ollama = OllamaBackend(ollama_url=config.ollama_url or None)
+        if ollama.is_available():
+            return ollama
+        fallback = _global_demo_backend()
+        if fallback is not None:
+            logger.info('Ollama no disponible, usando fallback de demo global.')
+            return fallback
+        return ollama
 
     if source == 'byok':
         if not config.api_key_encrypted:

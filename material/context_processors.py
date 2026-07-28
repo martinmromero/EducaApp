@@ -25,7 +25,10 @@ def onboarding_context(request):
         UserInstitution.objects.filter(user=request.user)
         .values_list('institution_id', flat=True)
     )
-    user_institutions = [i for i in all_institutions if i['id'] in user_inst_ids]
+    user_institutions = [
+        {'id': inst.id, 'name': inst.name, 'logo_src': inst.logo_src}
+        for inst in InstitutionV2.objects.filter(id__in=user_inst_ids).order_by('name')
+    ]
 
     # Materias del usuario (via contenidos subidos por el)
     user_subjects = list(

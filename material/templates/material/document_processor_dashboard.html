@@ -5,8 +5,17 @@
 
 {% block content %}
 <div class="container-fluid mt-4">
+    {% if wizard_active %}
     <div class="row">
         <div class="col-12">
+            {% include 'material/_onb2_banner.html' with onb2_step=5 onb2_step_label="Generá y aprobá preguntas" %}
+            <div id="onb2SaveCta" class="alert alert-success d-none d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3"></div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="row">
+        <div class="col-12">
+            {% if wizard_active %}<div class="onb2-focus-frame">{% endif %}
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                     <h2><i class="fas fa-file-alt"></i> Procesador de Documentos con IA</h2>
@@ -70,7 +79,7 @@
     </div>
 
     <!-- Tabs de funcionalidades -->
-    <ul class="nav nav-tabs" id="docProcessorTabs" role="tablist">
+    <ul class="nav nav-tabs {% if wizard_active %}d-none{% endif %}" id="docProcessorTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab">
                 <i class="fas fa-upload"></i> Procesar Documento
@@ -85,11 +94,11 @@
         {% endif %}
     </ul>
 
-    <div class="tab-content mt-4" id="docProcessorTabContent">
+    <div class="tab-content {% if wizard_active %}mt-2{% else %}mt-4{% endif %}" id="docProcessorTabContent">
         <!-- Tab 1: Procesar Documento Completo -->
         <div class="tab-pane fade show active" id="upload" role="tabpanel">
             <div class="row">
-                <div class="col-md-4">
+                <div class="{% if wizard_active %}d-none{% else %}col-md-4{% endif %}">
                     <div class="card">
                         <div class="card-header bg-primary text-white">
                             <h5 class="mb-0"><i class="fas fa-upload"></i> Subir Documento</h5>
@@ -138,12 +147,12 @@
                     </div>
                 </div>
 
-                <div class="col-md-8">
-                    <div id="resultCard" class="card" style="display:none;">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="mb-0"><i class="fas fa-check-circle"></i> Resultado del Procesamiento</h5>
+                <div class="{% if wizard_active %}col-12{% else %}col-md-8{% endif %}">
+                    <div id="resultCard" class="card {% if wizard_active %}border-0{% endif %}" style="display:none;">
+                        <div class="card-header bg-success text-white {% if wizard_active %}py-1 px-2{% endif %}">
+                            <h5 class="mb-0 {% if wizard_active %}fs-6{% endif %}"><i class="fas fa-check-circle"></i> Resultado del Procesamiento</h5>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body {% if wizard_active %}px-0{% endif %}">
                             <div id="resultContent"></div>
                         </div>
                     </div>
@@ -185,6 +194,7 @@
         </div>
         {% endif %}
     </div>
+    {% if wizard_active %}</div>{% endif %}
 </div>
 
 <!-- Modal de Configuración Pre-Generación -->
@@ -636,13 +646,28 @@
             displayDocumentResult(data);
             resultCard.style.display = 'block';
         } else {
-            alert('Error al cargar documento: ' + data.error);
+            showAutoLoadError(data.error || 'No se pudo cargar el documento.');
         }
     })
     .catch(err => {
         progressDiv.style.display = 'none';
-        alert('Error al cargar documento: ' + err);
+        showAutoLoadError(String(err));
     });
+
+    function showAutoLoadError(message) {
+        resultCard.style.display = 'block';
+        const header = resultCard.querySelector('.card-header');
+        if (header) header.className = 'card-header bg-danger text-white';
+        const headerTitle = resultCard.querySelector('.card-header h5');
+        if (headerTitle) headerTitle.innerHTML = '<i class="fas fa-exclamation-triangle"></i> No se pudo cargar el documento';
+        const content = document.getElementById('resultContent');
+        let extra = '';
+        {% if wizard_active %}
+        extra = '<div class="mt-2"><a href="{% url "material:onboarding_v2_page" %}?step=4" class="btn btn-sm btn-outline-secondary">' +
+                '<i class="bi bi-arrow-left"></i> Volver al asistente y subir de nuevo</a></div>';
+        {% endif %}
+        if (content) content.innerHTML = '<div class="alert alert-danger mb-0">' + message + extra + '</div>';
+    }
 })();
 
 // Form: Procesar Documento
@@ -656,16 +681,29 @@ document.getElementById('documentFile').addEventListener('change', function() {
     }
 });
 
+const MAX_UPLOAD_MB = {{ max_file_size_mb|default:8 }};
+
 document.getElementById('uploadDocumentForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    
+
+    const fileInput = document.getElementById('documentFile');
+    const file = fileInput.files[0];
+    if (file && file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+        showAiNoticeBanner(
+            `El archivo pesa ${(file.size / (1024 * 1024)).toFixed(1)}MB y supera el máximo permitido de ${MAX_UPLOAD_MB}MB. ` +
+            `Si es un PDF escaneado, probá comprimirlo o subir solo las páginas necesarias.`,
+            { title: 'Archivo demasiado grande', variant: 'danger' }
+        );
+        return;
+    }
+
     const formData = new FormData(this);
     const progressDiv = document.getElementById('uploadProgress');
     const resultCard = document.getElementById('resultCard');
-    
+
     progressDiv.style.display = 'block';
     resultCard.style.display = 'none';
-    
+
     try {
         const response = await fetch('{% url "material:upload_and_process_document" %}', {
             method: 'POST',
@@ -674,21 +712,24 @@ document.getElementById('uploadDocumentForm').addEventListener('submit', async f
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             }
         });
-        
+
         const data = await response.json();
         progressDiv.style.display = 'none';
-        
+
         if (data.success) {
             displayDocumentResult(data);
             resultCard.style.display = 'block';
         } else {
-            alert('Error: ' + data.error);
+            showAiNoticeBanner(data.error, { title: 'No se pudo procesar el documento', variant: 'danger' });
         }
     } catch (error) {
         progressDiv.style.display = 'none';
-        alert('Error al procesar: ' + error);
+        showAiNoticeBanner('Ocurrió un error de conexión al procesar el documento. Probá de nuevo.', { title: 'Error al procesar', variant: 'danger' });
     }
 });
+
+const RUN_TOKEN_BUDGET = {{ run_token_budget|default:45000 }};
+const TOTAL_TOKEN_BUDGET = {{ total_token_budget|default:50000 }};
 
 function displayDocumentResult(data) {
     // Aviso de duplicado si aplica
@@ -696,7 +737,18 @@ function displayDocumentResult(data) {
         ? `<div class="alert alert-warning py-2 mb-2"><i class="bi bi-exclamation-triangle me-1"></i>${data.duplicate_message}</div>`
         : '';
 
-    let html = dupAlert + `
+    // Documento muy extenso: sugerir generar por capítulos en vez de todo junto
+    const budgetExceeded = data.token_budget && data.token_budget.exceeds_total_budget;
+    const extensiveAlert = budgetExceeded
+        ? `<div class="alert alert-info py-2 mb-2">
+               <i class="bi bi-info-circle me-1"></i>
+               Este documento tiene ${data.stats.total_tokens.toLocaleString()} tokens, bastante más de lo recomendado
+               para procesar de una sola vez. Elegí capítulos puntuales e generá las preguntas en varias tandas
+               (más abajo vas a ver cuánto podés seleccionar por tanda).
+           </div>`
+        : '';
+
+    let html = dupAlert + extensiveAlert + `
         <h5>${data.filename}
             ${data.contenido_id ? `<a id="contenidoSavedBadge" href="{% url 'material:mis_contenidos' %}" class="badge bg-success ms-2 text-decoration-none"><i class="fas fa-check"></i> Guardado en Mis Contenidos</a>` : ''}
         </h5>
@@ -712,7 +764,7 @@ function displayDocumentResult(data) {
             </div>
         </div>
         <hr>
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
             <h6>Capítulos Detectados:</h6>
             <div class="d-flex gap-2">
                 <button class="btn btn-outline-primary" onclick="openPagePreview()">
@@ -723,18 +775,33 @@ function displayDocumentResult(data) {
                 </button>
             </div>
         </div>
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                    Tokens seleccionados para esta tanda
+                    <i class="fas fa-circle-question ms-1"
+                       title="Cada tanda de generación tiene un tope de tokens para que el servidor no se quede colgado procesando un documento entero de una sola vez. Si necesitás más, generá en varias tandas."
+                       style="cursor:help"></i>
+                </small>
+                <small id="tokenBudgetLabel" class="text-muted">0 / ${RUN_TOKEN_BUDGET.toLocaleString()}</small>
+            </div>
+            <div class="progress" style="height:6px;">
+                <div id="tokenBudgetBar" class="progress-bar" role="progressbar" style="width:0%"></div>
+            </div>
+        </div>
         <div class="accordion" id="chaptersAccordion">
     `;
-    
+
     // Guardar datos globalmente para usar después
     window.currentDocumentData = data;
-    
+
     data.chapters.forEach((chapter, index) => {
         html += `
             <div class="accordion-item">
                 <h2 class="accordion-header d-flex align-items-center">
                     <div class="form-check ms-3 me-2">
-                        <input class="form-check-input chapter-checkbox" type="checkbox" value="${index}" id="chapterCheck${index}" onchange="updateGenerateButton()">
+                        <input class="form-check-input chapter-checkbox" type="checkbox" value="${index}"
+                               data-tokens="${chapter.tokens || 0}" id="chapterCheck${index}" onchange="updateGenerateButton()">
                         <label class="form-check-label visually-hidden" for="chapterCheck${index}">
                             Seleccionar ${chapter.title}
                         </label>
@@ -752,14 +819,41 @@ function displayDocumentResult(data) {
             </div>
         `;
     });
-    
+
     html += '</div>';
     document.getElementById('resultContent').innerHTML = html;
 }
 
-// Actualizar botón de generar preguntas
+// Actualiza el botón de generar, la barra de tokens y bloquea capítulos
+// adicionales cuando ya se llegó al tope de tokens por tanda.
 function updateGenerateButton() {
+    const allCheckboxes = document.querySelectorAll('.chapter-checkbox');
     const checkboxes = document.querySelectorAll('.chapter-checkbox:checked');
+
+    let selectedTokens = 0;
+    checkboxes.forEach(cb => { selectedTokens += parseInt(cb.dataset.tokens || '0', 10); });
+
+    const label = document.getElementById('tokenBudgetLabel');
+    const bar = document.getElementById('tokenBudgetBar');
+    if (label && bar) {
+        const pct = Math.min(100, Math.round((selectedTokens / RUN_TOKEN_BUDGET) * 100));
+        label.textContent = `${selectedTokens.toLocaleString()} / ${RUN_TOKEN_BUDGET.toLocaleString()}`;
+        bar.style.width = pct + '%';
+        bar.classList.remove('bg-success', 'bg-warning', 'bg-danger');
+        bar.classList.add(pct < 70 ? 'bg-success' : (pct < 100 ? 'bg-warning' : 'bg-danger'));
+    }
+
+    // Si ya llegamos (o superamos) el tope, bloquear capítulos no seleccionados
+    // para que el usuario no arme una tanda que el servidor va a rechazar.
+    const atBudget = selectedTokens >= RUN_TOKEN_BUDGET;
+    allCheckboxes.forEach(cb => {
+        if (cb.checked) return;
+        cb.disabled = atBudget;
+        cb.title = atBudget
+            ? 'Llegaste al máximo de tokens recomendado para esta tanda. Generá esta selección primero, o deseleccioná otro capítulo para hacer lugar.'
+            : '';
+    });
+
     const btn = document.getElementById('generateQuestionsBtn');
     if (btn) {
         btn.disabled = checkboxes.length === 0;
@@ -1012,7 +1106,7 @@ async function generateQuestionsFromSelected() {
     const checkboxes = document.querySelectorAll('.chapter-checkbox:checked');
 
     if (checkboxes.length === 0) {
-        alert('Por favor selecciona al menos un capítulo');
+        showAiNoticeBanner('Seleccioná al menos un capítulo para generar preguntas.', { title: 'Nada seleccionado' });
         return;
     }
 
@@ -1057,6 +1151,7 @@ function showPreflightModal(indices, chapters) {
     const totalChunksEst = chapters.reduce((sum, ch) => sum + Math.ceil((ch.tokens || 500) / 3000), 0);
     const estimatedSecs = totalChunksEst * 25; // ~25 seg por chunk
     const estimatedMin = Math.round(estimatedSecs / 60);
+    const overBudget = totalTokens > RUN_TOKEN_BUDGET;
 
     let timeLabel;
     if (estimatedSecs < 90)       timeLabel = `⚡ menos de 2 min`;
@@ -1077,7 +1172,18 @@ function showPreflightModal(indices, chapters) {
             <strong>Total:</strong> ${totalTokens.toLocaleString()} tokens · ${totalChunksEst} fragmento(s) · Tiempo estimado: ${timeLabel}
         </div>
     `;
+    if (overBudget) {
+        chapHtml += `
+        <div class="alert alert-danger py-2">
+            <i class="fas fa-ban me-1"></i>
+            Esta selección supera el máximo de ${RUN_TOKEN_BUDGET.toLocaleString()} tokens por tanda.
+            Volvé atrás y seleccioná menos capítulos o páginas; generá el resto en otra tanda.
+        </div>`;
+    }
     document.getElementById('preflightChapterList').innerHTML = chapHtml;
+
+    const startBtn = document.getElementById('startGenerationBtn');
+    if (startBtn) startBtn.disabled = overBudget;
 
     new bootstrap.Modal(document.getElementById('preflightModal')).show();
 }
@@ -1968,8 +2074,27 @@ async function doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, ne
         const data = await response.json();
         
         if (data.success) {
+            {% if wizard_active %}
+            // En modo asistente no dejamos el botón de "continuar" perdido acá:
+            // avisamos brevemente y devolvemos el foco al wizard (paso 6), que
+            // es donde vive el botón grande para seguir.
+            const cta = document.getElementById('onb2SaveCta');
+            cta.innerHTML = '<span><i class="fas fa-check-circle"></i> ' + data.saved_count +
+                ' pregunta(s) guardada(s). Volviendo al asistente…</span>' +
+                '<div class="spinner-border spinner-border-sm" role="status"></div>';
+            cta.classList.remove('d-none');
+            cta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            setTimeout(function () {
+                const cid = (window.currentDocumentData && window.currentDocumentData.contenido_id) || '';
+                const sid = '{{ preselected_subject_id }}';
+                let backUrl = "{% url 'material:onboarding_v2_page' %}?step=6&contenido_id=" + encodeURIComponent(cid);
+                if (sid) backUrl += '&subject_id=' + encodeURIComponent(sid);
+                window.location.href = backUrl;
+            }, 1300);
+            {% else %}
             alert(`✅ ${data.saved_count} preguntas guardadas exitosamente`);
-            
+            {% endif %}
+
             // Limpiar checkboxes (questionsModal ya fue cerrado antes de guardar)
             document.querySelectorAll('.chapter-checkbox').forEach(cb => cb.checked = false);
             updateGenerateButton();
@@ -2104,9 +2229,15 @@ async function openPagePreview() {
 
   // Cargar metadata del servidor
   // Pasamos contenido_id para que el backend pueda recuperar la sesión si fue
-  // pisada por una condición de carrera con SESSION_SAVE_EVERY_REQUEST=True.
-  const _previewCid = (window.currentDocumentData && window.currentDocumentData.contenido_id)
-    ? encodeURIComponent(window.currentDocumentData.contenido_id) : '';
+  // pisada por una condición de carrera con SESSION_SAVE_EVERY_REQUEST=True
+  // (varios fetch en paralelo al cargar la página, ej. checkLocalAIStatus(),
+  // pueden pisar la sesión que acaba de guardar el auto-load). Preferimos el
+  // contenido_id ya conocido en window.currentDocumentData, pero si por lo
+  // que sea no está, caemos al que vino preseleccionado por URL al abrir la
+  // página — así el fallback del backend siempre tiene con qué recuperarse.
+  const _previewCid = encodeURIComponent(
+    (window.currentDocumentData && window.currentDocumentData.contenido_id) || '{{ preselected_contenido_id }}'
+  );
   let meta;
   try {
     const resp = await fetch('{% url "material:document_page_preview" %}' + (_previewCid ? `?contenido_id=${_previewCid}` : ''));

@@ -45,7 +45,7 @@
     </style>
 </head>
 
-<body class="{% if request.GET.embed %}embed-mode{% endif %}">
+<body class="{% if request.GET.embed %}embed-mode{% endif %}" {% block body_extra_attrs %}{% endblock %}>
     <!-- Overlay para mobile (cierra sidebar al tocar fuera) -->
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebarMobile()"></div>
 
@@ -629,7 +629,7 @@
       body.embed-mode #sidebarOverlay,
       body.embed-mode #externalToggle,
       body.embed-mode .navbar,
-      body.embed-mode .modal {
+      body.embed-mode #onboardingModal {
         display: none !important;
       }
       body.embed-mode .main-content {
@@ -1221,7 +1221,7 @@
       renderCurrentSubjects();
       renderCurrentContenidos();
 
-      if (ONB_DATA.autoShow) {
+      if (ONB_DATA.autoShow && !document.body.hasAttribute('data-suppress-onboarding-modal')) {
         skipBtn.textContent = 'Saltar configuración';
         modal.show();
       }

@@ -50,6 +50,9 @@
   }
 </style>
 <div class="container-fluid">
+  {% if wizard_active %}
+  {% include 'material/_onb2_banner.html' with onb2_step=6 onb2_step_label="Armá tu examen" %}
+  {% endif %}
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">Ver los exámenes</h1>
     <button type="button" class="btn btn-secondary btn-sm" onclick="history.back()">Volver</button>
@@ -245,6 +248,7 @@
   // todavia no se ejecuto, entonces "Guardar examen" quedaba sin click
   // handler y el boton no hacia nada.
   let savedModal = null;
+  let postSaveRedirectUrl = "{% url 'material:mis_examenes' %}";
   function getSavedModal() {
     if (!savedModal) {
       savedModal = new window.bootstrap.Modal(savedModalEl);
@@ -253,7 +257,7 @@
   }
 
   savedModalEl.addEventListener('hidden.bs.modal', function () {
-    window.location.href = "{% url 'material:mis_examenes' %}";
+    window.location.href = postSaveRedirectUrl;
   });
 
   saveBtn.addEventListener('click', function () {
@@ -275,6 +279,7 @@
       .then(function (data) {
         saveBtn.disabled = false;
         if (data.success) {
+          if (data.redirect_url) postSaveRedirectUrl = data.redirect_url;
           document.getElementById('examVersionsSavedModalMessage').textContent = data.message || 'El examen se guardó correctamente.';
           getSavedModal().show();
         } else {

@@ -168,6 +168,11 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('onboarding/step/', material_views.onboarding_save_step, name='onboarding_save_step'),
     path('onboarding/upload-contenido/', material_views.onboarding_upload_contenido, name='onboarding_upload_contenido'),
 
+    # ONBOARDING WIZARD V2 (página completa) — ROLLBACK: eliminar estas cuatro líneas
+    path('comenzar/', material_views.onboarding_v2_page, name='onboarding_v2_page'),
+    path('comenzar/listo/', material_views.onboarding_v2_finish, name='onboarding_v2_finish'),
+    path('onboarding/v2/connect-gemini/', material_views.onboarding_v2_connect_gemini, name='onboarding_v2_connect_gemini'),
+
     # RÚBRICAS
     path('rubricas/', material_views.rubric_list, name='rubric_list'),
     path('rubricas/nueva/', material_views.rubric_create, name='rubric_create'),
