@@ -68,7 +68,7 @@ function toggleBloom() {
 {% block action_buttons %}
 <div class="top-actions-row">
     <a href="{% url 'material:exam_rubrics' exam.pk %}">
-        <button type="button" class="secondary">
+        <button type="button" class="btn-accent-violet">
             <i class="bi bi-card-checklist"></i> {% if has_rubrics %}Gestionar rúbricas{% else %}Agregar rúbricas{% endif %}
         </button>
     </a>
@@ -79,7 +79,8 @@ function toggleBloom() {
     </a>
 </div>
 
-<div class="option-panel">
+<div class="option-panels-row">
+<div class="option-panel option-panel-view">
     <h4 class="option-panel-title"><i class="fas fa-desktop"></i> Ver en pantalla</h4>
     <div class="view-toggles">
         <label class="view-toggle">
@@ -97,7 +98,7 @@ function toggleBloom() {
     </div>
 </div>
 
-<div class="option-panel">
+<div class="option-panel option-panel-export">
     <h4 class="option-panel-title"><i class="fas fa-file-export"></i> Imprimir / Descargar</h4>
     <div class="export-checkboxes">
         <label>
@@ -110,16 +111,17 @@ function toggleBloom() {
         {% endif %}
     </div>
     <div class="action-buttons-row">
-        <button onclick="doPrint()">
+        <button onclick="doPrint()" class="btn-accent-green">
             <i class="fas fa-print"></i> Imprimir
         </button>
-        <button onclick="doDownload('pdf')" class="secondary">
+        <button onclick="doDownload('pdf')" class="btn-accent-red">
             <i class="fas fa-file-pdf"></i> Descargar PDF
         </button>
-        <button onclick="doDownload('docx')" class="secondary">
+        <button onclick="doDownload('docx')" class="btn-accent-indigo">
             <i class="fas fa-file-word"></i> Descargar DOCX
         </button>
     </div>
+</div>
 </div>
 
 <script>

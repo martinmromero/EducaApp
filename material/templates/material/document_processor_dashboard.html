@@ -795,17 +795,27 @@ function displayDocumentResult(data) {
     // Guardar datos globalmente para usar después
     window.currentDocumentData = data;
 
+    // Si hay un solo capítulo (documento sin estructura interna detectada),
+    // no tiene sentido pedir que lo "seleccione": va directo, sin checkbox.
+    const singleChapter = data.chapters.length === 1;
+
     data.chapters.forEach((chapter, index) => {
+        const checkboxHtml = singleChapter
+            ? `<input class="form-check-input chapter-checkbox" type="checkbox" value="${index}"
+                       data-tokens="${chapter.tokens || 0}" id="chapterCheck${index}" checked
+                       style="display:none" onchange="updateGenerateButton()">`
+            : `<div class="form-check ms-3 me-2">
+                    <input class="form-check-input chapter-checkbox" type="checkbox" value="${index}"
+                           data-tokens="${chapter.tokens || 0}" id="chapterCheck${index}" onchange="updateGenerateButton()">
+                    <label class="form-check-label visually-hidden" for="chapterCheck${index}">
+                        Seleccionar ${chapter.title}
+                    </label>
+               </div>`;
+
         html += `
             <div class="accordion-item">
                 <h2 class="accordion-header d-flex align-items-center">
-                    <div class="form-check ms-3 me-2">
-                        <input class="form-check-input chapter-checkbox" type="checkbox" value="${index}"
-                               data-tokens="${chapter.tokens || 0}" id="chapterCheck${index}" onchange="updateGenerateButton()">
-                        <label class="form-check-label visually-hidden" for="chapterCheck${index}">
-                            Seleccionar ${chapter.title}
-                        </label>
-                    </div>
+                    ${checkboxHtml}
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#chapter${index}">
                         ${chapter.title} <span class="badge bg-secondary ms-2">${chapter.tokens} tokens</span>
                     </button>
@@ -822,6 +832,10 @@ function displayDocumentResult(data) {
 
     html += '</div>';
     document.getElementById('resultContent').innerHTML = html;
+
+    if (singleChapter) {
+        updateGenerateButton();
+    }
 }
 
 // Actualiza el botón de generar, la barra de tokens y bloquea capítulos
@@ -1435,7 +1449,7 @@ async function generateStreaming() {
                 const detail = failed.map(f => `«${f.chapter}» (fragmento ${f.chunk}/${f.total_chunks})`).join(', ');
                 warn.innerHTML = `
                     <i class="fas fa-exclamation-triangle"></i>
-                    <strong>${failed.length} fragmento${failed.length !== 1 ? 's' : ''} no se pudo${failed.length !== 1 ? 'ieron' : ''} procesar:</strong>
+                    <strong>${failed.length} fragmento${failed.length !== 1 ? 's' : ''} no se ${failed.length !== 1 ? 'pudieron' : 'pudo'} procesar:</strong>
                     ${detail}. La IA no devolvió un resultado utilizable para esa parte.
                     <div class="mt-2">
                         <button class="btn btn-sm btn-outline-warning" onclick="retryFailedGeneration()">
