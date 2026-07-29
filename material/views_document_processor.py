@@ -314,8 +314,14 @@ def document_processor_dashboard(request):
     # ONBOARDING WIZARD V2: si venimos del asistente (?wizard=1), lo recordamos en
     # sesión para poder mostrar el banner de continuidad también en /crear-examen/
     # más adelante, sin tener que pasar el parámetro a mano por todos lados.
+    # Si en cambio se entra por la navegación normal (sidebar "Procesador IA",
+    # "Mis Contenidos"), sin el parámetro, limpiamos cualquier flag viejo para
+    # que no quede un banner de "seguís en el asistente" pegado de una sesión
+    # anterior que se abandonó a mitad de camino.
     if request.GET.get('wizard') == '1':
         request.session['onb2_wizard_active'] = True
+    else:
+        request.session.pop('onb2_wizard_active', None)
     wizard_active = request.session.get('onb2_wizard_active', False)
 
     context = {

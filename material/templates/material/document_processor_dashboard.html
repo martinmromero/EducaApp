@@ -743,7 +743,8 @@ function displayDocumentResult(data) {
         ? `<div class="alert alert-info py-2 mb-2">
                <i class="bi bi-info-circle me-1"></i>
                Este documento tiene ${data.stats.total_tokens.toLocaleString()} tokens, bastante más de lo recomendado
-               para procesar de una sola vez. Elegí capítulos puntuales e generá las preguntas en varias tandas
+               para procesar de una sola vez${data.chapters.length > 1 && !(data.toc && data.toc.length) ? ' — por eso se dividió automáticamente en bloques de páginas' : ''}.
+               Elegí capítulos (o bloques de páginas) puntuales y generá las preguntas en varias tandas
                (más abajo vas a ver cuánto podés seleccionar por tanda).
            </div>`
         : '';

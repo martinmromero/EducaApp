@@ -94,6 +94,7 @@ def extract_text_advanced(file_path, remove_headers=True, remove_footers=True):
             remove_footers=remove_footers,
             extract_toc=True,
             max_pages=getattr(settings, 'CONTENIDO_MAX_PAGES', None),
+            pages_per_block=getattr(settings, 'CONTENIDO_PAGES_PER_CHAPTER_BLOCK', 40),
         )
     elif file_extension == '.docx':
         return _processor.process_docx(file_path)

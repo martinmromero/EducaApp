@@ -52,7 +52,8 @@ class DocumentProcessor:
                    remove_headers: bool = True,
                    remove_footers: bool = True,
                    extract_toc: bool = True,
-                   max_pages: Optional[int] = None) -> Dict:
+                   max_pages: Optional[int] = None,
+                   pages_per_block: int = 40) -> Dict:
         """
         Procesa un PDF completo y extrae estructura + contenido limpio.
 
@@ -61,9 +62,15 @@ class DocumentProcessor:
             remove_headers: Si True, detecta y elimina headers repetitivos
             remove_footers: Si True, detecta y elimina footers repetitivos
             extract_toc: Si True, extrae tabla de contenidos si existe
-            max_pages: Si se especifica, rechaza documentos con más páginas
-                antes de extraer el texto (resguardo independiente del peso
-                en MB: un PDF liviano puede tener igual muchísimas páginas)
+            max_pages: Techo de sanity (no de "tamaño de libro"): rechaza
+                documentos con más páginas antes de extraer texto. Extraer
+                texto es liviano incluso en libros largos, así que este
+                valor solo protege contra PDFs patológicos/corruptos, no
+                limita subir un libro completo.
+            pages_per_block: Cuando el PDF no tiene tabla de contenidos
+                (TOC), en vez de tratar todo el documento como un único
+                "capítulo" gigante (imposible de seleccionar por partes),
+                se lo divide en bloques de esta cantidad de páginas.
 
         Returns:
             Diccionario con estructura:
@@ -124,8 +131,15 @@ class DocumentProcessor:
             result['chapters'] = self._extract_chapters_from_toc(
                 doc, result['toc'], headers_to_remove, footers_to_remove
             )
+        elif doc.page_count > pages_per_block:
+            # Sin TOC y documento largo: partirlo en bloques de páginas para
+            # que se pueda seleccionar y generar por partes, en vez de un
+            # único capítulo gigante imposible de procesar de una corrida.
+            result['chapters'] = self._extract_chapters_by_page_blocks(
+                doc, headers_to_remove, footers_to_remove, pages_per_block
+            )
         else:
-            # Sin TOC: extraer texto completo limpio
+            # Sin TOC y documento corto: un solo capítulo alcanza.
             full_text = self._extract_clean_text(
                 doc, headers_to_remove, footers_to_remove
             )
@@ -267,6 +281,39 @@ class DocumentProcessor:
 
             chapters.append({
                 'title': item['display_title'],
+                'content': content,
+                'tokens': self.count_tokens(content),
+                'pages': list(range(start_page + 1, end_page + 1))
+            })
+
+        return chapters
+
+    def _extract_chapters_by_page_blocks(self, doc: fitz.Document,
+                                         headers: List[str],
+                                         footers: List[str],
+                                         pages_per_block: int) -> List[Dict]:
+        """
+        Divide un PDF sin TOC en bloques consecutivos de páginas, cada uno
+        tratado como un "capítulo" seleccionable. Es el equivalente sintético
+        de _extract_chapters_from_toc para documentos sin estructura
+        detectable (muy común en PDFs escaneados/convertidos).
+        """
+        chapters = []
+        total_pages = doc.page_count
+
+        for start_page in range(0, total_pages, pages_per_block):
+            end_page = min(start_page + pages_per_block, total_pages)
+
+            block_text = []
+            for page_num in range(start_page, end_page):
+                text = doc[page_num].get_text()
+                text = self._remove_repetitive_patterns(text, headers, footers)
+                block_text.append(text.strip())
+
+            content = '\n\n'.join(block_text)
+
+            chapters.append({
+                'title': f'Páginas {start_page + 1}-{end_page}',
                 'content': content,
                 'tokens': self.count_tokens(content),
                 'pages': list(range(start_page + 1, end_page + 1))

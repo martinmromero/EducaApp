@@ -128,7 +128,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 CONTENIDO_MAX_UPLOAD_MB = 8
 CONTENIDO_MAX_TOTAL_TOKENS = 50_000   # aviso: documento entero muy extenso, mejor generar por capítulos
 CONTENIDO_MAX_RUN_TOKENS = 45_000     # tope duro por corrida de generación (~15 chunks de 3000 tokens)
-CONTENIDO_MAX_PAGES = 100             # resguardo adicional independiente del tamaño en MB
+CONTENIDO_MAX_PAGES = 2000            # techo de sanity (PDF corrupto/patológico), no un límite de "tamaño de libro"
+CONTENIDO_PAGES_PER_CHAPTER_BLOCK = 40  # sin TOC: partir el libro en bloques de esta cantidad de páginas
 
 # Default primary key field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

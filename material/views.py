@@ -1001,9 +1001,15 @@ def create_exam(request):
 
     # ONBOARDING WIZARD V2: si venimos del asistente (?wizard=1), lo recordamos en
     # sesión para mostrar el banner de continuidad en todo este sub-flujo
-    # (create_exam -> preview_exam -> save_exam_from_session).
+    # (create_exam -> preview_exam -> save_exam_from_session). Si en cambio
+    # llegamos por la navegación normal (sidebar "Exámenes"), sin el parámetro,
+    # limpiamos cualquier flag viejo: si no lo hiciéramos, alguien que abandonó
+    # el wizard a mitad de camino vería el banner "seguís en el asistente"
+    # pegado semanas después, en un uso totalmente normal de la app.
     if request.GET.get('wizard') == '1':
         request.session['onb2_wizard_active'] = True
+    else:
+        request.session.pop('onb2_wizard_active', None)
     wizard_active = request.session.get('onb2_wizard_active', False)
 
     instituciones = InstitutionV2.objects.filter(is_active=True)
@@ -5380,7 +5386,21 @@ def onboarding_upload_contenido(request):
 
 @login_required
 def onboarding_v2_page(request):
-    """Página completa del nuevo asistente de configuración (alternativa al modal)."""
+    """
+    Página completa del nuevo asistente de configuración (alternativa al modal).
+    Apenas el usuario llega acá marcamos onboarding_completed=True: este wizard
+    reemplaza al modal viejo, y si no marcáramos esto ahora, un usuario que
+    empieza el wizard nuevo pero lo abandona antes del paso 4 (ej. cierra la
+    pestaña) seguiría viendo el modal viejo aparecer solo en cualquier otra
+    pantalla — dos asistentes distintos compitiendo por atención.
+    """
+    try:
+        profile = request.user.profile
+        if not profile.onboarding_completed:
+            profile.onboarding_completed = True
+            profile.save(update_fields=['onboarding_completed'])
+    except Exception:
+        pass
     return render(request, 'material/onboarding_v2.html', {})
 
 
