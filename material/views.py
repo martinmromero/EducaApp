@@ -11,6 +11,8 @@ from .column_filters import (
     get_filter_options,
     get_filter_querystring,
     get_selected_filters,
+    _apply_field_filter,
+    NONE_VALUE,
 )
 
 
@@ -403,6 +405,8 @@ from django.contrib.auth.decorators import login_required
 from .models import ExamTemplate, LearningOutcome
 
 from django.db import IntegrityError  # Agregar este import al inicio
+from django.db.models import ProtectedError
+from .delete_preview import get_delete_preview
 
 # Logger configuration
 logger = logging.getLogger(__name__)
@@ -460,7 +464,24 @@ def _is_last_active_admin(user):
     return not Profile.objects.filter(
         role='admin', user__is_active=True
     ).exclude(user_id=user.id).exists()
-    
+
+
+def _protected_error_message(exc):
+    """Arma un mensaje legible a partir de un django.db.models.ProtectedError.
+
+    ExamTemplate protege 7 modelos padre (institution, faculty, career,
+    subject, campus, professor, created_by) — sin esto, borrar cualquiera
+    de esos mientras exista una ExamTemplate asociada tira un 500 crudo.
+    """
+    from collections import Counter
+    objetos = list(exc.protected_objects)
+    conteo = Counter(o.__class__._meta.verbose_name_plural.title() for o in objetos)
+    detalle = ', '.join(f'{cantidad} {etiqueta}' for etiqueta, cantidad in conteo.items())
+    return (
+        f'No se puede eliminar: está siendo usado por {detalle}. '
+        'Eliminá o reasigná esos elementos primero.'
+    )
+
 
 class CustomLoginView(LoginView):
     form_class = CustomLoginForm
@@ -1957,13 +1978,17 @@ QUESTION_FILTER_COLUMNS = [
 ]
 
 
-def _apply_subject_filter(qs, ids):
-    ids = [i for i in ids if str(i).isdigit()]
-    if not ids:
+def _apply_subject_filter(qs, raw_values):
+    ids = [v for v in raw_values if str(v).isdigit()]
+    quiere_sin_materia = NONE_VALUE in raw_values
+    if not ids and not quiere_sin_materia:
         return qs
-    return qs.filter(
-        Q(subjects__id__in=ids) | Q(subjects__isnull=True, topic__subject_id__in=ids)
-    ).distinct()
+    q = Q()
+    if ids:
+        q |= Q(subjects__id__in=ids) | Q(subjects__isnull=True, topic__subject_id__in=ids)
+    if quiere_sin_materia:
+        q |= Q(subjects__isnull=True) & (Q(topic__isnull=True) | Q(topic__subject__isnull=True))
+    return qs.filter(q).distinct()
 
 
 def _apply_ai_status_filter(qs, statuses):
@@ -1992,7 +2017,7 @@ def _apply_column_filters_from_params(qs, fields, params):
     for f in fields:
         values = params.getlist(f.name)
         if values:
-            qs = qs.filter(**{f.lookup: values})
+            qs = _apply_field_filter(qs, f, values)
     return qs
 
 
@@ -2005,7 +2030,13 @@ def _build_question_subject_options(qs):
         .values_list('topic__subject__id', 'topic__subject__name').distinct()
     for sid, sname in list(m2m_rows) + list(legacy_rows):
         seen[str(sid)] = sname
-    return sorted(({'value': v, 'label': l} for v, l in seen.items()), key=lambda o: o['label'])
+    options = sorted(({'value': v, 'label': l} for v, l in seen.items()), key=lambda o: o['label'])
+    sin_materia = qs.filter(subjects__isnull=True).filter(
+        Q(topic__isnull=True) | Q(topic__subject__isnull=True)
+    ).exists()
+    if sin_materia:
+        options = [{'value': NONE_VALUE, 'label': 'Sin Materia'}] + options
+    return options
 
 
 @login_required
@@ -2096,10 +2127,17 @@ def delete_user(request, user_id):
         if is_admin(user) and _is_last_active_admin(user):
             messages.error(request, 'No se puede eliminar al último administrador del sistema.', extra_tags='usuarios')
             return redirect('material:user_list')
-        user.delete()
+        try:
+            user.delete()
+        except ProtectedError as e:
+            messages.error(request, _protected_error_message(e), extra_tags='usuarios')
+            return redirect('material:user_list')
         messages.success(request, 'Usuario eliminado correctamente.', extra_tags='usuarios')
         return redirect('material:user_list')
-    return render(request, 'material/confirm_delete_user.html', {'user': user})
+    return render(request, 'material/confirm_delete_user.html', {
+        'user': user,
+        'preview': get_delete_preview(user),
+    })
 
 @login_required
 def mis_datos(request):
@@ -2650,14 +2688,26 @@ def editar_pregunta(request, pk):
 @login_required
 def eliminar_pregunta(request, pk):
     pregunta = get_object_or_404(Question, pk=pk, user=request.user)
-    
+
     if request.method == 'POST':
+        examenes_afectados = list(pregunta.exams.all())
         pregunta.delete()
-        messages.success(request, 'Pregunta eliminada correctamente', extra_tags='preguntas')
+        if examenes_afectados:
+            nombres = ', '.join(e.title for e in examenes_afectados)
+            messages.warning(
+                request,
+                f'Pregunta eliminada. Quedó usada en {len(examenes_afectados)} '
+                f'examen(es) que ahora tienen una pregunta menos: {nombres}. '
+                'Revisalos y reemplazala si hace falta.',
+                extra_tags='preguntas'
+            )
+        else:
+            messages.success(request, 'Pregunta eliminada correctamente', extra_tags='preguntas')
         return redirect('material:lista_preguntas')
-    
+
     return render(request, 'material/questions/confirmar_eliminar.html', {
-        'pregunta': pregunta
+        'pregunta': pregunta,
+        'examenes_afectados': pregunta.exams.all(),
     })
 
 @login_required
@@ -2671,6 +2721,7 @@ def bulk_eliminar_preguntas(request):
         preguntas = Question.objects.filter(user=request.user)
         preguntas = _aplicar_filtros_preguntas(preguntas, request.POST)
         count = preguntas.count()
+        examenes_afectados = set(Exam.objects.filter(questions__in=preguntas))
         preguntas.delete()
     else:
         ids_raw = request.POST.getlist('pregunta_ids')
@@ -2680,12 +2731,22 @@ def bulk_eliminar_preguntas(request):
             return redirect('material:lista_preguntas')
         preguntas = Question.objects.filter(pk__in=ids, user=request.user)
         count = preguntas.count()
+        examenes_afectados = set(Exam.objects.filter(questions__in=preguntas))
         preguntas.delete()
 
     if count == 1:
         messages.success(request, 'Se eliminó 1 pregunta correctamente.', extra_tags='preguntas')
     else:
         messages.success(request, f'Se eliminaron {count} preguntas correctamente.', extra_tags='preguntas')
+
+    if examenes_afectados:
+        nombres = ', '.join(e.title for e in examenes_afectados)
+        messages.warning(
+            request,
+            f'{len(examenes_afectados)} examen(es) quedaron con una o más preguntas menos: '
+            f'{nombres}. Revisalos y reemplazá las preguntas que hagan falta.',
+            extra_tags='preguntas'
+        )
 
     params = []
     for key in ['subject', 'topic', 'subtopic', 'bloom_level', 'ai_status']:
@@ -3714,7 +3775,10 @@ def delete_institution_v2(request, pk):
                 
                 messages.success(request, f'Institución "{institution_name}" eliminada permanentemente.')
                 return redirect('material:institution_v2_list')
-                
+
+        except ProtectedError as e:
+            messages.error(request, _protected_error_message(e))
+            return redirect('material:institution_v2_detail', pk=pk)
         except Exception as e:
             logger.error(f"Error eliminando institución: {str(e)}")
             messages.error(request, 'Ocurrió un error al eliminar la institución.')
@@ -3723,8 +3787,7 @@ def delete_institution_v2(request, pk):
     # Mostrar confirmación
     return render(request, 'material/institutions_v2/confirm_delete.html', {
         'institution': institution,
-        'campuses_count': institution.campusv2_set.count(),
-        'faculties_count': institution.facultyv2_set.count()
+        'preview': get_delete_preview(institution),
     })
 
 
@@ -3750,6 +3813,9 @@ def bulk_eliminar_instituciones_v2(request):
                 FacultyV2.objects.filter(institution=institution).delete()
                 InstitutionLog.objects.filter(institution=institution).delete()
                 institution.delete()
+    except ProtectedError as e:
+        messages.error(request, _protected_error_message(e))
+        return redirect('material:institution_v2_list')
     except Exception as e:
         logger.error(f"Error en borrado multiple de instituciones: {str(e)}")
         messages.error(request, 'Ocurrió un error al eliminar las instituciones seleccionadas.')
@@ -3941,10 +4007,17 @@ def edit_subject(request, pk):
 def delete_subject(request, pk):
     subject = get_object_or_404(Subject, pk=pk)
     if request.method == 'POST':
-        subject.delete()
+        try:
+            subject.delete()
+        except ProtectedError as e:
+            messages.error(request, _protected_error_message(e), extra_tags='materias')
+            return redirect('material:subject_list')
         messages.success(request, 'Materia eliminada exitosamente', extra_tags='materias')
         return redirect('material:subject_list')
-    return render(request, 'material/subjects/confirm_delete.html', {'subject': subject})
+    return render(request, 'material/subjects/confirm_delete.html', {
+        'subject': subject,
+        'preview': get_delete_preview(subject),
+    })
 
 
 @login_required
@@ -3958,7 +4031,11 @@ def bulk_eliminar_subjects(request):
 
     subjects = Subject.objects.filter(pk__in=ids)
     count = subjects.count()
-    subjects.delete()
+    try:
+        subjects.delete()
+    except ProtectedError as e:
+        messages.error(request, _protected_error_message(e), extra_tags='materias')
+        return redirect('material:subject_list')
 
     if count == 1:
         messages.success(request, 'Se eliminó 1 materia exitosamente.', extra_tags='materias')
@@ -3978,10 +4055,61 @@ class SubjectDetailView(DetailView):
 
 
 # Careers CRUD (similar structure)
+# Columnas filtrables de Carreras, con el mismo motor generico de
+# material/column_filters.py que ya usan Plantillas y Mis examenes.
+# faculties/campus/subjects son M2M (a diferencia de los FK de ExamTemplate),
+# de ahi el value_field explicito y el .distinct() que ya aplica el motor.
+CAREER_FILTER_FIELDS = [
+    ColumnFilterField('faculties', 'Facultades', value_field='faculties__id', label_field='faculties__name'),
+    ColumnFilterField('campus', 'Campus', value_field='campus__id', label_field='campus__name'),
+    ColumnFilterField('subjects', 'Materias', value_field='subjects__id', label_field='subjects__name'),
+]
+CAREER_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in CAREER_FILTER_FIELDS]
+
+
 @login_required
 def career_list(request):
     careers = Career.objects.all().prefetch_related('faculties', 'campus', 'subjects')
-    return render(request, 'material/careers/list.html', {'careers': careers})
+
+    selected_filters = get_selected_filters(request, CAREER_FILTER_FIELDS)
+    filter_options = get_filter_options(careers, CAREER_FILTER_FIELDS, selected_filters)
+    careers = apply_column_filters(request, careers, CAREER_FILTER_FIELDS)
+
+    paginator = Paginator(careers, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'material/careers/list.html', {
+        'careers': page_obj,
+        'filter_options': filter_options,
+        'selected_filters': selected_filters,
+        'active_filter_count': get_active_filter_count(selected_filters),
+        'filter_querystring': get_filter_querystring(request),
+        'filter_columns': CAREER_FILTER_COLUMNS,
+    })
+
+
+@login_required
+@require_POST
+def bulk_eliminar_careers(request):
+    ids_raw = request.POST.getlist('career_ids')
+    ids = [int(i) for i in ids_raw if i.isdigit()]
+    if not ids:
+        messages.error(request, 'No se seleccionó ninguna carrera para eliminar.', extra_tags='carreras')
+        return redirect('material:career_list')
+
+    careers = Career.objects.filter(pk__in=ids)
+    count = careers.count()
+    try:
+        careers.delete()
+    except ProtectedError as e:
+        messages.error(request, _protected_error_message(e), extra_tags='carreras')
+        return redirect('material:career_list')
+
+    if count == 1:
+        messages.success(request, 'Se eliminó 1 carrera exitosamente.', extra_tags='carreras')
+    else:
+        messages.success(request, f'Se eliminaron {count} carreras exitosamente.', extra_tags='carreras')
+    return redirect('material:career_list')
 
 @login_required
 def create_career(request):
@@ -4002,10 +4130,17 @@ def create_career(request):
 def delete_career(request, pk):
     career = get_object_or_404(Career, pk=pk)
     if request.method == 'POST':
-        career.delete()
+        try:
+            career.delete()
+        except ProtectedError as e:
+            messages.error(request, _protected_error_message(e), extra_tags='carreras')
+            return redirect('material:career_list')
         messages.success(request, 'Carrera eliminada exitosamente', extra_tags='carreras')
         return redirect('material:career_list')
-    return render(request, 'material/careers/confirm_delete.html', {'career': career})
+    return render(request, 'material/careers/confirm_delete.html', {
+        'career': career,
+        'preview': get_delete_preview(career),
+    })
 
 class CareerDetailView(DetailView):
     model = Career

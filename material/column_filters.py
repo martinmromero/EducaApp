@@ -42,6 +42,9 @@ borrado multiple).
 """
 
 
+NONE_VALUE = '__none__'  # valor especial para "sin {campo}" (NULL / vacio)
+
+
 class ColumnFilterField:
     """Describe una columna filtrable.
 
@@ -97,12 +100,32 @@ def get_filter_querystring(request):
     return params.urlencode()
 
 
+def _apply_field_filter(qs, field, values):
+    """Filtra `qs` por los valores seleccionados de una columna, soportando
+    NONE_VALUE ("sin {campo}") mezclado con valores reales.
+
+    Siempre devuelve `.distinct()`: columnas M2M (p.ej. 'faculties__id__in')
+    pueden multiplicar filas por cada coincidencia en el join.
+    """
+    from django.db.models import Q
+
+    values = list(values)
+    if NONE_VALUE not in values:
+        return qs.filter(**{field.lookup: values}).distinct()
+
+    reales = [v for v in values if v != NONE_VALUE]
+    q = Q(**{f'{field.value_field}__isnull': True})
+    if reales:
+        q |= Q(**{field.lookup: reales})
+    return qs.filter(q).distinct()
+
+
 def apply_column_filters(request, qs, fields):
     """Aplica los filtros por columna (multi-seleccion) recibidos por querystring."""
     for f in fields:
         values = request.GET.getlist(f.name)
         if values:
-            qs = qs.filter(**{f.lookup: values})
+            qs = _apply_field_filter(qs, f, values)
     return qs
 
 
@@ -116,12 +139,25 @@ def _scoped_querysets(querysets, fields, selected_filters, exclude_field):
                 continue
             values = selected_filters.get(f.name)
             if values:
-                qs = qs.filter(**{f.lookup: list(values)})
+                qs = _apply_field_filter(qs, f, list(values))
         scoped.append(qs)
     return scoped
 
 
+def _has_empty_rows(scoped_querysets, field):
+    """True si, en cascada, queda al menos una fila con el campo vacio (NULL)."""
+    return any(
+        qs.filter(**{f'{field.value_field}__isnull': True}).exists()
+        for qs in scoped_querysets
+    )
+
+
 def _field_options(scoped_querysets, field):
+    none_option = (
+        [{'value': NONE_VALUE, 'label': f'Sin {field.label}'}]
+        if _has_empty_rows(scoped_querysets, field) else []
+    )
+
     if field.choices is not None:
         present = set()
         for qs in scoped_querysets:
@@ -136,7 +172,7 @@ def _field_options(scoped_querysets, field):
                 pass
             present.update(qs.values_list(field.value_field, flat=True).distinct())
         labels = dict(field.choices)
-        return sorted(
+        return none_option + sorted(
             # 'value' se castea a str: los filtros seleccionados llegan como
             # strings desde el querystring (request.GET.getlist), y choices
             # numericos (p.ej. bloom_level, IntegerField) devolverian ints
@@ -160,7 +196,7 @@ def _field_options(scoped_querysets, field):
             else:
                 label = str(row[field.value_field])
             seen[value] = label or f"{field.label} #{value}"
-    return sorted(({'value': v, 'label': l} for v, l in seen.items()), key=lambda o: o['label'])
+    return none_option + sorted(({'value': v, 'label': l} for v, l in seen.items()), key=lambda o: o['label'])
 
 
 def get_filter_options(base_qs_or_list, fields, selected_filters):

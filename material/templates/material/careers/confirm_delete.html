@@ -1,7 +1,9 @@
 {% extends 'material/base.html' %}
+{% load message_tags %}
 
 {% block content %}
 <div class="container mt-4">
+    {% show_messages "carreras" %}
     <div class="card">
         <div class="card-header bg-danger text-white">
             <h2>Confirmar Eliminación</h2>
@@ -9,10 +11,10 @@
         <div class="card-body">
             <p>¿Estás seguro que deseas eliminar la carrera "{{ career.name }}"?</p>
             <p class="text-danger">Esta acción no se puede deshacer.</p>
-            
+            {% include 'material/components/delete_preview.html' %}
             <form method="post">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-danger">
+                <button type="submit" class="btn btn-danger" {% if preview.can_delete == False %}disabled{% endif %}>
                     <i class="fas fa-trash"></i> Confirmar Eliminación
                 </button>
                 <a href="{% url 'material:career_detail' pk=career.pk %}" class="btn btn-secondary">

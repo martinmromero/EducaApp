@@ -1,0 +1,33 @@
+{% if preview %}
+    {% if not preview.can_delete %}
+        <div class="alert alert-danger">
+            <strong>No se puede eliminar todavía.</strong> Está siendo usado por:
+            <ul class="mb-0">
+                {% for etiqueta, cantidad in preview.blocked_by.items %}
+                    <li>{{ cantidad }} {{ etiqueta }}</li>
+                {% endfor %}
+            </ul>
+            Eliminá o reasigná esos elementos primero.
+        </div>
+    {% elif preview.to_delete or preview.to_nullify %}
+        <div class="alert alert-warning">
+            <strong>Al confirmar, esto es lo que va a pasar:</strong>
+            {% if preview.to_delete %}
+                <p class="mb-1 mt-2">Se eliminará también:</p>
+                <ul class="{% if not preview.to_nullify %}mb-0{% endif %}">
+                    {% for etiqueta, cantidad in preview.to_delete.items %}
+                        <li>{{ cantidad }} {{ etiqueta }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+            {% if preview.to_nullify %}
+                <p class="mb-1">Quedará sin este vínculo (no se borra, solo pierde la referencia):</p>
+                <ul class="mb-0">
+                    {% for etiqueta, cantidad in preview.to_nullify.items %}
+                        <li>{{ cantidad }} {{ etiqueta }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    {% endif %}
+{% endif %}

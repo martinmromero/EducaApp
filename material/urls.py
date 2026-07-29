@@ -130,6 +130,7 @@ path('careers/', material_views.career_list, name='career_list'),
 path('careers/create/', material_views.career_create_simple, name='career_create_simple'),
 path('careers/<int:pk>/associations/', material_views.career_associations, name='career_associations'),
 path('careers/<int:pk>/delete/', material_views.delete_career, name='delete_career'),
+path('careers/eliminar-bulk/', material_views.bulk_eliminar_careers, name='bulk_eliminar_careers'),
 path('careers/<int:pk>/', material_views.CareerDetailView.as_view(), name='career_detail'),
 
 path('get_faculties_by_institution/<int:institution_id>/', material_views.get_faculties_by_institution, name='get_faculties_by_institution'),

@@ -1,5 +1,7 @@
 {% extends "material/base.html" %}
+{% load message_tags %}
 {% block content %}
+{% show_messages "materias" %}
 <form method="post" action="{% url 'material:bulk_eliminar_subjects' %}" id="deleteForm">
     {% csrf_token %}
     <div class="card shadow">
@@ -54,10 +56,10 @@
                                     <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-warning" title="Editar materia">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <button type="submit" form="deleteRowForm_{{ subject.pk }}"
-                                            class="btn btn-sm btn-danger" title="Eliminar materia">
+                                    <a href="{% url 'material:delete_subject' pk=subject.pk %}"
+                                       class="btn btn-sm btn-danger" title="Eliminar materia">
                                         <i class="fas fa-trash"></i>
-                                    </button>
+                                    </a>
                                 </div>
                             </td>
                         </tr>
@@ -80,13 +82,6 @@
     </div>
 </form>
 
-<!-- Formularios individuales de eliminación (uno por materia, ligados al botón de la fila) -->
-{% for subject in subjects %}
-<form method="post" action="{% url 'material:delete_subject' pk=subject.pk %}" id="deleteRowForm_{{ subject.pk }}"
-      onsubmit="return confirm('¿Eliminar la materia \'{{ subject.name|escapejs }}\'?');">
-    {% csrf_token %}
-</form>
-{% endfor %}
 
 <script>
     let bulkSelectActive = false;

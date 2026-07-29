@@ -118,21 +118,26 @@ class CampusV2(models.Model):
         verbose_name = "Sede V2"
         verbose_name_plural = "Sedes V2"
         constraints = [
+            # Condicionado a is_active=True: delete_campus_v2 hace soft-delete
+            # (is_active=False), así que una sede desactivada no debe bloquear
+            # la creación de una sede nueva con el mismo nombre.
             models.UniqueConstraint(
                 fields=['institution', 'name'],
-                name='unique_campus_name_per_institution'
+                condition=models.Q(is_active=True),
+                name='unique_active_campus_name_per_institution'
             )
         ]
 
     def clean(self):
         if not self.name or not self.name.strip():
             raise ValidationError("El nombre de la sede no puede estar vacío")
-        
+
         if self.institution_id and CampusV2.objects.filter(
             institution=self.institution,
-            name__iexact=self.name.strip()
+            name__iexact=self.name.strip(),
+            is_active=True
         ).exclude(id=self.id).exists():
-            raise ValidationError("Ya existe una sede con este nombre en la institución")
+            raise ValidationError("Ya existe una sede activa con este nombre en la institución")
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -168,7 +173,16 @@ class FacultyV2(models.Model):
         verbose_name = "Facultad"
         verbose_name_plural = "Facultades"
         ordering = ['name']
-        unique_together = ['institution', 'name']
+        constraints = [
+            # Igual criterio que CampusV2: una facultad desactivada
+            # (delete_faculty_v2 hace soft-delete) no debe bloquear crear
+            # una facultad nueva con el mismo nombre.
+            models.UniqueConstraint(
+                fields=['institution', 'name'],
+                condition=models.Q(is_active=True),
+                name='unique_active_faculty_name_per_institution'
+            )
+        ]
 
     def __str__(self):
         return f"{self.name} - {self.institution.name}"
@@ -381,6 +395,8 @@ class Topic(models.Model):
         return f"{self.subject.name} - {self.name}"
 
     class Meta:
+        verbose_name = "Tema"
+        verbose_name_plural = "Temas"
         unique_together = ('name', 'subject')
 
 class Subtopic(models.Model):
@@ -395,6 +411,8 @@ class Subtopic(models.Model):
         return f"{self.topic} → {self.name}"
 
     class Meta:
+        verbose_name = "Subtema"
+        verbose_name_plural = "Subtemas"
         unique_together = ('name', 'topic')
 
 class Contenido(models.Model):
@@ -681,14 +699,6 @@ class Exam(models.Model):
         help_text="Ej: Parcial 1 - Matemáticas"
     )
 
-    subject = models.ForeignKey(
-        Subject,
-        on_delete=models.SET_DEFAULT,
-        default=1,
-        verbose_name="Asignatura",
-        related_name="exams"
-    )
-
     topics = models.ManyToManyField(
         Topic,
         verbose_name="Temas evaluados",
@@ -718,14 +728,6 @@ class Exam(models.Model):
         verbose_name="Fecha de creación"
     )
 
-    created_by = models.ForeignKey(
-    User,
-    on_delete=models.CASCADE,
-    verbose_name="Creado por",
-    related_name="created_exams",  # Cambiado a nombre único
-    related_query_name="exam"      # Añadido para queries
-    )
-
     version_batch = models.ForeignKey(
         'ExamVersionBatch',
         on_delete=models.SET_NULL,
@@ -746,24 +748,6 @@ class Exam(models.Model):
         verbose_name="Publicado"
     )
     
-    learning_outcomes = models.ManyToManyField(
-        LearningOutcome,
-        verbose_name="Resultados de aprendizaje",
-        blank=True
-    )
-
-    class Meta:
-        verbose_name = "Examen"
-        verbose_name_plural = "Exámenes"
-        ordering = ["-created_at"]
-        indexes = [
-            models.Index(fields=["title"]),
-            models.Index(fields=["subject"]),
-        ]
-
-    def __str__(self):
-        return f"{self.title} ({self.subject})"
-
     def get_questions_by_topic(self):
         return {
             topic: self.questions.filter(topic=topic)
@@ -912,32 +896,32 @@ class Exam(models.Model):
             return []
         return [m.strip() for m in self.resolution_time.split(',') if m.strip()]
 
-    learning_outcomes = models.ManyToManyField(  
-        'LearningOutcome',  
-        blank=True,  
-        verbose_name="Resultados de aprendizaje"  
-    )  
-    created_by = models.ForeignKey(  
-        User,  
-        on_delete=models.CASCADE,  
-        related_name='exam_templates'  
-    )  
-    created_at = models.DateTimeField(auto_now_add=True)  
+    learning_outcomes = models.ManyToManyField(
+        'LearningOutcome',
+        blank=True,
+        verbose_name="Resultados de aprendizaje"
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='created_exams',
+        verbose_name="Creado por"
+    )
 
-    def __str__(self):  
-        exam_name = f"{self.get_exam_type_display()}"  
-        if self.exam_type == 'parcial' and self.partial_number:  
-            exam_name += f" {self.get_partial_number_display()}"  
-        return f"{self.subject} - {exam_name} ({self.year})"  
+    def __str__(self):
+        exam_name = f"{self.get_exam_type_display()}"
+        if self.exam_type == 'parcial' and self.partial_number:
+            exam_name += f" {self.get_partial_number_display()}"
+        return f"{self.subject} - {exam_name} ({self.year})"
 
-    class Meta:  
-        verbose_name = "Plantilla de Examen"  
-        verbose_name_plural = "Plantillas de Examen"  
-        ordering = ["-created_at"]  
-        indexes = [  
-            models.Index(fields=["exam_type", "year"]),  
-            models.Index(fields=["subject"]),  
-        ]  
+    class Meta:
+        verbose_name = "Examen"
+        verbose_name_plural = "Exámenes"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["exam_type", "year"]),
+            models.Index(fields=["subject"]),
+        ]
 
 class Profile(models.Model):
     ROLE_CHOICES = [

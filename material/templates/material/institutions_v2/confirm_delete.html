@@ -1,7 +1,9 @@
 {% extends "material/base.html" %}
+{% load message_tags %}
 
 {% block content %}
 <div class="container mt-4">
+    {% show_messages "instituciones" %}
     <div class="card border-danger">
         <div class="card-header bg-danger text-white">
             <h2><i class="bi bi-exclamation-triangle me-2"></i>Confirmar Eliminación Permanente</h2>
@@ -14,20 +16,7 @@
                 <p class="mb-0">Esta acción <strong>no puede deshacerse</strong> y eliminará:</p>
             </div>
 
-            <ul class="list-group mb-4">
-                <li class="list-group-item list-group-item-danger">
-                    <i class="bi bi-building me-2"></i> La institución completa
-                </li>
-                <li class="list-group-item list-group-item-danger">
-                    <i class="bi bi-geo-alt me-2"></i> {{ campuses_count }} sedes asociadas
-                </li>
-                <li class="list-group-item list-group-item-danger">
-                    <i class="bi bi-mortarboard me-2"></i> {{ faculties_count }} facultades asociadas
-                </li>
-                <li class="list-group-item list-group-item-danger">
-                    <i class="bi bi-clock-history me-2"></i> Todos los registros históricos
-                </li>
-            </ul>
+            {% include 'material/components/delete_preview.html' %}
 
             <form method="post" action="{% url 'material:delete_institution_v2' institution.pk %}">
                 {% csrf_token %}
@@ -35,7 +24,7 @@
                     <a href="{% url 'material:institution_v2_detail' institution.pk %}" class="btn btn-secondary">
                         <i class="bi bi-arrow-left me-1"></i> Cancelar
                     </a>
-                    <button type="submit" class="btn btn-danger">
+                    <button type="submit" class="btn btn-danger" {% if preview.can_delete == False %}disabled{% endif %}>
                         <i class="bi bi-trash3 me-1"></i> Confirmar Eliminación Permanente
                     </button>
                 </div>
