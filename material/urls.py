@@ -164,13 +164,13 @@ path('oral-exams/assign-names/', material_views.assign_student_names, name='assi
 path('oral-exams/available-questions/', material_views.get_available_questions, name='get_available_questions'),
 path('oral-exams/exchange-question/', material_views.exchange_question, name='exchange_question'),
 
-    # ONBOARDING WIZARD — ROLLBACK: eliminar estas dos líneas
+    # ONBOARDING WIZARD (endpoint compartido con el wizard v2, ver más abajo)
     path('onboarding/step/', material_views.onboarding_save_step, name='onboarding_save_step'),
-    path('onboarding/upload-contenido/', material_views.onboarding_upload_contenido, name='onboarding_upload_contenido'),
 
-    # ONBOARDING WIZARD V2 (página completa) — ROLLBACK: eliminar estas cuatro líneas
+    # ONBOARDING WIZARD V2 (página completa) — ROLLBACK: eliminar estas cinco líneas
     path('comenzar/', material_views.onboarding_v2_page, name='onboarding_v2_page'),
     path('comenzar/listo/', material_views.onboarding_v2_finish, name='onboarding_v2_finish'),
+    path('comenzar/salir/', material_views.onboarding_v2_exit, name='onboarding_v2_exit'),
     path('onboarding/v2/connect-gemini/', material_views.onboarding_v2_connect_gemini, name='onboarding_v2_connect_gemini'),
 
     # RÚBRICAS

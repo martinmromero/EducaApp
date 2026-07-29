@@ -54,6 +54,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # ONBOARDING WIZARD V2 — ROLLBACK: eliminar esta línea
+    'material.middleware.OnboardingGateMiddleware',
 ]
 
 ROOT_URLCONF = 'educaapp.urls'

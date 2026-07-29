@@ -1,8 +1,6 @@
 {% extends 'material/base.html' %}
 {% load static %}
 
-{% block body_extra_attrs %}data-suppress-onboarding-modal="1"{% endblock %}
-
 {% block content %}
 <div class="onb2-wrap">
   <div class="onb2-header">
@@ -565,7 +563,6 @@
       } else if (currentStep === 4) {
         const ok = await ensureContenidoUploaded();
         if (!ok) { btn.disabled = false; return; }
-        await saveStep('done', { done: true });
         showStep(5);
       }
     } finally {

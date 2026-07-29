@@ -474,6 +474,8 @@ class CustomLoginView(LoginView):
 
 @login_required
 def index(request):
+    # El primer login de un usuario nuevo cae acá y OnboardingGateMiddleware
+    # lo redirige a /comenzar/ si todavía no completó (ni salió de) el asistente.
     context = {
         'is_admin': is_admin(request.user)
     }
@@ -5169,9 +5171,10 @@ def exchange_question(request):
             'error': str(e)
         }, status=500)
 
-# --- ONBOARDING WIZARD ---------------------------------------------------------
-# ROLLBACK: eliminar este bloque completo (desde la linea marcada hasta FIN ONBOARDING)
-# y revertir migracion:  .venv\Scripts\python.exe manage.py migrate material 0019
+# --- ONBOARDING WIZARD (endpoint compartido, usado por el wizard v2) -----------
+# onboarding_upload_contenido (el otro endpoint que vivía acá) se eliminó junto
+# con el modal viejo; este endpoint sigue en uso por el wizard de página
+# completa (ver ONBOARDING WIZARD V2 más abajo), que guarda acá los pasos 1-3.
 
 @require_POST
 @login_required
@@ -5212,34 +5215,42 @@ def onboarding_save_step(request):
             new_inst_name = body.get('new_institution_name', '').strip()
 
             if institution_id and body.get('edit_institution'):
-                # Editar institución existente
+                # Editar institución existente — solo si el usuario YA era
+                # miembro antes de este request (mismo criterio que
+                # edit_institution_v2/delete_campus_v2/etc: no alcanza con
+                # mandar un ID por POST y "unirse" recién acá para poder
+                # editar/borrar sedes y facultades de otra institución).
                 try:
                     inst = InstitutionV2.objects.get(pk=institution_id, is_active=True)
+                    ya_era_miembro = UserInstitution.objects.filter(
+                        user=request.user, institution=inst
+                    ).exists()
                     UserInstitution.objects.get_or_create(user=request.user, institution=inst)
                     extra['institution_id'] = inst.id
-                    # Renombrar si se indica un nombre nuevo
-                    new_name = body.get('new_name', '').strip()
-                    if new_name and new_name != inst.name:
-                        inst.name = new_name
-                        inst.save(update_fields=['name'])
-                    # Agregar sedes nuevas
-                    for cn in body.get('add_campuses', []):
-                        cn = cn.strip()
-                        if cn:
-                            CampusV2.objects.get_or_create(institution=inst, name=cn)
-                    # Eliminar sedes
-                    remove_ids = [int(x) for x in body.get('remove_campus_ids', []) if str(x).isdigit()]
-                    if remove_ids:
-                        CampusV2.objects.filter(pk__in=remove_ids, institution=inst).delete()
-                    # Agregar facultades nuevas
-                    for fn in body.get('add_faculties', []):
-                        fn = fn.strip()
-                        if fn:
-                            FacultyV2.objects.get_or_create(institution=inst, name=fn)
-                    # Eliminar facultades
-                    remove_fac_ids = [int(x) for x in body.get('remove_faculty_ids', []) if str(x).isdigit()]
-                    if remove_fac_ids:
-                        FacultyV2.objects.filter(pk__in=remove_fac_ids, institution=inst).delete()
+                    if ya_era_miembro:
+                        # Renombrar si se indica un nombre nuevo
+                        new_name = body.get('new_name', '').strip()
+                        if new_name and new_name != inst.name:
+                            inst.name = new_name
+                            inst.save(update_fields=['name'])
+                        # Agregar sedes nuevas
+                        for cn in body.get('add_campuses', []):
+                            cn = cn.strip()
+                            if cn:
+                                CampusV2.objects.get_or_create(institution=inst, name=cn)
+                        # Eliminar sedes
+                        remove_ids = [int(x) for x in body.get('remove_campus_ids', []) if str(x).isdigit()]
+                        if remove_ids:
+                            CampusV2.objects.filter(pk__in=remove_ids, institution=inst).delete()
+                        # Agregar facultades nuevas
+                        for fn in body.get('add_faculties', []):
+                            fn = fn.strip()
+                            if fn:
+                                FacultyV2.objects.get_or_create(institution=inst, name=fn)
+                        # Eliminar facultades
+                        remove_fac_ids = [int(x) for x in body.get('remove_faculty_ids', []) if str(x).isdigit()]
+                        if remove_fac_ids:
+                            FacultyV2.objects.filter(pk__in=remove_fac_ids, institution=inst).delete()
                 except InstitutionV2.DoesNotExist:
                     pass
             elif institution_id:
@@ -5333,51 +5344,6 @@ def onboarding_save_step(request):
     return JsonResponse(dict({'ok': True}, **extra))
 
 
-@require_POST
-@login_required
-def onboarding_upload_contenido(request):
-    """
-    Endpoint multipart para subir un contenido desde el wizard de onboarding (paso 4).
-    Campos: title (texto), file (archivo), subject_id (opcional, int).
-    """
-    import os as _os
-    title = request.POST.get('title', '').strip()
-    uploaded_file = request.FILES.get('file')
-    subject_id = request.POST.get('subject_id', '').strip()
-
-    if not title or not uploaded_file:
-        return JsonResponse({'ok': False, 'error': 'Título y archivo son requeridos.'}, status=400)
-
-    allowed_extensions = {'.pdf', '.docx', '.doc', '.pptx', '.ppt'}
-    ext = _os.path.splitext(uploaded_file.name)[1].lower()
-    if ext not in allowed_extensions:
-        return JsonResponse({'ok': False, 'error': f'Tipo de archivo no permitido: {ext}'}, status=400)
-
-    try:
-        contenido = Contenido.objects.create(
-            title=title,
-            file=uploaded_file,
-            uploaded_by=request.user,
-        )
-        if subject_id.isdigit():
-            try:
-                subj = Subject.objects.get(pk=int(subject_id))
-                contenido.subjects.add(subj)
-            except Subject.DoesNotExist:
-                pass
-        return JsonResponse({
-            'ok': True,
-            'contenido': {
-                'id': contenido.id,
-                'title': contenido.title,
-                'subjects': [s.name for s in contenido.subjects.all()],
-                'uploaded_at': contenido.uploaded_at.strftime('%d/%m/%Y'),
-            }
-        })
-    except Exception as e:
-        logger.error(f"Error en onboarding_upload_contenido: {e}", exc_info=True)
-        return JsonResponse({'ok': False, 'error': 'Error al subir el archivo.'}, status=500)
-
 # --- FIN ONBOARDING WIZARD -----------------------------------------------------
 
 # --- ONBOARDING WIZARD V2 (página completa) -------------------------------------
@@ -5387,20 +5353,12 @@ def onboarding_upload_contenido(request):
 @login_required
 def onboarding_v2_page(request):
     """
-    Página completa del nuevo asistente de configuración (alternativa al modal).
-    Apenas el usuario llega acá marcamos onboarding_completed=True: este wizard
-    reemplaza al modal viejo, y si no marcáramos esto ahora, un usuario que
-    empieza el wizard nuevo pero lo abandona antes del paso 4 (ej. cierra la
-    pestaña) seguiría viendo el modal viejo aparecer solo en cualquier otra
-    pantalla — dos asistentes distintos compitiendo por atención.
+    Página completa del nuevo asistente de configuración. No marca
+    onboarding_completed acá: OnboardingGateMiddleware mantiene al usuario
+    encerrado en el asistente (no puede usar el resto del sistema) hasta que
+    termine de verdad (onboarding_v2_finish) o salga explícitamente
+    (onboarding_v2_exit / "Saltar asistente").
     """
-    try:
-        profile = request.user.profile
-        if not profile.onboarding_completed:
-            profile.onboarding_completed = True
-            profile.save(update_fields=['onboarding_completed'])
-    except Exception:
-        pass
     return render(request, 'material/onboarding_v2.html', {})
 
 
@@ -5409,6 +5367,8 @@ def onboarding_v2_finish(request):
     """
     Pantalla final del wizard v2: se llega acá después de guardar un examen
     estando en modo asistente (ver onb2_wizard_active en save_exam_from_session).
+    Marca onboarding_completed=True: recién acá el usuario queda liberado del
+    "gate" que lo mantenía encerrado en el asistente.
     """
     request.session.pop('onb2_wizard_active', None)
     try:
@@ -5419,6 +5379,24 @@ def onboarding_v2_finish(request):
     except Exception:
         pass
     return render(request, 'material/onboarding_v2_finish.html', {})
+
+
+@login_required
+def onboarding_v2_exit(request):
+    """
+    Salida explícita del asistente ("Salir del asistente" en el banner de los
+    pasos 5/6, fuera de la SPA de /comenzar/). Igual que "Saltar asistente":
+    libera al usuario del gate sin obligarlo a terminar el examen.
+    """
+    request.session.pop('onb2_wizard_active', None)
+    try:
+        profile = request.user.profile
+        if not profile.onboarding_completed:
+            profile.onboarding_completed = True
+            profile.save(update_fields=['onboarding_completed'])
+    except Exception:
+        pass
+    return redirect('material:index')
 
 
 @require_POST
