@@ -17,6 +17,9 @@
         <i class="bi bi-arrow-clockwise"></i> Verificar
       </button>
     </div>
+    <div id="demo-quota-box" class="card-body border-top py-2 d-none">
+      <small class="text-muted" id="demo-quota-text"></small>
+    </div>
   </div>
 
   <!-- Formulario -->
@@ -79,7 +82,7 @@
                 </div>
                 <div id="info-gemini" class="small d-none">
                   <strong>Google Gemini:</strong> Ingresá a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> y generá una clave gratis.
-                  Modelo recomendado: <code>gemini-2.5-flash</code>.
+                  Modelo recomendado: <code>gemini-2.5-flash-lite</code> (gratis dentro de los límites del nivel free: 15 solicitudes por minuto, 1000 por día — más generoso y barato que <code>gemini-2.5-flash</code> para este uso).
                 </div>
                 <div id="info-anthropic" class="small d-none">
                   <strong>Anthropic (Claude):</strong> Ingresá a <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com/settings/keys</a> y creá una nueva clave.
@@ -417,11 +420,39 @@ function checkStatus() {
         document.getElementById('status-text').textContent = msgs.fail;
         document.getElementById('status-detail').textContent = data.error || '';
       }
+      renderDemoQuota(data);
     })
     .catch(() => {
       document.getElementById('status-icon').textContent = '❌';
       document.getElementById('status-text').textContent = 'Error al verificar el estado';
     });
+}
+
+function renderDemoQuota(data) {
+  const box = document.getElementById('demo-quota-box');
+  const text = document.getElementById('demo-quota-text');
+  if (!data.using_shared_fallback) {
+    box.classList.add('d-none');
+    return;
+  }
+  if (!data.demo_quota || data.demo_quota.remaining_requests === null || data.demo_quota.remaining_requests === undefined) {
+    box.classList.remove('d-none');
+    text.innerHTML = '<i class="bi bi-people-fill me-1"></i>Estás usando la IA compartida de EducaApp (sin key propia conectada). ' +
+      'Todavía no generaste nada con ella, así que no sabemos cuánto cupo queda — se va a ver acá apenas generes tu primera tanda de preguntas.';
+    return;
+  }
+  const q = data.demo_quota;
+  box.classList.remove('d-none');
+  let resetText = '';
+  if (q.requests_reset_at) {
+    const resetDate = new Date(q.requests_reset_at);
+    resetText = ' Se renueva ' + resetDate.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '.';
+  }
+  const low = q.limit_requests && (q.remaining_requests / q.limit_requests) < 0.15;
+  const icon = low ? '⚠️' : '<i class="bi bi-people-fill me-1"></i>';
+  text.innerHTML = icon + ' Estás usando la IA compartida de EducaApp. Cupo del día: <strong>' +
+    q.remaining_requests + ' de ' + (q.limit_requests ?? '?') + '</strong> tandas de generación restantes.' + resetText +
+    (low ? ' Queda poco — si podés, conectá tu propia API key gratis arriba para no depender del cupo compartido.' : '');
 }
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -5710,7 +5710,7 @@ def onboarding_v2_connect_gemini(request):
     config.source = 'byok'
     config.provider = 'gemini'
     config.api_key = api_key
-    config.model = config.model if config.model and config.model.startswith('gemini-') else 'gemini-2.5-flash'
+    config.model = config.model if config.model and config.model.startswith('gemini-') else 'gemini-2.5-flash-lite'
     config.save()
 
     return JsonResponse({'ok': True, 'status': backend.get_status()})
@@ -6036,7 +6036,7 @@ def ai_config_view(request):
             provider = config.provider or 'openai'
             provider_defaults = {
                 'openai': 'gpt-4o-mini',
-                'gemini': 'gemini-2.5-flash',
+                'gemini': 'gemini-2.5-flash-lite',
                 'anthropic': 'claude-3-haiku-20240307',
                 'groq': 'llama-3.1-8b-instant',
                 'mistral': 'mistral-small-latest',
@@ -6048,7 +6048,7 @@ def ai_config_view(request):
             if not model or model == 'gpt-4o-mini':
                 model = default_model
             if provider == 'gemini' and not model.startswith('gemini-'):
-                model = 'gemini-2.5-flash'
+                model = 'gemini-2.5-flash-lite'
             config.model = model
             config.base_url = request.POST.get('base_url', '').strip() or None
             raw_key = request.POST.get('api_key', '').strip()
@@ -6105,17 +6105,30 @@ def ai_config_list_models(request):
 def ai_config_status(request):
     """Endpoint JSON que devuelve el estado actual del backend configurado."""
     from django.http import JsonResponse
-    from .ai_router import get_backend_for_user
+    from .ai_router import get_backend_for_user, get_global_demo_quota, GlobalFallbackBackend
     from .models import UserAIConfig
 
     config, _ = UserAIConfig.objects.get_or_create(user=request.user)
     backend = get_backend_for_user(request.user)
+    is_global_fallback = isinstance(backend, GlobalFallbackBackend)
     try:
         status = backend.get_status()
         # Siempre devolver el source real del usuario como 'backend'
         status['backend'] = config.source
     except Exception as e:
         status = {'connected': False, 'error': str(e), 'backend': config.source}
+
+    status['using_shared_fallback'] = is_global_fallback
+    if is_global_fallback:
+        quota = get_global_demo_quota()
+        if quota:
+            status['demo_quota'] = {
+                'provider': quota['provider'],
+                'checked_at': quota['checked_at'].isoformat(),
+                'remaining_requests': quota['remaining_requests'],
+                'limit_requests': quota['limit_requests'],
+                'requests_reset_at': quota['requests_reset_at'].isoformat() if quota['requests_reset_at'] else None,
+            }
     return JsonResponse(status)
 
 

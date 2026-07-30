@@ -19,7 +19,7 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                     <h2><i class="fas fa-file-alt"></i> Procesador de Documentos con IA</h2>
-                    <p class="text-muted">Analiza documentos PDF, DOCX, PPTX con detección automática de estructura y conteo de tokens para optimizar envíos a IA</p>
+                    <p class="text-muted">Analiza documentos PDF, DOCX, PPTX con detección automática de estructura y cálculo de cupo para optimizar el envío a la IA</p>
                 </div>
                 <div>
                     <!-- Estado del servidor local de IA -->
@@ -52,9 +52,8 @@
                     </div>
                     <small class="text-muted d-block mt-1 text-end" id="aiStatusDetail">
                         {% if local_ai_ready %}
-                            {{ local_ai_url }}
                             <span id="unlimitedTokensBadge">
-                                | <i class="fas fa-infinity text-success"></i> <strong class="text-success">Tokens ilimitados</strong>
+                                <i class="fas fa-infinity text-success"></i> <strong class="text-success">Cupo ilimitado</strong>
                             </span>
                             <br>
                             <span id="currentModelBadge">
@@ -69,6 +68,13 @@
                             <span class="text-warning">
                                 <i class="fas fa-info-circle"></i> Configure un proveedor de IA para usar el generador de preguntas
                             </span>
+                        {% endif %}
+                    </small>
+                    <small class="text-muted d-block mt-1 text-end {% if not using_shared_fallback %}d-none{% endif %}" id="demoQuotaBox">
+                        {% if demo_quota and demo_quota.remaining_requests is not None %}
+                            <i class="fas fa-people-group"></i> IA compartida — cupo del día: <strong id="demoQuotaText">{{ demo_quota.remaining_requests }} de {{ demo_quota.limit_requests|default:"?" }}</strong> tandas restantes
+                        {% else %}
+                            <i class="fas fa-people-group"></i> Usando la IA compartida de EducaApp
                         {% endif %}
                     </small>
                 </div>
@@ -527,8 +533,12 @@
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="questionsModalLabel">
-                    <i class="fas fa-check-circle"></i> Preguntas Generadas con IA
+                <h5 class="modal-title d-flex align-items-center flex-wrap" id="questionsModalLabel">
+                    <span><i class="fas fa-check-circle"></i> Preguntas Generadas con IA</span>
+                    <span id="modalStreamProgress" class="ms-3 small fw-normal d-none">
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        <span id="modalStreamProgressText"></span>
+                    </span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -742,8 +752,7 @@ function displayDocumentResult(data) {
     const extensiveAlert = budgetExceeded
         ? `<div class="alert alert-info py-2 mb-2">
                <i class="bi bi-info-circle me-1"></i>
-               Este documento tiene ${data.stats.total_tokens.toLocaleString()} tokens, bastante más de lo recomendado
-               para procesar de una sola vez${data.chapters.length > 1 && !(data.toc && data.toc.length) ? ' — por eso se dividió automáticamente en bloques de páginas' : ''}.
+               El documento es muy grande para procesarlo de una sola vez${data.chapters.length > 1 && !(data.toc && data.toc.length) ? ' — por eso se dividió automáticamente en bloques de páginas' : ''}.
                Elegí capítulos (o bloques de páginas) puntuales y generá las preguntas en varias tandas
                (más abajo vas a ver cuánto podés seleccionar por tanda).
            </div>`
@@ -757,7 +766,7 @@ function displayDocumentResult(data) {
             <div class="col-md-6">
                 <strong>Páginas/Slides:</strong> ${data.stats.total_pages || data.stats.total_slides || 'N/A'}<br>
                 <strong>Capítulos:</strong> ${data.stats.total_chapters}<br>
-                <strong>Total de Tokens:</strong> <span class="badge bg-primary">${data.stats.total_tokens.toLocaleString()}</span>
+                <strong>Cupo del documento:</strong> <span class="badge bg-primary">${data.stats.total_tokens.toLocaleString()}</span>
             </div>
             <div class="col-md-6">
                 ${data.stats.removed_headers ? `<small class="text-muted">Headers eliminados: ${data.stats.removed_headers}</small><br>` : ''}
@@ -779,9 +788,9 @@ function displayDocumentResult(data) {
         <div class="mb-3">
             <div class="d-flex justify-content-between align-items-center">
                 <small class="text-muted">
-                    Tokens seleccionados para esta tanda
+                    Cupo seleccionado para esta tanda
                     <i class="fas fa-circle-question ms-1"
-                       title="Cada tanda de generación tiene un tope de tokens para que el servidor no se quede colgado procesando un documento entero de una sola vez. Si necesitás más, generá en varias tandas."
+                       title="Cada tanda de generación tiene un tope de cupo para que el servidor no se quede colgado procesando un documento entero de una sola vez. Si necesitás más, generá en varias tandas."
                        style="cursor:help"></i>
                 </small>
                 <small id="tokenBudgetLabel" class="text-muted">0 / ${RUN_TOKEN_BUDGET.toLocaleString()}</small>
@@ -818,7 +827,7 @@ function displayDocumentResult(data) {
                 <h2 class="accordion-header d-flex align-items-center">
                     ${checkboxHtml}
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#chapter${index}">
-                        ${chapter.title} <span class="badge bg-secondary ms-2">${chapter.tokens} tokens</span>
+                        ${chapter.title} <span class="badge bg-secondary ms-2">cupo: ${chapter.tokens}</span>
                     </button>
                 </h2>
                 <div id="chapter${index}" class="accordion-collapse collapse" data-bs-parent="#chaptersAccordion">
@@ -865,7 +874,7 @@ function updateGenerateButton() {
         if (cb.checked) return;
         cb.disabled = atBudget;
         cb.title = atBudget
-            ? 'Llegaste al máximo de tokens recomendado para esta tanda. Generá esta selección primero, o deseleccioná otro capítulo para hacer lugar.'
+            ? 'Llegaste al cupo máximo recomendado para esta tanda. Generá esta selección primero, o deseleccioná otro capítulo para hacer lugar.'
             : '';
     });
 
@@ -929,9 +938,29 @@ async function checkLocalAIStatus() {
             const modelsCountBadge = document.getElementById('modelsCountBadge');
             if (modelsCountBadge) modelsCountBadge.textContent = '0';
         }
+        renderDemoQuotaBox(data);
     } catch (error) {
         console.error('Error al verificar estado del servidor local:', error);
     }
+}
+
+function renderDemoQuotaBox(data) {
+    const box = document.getElementById('demoQuotaBox');
+    if (!box) return;
+    if (!data.using_shared_fallback) {
+        box.classList.add('d-none');
+        return;
+    }
+    box.classList.remove('d-none');
+    const q = data.demo_quota;
+    if (!q || q.remaining_requests === null || q.remaining_requests === undefined) {
+        box.innerHTML = '<i class="fas fa-people-group"></i> Usando la IA compartida de EducaApp';
+        return;
+    }
+    const low = q.limit_requests && (q.remaining_requests / q.limit_requests) < 0.15;
+    box.innerHTML = (low ? '<i class="fas fa-triangle-exclamation text-warning"></i>' : '<i class="fas fa-people-group"></i>') +
+        ` IA compartida — cupo del día: <strong>${q.remaining_requests} de ${q.limit_requests ?? '?'}</strong> tandas restantes` +
+        (low ? ' <span class="text-warning">(queda poco — conectá tu propia key en Proveedor de IA)</span>' : '');
 }
 
 async function loadLocalModels() {
@@ -1181,17 +1210,17 @@ function showPreflightModal(indices, chapters) {
     `;
     chapters.forEach(ch => {
         const chunks = Math.ceil((ch.tokens || 500) / 3000);
-        chapHtml += `<li>${ch.title} — <span class="text-muted">${(ch.tokens || 0).toLocaleString()} tokens, ~${chunks} fragmento(s)</span></li>`;
+        chapHtml += `<li>${ch.title} — <span class="text-muted">cupo: ${(ch.tokens || 0).toLocaleString()}, ~${chunks} fragmento(s)</span></li>`;
     });
     chapHtml += `</ul>
-            <strong>Total:</strong> ${totalTokens.toLocaleString()} tokens · ${totalChunksEst} fragmento(s) · Tiempo estimado: ${timeLabel}
+            <strong>Total:</strong> cupo: ${totalTokens.toLocaleString()} · ${totalChunksEst} fragmento(s) · Tiempo estimado: ${timeLabel}
         </div>
     `;
     if (overBudget) {
         chapHtml += `
         <div class="alert alert-danger py-2">
             <i class="fas fa-ban me-1"></i>
-            Esta selección supera el máximo de ${RUN_TOKEN_BUDGET.toLocaleString()} tokens por tanda.
+            Esta selección supera el cupo máximo de ${RUN_TOKEN_BUDGET.toLocaleString()} por tanda.
             Volvé atrás y seleccioná menos capítulos o páginas; generá el resto en otra tanda.
         </div>`;
     }
@@ -1286,6 +1315,18 @@ async function generateStreaming() {
         </div>
         <div id="streamQuestionsList"></div>`;
 
+    // Indicador de progreso pegado al título del modal (que Bootstrap ya
+    // mantiene visible aunque se haga scroll en el cuerpo, gracias a
+    // modal-dialog-scrollable) — así no se pierde de vista al bajar a ver
+    // las preguntas ya generadas.
+    const modalProgress = document.getElementById('modalStreamProgress');
+    const modalProgressText = document.getElementById('modalStreamProgressText');
+    if (modalProgress && modalProgressText) {
+        modalProgress.classList.remove('d-none');
+        modalProgress.querySelector('.spinner-border')?.classList.remove('d-none');
+        modalProgressText.textContent = 'preparando...';
+    }
+
     const streamUrl = `{% url "material:stream_questions" job_id="JOBID_PLACEHOLDER" %}`.replace('JOBID_PLACEHOLDER', jobId);
     const es = new EventSource(streamUrl);
     window._activeEventSource = es;
@@ -1311,9 +1352,11 @@ async function generateStreaming() {
         }
 
         // Tipo 'questions'
+        const progLabel = `${item.chunk} / ${item.total_chunks} fragmentos — capítulo: ${item.chapter_title}`;
         const prog = document.getElementById('streamProgress');
-        if (prog) prog.textContent =
-            `${item.chunk} / ${item.total_chunks} fragmentos — capítulo: ${item.chapter_title}`;
+        if (prog) prog.textContent = progLabel;
+        const modalProgressText = document.getElementById('modalStreamProgressText');
+        if (modalProgressText) modalProgressText.textContent = progLabel;
         if (item.questions && item.questions.length > 0) {
             appendGeneratedQuestions(item.questions);
         }
@@ -1431,6 +1474,14 @@ async function generateStreaming() {
         }
         document.getElementById('sseBlockControls')?.remove();
         document.getElementById('sseWaitingBlock')?.remove();
+
+        const modalProgress = document.getElementById('modalStreamProgress');
+        const modalProgressText = document.getElementById('modalStreamProgressText');
+        if (modalProgress && modalProgressText) {
+            modalProgress.querySelector('.spinner-border')?.classList.add('d-none');
+            modalProgressText.innerHTML = `<i class="fas fa-check-circle"></i> Finalizado — ${total} preguntas`;
+        }
+
         const header = document.getElementById('streamHeader');
         const failed = window._sseFailedChunks || [];
         if (header) {
@@ -2621,7 +2672,7 @@ function _populateChaptersPane() {
       <input class="form-check-input chapter-preview-cb" type="checkbox" value="${idx}" id="chapPrevCb_${idx}">
       <label class="form-check-label" for="chapPrevCb_${idx}">
         <strong>${_escapeHtml(ch.title)}</strong>
-        <span class="badge bg-secondary ms-2">${ch.tokens} tokens</span>
+        <span class="badge bg-secondary ms-2">cupo: ${ch.tokens}</span>
         <small class="text-muted d-block">Páginas: ${(ch.pages||[]).join(', ') || '—'}</small>
       </label>
     </div>`).join('');

@@ -307,9 +307,12 @@ def document_processor_dashboard(request):
     """
     from material.models import Subject
     # Obtener backend configurado para este usuario (no la instancia global)
-    from .ai_router import get_backend_for_user
+    from .ai_router import get_backend_for_user, get_global_demo_quota, GlobalFallbackBackend
     backend = get_backend_for_user(request.user)
     ai_status = backend.get_status()
+
+    using_shared_fallback = isinstance(backend, GlobalFallbackBackend)
+    demo_quota = get_global_demo_quota() if using_shared_fallback else None
 
     # ONBOARDING WIZARD V2: si venimos del asistente (?wizard=1), lo recordamos en
     # sesión para poder mostrar el banner de continuidad también en /crear-examen/
@@ -332,7 +335,6 @@ def document_processor_dashboard(request):
         'run_token_budget': settings.CONTENIDO_MAX_RUN_TOKENS,
         'local_ai_connected': ai_status.get('connected', False),
         'local_ai_ready': ai_status.get('ready_for_generation', ai_status.get('connected', False)),
-        'local_ai_url': ai_status.get('url', 'No configurado'),
         'selected_model': ai_status.get('selected_model', ai_status.get('model', 'N/A')),
         'default_model': ai_status.get('default_model', ai_status.get('model', 'N/A')),
         'backend_type': ai_status.get('backend', 'ollama_local'),
@@ -340,6 +342,8 @@ def document_processor_dashboard(request):
         'preselected_contenido_id': request.GET.get('contenido_id', ''),
         'preselected_subject_id': request.GET.get('subject_id', ''),
         'wizard_active': wizard_active,
+        'using_shared_fallback': using_shared_fallback,
+        'demo_quota': demo_quota,
     }
     
     return render(request, 'material/document_processor_dashboard.html', context)
@@ -435,12 +439,22 @@ def check_local_ai_status(request):
         JSON con estado de conexión y modelo activo
     """
     try:
-        from .ai_router import get_backend_for_user
+        from .ai_router import get_backend_for_user, get_global_demo_quota, GlobalFallbackBackend
         from .models import UserAIConfig
         config, _ = UserAIConfig.objects.get_or_create(user=request.user)
         backend = get_backend_for_user(request.user)
         status = backend.get_status()
         status['backend'] = config.source
+        if isinstance(backend, GlobalFallbackBackend):
+            status['using_shared_fallback'] = True
+            quota = get_global_demo_quota()
+            if quota:
+                status['demo_quota'] = {
+                    'provider': quota['provider'],
+                    'remaining_requests': quota['remaining_requests'],
+                    'limit_requests': quota['limit_requests'],
+                    'requests_reset_at': quota['requests_reset_at'].isoformat() if quota['requests_reset_at'] else None,
+                }
         return JsonResponse({'success': True, **status})
     except Exception as e:
         return JsonResponse({
@@ -674,19 +688,27 @@ def generate_questions_from_chapters(request):
         all_questions = []
         failed_chunks = []
 
-        for chapter in chapters_to_process:
+        # Total de chunks de TODOS los capítulos seleccionados, calculado antes de
+        # generar nada — total_questions se distribuye contra este total global,
+        # no contra los chunks de cada capítulo por separado (eso hacía que pedir
+        # 20 preguntas con 3 capítulos terminara generando ~20 por capítulo, unas
+        # 60 en total).
+        chapter_chunks = [
+            (chapter, _split_into_chunks(
+                chapter.get('content', chapter.get('content_preview', '')), max_tokens=3000
+            ))
+            for chapter in chapters_to_process
+        ]
+        total_chunks_all = sum(len(chunks) for _, chunks in chapter_chunks)
+
+        for chapter, chunks in chapter_chunks:
             title = chapter.get('title', 'Capítulo')
-            content = chapter.get('content', chapter.get('content_preview', ''))
             pages = chapter.get('pages', [])
+            logger.info(f"Procesando capítulo '{title}' ({len(chunks)} chunk(s))")
 
-            logger.info(f"Procesando capítulo '{title}' ({len(content)} caracteres)")
-
-            # Dividir en chunks de ≤ 3000 tokens
-            chunks = _split_into_chunks(content, max_tokens=3000)
-            logger.info(f"  → {len(chunks)} chunk(s)")
-
-            # Distribuir total_questions entre todos los chunks del capítulo
-            questions_per_chunk = max(2, total_questions // max(len(chunks), 1))
+            # Piso de 1 (no 2): con muchos chunks chicos, un piso más alto
+            # infla el total muy por encima de lo pedido.
+            questions_per_chunk = max(1, total_questions // max(total_chunks_all, 1))
 
             for chunk_idx, chunk in enumerate(chunks):
                 try:
@@ -699,6 +721,10 @@ def generate_questions_from_chapters(request):
                     logger.warning(f"Chunk {chunk_idx + 1}/{len(chunks)} de '{title}' falló: {exc}")
                     failed_chunks.append({'chapter': title, 'chunk': chunk_idx + 1, 'total_chunks': len(chunks), 'error': str(exc)})
                     continue
+                # Tope duro: el modelo no siempre respeta "generá exactamente N
+                # preguntas" al pie de la letra, puede devolver bastantes más.
+                remaining = max(0, total_questions - len(all_questions))
+                chunk_questions = chunk_questions[:remaining]
                 # Cada pregunta se etiqueta con el capítulo del que realmente salió
                 # (no con todos los capítulos de la tanda).
                 for q in chunk_questions:
@@ -706,6 +732,12 @@ def generate_questions_from_chapters(request):
                     q['source_file'] = filename
                 all_questions.extend(chunk_questions)
                 logger.info(f"  chunk {chunk_idx + 1}/{len(chunks)}: {len(chunk_questions)} preguntas")
+
+                if len(all_questions) >= total_questions:
+                    break
+
+            if len(all_questions) >= total_questions:
+                break
 
         # Deduplicar contra preguntas ya en BD y entre sí
         all_questions = _deduplicate_questions(all_questions, extra_seen=existing_texts_set)
@@ -943,15 +975,28 @@ Formato JSON requerido:
 
 Nota sobre bloom_nivel: {bloom_desc}"""
 
+    # ~300 tokens por pregunta (opcion_multiple/desarrollo con explicación suelen ser
+    # las más largas) + margen fijo. Antes esto era un 4000 fijo sin importar cuántas
+    # preguntas se pedían: con más de ~12-15 preguntas por chunk, la respuesta se
+    # cortaba a mitad de camino y el parseo de JSON fallaba o rescataba solo 1-2.
+    gen_max_tokens = min(8192, 300 * max(num_questions, 1) + 500)
+
     if backend is not None:
-        result = backend.generate(prompt=prompt, temperature=0.4, max_tokens=4000)
+        result = backend.generate(prompt=prompt, temperature=0.4, max_tokens=gen_max_tokens)
     else:
-        result = local_ai.generate(prompt=prompt, temperature=0.4, max_tokens=4000)
+        result = local_ai.generate(prompt=prompt, temperature=0.4, max_tokens=gen_max_tokens)
 
     if not result['success']:
         error_msg = result.get('error', 'Error desconocido del proveedor de IA')
         logger.warning(f"IA falló para chunk {chunk_idx + 1}: {error_msg}")
         raise RuntimeError(error_msg)
+
+    if result.get('truncated'):
+        logger.warning(
+            f"Respuesta de IA truncada por límite de tokens en chunk {chunk_idx + 1}/{total_chunks} "
+            f"de '{chapter_title}' (max_tokens={gen_max_tokens}, {num_questions} preguntas pedidas). "
+            "Es posible que se recuperen menos preguntas de las pedidas."
+        )
 
     try:
         ai_response = result['text'].strip()
@@ -1114,15 +1159,21 @@ def stream_questions(request, job_id):
         total_generated = 0
         chunk_idx_global = 0
 
+        target_reached = False
         for chapter, chunks in zip(chapters_to_process, chapter_splits):
+            if target_reached:
+                break
             title = chapter.get('title', 'Capítulo')
             pages = chapter.get('pages', [])
             # Si el usuario pidió una cantidad fija por bloque, respetarla;
-            # si no, distribuir total_questions entre todos los chunks
+            # si no, distribuir total_questions entre todos los chunks. El piso
+            # es 1 (no 2): con muchos chunks chicos, un piso de 2 podía duplicar
+            # ampliamente lo pedido (ej. 20 preguntas en un documento con 30
+            # chunks resultaba en 60, no 20).
             if questions_per_block_override > 0:
                 questions_per_chunk = questions_per_block_override
             else:
-                questions_per_chunk = max(2, total_questions // max(total_chunks_all, 1))
+                questions_per_chunk = max(1, total_questions // max(total_chunks_all, 1))
 
             for i, chunk in enumerate(chunks):
                 chunk_idx_global += 1
@@ -1141,6 +1192,15 @@ def stream_questions(request, job_id):
                             q['source_file'] = filename
                             new_qs.append(q)
 
+                    # Tope duro: el modelo no siempre respeta "generá exactamente
+                    # N preguntas" al pie de la letra (sobre todo pidiendo números
+                    # chicos, como 1 por chunk) — puede devolver bastantes más.
+                    # Sin este recorte, "cantidad de preguntas" era más una
+                    # sugerencia que un límite real.
+                    if questions_per_block_override <= 0:
+                        remaining = max(0, total_questions - total_generated)
+                        new_qs = new_qs[:remaining]
+
                     total_generated += len(new_qs)
                     event = {
                         'type': 'questions',
@@ -1150,6 +1210,14 @@ def stream_questions(request, job_id):
                         'chapter_title': title,
                     }
                     yield f'data: {json_module.dumps(event)}\n\n'
+
+                    # Si no hay un tamaño fijo por bloque, "cantidad de preguntas"
+                    # es un objetivo total, no un piso: paramos apenas lo
+                    # alcanzamos en vez de seguir procesando el resto del
+                    # documento y generar de más.
+                    if questions_per_block_override <= 0 and total_generated >= total_questions:
+                        target_reached = True
+                        break
 
                 except GeneratorExit:
                     return

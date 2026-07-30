@@ -1975,6 +1975,17 @@ class GlobalAIConfig(models.Model):
     is_active = models.BooleanField(default=True, verbose_name="Activa")
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Último cupo conocido, tomado de los headers de rate-limit que devuelve el
+    # proveedor en cada llamada real de generación (hoy solo Groq expone RPD/TPM
+    # ahí). Se actualiza en cada uso — no es una consulta activa, es "lo último
+    # que sabemos" desde la última pregunta generada con este fallback.
+    quota_checked_at = models.DateTimeField(null=True, blank=True, verbose_name="Cupo verificado")
+    quota_remaining_requests = models.IntegerField(null=True, blank=True, verbose_name="Solicitudes restantes")
+    quota_limit_requests = models.IntegerField(null=True, blank=True, verbose_name="Límite de solicitudes")
+    quota_requests_reset_at = models.DateTimeField(null=True, blank=True, verbose_name="Reinicio de solicitudes")
+    quota_remaining_tokens = models.IntegerField(null=True, blank=True, verbose_name="Tokens restantes (ventana)")
+    quota_limit_tokens = models.IntegerField(null=True, blank=True, verbose_name="Límite de tokens (ventana)")
+
     class Meta:
         verbose_name = "Configuración IA Global (demo)"
         verbose_name_plural = "Configuración IA Global (demo)"

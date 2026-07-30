@@ -15,6 +15,8 @@ Interfaz común de todos los backends:
 
 import requests
 import logging
+import time
+from datetime import timedelta
 from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
@@ -72,7 +74,7 @@ class OpenAICompatibleBackend:
         self.provider = provider
         # Gemini OpenAI-compatible endpoint usa el nombre del modelo SIN prefijo "models/"
         default_model = {
-            'gemini': 'gemini-2.5-flash',
+            'gemini': 'gemini-2.5-flash-lite',
             'anthropic': 'claude-3-haiku-20240307',
             'groq': 'llama-3.1-8b-instant',
             'mistral': 'mistral-small-latest',
@@ -101,32 +103,74 @@ class OpenAICompatibleBackend:
             return False
 
     def generate(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7, **kwargs) -> Dict[str, Any]:
-        try:
-            payload = {
-                'model': self.model,
-                'messages': [{'role': 'user', 'content': prompt}],
-                'max_tokens': max_tokens,
-                'temperature': temperature,
-            }
-            r = requests.post(
-                f'{self.base_url}/chat/completions',
-                headers=self._headers(),
-                json=payload,
-                timeout=120,
-            )
-            r.raise_for_status()
-            data = r.json()
-            text = data['choices'][0]['message']['content'].strip()
-            usage = data.get('usage', {})
-            return {
-                'success': True,
-                'text': text,
-                'tokens': usage.get('total_tokens', 0),
-                'model': self.model,
-            }
-        except Exception as e:
-            logger.error(f'OpenAI-compatible backend error: {e}')
-            return {'success': False, 'error': str(e), 'text': None}
+        payload = {
+            'model': self.model,
+            'messages': [{'role': 'user', 'content': prompt}],
+            'max_tokens': max_tokens,
+            'temperature': temperature,
+        }
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                r = requests.post(
+                    f'{self.base_url}/chat/completions',
+                    headers=self._headers(),
+                    json=payload,
+                    timeout=120,
+                )
+                rate_limit = self._parse_rate_limit_headers(r.headers)
+                if r.status_code == 429 and attempt < max_retries:
+                    retry_after = r.headers.get('Retry-After')
+                    wait = int(retry_after) if retry_after and retry_after.isdigit() else 8 * (attempt + 1)
+                    logger.warning(
+                        f'{self.provider} rate limit (429) en intento {attempt + 1}/{max_retries + 1}, '
+                        f'reintentando en {wait}s...'
+                    )
+                    time.sleep(wait)
+                    continue
+                r.raise_for_status()
+                data = r.json()
+                text = data['choices'][0]['message']['content'].strip()
+                usage = data.get('usage', {})
+                return {
+                    'success': True,
+                    'text': text,
+                    'tokens': usage.get('total_tokens', 0),
+                    'model': self.model,
+                    'rate_limit': rate_limit,
+                }
+            except Exception as e:
+                logger.error(f'OpenAI-compatible backend error: {e}')
+                return {'success': False, 'error': str(e), 'text': None}
+        return {'success': False, 'error': f'Límite de solicitudes de {self.provider} alcanzado (429) tras reintentar.', 'text': None}
+
+    @staticmethod
+    def _parse_rate_limit_headers(headers) -> Optional[Dict[str, Any]]:
+        """Extrae cupo restante de los headers estilo x-ratelimit-* (Groq, OpenAI,
+        compatibles). En Groq, remaining/limit-requests son por día (RPD) y
+        remaining/limit-tokens son por minuto (TPM) — ver console.groq.com/docs/rate-limits.
+        Devuelve None si el proveedor no manda estos headers."""
+        def _num(key):
+            val = headers.get(key)
+            if val is None:
+                return None
+            try:
+                return int(float(val))
+            except (TypeError, ValueError):
+                return None
+
+        remaining_requests = _num('x-ratelimit-remaining-requests')
+        limit_requests = _num('x-ratelimit-limit-requests')
+        if remaining_requests is None and limit_requests is None:
+            return None
+        return {
+            'remaining_requests': remaining_requests,
+            'limit_requests': limit_requests,
+            'reset_requests_raw': headers.get('x-ratelimit-reset-requests'),
+            'remaining_tokens': _num('x-ratelimit-remaining-tokens'),
+            'limit_tokens': _num('x-ratelimit-limit-tokens'),
+            'reset_tokens_raw': headers.get('x-ratelimit-reset-tokens'),
+        }
 
     def get_status(self) -> Dict[str, Any]:
         ready = self.connected_and_ready()
@@ -153,14 +197,14 @@ class GeminiBackend:
 
     BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 
-    def __init__(self, api_key: str, model: str = 'gemini-2.5-flash'):
+    def __init__(self, api_key: str, model: str = 'gemini-2.5-flash-lite'):
         self.api_key = api_key
-        self.model = (model or 'gemini-2.5-flash').strip()
+        self.model = (model or 'gemini-2.5-flash-lite').strip()
         self._last_error = ''
         if self.model.startswith('models/'):
             self.model = self.model[len('models/'):]
         if not self.model.startswith('gemini-'):
-            self.model = 'gemini-2.5-flash'
+            self.model = 'gemini-2.5-flash-lite'
 
     def _params(self):
         return {'key': self.api_key}
@@ -221,46 +265,91 @@ class GeminiBackend:
         ok, _ = self._list_models()
         return ok
 
-    def generate(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7, **kwargs) -> Dict[str, Any]:
-        try:
-            payload = {
-                'contents': [
-                    {
-                        'role': 'user',
-                        'parts': [{'text': prompt}],
-                    }
-                ],
-                'generationConfig': {
-                    'temperature': temperature,
-                    'maxOutputTokens': max_tokens,
-                },
-            }
-            r = requests.post(
-                f'{self.BASE_URL}/models/{self.model}:generateContent',
-                params=self._params(),
-                json=payload,
-                timeout=120,
-            )
-            r.raise_for_status()
-            data = r.json()
-            candidates = data.get('candidates') or []
-            text_parts = []
-            if candidates:
-                content = candidates[0].get('content', {}) or {}
-                for part in content.get('parts', []) or []:
-                    if isinstance(part, dict) and part.get('text'):
-                        text_parts.append(part['text'])
-            text = ''.join(text_parts).strip()
-            usage = data.get('usageMetadata', {})
-            return {
-                'success': True,
-                'text': text,
-                'tokens': usage.get('totalTokenCount', 0),
-                'model': self.model,
-            }
-        except Exception as e:
-            logger.error(f'Gemini backend error: {e}')
-            return {'success': False, 'error': str(e), 'text': None}
+    def generate(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
+                 thinking_budget: int = 0, **kwargs) -> Dict[str, Any]:
+        generation_config = {
+            'temperature': temperature,
+            'maxOutputTokens': max_tokens,
+        }
+        # Los modelos 2.x+ (2.5, 3.x) tienen "thinking" activado por defecto, y esos
+        # tokens de razonamiento SALEN del mismo presupuesto que maxOutputTokens —
+        # con thinking prendido, el modelo puede gastar 90%+ del presupuesto
+        # "pensando" antes de escribir la respuesta visible, dejando muy poco (a
+        # veces nada) para el texto real. Para extracción estructurada como esta
+        # (generar preguntas de un texto ya dado) no hace falta razonamiento, así
+        # que lo desactivamos por default para no perder presupuesto de salida.
+        # gemini-1.x no soporta thinkingConfig — no mandarlo para esos modelos.
+        model_major = self.model.replace('gemini-', '').split('-')[0].split('.')[0]
+        if model_major.isdigit() and int(model_major) >= 2:
+            generation_config['thinkingConfig'] = {'thinkingBudget': thinking_budget}
+
+        payload = {
+            'contents': [
+                {
+                    'role': 'user',
+                    'parts': [{'text': prompt}],
+                }
+            ],
+            'generationConfig': generation_config,
+        }
+
+        # El free tier de Gemini es estricto en requests por minuto (10-15 según
+        # modelo): un chunk de documento que falla por 429 no debería perderse sin
+        # más — reintentamos un par de veces respetando Retry-After si viene.
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                r = requests.post(
+                    f'{self.BASE_URL}/models/{self.model}:generateContent',
+                    params=self._params(),
+                    json=payload,
+                    timeout=120,
+                )
+                if r.status_code == 429 and attempt < max_retries:
+                    wait = self._retry_wait_seconds(r, attempt)
+                    logger.warning(
+                        f'Gemini rate limit (429) en intento {attempt + 1}/{max_retries + 1}, '
+                        f'reintentando en {wait}s...'
+                    )
+                    time.sleep(wait)
+                    continue
+                r.raise_for_status()
+                data = r.json()
+                candidates = data.get('candidates') or []
+                text_parts = []
+                finish_reason = ''
+                if candidates:
+                    finish_reason = candidates[0].get('finishReason', '') or ''
+                    content = candidates[0].get('content', {}) or {}
+                    for part in content.get('parts', []) or []:
+                        if isinstance(part, dict) and part.get('text'):
+                            text_parts.append(part['text'])
+                text = ''.join(text_parts).strip()
+                usage = data.get('usageMetadata', {})
+                if finish_reason == 'MAX_TOKENS':
+                    logger.warning(
+                        f'Gemini cortó la respuesta por MAX_TOKENS (max_tokens={max_tokens}, '
+                        f'thinking_tokens={usage.get("thoughtsTokenCount", 0)}, model={self.model}). '
+                        'El texto puede venir incompleto.'
+                    )
+                return {
+                    'success': True,
+                    'text': text,
+                    'tokens': usage.get('totalTokenCount', 0),
+                    'model': self.model,
+                    'truncated': finish_reason == 'MAX_TOKENS',
+                }
+            except Exception as e:
+                logger.error(f'Gemini backend error: {e}')
+                return {'success': False, 'error': str(e), 'text': None}
+        return {'success': False, 'error': 'Límite de solicitudes de Gemini alcanzado (429) tras reintentar.', 'text': None}
+
+    @staticmethod
+    def _retry_wait_seconds(response, attempt, default_base=8):
+        retry_after = response.headers.get('Retry-After')
+        if retry_after and retry_after.isdigit():
+            return int(retry_after)
+        return default_base * (attempt + 1)
 
     def get_status(self) -> Dict[str, Any]:
         connected = self.is_available()
@@ -427,6 +516,66 @@ def _build_external_backend(provider: str, api_key: str, model: str, base_url: O
     )
 
 
+def _parse_duration_to_seconds(raw: Optional[str]) -> Optional[float]:
+    """Parsea duraciones estilo Groq ("2m59.56s", "7.66s", "1h2m3s") a segundos."""
+    if not raw:
+        return None
+    import re
+    match = re.match(r'^(?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?$', raw.strip())
+    if not match:
+        return None
+    hours, minutes, seconds = match.groups()
+    total = 0.0
+    if hours:
+        total += int(hours) * 3600
+    if minutes:
+        total += int(minutes) * 60
+    if seconds:
+        total += float(seconds)
+    return total if (hours or minutes or seconds) else None
+
+
+class GlobalFallbackBackend:
+    """Envuelve el backend real del fallback de demo (GlobalAIConfig) para
+    registrar, después de cada llamada de generación real, el cupo restante que
+    haya informado el proveedor (hoy solo Groq expone RPD/TPM en los headers de
+    respuesta). No cambia el comportamiento del backend, solo lo observa.
+    """
+    def __init__(self, inner, config_id):
+        self._inner = inner
+        self._config_id = config_id
+
+    def is_available(self):
+        return self._inner.is_available()
+
+    def get_status(self):
+        return self._inner.get_status()
+
+    def generate(self, *args, **kwargs):
+        result = self._inner.generate(*args, **kwargs)
+        rate_limit = result.get('rate_limit') if isinstance(result, dict) else None
+        if rate_limit:
+            self._save_quota_snapshot(rate_limit)
+        return result
+
+    def _save_quota_snapshot(self, rate_limit):
+        try:
+            from django.utils import timezone
+            from .models import GlobalAIConfig
+            now = timezone.now()
+            reset_seconds = _parse_duration_to_seconds(rate_limit.get('reset_requests_raw'))
+            GlobalAIConfig.objects.filter(pk=self._config_id).update(
+                quota_checked_at=now,
+                quota_remaining_requests=rate_limit.get('remaining_requests'),
+                quota_limit_requests=rate_limit.get('limit_requests'),
+                quota_requests_reset_at=(now + timedelta(seconds=reset_seconds)) if reset_seconds else None,
+                quota_remaining_tokens=rate_limit.get('remaining_tokens'),
+                quota_limit_tokens=rate_limit.get('limit_tokens'),
+            )
+        except Exception as e:
+            logger.warning(f'No se pudo guardar el snapshot de cupo del fallback global: {e}')
+
+
 def _global_demo_backend():
     """
     Devuelve el backend construido a partir de GlobalAIConfig (fallback de
@@ -440,16 +589,39 @@ def _global_demo_backend():
         return None
     if cfg is None or not cfg.api_key_encrypted:
         return None
-    model = cfg.model or ('gemini-2.5-flash' if cfg.provider == 'gemini' else 'gpt-4o-mini')
+    model = cfg.model or ('gemini-2.5-flash-lite' if cfg.provider == 'gemini' else 'gpt-4o-mini')
     try:
-        return _build_external_backend(
+        backend = _build_external_backend(
             provider=cfg.provider or 'gemini',
             api_key=cfg.api_key,
             model=model,
             base_url=None,
         )
+        return GlobalFallbackBackend(backend, cfg.id)
     except Exception:
         return None
+
+
+def get_global_demo_quota():
+    """Último cupo conocido del fallback de demo (GlobalAIConfig activo), tomado
+    de la última llamada de generación real que se haya hecho con esa key.
+    Devuelve None si no hay fallback activo o todavía no se generó nada con él."""
+    try:
+        from .models import GlobalAIConfig
+        cfg = GlobalAIConfig.objects.filter(is_active=True).first()
+    except Exception:
+        return None
+    if cfg is None or cfg.quota_checked_at is None:
+        return None
+    return {
+        'provider': cfg.provider,
+        'checked_at': cfg.quota_checked_at,
+        'remaining_requests': cfg.quota_remaining_requests,
+        'limit_requests': cfg.quota_limit_requests,
+        'requests_reset_at': cfg.quota_requests_reset_at,
+        'remaining_tokens': cfg.quota_remaining_tokens,
+        'limit_tokens': cfg.quota_limit_tokens,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -484,7 +656,7 @@ def get_backend_for_user(user) -> 'OllamaBackend | OpenAICompatibleBackend | Ant
             logger.warning('BYOK seleccionado pero sin API key. Usando Ollama.')
             return OllamaBackend()
         provider_defaults = {
-            'gemini': 'gemini-2.5-flash',
+            'gemini': 'gemini-2.5-flash-lite',
             'anthropic': 'claude-3-haiku-20240307',
             'groq': 'llama-3.1-8b-instant',
             'mistral': 'mistral-small-latest',
@@ -494,7 +666,7 @@ def get_backend_for_user(user) -> 'OllamaBackend | OpenAICompatibleBackend | Ant
         }
         model = config.model or provider_defaults.get(config.provider or 'openai', 'gpt-4o-mini')
         if config.provider == 'gemini' and not model.startswith('gemini-'):
-            model = 'gemini-2.5-flash'
+            model = 'gemini-2.5-flash-lite'
         return _build_external_backend(
             provider=config.provider or 'openai',
             api_key=config.api_key,
