@@ -72,7 +72,7 @@
                     </small>
                     <small class="text-muted d-block mt-1 text-end {% if not using_shared_fallback %}d-none{% endif %}" id="demoQuotaBox">
                         {% if demo_quota and demo_quota.remaining_requests is not None %}
-                            <i class="fas fa-people-group"></i> IA compartida — cupo del día: <strong id="demoQuotaText">{{ demo_quota.remaining_requests }} de {{ demo_quota.limit_requests|default:"?" }}</strong> tandas restantes
+                            <i class="fas fa-people-group"></i> IA compartida — cupo del día: quedan <strong id="demoQuotaText">{{ demo_quota.remaining_requests }} de {{ demo_quota.limit_requests|default:"?" }}</strong> tandas
                         {% else %}
                             <i class="fas fa-people-group"></i> Usando la IA compartida de EducaApp
                         {% endif %}
@@ -973,7 +973,7 @@ function renderDemoQuotaBox(data) {
     }
     const low = q.limit_requests && (q.remaining_requests / q.limit_requests) < 0.15;
     box.innerHTML = (low ? '<i class="fas fa-triangle-exclamation text-warning"></i>' : '<i class="fas fa-people-group"></i>') +
-        ` IA compartida — cupo del día: <strong>${q.remaining_requests} de ${q.limit_requests ?? '?'}</strong> tandas restantes` +
+        ` IA compartida — cupo del día: quedan <strong>${q.remaining_requests} de ${q.limit_requests ?? '?'}</strong> tandas` +
         (low ? ' <span class="text-warning">(queda poco — conectá tu propia key en Proveedor de IA)</span>' : '');
 }
 

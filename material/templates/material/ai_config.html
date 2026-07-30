@@ -472,8 +472,8 @@ function renderDemoQuota(data) {
   }
   const low = q.limit_requests && (q.remaining_requests / q.limit_requests) < 0.15;
   const icon = low ? '⚠️' : '<i class="bi bi-people-fill me-1"></i>';
-  text.innerHTML = icon + ' Estás usando la IA compartida de EducaApp. Cupo del día: <strong>' +
-    q.remaining_requests + ' de ' + (q.limit_requests ?? '?') + '</strong> tandas de generación restantes.' + resetText +
+  text.innerHTML = icon + ' Estás usando la IA compartida de EducaApp. Cupo del día: quedan <strong>' +
+    q.remaining_requests + ' de ' + (q.limit_requests ?? '?') + '</strong> tandas de generación.' + resetText +
     (low ? ' Queda poco — si podés, conectá tu propia API key gratis arriba para no depender del cupo compartido.' : '');
 }
 
