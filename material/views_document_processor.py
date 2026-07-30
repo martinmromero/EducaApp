@@ -1192,14 +1192,16 @@ def stream_questions(request, job_id):
                             q['source_file'] = filename
                             new_qs.append(q)
 
-                    # Tope duro: el modelo no siempre respeta "generá exactamente
-                    # N preguntas" al pie de la letra (sobre todo pidiendo números
-                    # chicos, como 1 por chunk) — puede devolver bastantes más.
-                    # Sin este recorte, "cantidad de preguntas" era más una
-                    # sugerencia que un límite real.
-                    if questions_per_block_override <= 0:
-                        remaining = max(0, total_questions - total_generated)
-                        new_qs = new_qs[:remaining]
+                    # Tope duro: "cantidad de preguntas" (total_questions) es un
+                    # techo absoluto, tanto si el modelo no respeta "generá
+                    # exactamente N preguntas" al pie de la letra, como si el
+                    # usuario configuró "preguntas por bloque" — ese campo solo
+                    # controla el tamaño de cada bloque que se muestra en pantalla
+                    # (útil en modo pausa), nunca debería poder superar el total
+                    # pedido. Antes, con un override de bloque > 0, el total se
+                    # ignoraba por completo.
+                    remaining = max(0, total_questions - total_generated)
+                    new_qs = new_qs[:remaining]
 
                     total_generated += len(new_qs)
                     event = {
@@ -1211,11 +1213,10 @@ def stream_questions(request, job_id):
                     }
                     yield f'data: {json_module.dumps(event)}\n\n'
 
-                    # Si no hay un tamaño fijo por bloque, "cantidad de preguntas"
-                    # es un objetivo total, no un piso: paramos apenas lo
-                    # alcanzamos en vez de seguir procesando el resto del
-                    # documento y generar de más.
-                    if questions_per_block_override <= 0 and total_generated >= total_questions:
+                    # "cantidad de preguntas" es un objetivo total, no un piso:
+                    # paramos apenas lo alcanzamos en vez de seguir procesando el
+                    # resto del documento y generar de más.
+                    if total_generated >= total_questions:
                         target_reached = True
                         break
 

@@ -19,7 +19,7 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                     <h2><i class="fas fa-file-alt"></i> Procesador de Documentos con IA</h2>
-                    <p class="text-muted">Analiza documentos PDF, DOCX, PPTX con detección automática de estructura y cálculo de cupo para optimizar el envío a la IA</p>
+                    <p class="text-muted">Analiza documentos PDF, DOCX, PPTX con detección automática de estructura para generar preguntas con IA</p>
                 </div>
                 <div>
                     <!-- Estado del servidor local de IA -->
@@ -53,7 +53,7 @@
                     <small class="text-muted d-block mt-1 text-end" id="aiStatusDetail">
                         {% if local_ai_ready %}
                             <span id="unlimitedTokensBadge">
-                                <i class="fas fa-infinity text-success"></i> <strong class="text-success">Cupo ilimitado</strong>
+                                <i class="fas fa-infinity text-success"></i> <strong class="text-success">Sin límite por tanda</strong>
                             </span>
                             <br>
                             <span id="currentModelBadge">
@@ -741,6 +741,16 @@ document.getElementById('uploadDocumentForm').addEventListener('submit', async f
 const RUN_TOKEN_BUDGET = {{ run_token_budget|default:45000 }};
 const TOTAL_TOKEN_BUDGET = {{ total_token_budget|default:50000 }};
 
+// Etiqueta de tamaño relativo a la capacidad de una tanda (sin exponer el
+// número técnico de tokens en la vista principal — queda solo en el tooltip).
+function relativeSizeBadge(tokens) {
+    const pct = Math.round(((tokens || 0) / RUN_TOKEN_BUDGET) * 100);
+    let label = 'chico';
+    if (pct >= 50) label = 'grande';
+    else if (pct >= 15) label = 'mediano';
+    return `<span class="badge bg-secondary ms-2" title="${(tokens || 0).toLocaleString()} — referencia interna de tamaño">${label} (~${pct}% de una tanda)</span>`;
+}
+
 function displayDocumentResult(data) {
     // Aviso de duplicado si aplica
     const dupAlert = data.duplicate_message
@@ -766,7 +776,10 @@ function displayDocumentResult(data) {
             <div class="col-md-6">
                 <strong>Páginas/Slides:</strong> ${data.stats.total_pages || data.stats.total_slides || 'N/A'}<br>
                 <strong>Capítulos:</strong> ${data.stats.total_chapters}<br>
-                <strong>Cupo del documento:</strong> <span class="badge bg-primary">${data.stats.total_tokens.toLocaleString()}</span>
+                <strong>Extensión:</strong>
+                <span class="badge bg-primary" title="${data.stats.total_tokens.toLocaleString()} — referencia interna de tamaño">
+                    ${Math.min(100, Math.round((data.stats.total_tokens / TOTAL_TOKEN_BUDGET) * 100))}% de lo recomendado para procesar junto
+                </span>
             </div>
             <div class="col-md-6">
                 ${data.stats.removed_headers ? `<small class="text-muted">Headers eliminados: ${data.stats.removed_headers}</small><br>` : ''}
@@ -788,12 +801,12 @@ function displayDocumentResult(data) {
         <div class="mb-3">
             <div class="d-flex justify-content-between align-items-center">
                 <small class="text-muted">
-                    Cupo seleccionado para esta tanda
+                    Capacidad usada en esta tanda
                     <i class="fas fa-circle-question ms-1"
-                       title="Cada tanda de generación tiene un tope de cupo para que el servidor no se quede colgado procesando un documento entero de una sola vez. Si necesitás más, generá en varias tandas."
+                       title="Cada tanda de generación tiene un tope de capacidad para que el servidor no se quede colgado procesando un documento entero de una sola vez. Si necesitás más, generá en varias tandas."
                        style="cursor:help"></i>
                 </small>
-                <small id="tokenBudgetLabel" class="text-muted">0 / ${RUN_TOKEN_BUDGET.toLocaleString()}</small>
+                <small id="tokenBudgetLabel" class="text-muted" title="0 / ${RUN_TOKEN_BUDGET.toLocaleString()}">0%</small>
             </div>
             <div class="progress" style="height:6px;">
                 <div id="tokenBudgetBar" class="progress-bar" role="progressbar" style="width:0%"></div>
@@ -827,7 +840,7 @@ function displayDocumentResult(data) {
                 <h2 class="accordion-header d-flex align-items-center">
                     ${checkboxHtml}
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#chapter${index}">
-                        ${chapter.title} <span class="badge bg-secondary ms-2">cupo: ${chapter.tokens}</span>
+                        ${chapter.title} ${relativeSizeBadge(chapter.tokens)}
                     </button>
                 </h2>
                 <div id="chapter${index}" class="accordion-collapse collapse" data-bs-parent="#chaptersAccordion">
@@ -861,7 +874,8 @@ function updateGenerateButton() {
     const bar = document.getElementById('tokenBudgetBar');
     if (label && bar) {
         const pct = Math.min(100, Math.round((selectedTokens / RUN_TOKEN_BUDGET) * 100));
-        label.textContent = `${selectedTokens.toLocaleString()} / ${RUN_TOKEN_BUDGET.toLocaleString()}`;
+        label.textContent = pct + '%';
+        label.title = `${selectedTokens.toLocaleString()} / ${RUN_TOKEN_BUDGET.toLocaleString()}`;
         bar.style.width = pct + '%';
         bar.classList.remove('bg-success', 'bg-warning', 'bg-danger');
         bar.classList.add(pct < 70 ? 'bg-success' : (pct < 100 ? 'bg-warning' : 'bg-danger'));
@@ -874,7 +888,7 @@ function updateGenerateButton() {
         if (cb.checked) return;
         cb.disabled = atBudget;
         cb.title = atBudget
-            ? 'Llegaste al cupo máximo recomendado para esta tanda. Generá esta selección primero, o deseleccioná otro capítulo para hacer lugar.'
+            ? 'Llegaste al máximo recomendado para esta tanda. Generá esta selección primero, o deseleccioná otro capítulo para hacer lugar.'
             : '';
     });
 
@@ -1210,17 +1224,18 @@ function showPreflightModal(indices, chapters) {
     `;
     chapters.forEach(ch => {
         const chunks = Math.ceil((ch.tokens || 500) / 3000);
-        chapHtml += `<li>${ch.title} — <span class="text-muted">cupo: ${(ch.tokens || 0).toLocaleString()}, ~${chunks} fragmento(s)</span></li>`;
+        chapHtml += `<li>${ch.title} — <span class="text-muted">${relativeSizeBadge(ch.tokens)}, ~${chunks} fragmento(s)</span></li>`;
     });
+    const totalPct = Math.min(999, Math.round((totalTokens / RUN_TOKEN_BUDGET) * 100));
     chapHtml += `</ul>
-            <strong>Total:</strong> cupo: ${totalTokens.toLocaleString()} · ${totalChunksEst} fragmento(s) · Tiempo estimado: ${timeLabel}
+            <strong>Total:</strong> <span title="${totalTokens.toLocaleString()} — referencia interna de tamaño">${totalPct}% de una tanda</span> · ${totalChunksEst} fragmento(s) · Tiempo estimado: ${timeLabel}
         </div>
     `;
     if (overBudget) {
         chapHtml += `
         <div class="alert alert-danger py-2">
             <i class="fas fa-ban me-1"></i>
-            Esta selección supera el cupo máximo de ${RUN_TOKEN_BUDGET.toLocaleString()} por tanda.
+            Esta selección supera el máximo recomendado para una sola tanda.
             Volvé atrás y seleccioná menos capítulos o páginas; generá el resto en otra tanda.
         </div>`;
     }
@@ -2672,7 +2687,7 @@ function _populateChaptersPane() {
       <input class="form-check-input chapter-preview-cb" type="checkbox" value="${idx}" id="chapPrevCb_${idx}">
       <label class="form-check-label" for="chapPrevCb_${idx}">
         <strong>${_escapeHtml(ch.title)}</strong>
-        <span class="badge bg-secondary ms-2">cupo: ${ch.tokens}</span>
+        ${relativeSizeBadge(ch.tokens)}
         <small class="text-muted d-block">Páginas: ${(ch.pages||[]).join(', ') || '—'}</small>
       </label>
     </div>`).join('');
