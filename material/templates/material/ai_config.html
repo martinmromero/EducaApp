@@ -29,8 +29,26 @@
     <!-- Opciones -->
     <div class="row g-3 mb-4">
 
+      <!-- IA de prueba gratuita (fallback compartido) -->
+      <div class="col-12 order-1">
+        <label class="card p-3 d-flex flex-row align-items-start gap-3
+                      {% if config.source == 'shared_demo' %}border-primary bg-primary bg-opacity-10{% endif %}"
+               style="cursor:pointer" for="src_shared_demo">
+          <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="source"
+                 id="src_shared_demo" value="shared_demo"
+                 {% if config.source == 'shared_demo' %}checked{% endif %}
+                 onchange="onSourceChange()">
+          <div class="flex-grow-1">
+            <div class="fw-semibold"><i class="bi bi-gift me-1"></i>IA de prueba gratuita de EducaApp</div>
+            <small class="text-muted">Empezá a generar preguntas ya mismo, sin configurar nada. Usa una cuota
+            compartida entre todos los usuarios de EducaApp — es limitada y puede agotarse. Si te quedás sin cupo,
+            conectá tu propia key gratis (abajo) para seguir sin depender de la compartida.</small>
+          </div>
+        </label>
+      </div>
+
       <!-- Ollama local -->
-      <div class="col-12 order-3">
+      <div class="col-12 order-4">
         <label class="card p-3 d-flex flex-row align-items-start gap-3
                       {% if config.source == 'ollama_local' %}border-primary bg-primary bg-opacity-10{% endif %}"
                style="cursor:pointer" for="src_ollama">
@@ -58,7 +76,7 @@
       </div>
 
       <!-- BYOK -->
-      <div class="col-12 order-1">
+      <div class="col-12 order-2">
         <label class="card p-3 d-flex flex-row align-items-start gap-3 cursor-pointer
                       {% if config.source == 'byok' %}border-primary bg-primary bg-opacity-10{% endif %}"
                style="cursor:pointer" for="src_byok">
@@ -172,7 +190,7 @@
       </div>
 
       <!-- Institucional -->
-      <div class="col-12 order-2">
+      <div class="col-12 order-3">
         <label class="card p-3 d-flex flex-row align-items-start gap-3 cursor-pointer
                       {% if config.source == 'institutional' %}border-primary bg-primary bg-opacity-10{% endif %}"
                style="cursor:pointer" for="src_inst">
@@ -382,6 +400,10 @@ function toggleKeyVisibility() {
 }
 
 const STATUS_MSGS = {
+  shared_demo: {
+    ok:   'Usando la IA de prueba gratuita de EducaApp',
+    fail: 'La IA de prueba gratuita no está disponible ahora mismo (puede estar sin configurar o sin cupo). Probá de nuevo más tarde o conectá tu propia API Key.',
+  },
   ollama_local: {
     ok:   'Servidor Ollama conectado',
     fail: 'Servidor Ollama no disponible. Verificá que el servidor esté activo y accesible desde esta red.',

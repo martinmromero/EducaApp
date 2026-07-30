@@ -1880,6 +1880,7 @@ class InstitutionAIConfig(models.Model):
 # ---------------------------------------------------------------------------
 class UserAIConfig(models.Model):
     SOURCE_CHOICES = [
+        ('shared_demo', 'IA de prueba gratuita de EducaApp (limitada)'),
         ('ollama_local', 'IA Local (Ollama)'),
         ('byok', 'Mi propia API Key (BYOK)'),
         ('institutional', 'Configuración de la Institución'),

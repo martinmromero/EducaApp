@@ -641,6 +641,13 @@ def get_backend_for_user(user) -> 'OllamaBackend | OpenAICompatibleBackend | Ant
 
     source = config.source
 
+    if source == 'shared_demo':
+        fallback = _global_demo_backend()
+        if fallback is not None:
+            return fallback
+        logger.warning('shared_demo seleccionado pero no hay GlobalAIConfig activa con key. Usando Ollama.')
+        return OllamaBackend()
+
     if source == 'ollama_local':
         ollama = OllamaBackend(ollama_url=config.ollama_url or None)
         if ollama.is_available():
