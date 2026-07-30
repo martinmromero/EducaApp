@@ -182,6 +182,7 @@
                             <th>Pregunta</th>
                             <th class="filterable-col">Bloom {% include 'material/components/_column_filter_dropdown.html' with field='bloom_level' label='Bloom' options=filter_options.bloom_level selected=selected_filters.bloom_level prefix='d' %}</th>
                             <th class="filterable-col">Estado IA {% include 'material/components/_column_filter_dropdown.html' with field='ai_status' label='Estado IA' options=filter_options.ai_status selected=selected_filters.ai_status prefix='d' %}</th>
+                            <th>Origen</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -222,11 +223,21 @@
                                 {% endif %}
                             </td>
                             <td>
+                                {% if pregunta.user_id == request.user.id %}
+                                    <span class="badge bg-primary">Tuya</span>
+                                {% else %}
+                                    <span class="badge bg-info text-dark" title="Compartida por {{ pregunta.user.username }}">
+                                        <i class="bi bi-people-fill me-1"></i>{{ pregunta.user.get_full_name|default:pregunta.user.username }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
                                 <div class="btn-group" role="group">
                                     <a href="{% url 'material:ver_pregunta' pregunta.pk %}"
                                        class="btn btn-sm btn-info" title="Ver pregunta">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    {% if pregunta.user_id == request.user.id %}
                                     <a href="{% url 'material:editar_pregunta' pregunta.pk %}"
                                        class="btn btn-sm btn-warning" title="Editar pregunta">
                                         <i class="fas fa-edit"></i>
@@ -235,12 +246,13 @@
                                        class="btn btn-sm btn-danger" title="Eliminar pregunta">
                                         <i class="fas fa-trash"></i>
                                     </a>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="{% if subtemas_count > 0 %}8{% else %}7{% endif %}" class="text-center">No hay preguntas disponibles</td>
+                            <td colspan="{% if subtemas_count > 0 %}9{% else %}8{% endif %}" class="text-center">No hay preguntas disponibles</td>
                         </tr>
                         {% endfor %}
                     </tbody>

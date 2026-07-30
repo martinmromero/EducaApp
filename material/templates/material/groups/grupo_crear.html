@@ -1,0 +1,24 @@
+{% extends 'material/base.html' %}
+{% load message_tags %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800"><i class="bi bi-plus-circle me-2"></i>Nuevo grupo de confianza</h1>
+
+    {% show_messages "grupos" %}
+
+    <div class="card shadow-sm" style="max-width:500px">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">Nombre del grupo</label>
+                    <input type="text" name="name" class="form-control" placeholder="Ej: Cátedra de Programación" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Crear grupo</button>
+                <a href="{% url 'material:grupos_list' %}" class="btn btn-link text-muted">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

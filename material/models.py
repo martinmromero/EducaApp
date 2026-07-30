@@ -1989,3 +1989,88 @@ class GlobalAIConfig(models.Model):
     @api_key.setter
     def api_key(self, value):
         self.api_key_encrypted = encrypt_api_key(value) if value else ''
+
+
+# --- GRUPOS DE CONFIANZA (compartir preguntas entre docentes) ------------------
+# Ver [[project_onboarding_seed_content_plan]] / Fase D: reemplaza el diseño
+# original "compartir por institución" (parking lot) porque Question no tiene
+# ningún vínculo real a Institution. La relación de confianza es explícita:
+# grupo -> miembros (con invitación/aceptación) -> materias compartidas por
+# cada miembro dentro de ese grupo.
+
+class SharingGroup(models.Model):
+    name = models.CharField(max_length=255, verbose_name="Nombre del grupo")
+    created_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='created_sharing_groups',
+        verbose_name="Creado por",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Grupo de confianza"
+        verbose_name_plural = "Grupos de confianza"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class GroupMembership(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pendiente'),
+        ('accepted', 'Aceptada'),
+        ('rejected', 'Rechazada'),
+    ]
+
+    group = models.ForeignKey(
+        SharingGroup, on_delete=models.CASCADE, related_name='memberships',
+        verbose_name="Grupo",
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='group_memberships',
+        verbose_name="Usuario",
+    )
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default='pending', verbose_name="Estado",
+    )
+    invited_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name='sent_group_invites',
+        verbose_name="Invitado por",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('group', 'user')
+        verbose_name = "Membresía de grupo"
+        verbose_name_plural = "Membresías de grupo"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} en {self.group.name} ({self.get_status_display()})"
+
+
+class SubjectShare(models.Model):
+    group = models.ForeignKey(
+        SharingGroup, on_delete=models.CASCADE, related_name='subject_shares',
+        verbose_name="Grupo",
+    )
+    subject = models.ForeignKey(
+        'Subject', on_delete=models.CASCADE, related_name='group_shares',
+        verbose_name="Materia",
+    )
+    shared_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='subject_shares',
+        verbose_name="Compartida por",
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Activa")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('group', 'subject', 'shared_by')
+        verbose_name = "Materia compartida"
+        verbose_name_plural = "Materias compartidas"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.shared_by.username} comparte {self.subject.name} con {self.group.name}"

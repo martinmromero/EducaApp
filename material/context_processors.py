@@ -1,7 +1,10 @@
 # ONBOARDING WIZARD — ROLLBACK: eliminar este archivo y quitar su entrada de settings.py TEMPLATES
 import json as _json
 from django.conf import settings
-from .models import InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic, Contenido, InstitutionSubject
+from .models import (
+    InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic, Contenido,
+    InstitutionSubject, GroupMembership,
+)
 
 
 def onboarding_context(request):
@@ -103,7 +106,12 @@ def onboarding_context(request):
         'demoSubjects': demo_subjects,
     }
 
+    pending_invites_count = GroupMembership.objects.filter(
+        user=request.user, status='pending'
+    ).count()
+
     return {
         'onboarding_institutions': all_institutions,
         'onb_data_json': _json.dumps(onb_data),
+        'pending_invites_count': pending_invites_count,
     }

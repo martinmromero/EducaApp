@@ -176,6 +176,14 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('onboarding/v2/connect-gemini/', material_views.onboarding_v2_connect_gemini, name='onboarding_v2_connect_gemini'),
     path('onboarding/v2/subject-status/', material_views.onboarding_v2_subject_status, name='onboarding_v2_subject_status'),
 
+    # GRUPOS DE CONFIANZA (compartir preguntas)
+    path('grupos/', material_views.grupos_list, name='grupos_list'),
+    path('grupos/nuevo/', material_views.grupo_crear, name='grupo_crear'),
+    path('grupos/<int:pk>/', material_views.grupo_detalle, name='grupo_detalle'),
+    path('grupos/<int:pk>/invitar/', material_views.grupo_invitar, name='grupo_invitar'),
+    path('grupos/<int:pk>/compartir-materia/', material_views.compartir_materia, name='compartir_materia'),
+    path('grupos/invitaciones/', material_views.invitaciones_pendientes, name='invitaciones_pendientes'),
+
     # RÚBRICAS
     path('rubricas/', material_views.rubric_list, name='rubric_list'),
     path('rubricas/nueva/', material_views.rubric_create, name='rubric_create'),

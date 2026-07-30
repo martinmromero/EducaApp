@@ -153,7 +153,7 @@ def preview_exam(request):
     if questions_per_version <= 0:
         questions_per_version = len(manual_question_ids) if manual_question_ids else max(1, selected_topics.count())
 
-    from .content_visibility import get_visible_questions
+    from .content_visibility import get_visible_questions, EXAM_ELIGIBLE_Q
     include_seed = bool(exam.get('include_seed'))
 
     generated_versions = []
@@ -162,8 +162,8 @@ def preview_exam(request):
             generated_versions = [list(get_visible_questions(
                 request.user, subject=subject_obj, include_seed=include_seed
             ).filter(
+                EXAM_ELIGIBLE_Q,
                 pk__in=manual_question_ids,
-                ai_approved=True,
             ).distinct())]
         else:
             balance_by_topic = str(exam.get('balance_by_topic', '1')) == '1'
@@ -318,22 +318,22 @@ def get_exam_template(request, template_id):
     return JsonResponse(data)
 from django.views.decorators.http import require_GET
 # AJAX: obtener preguntas por temas seleccionados
+@login_required
 @require_GET
 def get_questions_by_topics(request):
-    from .models import Question, Topic
+    from .content_visibility import get_visible_questions, EXAM_ELIGIBLE_Q
     all_topics = request.GET.get('all', 'false') == 'true'
     subject_id = request.GET.get('subject_id')
     topics = request.GET.get('topics', '')
     topic_ids = [int(t) for t in topics.split(',') if t]
-    review_filter = models.Q(ai_approved=True)
+    subject_arg = int(subject_id) if subject_id and str(subject_id).isdigit() else None
+    base_qs = get_visible_questions(request.user, subject=subject_arg)
+    review_filter = EXAM_ELIGIBLE_Q
     questions = Question.objects.none()
     if all_topics and subject_id:
-        questions = Question.objects.filter(subjects__id=subject_id).filter(review_filter).distinct()
+        questions = base_qs.filter(review_filter)
     elif topic_ids:
-        questions = Question.objects.filter(topic_id__in=topic_ids).filter(review_filter)
-        if subject_id and str(subject_id).isdigit():
-            questions = questions.filter(subjects__id=int(subject_id))
-        questions = questions.distinct()
+        questions = base_qs.filter(topic_id__in=topic_ids).filter(review_filter)
     data = [
         {'id': q.id, 'text': q.question_text[:80], 'topic_id': q.topic_id}
         for q in questions
@@ -706,12 +706,12 @@ def _pick_questions_for_versions(subject, selected_topics, user, versions_count,
     import random
     from collections import defaultdict
 
-    from .content_visibility import get_visible_questions
+    from .content_visibility import get_visible_questions, EXAM_ELIGIBLE_Q
 
     pools = defaultdict(list)
     base_qs = get_visible_questions(user, subject=subject, include_seed=include_seed).filter(
+        EXAM_ELIGIBLE_Q,
         topic__in=selected_topics,
-        ai_approved=True,
     ).select_related('topic')
     if allowed_question_ids:
         base_qs = base_qs.filter(pk__in=allowed_question_ids)
@@ -1333,13 +1333,13 @@ def save_exam_from_session(request):
     }
     has_full_exam_write_schema = bool(exam_columns) and expected_exam_columns.issubset(exam_columns)
 
-    from .content_visibility import get_visible_questions
+    from .content_visibility import get_visible_questions, EXAM_ELIGIBLE_Q
     include_seed = bool(exam_data.get('include_seed'))
 
     if preview_version_ids:
         chosen_versions = [
             list(get_visible_questions(request.user, include_seed=include_seed).filter(
-                pk__in=version_ids, ai_approved=True
+                EXAM_ELIGIBLE_Q, pk__in=version_ids,
             ).distinct())
             for version_ids in preview_version_ids
             if version_ids
@@ -1350,8 +1350,8 @@ def save_exam_from_session(request):
             chosen_versions = [list(get_visible_questions(
                 request.user, include_seed=include_seed
             ).filter(
+                EXAM_ELIGIBLE_Q,
                 pk__in=q_ids,
-                ai_approved=True,
             ).distinct())]
         else:
             balance_by_topic = str(exam_data.get('balance_by_topic', '1')) == '1'
@@ -2655,7 +2655,8 @@ def _aplicar_filtros_preguntas(preguntas, params):
 
 @login_required
 def lista_preguntas(request):
-    base_preguntas = Question.objects.filter(user=request.user).prefetch_related('subjects').select_related('topic', 'subtopic', 'contenido')
+    from .content_visibility import get_visible_questions
+    base_preguntas = get_visible_questions(request.user).prefetch_related('subjects').select_related('topic', 'subtopic', 'contenido', 'user')
 
     selected_filters = get_selected_filters(request, QUESTION_FILTER_FIELDS)
     subject_selected = set(request.GET.getlist('subject'))
@@ -2709,7 +2710,8 @@ def lista_preguntas(request):
 
 @login_required
 def ver_pregunta(request, pk):
-    pregunta = get_object_or_404(Question, pk=pk, user=request.user)
+    from .content_visibility import get_visible_questions
+    pregunta = get_object_or_404(get_visible_questions(request.user, include_seed=True), pk=pk)
     return render(request, 'material/questions/ver_pregunta.html', {'pregunta': pregunta})
 
 @login_required
@@ -5625,8 +5627,9 @@ def onboarding_v2_subject_status(request):
     if not subject_id.isdigit():
         return JsonResponse({'own_count': 0, 'has_seed': False, 'include_seed_active': False})
 
+    from .content_visibility import EXAM_ELIGIBLE_Q
     own_count = Question.objects.filter(
-        user=request.user, subjects__id=int(subject_id), ai_approved=True
+        EXAM_ELIGIBLE_Q, user=request.user, subjects__id=int(subject_id),
     ).distinct().count()
     has_seed = Question.objects.filter(
         subjects__id=int(subject_id), user__username=settings.SEED_CONTENT_USERNAME
@@ -6190,6 +6193,164 @@ def institution_ai_config_view(request):
         'editing': editing,
         'available_institutions': available_institutions,
     })
+
+
+# --- GRUPOS DE CONFIANZA (compartir preguntas entre docentes) -----------------
+
+@login_required
+def grupos_list(request):
+    from .models import SharingGroup, GroupMembership
+
+    my_memberships = GroupMembership.objects.filter(
+        user=request.user
+    ).exclude(status='rejected').select_related('group').order_by('-created_at')
+
+    context = {
+        'my_memberships': my_memberships,
+        'pending_invites_count': GroupMembership.objects.filter(
+            user=request.user, status='pending'
+        ).count(),
+    }
+    return render(request, 'material/groups/grupos_list.html', context)
+
+
+@login_required
+def grupo_crear(request):
+    from .models import SharingGroup, GroupMembership
+
+    if request.method == 'POST':
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            messages.error(request, 'El grupo necesita un nombre.', extra_tags='grupos')
+            return redirect('material:grupo_crear')
+        group = SharingGroup.objects.create(name=name, created_by=request.user)
+        GroupMembership.objects.create(
+            group=group, user=request.user, status='accepted', invited_by=request.user,
+            responded_at=timezone.now(),
+        )
+        messages.success(request, f'Grupo "{name}" creado.', extra_tags='grupos')
+        return redirect('material:grupo_detalle', pk=group.pk)
+
+    return render(request, 'material/groups/grupo_crear.html', {})
+
+
+@login_required
+def grupo_detalle(request, pk):
+    from .models import SharingGroup, GroupMembership, SubjectShare
+    from django.contrib.auth.models import User as UserModel
+
+    group = get_object_or_404(SharingGroup, pk=pk)
+    my_membership = GroupMembership.objects.filter(group=group, user=request.user).first()
+    if my_membership is None:
+        messages.error(request, 'No pertenecés a este grupo.', extra_tags='grupos')
+        return redirect('material:grupos_list')
+
+    is_accepted_member = my_membership.status == 'accepted'
+    if not is_accepted_member:
+        # Todavía no aceptó/rechazó la invitación: lo mandamos a resolverla ahí,
+        # no le mostramos el detalle del grupo (materias compartidas, etc.).
+        return redirect('material:invitaciones_pendientes')
+
+    memberships = group.memberships.select_related('user', 'invited_by').order_by('status', 'user__username')
+    member_ids = set(memberships.filter(status__in=['pending', 'accepted']).values_list('user_id', flat=True))
+    invitable_users = UserModel.objects.filter(is_active=True).exclude(
+        id__in=member_ids
+    ).exclude(id=request.user.id).order_by('username')
+
+    my_subjects = Subject.objects.filter(questions__user=request.user).distinct().order_by('name')
+    shared_subject_ids = set(
+        SubjectShare.objects.filter(
+            group=group, shared_by=request.user, is_active=True
+        ).values_list('subject_id', flat=True)
+    )
+
+    context = {
+        'group': group,
+        'memberships': memberships,
+        'invitable_users': invitable_users,
+        'my_subjects': my_subjects,
+        'shared_subject_ids': shared_subject_ids,
+    }
+    return render(request, 'material/groups/grupo_detalle.html', context)
+
+
+@login_required
+@require_POST
+def grupo_invitar(request, pk):
+    from .models import SharingGroup, GroupMembership
+
+    group = get_object_or_404(SharingGroup, pk=pk)
+    if not GroupMembership.objects.filter(group=group, user=request.user, status='accepted').exists():
+        messages.error(request, 'Solo los miembros del grupo pueden invitar.', extra_tags='grupos')
+        return redirect('material:grupos_list')
+
+    user_id = request.POST.get('user_id')
+    if str(user_id).isdigit():
+        target = User.objects.filter(pk=int(user_id), is_active=True).exclude(pk=request.user.id).first()
+        if target and not GroupMembership.objects.filter(group=group, user=target).exists():
+            GroupMembership.objects.create(
+                group=group, user=target, status='pending', invited_by=request.user,
+            )
+            messages.success(request, f'Invitación enviada a {target.username}.', extra_tags='grupos')
+        else:
+            messages.error(request, 'Ese usuario ya es miembro o ya fue invitado.', extra_tags='grupos')
+
+    return redirect('material:grupo_detalle', pk=group.pk)
+
+
+@login_required
+def invitaciones_pendientes(request):
+    from .models import GroupMembership
+
+    if request.method == 'POST':
+        membership_id = request.POST.get('membership_id')
+        action = request.POST.get('action')
+        membership = GroupMembership.objects.filter(
+            pk=membership_id, user=request.user, status='pending'
+        ).first()
+        if membership and action in ('accept', 'reject'):
+            membership.status = 'accepted' if action == 'accept' else 'rejected'
+            membership.responded_at = timezone.now()
+            membership.save(update_fields=['status', 'responded_at'])
+            if action == 'accept':
+                messages.success(request, f'Te uniste a "{membership.group.name}".', extra_tags='grupos')
+            else:
+                messages.info(request, f'Rechazaste la invitación a "{membership.group.name}".', extra_tags='grupos')
+        return redirect('material:invitaciones_pendientes')
+
+    pending = GroupMembership.objects.filter(
+        user=request.user, status='pending'
+    ).select_related('group', 'invited_by').order_by('-created_at')
+    return render(request, 'material/groups/invitaciones_pendientes.html', {'pending': pending})
+
+
+@login_required
+@require_POST
+def compartir_materia(request, pk):
+    from .models import SharingGroup, GroupMembership, SubjectShare
+
+    group = get_object_or_404(SharingGroup, pk=pk)
+    if not GroupMembership.objects.filter(group=group, user=request.user, status='accepted').exists():
+        messages.error(request, 'Solo los miembros del grupo pueden compartir materias.', extra_tags='grupos')
+        return redirect('material:grupos_list')
+
+    subject_id = request.POST.get('subject_id')
+    if str(subject_id).isdigit():
+        subject = Subject.objects.filter(pk=int(subject_id)).first()
+        if subject:
+            share, created = SubjectShare.objects.get_or_create(
+                group=group, subject=subject, shared_by=request.user,
+                defaults={'is_active': True},
+            )
+            if not created:
+                share.is_active = not share.is_active
+                share.save(update_fields=['is_active'])
+            if share.is_active:
+                messages.success(request, f'Compartiendo "{subject.name}" con el grupo.', extra_tags='grupos')
+            else:
+                messages.info(request, f'Dejaste de compartir "{subject.name}" con el grupo.', extra_tags='grupos')
+
+    return redirect('material:grupo_detalle', pk=group.pk)
 
 
 def health_check(request):

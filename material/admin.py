@@ -5,6 +5,7 @@ from .models import (
     Subject, Contenido, Question, Exam, ExamTemplate, Profile,
     Topic, Subtopic, Institution, InstitutionV2, LearningOutcome, Career,
     InstitutionAIConfig, UserAIConfig, GlobalAIConfig, encrypt_api_key,
+    SharingGroup, GroupMembership, SubjectShare,
 )
 from .forms import SubjectForm
 from django.contrib.auth.admin import UserAdmin
@@ -366,3 +367,43 @@ class GlobalAIConfigAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {'fields': ('provider', 'model', 'api_key', 'is_active')}),
     )
+
+
+# --- Grupos de confianza (compartir preguntas) ---
+class GroupMembershipInline(admin.TabularInline):
+    model = GroupMembership
+    extra = 0
+    fields = ('user', 'status', 'invited_by', 'created_at', 'responded_at')
+    readonly_fields = ('created_at',)
+
+
+class SubjectShareInline(admin.TabularInline):
+    model = SubjectShare
+    extra = 0
+    fields = ('subject', 'shared_by', 'is_active', 'created_at')
+    readonly_fields = ('created_at',)
+
+
+@admin.register(SharingGroup)
+class SharingGroupAdmin(admin.ModelAdmin):
+    list_display = ('name', 'created_by', 'created_at', 'members_count')
+    search_fields = ('name', 'created_by__username')
+    inlines = [GroupMembershipInline, SubjectShareInline]
+
+    def members_count(self, obj):
+        return obj.memberships.filter(status='accepted').count()
+    members_count.short_description = 'Miembros aceptados'
+
+
+@admin.register(GroupMembership)
+class GroupMembershipAdmin(admin.ModelAdmin):
+    list_display = ('group', 'user', 'status', 'invited_by', 'created_at', 'responded_at')
+    list_filter = ('status',)
+    search_fields = ('group__name', 'user__username')
+
+
+@admin.register(SubjectShare)
+class SubjectShareAdmin(admin.ModelAdmin):
+    list_display = ('group', 'subject', 'shared_by', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+    search_fields = ('group__name', 'subject__name', 'shared_by__username')

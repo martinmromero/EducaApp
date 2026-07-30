@@ -1,0 +1,101 @@
+{% extends 'material/base.html' %}
+{% load message_tags %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800"><i class="bi bi-people-fill me-2"></i>{{ group.name }}</h1>
+        <a href="{% url 'material:grupos_list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Mis grupos
+        </a>
+    </div>
+
+    {% show_messages "grupos" %}
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <strong>Miembros</strong>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for m in memberships %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ m.user.username }}
+                        {% if m.status == 'accepted' %}
+                        <span class="badge bg-success">Miembro</span>
+                        {% elif m.status == 'pending' %}
+                        <span class="badge bg-warning text-dark">Invitación pendiente</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Rechazó</span>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <strong>Invitar a un docente</strong>
+                </div>
+                <div class="card-body">
+                    {% if invitable_users %}
+                    <form method="post" action="{% url 'material:grupo_invitar' group.id %}" class="d-flex gap-2">
+                        {% csrf_token %}
+                        <select name="user_id" class="form-select" required>
+                            <option value="">— elegir usuario —</option>
+                            {% for u in invitable_users %}
+                            <option value="{{ u.id }}">{{ u.username }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-primary text-nowrap">
+                            <i class="bi bi-envelope-plus me-1"></i>Invitar
+                        </button>
+                    </form>
+                    {% else %}
+                    <p class="text-muted mb-0 small">No hay más usuarios disponibles para invitar.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <strong>Mis materias compartidas con este grupo</strong>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Al activar una materia, tus preguntas de esa materia quedan visibles para el resto
+                        del grupo — pueden usarlas al armar sus exámenes, pero no editarlas ni borrarlas.
+                    </p>
+                    {% if my_subjects %}
+                    <ul class="list-group">
+                        {% for subject in my_subjects %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ subject.name }}
+                            <form method="post" action="{% url 'material:compartir_materia' group.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="subject_id" value="{{ subject.id }}">
+                                {% if subject.id in shared_subject_ids %}
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="bi bi-check-circle me-1"></i>Compartiendo
+                                </button>
+                                {% else %}
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                    Compartir
+                                </button>
+                                {% endif %}
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted mb-0 small">Todavía no cargaste preguntas propias en ninguna materia.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

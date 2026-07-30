@@ -122,6 +122,13 @@
     <i class="bi bi-book me-2"></i> Materias
 </a>
 
+<a href="{% url 'material:grupos_list' %}" class="menu-item" style="text-decoration:none;">
+    <i class="bi bi-people-fill me-2"></i> Grupos
+    {% if pending_invites_count %}
+    <span class="badge bg-danger ms-1">{{ pending_invites_count }}</span>
+    {% endif %}
+</a>
+
         <!-- Cuestionarios Orales -->
         <a href="{% url 'material:list_oral_exams' %}" class="menu-item" style="text-decoration:none;">
             <i class="bi bi-mic me-2"></i> Cuestionarios Orales
