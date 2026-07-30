@@ -1,6 +1,7 @@
 # ONBOARDING WIZARD — ROLLBACK: eliminar este archivo y quitar su entrada de settings.py TEMPLATES
 import json as _json
-from .models import InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic, Contenido
+from django.conf import settings
+from .models import InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic, Contenido, InstitutionSubject
 
 
 def onboarding_context(request):
@@ -71,6 +72,27 @@ def onboarding_context(request):
         for c in contenidos_qs
     ]
 
+    # Materias con contenido semilla del sistema (para la rama "esquema
+    # precargado" del paso de decisión del wizard, ver [[project_onboarding_seed_content_plan]]).
+    seed_username = getattr(settings, 'SEED_CONTENT_USERNAME', 'educaapp_demo')
+    demo_subject_ids = list(
+        Subject.objects.filter(questions__user__username=seed_username)
+        .distinct().values_list('id', flat=True)
+    )
+    demo_institution_names = {
+        row['subject_id']: row['institution__name']
+        for row in InstitutionSubject.objects.filter(subject_id__in=demo_subject_ids)
+        .values('subject_id', 'institution__name')
+    }
+    demo_subjects = [
+        {
+            'id': s['id'],
+            'name': s['name'],
+            'institution_name': demo_institution_names.get(s['id'], ''),
+        }
+        for s in Subject.objects.filter(id__in=demo_subject_ids).order_by('name').values('id', 'name')
+    ]
+
     onb_data = {
         'autoShow': not profile.onboarding_completed,
         'userInstIds': list(user_inst_ids),
@@ -78,6 +100,7 @@ def onboarding_context(request):
         'userSubjects': user_subjects,
         'allSubjects': all_subjects,
         'userContenidos': user_contenidos,
+        'demoSubjects': demo_subjects,
     }
 
     return {

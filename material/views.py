@@ -153,12 +153,16 @@ def preview_exam(request):
     if questions_per_version <= 0:
         questions_per_version = len(manual_question_ids) if manual_question_ids else max(1, selected_topics.count())
 
+    from .content_visibility import get_visible_questions
+    include_seed = bool(exam.get('include_seed'))
+
     generated_versions = []
     if manual_question_ids and subject_obj:
         if versions_count == 1:
-            generated_versions = [list(Question.objects.filter(
+            generated_versions = [list(get_visible_questions(
+                request.user, subject=subject_obj, include_seed=include_seed
+            ).filter(
                 pk__in=manual_question_ids,
-                user=request.user,
                 ai_approved=True,
             ).distinct())]
         else:
@@ -171,6 +175,7 @@ def preview_exam(request):
                 questions_per_version=questions_per_version,
                 balance_by_topic=balance_by_topic,
                 allowed_question_ids=manual_question_ids,
+                include_seed=include_seed,
             )
     elif subject_obj:
         balance_by_topic = str(exam.get('balance_by_topic', '1')) == '1'
@@ -181,6 +186,7 @@ def preview_exam(request):
             versions_count=versions_count,
             questions_per_version=questions_per_version,
             balance_by_topic=balance_by_topic,
+            include_seed=include_seed,
         )
 
     versions_preview = []
@@ -371,7 +377,7 @@ from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, 
     OralExamSet, OralExamGroup, OralExamStudent, OralExamStudentQuestion,
     Rubric, ExamRubric, RubricLevel, RubricCriterion, RubricCell, ExamVersionBatch,
     FormatoImpresion)
-from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer)
+from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer, InstitutionSubject)
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
     UserEditForm, UserSelfEditForm, ContenidoForm,
@@ -648,6 +654,11 @@ def _collect_exam_post_data(request, form):
     exam_data['num_versions'] = request.POST.get('num_versions', '1').strip() or '1'
     exam_data['questions_per_version'] = request.POST.get('questions_per_version', '').strip()
     exam_data['balance_by_topic'] = '1' if request.POST.get('balance_by_topic') else '0'
+    # Preferencia de sumar contenido semilla, elegida en el wizard (paso 3 o 6,
+    # ver onboarding_save_step step='seed_pref'). No se popea acá: si el
+    # usuario reenvía el formulario (vuelve atrás y cambia algo), no debe
+    # perder la preferencia. Se limpia al terminar/salir del wizard.
+    exam_data['include_seed'] = bool(request.session.get('onb2_include_seed'))
     return exam_data
 
 
@@ -691,17 +702,17 @@ def _arrange_questions_avoiding_same_topic_consecutive(question_list):
     return result
 
 
-def _pick_questions_for_versions(subject, selected_topics, user, versions_count, questions_per_version, balance_by_topic=True, allowed_question_ids=None):
+def _pick_questions_for_versions(subject, selected_topics, user, versions_count, questions_per_version, balance_by_topic=True, allowed_question_ids=None, include_seed=False):
     import random
     from collections import defaultdict
 
+    from .content_visibility import get_visible_questions
+
     pools = defaultdict(list)
-    base_qs = Question.objects.filter(
-        subjects__id=subject.id,
-        user=user,
+    base_qs = get_visible_questions(user, subject=subject, include_seed=include_seed).filter(
         topic__in=selected_topics,
         ai_approved=True,
-    ).select_related('topic').distinct()
+    ).select_related('topic')
     if allowed_question_ids:
         base_qs = base_qs.filter(pk__in=allowed_question_ids)
 
@@ -1322,18 +1333,24 @@ def save_exam_from_session(request):
     }
     has_full_exam_write_schema = bool(exam_columns) and expected_exam_columns.issubset(exam_columns)
 
+    from .content_visibility import get_visible_questions
+    include_seed = bool(exam_data.get('include_seed'))
+
     if preview_version_ids:
         chosen_versions = [
-            list(Question.objects.filter(pk__in=version_ids, user=request.user, ai_approved=True).distinct())
+            list(get_visible_questions(request.user, include_seed=include_seed).filter(
+                pk__in=version_ids, ai_approved=True
+            ).distinct())
             for version_ids in preview_version_ids
             if version_ids
         ]
         versions_count = len(chosen_versions) if chosen_versions else versions_count
     elif q_ids:
         if versions_count == 1:
-            chosen_versions = [list(Question.objects.filter(
+            chosen_versions = [list(get_visible_questions(
+                request.user, include_seed=include_seed
+            ).filter(
                 pk__in=q_ids,
-                user=request.user,
                 ai_approved=True,
             ).distinct())]
         else:
@@ -1346,6 +1363,7 @@ def save_exam_from_session(request):
                 questions_per_version=questions_per_version,
                 balance_by_topic=balance_by_topic,
                 allowed_question_ids=q_ids,
+                include_seed=include_seed,
             )
     else:
         balance_by_topic = str(exam_data.get('balance_by_topic', '1')) == '1'
@@ -1356,6 +1374,7 @@ def save_exam_from_session(request):
             versions_count=versions_count,
             questions_per_version=questions_per_version,
             balance_by_topic=balance_by_topic,
+            include_seed=include_seed,
         )
     if not chosen_versions or not chosen_versions[0]:
         return _error('No hay preguntas suficientes para generar el examen.')
@@ -2357,16 +2376,25 @@ def exam_version_available_questions(request):
     if not (str(exam_id).isdigit() and str(question_id).isdigit()):
         return JsonResponse({'success': False, 'error': 'Parametros invalidos'}, status=400)
 
+    from .content_visibility import get_visible_questions
+
     exam = get_object_or_404(Exam, id=int(exam_id), created_by=request.user)
-    current_question = get_object_or_404(Question, id=int(question_id), user=request.user)
+    # Si el examen ya tiene alguna pregunta semilla (se sumaron con el "opt-in"
+    # del wizard), el reemplazo también puede ofrecer candidatas semilla —
+    # nunca al revés: un examen 100% propio nunca sugiere semilla sin que el
+    # usuario lo haya elegido antes.
+    include_seed = exam.questions.filter(user__username=settings.SEED_CONTENT_USERNAME).exists()
+    current_question = get_object_or_404(
+        get_visible_questions(request.user, include_seed=include_seed), id=int(question_id)
+    )
     used_ids = set(exam.questions.values_list('id', flat=True))
     used_ids.discard(current_question.id)
 
-    candidates = Question.objects.filter(
-        user=request.user,
-        subjects__id=exam.subject_id,
+    candidates = get_visible_questions(
+        request.user, subject=exam.subject_id, include_seed=include_seed
+    ).filter(
         topic_id=current_question.topic_id,
-    ).exclude(id__in=used_ids).distinct()[:80]
+    ).exclude(id__in=used_ids)[:80]
 
     return JsonResponse({
         'success': True,
@@ -2381,6 +2409,8 @@ def exam_version_available_questions(request):
 @login_required
 @require_POST
 def replace_exam_version_question(request):
+    from .content_visibility import get_visible_questions
+
     exam_id = request.POST.get('exam_id')
     old_question_id = request.POST.get('old_question_id')
     new_question_id = request.POST.get('new_question_id')
@@ -2388,7 +2418,10 @@ def replace_exam_version_question(request):
         return JsonResponse({'success': False, 'error': 'Parametros invalidos'}, status=400)
 
     exam = get_object_or_404(Exam, id=int(exam_id), created_by=request.user)
-    old_q = get_object_or_404(Question, id=int(old_question_id), user=request.user)
+    include_seed = exam.questions.filter(user__username=settings.SEED_CONTENT_USERNAME).exists()
+    old_q = get_object_or_404(
+        get_visible_questions(request.user, include_seed=include_seed), id=int(old_question_id)
+    )
     replace_mode = request.POST.get('replace_mode', 'same_topic')
 
     if replace_mode == 'random_other':
@@ -2396,16 +2429,17 @@ def replace_exam_version_question(request):
         used_ids = set(exam.questions.values_list('id', flat=True))
         used_ids.discard(old_q.id)
         candidates = list(
-            Question.objects.filter(
-                user=request.user,
-                subjects__id=exam.subject_id,
-            ).exclude(id__in=used_ids).exclude(topic_id=old_q.topic_id).distinct()
+            get_visible_questions(
+                request.user, subject=exam.subject_id, include_seed=include_seed
+            ).exclude(id__in=used_ids).exclude(topic_id=old_q.topic_id)
         )
         if not candidates:
             return JsonResponse({'success': False, 'error': 'No hay preguntas disponibles de otro tema.'}, status=400)
         new_q = random.choice(candidates)
     else:
-        new_q = get_object_or_404(Question, id=int(new_question_id), user=request.user)
+        new_q = get_object_or_404(
+            get_visible_questions(request.user, include_seed=include_seed), id=int(new_question_id)
+        )
 
     if replace_mode != 'random_other' and old_q.topic_id != new_q.topic_id:
         return JsonResponse({'success': False, 'error': 'La nueva pregunta debe ser del mismo tema.'}, status=400)
@@ -2431,15 +2465,20 @@ def preview_exam_available_questions(request):
     if version_index < 0 or version_index >= len(preview_versions):
         return JsonResponse({'success': False, 'error': 'Version invalida'}, status=400)
 
-    current_question = get_object_or_404(Question, id=int(question_id), user=request.user)
+    from .content_visibility import get_visible_questions
+    include_seed = bool(request.session.get('preview_exam', {}).get('include_seed'))
+
+    current_question = get_object_or_404(
+        get_visible_questions(request.user, include_seed=include_seed), id=int(question_id)
+    )
     used_ids = set(preview_versions[version_index])
     used_ids.discard(current_question.id)
 
-    candidates = Question.objects.filter(
-        user=request.user,
-        subjects__id=int(subject_id),
+    candidates = get_visible_questions(
+        request.user, subject=int(subject_id), include_seed=include_seed
+    ).filter(
         topic_id=current_question.topic_id,
-    ).exclude(id__in=used_ids).distinct()[:80]
+    ).exclude(id__in=used_ids)[:80]
 
     return JsonResponse({
         'success': True,
@@ -2466,7 +2505,12 @@ def preview_exam_replace_question(request):
     if version_index < 0 or version_index >= len(preview_versions):
         return JsonResponse({'success': False, 'error': 'Version invalida'}, status=400)
 
-    old_q = get_object_or_404(Question, id=int(old_question_id), user=request.user)
+    from .content_visibility import get_visible_questions
+    include_seed = bool(request.session.get('preview_exam', {}).get('include_seed'))
+
+    old_q = get_object_or_404(
+        get_visible_questions(request.user, include_seed=include_seed), id=int(old_question_id)
+    )
     replace_mode = request.POST.get('replace_mode', 'same_topic')
 
     if replace_mode == 'random_other':
@@ -2475,16 +2519,17 @@ def preview_exam_replace_question(request):
         used_ids = set(preview_versions[version_index])
         used_ids.discard(old_q.id)
         candidates = list(
-            Question.objects.filter(
-                user=request.user,
-                subjects__id=int(subject_id),
-            ).exclude(id__in=used_ids).exclude(topic_id=old_q.topic_id).distinct()
+            get_visible_questions(
+                request.user, subject=int(subject_id), include_seed=include_seed
+            ).exclude(id__in=used_ids).exclude(topic_id=old_q.topic_id)
         )
         if not candidates:
             return JsonResponse({'success': False, 'error': 'No hay preguntas disponibles de otro tema.'}, status=400)
         new_q = random.choice(candidates)
     else:
-        new_q = get_object_or_404(Question, id=int(new_question_id), user=request.user)
+        new_q = get_object_or_404(
+            get_visible_questions(request.user, include_seed=include_seed), id=int(new_question_id)
+        )
 
     if replace_mode != 'random_other' and old_q.topic_id != new_q.topic_id:
         return JsonResponse({'success': False, 'error': 'La nueva pregunta debe ser del mismo tema.'}, status=400)
@@ -5418,6 +5463,16 @@ def onboarding_save_step(request):
             # Paso 3: materia — puede ser existente (solo link o edit) o nueva
             existing_subject_id = body.get('existing_subject_id')
             subject_name = body.get('subject_name', '').strip()
+            # Institución elegida en el paso 2, para vincularla acá con la
+            # materia via InstitutionSubject (antes este vínculo no se creaba).
+            step2_institution_id = body.get('institution_id')
+
+            def _link_institution_subject(subject_id):
+                if step2_institution_id and str(step2_institution_id).isdigit() and subject_id:
+                    InstitutionSubject.objects.get_or_create(
+                        institution_id=int(step2_institution_id),
+                        subject_id=subject_id,
+                    )
 
             if existing_subject_id and body.get('edit_subject'):
                 # Editar materia existente
@@ -5468,6 +5523,15 @@ def onboarding_save_step(request):
                         Topic.objects.get_or_create(name=topic_name, subject=subject,
                                                     defaults={'importance': 3})
 
+            _link_institution_subject(extra.get('subject_id'))
+
+        elif step == 'seed_pref':
+            # Preferencia de sumar contenido semilla del sistema al examen de
+            # prueba, elegida por el usuario en el paso 3 (materia con match
+            # semilla) o sugerida en el paso 6 (pocas preguntas propias). Se
+            # consume una sola vez al guardar el examen (ver _collect_exam_post_data).
+            request.session['onb2_include_seed'] = bool(body.get('include_seed'))
+
         if body.get('done') or step == 'done':
             profile.onboarding_completed = True
             profile.save(update_fields=['onboarding_completed'])
@@ -5498,6 +5562,83 @@ def onboarding_v2_page(request):
 
 
 @login_required
+def onboarding_v2_demo_scheme(request):
+    """
+    Rama "Probar con un esquema ya armado" de la pantalla de decisión del
+    wizard: arma automáticamente, en 1-2 clicks, un examen de prueba usando
+    contenido semilla del sistema para la materia elegida (sin pasar por los
+    pasos manuales 2-5 de institución/materia/contenido/IA).
+    """
+    import datetime
+
+    subject_id = request.GET.get('subject_id', '')
+    if not subject_id.isdigit():
+        messages.error(request, 'Elegí una materia de ejemplo válida.', extra_tags='general')
+        return redirect('material:onboarding_v2_page')
+
+    subject = Subject.objects.filter(
+        pk=int(subject_id),
+        questions__user__username=settings.SEED_CONTENT_USERNAME,
+    ).distinct().first()
+    if not subject:
+        messages.error(request, 'Esa materia de ejemplo no está disponible.', extra_tags='general')
+        return redirect('material:onboarding_v2_page')
+
+    inst_subject = InstitutionSubject.objects.filter(subject=subject).select_related('institution').first()
+    today = datetime.date.today()
+
+    request.session['preview_exam'] = {
+        'subject': str(subject.id),
+        'institucion': str(inst_subject.institution_id) if inst_subject else '',
+        'topics': ['all'],
+        'learning_outcomes': [],
+        'questions': [],
+        'num_versions': '1',
+        'questions_per_version': '10',
+        'balance_by_topic': '1',
+        'tipo_examen': 'practico',
+        'tipo_modalidad': 'individual',
+        'profesor': str(request.user.id),
+        'fecha': today.isoformat(),
+        'year': str(today.year),
+        # Marca este examen como demo: es lo que le dice a preview_exam /
+        # save_exam_from_session que sumen contenido semilla del sistema
+        # además de (inexistentes, en este caso) preguntas propias del usuario.
+        'include_seed': True,
+    }
+    request.session.pop('preview_generated_versions_ids', None)
+    request.session['onb2_wizard_active'] = True
+    return redirect('material:preview_exam')
+
+
+@login_required
+def onboarding_v2_subject_status(request):
+    """
+    Estado de una materia para decidir si sugerir sumar contenido semilla:
+    cuántas preguntas propias tiene el usuario, si esa materia tiene contenido
+    semilla disponible, y si la preferencia de sumarlo ya está activa (elegida
+    antes, en el paso 3). Usado por el paso 6 del wizard para la sugerencia de
+    "tenés pocas preguntas propias" — nunca mezcla materias distintas, siempre
+    se consulta por un subject_id puntual.
+    """
+    subject_id = request.GET.get('subject_id', '')
+    if not subject_id.isdigit():
+        return JsonResponse({'own_count': 0, 'has_seed': False, 'include_seed_active': False})
+
+    own_count = Question.objects.filter(
+        user=request.user, subjects__id=int(subject_id), ai_approved=True
+    ).distinct().count()
+    has_seed = Question.objects.filter(
+        subjects__id=int(subject_id), user__username=settings.SEED_CONTENT_USERNAME
+    ).exists()
+    return JsonResponse({
+        'own_count': own_count,
+        'has_seed': has_seed,
+        'include_seed_active': bool(request.session.get('onb2_include_seed')),
+    })
+
+
+@login_required
 def onboarding_v2_finish(request):
     """
     Pantalla final del wizard v2: se llega acá después de guardar un examen
@@ -5506,6 +5647,7 @@ def onboarding_v2_finish(request):
     "gate" que lo mantenía encerrado en el asistente.
     """
     request.session.pop('onb2_wizard_active', None)
+    request.session.pop('onb2_include_seed', None)
     try:
         profile = request.user.profile
         if not profile.onboarding_completed:
@@ -5524,6 +5666,7 @@ def onboarding_v2_exit(request):
     libera al usuario del gate sin obligarlo a terminar el examen.
     """
     request.session.pop('onb2_wizard_active', None)
+    request.session.pop('onb2_include_seed', None)
     try:
         profile = request.user.profile
         if not profile.onboarding_completed:

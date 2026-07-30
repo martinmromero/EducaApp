@@ -26,6 +26,11 @@ ALLOWED_HOSTS.extend(['educaapp.vercel.app', 'localhost', '127.0.0.1'])
 # Configurás la lista de confianza para el login (CSRF)
 CSRF_TRUSTED_ORIGINS = ['https://educaapp.onrender.com', 'https://educaapp.vercel.app']
 
+# Usuario técnico dueño de todo el contenido semilla/demo del sistema
+# (instituciones, materias y preguntas de ejemplo no borrables). Se crea via
+# la migración de datos material/migrations/0042_seed_content_user.py.
+SEED_CONTENT_USERNAME = 'educaapp_demo'
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',

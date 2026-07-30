@@ -1592,8 +1592,16 @@ def save_generated_questions(request):
         # Resolver materias seleccionadas por el usuario
         selected_subjects = list(Subject.objects.filter(id__in=subject_ids)) if subject_ids else []
         if not selected_subjects:
-            # Fallback: primera materia disponible
-            fallback = Subject.objects.first()
+            # Fallback: la materia ya asociada al Contenido de origen (la que
+            # el usuario eligió al subir el documento), NO la primera materia
+            # del sistema en orden alfabético — eso hacía que, con contenido
+            # semilla cargado, cualquier guardado sin materia explícita
+            # terminara clasificado en la materia que alfabéticamente
+            # apareciera primero (p. ej. "Bases de Datos"), sin relación con
+            # lo que el usuario estaba trabajando.
+            fallback = contenido_origen.subjects.first() if contenido_origen else None
+            if not fallback:
+                fallback = Subject.objects.first()
             if not fallback:
                 return JsonResponse({
                     'success': False,

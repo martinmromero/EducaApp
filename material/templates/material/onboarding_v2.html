@@ -8,6 +8,40 @@
     <p class="text-muted mb-0">Te guiamos paso a paso: cargá tus datos, subí un contenido, aprobá preguntas generadas por IA y armá tu examen.</p>
   </div>
 
+  <!-- Pantalla de decisión: se muestra primero, antes de pedir cualquier dato -->
+  <div id="onb2Gateway">
+    <div class="card onb2-card shadow-sm">
+      <div class="card-body p-4 p-lg-5 text-center">
+        <h4 class="fw-semibold mb-2">¿Cómo querés empezar?</h4>
+        <p class="text-muted mb-4">Podés cargar tu propia información, o probar el sistema en un minuto con un esquema ya armado.</p>
+        <div class="row g-3 justify-content-center">
+          <div class="col-md-6">
+            <button type="button" class="btn btn-outline-primary w-100 h-100 py-4" id="onb2GatewayOwnBtn">
+              <i class="bi bi-pencil-square d-block mb-2" style="font-size:1.8rem"></i>
+              <span class="fw-semibold d-block">Cargar mi propia información</span>
+              <span class="text-muted small">Institución, materia y preguntas propias, con ayuda de IA</span>
+            </button>
+          </div>
+          <div class="col-md-6">
+            <button type="button" class="btn btn-outline-success w-100 h-100 py-4" id="onb2GatewayDemoBtn">
+              <i class="bi bi-stars d-block mb-2" style="font-size:1.8rem"></i>
+              <span class="fw-semibold d-block">Probar con un esquema ya armado</span>
+              <span class="text-muted small">Elegí una materia de ejemplo y mirá un examen ya armado</span>
+            </button>
+          </div>
+        </div>
+        <div id="onb2GatewayDemoPicker" class="d-none mt-4 text-start">
+          <p class="text-muted mb-2 small">Elegí una materia de ejemplo:</p>
+          <div id="onb2GatewayDemoCards" class="onb2-card-grid"></div>
+        </div>
+        <p class="text-muted mt-4 mb-0" style="font-size:.82rem">
+          <a href="#" id="onb2GatewaySkipLink" class="text-muted">Saltar y explorar el sistema por mi cuenta</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div id="onb2WizardBody" class="d-none">
   <div class="onb2-progress mb-4">
     <div class="progress" style="height:8px">
       <div class="progress-bar bg-primary" id="onb2ProgressBar" role="progressbar" style="width:16%"></div>
@@ -225,6 +259,15 @@
           <div class="onb2-panel d-none" id="onb2Panel6">
             <h4 class="fw-semibold mb-1"><i class="bi bi-clipboard-check me-2 text-primary"></i>Armá tu examen</h4>
             <p class="text-muted mb-3">Ya tenés preguntas aprobadas y guardadas. Ahora armamos el examen: elegís materia, cantidad de preguntas, y si querés una sola versión o varias por lotes.</p>
+
+            <div id="onb2Step6SeedSuggest" class="alert alert-info d-none" role="alert">
+              <p class="mb-2" id="onb2Step6SeedText"></p>
+              <button type="button" class="btn btn-sm btn-primary" id="onb2Step6SeedYes">
+                <i class="bi bi-stars me-1"></i>Sí, sumar preguntas de ejemplo
+              </button>
+              <button type="button" class="btn btn-sm btn-link text-muted" id="onb2Step6SeedNo">No, gracias</button>
+            </div>
+
             <div class="text-center py-4">
               <i class="bi bi-check-circle-fill text-success" style="font-size:2.5rem"></i>
               <p class="fw-semibold mt-3 mb-4">Preguntas guardadas. Listo para el último paso.</p>
@@ -253,6 +296,7 @@
         </div>
       </div>
     </div>
+  </div>
   </div>
 </div>
 
@@ -306,6 +350,7 @@
   const aiStatusUrl = '{% url "material:ai_config_status" %}';
   const connectGeminiUrl = '{% url "material:onboarding_v2_connect_gemini" %}';
   const docProcessorUrl = '{% url "material:document_processor_dashboard" %}';
+  const subjectStatusUrl = '{% url "material:onboarding_v2_subject_status" %}';
 
   let lastUploadedContenidoId = null;
   let lastSelectedSubjectId = null;
@@ -360,8 +405,37 @@
       if (lastUploadedContenidoId) url += '&contenido_id=' + lastUploadedContenidoId;
       if (lastSelectedSubjectId) url += '&subject_id=' + lastSelectedSubjectId;
       document.getElementById('onb2GoToCreateExamBtn').href = url;
+      maybeSuggestSeedAtStep6();
     }
   }
+
+  /* ── Paso 6: si el usuario tiene pocas preguntas propias en la materia y no
+     sumó contenido semilla en el paso 3, se lo sugerimos acá — siempre acotado
+     a la misma materia exacta, nunca mezclando materias distintas. ── */
+  async function maybeSuggestSeedAtStep6() {
+    const box = document.getElementById('onb2Step6SeedSuggest');
+    box.classList.add('d-none');
+    if (!lastSelectedSubjectId) return;
+    try {
+      const resp = await fetch(subjectStatusUrl + '?subject_id=' + lastSelectedSubjectId);
+      const data = await resp.json();
+      if (data.has_seed && !data.include_seed_active && data.own_count < 10) {
+        document.getElementById('onb2Step6SeedText').textContent =
+          'Tenés ' + data.own_count + ' pregunta(s) propia(s) en esta materia. ¿Sumamos preguntas de ejemplo del sistema para que tu examen de prueba sea más completo?';
+        box.classList.remove('d-none');
+      }
+    } catch (_) { /* no bloqueamos el paso 6 por un error de red */ }
+  }
+
+  document.getElementById('onb2Step6SeedYes').addEventListener('click', async function () {
+    const btn = this;
+    btn.disabled = true;
+    await saveStep('seed_pref', { include_seed: true });
+    document.getElementById('onb2Step6SeedSuggest').classList.add('d-none');
+  });
+  document.getElementById('onb2Step6SeedNo').addEventListener('click', function () {
+    document.getElementById('onb2Step6SeedSuggest').classList.add('d-none');
+  });
 
   /* ── Agregar una card nueva en vivo cuando el usuario crea institución/materia,
      sin esperar a un recargo de página (ONB_DATA es una foto del momento en que
@@ -554,10 +628,21 @@
         showStep(3);
       } else if (currentStep === 3) {
         const subjectName = document.getElementById('onb2SubjectName').value.trim();
-        const res = await saveStep(3, { existing_subject_id: selectedExistingSubjectId, subject_name: subjectName });
+        const res = await saveStep(3, { existing_subject_id: selectedExistingSubjectId, subject_name: subjectName, institution_id: selectedInstitutionId });
         if (res.subject_id) {
           lastSelectedSubjectId = res.subject_id;
           addSubjectCardIfNew(res.subject_id, subjectName);
+        }
+        // Si la materia elegida/creada coincide (por id, nunca por texto) con
+        // una materia que ya tiene contenido semilla del sistema, se lo
+        // ofrecemos: nunca se mezcla con preguntas de otra materia.
+        const demoMatch = (ONB_DATA.demoSubjects || []).find(function (s) { return s.id === res.subject_id; });
+        if (demoMatch) {
+          const wantsSeed = window.confirm(
+            'La materia "' + demoMatch.name + '" ya tiene preguntas de ejemplo del sistema.\n\n' +
+            '¿Querés sumarlas a tu banco para que tu examen de prueba sea más completo?'
+          );
+          await saveStep('seed_pref', { include_seed: wantsSeed });
         }
         showStep(4);
       } else if (currentStep === 4) {
@@ -679,9 +764,52 @@
     showStep(5);
   });
 
+  /* ── Pantalla de decisión (gateway): se muestra primero, antes de step 1 ── */
+  const gatewayEl = document.getElementById('onb2Gateway');
+  const wizardBodyEl = document.getElementById('onb2WizardBody');
+
+  function enterOwnFlow(step) {
+    gatewayEl.classList.add('d-none');
+    wizardBodyEl.classList.remove('d-none');
+    showStep(step >= 1 && step <= 6 ? step : 1);
+  }
+
+  document.getElementById('onb2GatewayOwnBtn').addEventListener('click', function () {
+    enterOwnFlow(1);
+  });
+
+  document.getElementById('onb2GatewayDemoBtn').addEventListener('click', function () {
+    document.getElementById('onb2GatewayDemoPicker').classList.toggle('d-none');
+  });
+
+  document.getElementById('onb2GatewaySkipLink').addEventListener('click', async function (ev) {
+    ev.preventDefault();
+    this.textContent = 'Saliendo…';
+    await saveStep('done', { done: true });
+    window.location.href = '{% url "material:index" %}';
+  });
+
+  (function renderDemoSubjects() {
+    const list = ONB_DATA.demoSubjects || [];
+    const cardsEl = document.getElementById('onb2GatewayDemoCards');
+    if (!list.length) {
+      cardsEl.innerHTML = '<p class="text-muted small mb-0">Todavía no hay materias de ejemplo cargadas en el sistema.</p>';
+      return;
+    }
+    const demoUrl = '{% url "material:onboarding_v2_demo_scheme" %}';
+    cardsEl.innerHTML = list.map(function (s) {
+      const institLabel = s.institution_name
+        ? ' <span class="text-muted" style="font-weight:400">(' + s.institution_name + ')</span>'
+        : '';
+      return '<a class="onb2-pick-card" href="' + demoUrl + '?subject_id=' + s.id + '" style="text-decoration:none">' +
+        '<i class="bi bi-book"></i>' + s.name + institLabel + '</a>';
+    }).join('');
+  })();
+
   // Si volvemos acá con ?step=N (p. ej. porque un contenido ya no tenía archivo
   // disponible, o porque el procesador de IA nos devolvió al terminar de guardar
-  // preguntas), arrancamos directo en ese paso en vez de en el paso 1. El
+  // preguntas), arrancamos directo en ese paso en vez de en el paso 1, saltando
+  // la pantalla de decisión (el usuario ya la pasó la primera vez). El
   // contenido/materia elegidos viajan como query params porque, al volver a
   // cargar la página, el estado en memoria del wizard se perdió.
   const params = new URLSearchParams(window.location.search);
@@ -691,7 +819,9 @@
   if (qSubjectId) lastSelectedSubjectId = qSubjectId;
 
   const requestedStep = parseInt(params.get('step'), 10);
-  showStep(requestedStep >= 1 && requestedStep <= 6 ? requestedStep : 1);
+  if (requestedStep >= 1 && requestedStep <= 6) {
+    enterOwnFlow(requestedStep);
+  }
 })();
 </script>
 {% endblock %}
