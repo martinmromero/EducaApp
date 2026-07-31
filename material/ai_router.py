@@ -563,8 +563,8 @@ class GlobalFallbackBackend:
         solo para leer los headers de cupo de la respuesta — no genera preguntas.
         Sigue consumiendo 1 request contra el RPD del proveedor (no hay forma de
         conocer el cupo sin gastar una llamada), pero el gasto de TPM es
-        despreciable. Pensado para llamarse como mucho una vez cada varios
-        minutos (ver `ensure_fresh_demo_quota`), no en cada carga de página.
+        despreciable. Pensado para llamarse como mucho una vez por hora
+        (ver `ensure_fresh_demo_quota`), no en cada carga de página.
         """
         try:
             self.generate(prompt='.', max_tokens=1, temperature=0)
@@ -638,7 +638,7 @@ def get_global_demo_quota():
     }
 
 
-def ensure_fresh_demo_quota(max_age_seconds=300):
+def ensure_fresh_demo_quota(max_age_seconds=3600):
     """Si el fallback global está activo y el último cupo conocido tiene más de
     `max_age_seconds` (o nunca se registró ninguno), hace un ping mínimo
     (`GlobalFallbackBackend.refresh_quota`) para refrescarlo antes de leerlo.
