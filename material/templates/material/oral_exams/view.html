@@ -166,7 +166,7 @@
                             <div class="question-item mb-3" data-question-order="{{ sq.order }}">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <div class="d-flex align-items-center">
-                                        <strong class="text-dark">Pregunta {{ sq.order }}:</strong>
+                                        <strong>Pregunta {{ sq.order }}:</strong>
                                         <button class="btn btn-sm btn-outline-warning ml-2 change-question-btn" 
                                                 data-student-question-id="{{ sq.id }}" 
                                                 data-group-id="{{ student.group.id }}"
@@ -189,7 +189,7 @@
                                 {% endif %}
                                 <details class="mt-2">
                                     <summary class="text-success cursor-pointer">Ver respuesta</summary>
-                                    <div class="mt-2 p-2 bg-light rounded">
+                                    <div class="mt-2 p-2 bg-body-tertiary rounded">
                                         <p>{{ sq.question.answer_text }}</p>
                                         {% if sq.question.answer_image %}
                                             <img src="{{ sq.question.answer_image.url }}" class="img-fluid mt-2" style="max-width: 200px;">
@@ -296,7 +296,7 @@
             <div class="modal-body">
                 <div class="mb-3">
                     <h6>Pregunta actual:</h6>
-                    <div id="currentQuestionText" class="p-2 bg-light rounded"></div>
+                    <div id="currentQuestionText" class="p-2 bg-body-tertiary rounded"></div>
                 </div>
                 
                 <div class="mb-3">
@@ -384,7 +384,7 @@ details[open] > summary::before {
 
 /* Estilos para modal de intercambio */
 .list-group-item:hover {
-    background-color: #f8f9fa;
+    background-color: var(--bs-tertiary-bg);
 }
 
 .list-group-item input[type="radio"]:checked + div {

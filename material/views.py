@@ -3051,7 +3051,6 @@ def upload_questions(request):
     
     context = {
         'form': form,
-        'dark_mode': request.session.get('dark_mode', False),
         'current_tab': request.session.get('upload_questions_tab', 'single')
     }
     

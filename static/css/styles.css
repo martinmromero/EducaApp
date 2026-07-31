@@ -169,42 +169,59 @@
     }
 }
 
-/* Estilos para el modo oscuro */
-body.dark-mode {
+/* Estilos para el modo oscuro — [data-bs-theme="dark"] en <html> es el
+   mecanismo nativo de Bootstrap 5.3 (ver base.html); estas reglas cubren lo
+   que es específico de EducaApp y no un componente Bootstrap (sidebar,
+   toggle externo), que Bootstrap no puede adaptar solo. */
+[data-bs-theme="dark"] {
     background-color: #121212;
     color: #ffffff;
 }
-.dark-mode .sidebar {
+[data-bs-theme="dark"] .sidebar {
     background-color: #1e1e1e;
     color: #ffffff;
 }
-.dark-mode .sidebar a {
+[data-bs-theme="dark"] .sidebar a {
     color: #ffffff;
 }
-.dark-mode .sidebar a:hover {
+[data-bs-theme="dark"] .sidebar a:hover {
     background-color: #333;
 }
-.dark-mode .sidebar .user-info {
+[data-bs-theme="dark"] .sidebar .app-brand {
+    border-bottom-color: #333;
+}
+[data-bs-theme="dark"] .sidebar .app-brand a {
+    color: #ffffff;
+}
+[data-bs-theme="dark"] .sidebar .user-info {
     color: #ffffff;
     border-bottom-color: #333;
 }
-.dark-mode .sidebar .bottom-links {
+[data-bs-theme="dark"] .sidebar .bottom-links {
     border-top-color: #333;
 }
-.dark-mode .sidebar .logout-button {
+[data-bs-theme="dark"] .sidebar .logout-button {
     color: #ffffff;
 }
-.dark-mode .sidebar .logout-button:hover {
+[data-bs-theme="dark"] .sidebar .logout-button:hover {
     background-color: #333;
 }
-.dark-mode .sidebar .menu-item {
+[data-bs-theme="dark"] .sidebar .menu-item {
     color: #ffffff;
 }
-.dark-mode .sidebar .menu-item:hover {
+[data-bs-theme="dark"] .sidebar .menu-item:hover {
     background-color: #333;
 }
-.dark-mode .sidebar .submenu a {
+[data-bs-theme="dark"] .sidebar .submenu a {
     color: #ffffff;
+}
+[data-bs-theme="dark"] .sidebar-toggle-external {
+    background-color: #1e1e1e;
+    color: #e9ecef;
+    border-color: #333;
+}
+[data-bs-theme="dark"] .sidebar-toggle-external:hover {
+    background-color: #333;
 }
 
 /* Estilos para el menú de dos niveles */

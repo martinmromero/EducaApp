@@ -241,11 +241,11 @@
     /* Modo oscuro - corrección de textos (table-striped/table-hover ya vienen
        con estilos consistentes con el resto del sitio; solo hace falta ajustar
        el contraste de los textos que usan text-dark/text-muted a mano) */
-    body.dark-mode .institution-name,
-    body.dark-mode .no-logo-text,
-    body.dark-mode .no-campus-text,
-    body.dark-mode .no-faculty-text,
-    body.dark-mode .text-muted {
+    [data-bs-theme="dark"] .institution-name,
+    [data-bs-theme="dark"] .no-logo-text,
+    [data-bs-theme="dark"] .no-campus-text,
+    [data-bs-theme="dark"] .no-faculty-text,
+    [data-bs-theme="dark"] .text-muted {
         color: #ffffff !important;
         opacity: 0.9 !important;
     }

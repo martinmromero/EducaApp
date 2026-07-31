@@ -5,9 +5,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>EducaApp</title>
+    <script>
+      // Aplica el tema ANTES de que se pinte cualquier CSS, para evitar el
+      // "flash" de tema claro al recargar con modo oscuro guardado. Tiene que
+      // ser un script síncrono e inline en <head>, antes de los <link> de CSS.
+      (function () {
+        try {
+          if (localStorage.getItem('mode') === 'dark') {
+            document.documentElement.setAttribute('data-bs-theme', 'dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/theme.css' %}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
       /* Fallback critico para produccion: evita depender de cache de static/css/styles.css */
@@ -169,7 +182,7 @@
     <!-- Contenido principal -->
     <div class="main-content" id="mainContent">
         <!-- Barra de navegación superior -->
-        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <nav class="navbar navbar-expand-lg bg-body-tertiary">
             <div class="container-fluid">
             <div></div>
                 <div class="d-flex">
@@ -246,18 +259,19 @@
             updateMobileToggleButton();
         }
 
-        // Modo claro/oscuro
+        // Modo claro/oscuro — data-bs-theme en <html> es lo que Bootstrap 5.3
+        // usa para adaptar automáticamente cards, modales, tablas, formularios,
+        // dropdowns y accordions (ver theme.css para lo específico de EducaApp).
+        // El atributo ya se aplicó en <head> si corresponde (evita flash); acá
+        // solo sincronizamos el ícono del botón y manejamos el click.
         const toggleModeButton = document.getElementById('toggleMode');
-        const body = document.body;
-        const savedMode = localStorage.getItem('mode');
-        if (savedMode === 'dark') {
-            body.classList.add('dark-mode');
-            if (toggleModeButton) toggleModeButton.innerHTML = '<i class="bi bi-sun-fill"></i>';
-        }
+        const htmlEl = document.documentElement;
         if (toggleModeButton) {
+            const isDarkNow = htmlEl.getAttribute('data-bs-theme') === 'dark';
+            toggleModeButton.innerHTML = isDarkNow ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
             toggleModeButton.addEventListener('click', () => {
-                body.classList.toggle('dark-mode');
-                const isDarkMode = body.classList.contains('dark-mode');
+                const isDarkMode = htmlEl.getAttribute('data-bs-theme') !== 'dark';
+                htmlEl.setAttribute('data-bs-theme', isDarkMode ? 'dark' : 'light');
                 localStorage.setItem('mode', isDarkMode ? 'dark' : 'light');
                 toggleModeButton.innerHTML = isDarkMode ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
             });

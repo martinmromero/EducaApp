@@ -36,8 +36,8 @@ document.addEventListener('DOMContentLoaded', function() {
 {% load message_tags %}
 
 {% block content %}
-<div class="container {% if dark_mode %}bg-dark text-light{% else %}bg-light{% endif %}" style="min-height: 100vh; padding: 20px;">
-    <h1 class="{% if dark_mode %}text-light{% else %}text-dark{% endif %}">Subir Preguntas</h1>
+<div class="container" style="min-height: 100vh; padding: 20px;">
+    <h1>Subir Preguntas</h1>
 
     <!-- Mensajes específicos de preguntas -->
     {% show_messages "preguntas" %}
@@ -427,12 +427,12 @@ nivel_bloom: 2
 
 <style>
     .nav-tabs .nav-link {
-        color: {% if dark_mode %}#ffffff{% else %}#495057{% endif %};
-        background-color: {% if dark_mode %}#343a40{% else %}#f8f9fa{% endif %};
+        color: var(--bs-secondary-color);
+        background-color: var(--bs-tertiary-bg);
     }
     .nav-tabs .nav-link.active {
-        color: {% if dark_mode %}#000000{% else %}#495057{% endif %};
-        background-color: {% if dark_mode %}#f8f9fa{% else %}#ffffff{% endif %};
+        color: var(--bs-body-color);
+        background-color: var(--bs-body-bg);
     }
     
     .input-group-append .btn {

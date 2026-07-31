@@ -6,7 +6,7 @@ del asistente, con progreso y una salida explícita.
 Uso: {% include 'material/_onb2_banner.html' with onb2_step=5 onb2_step_label="Generá y aprobá preguntas" %}
 {% endcomment %}
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-3 py-2 mb-3 rounded"
-     style="background:#eaf2ff;border:1px solid #cfe2ff;">
+     style="background:var(--edu-accent-soft-bg);border:1px solid var(--edu-accent-soft-border);">
   <div class="d-flex align-items-center gap-2" style="font-size:.92rem">
     <i class="bi bi-magic text-primary"></i>
     <span class="fw-semibold">Asistente de configuración</span>
@@ -20,8 +20,8 @@ Uso: {% include 'material/_onb2_banner.html' with onb2_step=5 onb2_step_label="G
 /* Recuadro que envuelve el contenido real de la página para que se siga
    sintiendo "adentro" del asistente, como en los pasos 1 a 4. */
 .onb2-focus-frame {
-  border: 2px solid #cfe2ff;
-  background: #fbfdff;
+  border: 2px solid var(--edu-accent-soft-border);
+  background: var(--bs-body-bg);
   border-radius: .75rem;
   padding: 1.25rem;
   margin-bottom: 1.5rem;
@@ -29,7 +29,7 @@ Uso: {% include 'material/_onb2_banner.html' with onb2_step=5 onb2_step_label="G
 /* Campos que el asistente completó por vos a partir de lo que ya cargaste. */
 .onb2-from-wizard {
   border-color: #198754 !important;
-  background-color: #f0fff4 !important;
+  background-color: var(--bs-success-bg-subtle) !important;
   box-shadow: 0 0 0 .15rem rgba(25, 135, 84, .15);
 }
 .onb2-badge { font-size: .65rem; vertical-align: middle; }

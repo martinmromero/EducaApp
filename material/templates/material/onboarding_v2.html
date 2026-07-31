@@ -283,7 +283,7 @@
         </div>
 
         <!-- Footer -->
-        <div class="card-footer bg-white d-flex justify-content-between p-3">
+        <div class="card-footer d-flex justify-content-between p-3">
           <button type="button" class="btn btn-link text-muted" id="onb2SkipBtn">Saltar asistente</button>
           <div class="d-flex gap-2">
             <button type="button" class="btn btn-outline-secondary d-none" id="onb2BackBtn">
@@ -315,21 +315,21 @@
 .onb2-step-item { display: flex; align-items: center; gap: .75rem; opacity: .5; transition: opacity .2s; }
 .onb2-step-item.onb2-active, .onb2-step-item.onb2-done { opacity: 1; }
 .onb2-step-dot {
-  width: 36px; height: 36px; border-radius: 50%; background: #dee2e6; color: #555;
+  width: 36px; height: 36px; border-radius: 50%; background: var(--bs-secondary-bg); color: var(--bs-secondary-color);
   display: flex; align-items: center; justify-content: center; font-weight: 600; flex-shrink: 0;
 }
 .onb2-step-item.onb2-active .onb2-step-dot { background: #0d6efd; color: #fff; }
 .onb2-step-item.onb2-done .onb2-step-dot { background: #198754; color: #fff; }
-.onb2-contenido-item.onb2-selected { background:#e8f4fd; }
+.onb2-contenido-item.onb2-selected { background: var(--edu-accent-soft-bg); }
 .onb2-toggle-summary { cursor: pointer; font-size: .9rem; }
 .onb2-card-grid { display: flex; flex-wrap: wrap; gap: .75rem; }
 .onb2-pick-card {
-  border: 2px solid #dee2e6; border-radius: .75rem; padding: .9rem 1.25rem;
+  border: 2px solid var(--bs-border-color); border-radius: .75rem; padding: .9rem 1.25rem;
   cursor: pointer; font-weight: 600; font-size: 1.05rem; transition: .15s;
-  display: flex; align-items: center; gap: .5rem; background: #fff;
+  display: flex; align-items: center; gap: .5rem; background: var(--bs-body-bg); color: var(--bs-body-color);
 }
 .onb2-pick-card:hover { border-color: #adb5bd; }
-.onb2-pick-card.onb2-picked { border-color: #0d6efd; background: #eaf2ff; color: #0d6efd; }
+.onb2-pick-card.onb2-picked { border-color: #0d6efd; background: var(--edu-accent-soft-bg); color: var(--edu-accent-soft-text); }
 @media (max-width: 991px) {
   .onb2-stepper { flex-direction: row; overflow-x: auto; gap: 1rem; position: static; }
   .onb2-step-text { display: none; }

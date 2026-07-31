@@ -403,7 +403,7 @@
 
       <div class="modal-body p-0">
         <!-- Tabs: Páginas | Capítulos -->
-        <ul class="nav nav-tabs px-3 pt-2 bg-light border-bottom" id="previewTabs">
+        <ul class="nav nav-tabs px-3 pt-2 bg-body-tertiary border-bottom" id="previewTabs">
           <li class="nav-item">
             <button class="nav-link active" id="previewPagesTab" data-bs-toggle="tab" data-bs-target="#previewPagesPane" type="button">
               <i class="fas fa-th-large me-1"></i> <span id="previewPagesTabLabel">Páginas</span>
@@ -455,14 +455,14 @@
               <div class="row g-0" style="min-height:60vh">
                 <!-- Panel izquierdo: render del documento -->
                 <div class="col-md-8 border-end" style="overflow-y:auto;max-height:70vh">
-                  <div class="p-2 bg-light border-bottom">
+                  <div class="p-2 bg-body-tertiary border-bottom">
                     <small class="text-muted"><i class="fas fa-eye me-1"></i>Vista del documento (solo lectura)</small>
                   </div>
                   <div id="docxRenderTarget" style="padding:20px;background:white"></div>
                 </div>
                 <!-- Panel derecho: secciones con checkboxes -->
                 <div class="col-md-4" style="overflow-y:auto;max-height:70vh">
-                  <div class="p-2 bg-light border-bottom">
+                  <div class="p-2 bg-body-tertiary border-bottom">
                     <small class="text-muted"><i class="fas fa-check-square me-1"></i>Secciones a analizar</small>
                   </div>
                   <div id="docxSectionsList" class="p-3"></div>
@@ -477,14 +477,14 @@
               <div class="row g-0" style="min-height:60vh">
                 <!-- Panel izquierdo: texto completo con bloques resaltables (Opción D) -->
                 <div class="col-md-7 border-end" id="docxFullTextPanel" style="overflow-y:auto;max-height:70vh">
-                  <div class="p-2 bg-light border-bottom">
+                  <div class="p-2 bg-body-tertiary border-bottom">
                     <small class="text-muted"><i class="fas fa-align-left me-1"></i>Texto del documento — los segmentos seleccionados se resaltan</small>
                   </div>
                   <div id="docxFullTextBlocks" class="p-2"></div>
                 </div>
                 <!-- Panel derecho: tarjetas para selección (Opción D) -->
                 <div class="col-md-5" style="overflow-y:auto;max-height:70vh">
-                  <div class="p-2 bg-light border-bottom">
+                  <div class="p-2 bg-body-tertiary border-bottom">
                     <small class="text-muted"><i class="fas fa-check-square me-1"></i>Páginas a analizar</small>
                   </div>
                   <div class="px-3 pt-3">
@@ -523,7 +523,7 @@
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button type="button" class="btn btn-success" id="previewGenerateBtn" onclick="generateFromPageSelection()" disabled>
           <i class="fas fa-magic"></i> Generar preguntas con IA
-          <span id="previewGenerateBadge" class="badge bg-light text-dark ms-1">0</span>
+          <span id="previewGenerateBadge" class="badge bg-body-secondary ms-1">0</span>
         </button>
       </div>
     </div>
@@ -1018,7 +1018,7 @@ async function loadLocalModels() {
                     <br><small>Haz clic en "Activar" para cambiar de modelo</small>
                 </div>
                 <table class="table table-hover">
-                    <thead class="table-light">
+                    <thead class="table-secondary">
                         <tr>
                             <th><i class="fas fa-brain"></i> Modelo</th>
                             <th><i class="fas fa-hdd"></i> Tamaño</th>
@@ -2525,7 +2525,7 @@ function _renderDocxCards(sections, allowedPages) {
           <input type="checkbox" class="form-check-input page-select-cb" id="pageCb_${n}"
             value="${n}" onclick="event.stopPropagation();togglePageSelection(${n},'section')">
           <span class="fw-semibold text-truncate" style="max-width:75%;font-size:0.85rem">${_escapeHtml(sec.title)}</span>
-          <span class="badge bg-light text-secondary ms-auto" style="font-size:0.65rem;white-space:nowrap">${sec.char_count} chars</span>
+          <span class="badge bg-body-secondary ms-auto" style="font-size:0.65rem;white-space:nowrap">${sec.char_count} chars</span>
         </div>
         <div class="card-body p-2" style="font-size:0.75rem;white-space:pre-wrap;overflow:hidden;max-height:80px;color:#555">${_escapeHtml(previewText)}</div>
       </div>`;
@@ -2856,28 +2856,28 @@ function _escapeHtml(str) {
    ROLLBACK: borrar todo este bloque de CSS
    ─────────────────────────────────────────────────────────────────── */
 .docx-full-block {
-  border-left: 3px solid #dee2e6;
+  border-left: 3px solid var(--bs-border-color);
   margin: 0 0 2px 0;
   padding: 10px 14px;
   transition: background 0.15s, border-color 0.2s, box-shadow 0.2s;
   font-size: 0.82rem;
   line-height: 1.55;
   white-space: pre-wrap;
-  color: #333;
+  color: var(--bs-body-color);
 }
 .docx-block-label {
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: #888;
+  color: var(--bs-secondary-color);
   text-transform: uppercase;
   margin-bottom: 4px;
 }
 .docx-full-block + .docx-full-block {
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--bs-border-color);
 }
 .docx-full-block.docx-block-selected {
-  background: #e8f5e9;
+  background: var(--bs-success-bg-subtle);
   border-left: 4px solid #198754;
   box-shadow: inset 0 0 0 1px #19875433;
 }
@@ -2901,7 +2901,7 @@ function _escapeHtml(str) {
 }
 
 .nav-tabs .nav-link {
-    color: #666;
+    color: var(--bs-secondary-color);
 }
 
 .nav-tabs .nav-link.active {

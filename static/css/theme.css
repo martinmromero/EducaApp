@@ -1,0 +1,38 @@
+/*
+ * Variables de tema centralizadas de EducaApp.
+ *
+ * Bootstrap 5.3 ya expone variables --bs-* que cambian solas con
+ * [data-bs-theme="dark"] (--bs-body-bg, --bs-body-color, --bs-border-color,
+ * --bs-secondary-bg, --bs-tertiary-bg, etc.) — para cualquier cosa nueva,
+ * usar esas directamente antes que inventar una propia.
+ *
+ * Las variables --edu-* de acá abajo son solo para los pocos casos
+ * específicos de EducaApp que Bootstrap no cubre (superficies con tinte de
+ * marca, no un gris neutro). Están definidas en base a las --bs-* para que
+ * ya respondan al toggle de tema sin tocar nada más.
+ *
+ * Punto de entrada pensado para pegar acá la paleta de getdesign.md más
+ * adelante: cambiando estos valores (o los --bs-primary/--bs-* de Bootstrap)
+ * se actualiza todo el sitio sin tocar los templates.
+ */
+
+:root {
+  --edu-surface: var(--bs-body-bg);
+  --edu-surface-alt: var(--bs-tertiary-bg);
+  --edu-surface-raised: var(--bs-body-bg);
+  --edu-border: var(--bs-border-color);
+  --edu-text: var(--bs-body-color);
+  --edu-text-muted: var(--bs-secondary-color);
+
+  /* Superficie "destacada" con tinte de marca (usada en tarjetas de
+     onboarding, banners de asistente, resaltados de bloom, etc.) */
+  --edu-accent-soft-bg: #eaf2ff;
+  --edu-accent-soft-border: #cfe2ff;
+  --edu-accent-soft-text: var(--bs-primary);
+}
+
+[data-bs-theme="dark"] {
+  --edu-accent-soft-bg: rgba(13, 110, 253, 0.15);
+  --edu-accent-soft-border: rgba(13, 110, 253, 0.35);
+  --edu-accent-soft-text: #6ea8fe;
+}
