@@ -6105,7 +6105,7 @@ def ai_config_list_models(request):
 def ai_config_status(request):
     """Endpoint JSON que devuelve el estado actual del backend configurado."""
     from django.http import JsonResponse
-    from .ai_router import get_backend_for_user, get_global_demo_quota, GlobalFallbackBackend
+    from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota, GlobalFallbackBackend
     from .models import UserAIConfig
 
     config, _ = UserAIConfig.objects.get_or_create(user=request.user)
@@ -6120,6 +6120,7 @@ def ai_config_status(request):
 
     status['using_shared_fallback'] = is_global_fallback
     if is_global_fallback:
+        ensure_fresh_demo_quota()
         quota = get_global_demo_quota()
         if quota:
             status['demo_quota'] = {
@@ -6128,6 +6129,8 @@ def ai_config_status(request):
                 'remaining_requests': quota['remaining_requests'],
                 'limit_requests': quota['limit_requests'],
                 'requests_reset_at': quota['requests_reset_at'].isoformat() if quota['requests_reset_at'] else None,
+                'remaining_tokens': quota['remaining_tokens'],
+                'limit_tokens': quota['limit_tokens'],
             }
     return JsonResponse(status)
 

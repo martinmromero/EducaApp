@@ -307,12 +307,19 @@ def document_processor_dashboard(request):
     """
     from material.models import Subject
     # Obtener backend configurado para este usuario (no la instancia global)
-    from .ai_router import get_backend_for_user, get_global_demo_quota, GlobalFallbackBackend
+    from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota, GlobalFallbackBackend
     backend = get_backend_for_user(request.user)
     ai_status = backend.get_status()
 
     using_shared_fallback = isinstance(backend, GlobalFallbackBackend)
+    if using_shared_fallback:
+        ensure_fresh_demo_quota()
     demo_quota = get_global_demo_quota() if using_shared_fallback else None
+    demo_quota_low_tokens = bool(
+        demo_quota and demo_quota.get('limit_tokens')
+        and demo_quota.get('remaining_tokens') is not None
+        and (demo_quota['remaining_tokens'] / demo_quota['limit_tokens']) < 0.2
+    )
 
     # ONBOARDING WIZARD V2: si venimos del asistente (?wizard=1), lo recordamos en
     # sesión para poder mostrar el banner de continuidad también en /crear-examen/
@@ -344,6 +351,7 @@ def document_processor_dashboard(request):
         'wizard_active': wizard_active,
         'using_shared_fallback': using_shared_fallback,
         'demo_quota': demo_quota,
+        'demo_quota_low_tokens': demo_quota_low_tokens,
     }
     
     return render(request, 'material/document_processor_dashboard.html', context)
@@ -439,7 +447,7 @@ def check_local_ai_status(request):
         JSON con estado de conexión y modelo activo
     """
     try:
-        from .ai_router import get_backend_for_user, get_global_demo_quota, GlobalFallbackBackend
+        from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota, GlobalFallbackBackend
         from .models import UserAIConfig
         config, _ = UserAIConfig.objects.get_or_create(user=request.user)
         backend = get_backend_for_user(request.user)
@@ -447,6 +455,7 @@ def check_local_ai_status(request):
         status['backend'] = config.source
         if isinstance(backend, GlobalFallbackBackend):
             status['using_shared_fallback'] = True
+            ensure_fresh_demo_quota()
             quota = get_global_demo_quota()
             if quota:
                 status['demo_quota'] = {
@@ -454,6 +463,8 @@ def check_local_ai_status(request):
                     'remaining_requests': quota['remaining_requests'],
                     'limit_requests': quota['limit_requests'],
                     'requests_reset_at': quota['requests_reset_at'].isoformat() if quota['requests_reset_at'] else None,
+                    'remaining_tokens': quota['remaining_tokens'],
+                    'limit_tokens': quota['limit_tokens'],
                 }
         return JsonResponse({'success': True, **status})
     except Exception as e:

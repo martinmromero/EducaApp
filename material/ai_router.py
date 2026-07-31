@@ -558,6 +558,19 @@ class GlobalFallbackBackend:
             self._save_quota_snapshot(rate_limit)
         return result
 
+    def refresh_quota(self):
+        """Pide un mínimo indispensable (1 token de salida, prompt de una letra)
+        solo para leer los headers de cupo de la respuesta — no genera preguntas.
+        Sigue consumiendo 1 request contra el RPD del proveedor (no hay forma de
+        conocer el cupo sin gastar una llamada), pero el gasto de TPM es
+        despreciable. Pensado para llamarse como mucho una vez cada varios
+        minutos (ver `ensure_fresh_demo_quota`), no en cada carga de página.
+        """
+        try:
+            self.generate(prompt='.', max_tokens=1, temperature=0)
+        except Exception as e:
+            logger.warning(f'No se pudo refrescar el cupo del fallback global: {e}')
+
     def _save_quota_snapshot(self, rate_limit):
         try:
             from django.utils import timezone
@@ -604,8 +617,9 @@ def _global_demo_backend():
 
 def get_global_demo_quota():
     """Último cupo conocido del fallback de demo (GlobalAIConfig activo), tomado
-    de la última llamada de generación real que se haya hecho con esa key.
-    Devuelve None si no hay fallback activo o todavía no se generó nada con él."""
+    de la última llamada real (generación de preguntas o ping de refresco vía
+    `ensure_fresh_demo_quota`) que se haya hecho con esa key.
+    Devuelve None si no hay fallback activo o todavía no se registró ningún cupo."""
     try:
         from .models import GlobalAIConfig
         cfg = GlobalAIConfig.objects.filter(is_active=True).first()
@@ -622,6 +636,35 @@ def get_global_demo_quota():
         'remaining_tokens': cfg.quota_remaining_tokens,
         'limit_tokens': cfg.quota_limit_tokens,
     }
+
+
+def ensure_fresh_demo_quota(max_age_seconds=300):
+    """Si el fallback global está activo y el último cupo conocido tiene más de
+    `max_age_seconds` (o nunca se registró ninguno), hace un ping mínimo
+    (`GlobalFallbackBackend.refresh_quota`) para refrescarlo antes de leerlo.
+
+    El throttle es a propósito: `GlobalAIConfig` es una única fila compartida
+    por todos los usuarios, así que sin este límite, cada carga de pantalla de
+    cada docente dispararía un ping — con este chequeo, como mucho se gasta
+    una request extra cada `max_age_seconds`, sin importar cuánta gente esté
+    mirando la pantalla al mismo tiempo. Llamar antes de `get_global_demo_quota()`
+    en cualquier vista que muestre el cupo.
+    """
+    try:
+        from django.utils import timezone
+        from .models import GlobalAIConfig
+        cfg = GlobalAIConfig.objects.filter(is_active=True).first()
+    except Exception:
+        return
+    if cfg is None or not cfg.api_key_encrypted:
+        return
+    if cfg.quota_checked_at is not None:
+        age = (timezone.now() - cfg.quota_checked_at).total_seconds()
+        if age < max_age_seconds:
+            return
+    backend = _global_demo_backend()
+    if backend is not None:
+        backend.refresh_quota()
 
 
 # ---------------------------------------------------------------------------

@@ -73,6 +73,8 @@
                     <small class="text-muted d-block mt-1 text-end {% if not using_shared_fallback %}d-none{% endif %}" id="demoQuotaBox">
                         {% if demo_quota and demo_quota.remaining_requests is not None %}
                             <i class="fas fa-people-group"></i> IA compartida — cupo del día: quedan <strong id="demoQuotaText">{{ demo_quota.remaining_requests }} de {{ demo_quota.limit_requests|default:"?" }}</strong> tandas
+                            {% if demo_quota.requests_reset_at %}<br><span class="fst-italic">Se renueva {{ demo_quota.requests_reset_at|date:"H:i" }}</span>{% endif %}
+                            {% if demo_quota_low_tokens %}<br><span class="text-warning"><i class="fas fa-hourglass-half"></i> Muchas tandas seguidas — puede tardar más de lo normal por un rato</span>{% endif %}
                         {% else %}
                             <i class="fas fa-people-group"></i> Usando la IA compartida de EducaApp
                         {% endif %}
@@ -972,9 +974,19 @@ function renderDemoQuotaBox(data) {
         return;
     }
     const low = q.limit_requests && (q.remaining_requests / q.limit_requests) < 0.15;
+    const lowTokens = q.limit_tokens && q.remaining_tokens !== null && q.remaining_tokens !== undefined &&
+        (q.remaining_tokens / q.limit_tokens) < 0.2;
+    let resetLine = '';
+    if (q.requests_reset_at) {
+        const resetDate = new Date(q.requests_reset_at);
+        resetLine = '<br><span class="fst-italic">Se renueva ' +
+            resetDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + '</span>';
+    }
     box.innerHTML = (low ? '<i class="fas fa-triangle-exclamation text-warning"></i>' : '<i class="fas fa-people-group"></i>') +
         ` IA compartida — cupo del día: quedan <strong>${q.remaining_requests} de ${q.limit_requests ?? '?'}</strong> tandas` +
-        (low ? ' <span class="text-warning">(queda poco — conectá tu propia key en Proveedor de IA)</span>' : '');
+        (low ? ' <span class="text-warning">(queda poco — conectá tu propia key en Proveedor de IA)</span>' : '') +
+        resetLine +
+        (lowTokens ? '<br><span class="text-warning"><i class="fas fa-hourglass-half"></i> Muchas tandas seguidas — puede tardar más de lo normal por un rato</span>' : '');
 }
 
 async function loadLocalModels() {
