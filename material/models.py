@@ -2039,6 +2039,7 @@ class GroqMonitorRun(models.Model):
     empty_questions = models.PositiveIntegerField(default=0, verbose_name="Preguntas vacías")
     duplicate_questions = models.PositiveIntegerField(default=0, verbose_name="Preguntas duplicadas")
     failed_chunks = models.PositiveIntegerField(default=0, verbose_name="Fragmentos fallidos")
+    fixture = models.CharField(max_length=20, default='easy', verbose_name="Documento usado")
     elapsed_seconds = models.FloatField(null=True, blank=True, verbose_name="Duración (seg)")
     reason = models.CharField(max_length=100, blank=True, verbose_name="Motivo de falla")
     detail = models.TextField(blank=True, verbose_name="Detalle")

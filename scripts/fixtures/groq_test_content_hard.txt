@@ -1,0 +1,154 @@
+Sistemas Distribuidos y Algoritmos de Consenso
+
+Introducción a los sistemas distribuidos
+
+Un sistema distribuido es un conjunto de computadoras independientes que se presentan ante sus
+usuarios como un único sistema coherente. A diferencia de un programa que corre en una sola
+máquina, un sistema distribuido debe lidiar con fallas parciales: una parte del sistema puede
+dejar de funcionar mientras el resto sigue operando, y el sistema en su conjunto tiene que seguir
+dando garantías razonables pese a eso. Esta es la diferencia fundamental respecto a la computación
+centralizada, y es la razón por la que diseñar sistemas distribuidos correctos es sustancialmente
+más difícil que diseñar software para una sola máquina.
+
+Existen tres falacias clásicas que los ingenieros nuevos en sistemas distribuidos suelen asumir
+erróneamente como verdaderas:
+  1. La red es confiable: en la práctica, los paquetes se pierden, se duplican y llegan
+     desordenados.
+  2. La latencia es cero: cualquier llamada a otra máquina puede tardar milisegundos o segundos,
+     y ese tiempo no es predecible.
+  3. El ancho de banda es infinito: transferir grandes volúmenes de datos entre nodos tiene un
+     costo real que hay que planificar.
+
+A estas se suman otras falacias igual de peligrosas: que la topología de la red no cambia, que hay
+un único administrador, que el costo de transporte es cero, y que la red es homogénea. Diseñar
+asumiendo que estas afirmaciones son ciertas produce sistemas que funcionan en el entorno de
+pruebas del desarrollador y fallan de maneras sorprendentes en producción.
+
+El problema de los generales bizantinos
+
+El problema de los generales bizantinos es una formulación abstracta del problema de lograr
+consenso quardo algunos de los participantes pueden comportarse de manera arbitraria o
+maliciosa, no solo fallar por dejar de responder. Varios generales rodean una ciudad y deben
+decidir, coordinándose únicamente por mensajeros que pueden perderse o llegar tarde, si atacar o
+retirarse; el ataque solo funciona si todos actúan de forma coordinada. Algunos generales pueden
+ser traidores que envían mensajes contradictorios a propósito.
+
+Se demostró que, con n generales de los cuales hasta f pueden ser traidores, el consenso
+solo puede garantizarse si n es mayor o igual a 3f + 1. Esta cota inferior es la razón por la que
+los sistemas tolerantes a fallas bizantinas (BFT, Byzantine Fault Tolerant) necesitan
+significativamente más nodos redundantes que los sistemas que solo toleran fallas por caída
+(crash faults), donde un nodo simplemente deja de responder pero nunca miente activamente.
+
+Consenso: el problema central
+
+El problema de consenso pide que un conjunto de nodos, cada uno proponiendo un valor, terminen
+todos de acuerdo en un único valor final, cumpliendo tres propiedades:
+  - Acuerdo: ningún par de nodos correctos decide valores distintos.
+  - Validez: el valor decidido fue propuesto por algún nodo (no se puede inventar de la nada).
+  - Terminación: todo nodo correcto eventualmente decide algún valor.
+
+El resultado de imposibilidad FLP (por Fischer, Lynch y Paterson, 1985) demuestra que en un
+sistema completamente asíncrono —donde no hay ninguna cota conocida sobre cuánto puede tardar un
+mensaje— es imposible garantizar consenso determinístico si aunque sea un solo nodo puede fallar,
+sin importar cuán sofisticado sea el algoritmo. Este resultado no dice que el consenso sea
+imposible en la práctica: los sistemas reales asumen sincronía parcial (los mensajes eventualmente
+llegan dentro de algún límite de tiempo, aunque ese límite no se conozca de antemano), lo cual
+alcanza para construir algoritmos prácticos como Paxos y Raft.
+
+Paxos
+
+Paxos, propuesto por Leslie Lamport, fue uno de los primeros algoritmos prácticos de consenso
+tolerante a fallas por caída. Funciona en dos fases principales:
+
+Fase 1 (Prepare/Promise): un nodo que quiere proponer un valor (el "proposer") envía un mensaje
+Prepare con un número de propuesta único y creciente a una mayoría de "acceptors". Cada acceptor
+responde con una Promise de no aceptar ninguna propuesta con número menor, informando además si ya
+había aceptado alguna propuesta anterior.
+
+Fase 2 (Accept/Accepted): si el proposer recibe promesas de una mayoría, envía un mensaje Accept
+con el valor a usar (que puede ser el valor de la propuesta previa más reciente que le hayan
+informado, si alguna, para preservar la seguridad del protocolo). Si una mayoría de acceptors
+confirma con Accepted, el valor queda decidido.
+
+La garantía central de Paxos es que, una vez que una mayoría acepta un valor, ninguna propuesta
+posterior con número mayor puede decidir un valor distinto — esto se logra porque cualquier
+mayoría futura necesariamente se solapa con la mayoría que ya aceptó, y el protocolo obliga a
+respetar el valor ya aceptado por esa intersección. Paxos es célebre por ser correcto pero
+notoriamente difícil de entender e implementar correctamente en su forma original.
+
+Raft
+
+Raft fue diseñado explícitamente como una alternativa a Paxos más fácil de entender, dividiendo el
+problema en tres subproblemas independientes: elección de líder, replicación de log, y seguridad.
+
+En Raft, en todo momento cada nodo está en uno de tres estados: líder, seguidor (follower), o
+candidato. Solo puede haber un líder por término (una especie de número de época que se incrementa
+cada vez que hay una nueva elección). El líder es el único que acepta escrituras de los clientes;
+los seguidores replican pasivamente el log del líder.
+
+Elección de líder: si un seguidor no recibe un "heartbeat" del líder dentro de un tiempo límite
+aleatorio (justamente aleatorio para reducir la chance de que dos nodos se vuelvan candidatos al
+mismo tiempo y dividan los votos), se convierte en candidato, incrementa su término, y pide votos
+al resto de los nodos. Si obtiene el voto de una mayoría, se convierte en el nuevo líder.
+
+Replicación de log: cada operación que un cliente quiere ejecutar se agrega primero al log del
+líder, que la replica a los seguidores. Una entrada se considera "comprometida" (committed) recién
+cuando una mayoría de nodos la tiene en su log, momento en el cual es seguro aplicarla a la máquina
+de estados y responder al cliente. Esta regla de mayoría es la que garantiza que, aunque el líder
+falle después, el siguiente líder electo (que por construcción tiene el log más actualizado entre
+la mayoría que votó por él) va a preservar esa entrada.
+
+Consistencia eventual vs. consistencia fuerte
+
+Los sistemas distribuidos suelen ubicarse en algún punto de un espectro entre consistencia fuerte
+y consistencia eventual:
+
+  - Consistencia fuerte (o linealizabilidad): toda lectura ve el efecto de todas las escrituras
+    confirmadas anteriormente, como si el sistema fuera una única máquina. Es la garantía más
+    intuitiva, pero típicamente exige coordinación (como los algoritmos de consenso descritos
+    arriba), lo que impacta la latencia y la disponibilidad durante particiones de red.
+
+  - Consistencia eventual: las réplicas pueden divergir temporalmente, pero garantizan que, si se
+    dejan de recibir nuevas escrituras, todas las réplicas eventualmente convergen al mismo
+    estado. Permite mucha mayor disponibilidad y menor latencia, a costa de que una lectura pueda
+    devolver un valor desactualizado.
+
+El teorema CAP formaliza una tensión relacionada: ante una partición de red (P), un sistema
+distribuido debe elegir entre priorizar consistencia (C) o disponibilidad (A) — no puede garantizar
+ambas al mismo tiempo mientras la partición persiste. Es importante notar que el teorema CAP habla
+específicamente del comportamiento durante una partición; fuera de ese escenario, muchos sistemas
+modernos ofrecen tanto buena consistencia como buena disponibilidad la mayor parte del tiempo.
+
+Relojes lógicos y ordenamiento de eventos
+
+Como no existe un reloj global perfectamente sincronizado entre nodos distribuidos, se usan relojes
+lógicos para establecer un orden causal entre eventos sin depender del tiempo real (wall-clock
+time).
+
+Relojes de Lamport: cada nodo mantiene un contador entero que incrementa con cada evento local, y
+que se actualiza al máximo entre el propio valor y el valor recibido en un mensaje (más uno) cada
+vez que recibe un mensaje de otro nodo. Esto garantiza que, si un evento A causó otro evento B
+(hay una relación causal), entonces el contador de A es estrictamente menor que el de B. La
+recíproca no es cierta: dos eventos pueden tener contadores ordenados sin que exista relación
+causal entre ellos (eventos concurrentes).
+
+Relojes vectoriales: extienden la idea de Lamport manteniendo un vector de contadores, uno por cada
+nodo del sistema, en lugar de un único entero. Esto sí permite determinar con precisión si dos
+eventos son causalmente relacionados o concurrentes, comparando los vectores componente a
+componente — a costa de que el tamaño del reloj crece linealmente con la cantidad de nodos del
+sistema, lo cual limita su uso práctico en sistemas muy grandes.
+
+Particionamiento y hashing consistente
+
+Cuando un conjunto de datos es demasiado grande para una sola máquina, se particiona (shardea)
+entre varios nodos. Un esquema de particionamiento ingenuo, como hash(clave) % cantidad_de_nodos,
+tiene un problema serio: si se agrega o quita un nodo, cantidad_de_nodos cambia, y casi todas las
+claves terminan mapeadas a un nodo distinto, obligando a mover casi todo el dataset.
+
+El hashing consistente resuelve esto ubicando tanto los nodos como las claves en un mismo anillo
+de hashes (por ejemplo, valores de 0 a 2^32 - 1). Cada clave se asigna al primer nodo que aparece
+recorriendo el anillo en sentido horario desde su posición. Cuando se agrega o quita un nodo, solo
+se reasignan las claves que caían en el segmento del anillo afectado por ese nodo específico — en
+promedio, solo una fracción 1/N del total de claves se mueve, en vez de casi todas. Para evitar que
+la distribución de carga sea desigual cuando hay pocos nodos, es común usar "nodos virtuales":
+cada nodo físico se representa varias veces en distintas posiciones del anillo.

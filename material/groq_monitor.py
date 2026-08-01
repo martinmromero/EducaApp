@@ -23,7 +23,16 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 TEST_USERNAME = getattr(settings, 'GROQ_MONITOR_TEST_USERNAME', 'groq_test_bot')
-FIXTURE_PATH = Path(__file__).resolve().parent.parent / 'scripts' / 'fixtures' / 'groq_test_content.txt'
+FIXTURES_DIR = Path(__file__).resolve().parent.parent / 'scripts' / 'fixtures'
+# 'easy': prosa lineal, ~2000 tokens, se parte en pocos fragmentos grandes.
+# 'hard': mismo orden de tokens pero con listas, sub-ítems y jerga técnica
+# densa (sistemas distribuidos/consenso) — se parte en más fragmentos más
+# chicos, para estresar más veces seguidas el rate limit y ver cómo responde
+# el modelo con contenido estructuralmente más difícil de resumir en JSON.
+FIXTURES = {
+    'easy': {'path': FIXTURES_DIR / 'groq_test_content.txt', 'split_max_tokens': 700},
+    'hard': {'path': FIXTURES_DIR / 'groq_test_content_hard.txt', 'split_max_tokens': 400},
+}
 TARGET_QUESTIONS = 30
 
 _run_lock = threading.Lock()
@@ -71,9 +80,21 @@ def _run_safely():
         _run_lock.release()
 
 
-def run_test():
+def _pick_fixture():
+    """Alterna easy/hard según la cantidad de corridas ya guardadas, para ir
+    juntando datos comparables de ambos documentos a lo largo de la ventana."""
+    from .models import GroqMonitorRun
+    count = GroqMonitorRun.objects.count()
+    key = 'hard' if count % 2 == 1 else 'easy'
+    return key, FIXTURES[key]
+
+
+def run_test(fixture_key=None):
     """Ejecuta una corrida y la guarda en GroqMonitorRun. Se puede llamar
-    también manualmente (botón "Probar ahora" en la página de monitoreo)."""
+    también manualmente (botón "Probar ahora" en la página de monitoreo).
+
+    fixture_key: 'easy' o 'hard' para forzar un documento puntual; si se omite,
+    alterna automáticamente entre ambos (ver `_pick_fixture`)."""
     from django.contrib.auth.models import User
     from .models import GroqMonitorRun
     from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota
@@ -81,17 +102,23 @@ def run_test():
 
     t0 = time.time()
 
+    if fixture_key and fixture_key in FIXTURES:
+        fixture = FIXTURES[fixture_key]
+    else:
+        fixture_key, fixture = _pick_fixture()
+
     def save(**kwargs):
         elapsed = round(time.time() - t0, 1)
-        GroqMonitorRun.objects.create(elapsed_seconds=elapsed, **kwargs)
+        GroqMonitorRun.objects.create(elapsed_seconds=elapsed, fixture=fixture_key, **kwargs)
 
     test_user = User.objects.filter(username=TEST_USERNAME).first()
     if test_user is None:
         save(success=False, reason='missing_test_user', detail=f'No existe el usuario "{TEST_USERNAME}".')
         return
 
-    if not FIXTURE_PATH.exists():
-        save(success=False, reason='missing_fixture', detail=str(FIXTURE_PATH))
+    fixture_path = fixture['path']
+    if not fixture_path.exists():
+        save(success=False, reason='missing_fixture', detail=str(fixture_path))
         return
 
     try:
@@ -105,18 +132,18 @@ def run_test():
         save(success=False, reason='backend_not_connected', detail=str(status))
         return
 
-    text = FIXTURE_PATH.read_text(encoding='utf-8')
-    # max_tokens bajo a propósito (no 3000 como en el resto de la app): el
-    # fixture es corto (~2000 tokens) y con un techo alto quedaba en un solo
-    # fragmento, lo que no alcanza para pedir las 30 preguntas objetivo sin
-    # superar el límite seguro de 12 por fragmento (ver más abajo).
-    chunks = _split_into_chunks(text, max_tokens=700)
+    text = fixture_path.read_text(encoding='utf-8')
+    chunks = _split_into_chunks(text, max_tokens=fixture['split_max_tokens'])
     total_chunks = max(1, len(chunks))
     # Mismo techo de 12 preguntas/fragmento que usan las vistas reales — pedir
     # más excede el max_tokens de salida y Groq puede rechazar la request.
     # Redondeo hacia arriba (no //) para no quedar sistemáticamente por debajo
     # del objetivo — el tope duro más abajo se encarga de no pasarse.
     per_chunk = max(1, min(12, -(-TARGET_QUESTIONS // total_chunks)))
+    chapter_title = (
+        'Sistemas Distribuidos (monitor Groq — difícil)' if fixture_key == 'hard'
+        else 'Bases de Datos (monitor Groq)'
+    )
 
     questions = []
     failed_chunks = 0
@@ -128,7 +155,7 @@ def run_test():
             time.sleep(2)
         try:
             raw = _generate_questions_for_chunk(
-                chunk, 'Bases de Datos (monitor Groq)', per_chunk, i, total_chunks,
+                chunk, chapter_title, per_chunk, i, total_chunks,
                 backend=backend,
             )
         except Exception as e:

@@ -6418,7 +6418,8 @@ def groq_monitor_page(request):
             messages.success(request, 'Monitoreo desactivado.', extra_tags='general')
         elif action == 'run_now':
             from .groq_monitor import run_test
-            run_test()
+            fixture_key = request.POST.get('fixture') or None
+            run_test(fixture_key=fixture_key)
             messages.success(request, 'Corrida manual ejecutada — mirá el resultado en la tabla.', extra_tags='general')
         return redirect('material:groq_monitor_page')
 

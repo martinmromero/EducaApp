@@ -42,6 +42,11 @@
                                 <i class="bi bi-stop-fill me-1"></i>Desactivar
                             </button>
                         {% endif %}
+                        <select name="fixture" class="form-select form-select-sm" style="width:110px" title="Documento a usar">
+                            <option value="">Alternar</option>
+                            <option value="easy">Fácil</option>
+                            <option value="hard">Difícil</option>
+                        </select>
                         <button type="submit" name="action" value="run_now" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-lightning-fill me-1"></i>Probar ahora
                         </button>
@@ -84,6 +89,7 @@
                     <thead class="table-secondary">
                         <tr>
                             <th>Fecha (UTC)</th>
+                            <th>Doc.</th>
                             <th>Resultado</th>
                             <th>Preguntas</th>
                             <th>Problemas</th>
@@ -97,6 +103,13 @@
                         {% for run in runs %}
                         <tr>
                             <td>{{ run.created_at|date:"d/m H:i:s" }}</td>
+                            <td>
+                                {% if run.fixture == 'hard' %}
+                                    <span class="badge bg-dark" title="Documento difícil">Difícil</span>
+                                {% else %}
+                                    <span class="badge bg-secondary" title="Documento fácil">Fácil</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if not run.success %}
                                     <span class="badge bg-danger">Error</span>
@@ -118,7 +131,7 @@
                             <td class="small text-muted">{{ run.reason }}{% if run.detail %} — {{ run.detail|truncatechars:120 }}{% endif %}</td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="8" class="text-center text-muted py-4">Todavía no hay corridas.</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted py-4">Todavía no hay corridas.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
