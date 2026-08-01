@@ -727,6 +727,13 @@ def generate_questions_from_chapters(request):
             questions_per_chunk = max(1, min(12, total_questions // max(total_chunks_all, 1)))
 
             for chunk_idx, chunk in enumerate(chunks):
+                # Pequeño respiro entre requests: pedir varios fragmentos
+                # seguidos sin pausa puede superar el límite por minuto (TPM/RPM)
+                # de Groq incluso con cada request individual dentro de lo
+                # permitido — el backend ya reintenta ante un 429, pero es mejor
+                # no provocarlo de entrada.
+                if chunk_idx > 0:
+                    time.sleep(2)
                 try:
                     chunk_questions = _generate_questions_for_chunk(
                         chunk, title, questions_per_chunk, chunk_idx, len(chunks),
@@ -1194,10 +1201,14 @@ def stream_questions(request, job_id):
             if questions_per_block_override > 0:
                 questions_per_chunk = questions_per_block_override
             else:
-                questions_per_chunk = max(1, total_questions // max(total_chunks_all, 1))
+                questions_per_chunk = max(1, min(12, total_questions // max(total_chunks_all, 1)))
 
             for i, chunk in enumerate(chunks):
                 chunk_idx_global += 1
+                # Pequeño respiro entre requests: varios fragmentos seguidos sin
+                # pausa pueden superar el límite por minuto (TPM/RPM) de Groq.
+                if chunk_idx_global > 1:
+                    time.sleep(2)
                 try:
                     raw_questions = _generate_questions_for_chunk(
                         chunk, title, questions_per_chunk, i, len(chunks),

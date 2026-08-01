@@ -124,6 +124,8 @@ def run_test():
     for i, chunk in enumerate(chunks):
         if len(questions) >= TARGET_QUESTIONS:
             break
+        if i > 0:
+            time.sleep(2)
         try:
             raw = _generate_questions_for_chunk(
                 chunk, 'Bases de Datos (monitor Groq)', per_chunk, i, total_chunks,
