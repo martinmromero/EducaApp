@@ -106,9 +106,17 @@ def run_test():
         return
 
     text = FIXTURE_PATH.read_text(encoding='utf-8')
-    chunks = _split_into_chunks(text, max_tokens=3000)
+    # max_tokens bajo a propósito (no 3000 como en el resto de la app): el
+    # fixture es corto (~2000 tokens) y con un techo alto quedaba en un solo
+    # fragmento, lo que no alcanza para pedir las 30 preguntas objetivo sin
+    # superar el límite seguro de 12 por fragmento (ver más abajo).
+    chunks = _split_into_chunks(text, max_tokens=700)
     total_chunks = max(1, len(chunks))
-    per_chunk = max(1, TARGET_QUESTIONS // total_chunks)
+    # Mismo techo de 12 preguntas/fragmento que usan las vistas reales — pedir
+    # más excede el max_tokens de salida y Groq puede rechazar la request.
+    # Redondeo hacia arriba (no //) para no quedar sistemáticamente por debajo
+    # del objetivo — el tope duro más abajo se encarga de no pasarse.
+    per_chunk = max(1, min(12, -(-TARGET_QUESTIONS // total_chunks)))
 
     questions = []
     failed_chunks = 0

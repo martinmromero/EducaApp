@@ -623,7 +623,10 @@ def generate_questions_from_chapters(request):
 
         # Modo streaming: guardar job y retornar job_id al cliente
         if stream_mode:
-            questions_per_block = max(1, min(50, int(data.get('questions_per_block', 0) or 0)))
+            # 0 = "calcular automáticamente" (ver stream_questions): max(1, ...)
+            # rompía ese sentinel forzando siempre 1 pregunta por fragmento, sin
+            # importar total_questions/total_chunks. max(0, ...) preserva el 0.
+            questions_per_block = max(0, min(12, int(data.get('questions_per_block', 0) or 0)))
             job_id = _store_streaming_job(
                 request, chapter_indices, chapters_from_request, filename,
                 question_types, total_questions, questions_per_block,
@@ -718,8 +721,10 @@ def generate_questions_from_chapters(request):
             logger.info(f"Procesando capítulo '{title}' ({len(chunks)} chunk(s))")
 
             # Piso de 1 (no 2): con muchos chunks chicos, un piso más alto
-            # infla el total muy por encima de lo pedido.
-            questions_per_chunk = max(1, total_questions // max(total_chunks_all, 1))
+            # infla el total muy por encima de lo pedido. Techo de 12: pedir más
+            # por fragmento excede lo que el max_tokens de salida (4096) puede
+            # sostener, y Groq puede directamente rechazar la request (413).
+            questions_per_chunk = max(1, min(12, total_questions // max(total_chunks_all, 1)))
 
             for chunk_idx, chunk in enumerate(chunks):
                 try:
@@ -990,7 +995,12 @@ Nota sobre bloom_nivel: {bloom_desc}"""
     # las más largas) + margen fijo. Antes esto era un 4000 fijo sin importar cuántas
     # preguntas se pedían: con más de ~12-15 preguntas por chunk, la respuesta se
     # cortaba a mitad de camino y el parseo de JSON fallaba o rescataba solo 1-2.
-    gen_max_tokens = min(8192, 300 * max(num_questions, 1) + 500)
+    # Techo bajado de 8192 a 4096: pedirle 8192 a Groq (ej. documentos cortos con
+    # pocos fragmentos, donde num_questions termina siendo alto por chunk) dio
+    # "413 Payload Too Large" — el proveedor rechaza la request directamente en
+    # vez de truncar. 4096 es más conservador; si se pide más de ~12 preguntas
+    # en un mismo chunk, igual puede no alcanzar y quedar corto, pero no falla.
+    gen_max_tokens = min(4096, 300 * max(num_questions, 1) + 500)
 
     if backend is not None:
         result = backend.generate(prompt=prompt, temperature=0.4, max_tokens=gen_max_tokens)
