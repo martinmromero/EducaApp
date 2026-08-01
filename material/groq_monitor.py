@@ -112,6 +112,7 @@ def run_test():
 
     questions = []
     failed_chunks = 0
+    last_chunk_error = ''
     for i, chunk in enumerate(chunks):
         if len(questions) >= TARGET_QUESTIONS:
             break
@@ -122,7 +123,8 @@ def run_test():
             )
         except Exception as e:
             failed_chunks += 1
-            logger.warning(f'Monitor Groq: fragmento {i + 1}/{total_chunks} falló: {e}')
+            last_chunk_error = f'{type(e).__name__}: {e}'
+            logger.warning(f'Monitor Groq: fragmento {i + 1}/{total_chunks} falló: {last_chunk_error}')
             continue
         remaining = max(0, TARGET_QUESTIONS - len(questions))
         questions.extend((raw or [])[:remaining])
@@ -146,6 +148,7 @@ def run_test():
         empty_questions=empty_count,
         duplicate_questions=duplicate_count,
         failed_chunks=failed_chunks,
+        detail=(f'Último fragmento fallido: {last_chunk_error}' if failed_chunks else ''),
         quota_remaining_requests=quota.get('remaining_requests'),
         quota_limit_requests=quota.get('limit_requests'),
         quota_remaining_tokens=quota.get('remaining_tokens'),
