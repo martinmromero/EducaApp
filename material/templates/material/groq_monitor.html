@@ -88,6 +88,7 @@
                             <th>Preguntas</th>
                             <th>Problemas</th>
                             <th>Cupo diario</th>
+                            <th>Cupo x minuto</th>
                             <th>Duración</th>
                             <th>Detalle</th>
                         </tr>
@@ -112,11 +113,12 @@
                                 {% if run.failed_chunks %} · {{ run.failed_chunks }} fragmentos fallidos{% endif %}
                             </td>
                             <td>{% if run.quota_remaining_requests is not None %}{{ run.quota_remaining_requests }}/{{ run.quota_limit_requests }}{% endif %}</td>
+                            <td>{% if run.quota_remaining_tokens is not None %}{{ run.quota_remaining_tokens }}/{{ run.quota_limit_tokens }}{% endif %}</td>
                             <td>{{ run.elapsed_seconds|floatformat:1 }}s</td>
                             <td class="small text-muted">{{ run.reason }}{% if run.detail %} — {{ run.detail|truncatechars:120 }}{% endif %}</td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="7" class="text-center text-muted py-4">Todavía no hay corridas.</td></tr>
+                        <tr><td colspan="8" class="text-center text-muted py-4">Todavía no hay corridas.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
