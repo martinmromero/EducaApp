@@ -50,6 +50,9 @@
         }
         #sidebar {
           will-change: transform;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch;
+          touch-action: pan-y;
         }
         #sidebarOverlay {
           transition: opacity 0.25s ease;

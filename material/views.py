@@ -1,3 +1,5 @@
+import functools
+
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -780,6 +782,7 @@ def _pick_questions_for_versions(subject, selected_topics, user, versions_count,
     return versions
 
 
+@functools.lru_cache(maxsize=8)
 def _get_table_columns(table_name):
     try:
         table_names = set(connection.introspection.table_names())
@@ -793,7 +796,11 @@ def _get_table_columns(table_name):
         return set()
 
 
+@functools.lru_cache(maxsize=1)
 def _get_exam_version_schema_state():
+    # El esquema de la DB no cambia durante la vida del proceso, así que esto
+    # se cachea: antes se volvía a introspeccionar la DB (2 queries) en cada
+    # navegación a "Exámenes", siendo un costo fijo innecesario por request.
     exam_table = Exam._meta.db_table
     batch_table = ExamVersionBatch._meta.db_table
     has_exam_version_fields = False

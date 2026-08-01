@@ -5,12 +5,21 @@ from .models import (
     InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic, Contenido,
     InstitutionSubject, GroupMembership,
 )
+from .views import is_admin as _is_admin
 
 
 def onboarding_context(request):
     """
-    Inyecta datos para el wizard de onboarding/configuracion en todos los templates
-    que extiendan base.html.  Solo se ejecuta para usuarios autenticados.
+    Inyecta datos para el wizard de onboarding/configuracion, el badge de
+    invitaciones pendientes y la visibilidad de "Administración" en todos
+    los templates que extiendan base.html. Solo se ejecuta para usuarios
+    autenticados.
+
+    Las consultas pesadas del wizard (todas las materias/outcomes/topics del
+    sistema, etc.) sólo se calculan cuando la página actual es el propio
+    asistente (`comenzar/`): son la única vista que usa `onb_data_json` /
+    `onboarding_institutions`, y antes se recalculaban en cada navegación
+    (plantillas, exámenes, ...) siendo el mayor costo fijo por request.
     """
     if not request.user.is_authenticated:
         return {}
@@ -18,6 +27,23 @@ def onboarding_context(request):
         profile = request.user.profile
     except Exception:
         return {}
+
+    pending_invites_count = GroupMembership.objects.filter(
+        user=request.user, status='pending'
+    ).count()
+
+    base_ctx = {
+        'onboarding_institutions': [],
+        'onb_data_json': _json.dumps({'autoShow': not profile.onboarding_completed}),
+        'pending_invites_count': pending_invites_count,
+        'is_admin': _is_admin(request.user),
+    }
+
+    is_wizard_page = (
+        getattr(request.resolver_match, 'url_name', None) == 'onboarding_v2_page'
+    )
+    if not is_wizard_page:
+        return base_ctx
 
     # Todas las instituciones activas (para el selector)
     all_institutions = list(
@@ -106,12 +132,8 @@ def onboarding_context(request):
         'demoSubjects': demo_subjects,
     }
 
-    pending_invites_count = GroupMembership.objects.filter(
-        user=request.user, status='pending'
-    ).count()
-
     return {
+        **base_ctx,
         'onboarding_institutions': all_institutions,
         'onb_data_json': _json.dumps(onb_data),
-        'pending_invites_count': pending_invites_count,
     }
