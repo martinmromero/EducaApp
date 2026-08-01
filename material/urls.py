@@ -196,4 +196,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('configuracion-ia/status/', material_views.ai_config_status, name='ai_config_status'),
     path('configuracion-ia/modelos/', material_views.ai_config_list_models, name='ai_config_list_models'),
     path('configuracion-ia/institucional/', material_views.institution_ai_config_view, name='institution_ai_config'),
+
+    # Monitoreo del fallback de Groq (staff-only)
+    path('herramientas/groq-monitor/', material_views.groq_monitor_page, name='groq_monitor_page'),
 ]

@@ -2003,6 +2003,59 @@ class GlobalAIConfig(models.Model):
         self.api_key_encrypted = encrypt_api_key(value) if value else ''
 
 
+# ---------------------------------------------------------------------------
+# Monitoreo del fallback compartido de Groq (test de carga programado)
+# ---------------------------------------------------------------------------
+class GroqMonitorSchedule(models.Model):
+    """
+    Fila única (singleton) que controla el monitoreo periódico del fallback de
+    Groq. No depende de ningún cron externo: se dispara desde adentro de la
+    propia app cada vez que llega una request a /health/ (que UptimeRobot ya
+    pinguea regularmente para evitar que Render duerma el free tier) — si pasó
+    más de `interval_minutes` desde la última corrida, dispara una nueva en un
+    thread de background sin bloquear la respuesta del health check.
+    """
+    enabled = models.BooleanField(default=False, verbose_name="Activo")
+    interval_minutes = models.PositiveIntegerField(default=60, verbose_name="Intervalo (minutos)")
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name="Iniciado")
+    ends_at = models.DateTimeField(null=True, blank=True, verbose_name="Se apaga solo")
+    last_run_at = models.DateTimeField(null=True, blank=True, verbose_name="Última corrida")
+
+    class Meta:
+        verbose_name = "Monitoreo de Groq — configuración"
+        verbose_name_plural = "Monitoreo de Groq — configuración"
+
+    def __str__(self):
+        return f"Monitoreo Groq ({'activo' if self.enabled else 'inactivo'})"
+
+
+class GroqMonitorRun(models.Model):
+    """Resultado de una corrida individual del test de carga contra Groq."""
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha")
+    success = models.BooleanField(default=False, verbose_name="Corrida sin errores")
+    target_questions = models.PositiveIntegerField(default=30, verbose_name="Preguntas pedidas")
+    total_generated = models.PositiveIntegerField(default=0, verbose_name="Preguntas generadas")
+    met_target = models.BooleanField(default=False, verbose_name="Cumplió el objetivo")
+    empty_questions = models.PositiveIntegerField(default=0, verbose_name="Preguntas vacías")
+    duplicate_questions = models.PositiveIntegerField(default=0, verbose_name="Preguntas duplicadas")
+    failed_chunks = models.PositiveIntegerField(default=0, verbose_name="Fragmentos fallidos")
+    elapsed_seconds = models.FloatField(null=True, blank=True, verbose_name="Duración (seg)")
+    reason = models.CharField(max_length=100, blank=True, verbose_name="Motivo de falla")
+    detail = models.TextField(blank=True, verbose_name="Detalle")
+    quota_remaining_requests = models.IntegerField(null=True, blank=True)
+    quota_limit_requests = models.IntegerField(null=True, blank=True)
+    quota_remaining_tokens = models.IntegerField(null=True, blank=True)
+    quota_limit_tokens = models.IntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Monitoreo de Groq — corrida"
+        verbose_name_plural = "Monitoreo de Groq — corridas"
+
+    def __str__(self):
+        return f"{self.created_at:%Y-%m-%d %H:%M} — {'OK' if self.met_target else 'ALERTA'} ({self.total_generated}/{self.target_questions})"
+
+
 # --- GRUPOS DE CONFIANZA (compartir preguntas entre docentes) ------------------
 # Ver [[project_onboarding_seed_content_plan]] / Fase D: reemplaza el diseño
 # original "compartir por institución" (parking lot) porque Question no tiene

@@ -6369,5 +6369,75 @@ def compartir_materia(request, pk):
 
 
 def health_check(request):
+    # UptimeRobot pinguea esto seguido para que Render no duerma el free
+    # tier — se aprovecha ese mismo pulso como "reloj" del monitoreo
+    # periódico de Groq (ver material/groq_monitor.py). No bloquea la
+    # respuesta: si corresponde, dispara la corrida en un thread aparte.
+    try:
+        from .groq_monitor import maybe_trigger
+        maybe_trigger()
+    except Exception:
+        logger.exception('No se pudo chequear el disparador del monitoreo de Groq')
     return HttpResponse("OK", status=200)
+
+
+@login_required
+def groq_monitor_page(request):
+    """
+    Panel staff-only del monitoreo de carga de Groq (ver material/groq_monitor.py).
+    Muestra el estado, permite arrancar/parar la ventana de 48h y correr una
+    prueba manual, y lista el historial de corridas con un resumen de las
+    últimas 12h.
+    """
+    from .models import GroqMonitorRun, GroqMonitorSchedule
+
+    if not is_admin(request.user):
+        messages.error(request, 'No tenés permiso para acceder a esta sección.', extra_tags='general')
+        return redirect('material:index')
+
+    cfg, _ = GroqMonitorSchedule.objects.get_or_create(pk=1)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'start':
+            hours = 48
+            try:
+                hours = max(1, min(168, int(request.POST.get('hours', 48))))
+            except (TypeError, ValueError):
+                pass
+            now = timezone.now()
+            cfg.enabled = True
+            cfg.started_at = now
+            cfg.ends_at = now + timezone.timedelta(hours=hours)
+            cfg.last_run_at = None
+            cfg.save()
+            messages.success(request, f'Monitoreo activado por {hours} horas.', extra_tags='general')
+        elif action == 'stop':
+            cfg.enabled = False
+            cfg.save(update_fields=['enabled'])
+            messages.success(request, 'Monitoreo desactivado.', extra_tags='general')
+        elif action == 'run_now':
+            from .groq_monitor import run_test
+            run_test()
+            messages.success(request, 'Corrida manual ejecutada — mirá el resultado en la tabla.', extra_tags='general')
+        return redirect('material:groq_monitor_page')
+
+    runs = list(GroqMonitorRun.objects.all()[:200])
+
+    cutoff_12h = timezone.now() - timezone.timedelta(hours=12)
+    recent_runs = [r for r in runs if r.created_at >= cutoff_12h]
+    summary_12h = {
+        'total': len(recent_runs),
+        'met_target': sum(1 for r in recent_runs if r.met_target),
+        'failed': sum(1 for r in recent_runs if not r.success),
+    }
+    latest_quota = next((r for r in runs if r.quota_remaining_requests is not None), None)
+
+    context = {
+        'cfg': cfg,
+        'runs': runs,
+        'summary_12h': summary_12h,
+        'latest_quota': latest_quota,
+    }
+    return render(request, 'material/groq_monitor.html', context)
 
