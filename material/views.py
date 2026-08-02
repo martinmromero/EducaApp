@@ -3956,6 +3956,19 @@ def create_faculty_v2(request, institution_id):
     return render(request, 'material/faculties_v2/create.html', {'form': form, 'institution': institution})
 
 @login_required
+def set_visual_theme(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+    theme = request.POST.get('theme')
+    valid_themes = {choice for choice, _ in Profile.VISUAL_THEME_CHOICES}
+    if theme not in valid_themes:
+        return JsonResponse({'success': False, 'error': 'Tema inválido'}, status=400)
+    profile = request.user.profile
+    profile.visual_theme = theme
+    profile.save(update_fields=['visual_theme'])
+    return JsonResponse({'success': True, 'theme': theme})
+
+@login_required
 def delete_institution_logo_v2(request, pk):
     institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
     if request.method == 'POST':

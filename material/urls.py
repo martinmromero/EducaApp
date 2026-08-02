@@ -93,6 +93,7 @@ urlpatterns = [
     path('instituciones-v2/eliminar/<int:pk>/', material_views.delete_institution_v2, name='delete_institution_v2'),
     path('instituciones-v2/eliminar-bulk/', material_views.bulk_eliminar_instituciones_v2, name='bulk_eliminar_instituciones_v2'),
     path('instituciones-v2/favorito/<int:pk>/', material_views.toggle_favorite_institution, name='toggle_favorite_institution'),
+    path('tema-visual/', material_views.set_visual_theme, name='set_visual_theme'),
     path('instituciones-v2/detalle/<int:pk>/', material_views.institution_v2_detail, name='institution_v2_detail'),
     path('instituciones-v2/logs/<int:pk>/', material_views.institution_v2_logs, name='institution_v2_logs'),
 # linea siguiente comentada para ser borrada:   

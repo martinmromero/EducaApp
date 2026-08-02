@@ -37,6 +37,8 @@ def onboarding_context(request):
         'onb_data_json': _json.dumps({'autoShow': not profile.onboarding_completed}),
         'pending_invites_count': pending_invites_count,
         'is_admin': _is_admin(request.user),
+        'visual_theme': profile.visual_theme,
+        'visual_theme_choices': profile.VISUAL_THEME_CHOICES,
     }
 
     is_wizard_page = (

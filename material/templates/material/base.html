@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html>
+<html{% if visual_theme and visual_theme != 'default' %} data-visual-theme="{{ visual_theme }}"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
@@ -19,8 +19,12 @@
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+    <link rel="stylesheet" href="{% static 'css/skins.css' %}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
       /* Fallback critico para produccion: evita depender de cache de static/css/styles.css */
@@ -168,9 +172,28 @@
         <div class="bottom-links">
             <div class="d-flex justify-content-between align-items-center">
                 <a href="{% url 'material:mis_datos' %}"><i class="bi bi-person-lines-fill me-2"></i>Mis datos</a>
-                <button id="toggleMode" class="btn btn-secondary btn-sm mode-toggle-button">
-                    <i class="bi bi-moon-fill"></i>
-                </button>
+                <div class="d-flex align-items-center gap-1">
+                    {% if user.is_authenticated %}
+                        <div class="dropdown">
+                            <button class="btn btn-secondary btn-sm" type="button" id="visualThemeDropdown"
+                                    data-bs-toggle="dropdown" aria-expanded="false" title="Tema visual">
+                                <i class="bi bi-palette-fill"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="visualThemeDropdown">
+                                {% for value, label in visual_theme_choices %}
+                                    <li>
+                                        <button type="button"
+                                                class="dropdown-item visual-theme-option{% if visual_theme == value %} active{% endif %}"
+                                                data-theme-value="{{ value }}">{{ label }}</button>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                    <button id="toggleMode" class="btn btn-secondary btn-sm mode-toggle-button">
+                        <i class="bi bi-moon-fill"></i>
+                    </button>
+                </div>
             </div>
             {% if user.is_authenticated %}
                 <form action="{% url 'logout' %}" method="post" class="d-inline">
@@ -301,6 +324,33 @@
                 htmlEl.setAttribute('data-bs-theme', isDarkMode ? 'dark' : 'light');
                 localStorage.setItem('mode', isDarkMode ? 'dark' : 'light');
                 toggleModeButton.innerHTML = isDarkMode ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
+            });
+        }
+
+        // Tema visual (skin de marca: Slack/BMW/Linear/Figma/Clay) — se aplica
+        // al instante vía data-visual-theme en <html> (ver static/css/skins.css)
+        // y se guarda en el perfil del usuario para que persista entre sesiones.
+        const visualThemeOptions = document.querySelectorAll('.visual-theme-option');
+        const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (visualThemeOptions.length && csrfInput) {
+            visualThemeOptions.forEach((option) => {
+                option.addEventListener('click', () => {
+                    const theme = option.dataset.themeValue;
+                    if (theme === 'default') {
+                        htmlEl.removeAttribute('data-visual-theme');
+                    } else {
+                        htmlEl.setAttribute('data-visual-theme', theme);
+                    }
+                    visualThemeOptions.forEach((o) => o.classList.toggle('active', o === option));
+                    fetch('{% url "material:set_visual_theme" %}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfInput.value,
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `theme=${encodeURIComponent(theme)}`,
+                    }).catch(() => {});
+                });
             });
         }
 

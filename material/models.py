@@ -929,6 +929,15 @@ class Profile(models.Model):
         ('user', 'Usuario'),
     ]
 
+    VISUAL_THEME_CHOICES = [
+        ('default', 'EducaApp'),
+        ('slack', 'Slack'),
+        ('bmw', 'BMW'),
+        ('linear', 'Linear'),
+        ('figma', 'Figma'),
+        ('clay', 'Clay'),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
     institutions = models.ManyToManyField(
@@ -941,6 +950,13 @@ class Profile(models.Model):
         default=False,
         verbose_name='Onboarding completado',
         help_text='Indica si el usuario completó o saltó el wizard de configuración inicial.',
+    )
+    visual_theme = models.CharField(
+        max_length=20,
+        choices=VISUAL_THEME_CHOICES,
+        default='default',
+        verbose_name='Tema visual',
+        help_text='Skin de colores/tipografía elegido por el usuario para la interfaz.',
     )
 
     def __str__(self):

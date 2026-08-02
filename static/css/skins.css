@@ -1,0 +1,220 @@
+/*
+ * Skins de "tema visual" — inspirados en Slack, BMW, Linear, Figma y Clay
+ * (ver DESIGN-*.md). Se activan poniendo data-visual-theme="slack|bmw|
+ * linear|figma|clay" en <html> (ver base.html / material:set_visual_theme).
+ *
+ * No tocan --bs-body-bg salvo cuando el canvas con tinte es parte central
+ * de la marca (Slack, Clay) y sólo en modo claro, para no pelear con el
+ * toggle de modo oscuro existente (data-bs-theme="dark" siempre gana).
+ *
+ * Botones: Bootstrap 5.3 define --bs-btn-bg / --bs-btn-border-color etc.
+ * como valores fijos por variante (no heredan de --bs-primary en runtime),
+ * así que hay que pisarlos explícitamente para que .btn-primary cambie de
+ * color acá.
+ */
+
+/* ---------- Slack: aubergine, links azules, pills bien redondeados ---------- */
+[data-visual-theme="slack"] {
+  --bs-primary: #4a154b;
+  --bs-primary-rgb: 74, 21, 75;
+  --bs-link-color: #1264a3;
+  --bs-link-color-rgb: 18, 100, 163;
+  --bs-link-hover-color: #3860be;
+  --bs-border-radius: 1rem;
+  --bs-border-radius-sm: 0.5rem;
+  --bs-border-radius-lg: 1.25rem;
+  --edu-accent-soft-bg: #f9f0ff;
+  --edu-accent-soft-border: #e6cdf2;
+  --edu-accent-soft-text: #4a154b;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+[data-visual-theme="slack"]:not([data-bs-theme="dark"]) {
+  --bs-body-bg: #f9f5ef;
+}
+[data-visual-theme="slack"] h1, [data-visual-theme="slack"] h2,
+[data-visual-theme="slack"] h3, [data-visual-theme="slack"] h4,
+[data-visual-theme="slack"] h5, [data-visual-theme="slack"] h6 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+[data-visual-theme="slack"] .btn { border-radius: 999px; }
+[data-visual-theme="slack"] .btn-primary {
+  --bs-btn-bg: #4a154b;
+  --bs-btn-border-color: #4a154b;
+  --bs-btn-hover-bg: #611f69;
+  --bs-btn-hover-border-color: #611f69;
+  --bs-btn-active-bg: #611f69;
+  --bs-btn-active-border-color: #611f69;
+  --bs-btn-disabled-bg: #4a154b;
+  --bs-btn-disabled-border-color: #4a154b;
+  --bs-btn-focus-shadow-rgb: 74, 21, 75;
+}
+[data-visual-theme="slack"] .btn-outline-primary {
+  --bs-btn-color: #4a154b;
+  --bs-btn-border-color: #4a154b;
+  --bs-btn-hover-bg: #4a154b;
+  --bs-btn-hover-border-color: #4a154b;
+  --bs-btn-active-bg: #4a154b;
+  --bs-btn-active-border-color: #4a154b;
+}
+
+/* ---------- BMW: azul corporativo, esquinas rectas, tipografía 700/300 ---------- */
+[data-visual-theme="bmw"] {
+  --bs-primary: #1c69d4;
+  --bs-primary-rgb: 28, 105, 212;
+  --bs-link-color: #1c69d4;
+  --bs-link-color-rgb: 28, 105, 212;
+  --bs-link-hover-color: #0653b6;
+  --bs-border-radius: 0;
+  --bs-border-radius-sm: 0;
+  --bs-border-radius-lg: 0;
+  --edu-accent-soft-bg: #eaf2ff;
+  --edu-accent-soft-border: #b9d3f7;
+  --edu-accent-soft-text: #1c69d4;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-weight: 300;
+}
+[data-visual-theme="bmw"] h1, [data-visual-theme="bmw"] h2,
+[data-visual-theme="bmw"] h3, [data-visual-theme="bmw"] h4,
+[data-visual-theme="bmw"] h5, [data-visual-theme="bmw"] h6,
+[data-visual-theme="bmw"] .btn, [data-visual-theme="bmw"] label {
+  font-weight: 700;
+}
+[data-visual-theme="bmw"] .btn { border-radius: 0; }
+[data-visual-theme="bmw"] .card,
+[data-visual-theme="bmw"] .form-control,
+[data-visual-theme="bmw"] .form-select {
+  border-radius: 0;
+}
+[data-visual-theme="bmw"] .btn-primary {
+  --bs-btn-bg: #1c69d4;
+  --bs-btn-border-color: #1c69d4;
+  --bs-btn-hover-bg: #0653b6;
+  --bs-btn-hover-border-color: #0653b6;
+  --bs-btn-active-bg: #0653b6;
+  --bs-btn-active-border-color: #0653b6;
+  --bs-btn-focus-shadow-rgb: 28, 105, 212;
+}
+[data-visual-theme="bmw"] .btn-outline-primary {
+  --bs-btn-color: #1c69d4;
+  --bs-btn-border-color: #1c69d4;
+  --bs-btn-hover-bg: #1c69d4;
+  --bs-btn-hover-border-color: #1c69d4;
+}
+
+/* ---------- Linear: lavanda-azul, radios chicos, tracking negativo ---------- */
+[data-visual-theme="linear"] {
+  --bs-primary: #5e6ad2;
+  --bs-primary-rgb: 94, 106, 210;
+  --bs-link-color: #5e6ad2;
+  --bs-link-color-rgb: 94, 106, 210;
+  --bs-link-hover-color: #828fff;
+  --bs-border-radius: 0.5rem;
+  --bs-border-radius-sm: 0.375rem;
+  --bs-border-radius-lg: 0.75rem;
+  --edu-accent-soft-bg: #eceeff;
+  --edu-accent-soft-border: #ccd2fb;
+  --edu-accent-soft-text: #5e6ad2;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+[data-visual-theme="linear"] h1, [data-visual-theme="linear"] h2,
+[data-visual-theme="linear"] h3, [data-visual-theme="linear"] h4,
+[data-visual-theme="linear"] h5, [data-visual-theme="linear"] h6 {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+[data-visual-theme="linear"] .btn { border-radius: 0.5rem; }
+[data-visual-theme="linear"] .btn-primary {
+  --bs-btn-bg: #5e6ad2;
+  --bs-btn-border-color: #5e6ad2;
+  --bs-btn-hover-bg: #828fff;
+  --bs-btn-hover-border-color: #828fff;
+  --bs-btn-active-bg: #5e69d1;
+  --bs-btn-active-border-color: #5e69d1;
+  --bs-btn-focus-shadow-rgb: 94, 106, 210;
+}
+[data-visual-theme="linear"] .btn-outline-primary {
+  --bs-btn-color: #5e6ad2;
+  --bs-btn-border-color: #5e6ad2;
+  --bs-btn-hover-bg: #5e6ad2;
+  --bs-btn-hover-border-color: #5e6ad2;
+}
+
+/* ---------- Figma: monocromo blanco/negro + pills, un solo acento ---------- */
+[data-visual-theme="figma"] {
+  --bs-primary: #000000;
+  --bs-primary-rgb: 0, 0, 0;
+  --bs-link-color: #000000;
+  --bs-link-color-rgb: 0, 0, 0;
+  --bs-link-hover-color: #3a3a3a;
+  --bs-border-radius: 1.5rem;
+  --bs-border-radius-sm: 0.75rem;
+  --bs-border-radius-lg: 2rem;
+  --edu-accent-soft-bg: #dceeb1;
+  --edu-accent-soft-border: #c7dd8f;
+  --edu-accent-soft-text: #1d1d1d;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+[data-visual-theme="figma"] h1, [data-visual-theme="figma"] h2,
+[data-visual-theme="figma"] h3, [data-visual-theme="figma"] h4,
+[data-visual-theme="figma"] h5, [data-visual-theme="figma"] h6 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+[data-visual-theme="figma"] .btn { border-radius: 999px; }
+[data-visual-theme="figma"] .btn-primary {
+  --bs-btn-bg: #000000;
+  --bs-btn-border-color: #000000;
+  --bs-btn-hover-bg: #262626;
+  --bs-btn-hover-border-color: #262626;
+  --bs-btn-active-bg: #262626;
+  --bs-btn-active-border-color: #262626;
+  --bs-btn-focus-shadow-rgb: 0, 0, 0;
+}
+[data-visual-theme="figma"] .btn-outline-primary {
+  --bs-btn-color: #000000;
+  --bs-btn-border-color: #000000;
+  --bs-btn-hover-bg: #000000;
+  --bs-btn-hover-border-color: #000000;
+}
+
+/* ---------- Clay: canvas crema, botón casi-negro, radios generosos ---------- */
+[data-visual-theme="clay"] {
+  --bs-primary: #0a0a0a;
+  --bs-primary-rgb: 10, 10, 10;
+  --bs-link-color: #0a0a0a;
+  --bs-link-color-rgb: 10, 10, 10;
+  --bs-link-hover-color: #1f1f1f;
+  --bs-border-radius: 0.75rem;
+  --bs-border-radius-sm: 0.5rem;
+  --bs-border-radius-lg: 1rem;
+  --edu-accent-soft-bg: #ffe3ee;
+  --edu-accent-soft-border: #ffc2d9;
+  --edu-accent-soft-text: #0a0a0a;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+[data-visual-theme="clay"]:not([data-bs-theme="dark"]) {
+  --bs-body-bg: #fffaf0;
+}
+[data-visual-theme="clay"] h1, [data-visual-theme="clay"] h2,
+[data-visual-theme="clay"] h3, [data-visual-theme="clay"] h4,
+[data-visual-theme="clay"] h5, [data-visual-theme="clay"] h6 {
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+[data-visual-theme="clay"] .btn { border-radius: 0.75rem; }
+[data-visual-theme="clay"] .btn-primary {
+  --bs-btn-bg: #0a0a0a;
+  --bs-btn-border-color: #0a0a0a;
+  --bs-btn-hover-bg: #1f1f1f;
+  --bs-btn-hover-border-color: #1f1f1f;
+  --bs-btn-active-bg: #1f1f1f;
+  --bs-btn-active-border-color: #1f1f1f;
+  --bs-btn-focus-shadow-rgb: 10, 10, 10;
+}
+[data-visual-theme="clay"] .btn-outline-primary {
+  --bs-btn-color: #0a0a0a;
+  --bs-btn-border-color: #0a0a0a;
+  --bs-btn-hover-bg: #0a0a0a;
+  --bs-btn-hover-border-color: #0a0a0a;
+}
