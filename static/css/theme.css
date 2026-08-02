@@ -20,6 +20,10 @@
   --edu-surface: var(--bs-body-bg);
   --edu-surface-alt: var(--bs-tertiary-bg);
   --edu-surface-raised: var(--bs-body-bg);
+  /* Fondo del sidebar — separado de --edu-surface-alt para que un skin de
+     tema visual (ver skins.css) pueda teñirlo sin afectar otras superficies
+     "alt" del sitio. Por defecto es el mismo gris que ya tenía el sidebar. */
+  --edu-sidebar-bg: var(--edu-surface-alt);
   --edu-border: var(--bs-border-color);
   --edu-text: var(--bs-body-color);
   --edu-text-muted: var(--bs-secondary-color);

@@ -42,7 +42,7 @@ body.modal-open .sidebar-toggle-external {
     position: fixed;
     top: 0;
     left: 0;
-    background-color: #f8f9fa;
+    background-color: var(--edu-sidebar-bg);
     padding-top: 20px;
     box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
     z-index: 1000;

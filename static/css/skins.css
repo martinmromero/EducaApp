@@ -3,14 +3,21 @@
  * (ver DESIGN-*.md). Se activan poniendo data-visual-theme="slack|bmw|
  * linear|figma|clay" en <html> (ver base.html / material:set_visual_theme).
  *
- * No tocan --bs-body-bg salvo cuando el canvas con tinte es parte central
- * de la marca (Slack, Clay) y sólo en modo claro, para no pelear con el
- * toggle de modo oscuro existente (data-bs-theme="dark" siempre gana).
+ * No tocan --bs-body-bg ni --edu-sidebar-bg salvo cuando el tinte de canvas
+ * es parte central de la marca, y sólo bajo :not([data-bs-theme="dark"])
+ * para no pelear con el toggle de modo oscuro existente (data-bs-theme=
+ * "dark" siempre gana ahí).
  *
  * Botones: Bootstrap 5.3 define --bs-btn-bg / --bs-btn-border-color etc.
  * como valores fijos por variante (no heredan de --bs-primary en runtime),
  * así que hay que pisarlos explícitamente para que .btn-primary cambie de
  * color acá.
+ *
+ * Fuentes: el <body> de Bootstrap fija font-family/font-weight con
+ * var(--bs-body-font-family)/var(--bs-body-font-weight), pisando lo
+ * heredado de <html> — por eso acá se sobreescriben esas dos variables
+ * (no la propiedad font-family directo) para que el cambio de tipografía
+ * realmente se vea.
  */
 
 /* ---------- Slack: aubergine, links azules, pills bien redondeados ---------- */
@@ -26,10 +33,12 @@
   --edu-accent-soft-bg: #f9f0ff;
   --edu-accent-soft-border: #e6cdf2;
   --edu-accent-soft-text: #4a154b;
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-weight: 400;
 }
 [data-visual-theme="slack"]:not([data-bs-theme="dark"]) {
   --bs-body-bg: #f9f5ef;
+  --edu-sidebar-bg: #f3e0f5;
 }
 [data-visual-theme="slack"] h1, [data-visual-theme="slack"] h2,
 [data-visual-theme="slack"] h3, [data-visual-theme="slack"] h4,
@@ -71,8 +80,11 @@
   --edu-accent-soft-bg: #eaf2ff;
   --edu-accent-soft-border: #b9d3f7;
   --edu-accent-soft-text: #1c69d4;
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
-  font-weight: 300;
+  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-weight: 300;
+}
+[data-visual-theme="bmw"]:not([data-bs-theme="dark"]) {
+  --edu-sidebar-bg: #eef3fb;
 }
 [data-visual-theme="bmw"] h1, [data-visual-theme="bmw"] h2,
 [data-visual-theme="bmw"] h3, [data-visual-theme="bmw"] h4,
@@ -115,7 +127,11 @@
   --edu-accent-soft-bg: #eceeff;
   --edu-accent-soft-border: #ccd2fb;
   --edu-accent-soft-text: #5e6ad2;
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-weight: 400;
+}
+[data-visual-theme="linear"]:not([data-bs-theme="dark"]) {
+  --edu-sidebar-bg: #e4e6fb;
 }
 [data-visual-theme="linear"] h1, [data-visual-theme="linear"] h2,
 [data-visual-theme="linear"] h3, [data-visual-theme="linear"] h4,
@@ -153,7 +169,11 @@
   --edu-accent-soft-bg: #dceeb1;
   --edu-accent-soft-border: #c7dd8f;
   --edu-accent-soft-text: #1d1d1d;
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-weight: 400;
+}
+[data-visual-theme="figma"]:not([data-bs-theme="dark"]) {
+  --edu-sidebar-bg: #f0f0ec;
 }
 [data-visual-theme="figma"] h1, [data-visual-theme="figma"] h2,
 [data-visual-theme="figma"] h3, [data-visual-theme="figma"] h4,
@@ -191,10 +211,12 @@
   --edu-accent-soft-bg: #ffe3ee;
   --edu-accent-soft-border: #ffc2d9;
   --edu-accent-soft-text: #0a0a0a;
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-weight: 400;
 }
 [data-visual-theme="clay"]:not([data-bs-theme="dark"]) {
   --bs-body-bg: #fffaf0;
+  --edu-sidebar-bg: #faf5e8;
 }
 [data-visual-theme="clay"] h1, [data-visual-theme="clay"] h2,
 [data-visual-theme="clay"] h3, [data-visual-theme="clay"] h4,
