@@ -28,6 +28,13 @@
     display: flex;
 }
 
+/* Bootstrap agrega .modal-open al <body> mientras hay un modal abierto.
+   El toggle es fixed con z-index alto (por encima del sidebar), así que sin
+   esto queda flotando arriba de los modales (tapa el título/header) en mobile. */
+body.modal-open .sidebar-toggle-external {
+    display: none !important;
+}
+
 /* Estilos para el menú lateral */
 .sidebar {
     height: 100%;

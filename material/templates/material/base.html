@@ -57,6 +57,9 @@
         #sidebarOverlay {
           transition: opacity 0.25s ease;
         }
+        body.modal-open #externalToggle {
+          display: none !important;
+        }
       }
     </style>
 </head>
@@ -213,6 +216,14 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+      // En mobile, si la página está scrolleada al abrir un modal (fixed),
+      // algunos navegadores lo "heredan" visualmente desplazado en vez de
+      // mostrarlo desde arriba (se ve como si le faltara el header). Forzamos
+      // scroll a top antes de que cualquier modal de Bootstrap se muestre.
+      document.addEventListener('show.bs.modal', function () {
+        window.scrollTo(0, 0);
+      });
+
       function toggleSidebarHard(event) {
         if (event) event.preventDefault();
         toggleSidebar();

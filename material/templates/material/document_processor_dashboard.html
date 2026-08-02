@@ -16,14 +16,14 @@
     <div class="row">
         <div class="col-12">
             {% if wizard_active %}<div class="onb2-focus-frame">{% endif %}
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-2">
                 <div>
                     <h2><i class="fas fa-file-alt"></i> Procesador de Documentos con IA</h2>
                     <p class="text-muted">Analiza documentos PDF, DOCX, PPTX con detección automática de estructura para generar preguntas con IA</p>
                 </div>
-                <div>
+                <div class="w-100 w-md-auto">
                     <!-- Estado del servidor local de IA -->
-                    <div id="localAIStatus" class="d-flex align-items-center">
+                    <div id="localAIStatus" class="d-flex align-items-center flex-wrap gap-2">
                         {% if local_ai_ready %}
                         <span class="badge bg-success px-3 py-2">
                             <i class="fas fa-circle me-2 blink"></i>
@@ -50,7 +50,7 @@
                             <i class="fas fa-cog"></i>
                         </a>
                     </div>
-                    <small class="text-muted d-block mt-1 text-end" id="aiStatusDetail">
+                    <small class="text-muted d-block mt-1 text-md-end" id="aiStatusDetail">
                         {% if local_ai_ready %}
                             <span id="unlimitedTokensBadge">
                                 <i class="fas fa-infinity text-success"></i> <strong class="text-success">Sin límite por tanda</strong>
@@ -70,7 +70,7 @@
                             </span>
                         {% endif %}
                     </small>
-                    <small class="text-muted d-block mt-1 text-end {% if not using_shared_fallback %}d-none{% endif %}" id="demoQuotaBox">
+                    <small class="text-muted d-block mt-1 text-md-end {% if not using_shared_fallback %}d-none{% endif %}" id="demoQuotaBox">
                         {% if demo_quota and demo_quota.remaining_requests is not None %}
                             <i class="fas fa-people-group"></i> IA compartida — cupo del día: quedan <strong id="demoQuotaText">{{ demo_quota.remaining_requests }} de {{ demo_quota.limit_requests|default:"?" }}</strong> tandas
                             {% if demo_quota.requests_reset_at %}<br><span class="fst-italic">Se renueva {{ demo_quota.requests_reset_at|date:"H:i" }}</span>{% endif %}
@@ -1275,12 +1275,17 @@ async function startGeneration() {
     window._questionsPerBlock = Math.max(0, parseInt(document.getElementById('questionsPerBlockInput').value) || 0);
     window._pauseAfterBlock = document.getElementById('pauseAfterBlockToggle').checked;
 
-    // Cerrar modal preflight
-    bootstrap.Modal.getInstance(document.getElementById('preflightModal')).hide();
-
-    // Abrir modal de preguntas y mostrar loading
-    const questionsModal = new bootstrap.Modal(document.getElementById('questionsModal'));
-    questionsModal.show();
+    // Cerrar modal preflight y esperar a que termine su transición antes de
+    // abrir el siguiente: si se abre questionsModal mientras preflightModal
+    // todavía está en su animación de cierre, Bootstrap termina con dos
+    // backdrops pisados y el body pierde el scroll-lock a mitad de camino
+    // (se ve como el modal nuevo flotando roto sobre el contenido de fondo).
+    const preflightModalEl = document.getElementById('preflightModal');
+    preflightModalEl.addEventListener('hidden.bs.modal', () => {
+        const questionsModal = new bootstrap.Modal(document.getElementById('questionsModal'));
+        questionsModal.show();
+    }, { once: true });
+    bootstrap.Modal.getInstance(preflightModalEl).hide();
 
     const loadingEl = document.getElementById('questionsLoadingIndicator');
     document.getElementById('questionsContent').innerHTML = '';
