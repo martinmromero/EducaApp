@@ -224,6 +224,18 @@
         window.scrollTo(0, 0);
       });
 
+      // Bootstrap marca el modal con aria-hidden="true" al cerrarlo, pero si
+      // el botón que disparó el cierre (ej. "Comenzar", "Guardar") todavía
+      // tiene el foco -que es lo normal, se acaba de clickear- el navegador
+      // bloquea el aria-hidden porque un descendiente enfocado no puede
+      // quedar oculto para lectores de pantalla. Sacamos el foco antes de
+      // que el modal se oculte. Ver https://github.com/twbs/bootstrap/issues/41005
+      document.addEventListener('hide.bs.modal', function (event) {
+        if (document.activeElement && event.target.contains(document.activeElement)) {
+          document.activeElement.blur();
+        }
+      });
+
       function toggleSidebarHard(event) {
         if (event) event.preventDefault();
         toggleSidebar();
