@@ -1,11 +1,10 @@
 {% extends 'material/base.html' %}
 {% load static %}
 {% load message_tags %}
-{% block page_title %}Cuestionarios Orales{% endblock %}
+{% block page_title %}<i class="bi bi-mic me-2"></i>Cuestionarios Orales{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <h1 class="h3 mb-4 text-gray-800">Mis Cuestionarios Orales</h1>
 
     <!-- Mensajes específicos de cuestionarios orales -->
     {% show_messages "cuestionarios_orales" %}

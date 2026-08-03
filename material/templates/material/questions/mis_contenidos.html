@@ -1,10 +1,9 @@
 {% extends 'material/base.html' %}
 {% load message_tags %}
-{% block page_title %}Mis Contenidos{% endblock %}
+{% block page_title %}<i class="bi bi-collection me-2"></i>Mis Contenidos{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h1>Mis Contenidos</h1>
 
     <!-- Mensajes específicos de contenidos -->
     {% show_messages "contenidos" %}

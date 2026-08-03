@@ -1,6 +1,6 @@
 {% extends "material/base.html" %}
 {% load message_tags %}
-{% block page_title %}Materias{% endblock %}
+{% block page_title %}<i class="bi bi-book me-2"></i>Materias{% endblock %}
 {% block content %}
 {% show_messages "materias" %}
 <form method="post" action="{% url 'material:bulk_eliminar_subjects' %}" id="deleteForm">

@@ -1,11 +1,10 @@
 {% extends 'material/base.html' %}
 {% load static %}
 {% load message_tags %}
-{% block page_title %}Mis Preguntas{% endblock %}
+{% block page_title %}<i class="bi bi-list-check me-2"></i>Mis Preguntas{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <h1 class="h3 mb-4 text-gray-800">Mis Preguntas</h1>
 
     <!-- Mensajes específicos de preguntas -->
     {% show_messages "preguntas" %}

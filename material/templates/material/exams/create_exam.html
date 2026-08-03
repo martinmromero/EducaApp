@@ -1,13 +1,12 @@
 
 {% extends 'material/base.html' %}
 {% load static %}
-{% block page_title %}Nuevo Examen{% endblock %}
+{% block page_title %}<i class="bi bi-plus-circle me-2"></i>Nuevo Examen{% endblock %}
 {% block content %}
 <script src="{% static 'material/js/create_exam.js' %}"></script>
 {% if wizard_active %}
 {% include 'material/_onb2_banner.html' with onb2_step=6 onb2_step_label="Armá tu examen" %}
 {% endif %}
-<h2>Crear Examen</h2>
 {% if wizard_active %}<div class="onb2-focus-frame">{% endif %}
 <form method="post" id="examCreateForm">
     {% csrf_token %}
