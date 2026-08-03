@@ -10,9 +10,12 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Ignorar la base de datos SQLite (si es local)
-# comentado para que la base sí pase entre las 2 notebooks
-# db.sqlite3
+# Ignorar la base de datos SQLite local. Antes se versionaba a propósito
+# para sincronizarla entre 2 notebooks; se dejó de necesitar ese flujo y
+# tenerla en git causaba que un "git checkout -- db.sqlite3" (limpieza de
+# datos de prueba durante el desarrollo) pisara cambios reales hechos en
+# el medio, como un reset de contraseña con changepassword.
+db.sqlite3
 
 # Ignorar archivos de entorno
 .env

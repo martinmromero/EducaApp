@@ -117,7 +117,7 @@
         <div class="col-lg-5">
             <div class="print-preview-wrap">
                 <p class="text-muted small mb-2">
-                    Vista previa con los mismos campos estándar de un examen real (encabezado, datos del alumno, tópicos, preguntas) — no es solo una hoja en blanco para ver la fuente.
+                    Vista previa con los mismos campos estándar de un examen real (encabezado, datos del alumno, tópicos, preguntas).
                     <br>
                     <i class="bi bi-arrows-fullscreen"></i> Hacé click en la hoja para verla más grande.
                 </p>
@@ -212,9 +212,9 @@
         padding-left: 1em;
     }
 
-    /* Paleta de colores: cuadrícula simple de blanco a negro, en vez de un
-       input type=color nativo — más rápido de elegir para encabezados/texto
-       de examen, que casi siempre son escalas de gris. */
+    /* Paleta de colores: cuadrícula simple de grises + colores básicos, en
+       vez de un input type=color nativo — más rápido de elegir para
+       encabezados/texto de examen que un selector de color libre. */
     .color-swatch-grid {
         display: grid;
         grid-template-columns: repeat(8, 1.6rem);
@@ -246,12 +246,13 @@
     };
     var PX_PER_CM_REAL = 37.8; // ~96dpi, solo para escalar la tipografía de forma proporcional
 
-    // 16 grises parejos de blanco a negro (#FFFFFF a #000000).
-    var GRAYSCALE_SWATCHES = [
-        '#ffffff', '#eeeeee', '#dddddd', '#cccccc',
-        '#bbbbbb', '#aaaaaa', '#999999', '#888888',
-        '#777777', '#666666', '#555555', '#444444',
-        '#333333', '#222222', '#111111', '#000000',
+    // 24 colores estándar: grises de blanco a negro + una fila de colores
+    // vivos y otra de sus versiones oscuras (más legibles para texto/título
+    // de examen que el color vivo puro).
+    var COLOR_SWATCHES = [
+        '#ffffff', '#eeeeee', '#cccccc', '#999999', '#666666', '#434343', '#1a1a1a', '#000000',
+        '#ea4335', '#ff9800', '#ffd600', '#34a853', '#00acc1', '#1a73e8', '#7e57c2', '#d81b60',
+        '#b71c1c', '#e65100', '#8d6e00', '#1b5e20', '#006064', '#0d47a1', '#4a148c', '#4e342e',
     ];
 
     function val(id) {
@@ -264,7 +265,7 @@
             var targetId = grid.dataset.target;
             var input = document.getElementById(targetId);
             if (!input) return;
-            GRAYSCALE_SWATCHES.forEach(function (hex) {
+            COLOR_SWATCHES.forEach(function (hex) {
                 var btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'color-swatch';
