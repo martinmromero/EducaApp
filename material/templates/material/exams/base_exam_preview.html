@@ -50,6 +50,49 @@
             border: 1px solid #bdbdbd;
             box-sizing: border-box;
         }
+        /* Barra de zoom: en vez de dejar que .exam-container (ancho fijo,
+           820px) se salga de cuadro en mobile y dependa solo del scroll
+           horizontal, se puede escalar con estos controles. .exam-zoom-sizer
+           reserva el espacio real ya escalado (ancho/alto en px calculados
+           por JS) para que .exam-scroll-outer scrollee correctamente; el
+           transform: scale() va en .exam-container mismo. */
+        .exam-zoom-toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px;
+            margin-bottom: 10px;
+            background: #fff;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        .exam-zoom-toolbar button {
+            border: 1px solid #ced4da;
+            background: #fff;
+            border-radius: 4px;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+        }
+        .exam-zoom-toolbar button:hover {
+            background: #f1f3f5;
+        }
+        .exam-zoom-level {
+            min-width: 3.4rem;
+            text-align: center;
+            font-size: .85rem;
+            color: #555;
+        }
+        .exam-zoom-sizer {
+            position: relative;
+        }
         .bloom-sidebar {
             max-width: 480px;
             margin: 14px auto 0;
@@ -453,6 +496,15 @@
                 width: 100%;
                 min-width: 0;
                 border: none;
+                transform: none !important;
+            }
+            .exam-zoom-toolbar {
+                display: none;
+            }
+            .exam-zoom-sizer {
+                width: auto !important;
+                height: auto !important;
+                transform: none !important;
             }
             .bloom-sidebar {
                 display: none;
@@ -530,8 +582,15 @@
 </head>
 <body>
 <div class="page-wrapper">
-    <div class="exam-scroll-outer">
-    <div class="exam-container">
+    <div class="exam-zoom-toolbar no-print">
+        <button type="button" id="examZoomOut" title="Alejar">&minus;</button>
+        <span class="exam-zoom-level" id="examZoomLevel">100%</span>
+        <button type="button" id="examZoomIn" title="Acercar">+</button>
+        <button type="button" id="examZoomFit" title="Ajustar a pantalla"><i class="fas fa-expand"></i></button>
+    </div>
+    <div class="exam-scroll-outer" id="examScrollOuter">
+    <div class="exam-zoom-sizer" id="examZoomSizer">
+    <div class="exam-container" id="examContainer">
         <div class="header">
             {% block header %}
             <table class="header-table">
@@ -704,6 +763,7 @@
         </div>
         {% endif %}
     </div><!-- /.exam-container -->
+    </div><!-- /.exam-zoom-sizer -->
     </div><!-- /.exam-scroll-outer -->
 
     <div class="print-button no-print">
@@ -722,6 +782,61 @@
     </div>
 
 </div><!-- /.page-wrapper -->
+
+<script>
+(function () {
+    // Zoom del preview de examen: .exam-container tiene ancho fijo (820px,
+    // ver comentario más arriba), así que en vez de dejarlo desbordar en
+    // mobile con solo scroll horizontal, se puede escalar. transform:scale()
+    // no cambia la caja de layout, así que .exam-zoom-sizer reserva a mano
+    // el ancho/alto ya escalados para que .exam-scroll-outer scrollee bien.
+    // Vive fuera del bloque "scripts" a propósito, para que corra siempre
+    // sin depender de que cada template hijo llame a block.super.
+    var ZOOM_MIN = 0.25, ZOOM_MAX = 2.5, ZOOM_STEP = 0.15;
+    var zoomLevel = 1;
+
+    function applyZoom() {
+        var container = document.getElementById('examContainer');
+        var sizer = document.getElementById('examZoomSizer');
+        var label = document.getElementById('examZoomLevel');
+        if (!container || !sizer) return;
+        zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomLevel));
+        container.style.transformOrigin = 'top left';
+        container.style.transform = 'scale(' + zoomLevel + ')';
+        sizer.style.width = (container.offsetWidth * zoomLevel) + 'px';
+        sizer.style.height = (container.offsetHeight * zoomLevel) + 'px';
+        if (label) label.textContent = Math.round(zoomLevel * 100) + '%';
+    }
+
+    function fitZoom() {
+        var scrollOuter = document.getElementById('examScrollOuter');
+        var container = document.getElementById('examContainer');
+        if (!scrollOuter || !container) return;
+        // offsetWidth natural (sin transform) para calcular el ratio real.
+        var prevTransform = container.style.transform;
+        container.style.transform = 'none';
+        var naturalWidth = container.offsetWidth;
+        container.style.transform = prevTransform;
+        var available = scrollOuter.clientWidth - 4;
+        zoomLevel = Math.min(1, available / naturalWidth);
+        applyZoom();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        fitZoom();
+        document.getElementById('examZoomIn')?.addEventListener('click', function () {
+            zoomLevel += ZOOM_STEP;
+            applyZoom();
+        });
+        document.getElementById('examZoomOut')?.addEventListener('click', function () {
+            zoomLevel -= ZOOM_STEP;
+            applyZoom();
+        });
+        document.getElementById('examZoomFit')?.addEventListener('click', fitZoom);
+        window.addEventListener('resize', fitZoom);
+    });
+})();
+</script>
 
 <div class="simple-modal-backdrop no-print" id="examSavedBackdrop">
     <div class="simple-modal-box">
