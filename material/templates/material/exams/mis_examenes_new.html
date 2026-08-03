@@ -73,7 +73,7 @@
                                 </td>
                                 <td><strong>{{ item.batch.name }}</strong></td>
                                 <td>{{ item.batch.subject.name|default:'-' }}</td>
-                                <td><span class="badge bg-info text-white">Lote &middot; {{ item.batch.version_count }} versiones</span></td>
+                                <td><span class="badge bg-info text-white">Lote &middot; {{ item.batch.version_count }} temas</span></td>
                                 <td>{{ item.batch.created_at|date:"d/m/Y H:i" }}</td>
                                 <td>
                                     <div class="btn-group" role="group">
@@ -139,7 +139,7 @@
     {% for item in items %}
     {% if item.kind == 'batch' %}
     <form method="post" action="{% url 'material:eliminar_exam_batch' item.batch.id %}" id="deleteRowForm_batch_{{ item.batch.id }}"
-          onsubmit="return confirm('¿Eliminar este lote y todas sus versiones?');">
+          onsubmit="return confirm('¿Eliminar este lote y todos sus temas?');">
         {% csrf_token %}
     </form>
     {% else %}

@@ -31,7 +31,7 @@
   {% for exam in versions %}
   <div class="card mb-3" data-exam-id="{{ exam.id }}">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <strong>Versión {{ exam.version_number|default:forloop.counter }}</strong>
+      <strong>Tema {{ exam.version_number|default:forloop.counter }}</strong>
       <div class="d-flex gap-2">
         <a class="btn btn-sm btn-outline-secondary" href="{% url 'material:ver_examen' exam.id %}">Ver</a>
         <a class="btn btn-sm btn-outline-primary" href="{% url 'material:exportar_examen_docx' exam.id %}">DOCX</a>
@@ -47,7 +47,7 @@
           <div class="d-flex justify-content-between align-items-start gap-2">
             <div>
               <div>{{ q.question_text }}</div>
-              <small class="text-muted">Tema: {{ q.topic.name }}</small>
+              <small class="text-muted">Tópico: {{ q.topic.name }}</small>
             </div>
             <button type="button" class="btn btn-sm btn-warning js-change-question" data-exam="{{ exam.id }}" data-question="{{ q.id }}">Cambiar</button>
           </div>
@@ -67,11 +67,11 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted mb-2" id="batchQuestionModalHelp">Preguntas posibles del mismo tema</p>
+        <p class="text-muted mb-2" id="batchQuestionModalHelp">Preguntas posibles del mismo tópico</p>
         <div id="batchQuestionModalList" class="list-group"></div>
       </div>
       <div class="modal-footer justify-content-between">
-        <button type="button" class="btn btn-outline-warning" id="batchRandomOtherTopicBtn">Random de otro tema</button>
+        <button type="button" class="btn btn-outline-warning" id="batchRandomOtherTopicBtn">Random de otro tópico</button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
@@ -151,12 +151,12 @@
       }
 
       helpEl.textContent = data.current_topic
-        ? `Preguntas posibles del mismo tema: ${data.current_topic}`
-        : 'Preguntas posibles del mismo tema';
+        ? `Preguntas posibles del mismo tópico: ${data.current_topic}`
+        : 'Preguntas posibles del mismo tópico';
       listEl.innerHTML = '';
 
       if (!data.questions.length) {
-        listEl.innerHTML = '<div class="text-muted">No hay alternativas manuales del mismo tema.</div>';
+        listEl.innerHTML = '<div class="text-muted">No hay alternativas manuales del mismo tópico.</div>';
       } else {
         data.questions.forEach(function (q) {
           const button = document.createElement('button');

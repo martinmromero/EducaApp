@@ -80,7 +80,7 @@
 
   {% for version in versions_preview %}
   <div class="card mb-3">
-    <div class="card-header"><strong>Versión {{ version.number }}</strong></div>
+    <div class="card-header"><strong>Tema {{ version.number }}</strong></div>
     <div class="card-body">
       <ol>
         {% for q in version.questions_texts %}
@@ -111,11 +111,11 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted mb-2" id="previewQuestionModalHelp">Preguntas posibles del mismo tema</p>
+        <p class="text-muted mb-2" id="previewQuestionModalHelp">Preguntas posibles del mismo tópico</p>
         <div id="previewQuestionModalList" class="list-group"></div>
       </div>
       <div class="modal-footer justify-content-between">
-        <button type="button" class="btn btn-outline-warning" id="previewRandomOtherTopicBtn">Random de otro tema</button>
+        <button type="button" class="btn btn-outline-warning" id="previewRandomOtherTopicBtn">Random de otro tópico</button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
@@ -211,12 +211,12 @@
       }
 
       helpEl.textContent = data.current_topic
-        ? `Preguntas posibles del mismo tema: ${data.current_topic}`
-        : 'Preguntas posibles del mismo tema';
+        ? `Preguntas posibles del mismo tópico: ${data.current_topic}`
+        : 'Preguntas posibles del mismo tópico';
       listEl.innerHTML = '';
 
       if (!data.questions.length) {
-        listEl.innerHTML = '<div class="text-muted">No hay alternativas manuales del mismo tema.</div>';
+        listEl.innerHTML = '<div class="text-muted">No hay alternativas manuales del mismo tópico.</div>';
       } else {
         data.questions.forEach(function (q) {
           const button = document.createElement('button');

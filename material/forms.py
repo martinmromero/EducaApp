@@ -574,7 +574,7 @@ class OralExamForm(forms.ModelForm):
         queryset=Topic.objects.none(),  # Se establecerá dinámicamente
         widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
         required=True,
-        label='Temas a evaluar'
+        label='Tópicos a evaluar'
     )
     
     # Campos adicionales para la validación

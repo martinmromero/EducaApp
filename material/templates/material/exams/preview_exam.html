@@ -13,7 +13,7 @@
 
 {% if topics_texts %}
 <div class="section">
-    <h3>Temas a evaluar:</h3>
+    <h3>Tópicos a evaluar:</h3>
     <ul class="topics-list">
         {% for topic in topics_texts %}
         <li>{{ topic }}</li>
@@ -41,10 +41,10 @@
 {% endif %}
 
 <div class="section" style="margin-top:24px;">
-  <h3>Versiones generadas (vista previa)</h3>
+  <h3>Temas generados (vista previa)</h3>
   {% for version in versions_preview %}
   <div style="border:1px solid #d9d9d9;border-radius:6px;padding:10px;margin-bottom:12px;">
-    <strong>Versión {{ version.number }}</strong>
+    <strong>Tema {{ version.number }}</strong>
     <ol class="questions-list" style="margin-top:8px;">
       {% for q in version.questions_texts %}
       <li style="margin-bottom:1em;">

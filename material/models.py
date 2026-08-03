@@ -859,11 +859,11 @@ class Exam(models.Model):
         null=True,  
         verbose_name="Tiempo de resolución"  
     )  
-    topics_to_evaluate = models.TextField(  
-        blank=True,  
-        null=True,  
-        verbose_name="Temas a evaluar"  
-    )  
+    topics_to_evaluate = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Tópicos a evaluar"
+    )
     notes_and_recommendations = models.TextField(  
         blank=True,  
         null=True,  
@@ -1284,8 +1284,8 @@ class ExamTemplate(models.Model):
     )
    
     topics_to_evaluate = models.TextField(
-        verbose_name="Temas a evaluar",
-        help_text="Listado de temas incluidos en el examen",
+        verbose_name="Tópicos a evaluar",
+        help_text="Listado de tópicos incluidos en el examen",
         blank=True
     )
    

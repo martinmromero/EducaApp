@@ -208,14 +208,14 @@
 {% endif %}
 
 {% if topics_texts %}
-<div class="section-title">Temas a evaluar:</div>
+<div class="section-title">Tópicos a evaluar:</div>
 <ul class="topics-list">
   {% for t in topics_texts %}
   <li>{{ t }}</li>
   {% endfor %}
 </ul>
 {% elif topics_to_evaluate %}
-<div class="section-title">Temas a evaluar:</div>
+<div class="section-title">Tópicos a evaluar:</div>
 <div class="plain-text">{{ topics_to_evaluate }}</div>
 {% endif %}
 
