@@ -5676,7 +5676,40 @@ def onboarding_v2_demo_scheme(request):
     }
     request.session.pop('preview_generated_versions_ids', None)
     request.session['onb2_wizard_active'] = True
-    return redirect('material:preview_exam')
+    return redirect('material:onboarding_v2_demo_recap')
+
+
+@login_required
+def onboarding_v2_demo_recap(request):
+    """
+    Pantalla intermedia entre elegir una materia de ejemplo y ver el examen
+    armado. onboarding_v2_demo_scheme resuelve todo en un solo request
+    server-side (sin pasar por Subir Contenido / Procesador de IA / Mis
+    Preguntas / Crear Examen como haría un usuario real), lo que hacía que
+    el atajo se sintiera instantáneo y sintético. Acá se muestra un
+    resumen — con datos reales del contenido semilla, no inventados — de
+    esos mismos pasos ya completados, antes de mostrar el examen.
+    """
+    exam_session = request.session.get('preview_exam')
+    if not exam_session:
+        return redirect('material:onboarding_v2_page')
+
+    subject = Subject.objects.filter(pk=exam_session.get('subject')).first()
+    if not subject:
+        return redirect('material:onboarding_v2_page')
+
+    institution = InstitutionV2.objects.filter(pk=exam_session.get('institucion')).first()
+    topics = list(Topic.objects.filter(subject=subject).order_by('name').values_list('name', flat=True))
+    seed_username = getattr(settings, 'SEED_CONTENT_USERNAME', 'educaapp_demo')
+    questions_qs = Question.objects.filter(subjects=subject, user__username=seed_username)
+
+    return render(request, 'material/onboarding_v2_demo_recap.html', {
+        'subject': subject,
+        'institution': institution,
+        'topics': topics,
+        'questions_count': questions_qs.count(),
+        'approved_count': questions_qs.filter(ai_approved=True).count(),
+    })
 
 
 @login_required

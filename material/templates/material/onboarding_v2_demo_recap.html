@@ -1,0 +1,57 @@
+{% extends 'material/base.html' %}
+{% block page_title %}<i class="bi bi-stars me-2"></i>Así se armó tu examen de ejemplo{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 700px;">
+    <p class="text-muted mb-4">
+        Con tu propio contenido este proceso se hace paso a paso: subís un apunte, la IA le genera preguntas,
+        las revisás y aprobás, y armás el examen eligiendo cuántas preguntas de cada tópico. Para este ejemplo
+        ya está todo listo — así quedó:
+    </p>
+
+    <div class="list-group mb-4">
+        <div class="list-group-item d-flex align-items-start gap-3">
+            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+            <div>
+                <div class="fw-semibold">Institución y materia elegidas</div>
+                <div class="text-muted small">{{ institution.name|default:"—" }} — {{ subject.name }}</div>
+            </div>
+        </div>
+        <div class="list-group-item d-flex align-items-start gap-3">
+            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+            <div>
+                <div class="fw-semibold">Tópicos identificados en el contenido</div>
+                <div class="text-muted small">{{ topics|join:", " }}</div>
+            </div>
+        </div>
+        <div class="list-group-item d-flex align-items-start gap-3">
+            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+            <div>
+                <div class="fw-semibold">{{ questions_count }} preguntas generadas con IA</div>
+                <div class="text-muted small">A partir de esos tópicos, como haría el Procesador de Documentos con tu apunte</div>
+            </div>
+        </div>
+        <div class="list-group-item d-flex align-items-start gap-3">
+            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+            <div>
+                <div class="fw-semibold">{{ approved_count }} preguntas aprobadas</div>
+                <div class="text-muted small">Revisadas y listas para usarse en un examen, como en Mis Preguntas</div>
+            </div>
+        </div>
+        <div class="list-group-item d-flex align-items-start gap-3">
+            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+            <div>
+                <div class="fw-semibold">Examen armado</div>
+                <div class="text-muted small">Con preguntas elegidas automáticamente de ese banco</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a href="{% url 'material:preview_exam' %}" class="btn btn-primary btn-lg">
+            Ver examen <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+        <a href="{% url 'material:onboarding_v2_page' %}" class="btn btn-outline-secondary btn-lg">Volver</a>
+    </div>
+</div>
+{% endblock %}
