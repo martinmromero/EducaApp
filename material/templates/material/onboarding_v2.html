@@ -821,6 +821,10 @@
   const requestedStep = parseInt(params.get('step'), 10);
   if (requestedStep >= 1 && requestedStep <= 6) {
     enterOwnFlow(requestedStep);
+  } else if (window.EducaAppTour) {
+    // Tour de orientación primero, antes de pedir cualquier dato — solo la
+    // primera vez que un usuario llega acá (ver static/js/tour.js).
+    window.EducaAppTour.startIfFirstVisit();
   }
 })();
 </script>
