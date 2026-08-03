@@ -93,13 +93,13 @@
       <div class="card shadow-sm mb-4">
         <div class="card-header d-flex align-items-center gap-2">
           <i class="fas fa-book text-primary"></i>
-          <span class="fw-semibold">Materia y tema</span>
+          <span class="fw-semibold">Materia y tópico</span>
         </div>
         <div class="card-body">
           <p class="mb-2"><span class="fw-semibold">Materia(s):</span>
             {% for materia in pregunta.subjects.all %}{{ materia.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
           </p>
-          <p class="mb-2"><span class="fw-semibold">Tema:</span> {{ pregunta.topic|default:"—" }}</p>
+          <p class="mb-2"><span class="fw-semibold">Tópico:</span> {{ pregunta.topic|default:"—" }}</p>
           <p class="mb-0"><span class="fw-semibold">Subtema:</span> {{ pregunta.subtopic|default:"—" }}</p>
         </div>
       </div>

@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="row">
                     <div class="col-md-6">
                         <div class="form-group mb-3">
-                            <label for="{{ form.topic.id_for_label }}">Tema Principal</label>
+                            <label for="{{ form.topic.id_for_label }}">Tópico principal</label>
                             <div class="input-combo d-flex align-items-center gap-2">
                                 <select name="topic" id="id_topic" class="form-control"></select>
                                 <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" id="addTopicBtn" data-target="topic" data-field="id_topic">
@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </button>
                             </div>
                             <div class="input-combo mt-2" id="newTopicContainer" style="display:none;">
-                                <input type="text" class="form-control dynamic-input" id="new_topic" placeholder="Nombre del tema">
+                                <input type="text" class="form-control dynamic-input" id="new_topic" placeholder="Nombre del tópico">
                                 <button type="button" class="btn btn-sm btn-success" id="saveNewTopic">Guardar</button>
                                 <button type="button" class="btn btn-sm btn-secondary" id="cancelNewTopic">Cancelar</button>
                             </div>
@@ -306,26 +306,26 @@ nivel_bloom: 2
                     function loadTopics(subjectId, selectedTopicId = null) {
                         if (!subjectId) {
                             $('#id_topic').html('<option value="">Seleccione una materia primero</option>').prop('disabled', true);
-                            $('#id_subtopic').html('<option value="">Seleccione un tema primero</option>').prop('disabled', true);
+                            $('#id_subtopic').html('<option value="">Seleccione un tópico primero</option>').prop('disabled', true);
                             return;
                         }
                         $.ajax({
                             url: '{% url "material:get_topics" %}',
                             data: { 'subject_id': subjectId },
                             success: function(data) {
-                                let options = '<option value="">Seleccione un tema</option>';
+                                let options = '<option value="">Seleccione un tópico</option>';
                                 data.forEach(function(topic) {
                                     const selected = topic.id == selectedTopicId ? 'selected' : '';
                                     options += `<option value="${topic.id}" ${selected}>${topic.name}</option>`;
                                 });
                                 $('#id_topic').html(options).prop('disabled', false);
-                                $('#id_subtopic').html('<option value="">Seleccione un tema primero</option>').prop('disabled', true);
+                                $('#id_subtopic').html('<option value="">Seleccione un tópico primero</option>').prop('disabled', true);
                             }
                         });
                     }
                     function loadSubtopics(topicId, selectedSubtopicId = null) {
                         if (!topicId) {
-                            $('#id_subtopic').html('<option value="">Seleccione un tema primero</option>').prop('disabled', true);
+                            $('#id_subtopic').html('<option value="">Seleccione un tópico primero</option>').prop('disabled', true);
                             return;
                         }
                         $.ajax({
@@ -383,7 +383,7 @@ nivel_bloom: 2
                                     loadTopics(subjectId, response.topic.id);
                                     $('#newTopicContainer').hide();
                                 } else {
-                                    alert(response.error || 'Error al crear el tema');
+                                    alert(response.error || 'Error al crear el tópico');
                                 }
                             }
                         });

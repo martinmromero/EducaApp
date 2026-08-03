@@ -304,7 +304,7 @@
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="subjectPickerLabel">
-                    <i class="fas fa-book"></i> Asignar materia, tema y subtema
+                    <i class="fas fa-book"></i> Asignar materia, tópico y subtema
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -329,8 +329,8 @@
                 <!-- Advertencia múltiples materias -->
                 <div id="multiSubjectWarning" class="alert alert-warning py-2 mt-2 small" style="display:none">
                     <i class="fas fa-exclamation-triangle"></i>
-                    Estás asignando a <strong>varias materias</strong>. El tema y subtema se crearán/vincularán
-                    únicamente desde la <strong>primera materia seleccionada</strong>, ya que cada tema pertenece
+                    Estás asignando a <strong>varias materias</strong>. El tópico y subtema se crearán/vincularán
+                    únicamente desde la <strong>primera materia seleccionada</strong>, ya que cada tópico pertenece
                     a una sola materia.
                 </div>
 
@@ -338,15 +338,15 @@
 
                 <!-- ── Paso 2: Tema ──────────────────────────────────── -->
                 <div id="topicSection">
-                    <h6 class="fw-bold mb-1"><i class="fas fa-tag text-success"></i> Tema <span class="text-muted fw-normal">(opcional)</span></h6>
+                    <h6 class="fw-bold mb-1"><i class="fas fa-tag text-success"></i> Tópico <span class="text-muted fw-normal">(opcional)</span></h6>
                     <div id="topicLoadingSpinner" class="text-muted small mb-2" style="display:none">
-                        <span class="spinner-border spinner-border-sm"></span> Cargando temas…
+                        <span class="spinner-border spinner-border-sm"></span> Cargando tópicos…
                     </div>
                     <select class="form-select mb-2" id="topicSelect">
                         <option value="">— Seleccioná primero una materia —</option>
                     </select>
                     <div id="newTopicBlock" style="display:none">
-                        <label class="form-label small fw-bold">Nombre del nuevo tema</label>
+                        <label class="form-label small fw-bold">Nombre del nuevo tópico</label>
                         <input type="text" class="form-control form-control-sm" id="newTopicInput"
                                placeholder="Ej: Unidad 1 — Introducción" maxlength="255">
                     </div>
@@ -1977,7 +1977,7 @@ async function _loadTopicsForSubject(subjectId) {
         });
         const data = await resp.json();
 
-        topicSel.innerHTML = '<option value="">— Sin tema —</option>';
+        topicSel.innerHTML = '<option value="">— Sin tópico —</option>';
         if (data.success && data.topics.length > 0) {
             data.topics.forEach(t => {
                 const opt = document.createElement('option');
@@ -1987,10 +1987,10 @@ async function _loadTopicsForSubject(subjectId) {
                 topicSel.appendChild(opt);
             });
         }
-        topicSel.innerHTML += '<option value="__new__">➕ Crear nuevo tema…</option>';
+        topicSel.innerHTML += '<option value="__new__">➕ Crear nuevo tópico…</option>';
     } catch (e) {
-        topicSel.innerHTML = '<option value="">— Error cargando temas —</option>' +
-                             '<option value="__new__">➕ Crear nuevo tema…</option>';
+        topicSel.innerHTML = '<option value="">— Error cargando tópicos —</option>' +
+                             '<option value="__new__">➕ Crear nuevo tópico…</option>';
     } finally {
         spinner.style.display = 'none';
         topicSel.disabled = false;
@@ -2104,7 +2104,7 @@ async function saveGeneratedQuestions() {
             if (topicSel.value === '__new__') {
                 newTopicName = document.getElementById('newTopicInput').value.trim();
                 if (!newTopicName) {
-                    alert('Ingresá el nombre del nuevo tema.');
+                    alert('Ingresá el nombre del nuevo tópico.');
                     return;
                 }
             } else if (topicSel.value) {
