@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="col-md-6">
                         <div class="form-group mb-3">
-                            <label for="{{ form.subtopic.id_for_label }}">Subtema</label>
+                            <label for="{{ form.subtopic.id_for_label }}">Sub-tópico</label>
                             <div class="input-combo d-flex align-items-center gap-2">
                                 <select name="subtopic" id="id_subtopic" class="form-control"></select>
                                 <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" id="addSubtopicBtn" data-target="subtopic" data-field="id_subtopic">
@@ -110,7 +110,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </button>
                             </div>
                             <div class="input-combo mt-2" id="newSubtopicContainer" style="display:none;">
-                                <input type="text" class="form-control dynamic-input" id="new_subtopic" placeholder="Nombre del subtema">
+                                <input type="text" class="form-control dynamic-input" id="new_subtopic" placeholder="Nombre del sub-tópico">
                                 <button type="button" class="btn btn-sm btn-success" id="saveNewSubtopic">Guardar</button>
                                 <button type="button" class="btn btn-sm btn-secondary" id="cancelNewSubtopic">Cancelar</button>
                             </div>
@@ -225,6 +225,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
 
                 <div class="alert alert-info mt-3">
+                    <em>Las columnas <code>tema</code> y <code>subtema</code> del archivo corresponden a "Tópico" y "Sub-tópico" en el resto de la pantalla — el nombre de columna no cambia, solo cómo se llaman en la interfaz.</em><br><br>
                     <strong>Formato esperado para CSV:</strong><br>
                     <code>materia,pregunta,respuesta,tema,subtema,pagina,tipo,opciones,dificultad,nivel_bloom</code><br>
                     <em>Campos requeridos: materia, pregunta, respuesta, tema</em><br>
@@ -332,7 +333,7 @@ nivel_bloom: 2
                             url: '{% url "material:get_subtopics" %}',
                             data: { 'topic_id': topicId },
                             success: function(data) {
-                                let options = '<option value="">Sin subtema</option>';
+                                let options = '<option value="">Sin sub-tópico</option>';
                                 data.forEach(function(subtopic) {
                                     const selected = subtopic.id == selectedSubtopicId ? 'selected' : '';
                                     options += `<option value="${subtopic.id}" ${selected}>${subtopic.name}</option>`;
@@ -418,7 +419,7 @@ nivel_bloom: 2
                                     loadSubtopics(topicId, response.subtopic.id);
                                     $('#newSubtopicContainer').hide();
                                 } else {
-                                    alert(response.error || 'Error al crear el subtema');
+                                    alert(response.error || 'Error al crear el sub-tópico');
                                 }
                             }
                         });

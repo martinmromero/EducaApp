@@ -83,7 +83,7 @@
                     <div class="d-flex align-items-center">
                         <i class="fas fa-folder-open text-secondary me-2"></i>
                         <div>
-                            <div class="text-uppercase text-secondary font-weight-bold mb-0 stat-label">Subtemas</div>
+                            <div class="text-uppercase text-secondary font-weight-bold mb-0 stat-label">Sub-tópicos</div>
                             <div class="mb-0 font-weight-bold text-gray-800 stat-value">{{ subtemas_count }}</div>
                         </div>
                     </div>
@@ -178,7 +178,7 @@
                             </th>
                             <th class="filterable-col">Materia {% include 'material/components/_column_filter_dropdown.html' with field='subject' label='Materia' options=filter_options.subject selected=selected_filters.subject prefix='d' %}</th>
                             <th class="filterable-col">Tópico {% include 'material/components/_column_filter_dropdown.html' with field='topic' label='Tópico' options=filter_options.topic selected=selected_filters.topic prefix='d' %}</th>
-                            {% if subtemas_count > 0 %}<th class="filterable-col">Subtema {% include 'material/components/_column_filter_dropdown.html' with field='subtopic' label='Subtema' options=filter_options.subtopic selected=selected_filters.subtopic prefix='d' %}</th>{% endif %}
+                            {% if subtemas_count > 0 %}<th class="filterable-col">Sub-tópico {% include 'material/components/_column_filter_dropdown.html' with field='subtopic' label='Sub-tópico' options=filter_options.subtopic selected=selected_filters.subtopic prefix='d' %}</th>{% endif %}
                             <th>Pregunta</th>
                             <th class="filterable-col">Bloom {% include 'material/components/_column_filter_dropdown.html' with field='bloom_level' label='Bloom' options=filter_options.bloom_level selected=selected_filters.bloom_level prefix='d' %}</th>
                             <th class="filterable-col">Estado IA {% include 'material/components/_column_filter_dropdown.html' with field='ai_status' label='Estado IA' options=filter_options.ai_status selected=selected_filters.ai_status prefix='d' %}</th>

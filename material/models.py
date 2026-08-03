@@ -379,7 +379,7 @@ class LearningOutcome(models.Model):
         ordering = ['subject__name', 'created_at']
         
 class Topic(models.Model):
-    name = models.CharField(max_length=255, verbose_name="Nombre del Tema")
+    name = models.CharField(max_length=255, verbose_name="Nombre del Tópico")
     subject = models.ForeignKey(
         Subject,
         on_delete=models.CASCADE,
@@ -395,24 +395,24 @@ class Topic(models.Model):
         return f"{self.subject.name} - {self.name}"
 
     class Meta:
-        verbose_name = "Tema"
-        verbose_name_plural = "Temas"
+        verbose_name = "Tópico"
+        verbose_name_plural = "Tópicos"
         unique_together = ('name', 'subject')
 
 class Subtopic(models.Model):
-    name = models.CharField(max_length=255, verbose_name="Nombre del Subtema")
+    name = models.CharField(max_length=255, verbose_name="Nombre del Sub-tópico")
     topic = models.ForeignKey(
         Topic,
         on_delete=models.CASCADE,
-        verbose_name="Tema relacionado"
+        verbose_name="Tópico relacionado"
     )
 
     def __str__(self):
         return f"{self.topic} → {self.name}"
 
     class Meta:
-        verbose_name = "Subtema"
-        verbose_name_plural = "Subtemas"
+        verbose_name = "Sub-tópico"
+        verbose_name_plural = "Sub-tópicos"
         unique_together = ('name', 'topic')
 
 class Contenido(models.Model):

@@ -81,12 +81,12 @@ class QuestionForm(forms.ModelForm):
     topic = forms.ModelChoiceField(
         queryset=Topic.objects.none(),
         required=True,
-        label="Tema Principal"
+        label="Tópico principal"
     )
     subtopic = forms.ModelChoiceField(
         queryset=Subtopic.objects.none(),
         required=False,
-        label="Subtema (opcional)"
+        label="Sub-tópico (opcional)"
     )
     # Señales de "eliminar imagen actual" — vienen del template vía JS
     clear_question_image = forms.BooleanField(required=False, widget=forms.HiddenInput())
@@ -689,7 +689,7 @@ class OralExamForm(forms.ModelForm):
         ).select_related('topic', 'subtopic')
         
         if not available_questions.exists():
-            raise ValidationError('No hay preguntas disponibles para los temas seleccionados')
+            raise ValidationError('No hay preguntas disponibles para los tópicos seleccionados')
         
         # Agrupar por subtema
         subtopics_count = defaultdict(int)
@@ -710,8 +710,8 @@ class OralExamForm(forms.ModelForm):
                 suggested_students_per_group = math.ceil(total_students / suggested_groups)
                 
                 raise ValidationError(
-                    f'Con {total_subtopics} subtemas disponibles, el máximo recomendado por grupo es {max_students_per_group_by_subtopics} estudiantes '
-                    f'para evitar repeticiones de temas. Sugerencia: {suggested_groups} grupos de {suggested_students_per_group} estudiantes cada uno.'
+                    f'Con {total_subtopics} sub-tópicos disponibles, el máximo recomendado por grupo es {max_students_per_group_by_subtopics} estudiantes '
+                    f'para evitar repeticiones de tópicos. Sugerencia: {suggested_groups} grupos de {suggested_students_per_group} estudiantes cada uno.'
                 )
         
         # Agregar información útil a los cleaned_data para mostrar en el template

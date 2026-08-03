@@ -100,7 +100,7 @@
             {% for materia in pregunta.subjects.all %}{{ materia.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
           </p>
           <p class="mb-2"><span class="fw-semibold">Tópico:</span> {{ pregunta.topic|default:"—" }}</p>
-          <p class="mb-0"><span class="fw-semibold">Subtema:</span> {{ pregunta.subtopic|default:"—" }}</p>
+          <p class="mb-0"><span class="fw-semibold">Sub-tópico:</span> {{ pregunta.subtopic|default:"—" }}</p>
         </div>
       </div>
 

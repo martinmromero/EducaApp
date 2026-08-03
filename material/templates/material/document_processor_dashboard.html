@@ -304,7 +304,7 @@
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="subjectPickerLabel">
-                    <i class="fas fa-book"></i> Asignar materia, tópico y subtema
+                    <i class="fas fa-book"></i> Asignar materia, tópico y sub-tópico
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -329,7 +329,7 @@
                 <!-- Advertencia múltiples materias -->
                 <div id="multiSubjectWarning" class="alert alert-warning py-2 mt-2 small" style="display:none">
                     <i class="fas fa-exclamation-triangle"></i>
-                    Estás asignando a <strong>varias materias</strong>. El tópico y subtema se crearán/vincularán
+                    Estás asignando a <strong>varias materias</strong>. El tópico y sub-tópico se crearán/vincularán
                     únicamente desde la <strong>primera materia seleccionada</strong>, ya que cada tópico pertenece
                     a una sola materia.
                 </div>
@@ -354,14 +354,14 @@
 
                 <hr>
 
-                <!-- ── Paso 3: Subtema ───────────────────────────────── -->
+                <!-- ── Paso 3: Sub-tópico ───────────────────────────────── -->
                 <div id="subtopicSection" style="display:none">
-                    <h6 class="fw-bold mb-1"><i class="fas fa-tags text-info"></i> Subtema <span class="text-muted fw-normal">(opcional)</span></h6>
+                    <h6 class="fw-bold mb-1"><i class="fas fa-tags text-info"></i> Sub-tópico <span class="text-muted fw-normal">(opcional)</span></h6>
                     <select class="form-select mb-2" id="subtopicSelect">
-                        <option value="">— Sin subtema —</option>
+                        <option value="">— Sin sub-tópico —</option>
                     </select>
                     <div id="newSubtopicBlock" style="display:none">
-                        <label class="form-label small fw-bold">Nombre del nuevo subtema</label>
+                        <label class="form-label small fw-bold">Nombre del nuevo sub-tópico</label>
                         <input type="text" class="form-control form-control-sm" id="newSubtopicInput"
                                placeholder="Ej: 1.2 — Conceptos clave" maxlength="255">
                     </div>
@@ -1916,7 +1916,7 @@ function _initSubjectPicker() {
     const topicSel = document.getElementById('topicSelect');
     const subtopicSel = document.getElementById('subtopicSelect');
     topicSel.innerHTML = '<option value="">— Seleccioná primero una materia —</option>';
-    subtopicSel.innerHTML = '<option value="">— Sin subtema —</option>';
+    subtopicSel.innerHTML = '<option value="">— Sin sub-tópico —</option>';
     document.getElementById('newTopicBlock').style.display = 'none';
     document.getElementById('newSubtopicBlock').style.display = 'none';
     document.getElementById('subtopicSection').style.display = 'none';
@@ -2020,14 +2020,14 @@ function _onTopicSelectChange() {
     let subtopics = [];
     try { subtopics = JSON.parse(selectedOpt.dataset.subtopics || '[]'); } catch (_) {}
 
-    subtopicSel.innerHTML = '<option value="">— Sin subtema —</option>';
+    subtopicSel.innerHTML = '<option value="">— Sin sub-tópico —</option>';
     subtopics.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s.id;
         opt.textContent = s.name;
         subtopicSel.appendChild(opt);
     });
-    subtopicSel.innerHTML += '<option value="__new__">➕ Crear nuevo subtema…</option>';
+    subtopicSel.innerHTML += '<option value="__new__">➕ Crear nuevo sub-tópico…</option>';
     document.getElementById('newSubtopicBlock').style.display = 'none';
     document.getElementById('newSubtopicInput').value = '';
     subtopicSection.style.display = '';
@@ -2114,7 +2114,7 @@ async function saveGeneratedQuestions() {
             if (subtopicSel.value === '__new__') {
                 newSubtopicName = document.getElementById('newSubtopicInput').value.trim();
                 if (!newSubtopicName) {
-                    alert('Ingresá el nombre del nuevo subtema.');
+                    alert('Ingresá el nombre del nuevo sub-tópico.');
                     return;
                 }
             } else if (subtopicSel.value) {

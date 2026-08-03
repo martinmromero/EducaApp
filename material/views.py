@@ -1348,7 +1348,7 @@ def save_exam_from_session(request):
         questions_per_version = len(q_ids) if q_ids else max(1, selected_topics.count())
 
     if selected_topics.count() == 0:
-        return _error('Debe seleccionar al menos un tema para generar versiones.')
+        return _error('Debe seleccionar al menos un tópico para generar temas.')
 
     preview_version_ids = request.session.get('preview_generated_versions_ids') or []
     if versions_count > 1 or preview_version_ids:
@@ -2006,8 +2006,8 @@ EXAM_TEMPLATE_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in EXA
 # preguntas viejas, y 'ai_status' combina generated_by_ai + ai_approved en un
 # unico set de estados (ver _apply_subject_filter/_apply_ai_status_filter).
 QUESTION_FILTER_FIELDS = [
-    ColumnFilterField('topic', 'Tema', label_field='topic__name'),
-    ColumnFilterField('subtopic', 'Subtema', label_field='subtopic__name'),
+    ColumnFilterField('topic', 'Tópico', label_field='topic__name'),
+    ColumnFilterField('subtopic', 'Sub-tópico', label_field='subtopic__name'),
     ColumnFilterField('bloom_level', 'Bloom', choices=[
         (1, 'N1 — Recordar'), (2, 'N2 — Comprender'), (3, 'N3 — Aplicar'),
         (4, 'N4 — Analizar'), (5, 'N5 — Evaluar'), (6, 'N6 — Crear'),
@@ -2020,8 +2020,8 @@ QUESTION_AI_STATUS_OPTIONS = [
 ]
 QUESTION_FILTER_COLUMNS = [
     {'field': 'subject', 'label': 'Materia'},
-    {'field': 'topic', 'label': 'Tema'},
-    {'field': 'subtopic', 'label': 'Subtema'},
+    {'field': 'topic', 'label': 'Tópico'},
+    {'field': 'subtopic', 'label': 'Sub-tópico'},
     {'field': 'bloom_level', 'label': 'Bloom'},
     {'field': 'ai_status', 'label': 'Estado IA'},
 ]
@@ -2464,7 +2464,7 @@ def replace_exam_version_question(request):
             ).exclude(id__in=used_ids).exclude(topic_id=old_q.topic_id)
         )
         if not candidates:
-            return JsonResponse({'success': False, 'error': 'No hay preguntas disponibles de otro tema.'}, status=400)
+            return JsonResponse({'success': False, 'error': 'No hay preguntas disponibles de otro tópico.'}, status=400)
         new_q = random.choice(candidates)
     else:
         new_q = get_object_or_404(
@@ -2472,9 +2472,9 @@ def replace_exam_version_question(request):
         )
 
     if replace_mode != 'random_other' and old_q.topic_id != new_q.topic_id:
-        return JsonResponse({'success': False, 'error': 'La nueva pregunta debe ser del mismo tema.'}, status=400)
+        return JsonResponse({'success': False, 'error': 'La nueva pregunta debe ser del mismo tópico.'}, status=400)
     if exam.questions.filter(id=new_q.id).exists():
-        return JsonResponse({'success': False, 'error': 'La pregunta ya esta en esta version.'}, status=400)
+        return JsonResponse({'success': False, 'error': 'La pregunta ya esta en este tema.'}, status=400)
 
     exam.questions.remove(old_q)
     exam.questions.add(new_q)
@@ -2554,7 +2554,7 @@ def preview_exam_replace_question(request):
             ).exclude(id__in=used_ids).exclude(topic_id=old_q.topic_id)
         )
         if not candidates:
-            return JsonResponse({'success': False, 'error': 'No hay preguntas disponibles de otro tema.'}, status=400)
+            return JsonResponse({'success': False, 'error': 'No hay preguntas disponibles de otro tópico.'}, status=400)
         new_q = random.choice(candidates)
     else:
         new_q = get_object_or_404(
@@ -2562,9 +2562,9 @@ def preview_exam_replace_question(request):
         )
 
     if replace_mode != 'random_other' and old_q.topic_id != new_q.topic_id:
-        return JsonResponse({'success': False, 'error': 'La nueva pregunta debe ser del mismo tema.'}, status=400)
+        return JsonResponse({'success': False, 'error': 'La nueva pregunta debe ser del mismo tópico.'}, status=400)
     if int(new_q.id) in preview_versions[version_index]:
-        return JsonResponse({'success': False, 'error': 'La pregunta ya esta en esta version.'}, status=400)
+        return JsonResponse({'success': False, 'error': 'La pregunta ya esta en este tema.'}, status=400)
 
     updated = list(preview_versions[version_index])
     try:
@@ -4669,7 +4669,7 @@ def add_topic(request):
         if not name:
             return JsonResponse({
                 'success': False,
-                'error': 'El nombre del tema no puede estar vacío'
+                'error': 'El nombre del tópico no puede estar vacío'
             }, status=400)
             
         if not subject_id:
@@ -4690,7 +4690,7 @@ def add_topic(request):
         if Topic.objects.filter(name__iexact=name, subject=subject).exists():
             return JsonResponse({
                 'success': False,
-                'error': 'Ya existe un tema con este nombre en esta materia'
+                'error': 'Ya existe un tópico con este nombre en esta materia'
             }, status=400)
             
         # Crear el tema
@@ -4729,13 +4729,13 @@ def add_subtopic(request):
         if not name:
             return JsonResponse({
                 'success': False,
-                'error': 'El nombre del subtema no puede estar vacío'
+                'error': 'El nombre del sub-tópico no puede estar vacío'
             }, status=400)
             
         if not topic_id:
             return JsonResponse({
                 'success': False,
-                'error': 'Debe seleccionar un tema principal'
+                'error': 'Debe seleccionar un tópico principal'
             }, status=400)
             
         try:
@@ -4743,14 +4743,14 @@ def add_subtopic(request):
         except Topic.DoesNotExist:
             return JsonResponse({
                 'success': False,
-                'error': 'Tema no encontrado'
+                'error': 'Tópico no encontrado'
             }, status=404)
             
         # Verificar duplicados
         if Subtopic.objects.filter(name__iexact=name, topic=topic).exists():
             return JsonResponse({
                 'success': False,
-                'error': 'Ya existe un subtema con este nombre en este tema'
+                'error': 'Ya existe un sub-tópico con este nombre en este tópico'
             }, status=400)
             
         # Crear el subtema
@@ -4814,7 +4814,7 @@ def validate_oral_exam(request):
         if not available_questions.exists():
             return JsonResponse({
                 'success': False, 
-                'error': 'No hay preguntas disponibles para los temas seleccionados'
+                'error': 'No hay preguntas disponibles para los tópicos seleccionados'
             })
         
         # Contar subtemas
@@ -4967,7 +4967,7 @@ def generate_oral_exam_questions(oral_exam):
     ).select_related('topic', 'subtopic')
     
     if not available_questions.exists():
-        raise ValueError("No hay preguntas disponibles para los temas seleccionados")
+        raise ValueError("No hay preguntas disponibles para los tópicos seleccionados")
     
     # Agrupar preguntas por subtema (o por tema si no hay subtema)
     questions_by_subtopic = defaultdict(list)
@@ -5306,7 +5306,7 @@ def get_available_questions(request):
             questions_data.append({
                 'id': question.id,
                 'question_text': question.question_text[:100] + ('...' if len(question.question_text) > 100 else ''),
-                'topic_name': question.topic.name if question.topic else 'Sin tema',
+                'topic_name': question.topic.name if question.topic else 'Sin tópico',
                 'difficulty': difficulty_value
             })
         
@@ -5399,7 +5399,7 @@ def exchange_question(request):
             'old_question': old_question.question_text[:100] + ('...' if len(old_question.question_text) > 100 else ''),
             'new_question': new_question.question_text[:100] + ('...' if len(new_question.question_text) > 100 else ''),
             'new_question_full': new_question.question_text,
-            'new_topic': new_question.topic.name if new_question.topic else 'Sin tema'
+            'new_topic': new_question.topic.name if new_question.topic else 'Sin tópico'
         })
         
     except Exception as e:

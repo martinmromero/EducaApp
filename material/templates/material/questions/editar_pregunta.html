@@ -212,7 +212,7 @@
             </div>
 
             <div class="mb-0">
-              <label class="form-label fw-semibold">Subtema <small class="text-muted">(opcional)</small></label>
+              <label class="form-label fw-semibold">Sub-tópico <small class="text-muted">(opcional)</small></label>
               {{ form.subtopic }}
             </div>
 
@@ -311,7 +311,7 @@
     topicSpinner.style.display = '';
     topicSel.disabled = true;
     subtopicSel.disabled = true;
-    subtopicSel.innerHTML = '<option value="">— Sin subtema —</option>';
+    subtopicSel.innerHTML = '<option value="">— Sin sub-tópico —</option>';
 
     try {
       const url = '{% url "material:get_topics_by_subject" 0 %}'.replace('/0/', `/${subjectId}/`);
@@ -348,7 +348,7 @@
   function onTopicChange() {
     if (!topicSel || !subtopicSel) return;
     const sel = topicSel.options[topicSel.selectedIndex];
-    subtopicSel.innerHTML = '<option value="">— Sin subtema —</option>';
+    subtopicSel.innerHTML = '<option value="">— Sin sub-tópico —</option>';
     if (!sel || !sel.value) return;
     let subtopics = [];
     try { subtopics = JSON.parse(sel.dataset.subtopics || '[]'); } catch(e) {}
@@ -388,7 +388,7 @@
         if (id) loadTopics(id, null);
         else {
           topicSel.innerHTML = '<option value="">— Seleccioná una materia —</option>';
-          subtopicSel.innerHTML = '<option value="">— Sin subtema —</option>';
+          subtopicSel.innerHTML = '<option value="">— Sin sub-tópico —</option>';
         }
       });
     }
