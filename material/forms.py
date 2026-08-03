@@ -313,15 +313,21 @@ class UserEditForm(forms.ModelForm):
         if not cleaned_data.get('role') and self.instance and hasattr(self.instance, 'profile'):
             cleaned_data['role'] = self.instance.profile.role
         return cleaned_data
-    institutions = forms.ModelMultipleChoiceField(
-        queryset=InstitutionV2.objects.all(),
-        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
-        required=False
-    )
+    # CANDIDATO A BORRAR (auditoría 2026-08-03, ver memoria
+    # project_institution_v1_cleanup): existió acá un campo "institutions"
+    # que mostraba instituciones de InstitutionV2 pero al guardar intentaba
+    # escribirlas en Profile.institutions, un ManyToMany al modelo
+    # `Institution` v1 (tipos incompatibles) — Django tira TypeError al
+    # guardar si alguna vez se completa ese campo. No crasheaba en producción
+    # solo porque edit_user.html nunca lo renderiza (nadie llega a
+    # completarlo hoy), pero es una trampa activa. Se sacó del todo: la
+    # relación real usuario↔institución ya vive en UserInstitution (V2),
+    # que es la que usa el resto de la app — este formulario no necesita
+    # duplicarla.
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'is_active', 'role', 'institutions']
+        fields = ['username', 'first_name', 'last_name', 'email', 'is_active', 'role']
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control'}),
             'first_name': forms.TextInput(attrs={'class': 'form-control'}),
@@ -335,7 +341,6 @@ class UserEditForm(forms.ModelForm):
         # Solo setear initial extra en GET (cuando no hay data)
         if not self.data and self.instance and hasattr(self.instance, 'profile'):
             self.initial['role'] = self.instance.profile.role
-            self.initial['institutions'] = self.instance.profile.institutions.all()
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -344,7 +349,6 @@ class UserEditForm(forms.ModelForm):
             if hasattr(user, 'profile'):
                 user.profile.role = self.cleaned_data['role']
                 user.profile.save()
-                user.profile.institutions.set(self.cleaned_data['institutions'])
         return user
 
 class UserSelfEditForm(forms.ModelForm):

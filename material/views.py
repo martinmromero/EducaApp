@@ -3430,6 +3430,15 @@ def get_learning_outcomes(request):
         logger.error(f"Error en get_learning_outcomes: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
 
+# CANDIDATO A BORRAR (auditoría 2026-08-03, ver memoria
+# project_institution_v1_cleanup): edit_institution y delete_institution
+# (modelo Institution v1, ya reemplazado por InstitutionV2) son código
+# muerto e inalcanzable — no tienen ninguna ruta registrada en urls.py, ni
+# ningún link en ningún template. Peor: si algo las invocara, romperían
+# igual: usan `InstitutionForm`, una clase que no existe en forms.py (ni
+# está importada acá), y `edit_institution.html`, un template que tampoco
+# existe en el repo. Confirmado con NameError reproducido al analizar el
+# código, no solo inferido.
 @login_required
 def edit_institution(request, pk):
     institution = get_object_or_404(Institution, pk=pk, owner=request.user)
@@ -3517,6 +3526,7 @@ def edit_institution(request, pk):
         'form': InstitutionForm(instance=institution)
     })
 
+# CANDIDATO A BORRAR — ver nota arriba de edit_institution (misma auditoría).
 @login_required
 @require_http_methods(["POST"])
 def delete_institution(request, pk):

@@ -207,6 +207,29 @@ class InstitutionLog(models.Model):
         verbose_name_plural = "Logs de Instituciones"
 
 # --- MODELOS ORIGINALES (se mantienen igual) ---
+#
+# CANDIDATO A BORRAR (auditoría 2026-08-03, ver memoria
+# project_institution_v1_cleanup): Institution/Campus/Faculty son el
+# esquema "v1", reemplazado en toda la app por InstitutionV2/CampusV2/
+# FacultyV2 — el sidebar, las vistas activas y seed_demo_content.py usan
+# exclusivamente el v2. Estado real de cada uno:
+#   - Campus/Faculty (v1): sin ninguna conexión viva — el único código que
+#     los toca es edit_institution/delete_institution (ver views.py, ya
+#     marcadas candidato a borrar ahí: son inalcanzables, sin URL, y
+#     tirarían NameError si se invocaran).
+#   - Institution (v1): tenía una conexión "viva" a través de
+#     Profile.institutions (M2M), pero esa conexión estaba rota (tipos
+#     incompatibles con InstitutionV2 al guardar, TypeError reproducido) —
+#     se sacó el campo del form que la usaba (ver UserEditForm en
+#     forms.py). InstitutionAdmin (admin.py) sigue registrado y también
+#     tiene bugs propios (trata related managers como campos planos).
+#   - Exam.institution/faculty/campus (FKs a estos 3 modelos v1) están
+#     declarados pero el código de guardado de examen nunca los puebla
+#     (usa institution_name/faculty_name/campus_name, snapshots de texto).
+#
+# Borrar estos 3 modelos requiere una migración nueva (DeleteModel + quitar
+# los FKs/M2M que los referencian, no solo sacar el código Python) — no se
+# hizo en esta pasada, queda documentado para la próxima limpieza.
 
 class Institution(models.Model):
     name = models.CharField(max_length=255, unique=True)

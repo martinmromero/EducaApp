@@ -45,6 +45,14 @@ class OwnerScopedAdminMixin:
 
 
 # --- Institution Admin ---
+# CANDIDATO A BORRAR (auditoría 2026-08-03, ver memoria
+# project_institution_v1_cleanup): Institution v1 fue reemplazado por
+# InstitutionV2 (ver InstitutionV2Admin más abajo, que es el que se usa de
+# verdad). Este admin además está roto: `fields`/`search_fields` incluyen
+# 'campuses'/'faculties', que no son campos del modelo sino managers de
+# relación inversa (FieldError al abrir el form de alta/edición), y
+# `campuses_short()` hace `obj.campuses.split(',')` tratando ese manager
+# como si fuera un string (AttributeError en la lista del admin).
 @admin.register(Institution)
 class InstitutionAdmin(admin.ModelAdmin):
     list_display = ('name', 'owner', 'logo_preview', 'campuses_short')
