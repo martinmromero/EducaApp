@@ -763,8 +763,8 @@ class FormatoImpresionForm(forms.ModelForm):
             'margen_inferior_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
             'margen_izquierdo_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
             'margen_derecho_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
-            'color_titulo': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'readonly': 'readonly'}),
-            'color_texto': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'readonly': 'readonly'}),
+            'color_titulo': forms.HiddenInput(),
+            'color_texto': forms.HiddenInput(),
             'es_default': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         labels = {
@@ -785,12 +785,15 @@ class FormatoImpresionForm(forms.ModelForm):
         self.current_user = kwargs.pop('current_user', None)
         super().__init__(*args, **kwargs)
 
-        # El <input type="color"> nativo exige un hex de 6 dígitos válido — si
-        # el formato todavía no tiene color elegido, le damos un default en vez
-        # de dejarlo vacío (el navegador lo rechazaría / mostraría negro sin avisar).
+        # Si el formato todavía no tiene color elegido, le damos un default
+        # en vez de dejarlo vacío (así el picker siempre arranca con un
+        # swatch resaltado en vez de "sin selección"). Los hex quedan
+        # exactos a un swatch de la paleta (ver COLOR_SWATCHES en
+        # formatos_impresion/form.html) para que el campo muestre un
+        # nombre ("Casi negro"/"Negro") y no el código hex crudo.
         for color_field in ('color_titulo', 'color_texto'):
             if not self.initial.get(color_field) and not (self.instance.pk and getattr(self.instance, color_field, '')):
-                self.initial[color_field] = '#111111' if color_field == 'color_titulo' else '#000000'
+                self.initial[color_field] = '#1a1a1a' if color_field == 'color_titulo' else '#000000'
 
         if self.current_user:
             institution_ids = UserInstitution.objects.filter(user=self.current_user).values_list('institution_id', flat=True)
