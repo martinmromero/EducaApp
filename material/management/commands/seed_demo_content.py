@@ -9,6 +9,8 @@ lo que lo protege de borrado/edición por parte de usuarios normales: las
 vistas de edición/borrado de Question ya filtran por `user=request.user`,
 así que un usuario distinto del dueño nunca puede tocarlas.
 """
+import base64
+
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import CommandError
@@ -26,6 +28,28 @@ from material.models import (
     Subject,
     Topic,
 )
+
+
+def _fake_crest_svg(initials, primary, secondary):
+    """
+    Escudo ficticio simple (SVG generado, sin depender de ningún archivo de
+    imagen externo) para que las instituciones demo tengan membrete en vez
+    de quedar sin logo en el examen de ejemplo. Se guarda como data URI en
+    InstitutionV2.logo_b64 (mismo campo que usa un logo real subido por un
+    usuario — ver InstitutionV2.logo_src).
+    """
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 116" width="100" height="116">'
+        f'<path d="M50 4 L92 18 L92 54 C92 82 74 100 50 112 C26 100 8 82 8 54 L8 18 Z" '
+        f'fill="{primary}" stroke="#1a1a1a" stroke-width="2"/>'
+        f'<path d="M50 4 L92 18 L92 54 C92 82 74 100 50 112 Z" fill="{secondary}" opacity="0.35"/>'
+        '<circle cx="50" cy="46" r="22" fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.6"/>'
+        f'<text x="50" y="56" font-family="Georgia, \'Times New Roman\', serif" font-size="26" '
+        f'font-weight="700" text-anchor="middle" fill="#ffffff">{initials}</text>'
+        '</svg>'
+    )
+    encoded = base64.b64encode(svg.encode('utf-8')).decode('ascii')
+    return f'data:image/svg+xml;base64,{encoded}'
 
 
 PROGRAMACION_TOPICS = [
@@ -303,7 +327,11 @@ class Command(BaseCommand):
             )
 
         with transaction.atomic():
-            institucion1 = self._get_institution('Universidad Nacional Demostración')
+            institucion1 = self._get_institution(
+                'Universidad Nacional Demostración',
+                crest_initials='UND',
+                crest_colors=('#1c3d5a', '#d4af37'),
+            )
             campus1 = self._get_campus(institucion1, 'Sede Central')
             facultad1 = self._get_faculty(institucion1, 'Facultad de Ciencias Exactas e Ingeniería')
             carrera1 = self._get_career(
@@ -312,7 +340,11 @@ class Command(BaseCommand):
                 campuses=[campus1],
             )
 
-            institucion2 = self._get_institution('Instituto Superior del Profesorado Demo')
+            institucion2 = self._get_institution(
+                'Instituto Superior del Profesorado Demo',
+                crest_initials='ISP',
+                crest_colors=('#1b5e20', '#f4ede4'),
+            )
             campus2 = self._get_campus(institucion2, 'Sede Instituto Central')
             facultad2 = self._get_faculty(institucion2, 'Departamento de Ciencias Biológicas')
             carrera2 = self._get_career(
@@ -351,11 +383,18 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS('Contenido de ejemplo sincronizado correctamente.'))
 
-    def _get_institution(self, name):
+    def _get_institution(self, name, crest_initials=None, crest_colors=None):
         institucion, _ = InstitutionV2.objects.get_or_create(
             name=name,
             defaults={'is_active': True},
         )
+        # Solo genera el escudo ficticio si todavía no tiene ningún logo
+        # (ni subido a mano ni de una corrida anterior) — idempotente, no
+        # pisa un logo real que alguien haya cargado para esta institución.
+        if crest_initials and not institucion.logo_b64 and not institucion.logo:
+            primary, secondary = crest_colors or ('#1c3d5a', '#d4af37')
+            institucion.logo_b64 = _fake_crest_svg(crest_initials, primary, secondary)
+            institucion.save(update_fields=['logo_b64'])
         return institucion
 
     def _get_campus(self, institution, name):
