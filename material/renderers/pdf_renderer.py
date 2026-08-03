@@ -4,7 +4,7 @@ import base64
 from PIL import Image as PILImage
 
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, LETTER
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
@@ -16,6 +16,19 @@ _FONT_MAP = {
     'Calibri': 'Helvetica',
     'Times New Roman': 'Times-Roman',
 }
+
+# "Oficio" (Argentina/LatAm) no es un tamaño estándar de reportlab: 21,6 x 33,0 cm.
+_OFICIO = (21.6 * cm, 33.0 * cm)
+
+_PAGE_SIZES = {
+    'A4': A4,
+    'Carta': LETTER,
+    'Oficio': _OFICIO,
+}
+
+
+def _page_size_for(formato):
+    return _PAGE_SIZES.get(getattr(formato, 'tamano_hoja', 'A4'), A4)
 
 
 def _to_hex_color(value, default):
@@ -34,9 +47,10 @@ def render_exam_payload_to_pdf(payload, formato):
     top = float(getattr(formato, 'margen_superior_cm', 2.0) or 2.0) * cm
     bottom = float(getattr(formato, 'margen_inferior_cm', 2.0) or 2.0) * cm
 
+    page_size = _page_size_for(formato)
     doc = SimpleDocTemplate(
         buf,
-        pagesize=A4,
+        pagesize=page_size,
         leftMargin=left,
         rightMargin=right,
         topMargin=top,
@@ -51,7 +65,7 @@ def render_exam_payload_to_pdf(payload, formato):
     text_color = colors.HexColor(_to_hex_color(getattr(formato, 'color_texto', ''), '#111111'))
 
     style_text, style_title, style_h2 = _build_styles(formato)
-    content_width_cm = 21.0 - (left + right) / cm - 0.3
+    content_width_cm = page_size[0] / cm - (left + right) / cm - 0.3
 
     flow = []
     _append_payload(flow, payload, style_text, style_title, style_h2, include_page_break=False, content_width_cm=content_width_cm)
@@ -72,17 +86,18 @@ def render_exam_batch_payloads_to_pdf(exam_documents):
     top = float(getattr(first_format, 'margen_superior_cm', 2.0) or 2.0) * cm
     bottom = float(getattr(first_format, 'margen_inferior_cm', 2.0) or 2.0) * cm
 
+    page_size = _page_size_for(first_format)
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf,
-        pagesize=A4,
+        pagesize=page_size,
         leftMargin=left,
         rightMargin=right,
         topMargin=top,
         bottomMargin=bottom,
         title='Lote de examenes',
     )
-    content_width_cm = 21.0 - (left + right) / cm - 0.3
+    content_width_cm = page_size[0] / cm - (left + right) / cm - 0.3
 
     flow = []
     for idx, item in enumerate(exam_documents):

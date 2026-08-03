@@ -76,16 +76,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 {% endif %}
 
-                <div class="form-group">
+                <div class="form-group mb-3">
                     <label for="{{ form.subjects.id_for_label }}">Materias</label>
-                    <div class="input-group">
+                    <div class="subjects-checklist">
                         {{ form.subjects }}
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-6">
-                        <div class="form-group">
+                        <div class="form-group mb-3">
                             <label for="{{ form.topic.id_for_label }}">Tema Principal</label>
                             <div class="input-combo d-flex align-items-center gap-2">
                                 <select name="topic" id="id_topic" class="form-control"></select>
@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="form-group">
+                        <div class="form-group mb-3">
                             <label for="{{ form.subtopic.id_for_label }}">Subtema</label>
                             <div class="input-combo d-flex align-items-center gap-2">
                                 <select name="subtopic" id="id_subtopic" class="form-control"></select>
@@ -118,9 +118,30 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="{{ form.question_type.id_for_label }}">Tipo de pregunta</label>
-                    {{ form.question_type }}
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label for="{{ form.question_type.id_for_label }}">Tipo de pregunta</label>
+                            {{ form.question_type }}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label for="{{ form.difficulty.id_for_label }}">Dificultad (1-5)</label>
+                            {{ form.difficulty }}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label for="{{ form.bloom_level.id_for_label }}">Nivel Bloom
+                                <small class="text-muted d-block">
+                                    (Anderson &amp; Krathwohl, 2001 —
+                                    <a href="{% url 'material:bloom_taxonomy' %}" target="_blank">ver escala</a>)
+                                </small>
+                            </label>
+                            {{ form.bloom_level }}
+                        </div>
+                    </div>
                 </div>
 
                 <div class="card mb-3" id="mcOptionsCard" style="display:none;">
@@ -145,56 +166,46 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group mb-3">
                     <label for="{{ form.question_text.id_for_label }}">Pregunta</label>
                     {{ form.question_text }}
                 </div>
 
-                <div class="form-group">
-                    <label for="{{ form.question_image.id_for_label }}">Imagen de Pregunta</label>
-                    {{ form.question_image }}
-                    <div id="questionImagePreview" class="mt-2" style="max-width: 300px;"></div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="{{ form.question_image.id_for_label }}">Imagen de Pregunta</label>
+                            {{ form.question_image }}
+                            <div id="questionImagePreview" class="mt-2" style="max-width: 300px;"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="{{ form.answer_image.id_for_label }}">Imagen de Respuesta</label>
+                            {{ form.answer_image }}
+                            <div id="answerImagePreview" class="mt-2" style="max-width: 300px;"></div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group mb-3">
                     <label for="{{ form.answer_text.id_for_label }}">Respuesta</label>
                     {{ form.answer_text }}
                 </div>
 
-                <div class="form-group">
-                    <label for="{{ form.difficulty.id_for_label }}">Dificultad (1-5)</label>
-                    {{ form.difficulty }}
-                </div>
-
-                <div class="form-group">
-                    <label for="{{ form.answer_image.id_for_label }}">Imagen de Respuesta</label>
-                    {{ form.answer_image }}
-                    <div id="answerImagePreview" class="mt-2" style="max-width: 300px;"></div>
-                </div>
-
                 <div class="row">
                     <div class="col-md-8">
-                        <div class="form-group">
+                        <div class="form-group mb-3">
                             <label for="{{ form.contenido.id_for_label }}">Contenido/Referencia</label>
                             {{ form.contenido }}
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="form-group">
+                        <div class="form-group mb-3">
                             <label for="{{ form.source_page.id_for_label }}">Página</label>
                             {{ form.source_page }}
                         </div>
                     </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="{{ form.bloom_level.id_for_label }}">Nivel Bloom
-                        <small class="text-muted">
-                            (Anderson &amp; Krathwohl, 2001 —
-                            <a href="{% url 'material:bloom_taxonomy' %}" target="_blank">ver escala</a>)
-                        </small>
-                    </label>
-                    {{ form.bloom_level }}
                 </div>
 
                 <button type="submit" class="btn btn-primary">Guardar Pregunta</button>
@@ -444,10 +455,39 @@ nivel_bloom: 2
         border-radius: 0 .25rem .25rem 0;
     }
     
-    #questionImagePreview img, 
+    #questionImagePreview img,
     #answerImagePreview img {
         max-height: 200px;
         object-fit: contain;
+    }
+
+    /* Materias: Django renderiza CheckboxSelectMultiple como <ul>/<li> plano;
+       lo convertimos en una grilla de checks estilo Bootstrap, con scroll si
+       hay muchas materias en vez de ocupar toda la pantalla. */
+    .subjects-checklist {
+        max-height: 220px;
+        overflow-y: auto;
+        border: 1px solid var(--bs-border-color);
+        border-radius: var(--bs-border-radius);
+        padding: .75rem 1rem;
+    }
+    .subjects-checklist ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: .35rem .75rem;
+    }
+    .subjects-checklist li {
+        margin: 0;
+    }
+    .subjects-checklist label {
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+        font-weight: normal;
+        margin: 0;
     }
 </style>
 

@@ -1617,9 +1617,16 @@ class BaseFormatoImpresionFields(models.Model):
         ('Helvetica', 'Helvetica'),
     ]
 
+    PAPER_SIZE_CHOICES = [
+        ('A4', 'A4 (21,0 x 29,7 cm)'),
+        ('Carta', 'Carta / Letter (21,6 x 27,9 cm)'),
+        ('Oficio', 'Oficio / Legal (21,6 x 33,0 cm)'),
+    ]
+
     fuente = models.CharField(max_length=50, choices=FONT_CHOICES, default='Arial')
     tamano_fuente = models.PositiveSmallIntegerField(default=11)
     interlineado = models.FloatField(default=1.15)
+    tamano_hoja = models.CharField(max_length=10, choices=PAPER_SIZE_CHOICES, default='A4')
 
     margen_superior_cm = models.DecimalField(max_digits=5, decimal_places=2, default=2.00)
     margen_inferior_cm = models.DecimalField(max_digits=5, decimal_places=2, default=2.00)
@@ -1721,6 +1728,7 @@ class FormatoImpresionAsignado(BaseFormatoImpresionFields):
             exam=exam,
             formato_base=formato,
             nombre_snapshot=formato.nombre,
+            tamano_hoja=formato.tamano_hoja,
             fuente=formato.fuente,
             tamano_fuente=formato.tamano_fuente,
             interlineado=formato.interlineado,

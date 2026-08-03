@@ -3,90 +3,226 @@
 {% block content %}
 <div class="container mt-4">
     <h2>{{ action }} formato de impresión</h2>
-    <form method="post">
-        {% csrf_token %}
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <label class="form-label">{{ form.nombre.label }}</label>
-                {{ form.nombre }}
-            </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label">{{ form.scope.label }}</label>
-                {{ form.scope }}
-            </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label">{{ form.institution.label }}</label>
-                {{ form.institution }}
-            </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label">{{ form.fuente.label }}</label>
-                {{ form.fuente }}
-            </div>
-            <div class="col-md-3 mb-3">
-                <label class="form-label">{{ form.tamano_fuente.label }}</label>
-                {{ form.tamano_fuente }}
-            </div>
-            <div class="col-md-3 mb-3">
-                <label class="form-label">{{ form.interlineado.label }}</label>
-                {{ form.interlineado }}
-            </div>
-            <div class="col-md-3 mb-3">
-                <label class="form-label">{{ form.margen_superior_cm.label }}</label>
-                {{ form.margen_superior_cm }}
-            </div>
-            <div class="col-md-3 mb-3">
-                <label class="form-label">{{ form.margen_inferior_cm.label }}</label>
-                {{ form.margen_inferior_cm }}
-            </div>
-            <div class="col-md-3 mb-3">
-                <label class="form-label">{{ form.margen_izquierdo_cm.label }}</label>
-                {{ form.margen_izquierdo_cm }}
-            </div>
-            <div class="col-md-3 mb-3">
-                <label class="form-label">{{ form.margen_derecho_cm.label }}</label>
-                {{ form.margen_derecho_cm }}
-            </div>
-            <div class="col-md-3 mb-3">
-                <label class="form-label">{{ form.color_titulo.label }}</label>
-                {{ form.color_titulo }}
-            </div>
-            <div class="col-md-3 mb-3">
-                <label class="form-label">{{ form.color_texto.label }}</label>
-                {{ form.color_texto }}
-            </div>
-            <div class="col-12 mb-3 form-check">
-                {{ form.es_default }}
-                <label class="form-check-label" for="{{ form.es_default.id_for_label }}">{{ form.es_default.label }}</label>
-            </div>
-        </div>
-        {% if form.errors %}
-        <div class="alert alert-danger">
-            {% for field in form %}{% for error in field.errors %}<div>{{ field.label }}: {{ error }}</div>{% endfor %}{% endfor %}
-            {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
-        </div>
-        {% endif %}
+    <div class="row">
+        <div class="col-lg-7">
+            <form method="post" id="formatoForm">
+                {% csrf_token %}
 
-        {% if assigned_exams %}
-        <div class="card mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Actualizar otros exámenes</h5>
-                <p class="text-muted mb-2">Si cambiás este formato, podés elegir qué exámenes ya guardados también actualizan su snapshot.</p>
-                <div style="max-height: 260px; overflow-y: auto;">
-                    {% for assigned in assigned_exams %}
-                    <div class="form-check mb-1">
-                        <input class="form-check-input" type="checkbox" name="propagate_exam_ids" value="{{ assigned.exam.id }}" id="propagate_exam_{{ assigned.exam.id }}">
-                        <label class="form-check-label" for="propagate_exam_{{ assigned.exam.id }}">
-                            {{ assigned.exam.title }}{% if assigned.exam.subject %} - {{ assigned.exam.subject.name }}{% endif %}
-                        </label>
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    {% for field in form %}{% for error in field.errors %}<div>{{ field.label }}: {{ error }}</div>{% endfor %}{% endfor %}
+                    {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.nombre.label }}</label>
+                        {{ form.nombre }}
                     </div>
-                    {% endfor %}
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.scope.label }}</label>
+                        {{ form.scope }}
+                    </div>
+                </div>
+
+                <div class="row" id="institutionRow">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.institution.label }}</label>
+                        {{ form.institution }}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">{{ form.tamano_hoja.label }}</label>
+                        {{ form.tamano_hoja }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">{{ form.fuente.label }}</label>
+                        {{ form.fuente }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">{{ form.tamano_fuente.label }}</label>
+                        {{ form.tamano_fuente }}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">{{ form.interlineado.label }}</label>
+                        {{ form.interlineado }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">{{ form.margen_superior_cm.label }}</label>
+                        {{ form.margen_superior_cm }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">{{ form.margen_inferior_cm.label }}</label>
+                        {{ form.margen_inferior_cm }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">{{ form.margen_izquierdo_cm.label }}</label>
+                        {{ form.margen_izquierdo_cm }}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">{{ form.margen_derecho_cm.label }}</label>
+                        {{ form.margen_derecho_cm }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label d-block">{{ form.color_titulo.label }}</label>
+                        {{ form.color_titulo }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label d-block">{{ form.color_texto.label }}</label>
+                        {{ form.color_texto }}
+                    </div>
+                </div>
+
+                <div class="col-12 mb-3 form-check">
+                    {{ form.es_default }}
+                    <label class="form-check-label" for="{{ form.es_default.id_for_label }}">{{ form.es_default.label }}</label>
+                </div>
+
+                {% if assigned_exams %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Actualizar otros exámenes</h5>
+                        <p class="text-muted mb-2">Si cambiás este formato, podés elegir qué exámenes ya guardados también actualizan su snapshot.</p>
+                        <div style="max-height: 260px; overflow-y: auto;">
+                            {% for assigned in assigned_exams %}
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" name="propagate_exam_ids" value="{{ assigned.exam.id }}" id="propagate_exam_{{ assigned.exam.id }}">
+                                <label class="form-check-label" for="propagate_exam_{{ assigned.exam.id }}">
+                                    {{ assigned.exam.title }}{% if assigned.exam.subject %} - {{ assigned.exam.subject.name }}{% endif %}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <a href="{% url 'material:formato_impresion_list' %}" class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="print-preview-wrap">
+                <p class="text-muted small mb-2">Vista previa aproximada — así se va a ver el encabezado de un examen con esta configuración.</p>
+                <div id="printPreviewPage" class="print-preview-page">
+                    <div id="printPreviewContent" class="print-preview-content">
+                        <div class="preview-title">INSTITUCIÓN EJEMPLO</div>
+                        <div class="preview-text preview-meta">Materia: Ejemplo — Profesor: Ejemplo</div>
+                        <hr>
+                        <div class="preview-text"><strong>1.</strong> ¿Cuál es la capital de Francia?</div>
+                        <div class="preview-text preview-option">a) Madrid&nbsp;&nbsp; b) París&nbsp;&nbsp; c) Roma</div>
+                        <div class="preview-text"><strong>2.</strong> Desarrolle brevemente el tema visto en clase.</div>
+                    </div>
                 </div>
             </div>
         </div>
-        {% endif %}
-
-        <button type="submit" class="btn btn-primary">Guardar</button>
-        <a href="{% url 'material:formato_impresion_list' %}" class="btn btn-secondary">Cancelar</a>
-    </form>
+    </div>
 </div>
+
+<style>
+    .print-preview-wrap {
+        position: sticky;
+        top: 1rem;
+    }
+    .print-preview-page {
+        background: #ffffff;
+        color: #000;
+        margin: 0 auto;
+        box-shadow: 0 1px 4px rgba(0,0,0,.2), 0 0 0 1px rgba(0,0,0,.08);
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+    .print-preview-content {
+        height: 100%;
+        overflow: hidden;
+    }
+    .print-preview-content hr {
+        margin: .4em 0;
+    }
+    .preview-meta {
+        opacity: .85;
+    }
+    .preview-option {
+        padding-left: 1em;
+    }
+</style>
+
+<script>
+(function () {
+    var PAPER_SIZES_CM = { A4: [21.0, 29.7], Carta: [21.6, 27.9], Oficio: [21.6, 33.0] };
+    var FONT_STACKS = {
+        'Arial': 'Arial, Helvetica, sans-serif',
+        'Times New Roman': '"Times New Roman", Times, serif',
+        'Calibri': 'Calibri, "Segoe UI", sans-serif',
+        'Helvetica': 'Helvetica, Arial, sans-serif',
+    };
+    var PREVIEW_WIDTH_PX = 260;
+    var PX_PER_CM_REAL = 37.8; // ~96dpi, solo para escalar la tipografía de forma proporcional
+
+    function val(id) {
+        var el = document.getElementById(id);
+        return el ? el.value : '';
+    }
+
+    function updateInstitutionVisibility() {
+        var row = document.getElementById('institutionRow');
+        if (row) row.classList.toggle('d-none', val('id_scope') !== 'institution');
+    }
+
+    function updatePreview() {
+        var paper = PAPER_SIZES_CM[val('id_tamano_hoja')] || PAPER_SIZES_CM.A4;
+        var widthCm = paper[0], heightCm = paper[1];
+        var scale = PREVIEW_WIDTH_PX / widthCm; // px por cm, en la miniatura
+
+        var page = document.getElementById('printPreviewPage');
+        page.style.width = PREVIEW_WIDTH_PX + 'px';
+        page.style.height = Math.round(PREVIEW_WIDTH_PX * (heightCm / widthCm)) + 'px';
+
+        var top = (parseFloat(val('id_margen_superior_cm')) || 0) * scale;
+        var bottom = (parseFloat(val('id_margen_inferior_cm')) || 0) * scale;
+        var left = (parseFloat(val('id_margen_izquierdo_cm')) || 0) * scale;
+        var right = (parseFloat(val('id_margen_derecho_cm')) || 0) * scale;
+        page.style.padding = top + 'px ' + right + 'px ' + bottom + 'px ' + left + 'px';
+
+        var content = document.getElementById('printPreviewContent');
+        var fontSizePt = parseFloat(val('id_tamano_fuente')) || 11;
+        var miniScale = scale / PX_PER_CM_REAL;
+        content.style.fontFamily = FONT_STACKS[val('id_fuente')] || 'sans-serif';
+        content.style.fontSize = Math.max(6, fontSizePt * 1.333 * miniScale) + 'px';
+        content.style.lineHeight = parseFloat(val('id_interlineado')) || 1.15;
+
+        var titleColor = val('id_color_titulo') || '#111111';
+        var textColor = val('id_color_texto') || '#000000';
+        var titleEl = content.querySelector('.preview-title');
+        if (titleEl) titleEl.style.color = titleColor;
+        content.querySelectorAll('.preview-text').forEach(function (el) {
+            el.style.color = textColor;
+        });
+    }
+
+    function update() {
+        updateInstitutionVisibility();
+        updatePreview();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var form = document.getElementById('formatoForm');
+        if (form) {
+            form.addEventListener('input', update);
+            form.addEventListener('change', update);
+        }
+        update();
+    });
+})();
+</script>
 {% endblock %}

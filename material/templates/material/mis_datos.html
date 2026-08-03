@@ -36,6 +36,9 @@
         {% csrf_token %}
         <div class="mb-3">
             {{ form.username.label_tag }} {{ form.username }}
+            {% if form.username.help_text %}
+                <div class="form-text">{{ form.username.help_text }}</div>
+            {% endif %}
         </div>
         <div class="mb-3">
             {{ form.first_name.label_tag }} {{ form.first_name }}

@@ -2,6 +2,32 @@
 // JS para el formulario de creación de examen
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Año del encabezado: arranca en el año actual salvo que el usuario lo
+    // cambie a mano, o que un prefill (editar examen / plantilla) traiga uno
+    // propio — el script de prefill (si existe) corre después y pisa este
+    // valor con el suyo cuando corresponde.
+    var yearInput = document.getElementById('year');
+    if (yearInput && !yearInput.value) {
+        yearInput.value = new Date().getFullYear();
+    }
+
+    // Duración: convierte el valor + unidad elegidos por el usuario a minutos
+    // (única unidad que entiende el modelo/backend) justo antes de enviar el
+    // formulario, sin tocar el campo real que Django ya arma.
+    var durationForm = document.getElementById('examCreateForm');
+    var durationInput = document.getElementById('id_duration_minutes');
+    var durationUnit = document.getElementById('duration_unit');
+    var MINUTES_PER_UNIT = { minutos: 1, horas: 60, dias: 1440, semanas: 10080 };
+    if (durationForm && durationInput && durationUnit) {
+        durationForm.addEventListener('submit', function() {
+            var raw = parseFloat(durationInput.value);
+            if (!isNaN(raw)) {
+                var factor = MINUTES_PER_UNIT[durationUnit.value] || 1;
+                durationInput.value = Math.round(raw * factor);
+            }
+        });
+    }
+
     let questionsFetchToken = 0;
 
     function getSelectedTopicIds() {
@@ -156,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var batchInput = document.getElementById('batch_name');
         if (!batchInput || batchInput.dataset.userEdited === '1') return;
 
-        var tipo = document.querySelector('input[name="tipo_examen"]:checked')?.value || 'examen';
+        var tipo = document.getElementById('tipo_examen_select')?.value || 'examen';
         var subject = document.getElementById('id_subject');
         var institution = document.getElementById('institucion_dropdown');
         var semester = document.getElementById('batch_semester')?.value || 'sin cuatrimestre';
@@ -284,13 +310,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                         // Tipo de examen
                         if (data.exam_type) {
-                            var tipoExamenSelect = document.getElementById('tipo_examen');
-                            tipoExamenSelect.value = data.exam_type;
+                            var tipoExamenSelect = document.getElementById('tipo_examen_select');
+                            if (tipoExamenSelect) tipoExamenSelect.value = data.exam_type;
                         }
                         // Modalidad de examen
                         if (data.exam_mode) {
-                            var tipoModalidadSelect = document.getElementById('tipo_modalidad');
-                            tipoModalidadSelect.value = data.exam_mode;
+                            var modalidadRadio = document.querySelector('input[name="tipo_modalidad"][value="' + data.exam_mode + '"]');
+                            if (modalidadRadio) modalidadRadio.checked = true;
                         }
                         // Turno
                         if (data.shift) {
@@ -346,6 +372,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function(response) { return response.json(); })
             .then(function(data) {
                 var container = document.getElementById('learning_outcomes_container');
+                var section = document.getElementById('learning_outcomes_section');
                 container.innerHTML = '';
                 data.forEach(function(outcome) {
                     var div = document.createElement('div');
@@ -364,6 +391,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     div.appendChild(label);
                     container.appendChild(div);
                 });
+                // La sección solo aparece si la materia elegida tiene RAs cargados.
+                if (section) section.classList.toggle('d-none', data.length === 0);
             });
     });
 
@@ -476,9 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('num_versions')?.addEventListener(evtName, updateSuggestedBatchName);
         document.getElementById('fecha')?.addEventListener(evtName, updateSuggestedBatchName);
         document.getElementById('year')?.addEventListener(evtName, updateSuggestedBatchName);
-        document.querySelectorAll('input[name="tipo_examen"]').forEach(function(radio) {
-            radio.addEventListener(evtName, updateSuggestedBatchName);
-        });
+        document.getElementById('tipo_examen_select')?.addEventListener(evtName, updateSuggestedBatchName);
     });
 
     updateSuggestedBatchName();

@@ -117,6 +117,7 @@ def assign_print_format_to_exam(exam, formato):
     if assigned:
         assigned.formato_base = formato
         assigned.nombre_snapshot = formato.nombre
+        assigned.tamano_hoja = formato.tamano_hoja
         assigned.fuente = formato.fuente
         assigned.tamano_fuente = formato.tamano_fuente
         assigned.interlineado = formato.interlineado
@@ -137,6 +138,7 @@ def propagate_print_format_to_exams(formato, exam_ids):
     updated = 0
     for assigned in assigned_qs:
         assigned.nombre_snapshot = formato.nombre
+        assigned.tamano_hoja = formato.tamano_hoja
         assigned.fuente = formato.fuente
         assigned.tamano_fuente = formato.tamano_fuente
         assigned.interlineado = formato.interlineado

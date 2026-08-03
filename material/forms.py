@@ -74,7 +74,7 @@ class ContenidoForm(forms.ModelForm):
 class QuestionForm(forms.ModelForm):
     subjects = forms.ModelMultipleChoiceField(
         queryset=Subject.objects.all().order_by('name'),
-        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
+        widget=forms.CheckboxSelectMultiple,
         required=False,
         label="Materias"
     )
@@ -357,6 +357,16 @@ class UserSelfEditForm(forms.ModelForm):
             'last_name': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # La cuenta semilla (ver SEED_CONTENT_USERNAME) se busca por username
+        # como clave estable en varias queries de contenido demo — cambiarlo
+        # rompería esa visibilidad en silencio. Se muestra de solo lectura.
+        seed_username = getattr(settings, 'SEED_CONTENT_USERNAME', 'educaapp_demo')
+        if self.instance.pk and self.instance.username == seed_username:
+            self.fields['username'].disabled = True
+            self.fields['username'].help_text = 'Este usuario es la cuenta de contenido de ejemplo y no puede renombrarse.'
 
 class InstitutionV2Form(forms.ModelForm):
     class Meta:
@@ -737,7 +747,7 @@ class FormatoImpresionForm(forms.ModelForm):
     class Meta:
         model = FormatoImpresion
         fields = [
-            'nombre', 'scope', 'institution', 'fuente', 'tamano_fuente', 'interlineado',
+            'nombre', 'scope', 'institution', 'tamano_hoja', 'fuente', 'tamano_fuente', 'interlineado',
             'margen_superior_cm', 'margen_inferior_cm', 'margen_izquierdo_cm', 'margen_derecho_cm',
             'color_titulo', 'color_texto', 'es_default'
         ]
@@ -745,6 +755,7 @@ class FormatoImpresionForm(forms.ModelForm):
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'scope': forms.Select(attrs={'class': 'form-select'}),
             'institution': forms.Select(attrs={'class': 'form-select'}),
+            'tamano_hoja': forms.Select(attrs={'class': 'form-select'}),
             'fuente': forms.Select(attrs={'class': 'form-select'}),
             'tamano_fuente': forms.NumberInput(attrs={'class': 'form-control', 'min': 8, 'max': 24}),
             'interlineado': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.05', 'min': 1}),
@@ -752,12 +763,13 @@ class FormatoImpresionForm(forms.ModelForm):
             'margen_inferior_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
             'margen_izquierdo_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
             'margen_derecho_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
-            'color_titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '#000000'}),
-            'color_texto': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '#000000'}),
+            'color_titulo': forms.TextInput(attrs={'class': 'form-control form-control-color', 'type': 'color'}),
+            'color_texto': forms.TextInput(attrs={'class': 'form-control form-control-color', 'type': 'color'}),
             'es_default': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         labels = {
             'nombre': 'Nombre',
+            'tamano_hoja': 'Tamaño de hoja',
             'tamano_fuente': 'Tamaño de fuente (pt)',
             'interlineado': 'Interlineado',
             'margen_superior_cm': 'Margen superior (cm)',
@@ -772,6 +784,13 @@ class FormatoImpresionForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.current_user = kwargs.pop('current_user', None)
         super().__init__(*args, **kwargs)
+
+        # El <input type="color"> nativo exige un hex de 6 dígitos válido — si
+        # el formato todavía no tiene color elegido, le damos un default en vez
+        # de dejarlo vacío (el navegador lo rechazaría / mostraría negro sin avisar).
+        for color_field in ('color_titulo', 'color_texto'):
+            if not self.initial.get(color_field) and not (self.instance.pk and getattr(self.instance, color_field, '')):
+                self.initial[color_field] = '#111111' if color_field == 'color_titulo' else '#000000'
 
         if self.current_user:
             institution_ids = UserInstitution.objects.filter(user=self.current_user).values_list('institution_id', flat=True)
