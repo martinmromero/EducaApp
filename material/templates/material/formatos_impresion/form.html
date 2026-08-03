@@ -16,18 +16,18 @@
                 {% endif %}
 
                 <div class="row">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-12 mb-3">
                         <label class="form-label">{{ form.nombre.label }}</label>
                         {{ form.nombre }}
                     </div>
+                </div>
+
+                <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">{{ form.scope.label }}</label>
                         {{ form.scope }}
                     </div>
-                </div>
-
-                <div class="row" id="institutionRow">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-6 mb-3" id="institutionCol">
                         <label class="form-label">{{ form.institution.label }}</label>
                         {{ form.institution }}
                     </div>
@@ -72,13 +72,15 @@
                         <label class="form-label">{{ form.margen_derecho_cm.label }}</label>
                         {{ form.margen_derecho_cm }}
                     </div>
-                    <div class="col-md-3 mb-3">
+                    <div class="col-md-4 mb-3">
                         <label class="form-label d-block">{{ form.color_titulo.label }}</label>
                         {{ form.color_titulo }}
+                        <div class="color-swatch-grid" data-target="{{ form.color_titulo.id_for_label }}"></div>
                     </div>
-                    <div class="col-md-3 mb-3">
+                    <div class="col-md-4 mb-3">
                         <label class="form-label d-block">{{ form.color_texto.label }}</label>
                         {{ form.color_texto }}
+                        <div class="color-swatch-grid" data-target="{{ form.color_texto.id_for_label }}"></div>
                     </div>
                 </div>
 
@@ -113,16 +115,29 @@
 
         <div class="col-lg-5">
             <div class="print-preview-wrap">
-                <p class="text-muted small mb-2">Vista previa aproximada — así se va a ver el encabezado de un examen con esta configuración.</p>
-                <div id="printPreviewPage" class="print-preview-page">
-                    <div id="printPreviewContent" class="print-preview-content">
-                        <div class="preview-title">INSTITUCIÓN EJEMPLO</div>
-                        <div class="preview-text preview-meta">Materia: Ejemplo — Profesor: Ejemplo</div>
-                        <hr>
-                        <div class="preview-text"><strong>1.</strong> ¿Cuál es la capital de Francia?</div>
-                        <div class="preview-text preview-option">a) Madrid&nbsp;&nbsp; b) París&nbsp;&nbsp; c) Roma</div>
-                        <div class="preview-text"><strong>2.</strong> Desarrolle brevemente el tema visto en clase.</div>
-                    </div>
+                <p class="text-muted small mb-2">
+                    Vista previa con los mismos campos estándar de un examen real (encabezado, datos del alumno, tópicos, preguntas) — no es solo una hoja en blanco para ver la fuente.
+                    <br>
+                    <i class="bi bi-arrows-fullscreen"></i> Hacé click en la hoja para verla más grande.
+                </p>
+                <div id="printPreviewPage" class="print-preview-page" role="button" tabindex="0" aria-label="Ampliar vista previa" data-bs-toggle="modal" data-bs-target="#printPreviewModal">
+                    {% include 'material/formatos_impresion/_preview_content.html' %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="printPreviewModal" tabindex="-1" aria-labelledby="printPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="printPreviewModalLabel">Vista previa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body text-center" style="background:#e9ecef;">
+                <div id="printPreviewPageLarge" class="print-preview-page" style="display:inline-block;">
+                    {% include 'material/formatos_impresion/_preview_content.html' %}
                 </div>
             </div>
         </div>
@@ -141,19 +156,81 @@
         box-shadow: 0 1px 4px rgba(0,0,0,.2), 0 0 0 1px rgba(0,0,0,.08);
         overflow: hidden;
         box-sizing: border-box;
+        cursor: zoom-in;
     }
     .print-preview-content {
         height: 100%;
         overflow: hidden;
     }
-    .print-preview-content hr {
-        margin: .4em 0;
+    .preview-header-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #444;
     }
-    .preview-meta {
-        opacity: .85;
+    .preview-header-table td {
+        border: 1px solid #444;
+        padding: .2em .35em;
+        vertical-align: middle;
+    }
+    .preview-logo-cell {
+        width: 15%;
+        text-align: center;
+        color: #999;
+    }
+    .preview-year-cell {
+        width: 18%;
+        text-align: center;
+    }
+    .preview-meta-row {
+        display: flex;
+        justify-content: space-between;
+        gap: .5em;
+    }
+    .preview-student-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: .5em;
+    }
+    .preview-student-table td {
+        border: 1px solid #444;
+        padding: .2em .35em;
+    }
+    .preview-student-table .preview-label-cell {
+        background: #f6f6f6;
+        font-weight: bold;
+        width: 20%;
+    }
+    .preview-section {
+        margin-top: .6em;
+    }
+    .preview-section h4 {
+        margin: 0 0 .2em;
+        font-size: 1em;
     }
     .preview-option {
         padding-left: 1em;
+    }
+
+    /* Paleta de colores: cuadrícula simple de blanco a negro, en vez de un
+       input type=color nativo — más rápido de elegir para encabezados/texto
+       de examen, que casi siempre son escalas de gris. */
+    .color-swatch-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1.6rem);
+        gap: .3rem;
+        margin-top: .4rem;
+    }
+    .color-swatch {
+        width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 4px;
+        border: 1px solid var(--bs-border-color);
+        cursor: pointer;
+        padding: 0;
+    }
+    .color-swatch.active {
+        outline: 2px solid var(--bs-primary);
+        outline-offset: 1px;
     }
 </style>
 
@@ -166,35 +243,67 @@
         'Calibri': 'Calibri, "Segoe UI", sans-serif',
         'Helvetica': 'Helvetica, Arial, sans-serif',
     };
-    var PREVIEW_WIDTH_PX = 260;
     var PX_PER_CM_REAL = 37.8; // ~96dpi, solo para escalar la tipografía de forma proporcional
+
+    // 16 grises parejos de blanco a negro (#FFFFFF a #000000).
+    var GRAYSCALE_SWATCHES = [
+        '#ffffff', '#eeeeee', '#dddddd', '#cccccc',
+        '#bbbbbb', '#aaaaaa', '#999999', '#888888',
+        '#777777', '#666666', '#555555', '#444444',
+        '#333333', '#222222', '#111111', '#000000',
+    ];
 
     function val(id) {
         var el = document.getElementById(id);
         return el ? el.value : '';
     }
 
-    function updateInstitutionVisibility() {
-        var row = document.getElementById('institutionRow');
-        if (row) row.classList.toggle('d-none', val('id_scope') !== 'institution');
+    function buildSwatchGrids() {
+        document.querySelectorAll('.color-swatch-grid').forEach(function (grid) {
+            var targetId = grid.dataset.target;
+            var input = document.getElementById(targetId);
+            if (!input) return;
+            GRAYSCALE_SWATCHES.forEach(function (hex) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'color-swatch';
+                btn.style.backgroundColor = hex;
+                btn.title = hex;
+                btn.setAttribute('aria-label', 'Elegir color ' + hex);
+                if (input.value && input.value.toLowerCase() === hex) btn.classList.add('active');
+                btn.addEventListener('click', function () {
+                    input.value = hex;
+                    grid.querySelectorAll('.color-swatch').forEach(function (b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                    update();
+                });
+                grid.appendChild(btn);
+            });
+        });
     }
 
-    function updatePreview() {
+    function updateInstitutionVisibility() {
+        var col = document.getElementById('institutionCol');
+        if (col) col.classList.toggle('d-none', val('id_scope') !== 'institution');
+    }
+
+    function renderPreview(pageEl, widthPx) {
+        if (!pageEl) return;
         var paper = PAPER_SIZES_CM[val('id_tamano_hoja')] || PAPER_SIZES_CM.A4;
         var widthCm = paper[0], heightCm = paper[1];
-        var scale = PREVIEW_WIDTH_PX / widthCm; // px por cm, en la miniatura
+        var scale = widthPx / widthCm; // px por cm, en esta instancia del preview
 
-        var page = document.getElementById('printPreviewPage');
-        page.style.width = PREVIEW_WIDTH_PX + 'px';
-        page.style.height = Math.round(PREVIEW_WIDTH_PX * (heightCm / widthCm)) + 'px';
+        pageEl.style.width = widthPx + 'px';
+        pageEl.style.height = Math.round(widthPx * (heightCm / widthCm)) + 'px';
 
         var top = (parseFloat(val('id_margen_superior_cm')) || 0) * scale;
         var bottom = (parseFloat(val('id_margen_inferior_cm')) || 0) * scale;
         var left = (parseFloat(val('id_margen_izquierdo_cm')) || 0) * scale;
         var right = (parseFloat(val('id_margen_derecho_cm')) || 0) * scale;
-        page.style.padding = top + 'px ' + right + 'px ' + bottom + 'px ' + left + 'px';
+        pageEl.style.padding = top + 'px ' + right + 'px ' + bottom + 'px ' + left + 'px';
 
-        var content = document.getElementById('printPreviewContent');
+        var content = pageEl.querySelector('.print-preview-content');
+        if (!content) return;
         var fontSizePt = parseFloat(val('id_tamano_fuente')) || 11;
         var miniScale = scale / PX_PER_CM_REAL;
         content.style.fontFamily = FONT_STACKS[val('id_fuente')] || 'sans-serif';
@@ -203,23 +312,31 @@
 
         var titleColor = val('id_color_titulo') || '#111111';
         var textColor = val('id_color_texto') || '#000000';
-        var titleEl = content.querySelector('.preview-title');
-        if (titleEl) titleEl.style.color = titleColor;
-        content.querySelectorAll('.preview-text').forEach(function (el) {
-            el.style.color = textColor;
-        });
+        content.querySelectorAll('.preview-title').forEach(function (el) { el.style.color = titleColor; });
+        content.querySelectorAll('.preview-text').forEach(function (el) { el.style.color = textColor; });
     }
 
     function update() {
         updateInstitutionVisibility();
-        updatePreview();
+        renderPreview(document.getElementById('printPreviewPage'), 260);
+        var modalEl = document.getElementById('printPreviewModal');
+        var largePage = document.getElementById('printPreviewPageLarge');
+        if (modalEl && modalEl.classList.contains('show')) {
+            var largeWidth = Math.min(700, Math.round(window.innerWidth * 0.6));
+            renderPreview(largePage, largeWidth);
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        buildSwatchGrids();
         var form = document.getElementById('formatoForm');
         if (form) {
             form.addEventListener('input', update);
             form.addEventListener('change', update);
+        }
+        var modalEl = document.getElementById('printPreviewModal');
+        if (modalEl) {
+            modalEl.addEventListener('shown.bs.modal', update);
         }
         update();
     });

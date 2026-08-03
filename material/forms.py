@@ -763,8 +763,8 @@ class FormatoImpresionForm(forms.ModelForm):
             'margen_inferior_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
             'margen_izquierdo_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
             'margen_derecho_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
-            'color_titulo': forms.TextInput(attrs={'class': 'form-control form-control-color', 'type': 'color'}),
-            'color_texto': forms.TextInput(attrs={'class': 'form-control form-control-color', 'type': 'color'}),
+            'color_titulo': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'readonly': 'readonly'}),
+            'color_texto': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'readonly': 'readonly'}),
             'es_default': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         labels = {
