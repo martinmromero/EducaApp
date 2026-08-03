@@ -2,15 +2,58 @@
 {% block content %}
 <div class="container">
     <h1>Bienvenido a EducaApp</h1>
-    <p>Una aplicación para cargar material educativo y generar preguntas automáticamente.</p>
-    <div class="d-grid gap-2 d-md-block">
+    <p class="text-muted">Una aplicación para cargar material educativo y generar preguntas automáticamente.</p>
+
+    <div class="row g-3 my-2">
+        <div class="col-6 col-md-3">
+            <a href="{% url 'material:mis_contenidos' %}" class="card text-decoration-none h-100">
+                <div class="card-body">
+                    <div class="fs-3 fw-bold">{{ contenidos_count }}</div>
+                    <div class="text-muted small">Contenidos subidos</div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a href="{% url 'material:lista_preguntas' %}" class="card text-decoration-none h-100">
+                <div class="card-body">
+                    <div class="fs-3 fw-bold">{{ preguntas_count }}</div>
+                    <div class="text-muted small">Preguntas en tu banco</div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a href="{% url 'material:mis_examenes' %}" class="card text-decoration-none h-100">
+                <div class="card-body">
+                    <div class="fs-3 fw-bold">{{ examenes_count }}</div>
+                    <div class="text-muted small">Exámenes armados</div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a href="{% url 'material:onboarding_v2_page' %}" class="card text-decoration-none h-100">
+                <div class="card-body">
+                    <div class="fs-3"><i class="bi bi-gear"></i></div>
+                    <div class="text-muted small">Configurar perfil</div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="d-grid gap-2 d-md-block my-4">
         <a href="{% url 'material:upload_contenido' %}" class="btn btn-primary btn-lg">Subir Material</a>
         <a href="{% url 'material:create_exam' %}" class="btn btn-secondary btn-lg">Crear Examen</a>
-        {% if user.is_authenticated %}
-        <a href="{% url 'material:onboarding_v2_page' %}" class="btn btn-outline-secondary btn-lg">
-            <i class="bi bi-gear me-1"></i>Configurar perfil
-        </a>
-        {% endif %}
     </div>
+
+    {% if ultimos_examenes %}
+    <h2 class="h5 mt-4">Tus últimos exámenes</h2>
+    <div class="list-group">
+        {% for examen in ultimos_examenes %}
+            <a href="{% url 'material:ver_examen' examen.pk %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                {{ examen.title }}
+                <small class="text-muted">{{ examen.created_at|date:"d/m/Y" }}</small>
+            </a>
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

@@ -43,7 +43,15 @@
       element: '#tourMenuExamenes',
       popover: {
         title: 'Exámenes',
-        description: 'Armá exámenes combinando preguntas de tu banco, con varias versiones si lo necesitás.',
+        description: 'Armá exámenes con tu banco de preguntas. Acá también viven las plantillas, las rúbricas, los cuestionarios orales y el formato de impresión.',
+        side: 'right',
+      },
+    },
+    {
+      element: '#tourMenuAcademico',
+      popover: {
+        title: 'Mi espacio académico',
+        description: 'Institución, carrera y materia — se configuran una sola vez, no hace falta volver seguido acá.',
         side: 'right',
       },
     },

@@ -505,8 +505,31 @@ class CustomLoginView(LoginView):
 def index(request):
     # El primer login de un usuario nuevo cae acá y OnboardingGateMiddleware
     # lo redirige a /comenzar/ si todavía no completó (ni salió de) el asistente.
+    try:
+        contenidos_count = Contenido.objects.filter(uploaded_by=request.user).count()
+    except Exception:
+        contenidos_count = 0
+    try:
+        preguntas_count = Question.objects.filter(user=request.user).count()
+    except Exception:
+        preguntas_count = 0
+    try:
+        examenes_count = Exam.objects.filter(created_by=request.user).count()
+    except Exception:
+        examenes_count = 0
+    try:
+        ultimos_examenes = list(
+            Exam.objects.filter(created_by=request.user).order_by('-created_at')[:5]
+        )
+    except Exception:
+        ultimos_examenes = []
+
     context = {
-        'is_admin': is_admin(request.user)
+        'is_admin': is_admin(request.user),
+        'contenidos_count': contenidos_count,
+        'preguntas_count': preguntas_count,
+        'examenes_count': examenes_count,
+        'ultimos_examenes': ultimos_examenes,
     }
     return render(request, 'material/index.html', context)
 

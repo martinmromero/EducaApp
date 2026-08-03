@@ -94,68 +94,55 @@
                 <i class="bi bi-person-circle me-2"></i>
                 Hola, {{ user.username }}
             </div>
-            <a href="{% url 'material:ai_config' %}" class="menu-item" style="text-decoration:none;">
-                <i class="bi bi-cpu me-2"></i>Proveedor de IA
-            </a>
         {% endif %}
 
-        <!-- Menú de dos niveles -->
+        <!-- Contenidos: subir material y generar preguntas con IA a partir de él -->
         <div class="menu-item" id="tourMenuContenidos" onclick="toggleSubmenu(this)">
             <i class="bi bi-folder-fill me-2"></i> Contenidos
             <div class="submenu">
                     <a href="{% url 'material:upload_contenido' %}"><i class="bi bi-upload me-2"></i>Subir Contenido</a>
                     <a href="{% url 'material:mis_contenidos' %}"><i class="bi bi-collection me-2"></i>Mis Contenidos</a>
-                    <a href="{% url 'material:document_processor_dashboard' %}"><i class="bi bi-file-earmark-code me-2"></i>Procesador IA</a>
+                    <a href="{% url 'material:document_processor_dashboard' %}"><i class="bi bi-magic me-2"></i>Generar preguntas con IA</a>
             </div>
         </div>
 
+        <!-- Preguntas: banco propio, cargadas a mano o por IA -->
         <div class="menu-item" id="tourMenuPreguntas" onclick="toggleSubmenu(this)">
             <i class="bi bi-question-circle-fill me-2"></i> Preguntas
             <div class="submenu">
-                <a href="{% url 'material:upload_questions' %}"><i class="bi bi-upload me-2"></i>Subir Preguntas</a>
                 <a href="{% url 'material:lista_preguntas' %}"><i class="bi bi-list-check me-2"></i>Mis Preguntas</a>
-                <a href="{% url 'material:bloom_taxonomy' %}"><i class="bi bi-diagram-3-fill me-2"></i>Taxonomía de Bloom</a>
+                <a href="{% url 'material:upload_questions' %}"><i class="bi bi-upload me-2"></i>Subir Preguntas</a>
             </div>
         </div>
 
-        <a href="{% url 'material:list_exam_templates' %}" class="menu-item" style="text-decoration:none;">
-            <i class="bi bi-file-earmark-text-fill me-2"></i> Plantillas
-        </a>
-
-         <a href="{% url 'material:mis_examenes' %}" class="menu-item" id="tourMenuExamenes" style="text-decoration:none;">
+        <!-- Exámenes: armado (plantillas/rúbricas/orales) y formato de impresión -->
+        <div class="menu-item" id="tourMenuExamenes" onclick="toggleSubmenu(this)">
             <i class="bi bi-file-earmark-text-fill me-2"></i> Exámenes
-        </a>
-
-        <div class="menu-item" onclick="toggleSubmenu(this)">
-            <i class="bi bi-card-checklist me-2"></i> Rúbricas
             <div class="submenu">
-                <a href="{% url 'material:rubric_create' %}"><i class="bi bi-plus-circle me-2"></i>Nueva Rúbrica</a>
-                <a href="{% url 'material:rubric_list' %}"><i class="bi bi-list-ul me-2"></i>Mis Rúbricas</a>
+                <a href="{% url 'material:mis_examenes' %}"><i class="bi bi-list-ul me-2"></i>Mis Exámenes</a>
+                <a href="{% url 'material:create_exam' %}"><i class="bi bi-plus-circle me-2"></i>Nuevo Examen</a>
+                <a href="{% url 'material:list_exam_templates' %}"><i class="bi bi-file-earmark-ruled me-2"></i>Plantillas</a>
+                <a href="{% url 'material:rubric_list' %}"><i class="bi bi-card-checklist me-2"></i>Rúbricas</a>
+                <a href="{% url 'material:list_oral_exams' %}"><i class="bi bi-mic me-2"></i>Cuestionarios Orales</a>
+                <a href="{% url 'material:formato_impresion_list' %}"><i class="bi bi-printer me-2"></i>Formatos de Impresión</a>
             </div>
         </div>
 
-        <a href="{% url 'material:institution_v2_list' %}" class="menu-item" style="text-decoration:none;">
-            <i class="bi bi-buildings me-2"></i> Instituciones
-        </a>
+        <!-- Mi espacio académico: institución -> carrera -> materia, se configura una vez -->
+        <div class="menu-item" id="tourMenuAcademico" onclick="toggleSubmenu(this)">
+            <i class="bi bi-diagram-3-fill me-2"></i> Mi espacio académico
+            <div class="submenu">
+                <a href="{% url 'material:institution_v2_list' %}"><i class="bi bi-buildings me-2"></i>Instituciones</a>
+                <a href="{% url 'material:career_list' %}"><i class="bi bi-mortarboard-fill me-2"></i>Carreras</a>
+                <a href="{% url 'material:subject_list' %}"><i class="bi bi-book me-2"></i>Materias</a>
+            </div>
+        </div>
 
-<a href="{% url 'material:career_list' %}" class="menu-item" style="text-decoration:none;">
-    <i class="bi bi-mortarboard-fill me-2"></i> Carreras
-</a>
-
-<a href="{% url 'material:subject_list' %}" class="menu-item" style="text-decoration:none;">
-    <i class="bi bi-book me-2"></i> Materias
-</a>
-
-<a href="{% url 'material:grupos_list' %}" class="menu-item" id="tourMenuGrupos" style="text-decoration:none;">
-    <i class="bi bi-people-fill me-2"></i> Grupos
-    {% if pending_invites_count %}
-    <span class="badge bg-danger ms-1">{{ pending_invites_count }}</span>
-    {% endif %}
-</a>
-
-        <!-- Cuestionarios Orales -->
-        <a href="{% url 'material:list_oral_exams' %}" class="menu-item" style="text-decoration:none;">
-            <i class="bi bi-mic me-2"></i> Cuestionarios Orales
+        <a href="{% url 'material:grupos_list' %}" class="menu-item" id="tourMenuGrupos" style="text-decoration:none;">
+            <i class="bi bi-people-fill me-2"></i> Grupos
+            {% if pending_invites_count %}
+            <span class="badge bg-danger ms-1">{{ pending_invites_count }}</span>
+            {% endif %}
         </a>
 
         <!-- Menú de Administración (solo para administradores) -->
@@ -165,12 +152,16 @@
                 <div class="submenu">
                     <a href="{% url 'material:user_list' %}"><i class="bi bi-people-fill me-2"></i>Usuarios</a>
                     <a href="{% url 'material:groq_monitor_page' %}"><i class="bi bi-activity me-2"></i>Monitoreo Groq</a>
+                    <a href="{% url 'material:institution_ai_config' %}"><i class="bi bi-cpu me-2"></i>IA Institucional</a>
                 </div>
             </div>
         {% endif %}
 
         <!-- Enlaces inferiores (siempre al final) -->
         <div class="bottom-links">
+            {% if user.is_authenticated %}
+                <a href="{% url 'material:ai_config' %}"><i class="bi bi-cpu me-2"></i>Proveedor de IA</a>
+            {% endif %}
             <div class="d-flex justify-content-between align-items-center">
                 <a href="{% url 'material:mis_datos' %}" id="tourMisDatos"><i class="bi bi-person-lines-fill me-2"></i>Mis datos</a>
                 <div class="d-flex align-items-center gap-1">
