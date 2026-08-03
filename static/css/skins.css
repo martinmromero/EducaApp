@@ -3,10 +3,12 @@
  * (ver DESIGN-*.md). Se activan poniendo data-visual-theme="slack|bmw|
  * linear|figma|clay" en <html> (ver base.html / material:set_visual_theme).
  *
- * No tocan --bs-body-bg ni --edu-sidebar-bg salvo cuando el tinte de canvas
- * es parte central de la marca, y sólo bajo :not([data-bs-theme="dark"])
- * para no pelear con el toggle de modo oscuro existente (data-bs-theme=
- * "dark" siempre gana ahí).
+ * No tocan --bs-body-bg/--edu-sidebar-bg/--edu-topbar-bg salvo cuando el
+ * tinte de canvas es parte central de la marca, y sólo bajo
+ * :not([data-bs-theme="dark"]) para no pelear con el toggle de modo oscuro
+ * existente (data-bs-theme="dark" siempre gana ahí). --edu-topbar-bg se
+ * elige a propósito como un tono intermedio entre --bs-body-bg y
+ * --edu-sidebar-bg, para que las tres superficies se distingan entre sí.
  *
  * Botones: Bootstrap 5.3 define --bs-btn-bg / --bs-btn-border-color etc.
  * como valores fijos por variante (no heredan de --bs-primary en runtime),
@@ -39,6 +41,7 @@
 [data-visual-theme="slack"]:not([data-bs-theme="dark"]) {
   --bs-body-bg: #f9f5ef;
   --edu-sidebar-bg: #f3e0f5;
+  --edu-topbar-bg: #f6eaf7;
 }
 [data-visual-theme="slack"] h1, [data-visual-theme="slack"] h2,
 [data-visual-theme="slack"] h3, [data-visual-theme="slack"] h4,
@@ -85,6 +88,7 @@
 }
 [data-visual-theme="bmw"]:not([data-bs-theme="dark"]) {
   --edu-sidebar-bg: #eef3fb;
+  --edu-topbar-bg: #f5f8fd;
 }
 [data-visual-theme="bmw"] h1, [data-visual-theme="bmw"] h2,
 [data-visual-theme="bmw"] h3, [data-visual-theme="bmw"] h4,
@@ -132,6 +136,7 @@
 }
 [data-visual-theme="linear"]:not([data-bs-theme="dark"]) {
   --edu-sidebar-bg: #e4e6fb;
+  --edu-topbar-bg: #eef0fd;
 }
 [data-visual-theme="linear"] h1, [data-visual-theme="linear"] h2,
 [data-visual-theme="linear"] h3, [data-visual-theme="linear"] h4,
@@ -174,6 +179,7 @@
 }
 [data-visual-theme="figma"]:not([data-bs-theme="dark"]) {
   --edu-sidebar-bg: #f0f0ec;
+  --edu-topbar-bg: #f7f7f4;
 }
 [data-visual-theme="figma"] h1, [data-visual-theme="figma"] h2,
 [data-visual-theme="figma"] h3, [data-visual-theme="figma"] h4,
@@ -217,6 +223,7 @@
 [data-visual-theme="clay"]:not([data-bs-theme="dark"]) {
   --bs-body-bg: #fffaf0;
   --edu-sidebar-bg: #faf5e8;
+  --edu-topbar-bg: #fdf8ec;
 }
 [data-visual-theme="clay"] h1, [data-visual-theme="clay"] h2,
 [data-visual-theme="clay"] h3, [data-visual-theme="clay"] h4,

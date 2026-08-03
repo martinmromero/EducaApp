@@ -24,6 +24,11 @@
      tema visual (ver skins.css) pueda teñirlo sin afectar otras superficies
      "alt" del sitio. Por defecto es el mismo gris que ya tenía el sidebar. */
   --edu-sidebar-bg: var(--edu-surface-alt);
+  /* Fondo de la barra superior — mismo mecanismo que --edu-sidebar-bg, para
+     que quede distinguible tanto del contenido (--bs-body-bg) como del
+     sidebar (--edu-sidebar-bg). Por defecto es el gris tenue que ya tenía
+     (antes bg-body-tertiary directo en el template). */
+  --edu-topbar-bg: var(--bs-tertiary-bg);
   --edu-border: var(--bs-border-color);
   --edu-text: var(--bs-body-color);
   --edu-text-muted: var(--bs-secondary-color);

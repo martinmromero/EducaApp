@@ -204,15 +204,15 @@
     <!-- Contenido principal -->
     <div class="main-content" id="mainContent">
         <!-- Barra de navegación superior -->
-        <nav class="navbar navbar-expand-lg bg-body-tertiary">
+        <nav class="navbar navbar-expand-lg edu-topbar">
             <div class="container-fluid">
-            <div></div>
-                <div class="d-flex">
+                <span class="edu-topbar-title">{% block page_title %}{% endblock %}</span>
+                <div class="d-flex flex-shrink-0">
                     <a href="{% url 'material:index' %}" class="btn btn-outline-primary me-2">
                         <i class="bi bi-house"></i>
                     </a>
                     {% if user.is_authenticated %}
-                        <button type="button" id="tourHelpBtn" class="btn btn-outline-secondary" title="Ver recorrido guiado">
+                        <button type="button" id="tourHelpBtn" class="btn btn-outline-primary" title="Ver recorrido guiado">
                             <i class="bi bi-question-lg"></i>
                         </button>
                     {% endif %}

@@ -35,6 +35,26 @@ body.modal-open .sidebar-toggle-external {
     display: none !important;
 }
 
+/* Barra superior: título de la página actual + accesos (home, tour) */
+.edu-topbar {
+    background-color: var(--edu-topbar-bg);
+}
+.edu-topbar .container-fluid {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+}
+.edu-topbar-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--bs-body-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
 /* Estilos para el menú lateral */
 .sidebar {
     height: 100%;
@@ -165,6 +185,15 @@ body.modal-open .sidebar-toggle-external {
     /* Botón hamburguesa visible en mobile */
     .sidebar-toggle-external {
         display: flex !important;
+    }
+    /* El hamburguesa es fixed (top:20px;left:20px;40px de ancho) y flota por
+       encima de todo — sin este espacio el título de la barra superior queda
+       tapado atrás. */
+    .edu-topbar .container-fluid {
+        padding-left: 56px;
+    }
+    .edu-topbar-title {
+        font-size: 1rem;
     }
     /* Tablas responsivas */
     table {
