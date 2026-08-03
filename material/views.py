@@ -3948,6 +3948,15 @@ def institution_v2_detail(request, pk):
     }
     return render(request, 'material/institutions_v2/detail.html', context)
 
+# CANDIDATO A BORRAR (auditoría de navegación 2026-08-03, ver memoria
+# project_sidebar_navigation_redesign): create_campus_v2, create_faculty_v2,
+# edit_campus_v2, delete_campus_v2, edit_faculty_v2 y delete_faculty_v2 (las
+# 6 vistas siguientes con sufijo _v2 sobre Campus/Faculty) apuntan a templates
+# que no existen en el proyecto (material/campuses_v2/*, material/faculties_v2/*)
+# — confirmado que tiran 500 (TemplateDoesNotExist) si se las visita. La
+# gestión real de sedes/facultades ya ocurre vía el formset embebido en
+# edit_institution_v2. Ningún template las enlaza. Conservadas a propósito
+# (no eliminadas) hasta la próxima auditoría de limpieza de código muerto.
 @login_required
 def create_campus_v2(request, institution_id):
     institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)
@@ -3963,6 +3972,7 @@ def create_campus_v2(request, institution_id):
         form = CampusV2Form()
     return render(request, 'material/campuses_v2/create.html', {'form': form, 'institution': institution})
 
+# CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
 @login_required
 def create_faculty_v2(request, institution_id):
     institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)
@@ -4003,6 +4013,7 @@ def delete_institution_logo_v2(request, pk):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
 
+# CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
 @login_required
 def edit_campus_v2(request, institution_id, campus_id):
     institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)
@@ -4016,6 +4027,7 @@ def edit_campus_v2(request, institution_id, campus_id):
         form = CampusV2Form(instance=campus)
     return render(request, 'material/campuses_v2/edit.html', {'form': form, 'institution': institution})
 
+# CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
 @login_required
 def delete_campus_v2(request, institution_id, campus_id):
     institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)
@@ -4027,6 +4039,7 @@ def delete_campus_v2(request, institution_id, campus_id):
         return redirect('material:institution_v2_detail', pk=institution.pk)
     return render(request, 'material/campuses_v2/confirm_delete.html', {'campus': campus, 'institution': institution})
 
+# CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
 @login_required
 def edit_faculty_v2(request, institution_id, faculty_id):
     institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)
@@ -4040,6 +4053,7 @@ def edit_faculty_v2(request, institution_id, faculty_id):
         form = FacultyV2Form(instance=faculty)
     return render(request, 'material/faculties_v2/edit.html', {'form': form, 'institution': institution})
 
+# CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
 @login_required
 def delete_faculty_v2(request, institution_id, faculty_id):
     institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)

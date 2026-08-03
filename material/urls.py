@@ -98,6 +98,11 @@ urlpatterns = [
     path('instituciones-v2/logs/<int:pk>/', material_views.institution_v2_logs, name='institution_v2_logs'),
 # linea siguiente comentada para ser borrada:   
     # path('instituciones-v2/count-favorites/', material_views.count_favorite_institutions, name='count_favorite_institutions'),
+    # CANDIDATO A BORRAR (auditoría de navegación 2026-08-03): estas 6 rutas
+    # apuntan a vistas cuyos templates no existen (siempre 500) y sin ningún
+    # link en la UI — la gestión real de sedes/facultades ocurre vía el
+    # formset embebido en edit_institution_v2. Ver memoria
+    # project_sidebar_navigation_redesign. Conservadas a propósito.
     path('instituciones-v2/<int:institution_id>/campus/create/', material_views.create_campus_v2, name='create_campus_v2'),
     path('instituciones-v2/<int:institution_id>/campus/<int:campus_id>/edit/', material_views.edit_campus_v2, name='edit_campus_v2'),
     path('instituciones-v2/<int:institution_id>/campus/<int:campus_id>/delete/', material_views.delete_campus_v2, name='delete_campus_v2'),
