@@ -28,14 +28,14 @@
             <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
             <div>
                 <div class="fw-semibold">{{ questions_count }} preguntas generadas con IA</div>
-                <div class="text-muted small">A partir de esos tópicos, como haría el Procesador de Documentos con tu apunte</div>
+                <div class="text-muted small">A partir de esos tópicos, como haría el Procesador de Documentos con tu apunte — ahí mismo las aprobás con un check</div>
             </div>
         </div>
         <div class="list-group-item d-flex align-items-start gap-3" id="recapItem4">
             <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
             <div>
                 <div class="fw-semibold">{{ approved_count }} preguntas aprobadas</div>
-                <div class="text-muted small">Revisadas y listas para usarse en un examen, como en Mis Preguntas</div>
+                <div class="text-muted small">Se guardan todas (aprobadas o no) en Mis Preguntas, para que la IA aprenda qué te gusta la próxima vez</div>
             </div>
         </div>
         <div class="list-group-item d-flex align-items-start gap-3" id="recapItem5">
@@ -110,7 +110,7 @@
                 element: '#tourMenuGenerarIA',
                 popover: {
                     title: 'Generar preguntas con IA',
-                    description: 'Con esos tópicos identificados, la IA genera preguntas automáticamente a partir de tu apunte — así se generaron las preguntas de este ejemplo.',
+                    description: 'Con esos tópicos identificados, la IA genera preguntas automáticamente a partir de tu apunte, y ahí mismo las aprobás con un check — así se generaron y aprobaron las preguntas de este ejemplo.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem3'),
                 },
@@ -120,7 +120,7 @@
                 element: '#tourMenuPreguntas',
                 popover: {
                     title: 'Mis Preguntas',
-                    description: 'Ahí revisás y aprobás las preguntas generadas antes de que puedan usarse en un examen.',
+                    description: 'Ahí queda guardado todo tu banco: las aprobadas y las que no, para que la próxima vez que generes preguntas la IA sepa qué te gusta y qué no.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem4'),
                 },
