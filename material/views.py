@@ -380,6 +380,8 @@ from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, 
     Rubric, ExamRubric, RubricLevel, RubricCriterion, RubricCell, ExamVersionBatch,
     FormatoImpresion)
 from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer, InstitutionSubject)
+from .models import Favorite
+from django.contrib.contenttypes.models import ContentType
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
     UserEditForm, UserSelfEditForm, ContenidoForm,
@@ -2107,6 +2109,13 @@ def list_exam_templates(request):
     filter_options = get_filter_options(base_templates, EXAM_TEMPLATE_FILTER_FIELDS, selected_filters)
     templates = apply_column_filters(request, base_templates, EXAM_TEMPLATE_FILTER_FIELDS).order_by('-created_at')
 
+    favorite_ids = set(Favorite.objects.filter(
+        user=request.user, content_type=ContentType.objects.get_for_model(ExamTemplate)
+    ).values_list('object_id', flat=True))
+    only_favorites = request.GET.get('favoritos') == '1'
+    if only_favorites:
+        templates = templates.filter(pk__in=favorite_ids)
+
     # Paginación
     paginator = Paginator(templates, 25)
     page_number = request.GET.get('page')
@@ -2119,6 +2128,8 @@ def list_exam_templates(request):
         'active_filter_count': get_active_filter_count(selected_filters),
         'filter_querystring': get_filter_querystring(request),
         'filter_columns': [c for c in EXAM_TEMPLATE_FILTER_COLUMNS if c['field'] != 'exam_type'],
+        'favorite_ids': favorite_ids,
+        'only_favorites': only_favorites,
     }
 
     return render(request, 'material/exams/list_exam_templates.html', context)
@@ -2275,6 +2286,14 @@ def mis_examenes(request):
     examenes = list(examenes_qs)
     batches = list(batches_qs)
 
+    favorite_ids = set(Favorite.objects.filter(
+        user=request.user, content_type=ContentType.objects.get_for_model(Exam)
+    ).values_list('object_id', flat=True))
+    only_favorites = request.GET.get('favoritos') == '1'
+    if only_favorites:
+        examenes = [e for e in examenes if e.id in favorite_ids]
+        batches = []  # los lotes no son favoriteables individualmente
+
     items = [
         {
             'kind': 'batch',
@@ -2300,6 +2319,8 @@ def mis_examenes(request):
         'active_filter_count': get_active_filter_count(selected_filters),
         'filter_querystring': get_filter_querystring(request),
         'filter_columns': MIS_EXAMENES_FILTER_COLUMNS,
+        'favorite_ids': favorite_ids,
+        'only_favorites': only_favorites,
     })
 
 
@@ -4085,11 +4106,53 @@ def count_favorite_institutions(request):
     return JsonResponse({'count': count})
 """
 
-# Subjects CRUD 
+# --- Favoritos (genérico: exámenes, plantillas, materias) ---
+_FAVORITE_MODELS = {
+    'exam': Exam,
+    'examtemplate': ExamTemplate,
+    'subject': Subject,
+}
+
+@login_required
+def toggle_favorite(request):
+    """
+    Alterna favorito para cualquiera de los modelos en _FAVORITE_MODELS.
+    POST: model ('exam'|'examtemplate'|'subject'), object_id.
+    Devuelve JSON {'is_favorite': bool} para actualizar el ícono sin recargar.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+    model_key = request.POST.get('model')
+    object_id = request.POST.get('object_id')
+    model_cls = _FAVORITE_MODELS.get(model_key)
+    if not model_cls or not object_id:
+        return JsonResponse({'error': 'Parámetros inválidos'}, status=400)
+
+    obj = get_object_or_404(model_cls, pk=object_id)
+    content_type = ContentType.objects.get_for_model(model_cls)
+    favorite, created = Favorite.objects.get_or_create(
+        user=request.user, content_type=content_type, object_id=obj.pk
+    )
+    if not created:
+        favorite.delete()
+        return JsonResponse({'is_favorite': False})
+    return JsonResponse({'is_favorite': True})
+
+# Subjects CRUD
 @login_required
 def subject_list(request):
     subjects = Subject.objects.all()
-    return render(request, 'material/subjects/list.html', {'subjects': subjects})
+    favorite_ids = set(Favorite.objects.filter(
+        user=request.user, content_type=ContentType.objects.get_for_model(Subject)
+    ).values_list('object_id', flat=True))
+    if request.GET.get('favoritos') == '1':
+        subjects = subjects.filter(pk__in=favorite_ids)
+    return render(request, 'material/subjects/list.html', {
+        'subjects': subjects,
+        'favorite_ids': favorite_ids,
+        'only_favorites': request.GET.get('favoritos') == '1',
+    })
 
 @login_required
 def create_subject(request):

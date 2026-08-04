@@ -45,6 +45,11 @@
                             onclick="{% if active_filter_count %}clearAllColumnFilters(){% else %}toggleDesktopColumnFilters(this){% endif %}">
                         <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
                     </button>
+                    <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}"
+                       class="btn btn-sm {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
+                       title="Mostrar solo favoritas">
+                        <i class="fas fa-star"></i> Favoritas
+                    </a>
                     <button type="button" id="toggleBulkSelectBtn" class="btn btn-outline-secondary btn-sm" onclick="toggleBulkSelect()">
                         <i class="fas fa-check-square"></i> Borrado múltiple
                     </button>
@@ -60,6 +65,7 @@
                         <thead>
                             <tr>
                                 <th class="bulk-select-col d-none" style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
+                                <th style="width:40px;"></th>
                                 <th class="filterable-col">Institución {% include 'material/components/_column_filter_dropdown.html' with field='institution' label='Institución' options=filter_options.institution selected=selected_filters.institution prefix='d' %}</th>
                                 <th class="filterable-col">Facultad {% include 'material/components/_column_filter_dropdown.html' with field='faculty' label='Facultad' options=filter_options.faculty selected=selected_filters.faculty prefix='d' %}</th>
                                 <th class="filterable-col">Carrera {% include 'material/components/_column_filter_dropdown.html' with field='career' label='Carrera' options=filter_options.career selected=selected_filters.career prefix='d' %}</th>
@@ -74,6 +80,11 @@
                             <tr>
                                 <td class="bulk-select-col d-none">
                                     <input type="checkbox" name="template_ids" value="{{ template.id }}">
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
+                                            data-model="examtemplate" data-id="{{ template.id }}"
+                                            data-active="{% if template.id in favorite_ids %}1{% else %}0{% endif %}"></button>
                                 </td>
                                 <td>{% if template.institution_name_snapshot %}{{ template.institution_name_snapshot }}{% else %}{{ template.institution.name|default:"-" }}{% endif %}</td>
                                 <td>{% if template.faculty_name_snapshot %}{{ template.faculty_name_snapshot }}{% else %}{{ template.faculty.name|default:"-" }}{% endif %}</td>
@@ -106,7 +117,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="8" class="text-center py-4">
+                                <td colspan="9" class="text-center py-4">
                                     <div class="alert alert-info mb-0">
                                         No hay plantillas guardadas.
                                         <a href="{% url 'material:create_exam_template' %}" class="alert-link">

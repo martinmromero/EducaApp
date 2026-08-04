@@ -5,6 +5,7 @@ from django.dispatch import receiver
 from django.core.validators import MinValueValidator, MaxValueValidator  
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.contrib.contenttypes.fields import GenericForeignKey
 import json
 
 # --- MODELOS V2 PRIMERO (para evitar referencias circulares) ---
@@ -2187,3 +2188,23 @@ class SubjectShare(models.Model):
 
     def __str__(self):
         return f"{self.shared_by.username} comparte {self.subject.name} con {self.group.name}"
+
+
+class Favorite(models.Model):
+    """
+    Marca genérica de "favorito" por usuario, aplicable a cualquier modelo
+    (Exam, ExamVersionBatch, ExamTemplate, Subject, etc.) vía ContentType,
+    para no necesitar un campo/tabla propia por cada entidad.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites')
+    content_type = models.ForeignKey('contenttypes.ContentType', on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'content_type', 'object_id')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} ★ {self.content_type.model}#{self.object_id}"

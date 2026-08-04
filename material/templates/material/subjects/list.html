@@ -9,6 +9,11 @@
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Listado de Materias</h5>
             <div class="d-flex gap-2">
+                <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}"
+                   class="btn btn-sm {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
+                   title="Mostrar solo favoritas">
+                    <i class="fas fa-star"></i> Favoritas
+                </a>
                 <button type="button" id="toggleBulkSelectBtn" class="btn btn-outline-secondary btn-sm" onclick="toggleBulkSelect()"
                         title="Seleccioná varias materias para borrarlas juntas">
                     <i class="fas fa-check-square"></i> Selección múltiple
@@ -24,6 +29,7 @@
                     <thead>
                         <tr>
                             <th class="bulk-select-col d-none" style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
+                            <th style="width:40px;"></th>
                             <th>Nombre</th>
                             <th>Resultados de Aprendizaje</th>
                             <th>Acciones</th>
@@ -34,6 +40,11 @@
                         <tr>
                             <td class="bulk-select-col d-none">
                                 <input type="checkbox" name="subject_ids" value="{{ subject.pk }}">
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
+                                        data-model="subject" data-id="{{ subject.pk }}"
+                                        data-active="{% if subject.pk in favorite_ids %}1{% else %}0{% endif %}"></button>
                             </td>
                             <td>{{ subject.name }}</td>
                             <td>
@@ -66,7 +77,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="text-center">No hay materias registradas</td>
+                            <td colspan="5" class="text-center">No hay materias registradas</td>
                         </tr>
                         {% endfor %}
                     </tbody>
