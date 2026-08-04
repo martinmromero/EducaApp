@@ -290,7 +290,13 @@ class GeminiBackend:
         return ok
 
     def generate(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
-                 thinking_budget: int = 0, **kwargs) -> Dict[str, Any]:
+                 thinking_budget: int = 0, images: Optional[list] = None, **kwargs) -> Dict[str, Any]:
+        """
+        images: lista opcional de data-URIs ("data:image/png;base64,...").
+        Se convierten al formato nativo de Gemini (`inline_data`) — a
+        diferencia del endpoint OpenAI-compatible, acá no se puede mandar
+        el data-URI tal cual, hay que separar mime_type y base64.
+        """
         generation_config = {
             'temperature': temperature,
             'maxOutputTokens': max_tokens,
@@ -307,11 +313,19 @@ class GeminiBackend:
         if model_major.isdigit() and int(model_major) >= 2:
             generation_config['thinkingConfig'] = {'thinkingBudget': thinking_budget}
 
+        parts = [{'text': prompt}]
+        for data_uri in (images or []):
+            if not data_uri.startswith('data:') or ';base64,' not in data_uri:
+                continue
+            header, b64_data = data_uri.split(';base64,', 1)
+            mime_type = header[len('data:'):] or 'image/png'
+            parts.append({'inline_data': {'mime_type': mime_type, 'data': b64_data}})
+
         payload = {
             'contents': [
                 {
                     'role': 'user',
-                    'parts': [{'text': prompt}],
+                    'parts': parts,
                 }
             ],
             'generationConfig': generation_config,

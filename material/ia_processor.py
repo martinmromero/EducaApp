@@ -69,6 +69,72 @@ def extract_text_from_file(file_path):
     return text.strip()
 
 
+def extract_page_images(file_path, pages=None, max_images=4, min_bytes=4000):
+    """
+    Extrae imágenes embebidas de un PDF (diagramas, fotos, gráficos) usando
+    PyMuPDF, para mandarlas a un modelo de IA con visión junto con el texto.
+    Por ahora solo soporta PDF — DOCX/PPTX devuelven lista vacía (no es la
+    fuente más común para este caso de uso; se puede sumar después si hace
+    falta).
+
+    Args:
+        file_path: ruta al archivo.
+        pages: lista opcional de números de página (1-based) a considerar;
+            None = todo el documento.
+        max_images: tope de imágenes a devolver (controla costo/latencia de
+            la llamada a la IA — cada imagen se manda entera en el prompt).
+        min_bytes: descarta imágenes muy chicas (íconos, viñetas, líneas
+            decorativas del layout) que no aportan contenido real.
+
+    Returns:
+        Lista de dicts {page, mime, data_uri}, como mucho `max_images`,
+        ordenada por página. Nunca levanta excepción — ante cualquier error
+        de lectura devuelve lista vacía (la generación de preguntas sigue
+        funcionando solo con texto).
+    """
+    import base64
+
+    if os.path.splitext(file_path)[1].lower() != '.pdf':
+        return []
+
+    results = []
+    try:
+        doc = fitz.open(file_path)
+        try:
+            page_range = range(len(doc)) if not pages else [p - 1 for p in pages if 0 < p <= len(doc)]
+            for page_idx in page_range:
+                if len(results) >= max_images:
+                    break
+                page = doc[page_idx]
+                for img in page.get_images(full=True):
+                    if len(results) >= max_images:
+                        break
+                    xref = img[0]
+                    try:
+                        extracted = doc.extract_image(xref)
+                    except Exception:
+                        continue
+                    image_bytes = extracted.get('image')
+                    ext = (extracted.get('ext') or 'png').lower()
+                    if not image_bytes or len(image_bytes) < min_bytes:
+                        continue
+                    if ext not in ('png', 'jpg', 'jpeg', 'webp'):
+                        continue
+                    mime = 'image/jpeg' if ext in ('jpg', 'jpeg') else f'image/{ext}'
+                    b64 = base64.b64encode(image_bytes).decode('utf-8')
+                    results.append({
+                        'page': page_idx + 1,
+                        'mime': mime,
+                        'data_uri': f'data:{mime};base64,{b64}',
+                    })
+        finally:
+            doc.close()
+    except Exception:
+        return []
+
+    return results
+
+
 def extract_text_advanced(file_path, remove_headers=True, remove_footers=True):
     """
     NUEVA FUNCIÓN: Extracción avanzada con limpieza de headers/footers.

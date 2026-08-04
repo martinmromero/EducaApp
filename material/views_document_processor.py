@@ -29,6 +29,7 @@ _jobs_lock = threading.Lock()
 
 from material.ia_processor import (
     extract_text_advanced,
+    extract_page_images,
     count_tokens,
     split_text_by_tokens,
     optimize_text_for_ai
@@ -632,6 +633,7 @@ def generate_questions_from_chapters(request):
                 question_types, total_questions, questions_per_block,
                 existing_questions_list=existing_questions_list,
                 existing_texts_set=existing_texts_set,
+                include_images=bool(data.get('include_images')),
             )
             return JsonResponse({
                 'success': True,
@@ -802,7 +804,8 @@ def generate_questions_from_chapters(request):
 
 def _store_streaming_job(request, chapter_indices, chapters_from_request, filename,
                          question_types=None, total_questions=20, questions_per_block=0,
-                         existing_questions_list=None, existing_texts_set=None):
+                         existing_questions_list=None, existing_texts_set=None,
+                         include_images=False):
     """Guarda los parámetros del job en memoria y retorna el job_id."""
     job_id = str(uuid.uuid4())
     with _jobs_lock:
@@ -824,6 +827,7 @@ def _store_streaming_job(request, chapter_indices, chapters_from_request, filena
             'created_at': now,
             'existing_questions_list': existing_questions_list or [],
             'existing_texts_set': existing_texts_set or set(),
+            'include_images': include_images,
         }
     return job_id
 
@@ -886,7 +890,7 @@ def _split_into_chunks(content, max_tokens=3000):
     return chunks if chunks else [content]
 
 
-def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None, existing_questions=None):
+def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None, existing_questions=None, images=None):
     """Genera preguntas para un fragmento de capítulo usando la IA configurada.
 
     Args:
@@ -897,6 +901,11 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
         total_chunks: Total de fragmentos del capítulo.
         question_types: Lista de tipos habilitados.
         existing_questions: lista de dicts {pregunta, respuesta, tipo} ya guardadas en BD.
+        images: lista opcional de data-URIs (ver ia_processor.extract_page_images) para
+            mandar junto con el texto a un modelo con visión. Si el modelo configurado
+            no soporta imágenes, la llamada falla y este chunk se reporta como error
+            (igual que cualquier otro fallo de chunk) — es responsabilidad de quien
+            llama no pasar `images` salvo que el usuario lo haya pedido explícitamente.
     """
     import json as json_module
 
@@ -937,8 +946,15 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
             + "\n\nGenerá preguntas completamente distintas a las anteriores, sobre aspectos o ángulos diferentes del texto.\n"
         )
 
-    prompt = f"""Analizá el siguiente texto educativo del capítulo "{chapter_title}" {context_note} y generá exactamente {num_questions} preguntas variadas.
+    images_note = (
+        "\nTambién se incluyen una o más imágenes de este fragmento del documento "
+        "(diagramas, gráficos, fotos). Si aportan contenido educativo relevante, "
+        "generá al menos una pregunta que haga referencia a lo que se ve en ellas.\n"
+        if images else ""
+    )
 
+    prompt = f"""Analizá el siguiente texto educativo del capítulo "{chapter_title}" {context_note} y generá exactamente {num_questions} preguntas variadas.
+{images_note}
 TEXTO:
 {content}
 
@@ -1009,8 +1025,12 @@ Nota sobre bloom_nivel: {bloom_desc}"""
     # en un mismo chunk, igual puede no alcanzar y quedar corto, pero no falla.
     gen_max_tokens = min(4096, 300 * max(num_questions, 1) + 500)
 
+    # Ollama (local_ai/OllamaBackend) no tiene parámetro `images` — solo se lo
+    # pasamos al backend externo, y solo cuando hay imágenes de verdad, para
+    # no romper la firma de generate() de ningún backend que no lo espere.
+    extra_kwargs = {'images': [img['data_uri'] for img in images]} if images else {}
     if backend is not None:
-        result = backend.generate(prompt=prompt, temperature=0.4, max_tokens=gen_max_tokens)
+        result = backend.generate(prompt=prompt, temperature=0.4, max_tokens=gen_max_tokens, **extra_kwargs)
     else:
         result = local_ai.generate(prompt=prompt, temperature=0.4, max_tokens=gen_max_tokens)
 
@@ -1128,6 +1148,7 @@ def stream_questions(request, job_id):
         questions_per_block_override = int(job.get('questions_per_block', 0) or 0)
         existing_questions_list = job.get('existing_questions_list') or []
         existing_texts_set = set(job.get('existing_texts_set') or [])
+        include_images = bool(job.get('include_images'))
 
         # Obtener contenido completo (misma lógica que generate_questions_from_chapters)
         chapters_to_process = []
@@ -1162,6 +1183,18 @@ def stream_questions(request, job_id):
             yield f'data: {json_module.dumps({"type": "error", "message": "No se pudo obtener el contenido de los capítulos"})}\n\n'
             return
 
+        # Imágenes del documento (opt-in): se extraen una sola vez para todo
+        # el documento y se reparten por capítulo según sus páginas. Solo se
+        # adjuntan al primer chunk de cada capítulo (no a todos) para no
+        # repetir la misma imagen en cada llamada — cada imagen mandada de
+        # nuevo suma costo/latencia en el proveedor de IA.
+        doc_images = []
+        if include_images and session_file and os.path.exists(session_file):
+            try:
+                doc_images = extract_page_images(session_file, max_images=12)
+            except Exception as exc:
+                logger.warning(f"No se pudieron extraer imágenes del documento: {exc}")
+
         selected_tokens = _chapters_total_tokens(chapters_to_process)
         run_budget = settings.CONTENIDO_MAX_RUN_TOKENS
         if selected_tokens > run_budget:
@@ -1193,6 +1226,8 @@ def stream_questions(request, job_id):
                 break
             title = chapter.get('title', 'Capítulo')
             pages = chapter.get('pages', [])
+            chapter_pages = set(pages)
+            chapter_images = [img for img in doc_images if img['page'] in chapter_pages][:3]
             # Si el usuario pidió una cantidad fija por bloque, respetarla;
             # si no, distribuir total_questions entre todos los chunks. El piso
             # es 1 (no 2): con muchos chunks chicos, un piso de 2 podía duplicar
@@ -1214,6 +1249,7 @@ def stream_questions(request, job_id):
                         chunk, title, questions_per_chunk, i, len(chunks),
                         question_types=question_types, backend=backend,
                         existing_questions=existing_questions_list,
+                        images=chapter_images if i == 0 else None,
                     )
                     new_qs = []
                     for q in raw_questions:

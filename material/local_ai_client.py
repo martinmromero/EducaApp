@@ -159,13 +159,14 @@ class LocalAIClient:
         return self.selected_model
     
     def generate(
-        self, 
-        prompt: str, 
+        self,
+        prompt: str,
         model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 150,
         top_p: float = 0.9,
-        stream: bool = False
+        stream: bool = False,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         Genera respuesta desde Ollama.
