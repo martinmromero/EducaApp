@@ -100,6 +100,18 @@ def get_filter_querystring(request):
     return params.urlencode()
 
 
+def get_filter_querystring_excluding(request, *keys):
+    """Igual que get_filter_querystring pero sacando además los `keys` dados.
+    Usar para armar un link que fija su propio valor de esos parámetros (ej.
+    el toggle de favoritos): si no se sacan, el valor viejo de request.GET
+    queda pegado al lado del nuevo y se van acumulando en cada click."""
+    params = request.GET.copy()
+    params.pop('page', None)
+    for key in keys:
+        params.pop(key, None)
+    return params.urlencode()
+
+
 def _apply_field_filter(qs, field, values):
     """Filtra `qs` por los valores seleccionados de una columna, soportando
     NONE_VALUE ("sin {campo}") mezclado con valores reales.

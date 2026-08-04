@@ -41,7 +41,7 @@
                             onclick="{% if active_filter_count %}clearAllColumnFilters(){% else %}toggleDesktopColumnFilters(this){% endif %}">
                         <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
                     </button>
-                    <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}"
+                    <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if favorites_toggle_querystring %}&{{ favorites_toggle_querystring }}{% endif %}"
                        class="btn btn-sm {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
                        title="Mostrar solo favoritos (exámenes individuales)">
                         <i class="fas fa-star"></i> Favoritos

@@ -26,24 +26,34 @@ logger = logging.getLogger(__name__)
 TEST_USERNAME = getattr(settings, 'GROQ_MONITOR_TEST_USERNAME', 'groq_test_bot')
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / 'scripts' / 'fixtures'
 
-# Candidatos a probar como modelo de visión de Groq. No hay garantía de que
-# todos existan/estén activos en un momento dado — el test reporta el error
-# tal cual lo devuelve la API (ej. "model not found") para cada uno, así se
-# decide con datos reales cuál usar en vez de asumir.
+# Candidatos a probar como modelo de visión, por proveedor. No hay garantía
+# de que todos existan/estén activos en un momento dado — el test reporta el
+# error tal cual lo devuelve la API (ej. "model not found") para cada uno,
+# así se decide con datos reales cuál usar en vez de asumir. Ambos proveedores
+# se prueban vía el endpoint OpenAI-compatible (Groq y Gemini lo exponen los
+# dos), mismo formato "image_url" — no hace falta el cliente nativo de Gemini
+# para esto.
 #
-# Probado 2026-08-04 con la API key de GlobalAIConfig: NINGUNO de estos 4
-# funcionó. `llama-3.2-*-vision-preview` están decommissioned (Groq los dio
+# Groq probado 2026-08-04 con la API key de GlobalAIConfig: NINGUNO de estos
+# 4 funcionó. `llama-3.2-*-vision-preview` están decommissioned (Groq los dio
 # de baja). `llama-4-scout`/`llama-4-maverick` devuelven "model_not_found"
 # con esta key — no aparecen en GET /v1/models de esta cuenta (que hoy no
 # tiene NINGÚN modelo con visión disponible). Se deja la lista para
 # re-probar más adelante (el catálogo de Groq cambia) o si se habilita otro
 # acceso — ver [[project_ai_image_support_evaluation]].
-VISION_TEST_MODELS = [
-    'meta-llama/llama-4-scout-17b-16e-instruct',
-    'meta-llama/llama-4-maverick-17b-128e-instruct',
-    'llama-3.2-11b-vision-preview',
-    'llama-3.2-90b-vision-preview',
-]
+VISION_TEST_MODELS = {
+    'groq': [
+        'meta-llama/llama-4-scout-17b-16e-instruct',
+        'meta-llama/llama-4-maverick-17b-128e-instruct',
+        'llama-3.2-11b-vision-preview',
+        'llama-3.2-90b-vision-preview',
+    ],
+    'gemini': [
+        'gemini-2.5-flash-lite',
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+    ],
+}
 # Imagen fija y liviana (ícono de la app) solo para validar que el modelo
 # efectivamente procesa una imagen — no mide calidad de interpretación de
 # diagramas/fotos de libros, eso se evalúa aparte una vez que sepamos qué
@@ -218,13 +228,13 @@ def run_test(fixture_key=None):
     )
 
 
-def run_vision_test(model_name):
+def run_vision_test(model_name, provider='groq'):
     """
-    Prueba puntual (manual, un solo click) de un modelo de Groq con una
-    imagen fija. Usa la misma API key que GlobalAIConfig (fallback de demo)
-    pero construye un backend aparte apuntando al modelo pedido, sin tocar
-    la config real — así se pueden probar varios modelos de visión sin
-    afectar qué modelo usa el fallback de texto en producción.
+    Prueba puntual (manual, un solo click) de un modelo con una imagen fija.
+    Usa la API key guardada en GlobalAIConfig para ese `provider` (busca por
+    proveedor, no exige is_active=True — así se puede probar un proveedor
+    sin tocar cuál está activo como fallback real de producción) y construye
+    un backend aparte apuntando al modelo pedido, sin tocar la config real.
     """
     from .models import GlobalAIConfig, GroqVisionTestRun
     from .ai_router import OpenAICompatibleBackend
@@ -233,11 +243,13 @@ def run_vision_test(model_name):
 
     def save(**kwargs):
         elapsed = round(time.time() - t0, 1)
-        GroqVisionTestRun.objects.create(model_name=model_name, elapsed_seconds=elapsed, **kwargs)
+        GroqVisionTestRun.objects.create(
+            model_name=f'[{provider}] {model_name}', elapsed_seconds=elapsed, **kwargs
+        )
 
-    cfg = GlobalAIConfig.objects.filter(is_active=True, provider='groq').first()
-    if cfg is None or not cfg.api_key_encrypted:
-        save(success=False, error='No hay una GlobalAIConfig activa con proveedor "groq" y API key.')
+    cfg = GlobalAIConfig.objects.filter(provider=provider).exclude(api_key_encrypted='').order_by('-id').first()
+    if cfg is None:
+        save(success=False, error=f'No hay ninguna GlobalAIConfig con proveedor "{provider}" y API key cargada.')
         return
 
     if not VISION_TEST_IMAGE.exists():
@@ -253,7 +265,7 @@ def run_vision_test(model_name):
 
     try:
         backend = OpenAICompatibleBackend(
-            api_key=cfg.api_key, model=model_name, base_url=None, provider='groq'
+            api_key=cfg.api_key, model=model_name, base_url=None, provider=provider
         )
         result = backend.generate(
             prompt='Describí brevemente, en una oración, qué se ve en esta imagen.',

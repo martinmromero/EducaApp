@@ -12,6 +12,7 @@ from .column_filters import (
     get_active_filter_count,
     get_filter_options,
     get_filter_querystring,
+    get_filter_querystring_excluding,
     get_selected_filters,
     _apply_field_filter,
     NONE_VALUE,
@@ -2130,6 +2131,7 @@ def list_exam_templates(request):
         'filter_columns': [c for c in EXAM_TEMPLATE_FILTER_COLUMNS if c['field'] != 'exam_type'],
         'favorite_ids': favorite_ids,
         'only_favorites': only_favorites,
+        'favorites_toggle_querystring': get_filter_querystring_excluding(request, 'favoritos'),
     }
 
     return render(request, 'material/exams/list_exam_templates.html', context)
@@ -2321,6 +2323,7 @@ def mis_examenes(request):
         'filter_columns': MIS_EXAMENES_FILTER_COLUMNS,
         'favorite_ids': favorite_ids,
         'only_favorites': only_favorites,
+        'favorites_toggle_querystring': get_filter_querystring_excluding(request, 'favoritos'),
     })
 
 
@@ -6582,9 +6585,10 @@ def groq_monitor_page(request):
         if action == 'run_vision':
             from .groq_monitor import run_vision_test
             model_name = (request.POST.get('vision_model') or '').strip()
+            vision_provider = (request.POST.get('vision_provider') or 'groq').strip()
             if model_name:
-                run_vision_test(model_name)
-                messages.success(request, f'Prueba de visión ejecutada para "{model_name}" — mirá el resultado abajo.', extra_tags='general')
+                run_vision_test(model_name, provider=vision_provider)
+                messages.success(request, f'Prueba de visión ejecutada para "{vision_provider}: {model_name}" — mirá el resultado abajo.', extra_tags='general')
             return redirect('material:groq_monitor_page')
         if action == 'start':
             hours = 48
