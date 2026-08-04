@@ -102,10 +102,24 @@ class OpenAICompatibleBackend:
         except Exception:
             return False
 
-    def generate(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7, **kwargs) -> Dict[str, Any]:
+    def generate(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
+                 images: Optional[list] = None, **kwargs) -> Dict[str, Any]:
+        """
+        images: lista opcional de data-URIs ("data:image/png;base64,...") para
+        modelos con visión (formato "image_url" de la API de Chat Completions,
+        que Groq y OpenAI comparten). Si el modelo no soporta imágenes, el
+        proveedor devuelve error — no lo validamos acá, es responsabilidad de
+        quien llama pasar un modelo con visión cuando manda `images`.
+        """
+        if images:
+            content = [{'type': 'text', 'text': prompt}]
+            for data_uri in images:
+                content.append({'type': 'image_url', 'image_url': {'url': data_uri}})
+        else:
+            content = prompt
         payload = {
             'model': self.model,
-            'messages': [{'role': 'user', 'content': prompt}],
+            'messages': [{'role': 'user', 'content': content}],
             'max_tokens': max_tokens,
             'temperature': temperature,
         }
@@ -128,7 +142,17 @@ class OpenAICompatibleBackend:
                     )
                     time.sleep(wait)
                     continue
-                r.raise_for_status()
+                if not r.ok:
+                    try:
+                        api_error = r.json().get('error', {}).get('message')
+                    except Exception:
+                        api_error = None
+                    return {
+                        'success': False,
+                        'error': api_error or f'HTTP {r.status_code}: {r.text[:300]}',
+                        'text': None,
+                        'rate_limit': rate_limit,
+                    }
                 data = r.json()
                 text = data['choices'][0]['message']['content'].strip()
                 usage = data.get('usage', {})

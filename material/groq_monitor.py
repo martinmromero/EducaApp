@@ -12,6 +12,7 @@ mismo tope duro de cantidad) pero llamando directo a las funciones internas
 en vez de pegarle a la app por HTTP — no hace falta login, sesión, ni subir
 un archivo real: usa el mismo texto de prueba fijo.
 """
+import base64
 import logging
 import threading
 import time
@@ -24,6 +25,30 @@ logger = logging.getLogger(__name__)
 
 TEST_USERNAME = getattr(settings, 'GROQ_MONITOR_TEST_USERNAME', 'groq_test_bot')
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / 'scripts' / 'fixtures'
+
+# Candidatos a probar como modelo de visión de Groq. No hay garantía de que
+# todos existan/estén activos en un momento dado — el test reporta el error
+# tal cual lo devuelve la API (ej. "model not found") para cada uno, así se
+# decide con datos reales cuál usar en vez de asumir.
+#
+# Probado 2026-08-04 con la API key de GlobalAIConfig: NINGUNO de estos 4
+# funcionó. `llama-3.2-*-vision-preview` están decommissioned (Groq los dio
+# de baja). `llama-4-scout`/`llama-4-maverick` devuelven "model_not_found"
+# con esta key — no aparecen en GET /v1/models de esta cuenta (que hoy no
+# tiene NINGÚN modelo con visión disponible). Se deja la lista para
+# re-probar más adelante (el catálogo de Groq cambia) o si se habilita otro
+# acceso — ver [[project_ai_image_support_evaluation]].
+VISION_TEST_MODELS = [
+    'meta-llama/llama-4-scout-17b-16e-instruct',
+    'meta-llama/llama-4-maverick-17b-128e-instruct',
+    'llama-3.2-11b-vision-preview',
+    'llama-3.2-90b-vision-preview',
+]
+# Imagen fija y liviana (ícono de la app) solo para validar que el modelo
+# efectivamente procesa una imagen — no mide calidad de interpretación de
+# diagramas/fotos de libros, eso se evalúa aparte una vez que sepamos qué
+# modelo responde bien.
+VISION_TEST_IMAGE = Path(__file__).resolve().parent.parent / 'static' / 'icons' / 'icon-512.png'
 # 'easy': prosa lineal, ~2000 tokens, se parte en pocos fragmentos grandes.
 # 'hard': mismo orden de tokens pero con listas, sub-ítems y jerga técnica
 # densa (sistemas distribuidos/consenso) — se parte en más fragmentos más
@@ -191,3 +216,66 @@ def run_test(fixture_key=None):
         quota_remaining_tokens=quota.get('remaining_tokens'),
         quota_limit_tokens=quota.get('limit_tokens'),
     )
+
+
+def run_vision_test(model_name):
+    """
+    Prueba puntual (manual, un solo click) de un modelo de Groq con una
+    imagen fija. Usa la misma API key que GlobalAIConfig (fallback de demo)
+    pero construye un backend aparte apuntando al modelo pedido, sin tocar
+    la config real — así se pueden probar varios modelos de visión sin
+    afectar qué modelo usa el fallback de texto en producción.
+    """
+    from .models import GlobalAIConfig, GroqVisionTestRun
+    from .ai_router import OpenAICompatibleBackend
+
+    t0 = time.time()
+
+    def save(**kwargs):
+        elapsed = round(time.time() - t0, 1)
+        GroqVisionTestRun.objects.create(model_name=model_name, elapsed_seconds=elapsed, **kwargs)
+
+    cfg = GlobalAIConfig.objects.filter(is_active=True, provider='groq').first()
+    if cfg is None or not cfg.api_key_encrypted:
+        save(success=False, error='No hay una GlobalAIConfig activa con proveedor "groq" y API key.')
+        return
+
+    if not VISION_TEST_IMAGE.exists():
+        save(success=False, error=f'No se encontró la imagen de prueba: {VISION_TEST_IMAGE}')
+        return
+
+    try:
+        image_b64 = base64.b64encode(VISION_TEST_IMAGE.read_bytes()).decode('utf-8')
+        data_uri = f'data:image/png;base64,{image_b64}'
+    except Exception as e:
+        save(success=False, error=f'No se pudo leer/codificar la imagen de prueba: {e}')
+        return
+
+    try:
+        backend = OpenAICompatibleBackend(
+            api_key=cfg.api_key, model=model_name, base_url=None, provider='groq'
+        )
+        result = backend.generate(
+            prompt='Describí brevemente, en una oración, qué se ve en esta imagen.',
+            max_tokens=200,
+            temperature=0.2,
+            images=[data_uri],
+        )
+    except Exception as e:
+        save(success=False, error=f'{type(e).__name__}: {e}')
+        return
+
+    rate_limit = result.get('rate_limit') or {}
+    if not result.get('success'):
+        save(success=False, error=result.get('error', 'Error desconocido'),
+             quota_remaining_requests=rate_limit.get('remaining_requests'),
+             quota_limit_requests=rate_limit.get('limit_requests'),
+             quota_remaining_tokens=rate_limit.get('remaining_tokens'),
+             quota_limit_tokens=rate_limit.get('limit_tokens'))
+        return
+
+    save(success=True, response_text=(result.get('text') or '').strip()[:2000],
+         quota_remaining_requests=rate_limit.get('remaining_requests'),
+         quota_limit_requests=rate_limit.get('limit_requests'),
+         quota_remaining_tokens=rate_limit.get('remaining_tokens'),
+         quota_limit_tokens=rate_limit.get('limit_tokens'))

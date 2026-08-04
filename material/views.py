@@ -6568,7 +6568,8 @@ def groq_monitor_page(request):
     prueba manual, y lista el historial de corridas con un resumen de las
     últimas 12h.
     """
-    from .models import GroqMonitorRun, GroqMonitorSchedule
+    from .models import GroqMonitorRun, GroqMonitorSchedule, GroqVisionTestRun
+    from .groq_monitor import VISION_TEST_MODELS
 
     if not is_admin(request.user):
         messages.error(request, 'No tenés permiso para acceder a esta sección.', extra_tags='general')
@@ -6578,6 +6579,13 @@ def groq_monitor_page(request):
 
     if request.method == 'POST':
         action = request.POST.get('action')
+        if action == 'run_vision':
+            from .groq_monitor import run_vision_test
+            model_name = (request.POST.get('vision_model') or '').strip()
+            if model_name:
+                run_vision_test(model_name)
+                messages.success(request, f'Prueba de visión ejecutada para "{model_name}" — mirá el resultado abajo.', extra_tags='general')
+            return redirect('material:groq_monitor_page')
         if action == 'start':
             hours = 48
             try:
@@ -6618,6 +6626,8 @@ def groq_monitor_page(request):
         'runs': runs,
         'summary_12h': summary_12h,
         'latest_quota': latest_quota,
+        'vision_test_models': VISION_TEST_MODELS,
+        'vision_runs': list(GroqVisionTestRun.objects.all()[:50]),
     }
     return render(request, 'material/groq_monitor.html', context)
 

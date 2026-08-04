@@ -2105,6 +2105,33 @@ class GroqMonitorRun(models.Model):
         return f"{self.created_at:%Y-%m-%d %H:%M} — {'OK' if self.met_target else 'ALERTA'} ({self.total_generated}/{self.target_questions})"
 
 
+class GroqVisionTestRun(models.Model):
+    """
+    Resultado de una prueba manual de un modelo de Groq con soporte de
+    imágenes (visión). No usa GlobalAIConfig — se prueba un modelo puntual
+    contra la key ya guardada ahí, sin cambiar cuál es el modelo de texto
+    activo para el fallback de demo real.
+    """
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha")
+    model_name = models.CharField(max_length=150, verbose_name="Modelo")
+    success = models.BooleanField(default=False, verbose_name="Corrida sin errores")
+    response_text = models.TextField(blank=True, verbose_name="Respuesta del modelo")
+    error = models.TextField(blank=True, verbose_name="Error")
+    elapsed_seconds = models.FloatField(null=True, blank=True, verbose_name="Duración (seg)")
+    quota_remaining_requests = models.IntegerField(null=True, blank=True)
+    quota_limit_requests = models.IntegerField(null=True, blank=True)
+    quota_remaining_tokens = models.IntegerField(null=True, blank=True)
+    quota_limit_tokens = models.IntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Monitoreo de Groq — prueba de visión"
+        verbose_name_plural = "Monitoreo de Groq — pruebas de visión"
+
+    def __str__(self):
+        return f"{self.created_at:%Y-%m-%d %H:%M} — {self.model_name} ({'OK' if self.success else 'ERROR'})"
+
+
 # --- GRUPOS DE CONFIANZA (compartir preguntas entre docentes) ------------------
 # Ver [[project_onboarding_seed_content_plan]] / Fase D: reemplaza el diseño
 # original "compartir por institución" (parking lot) porque Question no tiene
