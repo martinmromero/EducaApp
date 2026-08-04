@@ -28,7 +28,7 @@
       element: '#tourSidebarBrand',
       popover: {
         title: '¡Bienvenido a EducaApp!',
-        description: 'Te mostramos rápido dónde está cada cosa. Podés volver a ver este recorrido cuando quieras con el botón "?" de arriba.',
+        description: 'Este recorrido presenta brevemente la ubicación de las funciones principales. Puede repetirse en cualquier momento desde el botón "?" de arriba.',
         side: 'right',
         align: 'start',
       },
@@ -37,7 +37,7 @@
       element: '#tourMenuContenidos',
       popover: {
         title: 'Contenidos',
-        description: 'Subí tus apuntes, PDFs o materiales de clase para que la IA genere preguntas a partir de ellos. Si ya tenés preguntas armadas con su respuesta, no hace falta pasar por acá: las subís directo en "Preguntas".',
+        description: 'Aquí se suben los apuntes, PDFs o materiales de clase para que la IA genere preguntas a partir de ellos. Si ya hay preguntas armadas con su respuesta, no hace falta pasar por aquí: se suben directo en "Preguntas".',
         side: 'right',
       },
     },
@@ -45,7 +45,7 @@
       element: '#tourMenuPreguntas',
       popover: {
         title: 'Preguntas',
-        description: 'Acá vive tu banco: las que subís vos ya armadas con respuesta, y las que genera la IA. Al generar con IA podés aprobar o rechazar cada una, pero se guardan todas — aprobadas y rechazadas — para que la IA tenga memoria de qué te gusta la próxima vez.',
+        description: 'Aquí vive el banco de preguntas: las que se suben ya armadas y las que genera la IA. Al generar con IA se puede aprobar o rechazar cada una, pero se guardan todas — aprobadas y rechazadas — para que la IA tenga memoria de las preferencias la próxima vez.',
         side: 'right',
       },
     },
@@ -53,7 +53,7 @@
       element: '#tourMenuExamenes',
       popover: {
         title: 'Exámenes',
-        description: 'Armá exámenes con tu banco de preguntas — al elegir, solo vas a ver las que aprobaste. Acá también viven las plantillas, las rúbricas y los cuestionarios orales.',
+        description: 'Aquí se arman exámenes con el banco de preguntas — al elegir, solo aparecen las que fueron aprobadas. También viven aquí las plantillas, las rúbricas y los cuestionarios orales.',
         side: 'right',
       },
     },
@@ -61,7 +61,7 @@
       element: '#tourMenuFormatos',
       popover: {
         title: 'Formatos de Impresión',
-        description: 'Definí cómo se ve el examen impreso (membrete, colores, tamaño de hoja). Si trabajás con más de una institución, podés guardar varios formatos — uno por cada una — para tener los exámenes listos con el membrete correspondiente.',
+        description: 'Aquí se define cómo se ve el examen impreso (membrete, colores, tamaño de hoja). Si se trabaja con más de una institución, se pueden guardar varios formatos — uno por cada una — para tener los exámenes listos con el membrete correspondiente.',
         side: 'right',
       },
       onHighlightStarted: expandExamenesSubmenu,
@@ -70,7 +70,7 @@
       element: '#tourMenuAcademico',
       popover: {
         title: 'Mi espacio académico',
-        description: 'Institución, carrera y materia — se configuran una sola vez, no hace falta volver seguido acá.',
+        description: 'Institución, carrera y materia — se configuran una sola vez, no hace falta volver seguido aquí.',
         side: 'right',
       },
       onHighlightStarted: collapseExamenesSubmenu,
@@ -79,7 +79,7 @@
       element: '#tourMenuGrupos',
       popover: {
         title: 'Grupos',
-        description: 'Sumate a grupos de confianza con otros docentes para compartir preguntas por materia.',
+        description: 'Grupos de confianza para compartir preguntas por materia con otros docentes.',
         side: 'right',
       },
     },
@@ -87,7 +87,7 @@
       element: '#visualThemeDropdown',
       popover: {
         title: 'Tema visual',
-        description: 'Elegí el estilo de colores y tipografía que más te guste para toda la app.',
+        description: 'Aquí se elige el estilo de colores y tipografía para toda la app.',
         side: 'top',
       },
     },
@@ -95,7 +95,7 @@
       element: '#toggleMode',
       popover: {
         title: 'Modo claro / oscuro',
-        description: 'Y acá alternás entre modo claro y oscuro cuando quieras.',
+        description: 'Y aquí se alterna entre modo claro y oscuro, según preferencia.',
         side: 'top',
       },
     },
@@ -103,7 +103,7 @@
       element: '#tourMisDatos',
       popover: {
         title: 'Mis datos',
-        description: 'Tu perfil y configuración personal siempre a un click, acá abajo.',
+        description: 'El perfil y la configuración personal, siempre a un click, aquí abajo.',
         side: 'top',
       },
     },

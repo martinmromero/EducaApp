@@ -4,9 +4,9 @@
 {% block content %}
 <div class="container" style="max-width: 700px;">
     <p class="text-muted mb-4">
-        Con tu propio contenido este proceso se hace paso a paso: subís un apunte, la IA le genera preguntas,
-        las revisás y aprobás, y armás el examen eligiendo cuántas preguntas de cada tópico. Para este ejemplo
-        ya está todo listo — recorré cada paso para ver dónde se hace de verdad:
+        Con contenido propio este proceso se hace paso a paso: se sube un apunte, la IA genera preguntas,
+        se revisan y aprueban, y se arma el examen eligiendo cuántas preguntas de cada tópico. Para este ejemplo
+        ya está todo listo — a continuación, cada paso señala el lugar real donde ocurre en la aplicación:
     </p>
 
     <div class="list-group mb-4" id="recapChecklist">
@@ -20,7 +20,7 @@
         <div class="list-group-item d-flex align-items-start gap-3" id="recapItem2">
             <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
             <div>
-                <div class="fw-semibold">Tópicos definidos para el contenido</div>
+                <div class="fw-semibold">Materia y tópico asignados a las preguntas</div>
                 <div class="text-muted small">{{ topics|join:", " }}</div>
             </div>
         </div>
@@ -28,14 +28,14 @@
             <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
             <div>
                 <div class="fw-semibold">{{ questions_count }} preguntas generadas con IA</div>
-                <div class="text-muted small">A partir de esos tópicos, como haría el Procesador de Documentos con tu apunte — ahí mismo las aprobás con un check</div>
+                <div class="text-muted small">A partir del apunte, como haría el Procesador de Documentos — ahí mismo se aprueban con un check</div>
             </div>
         </div>
         <div class="list-group-item d-flex align-items-start gap-3" id="recapItem4">
             <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
             <div>
                 <div class="fw-semibold">{{ approved_count }} preguntas aprobadas</div>
-                <div class="text-muted small">Se guardan todas (aprobadas o no) en Mis Preguntas, para que la IA aprenda qué te gusta la próxima vez</div>
+                <div class="text-muted small">Se guardan todas (aprobadas o no) en Mis Preguntas, para que la IA tenga en cuenta esas preferencias la próxima vez</div>
             </div>
         </div>
         <div class="list-group-item d-flex align-items-start gap-3" id="recapItem5">
@@ -97,7 +97,7 @@
                 element: '#tourMenuAcademico',
                 popover: {
                     title: 'Institución y materia',
-                    description: 'Acá elegís, para tus materias reales, a qué institución y carrera pertenecen — es el mismo dato que ya tiene cargado este examen de ejemplo.',
+                    description: 'En este espacio se elige, para las materias reales, a qué institución y carrera pertenecen — es el mismo dato que ya tiene cargado este examen de ejemplo.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem1'),
                 },
@@ -106,7 +106,7 @@
                 element: '#tourMenuContenidos',
                 popover: {
                     title: 'Contenidos',
-                    description: 'Subís tu apunte acá. Al generar preguntas elegís (o creás) el tópico que corresponde — como los que ves marcados en el paso anterior.',
+                    description: 'Aquí se sube el apunte, que la IA usa como base para generar las preguntas. La materia y el tópico se asignan después, al guardarlas.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem2'),
                 },
@@ -115,7 +115,7 @@
                 element: '#tourMenuGenerarIA',
                 popover: {
                     title: 'Generar preguntas con IA',
-                    description: 'Elegís el tópico correspondiente y la IA genera preguntas automáticamente a partir de tu apunte, y ahí mismo las aprobás con un check — así se generaron y aprobaron las preguntas de este ejemplo.',
+                    description: 'La IA genera las preguntas a partir del apunte. Al guardarlas se elige la materia correspondiente y, opcionalmente, el tópico y sub-tópico — así se armaron las preguntas de este ejemplo, y ahí mismo se aprueban con un check.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem3'),
                 },
@@ -125,7 +125,7 @@
                 element: '#tourMenuPreguntas',
                 popover: {
                     title: 'Mis Preguntas',
-                    description: 'Ahí queda guardado todo tu banco: las aprobadas y las que no, para que la próxima vez que generes preguntas la IA sepa qué te gusta y qué no.',
+                    description: 'Ahí queda guardada cada pregunta generada, aprobada o no, para que la próxima generación tenga en cuenta esas preferencias.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem4'),
                 },
@@ -135,7 +135,7 @@
                 element: '#tourMenuExamenes',
                 popover: {
                     title: 'Exámenes',
-                    description: 'Y acá armás el examen final eligiendo cuántas preguntas usar de cada tópico — exactamente lo que ya hizo este ejemplo por vos.',
+                    description: 'Y aquí se arma el examen, eligiendo cuántas preguntas usar de cada tópico. Se puede partir de una plantilla ya guardada, y definir detalles como tipo de examen, modalidad, fecha, y más.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem5'),
                 },
