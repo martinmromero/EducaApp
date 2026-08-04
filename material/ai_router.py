@@ -351,7 +351,17 @@ class GeminiBackend:
                     )
                     time.sleep(wait)
                     continue
-                r.raise_for_status()
+                if not r.ok:
+                    try:
+                        api_error = r.json().get('error', {}).get('message')
+                    except Exception:
+                        api_error = None
+                    return {
+                        'success': False,
+                        'error': api_error or f'HTTP {r.status_code}: {r.text[:300]}',
+                        'text': None,
+                        'status_code': r.status_code,
+                    }
                 data = r.json()
                 candidates = data.get('candidates') or []
                 text_parts = []

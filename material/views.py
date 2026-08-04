@@ -6650,8 +6650,10 @@ def groq_monitor_page(request):
     }
     latest_quota = next((r for r in runs if r.quota_remaining_requests is not None), None)
 
+    from .groq_monitor import analyze_vision_quota_cycles
     vision_runs = list(GroqVisionTestRun.objects.all()[:50])
     latest_vision_quota = next((r for r in vision_runs if r.quota_remaining_requests is not None), None)
+    vision_quota_cycles = analyze_vision_quota_cycles()
 
     context = {
         'cfg': cfg,
@@ -6662,6 +6664,7 @@ def groq_monitor_page(request):
         'vision_test_models': VISION_TEST_MODELS,
         'vision_runs': vision_runs,
         'latest_vision_quota': latest_vision_quota,
+        'vision_quota_cycles': vision_quota_cycles,
     }
     return render(request, 'material/groq_monitor.html', context)
 

@@ -341,3 +341,53 @@ def _run_vision_safely(provider, model):
         logger.exception('Corrida cíclica de monitoreo de visión terminó con excepción no manejada')
     finally:
         _vision_run_lock.release()
+
+
+def analyze_vision_quota_cycles(limit=20):
+    """
+    Gemini no manda headers de cupo (a diferencia de Groq) — la única señal
+    real es el error 429 cuando se corta. Esta función reconstruye, a partir
+    del historial de GroqVisionTestRun, cada corte por cupo: cuántas llamadas
+    exitosas hubo antes de cortar, y cuánto tardó en volver a andar (si es
+    que ya volvió) — para ir viendo empíricamente el ritmo real de reset
+    (¿por minuto? ¿por hora? ¿por día?) en vez de asumirlo.
+
+    Devuelve una lista de dicts (más reciente primero):
+        {blocked_at, model_name, successes_before, recovered_at, recovery_delta}
+    `recovered_at`/`recovery_delta` quedan en None si todavía no hubo ninguna
+    corrida exitosa después de ese 429.
+    """
+    from .models import GroqVisionTestRun
+
+    runs = list(GroqVisionTestRun.objects.all().order_by('created_at'))
+    cycles = []
+    successes_since_reset = 0
+    pending = None
+
+    for run in runs:
+        is_429 = (not run.success) and run.error and '429' in run.error
+        if run.success:
+            successes_since_reset += 1
+            if pending is not None:
+                pending['recovered_at'] = run.created_at
+                pending['recovery_delta'] = run.created_at - pending['blocked_at']
+                cycles.append(pending)
+                pending = None
+        elif is_429:
+            if pending is None:
+                pending = {
+                    'blocked_at': run.created_at,
+                    'model_name': run.model_name,
+                    'successes_before': successes_since_reset,
+                    'recovered_at': None,
+                    'recovery_delta': None,
+                }
+            successes_since_reset = 0
+        # errores que no son 429 (ej. modelo inválido) no cortan ni reinician
+        # el conteo — no son evidencia de cupo agotado.
+
+    if pending is not None:
+        cycles.append(pending)
+
+    cycles.reverse()
+    return cycles[:limit]
