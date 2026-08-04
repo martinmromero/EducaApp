@@ -184,15 +184,15 @@
                                     </div>
                                 </div>
                                 <p class="mt-2 mb-1">{{ sq.question.question_text }}</p>
-                                {% if sq.question.question_image %}
-                                    <img src="{{ sq.question.question_image.url }}" class="img-fluid mt-2" style="max-width: 200px;">
+                                {% if sq.question.question_image_b64 %}
+                                    <img src="{{ sq.question.question_image_b64 }}" class="img-fluid mt-2" style="max-width: 200px;">
                                 {% endif %}
                                 <details class="mt-2">
                                     <summary class="text-success cursor-pointer">Ver respuesta</summary>
                                     <div class="mt-2 p-2 bg-body-tertiary rounded">
                                         <p>{{ sq.question.answer_text }}</p>
-                                        {% if sq.question.answer_image %}
-                                            <img src="{{ sq.question.answer_image.url }}" class="img-fluid mt-2" style="max-width: 200px;">
+                                        {% if sq.question.answer_image_b64 %}
+                                            <img src="{{ sq.question.answer_image_b64 }}" class="img-fluid mt-2" style="max-width: 200px;">
                                         {% endif %}
                                         {% if sq.question.bibliographic_reference %}
                                             <small class="text-muted d-block mt-2"><i class="fas fa-book"></i> Fuente: {{ sq.question.bibliographic_reference }}</small>

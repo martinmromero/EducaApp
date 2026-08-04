@@ -102,6 +102,13 @@ body.modal-open .sidebar-toggle-external {
     background-color: transparent;
     color: #007bff;
 }
+
+.app-brand-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
 .sidebar a {
     padding: 10px 15px;
     text-decoration: none;
