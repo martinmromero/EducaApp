@@ -304,24 +304,53 @@ nivel_bloom: 2
                     $('#id_question_type').on('change', toggleQuestionTypeUI);
                     toggleQuestionTypeUI();
 
-                    function loadTopics(subjectId, selectedTopicId = null) {
-                        if (!subjectId) {
+                    // Materias es CheckboxSelectMultiple (varios <input> con el mismo
+                    // name="subjects", no un único <select>) — hay que leer todos los
+                    // tildados, no solo el primero por id_for_label.
+                    function getSelectedSubjectIds() {
+                        return $('input[name="subjects"]:checked').map(function () { return this.value; }).get();
+                    }
+                    function getSelectedSubjectsMap() {
+                        const map = {};
+                        $('input[name="subjects"]:checked').each(function () {
+                            map[this.value] = $(this).closest('label').text().trim() || this.value;
+                        });
+                        return map;
+                    }
+
+                    function loadTopics(subjectIds, selectedTopicId = null) {
+                        if (!subjectIds || !subjectIds.length) {
                             $('#id_topic').html('<option value="">Seleccione una materia primero</option>').prop('disabled', true);
                             $('#id_subtopic').html('<option value="">Seleccione un tópico primero</option>').prop('disabled', true);
                             return;
                         }
-                        $.ajax({
-                            url: '{% url "material:get_topics" %}',
-                            data: { 'subject_id': subjectId },
-                            success: function(data) {
-                                let options = '<option value="">Seleccione un tópico</option>';
-                                data.forEach(function(topic) {
+                        const subjectsMap = getSelectedSubjectsMap();
+                        // Con más de una materia elegida, los tópicos de todas se combinan
+                        // en el mismo desplegable (una pregunta tiene un solo tópico, pero
+                        // ese tópico puede ser de cualquiera de las materias tildadas) — se
+                        // aclara de qué materia es cada uno para no confundir si dos
+                        // materias distintas tienen tópicos con nombres parecidos.
+                        const showSubjectHint = subjectIds.length > 1;
+                        const requests = subjectIds.map(function (subjectId) {
+                            return $.get('{% url "material:get_topics" %}', { subject_id: subjectId })
+                                .then(function (data) { return { subjectId: subjectId, topics: data }; });
+                        });
+                        $.when.apply($, requests).done(function () {
+                            const results = Array.prototype.slice.call(arguments);
+                            const seenTopicIds = new Set();
+                            let options = '<option value="">Seleccione un tópico</option>';
+                            results.forEach(function (result) {
+                                const subjectName = subjectsMap[result.subjectId] || '';
+                                result.topics.forEach(function (topic) {
+                                    if (seenTopicIds.has(topic.id)) return;
+                                    seenTopicIds.add(topic.id);
                                     const selected = topic.id == selectedTopicId ? 'selected' : '';
-                                    options += `<option value="${topic.id}" ${selected}>${topic.name}</option>`;
+                                    const label = showSubjectHint ? `${topic.name} (${subjectName})` : topic.name;
+                                    options += `<option value="${topic.id}" ${selected}>${label}</option>`;
                                 });
-                                $('#id_topic').html(options).prop('disabled', false);
-                                $('#id_subtopic').html('<option value="">Seleccione un tópico primero</option>').prop('disabled', true);
-                            }
+                            });
+                            $('#id_topic').html(options).prop('disabled', false);
+                            $('#id_subtopic').html('<option value="">Seleccione un tópico primero</option>').prop('disabled', true);
                         });
                     }
                     function loadSubtopics(topicId, selectedSubtopicId = null) {
@@ -342,20 +371,14 @@ nivel_bloom: 2
                             }
                         });
                     }
-                    $('#{{ form.subjects.id_for_label }}').change(function() {
-                        const selected = $(this).val();
-                        const subjectId = selected && selected.length > 0 ? selected[0] : null;
-                        loadTopics(subjectId);
+                    $('input[name="subjects"]').change(function() {
+                        loadTopics(getSelectedSubjectIds());
                     });
                     $('#id_topic').change(function() {
                         loadSubtopics($(this).val());
                     });
                     // Inicialización
-                    const selectedSubjects = $('#{{ form.subjects.id_for_label }}').val();
-                    const subjectId = selectedSubjects && selectedSubjects.length > 0 ? selectedSubjects[0] : null;
-                    if (subjectId) {
-                        loadTopics(subjectId);
-                    }
+                    loadTopics(getSelectedSubjectIds());
 
                     // --- Crear nuevo tema ---
                     $('#addTopicBtn').click(function() {
@@ -368,8 +391,11 @@ nivel_bloom: 2
                     });
                     $('#saveNewTopic').click(function() {
                         const name = $('#new_topic').val().trim();
-                        const selected = $('#{{ form.subjects.id_for_label }}').val();
-                        const subjectId = selected && selected.length > 0 ? selected[0] : null;
+                        // Un tópico pertenece a una sola materia (FK), así que si hay
+                        // varias tildadas el nuevo tópico se crea en la primera —
+                        // igual va a aparecer en el desplegable combinado de acá abajo.
+                        const subjectIds = getSelectedSubjectIds();
+                        const subjectId = subjectIds.length ? subjectIds[0] : null;
                         if (!name || !subjectId) return;
                         $.ajax({
                             url: '{% url "material:add_topic" %}',
@@ -381,7 +407,7 @@ nivel_bloom: 2
                             },
                             success: function(response) {
                                 if (response.success) {
-                                    loadTopics(subjectId, response.topic.id);
+                                    loadTopics(subjectIds, response.topic.id);
                                     $('#newTopicContainer').hide();
                                 } else {
                                     alert(response.error || 'Error al crear el tópico');
