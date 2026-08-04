@@ -6556,8 +6556,9 @@ def health_check(request):
     # periódico de Groq (ver material/groq_monitor.py). No bloquea la
     # respuesta: si corresponde, dispara la corrida en un thread aparte.
     try:
-        from .groq_monitor import maybe_trigger
+        from .groq_monitor import maybe_trigger, maybe_trigger_vision
         maybe_trigger()
+        maybe_trigger_vision()
     except Exception:
         logger.exception('No se pudo chequear el disparador del monitoreo de Groq')
     return HttpResponse("OK", status=200)
@@ -6571,7 +6572,7 @@ def groq_monitor_page(request):
     prueba manual, y lista el historial de corridas con un resumen de las
     últimas 12h.
     """
-    from .models import GroqMonitorRun, GroqMonitorSchedule, GroqVisionTestRun
+    from .models import GroqMonitorRun, GroqMonitorSchedule, GroqVisionTestRun, VisionMonitorSchedule
     from .groq_monitor import VISION_TEST_MODELS
 
     if not is_admin(request.user):
@@ -6579,16 +6580,40 @@ def groq_monitor_page(request):
         return redirect('material:index')
 
     cfg, _ = GroqMonitorSchedule.objects.get_or_create(pk=1)
+    vision_cfg, _ = VisionMonitorSchedule.objects.get_or_create(pk=1)
 
     if request.method == 'POST':
         action = request.POST.get('action')
         if action == 'run_vision':
             from .groq_monitor import run_vision_test
             model_name = (request.POST.get('vision_model') or '').strip()
-            vision_provider = (request.POST.get('vision_provider') or 'groq').strip()
+            vision_provider = (request.POST.get('vision_provider') or 'gemini').strip()
             if model_name:
                 run_vision_test(model_name, provider=vision_provider)
                 messages.success(request, f'Prueba de visión ejecutada para "{vision_provider}: {model_name}" — mirá el resultado abajo.', extra_tags='general')
+            return redirect('material:groq_monitor_page')
+        if action == 'start_vision':
+            hours = 48
+            try:
+                hours = max(1, min(168, int(request.POST.get('vision_hours', 48))))
+            except (TypeError, ValueError):
+                pass
+            model_name = (request.POST.get('vision_model') or vision_cfg.model or '').strip()
+            vision_provider = (request.POST.get('vision_provider') or 'gemini').strip()
+            now = timezone.now()
+            vision_cfg.enabled = True
+            vision_cfg.provider = vision_provider
+            vision_cfg.model = model_name or vision_cfg.model
+            vision_cfg.started_at = now
+            vision_cfg.ends_at = now + timezone.timedelta(hours=hours)
+            vision_cfg.last_run_at = None
+            vision_cfg.save()
+            messages.success(request, f'Monitoreo de visión activado por {hours} horas ({vision_cfg.provider}/{vision_cfg.model}).', extra_tags='general')
+            return redirect('material:groq_monitor_page')
+        if action == 'stop_vision':
+            vision_cfg.enabled = False
+            vision_cfg.save(update_fields=['enabled'])
+            messages.success(request, 'Monitoreo de visión desactivado.', extra_tags='general')
             return redirect('material:groq_monitor_page')
         if action == 'start':
             hours = 48
@@ -6625,13 +6650,18 @@ def groq_monitor_page(request):
     }
     latest_quota = next((r for r in runs if r.quota_remaining_requests is not None), None)
 
+    vision_runs = list(GroqVisionTestRun.objects.all()[:50])
+    latest_vision_quota = next((r for r in vision_runs if r.quota_remaining_requests is not None), None)
+
     context = {
         'cfg': cfg,
         'runs': runs,
         'summary_12h': summary_12h,
         'latest_quota': latest_quota,
+        'vision_cfg': vision_cfg,
         'vision_test_models': VISION_TEST_MODELS,
-        'vision_runs': list(GroqVisionTestRun.objects.all()[:50]),
+        'vision_runs': vision_runs,
+        'latest_vision_quota': latest_vision_quota,
     }
     return render(request, 'material/groq_monitor.html', context)
 

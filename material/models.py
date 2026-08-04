@@ -2116,6 +2116,9 @@ class GroqVisionTestRun(models.Model):
     model_name = models.CharField(max_length=150, verbose_name="Modelo")
     success = models.BooleanField(default=False, verbose_name="Corrida sin errores")
     response_text = models.TextField(blank=True, verbose_name="Respuesta del modelo")
+    # Si el modelo efectivamente "leyó" el gráfico de prueba (contiene los
+    # valores esperados) — None cuando success=False (no aplica).
+    content_check_passed = models.BooleanField(null=True, blank=True, verbose_name="Leyó bien la imagen")
     error = models.TextField(blank=True, verbose_name="Error")
     elapsed_seconds = models.FloatField(null=True, blank=True, verbose_name="Duración (seg)")
     quota_remaining_requests = models.IntegerField(null=True, blank=True)
@@ -2130,6 +2133,29 @@ class GroqVisionTestRun(models.Model):
 
     def __str__(self):
         return f"{self.created_at:%Y-%m-%d %H:%M} — {self.model_name} ({'OK' if self.success else 'ERROR'})"
+
+
+class VisionMonitorSchedule(models.Model):
+    """
+    Fila única (singleton) que controla la corrida cíclica del modelo de
+    visión ya elegido (ver GroqVisionTestRun) — mismo patrón que
+    GroqMonitorSchedule, pero para medir cupo/cadencia de renovación de un
+    modelo con imágenes en vez de carga de texto.
+    """
+    enabled = models.BooleanField(default=False, verbose_name="Activo")
+    provider = models.CharField(max_length=30, default='gemini', verbose_name="Proveedor")
+    model = models.CharField(max_length=150, default='gemini-2.5-flash', verbose_name="Modelo")
+    interval_minutes = models.PositiveIntegerField(default=60, verbose_name="Intervalo (minutos)")
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name="Iniciado")
+    ends_at = models.DateTimeField(null=True, blank=True, verbose_name="Se apaga solo")
+    last_run_at = models.DateTimeField(null=True, blank=True, verbose_name="Última corrida")
+
+    class Meta:
+        verbose_name = "Monitoreo de visión — configuración"
+        verbose_name_plural = "Monitoreo de visión — configuración"
+
+    def __str__(self):
+        return f"Monitoreo visión ({'activo' if self.enabled else 'inactivo'}) — {self.provider}/{self.model}"
 
 
 # --- GRUPOS DE CONFIANZA (compartir preguntas entre docentes) ------------------
