@@ -15,6 +15,11 @@
     if (group) group.classList.add('active');
   }
 
+  function collapseExamenesSubmenu() {
+    const group = document.getElementById('tourMenuExamenes');
+    if (group) group.classList.remove('active');
+  }
+
   // Pasos con selector + texto. Si un elemento no está en el DOM de la
   // página actual (ej. "Administración" solo existe para admins) se
   // descarta automáticamente al construir el tour.
@@ -68,6 +73,7 @@
         description: 'Institución, carrera y materia — se configuran una sola vez, no hace falta volver seguido acá.',
         side: 'right',
       },
+      onHighlightStarted: collapseExamenesSubmenu,
     },
     {
       element: '#tourMenuGrupos',

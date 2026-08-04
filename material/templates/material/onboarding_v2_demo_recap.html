@@ -20,7 +20,7 @@
         <div class="list-group-item d-flex align-items-start gap-3" id="recapItem2">
             <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
             <div>
-                <div class="fw-semibold">Tópicos identificados en el contenido</div>
+                <div class="fw-semibold">Tópicos definidos para el contenido</div>
                 <div class="text-muted small">{{ topics|join:", " }}</div>
             </div>
         </div>
@@ -79,6 +79,11 @@
         if (group) group.classList.add('active');
     }
 
+    function collapseContenidosSubmenu() {
+        var group = document.getElementById('tourMenuContenidos');
+        if (group) group.classList.remove('active');
+    }
+
     function buildSteps(driverObj) {
         function nextAndCheck(itemId) {
             return function (element, step, opts) {
@@ -101,7 +106,7 @@
                 element: '#tourMenuContenidos',
                 popover: {
                     title: 'Contenidos',
-                    description: 'Subís tu apunte acá — el sistema lo analiza y detecta los tópicos automáticamente, como los que ves marcados en el paso anterior.',
+                    description: 'Subís tu apunte acá. Al generar preguntas elegís (o creás) el tópico que corresponde — como los que ves marcados en el paso anterior.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem2'),
                 },
@@ -110,7 +115,7 @@
                 element: '#tourMenuGenerarIA',
                 popover: {
                     title: 'Generar preguntas con IA',
-                    description: 'Con esos tópicos identificados, la IA genera preguntas automáticamente a partir de tu apunte, y ahí mismo las aprobás con un check — así se generaron y aprobaron las preguntas de este ejemplo.',
+                    description: 'Elegís el tópico correspondiente y la IA genera preguntas automáticamente a partir de tu apunte, y ahí mismo las aprobás con un check — así se generaron y aprobaron las preguntas de este ejemplo.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem3'),
                 },
@@ -124,6 +129,7 @@
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem4'),
                 },
+                onHighlightStarted: collapseContenidosSubmenu,
             },
             {
                 element: '#tourMenuExamenes',
