@@ -5,6 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>EducaApp</title>
+
+    <!-- PWA: instalable (ícono, splash, pantalla completa) — sin promesas
+         de uso offline real, ver static/sw.js. -->
+    <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+    <meta name="theme-color" content="#0d6efd">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'icons/favicon-32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'icons/favicon-16.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="EducaApp">
+
     <script>
       // Aplica el tema ANTES de que se pinte cualquier CSS, para evitar el
       // "flash" de tema claro al recargar con modo oscuro guardado. Tiene que
@@ -102,7 +114,7 @@
             <div class="submenu">
                     <a href="{% url 'material:upload_contenido' %}"><i class="bi bi-upload me-2"></i>Subir Contenido</a>
                     <a href="{% url 'material:mis_contenidos' %}"><i class="bi bi-collection me-2"></i>Mis Contenidos</a>
-                    <a href="{% url 'material:document_processor_dashboard' %}"><i class="bi bi-magic me-2"></i>Generar preguntas con IA</a>
+                    <a href="{% url 'material:document_processor_dashboard' %}" id="tourMenuGenerarIA"><i class="bi bi-magic me-2"></i>Generar preguntas con IA</a>
             </div>
         </div>
 
@@ -405,6 +417,15 @@
             const menuItems = document.querySelectorAll('.sidebar .menu-item');
             menuItems.forEach(item => { if (item !== element) item.classList.remove('active'); });
             element.classList.toggle('active');
+        }
+
+        // PWA: registra el service worker (ver static/sw.js) — solo habilita
+        // que el navegador ofrezca "instalar"; no cambia el comportamiento
+        // normal de la app si falla o si el navegador no lo soporta.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
         }
     </script>
 

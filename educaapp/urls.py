@@ -2,12 +2,13 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from material.views import CustomLoginView, index, health_check  # Asegúrate de que CustomLoginView esté importado
+from material.views import CustomLoginView, index, health_check, service_worker  # Asegúrate de que CustomLoginView esté importado
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('health/', health_check, name='health_check'),
+    path('sw.js', service_worker, name='service_worker'),
     
     # Configuración corregida de accounts
     path('accounts/login/', CustomLoginView.as_view(), name='login'),

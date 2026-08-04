@@ -24,6 +24,7 @@ ALLOWED_PREFIXES = (
     '/static/',
     '/media/',
     '/health/',
+    '/sw.js',
 )
 
 

@@ -6468,6 +6468,22 @@ def compartir_materia(request, pk):
     return redirect('material:grupo_detalle', pk=group.pk)
 
 
+def service_worker(request):
+    """
+    Sirve static/sw.js en la RAÍZ del sitio (/sw.js), no bajo /static/ —
+    el scope por default de un service worker es la carpeta desde donde se
+    sirve, así que para que cubra todo el sitio (no solo /static/) tiene
+    que responder desde acá en vez de servirse como estático normal.
+    """
+    sw_path = os.path.join(settings.BASE_DIR, 'static', 'sw.js')
+    try:
+        with open(sw_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except FileNotFoundError:
+        return HttpResponse('', content_type='application/javascript', status=404)
+    return HttpResponse(content, content_type='application/javascript')
+
+
 def health_check(request):
     # UptimeRobot pinguea esto seguido para que Render no duerma el free
     # tier — se aprovecha ese mismo pulso como "reloj" del monitoreo

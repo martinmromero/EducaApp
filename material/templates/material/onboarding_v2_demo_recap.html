@@ -6,40 +6,40 @@
     <p class="text-muted mb-4">
         Con tu propio contenido este proceso se hace paso a paso: subís un apunte, la IA le genera preguntas,
         las revisás y aprobás, y armás el examen eligiendo cuántas preguntas de cada tópico. Para este ejemplo
-        ya está todo listo — así quedó:
+        ya está todo listo — recorré cada paso para ver dónde se hace de verdad:
     </p>
 
-    <div class="list-group mb-4">
-        <div class="list-group-item d-flex align-items-start gap-3">
-            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+    <div class="list-group mb-4" id="recapChecklist">
+        <div class="list-group-item d-flex align-items-start gap-3" id="recapItem1">
+            <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
             <div>
                 <div class="fw-semibold">Institución y materia elegidas</div>
                 <div class="text-muted small">{{ institution.name|default:"—" }} — {{ subject.name }}</div>
             </div>
         </div>
-        <div class="list-group-item d-flex align-items-start gap-3">
-            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+        <div class="list-group-item d-flex align-items-start gap-3" id="recapItem2">
+            <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
             <div>
                 <div class="fw-semibold">Tópicos identificados en el contenido</div>
                 <div class="text-muted small">{{ topics|join:", " }}</div>
             </div>
         </div>
-        <div class="list-group-item d-flex align-items-start gap-3">
-            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+        <div class="list-group-item d-flex align-items-start gap-3" id="recapItem3">
+            <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
             <div>
                 <div class="fw-semibold">{{ questions_count }} preguntas generadas con IA</div>
                 <div class="text-muted small">A partir de esos tópicos, como haría el Procesador de Documentos con tu apunte</div>
             </div>
         </div>
-        <div class="list-group-item d-flex align-items-start gap-3">
-            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+        <div class="list-group-item d-flex align-items-start gap-3" id="recapItem4">
+            <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
             <div>
                 <div class="fw-semibold">{{ approved_count }} preguntas aprobadas</div>
                 <div class="text-muted small">Revisadas y listas para usarse en un examen, como en Mis Preguntas</div>
             </div>
         </div>
-        <div class="list-group-item d-flex align-items-start gap-3">
-            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+        <div class="list-group-item d-flex align-items-start gap-3" id="recapItem5">
+            <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
             <div>
                 <div class="fw-semibold">Examen armado</div>
                 <div class="text-muted small">Con preguntas elegidas automáticamente de ese banco</div>
@@ -47,11 +47,123 @@
         </div>
     </div>
 
-    <div class="d-flex gap-2">
-        <a href="{% url 'material:preview_exam' %}" class="btn btn-primary btn-lg">
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'material:preview_exam' %}" class="btn btn-primary btn-lg" id="recapViewExamBtn">
             Ver examen <i class="bi bi-arrow-right ms-1"></i>
         </a>
+        <button type="button" class="btn btn-outline-primary btn-lg" id="recapReplayTourBtn">
+            <i class="bi bi-play-circle me-1"></i>Repetir recorrido
+        </button>
         <a href="{% url 'material:onboarding_v2_page' %}" class="btn btn-outline-secondary btn-lg">Volver</a>
     </div>
 </div>
+
+<script>
+(function () {
+    var STEP_ITEMS = ['recapItem1', 'recapItem2', 'recapItem3', 'recapItem4', 'recapItem5'];
+
+    function markChecked(itemId) {
+        var item = document.getElementById(itemId);
+        if (!item) return;
+        var icon = item.querySelector('.recap-check-icon');
+        if (!icon) return;
+        icon.className = 'bi bi-check-circle-fill text-success fs-4 recap-check-icon';
+    }
+
+    function markAllChecked() {
+        STEP_ITEMS.forEach(markChecked);
+    }
+
+    function expandContenidosSubmenu() {
+        var group = document.getElementById('tourMenuContenidos');
+        if (group) group.classList.add('active');
+    }
+
+    function buildSteps(driverObj) {
+        function nextAndCheck(itemId) {
+            return function (element, step, opts) {
+                markChecked(itemId);
+                driverObj.moveNext();
+            };
+        }
+
+        return [
+            {
+                element: '#tourMenuAcademico',
+                popover: {
+                    title: 'Institución y materia',
+                    description: 'Acá elegís, para tus materias reales, a qué institución y carrera pertenecen — es el mismo dato que ya tiene cargado este examen de ejemplo.',
+                    side: 'right',
+                    onNextClick: nextAndCheck('recapItem1'),
+                },
+            },
+            {
+                element: '#tourMenuContenidos',
+                popover: {
+                    title: 'Contenidos',
+                    description: 'Subís tu apunte acá — el sistema lo analiza y detecta los tópicos automáticamente, como los que ves marcados en el paso anterior.',
+                    side: 'right',
+                    onNextClick: nextAndCheck('recapItem2'),
+                },
+            },
+            {
+                element: '#tourMenuGenerarIA',
+                popover: {
+                    title: 'Generar preguntas con IA',
+                    description: 'Con esos tópicos identificados, la IA genera preguntas automáticamente a partir de tu apunte — así se generaron las preguntas de este ejemplo.',
+                    side: 'right',
+                    onNextClick: nextAndCheck('recapItem3'),
+                },
+                onHighlightStarted: expandContenidosSubmenu,
+            },
+            {
+                element: '#tourMenuPreguntas',
+                popover: {
+                    title: 'Mis Preguntas',
+                    description: 'Ahí revisás y aprobás las preguntas generadas antes de que puedan usarse en un examen.',
+                    side: 'right',
+                    onNextClick: nextAndCheck('recapItem4'),
+                },
+            },
+            {
+                element: '#tourMenuExamenes',
+                popover: {
+                    title: 'Exámenes',
+                    description: 'Y acá armás el examen final eligiendo cuántas preguntas usar de cada tópico — exactamente lo que ya hizo este ejemplo por vos.',
+                    side: 'right',
+                    onNextClick: nextAndCheck('recapItem5'),
+                },
+            },
+        ];
+    }
+
+    function startTour() {
+        if (!window.driver || !window.driver.js) return;
+        var tourDriver = window.driver.js.driver({
+            showProgress: true,
+            allowClose: true,
+            overlayOpacity: 0.6,
+            nextBtnText: 'Siguiente',
+            prevBtnText: 'Anterior',
+            doneBtnText: 'Listo',
+            steps: [],
+            onDestroyed: markAllChecked,
+        });
+        tourDriver.setSteps(buildSteps(tourDriver));
+        tourDriver.drive();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        startTour();
+        document.getElementById('recapReplayTourBtn')?.addEventListener('click', function () {
+            STEP_ITEMS.forEach(function (id) {
+                var item = document.getElementById(id);
+                var icon = item && item.querySelector('.recap-check-icon');
+                if (icon) icon.className = 'bi bi-circle text-muted fs-4 recap-check-icon';
+            });
+            startTour();
+        });
+    });
+})();
+</script>
 {% endblock %}
