@@ -346,7 +346,7 @@ def document_processor_dashboard(request):
         'selected_model': ai_status.get('selected_model', ai_status.get('model', 'N/A')),
         'default_model': ai_status.get('default_model', ai_status.get('model', 'N/A')),
         'backend_type': ai_status.get('backend', 'ollama_local'),
-        'subjects': Subject.objects.all().order_by('name'),
+        'subjects': Subject.objects.filter(is_seed_demo=False).order_by('name'),
         'preselected_contenido_id': request.GET.get('contenido_id', ''),
         'preselected_subject_id': request.GET.get('subject_id', ''),
         'wizard_active': wizard_active,
@@ -1716,7 +1716,11 @@ def save_generated_questions(request):
             # lo que el usuario estaba trabajando.
             fallback = contenido_origen.subjects.first() if contenido_origen else None
             if not fallback:
-                fallback = Subject.objects.first()
+                # Excluye materias semilla (is_seed_demo) del fallback por la
+                # misma razón que el comentario de arriba: sin esto, contenido
+                # real sin materia explícita podía terminar clasificado en la
+                # materia de ejemplo del asistente (primera alfabéticamente).
+                fallback = Subject.objects.filter(is_seed_demo=False).first()
             if not fallback:
                 return JsonResponse({
                     'success': False,

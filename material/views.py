@@ -412,6 +412,7 @@ from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, 
     FormatoImpresion)
 from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer, InstitutionSubject)
 from .models import Favorite
+from .models import get_or_create_real_subject
 from django.contrib.contenttypes.models import ContentType
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
@@ -1150,7 +1151,7 @@ def create_exam(request):
     facultades = FacultyV2.objects.filter(is_active=True)
     carreras = Career.objects.all()
     sedes = CampusV2.objects.filter(is_active=True)
-    materias = Subject.objects.all()
+    materias = Subject.objects.filter(is_seed_demo=False)
     profesores = User.objects.filter(profile__role='admin') | User.objects.filter(profile__role='user')
     templates = ExamTemplate.objects.all()
 
@@ -1904,7 +1905,7 @@ def edit_exam_template(request, template_id):
         form = ExamTemplateForm(instance=template, user=request.user)
 
     # Obtener subjects disponibles para el usuario
-    subjects = Subject.objects.all()
+    subjects = Subject.objects.filter(is_seed_demo=False)
     if hasattr(request.user, 'profile') and hasattr(request.user.profile, 'institutions'):
         user_institutions = request.user.profile.institutions.all()
         if user_institutions:
@@ -2844,6 +2845,11 @@ def lista_preguntas(request):
 
 @login_required
 def ver_pregunta(request, pk):
+    # include_seed=True a propósito acá (a diferencia del resto de la app,
+    # que lo deja en False salvo que el usuario lo haya activado): esta
+    # vista se usa también para el "Ver examen" del demo del asistente,
+    # donde las preguntas mostradas SON de la materia semilla — sin esto,
+    # clickear una pregunta del examen de ejemplo tiraría 404.
     from .content_visibility import get_visible_questions
     pregunta = get_object_or_404(get_visible_questions(request.user, include_seed=True), pk=pk)
     return render(request, 'material/questions/ver_pregunta.html', {'pregunta': pregunta})
@@ -3305,9 +3311,9 @@ def process_csv_file(file, contenido, user):
                 logger.warning(error_msg)
                 continue
                 
-            # Obtener o crear la materia
-            subject, _ = Subject.objects.get_or_create(name=row.get('materia', 'General'))
-            
+            # Obtener o crear la materia (real, no mezcla con materias semilla)
+            subject, _ = get_or_create_real_subject(row.get('materia', 'General'))
+
             # Obtener o crear el tema
             topic, _ = Topic.objects.get_or_create(
                 name=row.get('tema', 'General'),
@@ -3394,12 +3400,10 @@ def process_txt_file(file, contenido, user):
     return questions_created
 
 def create_question_from_dict(data, contenido, user):
-    from .models import Subject, Topic, Subtopic, Question
-    # Obtener o crear Subject
-    subject, _ = Subject.objects.get_or_create(
-        name=data.get('materia', 'General')
-    )
-    
+    from .models import Subject, Topic, Subtopic, Question, get_or_create_real_subject
+    # Obtener o crear Subject (real, no mezcla con materias semilla)
+    subject, _ = get_or_create_real_subject(data.get('materia', 'General'))
+
     # Obtener o crear Topic
     topic, _ = Topic.objects.get_or_create(
         name=data.get('tema', 'General'),
@@ -4225,7 +4229,7 @@ def toggle_favorite(request):
 # Subjects CRUD
 @login_required
 def subject_list(request):
-    subjects = Subject.objects.all()
+    subjects = Subject.objects.filter(is_seed_demo=False)
     favorite_ids = set(Favorite.objects.filter(
         user=request.user, content_type=ContentType.objects.get_for_model(Subject)
     ).values_list('object_id', flat=True))
@@ -4604,13 +4608,17 @@ def create_related_element(request):
 
             # MATERIA
             elif model_type == 'subject':
-                if Subject.objects.filter(name__iexact=name).exists():
+                # Las materias semilla del asistente (is_seed_demo) no cuentan
+                # para este chequeo de duplicado: si alguien tipea el mismo
+                # nombre que una materia de ejemplo, se le crea una real
+                # aparte en vez de bloquearlo (ver get_or_create_real_subject).
+                if Subject.objects.filter(name__iexact=name, is_seed_demo=False).exists():
                     return JsonResponse({
                         'success': False,
                         'error': 'Ya existe una materia con este nombre'
                     }, status=400)
 
-                subject = Subject.objects.create(name=name)
+                subject = Subject.objects.create(name=name, is_seed_demo=False)
                 return JsonResponse({
                     'success': True,
                     'id': subject.id,
@@ -5721,7 +5729,7 @@ def onboarding_save_step(request):
                 # Solo vincular — no editar
                 extra['subject_id'] = int(existing_subject_id)
             elif subject_name:
-                subject, _ = Subject.objects.get_or_create(name=subject_name)
+                subject, _ = get_or_create_real_subject(subject_name)
                 extra['subject_id'] = subject.id
 
                 # Resultados de aprendizaje opcionales

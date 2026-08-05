@@ -64,11 +64,15 @@ def onboarding_context(request):
 
     # Materias del usuario (via contenidos subidos por el)
     user_subjects = list(
-        Subject.objects.filter(contenidos__uploaded_by=request.user)
+        Subject.objects.filter(contenidos__uploaded_by=request.user, is_seed_demo=False)
         .distinct().order_by('name').values('id', 'name')
     )
 
-    # Todas las materias del sistema para el picker, con outcomes y topics (incluyen id)
+    # Todas las materias REALES del sistema para el picker "elegí materia
+    # existente" del paso 3 — se excluyen las materias semilla (is_seed_demo)
+    # a propósito: son solo para el examen de ejemplo del asistente, no algo
+    # que un docente deba poder "elegir como su materia real" (ver
+    # [[project_subject_topic_global_sharing_bug]]).
     outcomes_by_subj = {}
     for lo in LearningOutcome.objects.values('id', 'subject_id', 'description'):
         outcomes_by_subj.setdefault(lo['subject_id'], []).append({'id': lo['id'], 'text': lo['description']})
@@ -84,7 +88,7 @@ def onboarding_context(request):
             'outcomes': outcomes_by_subj.get(s['id'], []),
             'topics': topics_by_subj.get(s['id'], []),
         }
-        for s in Subject.objects.order_by('name').values('id', 'name')
+        for s in Subject.objects.filter(is_seed_demo=False).order_by('name').values('id', 'name')
     ]
 
     # Contenidos subidos por el usuario (últimos 20)

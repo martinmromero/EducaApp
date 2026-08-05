@@ -304,13 +304,29 @@ class Faculty(models.Model):
 
 class Subject(models.Model):
     name = models.CharField(max_length=100)
-    careers = models.ManyToManyField('Career', related_name='subject_careers')    
+    careers = models.ManyToManyField('Career', related_name='subject_careers')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     learning_outcomes = models.TextField(
-        blank=True, 
+        blank=True,
         null=True,
         help_text="Legacy field - almacena outcomes en texto o JSON"
+    )
+    # Materia de ejemplo sembrada por seed_demo_content (ver
+    # SEED_CONTENT_USERNAME) — usada SOLO por el flujo del asistente de
+    # configuración (wizard) para mostrar un examen de ejemplo. No es un
+    # dato real de ningún docente. Antes se mezclaba con las materias reales
+    # en todos los selectores del sitio (Subir Preguntas, Crear Examen,
+    # "Nueva materia") porque Subject se matchea por nombre sin dueño — un
+    # docente que tipeaba "Programación I" para su propio curso terminaba
+    # reusando esta misma fila semilla sin saberlo. Ver
+    # [[project_subject_topic_global_sharing_bug]]. get_or_create_real_subject()
+    # (más abajo) es el punto único para crear/matchear materias reales sin
+    # pisar esto.
+    is_seed_demo = models.BooleanField(
+        default=False,
+        verbose_name="Materia semilla del sistema (demo)",
+        help_text="Sembrada por seed_demo_content para el asistente de configuración — no es una materia real de ningún docente.",
     )
 
     class Meta:
@@ -381,6 +397,22 @@ class Subject(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+def get_or_create_real_subject(name):
+    """
+    Punto único para crear/matchear una materia REAL por nombre (CSV/TXT,
+    "Nueva materia", generador de IA, paso 3 del wizard cuando el docente
+    tipea un nombre nuevo). A diferencia de Subject.objects.get_or_create,
+    nunca reutiliza una fila con is_seed_demo=True: si un docente tipea
+    "Programación I" y solo existe la materia semilla con ese nombre, se
+    crea una fila real aparte en vez de mezclar su contenido con el
+    ejemplo del asistente (ver Subject.is_seed_demo).
+    """
+    subject = Subject.objects.filter(name=name, is_seed_demo=False).first()
+    if subject:
+        return subject, False
+    return Subject.objects.create(name=name, is_seed_demo=False), True
 
 
 class LearningOutcome(models.Model):

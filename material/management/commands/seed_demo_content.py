@@ -417,6 +417,9 @@ class Command(BaseCommand):
 
     def _seed_subject(self, *, institution, seed_user, subject_name, topics, outcomes, questions, career=None):
         subject, _ = Subject.objects.get_or_create(name=subject_name)
+        if not subject.is_seed_demo:
+            subject.is_seed_demo = True
+            subject.save(update_fields=['is_seed_demo'])
 
         InstitutionSubject.objects.get_or_create(
             institution=institution,

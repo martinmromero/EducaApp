@@ -38,7 +38,7 @@ class LearningOutcomeForm(forms.ModelForm):
 
 class ContenidoForm(forms.ModelForm):
     subjects = forms.ModelMultipleChoiceField(
-        queryset=Subject.objects.all().order_by('name'),
+        queryset=Subject.objects.filter(is_seed_demo=False).order_by('name'),
         widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
         required=False,
         label="Materias"
@@ -74,7 +74,7 @@ class ContenidoForm(forms.ModelForm):
 
 class QuestionForm(forms.ModelForm):
     subjects = forms.ModelMultipleChoiceField(
-        queryset=Subject.objects.all().order_by('name'),
+        queryset=Subject.objects.filter(is_seed_demo=False).order_by('name'),
         widget=forms.CheckboxSelectMultiple,
         required=False,
         label="Materias"
