@@ -6695,6 +6695,24 @@ def groq_monitor_page(request):
                 run_vision_test(model_name, provider=vision_provider)
                 messages.success(request, f'Prueba de visión ejecutada para "{vision_provider}: {model_name}" — mirá el resultado abajo.', extra_tags='general')
             return redirect('material:groq_monitor_page')
+        if action == 'run_vision_load':
+            from .groq_monitor import run_vision_load_test
+            model_name = (request.POST.get('vision_model') or '').strip()
+            vision_provider = (request.POST.get('vision_provider') or 'gemini').strip()
+            try:
+                count = max(1, min(30, int(request.POST.get('load_count', 8))))
+            except (TypeError, ValueError):
+                count = 8
+            if model_name:
+                runs = run_vision_load_test(count, provider=vision_provider, model=model_name)
+                ok = sum(1 for r in runs if r.success)
+                messages.success(
+                    request,
+                    f'Ráfaga de {count} llamadas a "{vision_provider}: {model_name}" terminada — '
+                    f'{ok} exitosas, {count - ok} fallaron. Mirá el detalle y el historial de cortes abajo.',
+                    extra_tags='general',
+                )
+            return redirect('material:groq_monitor_page')
         if action == 'start_vision':
             hours = 48
             try:

@@ -297,6 +297,37 @@ def run_vision_test(model_name, provider=DEFAULT_VISION_PROVIDER):
          quota_limit_tokens=rate_limit.get('limit_tokens'))
 
 
+def run_vision_load_test(count, provider=DEFAULT_VISION_PROVIDER, model=DEFAULT_VISION_MODEL, delay_seconds=1):
+    """
+    Ráfaga de `count` llamadas de visión seguidas, para encontrar en la
+    práctica el límite real de un modelo (RPM/RPD) en vez de asumirlo — cada
+    llamada queda registrada como una GroqVisionTestRun normal, así que
+    después se puede leer con analyze_vision_quota_cycles() cuántas
+    llamadas exitosas hubo antes de cortar y cuánto tardó en recuperarse.
+
+    Ojo: cada llamada individual (run_vision_test → backend.generate) ya
+    reintenta sola hasta 2 veces ante un 429 antes de darse por vencida (ver
+    GeminiBackend/OpenAICompatibleBackend) — un "success=False, 429" acá
+    representa 3 intentos reales contra la API, no 1. Es el mismo
+    comportamiento que tiene la generación real de preguntas, así que el
+    resultado es representativo de lo que vería un usuario, pero el consumo
+    de cupo real es mayor al número de filas que se crean.
+    """
+    from django.db.models import Max
+    from .models import GroqVisionTestRun
+
+    created_ids = []
+    for i in range(max(1, count)):
+        if i > 0 and delay_seconds > 0:
+            time.sleep(delay_seconds)
+        before_max_id = GroqVisionTestRun.objects.aggregate(m=Max('id'))['m'] or 0
+        run_vision_test(model, provider=provider)
+        new_run = GroqVisionTestRun.objects.filter(id__gt=before_max_id).order_by('-id').first()
+        if new_run:
+            created_ids.append(new_run.id)
+    return list(GroqVisionTestRun.objects.filter(id__in=created_ids).order_by('id'))
+
+
 def maybe_trigger_vision():
     """Igual que maybe_trigger() pero para la corrida cíclica del modelo de
     visión ya elegido — mide cupo y cadencia de renovación en el tiempo,

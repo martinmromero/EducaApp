@@ -180,9 +180,20 @@
                             {% endfor %}
                         </select>
                         <button type="submit" name="action" value="run_vision" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-lightning-fill me-1"></i>Probar modelo
+                            <i class="bi bi-lightning-fill me-1"></i>Probar modelo (1 llamada)
+                        </button>
+                        <span class="vr d-none d-md-block"></span>
+                        <input type="number" name="load_count" value="8" min="1" max="30" class="form-control form-control-sm" style="width:80px" title="Cantidad de llamadas seguidas">
+                        <button type="submit" name="action" value="run_vision_load" class="btn btn-warning btn-sm">
+                            <i class="bi bi-lightning-charge-fill me-1"></i>Ráfaga de carga
                         </button>
                     </form>
+                    <p class="text-muted small mt-2 mb-0">
+                        La ráfaga manda esa cantidad de llamadas seguidas (con ~1s entre cada una) para
+                        encontrar el límite real en la práctica. Ojo con el <strong>RPD</strong> (límite
+                        diario) — según Google AI Studio, Gemini 2.5 Flash hoy tiene RPD=20, así que una
+                        ráfaga de 20+ agota el cupo del día entero para ese modelo específico.
+                    </p>
                 </div>
             </div>
 
