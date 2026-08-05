@@ -2105,6 +2105,31 @@ class GroqMonitorRun(models.Model):
         return f"{self.created_at:%Y-%m-%d %H:%M} — {'OK' if self.met_target else 'ALERTA'} ({self.total_generated}/{self.target_questions})"
 
 
+class QuestionGenerationConfig(models.Model):
+    """
+    Fila única (singleton) con el prompt usado para generar preguntas con IA
+    (ver material/views_document_processor.py::_generate_questions_for_chunk),
+    editable desde Administración → "Prompt de generación IA" — no desde
+    Django Admin, para que cualquier admin de la app lo pueda ajustar sin
+    necesitar esas credenciales.
+
+    El template usa placeholders estilo str.format() (ver
+    material/ai_prompts.py::PROMPT_PLACEHOLDERS) — si el texto guardado
+    tiene un placeholder inválido o se rompe el formato, el código cae al
+    default de fábrica en vez de fallar la generación.
+    """
+    prompt_template = models.TextField(verbose_name="Prompt (con placeholders)")
+    temperature = models.FloatField(default=0.2, verbose_name="Temperature")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Prompt de generación IA"
+        verbose_name_plural = "Prompt de generación IA"
+
+    def __str__(self):
+        return f"Prompt de generación IA (actualizado {self.updated_at:%d/%m/%Y %H:%M})"
+
+
 class GroqVisionTestRun(models.Model):
     """
     Resultado de una prueba manual de un modelo de Groq con soporte de

@@ -208,4 +208,5 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
 
     # Monitoreo del fallback de Groq (staff-only)
     path('herramientas/groq-monitor/', material_views.groq_monitor_page, name='groq_monitor_page'),
+    path('herramientas/prompt-generacion-ia/', material_views.question_generation_prompt_config, name='question_generation_prompt_config'),
 ]

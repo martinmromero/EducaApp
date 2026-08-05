@@ -1,0 +1,77 @@
+{% extends 'material/base.html' %}
+{% load message_tags %}
+{% block page_title %}<i class="bi bi-chat-square-text me-2"></i>Prompt de generación IA{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {% show_messages "general" %}
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted small">
+                        Este es el texto que se le manda a la IA para generar preguntas a partir de un
+                        documento (ver "Generar preguntas con IA" en el Procesador de Documentos). Se
+                        completa con los placeholders de la derecha antes de mandarse — si guardás un
+                        placeholder que no existe, el sistema no deja guardar y te avisa cuál está mal.
+                    </p>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="id_prompt_template" class="form-label fw-semibold">Prompt</label>
+                            <textarea name="prompt_template" id="id_prompt_template" class="form-control" rows="28"
+                                      style="font-family: monospace; font-size: .85rem;">{{ cfg.prompt_template }}</textarea>
+                        </div>
+                        <div class="mb-3" style="max-width:220px">
+                            <label for="id_temperature" class="form-label fw-semibold">Temperature</label>
+                            <input type="number" name="temperature" id="id_temperature" class="form-control"
+                                   min="0" max="1" step="0.05" value="{{ cfg.temperature }}">
+                            <div class="form-text">
+                                0 = más literal/predecible, 1 = más "creativo" (y más propenso a inventar
+                                datos que no están en el texto). Recomendado: 0.1–0.3.
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i>Guardar cambios
+                        </button>
+                        <button type="submit" name="action" value="restore_default" class="btn btn-outline-secondary"
+                                onclick="return confirm('¿Restaurar el prompt al default de fábrica? Se pierde lo editado acá.');">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Restaurar default
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header">
+                    <i class="bi bi-braces me-1"></i>Placeholders disponibles
+                </div>
+                <div class="card-body">
+                    <dl class="mb-0 small">
+                        {% for key, description in placeholders.items %}
+                        <dt><code>{{ "{" }}{{ key }}{{ "}" }}</code></dt>
+                        <dd class="text-muted mb-2">{{ description }}</dd>
+                        {% endfor %}
+                    </dl>
+                </div>
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <i class="bi bi-info-circle me-1"></i>Notas
+                </div>
+                <div class="card-body small text-muted">
+                    <p>Las llaves <code>{ y }</code> literales (por ejemplo, en el ejemplo de JSON del
+                    prompt) van dobles: <code>{ { </code> y <code> } }</code> — así no se confunden con
+                    un placeholder.</p>
+                    <p class="mb-0">Si el prompt guardado se rompe (typo en un placeholder), la
+                    generación real usa automáticamente el default de fábrica en su lugar — nunca falla
+                    por esto.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

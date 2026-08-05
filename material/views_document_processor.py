@@ -890,6 +890,33 @@ def _split_into_chunks(content, max_tokens=3000):
     return chunks if chunks else [content]
 
 
+def _build_generation_prompt(context):
+    """
+    Arma el prompt real a partir del template guardado en QuestionGenerationConfig
+    (editable desde Administración → "Prompt de generación IA"). Si no hay fila
+    todavía, o el template guardado tiene un placeholder inválido/typo que rompe
+    el .format(), cae al default de fábrica — la generación de preguntas nunca
+    debería fallar por un prompt mal editado.
+
+    Devuelve (prompt_text, temperature).
+    """
+    from .models import QuestionGenerationConfig
+    from .ai_prompts import DEFAULT_PROMPT_TEMPLATE, DEFAULT_TEMPERATURE
+
+    cfg = QuestionGenerationConfig.objects.first()
+    template = cfg.prompt_template if cfg and cfg.prompt_template else DEFAULT_PROMPT_TEMPLATE
+    temperature = cfg.temperature if cfg else DEFAULT_TEMPERATURE
+
+    try:
+        return template.format(**context), temperature
+    except (KeyError, ValueError, IndexError) as e:
+        logger.error(
+            f"Prompt guardado en QuestionGenerationConfig tiene un placeholder inválido "
+            f"({e}) — usando el default de fábrica para esta generación."
+        )
+        return DEFAULT_PROMPT_TEMPLATE.format(**context), DEFAULT_TEMPERATURE
+
+
 def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None, existing_questions=None, images=None):
     """Genera preguntas para un fragmento de capítulo usando la IA configurada.
 
@@ -953,66 +980,17 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
         if images else ""
     )
 
-    prompt = f"""Analizá el siguiente texto educativo del capítulo "{chapter_title}" {context_note} y generá exactamente {num_questions} preguntas variadas.
-{images_note}
-TEXTO:
-{content}
-
-TIPOS DE PREGUNTAS HABILITADOS:
-{enabled_descriptions}
-{existing_block}
-REGLAS:
-- Generá exactamente {num_questions} preguntas basándote ÚNICAMENTE en el texto anterior.
-- Distribuí los tipos de manera relativamente pareja entre los tipos habilitados.
-- Variá la dificultad: dificultad 1-2 (fácil), 3 (media), 4-5 (difícil).
-- Para "opcion_multiple": siempre 4 opciones con prefijo A), B), C), D).
-- Para "completar_blank": escribí la pregunta con [___] donde va la respuesta.
-- Para "verdadero_falso": la respuesta debe ser exactamente "Verdadero" o "Falso".
-- Para "desarrollo": la respuesta es la respuesta de referencia del docente (no del alumno).
-- No incluyas referencias a páginas, títulos de sección ni numeración.
-- Respondé SOLO con JSON válido, sin bloques de código markdown.
-
-Formato JSON requerido:
-{{
-  "preguntas": [
-    {{
-      "pregunta": "texto de la pregunta",
-      "tipo": "opcion_multiple",
-      "opciones": ["A) opción 1", "B) opción 2", "C) opción 3", "D) opción 4"],
-      "respuesta_correcta_index": 0,
-      "respuesta": "A) texto de la opción correcta",
-      "explicacion": "breve explicación de por qué es correcta",
-      "dificultad": 2,
-      "bloom_nivel": 1
-    }},
-    {{
-      "pregunta": "Afirmación concreta. ¿Verdadero o Falso?",
-      "tipo": "verdadero_falso",
-      "respuesta": "Verdadero",
-      "explicacion": "...",
-      "dificultad": 1,
-      "bloom_nivel": 1
-    }},
-    {{
-      "pregunta": "El proceso por el cual las plantas obtienen energía se llama [___].",
-      "tipo": "completar_blank",
-      "respuesta": "fotosíntesis",
-      "explicacion": "...",
-      "dificultad": 2,
-      "bloom_nivel": 1
-    }},
-    {{
-      "pregunta": "Explicá cómo ocurre el proceso X.",
-      "tipo": "desarrollo",
-      "respuesta": "Respuesta de referencia: El proceso X ocurre cuando...",
-      "explicacion": "Evalúa comprensión profunda del proceso.",
-      "dificultad": 4,
-      "bloom_nivel": 3
-    }}
-  ]
-}}
-
-Nota sobre bloom_nivel: {bloom_desc}"""
+    prompt_context = {
+        'num_questions': num_questions,
+        'chapter_title': chapter_title,
+        'context_note': context_note,
+        'images_note': images_note,
+        'content': content,
+        'enabled_descriptions': enabled_descriptions,
+        'existing_block': existing_block,
+        'bloom_desc': bloom_desc,
+    }
+    prompt, temperature = _build_generation_prompt(prompt_context)
 
     # ~300 tokens por pregunta (opcion_multiple/desarrollo con explicación suelen ser
     # las más largas) + margen fijo. Antes esto era un 4000 fijo sin importar cuántas
@@ -1030,9 +1008,9 @@ Nota sobre bloom_nivel: {bloom_desc}"""
     # no romper la firma de generate() de ningún backend que no lo espere.
     extra_kwargs = {'images': [img['data_uri'] for img in images]} if images else {}
     if backend is not None:
-        result = backend.generate(prompt=prompt, temperature=0.4, max_tokens=gen_max_tokens, **extra_kwargs)
+        result = backend.generate(prompt=prompt, temperature=temperature, max_tokens=gen_max_tokens, **extra_kwargs)
     else:
-        result = local_ai.generate(prompt=prompt, temperature=0.4, max_tokens=gen_max_tokens)
+        result = local_ai.generate(prompt=prompt, temperature=temperature, max_tokens=gen_max_tokens)
 
     if not result['success']:
         error_msg = result.get('error', 'Error desconocido del proveedor de IA')

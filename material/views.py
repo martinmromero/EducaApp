@@ -6608,6 +6608,66 @@ def health_check(request):
 
 
 @login_required
+@user_passes_test(is_admin, login_url='/')
+def question_generation_prompt_config(request):
+    """
+    Panel de administración (no Django Admin) para editar el prompt usado en
+    la generación de preguntas con IA — ver
+    views_document_processor.py::_build_generation_prompt.
+    """
+    from .models import QuestionGenerationConfig
+    from .ai_prompts import DEFAULT_PROMPT_TEMPLATE, DEFAULT_TEMPERATURE, PROMPT_PLACEHOLDERS
+
+    cfg, _ = QuestionGenerationConfig.objects.get_or_create(
+        pk=1, defaults={'prompt_template': DEFAULT_PROMPT_TEMPLATE, 'temperature': DEFAULT_TEMPERATURE}
+    )
+
+    if request.method == 'POST':
+        if request.POST.get('action') == 'restore_default':
+            cfg.prompt_template = DEFAULT_PROMPT_TEMPLATE
+            cfg.temperature = DEFAULT_TEMPERATURE
+            cfg.save()
+            messages.success(request, 'Prompt restaurado al default de fábrica.', extra_tags='general')
+            return redirect('material:question_generation_prompt_config')
+
+        new_template = request.POST.get('prompt_template', '').strip()
+        try:
+            new_temperature = float(request.POST.get('temperature', DEFAULT_TEMPERATURE))
+        except (TypeError, ValueError):
+            new_temperature = DEFAULT_TEMPERATURE
+        new_temperature = max(0.0, min(1.0, new_temperature))
+
+        if not new_template:
+            messages.error(request, 'El prompt no puede quedar vacío.', extra_tags='general')
+        else:
+            # Validar que el template tenga los placeholders bien formados antes
+            # de guardar — no dejamos guardar algo que ya sabemos que va a
+            # romper el .format() en la próxima generación real.
+            try:
+                sample_context = {key: f'[{key}]' for key in PROMPT_PLACEHOLDERS}
+                new_template.format(**sample_context)
+            except (KeyError, ValueError, IndexError) as e:
+                messages.error(
+                    request,
+                    f'El prompt tiene un placeholder inválido ({e}) — no se guardó. '
+                    f'Revisá que solo uses los placeholders documentados abajo.',
+                    extra_tags='general',
+                )
+            else:
+                cfg.prompt_template = new_template
+                cfg.temperature = new_temperature
+                cfg.save()
+                messages.success(request, 'Prompt actualizado correctamente.', extra_tags='general')
+                return redirect('material:question_generation_prompt_config')
+
+    return render(request, 'material/question_generation_prompt_config.html', {
+        'cfg': cfg,
+        'placeholders': PROMPT_PLACEHOLDERS,
+        'default_template': DEFAULT_PROMPT_TEMPLATE,
+    })
+
+
+@login_required
 def groq_monitor_page(request):
     """
     Panel staff-only del monitoreo de carga de Groq (ver material/groq_monitor.py).
