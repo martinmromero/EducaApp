@@ -6,6 +6,7 @@ services:
       pip install -r requirements.txt
       python manage.py collectstatic --noinput --clear
       python manage.py migrate
+      python manage.py clean_seed_subjects
       python manage.py seed_demo_content
       python manage.py createsuperuser --noinput || true
     startCommand: python manage.py migrate --noinput && gunicorn educaapp.wsgi --workers 1 --threads 4 --timeout 120
