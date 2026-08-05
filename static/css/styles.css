@@ -352,3 +352,20 @@ body.modal-open .sidebar-toggle-external {
         animation: none;
     }
 }
+
+/* Los headers de las tarjetas de listado (Instituciones, Mis Exámenes,
+   Plantillas, Materias, Carreras, Cuestionarios Orales, etc.) meten título +
+   varios botones de acción en una sola fila con "d-flex justify-content-between"
+   sin flex-wrap — en mobile los botones no entran y se cortan fuera de la
+   pantalla en vez de bajar de línea. Se fuerza el wrap acá, de forma global,
+   en vez de tocar cada template por separado. */
+@media (max-width: 767.98px) {
+    .card-header.d-flex.justify-content-between {
+        flex-wrap: wrap;
+        row-gap: .5rem;
+    }
+    .card-header.d-flex.justify-content-between > .d-flex {
+        flex-wrap: wrap;
+        row-gap: .5rem;
+    }
+}

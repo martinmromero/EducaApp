@@ -130,4 +130,52 @@ Convenciones que debe respetar la página que lo incluye:
         const scrollParent = toggle.closest('.table-responsive');
         if (scrollParent) scrollParent.classList.remove('filter-dropdown-open');
     });
+
+    // En mobile, el botón/gesto físico de "Volver" del celular no cierra el
+    // offcanvas de filtros por defecto: Bootstrap no toca el historial del
+    // navegador al abrirlo, así que "Volver" termina navegando a la página
+    // anterior del sistema con el panel todavía abierto (arriba). Se
+    // soluciona empujando una entrada al historial al abrir el offcanvas —
+    // "Volver" la consume primero (dispara popstate, que solo cierra el
+    // panel) y recién la siguiente vez sí navega hacia atrás de verdad.
+    (function () {
+        const HISTORY_KEY = 'columnFiltersOffcanvasOpen';
+        let openOffcanvasEl = null;
+        let pushedState = false;
+
+        document.addEventListener('show.bs.offcanvas', function (event) {
+            const el = event.target;
+            if (!el.classList || !el.classList.contains('column-filters-offcanvas')) return;
+            openOffcanvasEl = el;
+            if (!pushedState) {
+                history.pushState({ [HISTORY_KEY]: true }, '');
+                pushedState = true;
+            }
+        });
+
+        document.addEventListener('hidden.bs.offcanvas', function (event) {
+            const el = event.target;
+            if (!el.classList || !el.classList.contains('column-filters-offcanvas')) return;
+            openOffcanvasEl = null;
+            // Si el cierre vino de un click en "cerrar"/backdrop/Escape (no del
+            // popstate de "Volver"), hay que deshacer la entrada que se
+            // empujó al abrir — si no, "Volver" quedaría pisado por esa
+            // entrada vacía y habría que presionarlo dos veces para salir.
+            if (pushedState) {
+                pushedState = false;
+                if (history.state && history.state[HISTORY_KEY]) {
+                    history.back();
+                }
+            }
+        });
+
+        window.addEventListener('popstate', function () {
+            if (!openOffcanvasEl || !window.bootstrap || !window.bootstrap.Offcanvas) return;
+            const instance = window.bootstrap.Offcanvas.getInstance(openOffcanvasEl);
+            if (instance) {
+                pushedState = false; // ya se está deshaciendo por el propio "Volver"
+                instance.hide();
+            }
+        });
+    })();
 </script>

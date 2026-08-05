@@ -49,6 +49,7 @@ class ContenidoForm(forms.ModelForm):
         fields = ['subjects', 'title', 'file', 'author', 'isbn', 'edition', 'pages', 'publisher', 'year']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'file': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'author': forms.TextInput(attrs={'class': 'form-control'}),
             'isbn': forms.TextInput(attrs={'class': 'form-control'}),
             'edition': forms.TextInput(attrs={'class': 'form-control'}),
