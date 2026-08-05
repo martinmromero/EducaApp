@@ -147,12 +147,139 @@ PROGRAMACION_QUESTIONS = [
         question_text='Proponé un caso de uso real donde convenga usar una cola en lugar de una pila, y justificá por qué.',
         answer_text='Un sistema de impresión de documentos: los trabajos de impresión deben procesarse en el orden en que llegaron (el primero que se envió es el primero en imprimirse), lo cual corresponde al comportamiento FIFO de una cola. Una pila haría que el último trabajo enviado se imprima primero, lo cual no es intuitivo para el usuario.',
     ),
+    dict(
+        topic='Variables y tipos de datos', difficulty=1, bloom_level=1,
+        question_type='verdadero_falso',
+        question_text='El operador de asignación (=) y el operador de comparación de igualdad (==) cumplen la misma función en la mayoría de los lenguajes de programación.',
+        answer_text='Falso. El operador = asigna un valor a una variable, mientras que == compara si dos valores son iguales y devuelve un booleano.',
+    ),
+    dict(
+        topic='Variables y tipos de datos', difficulty=2, bloom_level=2,
+        question_type='opcion_multiple',
+        question_text='¿Cuál de las siguientes opciones es un ejemplo de conversión de tipo explícita (casting)?',
+        answer_text='int("25")',
+        options=['int("25")', 'x = 25', 'x == 25', 'print(25)'],
+    ),
+    dict(
+        topic='Variables y tipos de datos', difficulty=2, bloom_level=1,
+        question_type='completar_blank',
+        question_text='Una variable declarada pero nunca inicializada puede contener un valor ______ (no determinado) hasta que se le asigne uno explícitamente, según el lenguaje.',
+        answer_text='basura',
+    ),
+    dict(
+        topic='Variables y tipos de datos', difficulty=1, bloom_level=1,
+        question_type='opcion_multiple',
+        question_text='¿Qué tipo de dato usarías para representar un valor de verdadero o falso?',
+        answer_text='Booleano',
+        options=['Booleano', 'Entero', 'Cadena de texto', 'Flotante'],
+    ),
+    dict(
+        topic='Variables y tipos de datos', difficulty=3, bloom_level=2,
+        question_type='desarrollo',
+        question_text='Explicá qué es el "scope" (ámbito) de una variable y por qué es importante entenderlo al escribir funciones.',
+        answer_text='El scope es la región del programa donde una variable existe y puede ser accedida. Una variable local solo existe dentro de la función donde se declaró; una global existe en todo el programa. Entender el scope es importante para evitar que una función modifique por error una variable de otra parte del programa, y para saber cuándo una variable deja de estar disponible.',
+    ),
+    dict(
+        topic='Estructuras de control', difficulty=1, bloom_level=1,
+        question_type='verdadero_falso',
+        question_text='Un bucle do-while ejecuta el bloque de código al menos una vez, incluso si la condición es falsa desde el inicio.',
+        answer_text='Verdadero. A diferencia del while, el do-while evalúa la condición después de ejecutar el bloque, garantizando al menos una ejecución.',
+    ),
+    dict(
+        topic='Estructuras de control', difficulty=1, bloom_level=1,
+        question_type='opcion_multiple',
+        question_text='¿Qué instrucción se usa para salir anticipadamente de un bucle antes de que termine su condición natural?',
+        answer_text='break',
+        options=['break', 'continue', 'return', 'pass'],
+    ),
+    dict(
+        topic='Estructuras de control', difficulty=2, bloom_level=2,
+        question_type='completar_blank',
+        question_text='La estructura condicional ______ permite evaluar múltiples casos posibles de una misma variable de forma más legible que una cadena larga de if-else.',
+        answer_text='switch',
+    ),
+    dict(
+        topic='Estructuras de control', difficulty=2, bloom_level=2,
+        question_type='opcion_multiple',
+        question_text='¿Cuál es el riesgo principal de un bucle mal condicionado?',
+        answer_text='Que se convierta en un bucle infinito',
+        options=['Que se convierta en un bucle infinito', 'Que el programa no compile', 'Que ocupe menos memoria', 'Que se ejecute más rápido'],
+    ),
+    dict(
+        topic='Estructuras de control', difficulty=2, bloom_level=4,
+        question_type='desarrollo',
+        question_text='Comparar if-else con switch: ¿en qué situación conviene usar cada uno?',
+        answer_text='if-else conviene cuando las condiciones son rangos o expresiones booleanas complejas. switch (o match, según el lenguaje) conviene cuando se comparan muchos valores discretos posibles de una misma variable, porque resulta más legible y ordenado que una larga cadena de if-else if.',
+    ),
+    dict(
+        topic='Funciones y modularización', difficulty=2, bloom_level=2,
+        question_type='verdadero_falso',
+        question_text='Una función puede llamarse a sí misma; a esto se lo llama recursividad.',
+        answer_text='Verdadero. La recursividad es una técnica válida siempre que exista un caso base que detenga las llamadas.',
+    ),
+    dict(
+        topic='Funciones y modularización', difficulty=3, bloom_level=2,
+        question_type='opcion_multiple',
+        question_text='¿Qué término describe a una función que siempre devuelve el mismo resultado para los mismos argumentos y no produce efectos secundarios?',
+        answer_text='Función pura',
+        options=['Función pura', 'Función recursiva', 'Función anónima', 'Función global'],
+    ),
+    dict(
+        topic='Funciones y modularización', difficulty=1, bloom_level=1,
+        question_type='completar_blank',
+        question_text='Los valores que una función recibe entre paréntesis en su definición se llaman parámetros ______.',
+        answer_text='formales',
+    ),
+    dict(
+        topic='Funciones y modularización', difficulty=2, bloom_level=3,
+        question_type='opcion_multiple',
+        question_text='¿Qué ventaja tiene pasar un parámetro por referencia en lugar de por valor?',
+        answer_text='La función puede modificar el valor original de la variable',
+        options=[
+            'La función puede modificar el valor original de la variable',
+            'El programa ocupa menos líneas de código',
+            'Se evita tener que declarar la función',
+            'El tipo de dato deja de importar',
+        ],
+    ),
+    dict(
+        topic='Funciones y modularización', difficulty=3, bloom_level=4,
+        question_type='desarrollo',
+        question_text='Explicá qué es la recursividad y qué condición es imprescindible para que una función recursiva no termine en un bucle infinito.',
+        answer_text='La recursividad es cuando una función se llama a sí misma para resolver un problema dividiéndolo en subproblemas más pequeños del mismo tipo. Es imprescindible definir un "caso base": una condición simple que no requiere más llamadas recursivas y detiene la cadena de llamadas, evitando que la función se llame indefinidamente.',
+    ),
+    dict(
+        topic='Estructuras de datos básicas', difficulty=1, bloom_level=1,
+        question_type='verdadero_falso',
+        question_text='Un arreglo (array) tiene tamaño fijo una vez declarado en los lenguajes de bajo nivel como C.',
+        answer_text='Verdadero. En C, el tamaño del arreglo se define en la declaración y no puede cambiar dinámicamente (a diferencia de listas dinámicas en otros lenguajes).',
+    ),
+    dict(
+        topic='Estructuras de datos básicas', difficulty=2, bloom_level=2,
+        question_type='opcion_multiple',
+        question_text='¿Qué estructura de datos es ideal para representar relaciones jerárquicas, como el sistema de archivos de una computadora?',
+        answer_text='Árbol',
+        options=['Árbol', 'Pila (stack)', 'Cola (queue)', 'Arreglo'],
+    ),
+    dict(
+        topic='Estructuras de datos básicas', difficulty=2, bloom_level=1,
+        question_type='completar_blank',
+        question_text='En una lista enlazada, cada elemento (nodo) contiene un dato y un puntero al ______ nodo de la lista.',
+        answer_text='siguiente',
+    ),
+    dict(
+        topic='Estructuras de datos básicas', difficulty=2, bloom_level=3,
+        question_type='desarrollo',
+        question_text='Dado un problema donde se necesita insertar y eliminar elementos frecuentemente en el medio de una colección, ¿convendría más un arreglo o una lista enlazada? Justificá.',
+        answer_text='Conviene una lista enlazada: insertar o eliminar un elemento en el medio de un arreglo requiere desplazar todos los elementos posteriores, lo cual es costoso. En una lista enlazada, esa misma operación solo requiere reajustar un par de punteros, sin mover el resto de los elementos.',
+    ),
 ]
 
 BASES_DE_DATOS_TOPICS = [
     ('Modelo relacional', 5),
     ('Consultas SQL', 5),
     ('Normalización', 4),
+    ('Transacciones y control de concurrencia', 4),
 ]
 
 BASES_DE_DATOS_OUTCOMES = [
@@ -223,12 +350,147 @@ BASES_DE_DATOS_QUESTIONS = [
         question_text='Dada una tabla "Pedidos" con columnas (id_pedido, id_cliente, nombre_cliente, id_producto, nombre_producto, cantidad), identificá qué forma normal viola y cómo la normalizarías.',
         answer_text='Viola la 2FN y la 3FN: nombre_cliente depende solo de id_cliente (no de la clave completa) y nombre_producto depende solo de id_producto. Se normaliza separando en tres tablas: Clientes (id_cliente, nombre_cliente), Productos (id_producto, nombre_producto) y Pedidos (id_pedido, id_cliente, id_producto, cantidad), cada una referenciando a las otras por clave foránea.',
     ),
+    dict(
+        topic='Modelo relacional', difficulty=1, bloom_level=1,
+        question_type='verdadero_falso',
+        question_text='Una tabla puede tener más de una clave candidata, pero solo una de ellas se designa como clave primaria.',
+        answer_text='Verdadero. Las demás claves candidatas suelen implementarse como restricciones UNIQUE.',
+    ),
+    dict(
+        topic='Modelo relacional', difficulty=2, bloom_level=2,
+        question_type='opcion_multiple',
+        question_text='¿Qué tipo de relación existe cuando un empleado tiene un único legajo y ese legajo pertenece a un único empleado?',
+        answer_text='Uno a uno',
+        options=['Uno a uno', 'Uno a muchos', 'Muchos a muchos', 'Ninguna de las anteriores'],
+    ),
+    dict(
+        topic='Modelo relacional', difficulty=1, bloom_level=1,
+        question_type='completar_blank',
+        question_text='El diagrama ______ se usa para modelar visualmente entidades, atributos y relaciones antes de crear las tablas.',
+        answer_text='entidad-relación',
+    ),
+    dict(
+        topic='Modelo relacional', difficulty=2, bloom_level=2,
+        question_type='opcion_multiple',
+        question_text='¿Cuál de los siguientes NO es un elemento propio del modelo relacional clásico?',
+        answer_text='Documento JSON embebido',
+        options=['Documento JSON embebido', 'Tabla', 'Fila', 'Columna'],
+    ),
+    dict(
+        topic='Modelo relacional', difficulty=3, bloom_level=3,
+        question_type='desarrollo',
+        question_text='Explicá la diferencia entre una clave primaria y una clave única (UNIQUE), dando un ejemplo de cuándo usarías cada una.',
+        answer_text='La clave primaria identifica de forma única cada fila y no admite valores NULL; solo puede haber una por tabla (aunque puede ser compuesta). Una restricción UNIQUE también exige valores no repetidos, pero puede admitir NULL (según el motor) y puede haber varias por tabla — por ejemplo, el DNI de una persona podría ser UNIQUE aunque la clave primaria sea un id autogenerado.',
+    ),
+    dict(
+        topic='Consultas SQL', difficulty=1, bloom_level=1,
+        question_type='verdadero_falso',
+        question_text='La cláusula ORDER BY debe ir siempre antes que WHERE en una consulta SQL.',
+        answer_text='Falso. El orden correcto es SELECT, FROM, WHERE, GROUP BY, HAVING y por último ORDER BY.',
+    ),
+    dict(
+        topic='Consultas SQL', difficulty=1, bloom_level=1,
+        question_type='opcion_multiple',
+        question_text='¿Qué función SQL de agregación devuelve el valor promedio de una columna numérica?',
+        answer_text='AVG()',
+        options=['AVG()', 'SUM()', 'COUNT()', 'MAX()'],
+    ),
+    dict(
+        topic='Consultas SQL', difficulty=2, bloom_level=1,
+        question_type='completar_blank',
+        question_text='La palabra clave ______ elimina los valores duplicados de los resultados de una consulta SELECT.',
+        answer_text='DISTINCT',
+    ),
+    dict(
+        topic='Consultas SQL', difficulty=2, bloom_level=2,
+        question_type='opcion_multiple',
+        question_text='¿Qué instrucción SQL se usa para modificar filas ya existentes en una tabla?',
+        answer_text='UPDATE',
+        options=['UPDATE', 'INSERT', 'ALTER', 'CREATE'],
+    ),
+    dict(
+        topic='Consultas SQL', difficulty=3, bloom_level=3,
+        question_type='desarrollo',
+        question_text='Explicá qué hace una subconsulta (subquery) y dá un ejemplo de una situación donde sea necesaria.',
+        answer_text='Una subconsulta es una consulta SELECT anidada dentro de otra consulta, usada para calcular un valor o un conjunto de valores intermedios. Por ejemplo, para encontrar los empleados que ganan más que el promedio salarial, se necesita una subconsulta que calcule ese promedio (SELECT AVG(salario) FROM empleados) y usarla dentro del WHERE de la consulta principal.',
+    ),
+    dict(
+        topic='Normalización', difficulty=1, bloom_level=1,
+        question_type='verdadero_falso',
+        question_text='La tercera forma normal (3FN) elimina las dependencias transitivas entre atributos no clave.',
+        answer_text='Verdadero.',
+    ),
+    dict(
+        topic='Normalización', difficulty=2, bloom_level=2,
+        question_type='opcion_multiple',
+        question_text='¿Cuál es el objetivo principal de normalizar una base de datos?',
+        answer_text='Reducir la redundancia de datos y evitar anomalías de actualización',
+        options=[
+            'Reducir la redundancia de datos y evitar anomalías de actualización',
+            'Aumentar la cantidad de tablas sin motivo funcional',
+            'Eliminar la necesidad de claves primarias',
+            'Hacer que las consultas SQL sean más cortas',
+        ],
+    ),
+    dict(
+        topic='Normalización', difficulty=2, bloom_level=1,
+        question_type='completar_blank',
+        question_text='Una tabla está en ______ forma normal cuando cumple la 1FN y todos sus atributos no clave dependen completamente de la clave primaria (sin dependencias parciales).',
+        answer_text='segunda',
+    ),
+    dict(
+        topic='Normalización', difficulty=2, bloom_level=3,
+        question_type='opcion_multiple',
+        question_text='¿Qué anomalía puede ocurrir en una tabla no normalizada al borrar la única fila que contenía cierta información?',
+        answer_text='Anomalía de borrado',
+        options=['Anomalía de borrado', 'Anomalía de inserción', 'Deadlock', 'Overflow de índice'],
+    ),
+    dict(
+        topic='Transacciones y control de concurrencia', difficulty=2, bloom_level=1,
+        question_type='opcion_multiple',
+        question_text='¿Qué propiedad ACID garantiza que una transacción se ejecute por completo o no se ejecute en absoluto?',
+        answer_text='Atomicidad',
+        options=['Atomicidad', 'Consistencia', 'Aislamiento', 'Durabilidad'],
+    ),
+    dict(
+        topic='Transacciones y control de concurrencia', difficulty=2, bloom_level=2,
+        question_type='verdadero_falso',
+        question_text='Dos transacciones que se ejecutan de forma concurrente pueden generar resultados inconsistentes si no se controla el acceso a los datos compartidos.',
+        answer_text='Verdadero. Por eso los motores de base de datos usan bloqueos y niveles de aislamiento para evitar estos problemas.',
+    ),
+    dict(
+        topic='Transacciones y control de concurrencia', difficulty=1, bloom_level=1,
+        question_type='completar_blank',
+        question_text='El comando SQL ______ confirma de forma permanente los cambios realizados durante una transacción.',
+        answer_text='COMMIT',
+    ),
+    dict(
+        topic='Transacciones y control de concurrencia', difficulty=3, bloom_level=2,
+        question_type='opcion_multiple',
+        question_text='¿Qué problema de concurrencia ocurre cuando una transacción lee datos que otra transacción todavía no confirmó?',
+        answer_text='Lectura sucia (dirty read)',
+        options=['Lectura sucia (dirty read)', 'Lectura fantasma', 'Deadlock', 'Lectura repetible'],
+    ),
+    dict(
+        topic='Transacciones y control de concurrencia', difficulty=2, bloom_level=1,
+        question_type='opcion_multiple',
+        question_text='¿Qué instrucción SQL deshace los cambios de una transacción que todavía no fue confirmada?',
+        answer_text='ROLLBACK',
+        options=['ROLLBACK', 'COMMIT', 'UNDO', 'CANCEL'],
+    ),
+    dict(
+        topic='Transacciones y control de concurrencia', difficulty=3, bloom_level=3,
+        question_type='desarrollo',
+        question_text='Explicá qué es un bloqueo (lock) en una base de datos y por qué es necesario para el control de concurrencia.',
+        answer_text='Un bloqueo es un mecanismo que impide que dos transacciones modifiquen (o a veces incluso lean) el mismo dato al mismo tiempo, reservando temporalmente el acceso a una fila o tabla para una transacción hasta que termine. Es necesario porque, sin bloqueos, transacciones concurrentes podrían pisarse cambios entre sí o leer datos en un estado intermedio inconsistente.',
+    ),
 ]
 
 BIOLOGIA_TOPICS = [
     ('La célula y sus organelas', 5),
     ('Membrana celular y transporte', 4),
     ('División celular', 4),
+    ('Núcleo y material genético', 4),
 ]
 
 BIOLOGIA_OUTCOMES = [
@@ -305,6 +567,128 @@ BIOLOGIA_QUESTIONS = [
         question_type='desarrollo',
         question_text='Explicá por qué el entrecruzamiento (crossing over) que ocurre durante la meiosis es una fuente importante de variabilidad genética.',
         answer_text='Durante la profase I de la meiosis, los cromosomas homólogos se aparean e intercambian segmentos de material genético entre sus cromátidas no hermanas. Esto genera combinaciones nuevas de alelos en los cromosomas resultantes, distintas tanto de las de la madre como del padre, aumentando la diversidad genética de los gametos producidos.',
+    ),
+    dict(
+        topic='La célula y sus organelas', difficulty=1, bloom_level=1,
+        question_type='verdadero_falso',
+        question_text='Los ribosomas están presentes tanto en células procariotas como en células eucariotas.',
+        answer_text='Verdadero. Los ribosomas son la maquinaria de síntesis de proteínas y están presentes en prácticamente todos los tipos celulares.',
+    ),
+    dict(
+        topic='La célula y sus organelas', difficulty=1, bloom_level=1,
+        question_type='opcion_multiple',
+        question_text='¿Qué organela es responsable de la digestión intracelular mediante enzimas hidrolíticas?',
+        answer_text='Lisosoma',
+        options=['Lisosoma', 'Mitocondria', 'Aparato de Golgi', 'Ribosoma'],
+    ),
+    dict(
+        topic='La célula y sus organelas', difficulty=2, bloom_level=1,
+        question_type='completar_blank',
+        question_text='El ______ es la organela encargada de modificar, empaquetar y distribuir proteínas y lípidos sintetizados en el retículo endoplasmático.',
+        answer_text='Aparato de Golgi',
+    ),
+    dict(
+        topic='La célula y sus organelas', difficulty=2, bloom_level=2,
+        question_type='opcion_multiple',
+        question_text='Además del núcleo, ¿qué otra estructura celular contiene su propio ADN?',
+        answer_text='La mitocondria',
+        options=['La mitocondria', 'El aparato de Golgi', 'El lisosoma', 'El retículo endoplasmático'],
+    ),
+    dict(
+        topic='La célula y sus organelas', difficulty=3, bloom_level=4,
+        question_type='desarrollo',
+        question_text='Explicá la teoría endosimbiótica sobre el origen de las mitocondrias y qué evidencia la sustenta.',
+        answer_text='La teoría endosimbiótica propone que las mitocondrias fueron originalmente bacterias de vida libre que fueron incorporadas por una célula ancestral mayor, estableciendo una relación simbiótica permanente. La evidencia principal es que las mitocondrias tienen su propio ADN circular (similar al bacteriano), se reproducen por división binaria independiente del ciclo celular, y poseen una doble membrana compatible con un origen por fagocitosis.',
+    ),
+    dict(
+        topic='Membrana celular y transporte', difficulty=1, bloom_level=1,
+        question_type='verdadero_falso',
+        question_text='La ósmosis es un caso particular de difusión que involucra específicamente el movimiento de agua a través de una membrana semipermeable.',
+        answer_text='Verdadero.',
+    ),
+    dict(
+        topic='Membrana celular y transporte', difficulty=2, bloom_level=1,
+        question_type='opcion_multiple',
+        question_text='¿Qué modelo describe la estructura de la membrana plasmática como una bicapa lipídica con proteínas que se desplazan lateralmente?',
+        answer_text='Modelo del mosaico fluido',
+        options=['Modelo del mosaico fluido', 'Modelo de la doble hélice', 'Teoría celular', 'Modelo de Bohr'],
+    ),
+    dict(
+        topic='Membrana celular y transporte', difficulty=2, bloom_level=1,
+        question_type='completar_blank',
+        question_text='En la endocitosis, la célula ______ partículas o líquidos del exterior mediante invaginación de la membrana plasmática.',
+        answer_text='incorpora',
+    ),
+    dict(
+        topic='Membrana celular y transporte', difficulty=2, bloom_level=2,
+        question_type='opcion_multiple',
+        question_text='¿Qué tipo de proteína de membrana forma un canal que permite el paso selectivo de iones?',
+        answer_text='Proteína canal',
+        options=['Proteína canal', 'Proteína estructural', 'Enzima digestiva', 'Proteína motora'],
+    ),
+    dict(
+        topic='Membrana celular y transporte', difficulty=3, bloom_level=4,
+        question_type='desarrollo',
+        question_text='Comparar difusión simple y difusión facilitada: ¿en qué se parecen y en qué se diferencian?',
+        answer_text='Ambas son formas de transporte pasivo, es decir, no requieren gasto de energía y ocurren a favor del gradiente de concentración. Se diferencian en que la difusión simple ocurre directamente a través de la bicapa lipídica (solo para moléculas pequeñas y no polares), mientras que la difusión facilitada requiere una proteína de membrana (canal o transportador) para que moléculas más grandes o cargadas, como la glucosa o los iones, puedan atravesar la membrana.',
+    ),
+    dict(
+        topic='División celular', difficulty=1, bloom_level=1,
+        question_type='verdadero_falso',
+        question_text='La citocinesis es la división del citoplasma que ocurre después de la división del núcleo.',
+        answer_text='Verdadero.',
+    ),
+    dict(
+        topic='División celular', difficulty=2, bloom_level=1,
+        question_type='opcion_multiple',
+        question_text='¿En qué fase del ciclo celular se duplica el ADN?',
+        answer_text='Fase S (síntesis)',
+        options=['Fase S (síntesis)', 'Fase G1', 'Fase G2', 'Mitosis'],
+    ),
+    dict(
+        topic='División celular', difficulty=2, bloom_level=1,
+        question_type='completar_blank',
+        question_text='Durante la ______, los cromosomas duplicados se alinean en el plano ecuatorial de la célula antes de separarse hacia los polos.',
+        answer_text='metafase',
+    ),
+    dict(
+        topic='División celular', difficulty=2, bloom_level=2,
+        question_type='opcion_multiple',
+        question_text='¿Cuántas células resultan al finalizar la meiosis, a partir de una única célula original?',
+        answer_text='Cuatro',
+        options=['Cuatro', 'Dos', 'Una', 'Ocho'],
+    ),
+    dict(
+        topic='Núcleo y material genético', difficulty=1, bloom_level=1,
+        question_type='opcion_multiple',
+        question_text='¿Qué estructura nuclear regula el paso de sustancias entre el núcleo y el citoplasma?',
+        answer_text='Poro nuclear',
+        options=['Poro nuclear', 'Nucléolo', 'Cromátida', 'Centrómero'],
+    ),
+    dict(
+        topic='Núcleo y material genético', difficulty=2, bloom_level=2,
+        question_type='verdadero_falso',
+        question_text='La cromatina se condensa en cromosomas visibles al microscopio óptico únicamente durante la división celular.',
+        answer_text='Verdadero. En el resto del ciclo celular, el ADN permanece disperso como cromatina dentro del núcleo.',
+    ),
+    dict(
+        topic='Núcleo y material genético', difficulty=2, bloom_level=1,
+        question_type='completar_blank',
+        question_text='El ______ es la región del núcleo donde se sintetiza el ARN ribosómico.',
+        answer_text='nucléolo',
+    ),
+    dict(
+        topic='Núcleo y material genético', difficulty=1, bloom_level=1,
+        question_type='opcion_multiple',
+        question_text='¿Qué molécula constituye la información genética almacenada en el núcleo de una célula eucariota?',
+        answer_text='ADN',
+        options=['ADN', 'ARN mensajero', 'Proteína', 'ATP'],
+    ),
+    dict(
+        topic='Núcleo y material genético', difficulty=3, bloom_level=4,
+        question_type='desarrollo',
+        question_text='Explicá la diferencia entre eucromatina y heterocromatina en términos de su actividad transcripcional.',
+        answer_text='La eucromatina es cromatina laxa, poco condensada, que resulta accesible para la maquinaria de transcripción — sus genes suelen estar activos. La heterocromatina está muy condensada y compactada, lo que la vuelve inaccesible para esa maquinaria, por lo que sus genes permanecen generalmente inactivos (silenciados).',
     ),
 ]
 
@@ -416,7 +800,19 @@ class Command(BaseCommand):
         return career
 
     def _seed_subject(self, *, institution, seed_user, subject_name, topics, outcomes, questions, career=None):
-        subject, _ = Subject.objects.get_or_create(name=subject_name)
+        # Puede haber más de un Subject con este nombre (ej. una materia real
+        # de un docente creada aparte por clean_seed_subjects, ver
+        # [[project_subject_topic_global_sharing_bug]]) — se identifica la
+        # fila semilla específicamente por is_seed_demo=True, nunca por
+        # nombre a secas (que ya no es único).
+        subject = Subject.objects.filter(name=subject_name, is_seed_demo=True).first()
+        if not subject:
+            subject = Subject.objects.filter(
+                name=subject_name, questions__user__username=seed_user.username
+            ).distinct().first()
+        if not subject:
+            subject = Subject.objects.filter(name=subject_name, is_seed_demo=False).first() \
+                or Subject.objects.create(name=subject_name)
         if not subject.is_seed_demo:
             subject.is_seed_demo = True
             subject.save(update_fields=['is_seed_demo'])
