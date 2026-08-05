@@ -98,7 +98,10 @@ document.addEventListener('DOMContentLoaded', function() {
         var url = '/get-questions-by-topics/?topics=' + selectedTopics.join(',') + '&subject_id=' + subjectId;
 
         fetch(url)
-            .then(function(response) { return response.json(); })
+            .then(function(response) {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
             .then(function(data) {
                 if (currentToken !== questionsFetchToken) return;
                 questionsSelect.innerHTML = '';
@@ -111,6 +114,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 renderQuestionsCheckboxes();
                 window.EXAM_PREFILL_QUESTIONS = null;
+            })
+            .catch(function(err) {
+                console.error('No se pudieron cargar las preguntas de los tópicos elegidos:', err);
             });
     }
 
@@ -355,7 +361,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         // Temas evaluados
         fetch('/get-topics/?subject_id=' + subjectId)
-            .then(function(response) { return response.json(); })
+            .then(function(response) {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
             .then(function(data) {
                 data.forEach(function(topic) {
                     var option = document.createElement('option');
@@ -366,10 +375,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderTopicsCheckboxes();
                 var questionsContainer = document.getElementById('questions_checkbox_container');
                 if (questionsContainer) questionsContainer.innerHTML = '';
+            })
+            .catch(function(err) {
+                console.error('No se pudieron cargar los tópicos:', err);
+                var container = document.getElementById('topics_checkbox_container');
+                if (container) {
+                    container.innerHTML = '<div class="text-danger small">No se pudieron cargar los tópicos. Recargá la página e intentá de nuevo.</div>';
+                }
             });
         // Resultados de aprendizaje como checkboxes
         fetch('/get-learning-outcomes/?subject_id=' + subjectId)
-            .then(function(response) { return response.json(); })
+            .then(function(response) {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
             .then(function(data) {
                 var container = document.getElementById('learning_outcomes_container');
                 var section = document.getElementById('learning_outcomes_section');
@@ -393,6 +412,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 // La sección solo aparece si la materia elegida tiene RAs cargados.
                 if (section) section.classList.toggle('d-none', data.length === 0);
+            })
+            .catch(function(err) {
+                console.error('No se pudieron cargar los resultados de aprendizaje:', err);
             });
     });
 

@@ -132,11 +132,24 @@ def preview_exam(request):
 
     exam['subject'] = subject_obj.name if subject_obj else exam.get('subject')
 
-    topic_ids = [int(t) for t in exam.get('topics', []) if str(t).isdigit()]
+    raw_topics = exam.get('topics', [])
+    topic_ids = [int(t) for t in raw_topics if str(t).isdigit()]
     outcome_ids = [int(o) for o in exam.get('learning_outcomes', []) if str(o).isdigit()]
     manual_question_ids = [int(q) for q in exam.get('questions', []) if str(q).isdigit()]
 
-    selected_topics = Topic.objects.filter(pk__in=topic_ids) if topic_ids else (Topic.objects.filter(subject=subject_obj) if subject_obj else Topic.objects.none())
+    # 'all' es un sentinel explícito, no "no se eligió nada": lo manda a propósito
+    # onboarding_v2_demo_scheme para el examen de ejemplo del asistente ("usar
+    # todos los tópicos de la materia"). Si topic_ids viene vacío por CUALQUIER
+    # otra razón (nadie tocó el checkbox, o el fetch que puebla los checkboxes
+    # falló) NO hay que armar el examen igual con todos los tópicos — eso arma
+    # un examen con preguntas que el usuario nunca eligió, sin avisarle.
+    topics_is_all_sentinel = 'all' in raw_topics
+    if topics_is_all_sentinel:
+        selected_topics = Topic.objects.filter(subject=subject_obj) if subject_obj else Topic.objects.none()
+    elif topic_ids:
+        selected_topics = Topic.objects.filter(pk__in=topic_ids)
+    else:
+        selected_topics = Topic.objects.none()
     topics_texts = list(selected_topics.values_list('name', flat=True))
 
     outcomes_texts = list(LearningOutcome.objects.filter(pk__in=outcome_ids).values_list('description', flat=True)) if outcome_ids else []
@@ -216,6 +229,23 @@ def preview_exam(request):
         })
 
     request.session['preview_generated_versions_ids'] = preview_ids
+
+    # Si no se armó ninguna pregunta en ninguna versión, no tiene sentido
+    # mostrar un preview vacío como si el examen se hubiera generado bien —
+    # sobre todo porque puede pasar en silencio (ej. no se eligió ningún
+    # tópico). Mejor volver a Crear Examen con un aviso claro.
+    total_questions_all_versions = sum(len(ids) for ids in preview_ids)
+    if total_questions_all_versions == 0:
+        if not selected_topics.exists() and not manual_question_ids:
+            reason = 'No se seleccionó ningún tópico ni pregunta para armar el examen.'
+        else:
+            reason = 'No se encontraron preguntas disponibles para los tópicos/preguntas seleccionados.'
+        messages.warning(
+            request,
+            f'{reason} Elegí al menos un tópico (o preguntas puntuales) antes de generar el examen.',
+            extra_tags='general',
+        )
+        return redirect('material:create_exam')
 
     is_multiversion = len(versions_preview) > 1
     print_preview = request.GET.get('print') == '1'

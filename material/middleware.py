@@ -25,6 +25,14 @@ ALLOWED_PREFIXES = (
     '/media/',
     '/health/',
     '/sw.js',
+    # Endpoints AJAX de solo lectura (poblar dropdowns/checkboxes: tópicos,
+    # subtópicos, facultades, carreras, resultados de aprendizaje, etc.) que
+    # usan las propias páginas ya permitidas de arriba (ej. create_exam.js
+    # llama a /get-topics/). Sin esto, el fetch() recibía este mismo redirect
+    # en vez de JSON y fallaba en silencio — el tópico/materia elegido nunca
+    # se poblaba, aunque la página en sí sí cargaba.
+    '/get-',
+    '/get_',
 )
 
 
