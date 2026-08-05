@@ -1,39 +1,27 @@
 # ONBOARDING WIZARD V2 — ROLLBACK: eliminar este archivo y quitarlo de MIDDLEWARE en settings.py
 """
-Mantiene "encerrado" en el asistente de configuración a un usuario que todavía
-no lo completó ni salió explícitamente: cualquier otra pantalla del sistema
-redirige a /comenzar/. Se libera al terminar el asistente de verdad
-(onboarding_v2_finish) o al salir a propósito ("Saltar asistente" /
-"Salir del asistente", ambos marcan onboarding_completed=True).
+Invita a un usuario que todavía no completó (ni salió de) el asistente de
+configuración a terminarlo, redirigiéndolo a /comenzar/ solo cuando entra a
+Inicio (la home, '/') — el resto del sistema queda con funcionalidad normal
+sin bloquear nada.
+
+Antes este middleware "encerraba" al usuario: cualquier página que no
+estuviera en una lista de excepciones lo mandaba de vuelta al asistente,
+reiniciado desde el paso 1 (mala experiencia — se sentía como perder el
+progreso, aunque los datos ya guardados de institución/materia/contenido no
+se perdían realmente). Ahora solo se lo invita una vez, al entrar a Inicio;
+si navega a cualquier otra pantalla (sidebar, links, etc.) tiene el sistema
+completo disponible, y puede volver a terminar el asistente cuando quiera
+desde ahí.
+
+Se libera del todo (onboarding_completed=True) al terminar el asistente de
+verdad (onboarding_v2_finish) o al salir a propósito ("Saltar asistente" /
+"Salir del asistente").
 """
 from django.shortcuts import redirect
 
-# Prefijos de URL que un usuario con el wizard pendiente puede seguir usando:
-# la SPA del asistente y sus endpoints, más las páginas reales a las que el
-# propio asistente te manda en los pasos 5 y 6 (generar preguntas, crear examen).
-ALLOWED_PREFIXES = (
-    '/comenzar/',
-    '/onboarding/',
-    '/doc-processor/',
-    '/create-exam/',
-    '/save-exam/',
-    '/preview-exam/',
-    '/configuracion-ia/',
-    '/accounts/',
-    '/admin/',
-    '/static/',
-    '/media/',
-    '/health/',
-    '/sw.js',
-    # Endpoints AJAX de solo lectura (poblar dropdowns/checkboxes: tópicos,
-    # subtópicos, facultades, carreras, resultados de aprendizaje, etc.) que
-    # usan las propias páginas ya permitidas de arriba (ej. create_exam.js
-    # llama a /get-topics/). Sin esto, el fetch() recibía este mismo redirect
-    # en vez de JSON y fallaba en silencio — el tópico/materia elegido nunca
-    # se poblaba, aunque la página en sí sí cargaba.
-    '/get-',
-    '/get_',
-)
+# Único punto de entrada que dispara la invitación al asistente.
+INDEX_PATH = '/'
 
 
 class OnboardingGateMiddleware:
@@ -46,7 +34,7 @@ class OnboardingGateMiddleware:
             user is not None
             and user.is_authenticated
             and not user.is_staff
-            and not request.path.startswith(ALLOWED_PREFIXES)
+            and request.path == INDEX_PATH
         ):
             try:
                 completed = user.profile.onboarding_completed
