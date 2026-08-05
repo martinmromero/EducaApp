@@ -360,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
             questionsSelect.innerHTML = '';
         }
         // Temas evaluados
-        fetch('/get-topics/?subject_id=' + subjectId)
+        fetch('/get-topics/?subject_id=' + subjectId + '&for_exam=1')
             .then(function(response) {
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 return response.json();

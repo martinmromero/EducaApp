@@ -464,8 +464,45 @@ LearningOutcomeFormSet = inlineformset_factory(
 
 
 def get_topics(request):
+    """
+    Materia y Tópico son globales por nombre (Subject/Topic no están
+    scopeados por usuario) — cualquier docente que use el mismo nombre de
+    materia comparte el mismo Subject, y ve los tópicos que OTROS docentes
+    hayan creado ahí (ej. el nombre de un documento que subieron). Pero las
+    Question sí son por usuario (ver content_visibility.get_visible_questions):
+    solo se ven las propias, más semilla/compartidas si corresponde.
+
+    Sin filtrar, un docente nuevo veía en "Crear Examen" tópicos de otros
+    usuarios sin ninguna pregunta suya disponible ahí — los elegía, tildaba
+    "Todo", y el examen le salía vacío para esos tópicos, sin ningún aviso.
+
+    `for_exam=1` (usado por create_exam.js y oral_exams/create.html, donde
+    el objetivo es "dame preguntas ya cargadas") filtra a solo los tópicos
+    que tienen AL MENOS una pregunta visible para este usuario. Sin ese
+    parámetro (usado por upload_questions.html, donde el objetivo es
+    "categorizar contenido nuevo mío") se listan todos los tópicos de la
+    materia sin filtrar — ahí sí tiene sentido reutilizar un tópico que hoy
+    está "vacío" para este usuario, porque le está por sumar contenido.
+    """
     subject_id = request.GET.get('subject_id')
-    topics = Topic.objects.filter(subject_id=subject_id).distinct().values('id', 'name')
+    topics_qs = Topic.objects.filter(subject_id=subject_id).distinct()
+
+    if request.GET.get('for_exam') == '1' and request.user.is_authenticated:
+        from .content_visibility import get_visible_questions, EXAM_ELIGIBLE_Q
+        subject_obj = Subject.objects.filter(pk=subject_id).first()
+        if subject_obj:
+            # Mismo include_seed que va a usar save_exam_from_session/preview_exam
+            # al generar de verdad (ver _collect_exam_post_data) — si acá se
+            # usara siempre True, un tópico que solo tiene preguntas semilla
+            # aparecería como "disponible" aunque el usuario no haya activado
+            # esa preferencia, y el examen le saldría vacío igual para ese caso.
+            include_seed = bool(request.session.get('onb2_include_seed'))
+            visible_topic_ids = get_visible_questions(
+                request.user, subject=subject_obj, include_seed=include_seed
+            ).filter(EXAM_ELIGIBLE_Q).values_list('topic_id', flat=True).distinct()
+            topics_qs = topics_qs.filter(pk__in=visible_topic_ids)
+
+    topics = topics_qs.values('id', 'name')
     return JsonResponse(list(topics), safe=False)
 
 def get_subtopics(request):

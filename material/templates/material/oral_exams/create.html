@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // FUNCIONES DE MANEJO DE EVENTOS
     function loadTopicsForSubject(subjectId) {
-        fetch(`{% url 'material:get_topics' %}?subject_id=${subjectId}`)
+        fetch(`{% url 'material:get_topics' %}?subject_id=${subjectId}&for_exam=1`)
             .then(response => response.json())
             .then(data => {
                 topicsContainer.innerHTML = '';
