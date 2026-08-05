@@ -307,11 +307,44 @@ class CustomLoginForm(AuthenticationForm):
 class UserEditForm(forms.ModelForm):
     role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, label="Rol",
                             widget=forms.Select(attrs={'class': 'form-control'}), required=False)
+    reset_onboarding = forms.BooleanField(
+        required=False,
+        label="Reiniciar onboarding",
+        help_text="La próxima vez que entre, lo manda al asistente de configuración como si fuera su primer ingreso.",
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+    change_password = forms.BooleanField(
+        required=False,
+        label="Cambiar contraseña",
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input', 'id': 'id_change_password'}),
+    )
+    new_password1 = forms.CharField(
+        required=False, label="Nueva contraseña",
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+    )
+    new_password2 = forms.CharField(
+        required=False, label="Confirmar nueva contraseña",
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+    )
+
     def clean(self):
         cleaned_data = super().clean()
         # Si el campo 'role' no viene en el POST, asignar el actual
         if not cleaned_data.get('role') and self.instance and hasattr(self.instance, 'profile'):
             cleaned_data['role'] = self.instance.profile.role
+        if cleaned_data.get('change_password'):
+            p1 = cleaned_data.get('new_password1')
+            p2 = cleaned_data.get('new_password2')
+            if not p1:
+                self.add_error('new_password1', 'Ingresá la nueva contraseña.')
+            elif p1 != p2:
+                self.add_error('new_password2', 'Las contraseñas no coinciden.')
+            else:
+                from django.contrib.auth.password_validation import validate_password
+                try:
+                    validate_password(p1, user=self.instance)
+                except ValidationError as e:
+                    self.add_error('new_password1', e)
         return cleaned_data
     # CANDIDATO A BORRAR (auditoría 2026-08-03, ver memoria
     # project_institution_v1_cleanup): existió acá un campo "institutions"
@@ -344,12 +377,74 @@ class UserEditForm(forms.ModelForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
+        if self.cleaned_data.get('change_password') and self.cleaned_data.get('new_password1'):
+            user.set_password(self.cleaned_data['new_password1'])
         if commit:
             user.save()
             if hasattr(user, 'profile'):
                 user.profile.role = self.cleaned_data['role']
+                if self.cleaned_data.get('reset_onboarding'):
+                    user.profile.onboarding_completed = False
                 user.profile.save()
         return user
+
+class UserCreateForm(forms.ModelForm):
+    """Alta de usuario desde el panel de administración (sin pasar por Django Admin)."""
+    role = forms.ChoiceField(
+        choices=Profile.ROLE_CHOICES, label="Rol", initial='user',
+        widget=forms.Select(attrs={'class': 'form-control'}),
+    )
+    new_password1 = forms.CharField(
+        label="Contraseña inicial",
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        help_text="El usuario puede cambiarla después desde Mis Datos.",
+    )
+    new_password2 = forms.CharField(
+        label="Confirmar contraseña",
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'email', 'is_active', 'role']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['is_active'].initial = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        p1 = cleaned_data.get('new_password1')
+        p2 = cleaned_data.get('new_password2')
+        if p1 and p2 and p1 != p2:
+            self.add_error('new_password2', 'Las contraseñas no coinciden.')
+        elif p1:
+            from django.contrib.auth.password_validation import validate_password
+            try:
+                validate_password(p1)
+            except ValidationError as e:
+                self.add_error('new_password1', e)
+        return cleaned_data
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data['new_password1'])
+        if commit:
+            user.save()
+            # El signal post_save ya crea el Profile con onboarding_completed=False
+            # (usuario nuevo entra directo al asistente en su primer login) —
+            # solo hace falta setear el rol elegido acá.
+            user.profile.role = self.cleaned_data['role']
+            user.profile.save()
+        return user
+
 
 class UserSelfEditForm(forms.ModelForm):
     class Meta:

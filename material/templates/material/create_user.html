@@ -1,0 +1,45 @@
+{% extends 'material/base.html' %}
+{% load message_tags %}
+{% block page_title %}<i class="bi bi-person-plus me-2"></i>Nuevo usuario{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% show_messages "usuarios" %}
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            {{ form.username.label_tag }} {{ form.username }}
+            {% if form.username.errors %}<div class="text-danger small">{{ form.username.errors|join:", " }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            {{ form.first_name.label_tag }} {{ form.first_name }}
+        </div>
+        <div class="mb-3">
+            {{ form.last_name.label_tag }} {{ form.last_name }}
+        </div>
+        <div class="mb-3">
+            {{ form.email.label_tag }} {{ form.email }}
+        </div>
+        <div class="form-check mb-3">
+            {{ form.is_active }} {{ form.is_active.label_tag }}
+        </div>
+        <div class="mb-3">
+            {{ form.role.label_tag }} {{ form.role }}
+        </div>
+
+        <hr>
+        <div class="mb-3">
+            {{ form.new_password1.label_tag }} {{ form.new_password1 }}
+            {% if form.new_password1.errors %}<div class="text-danger small">{{ form.new_password1.errors|join:", " }}</div>{% endif %}
+            <div class="form-text">{{ form.new_password1.help_text }}</div>
+        </div>
+        <div class="mb-3">
+            {{ form.new_password2.label_tag }} {{ form.new_password2 }}
+            {% if form.new_password2.errors %}<div class="text-danger small">{{ form.new_password2.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-primary">Crear usuario</button>
+        <a href="{% url 'material:user_list' %}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

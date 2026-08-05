@@ -415,7 +415,7 @@ from .models import Favorite
 from django.contrib.contenttypes.models import ContentType
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
-    UserEditForm, UserSelfEditForm, ContenidoForm,
+    UserEditForm, UserCreateForm, UserSelfEditForm, ContenidoForm,
     LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm,
     OralExamForm, FormatoImpresionForm
 )
@@ -2182,6 +2182,19 @@ def signup(request):
 def user_list(request):
     users = User.objects.all()
     return render(request, 'material/user_list.html', {'users': users})
+
+@login_required
+@user_passes_test(is_admin, login_url='/')
+def create_user(request):
+    if request.method == 'POST':
+        form = UserCreateForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Usuario creado correctamente.', extra_tags='usuarios')
+            return redirect('material:user_list')
+    else:
+        form = UserCreateForm()
+    return render(request, 'material/create_user.html', {'form': form})
 
 @login_required
 @user_passes_test(is_admin, login_url='/')

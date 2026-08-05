@@ -22,6 +22,7 @@ urlpatterns = [
     path('exam-templates/save/', material_views.save_exam_template, name='save_exam_template'),
     path('signup/', material_views.signup, name='signup'),
     path('users/', material_views.user_list, name='user_list'),
+    path('users/nuevo/', material_views.create_user, name='create_user'),
     path('users/edit/<int:user_id>/', material_views.edit_user, name='edit_user'),
     path('users/delete/<int:user_id>/', material_views.delete_user, name='delete_user'),
     path('mis-datos/', material_views.mis_datos, name='mis_datos'),

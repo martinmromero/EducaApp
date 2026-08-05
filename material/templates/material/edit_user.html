@@ -1,5 +1,6 @@
 {% extends 'material/base.html' %}
 {% load message_tags %}
+{% block page_title %}<i class="bi bi-person-gear me-2"></i>Editar usuario{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -19,8 +20,8 @@
         <div class="mb-3">
             {{ form.email.label_tag }} {{ form.email }}
         </div>
-        <div class="mb-3">
-            {{ form.is_active.label_tag }} {{ form.is_active }}
+        <div class="form-check mb-3">
+            {{ form.is_active }} {{ form.is_active.label_tag }}
         </div>
         <!-- Mostrar el campo de rol solo si el usuario que edita es administrador -->
         {% if request.user.profile.role == 'admin' %}
@@ -28,8 +29,41 @@
                 {{ form.role.label_tag }} {{ form.role }}
             </div>
         {% endif %}
+
+        <hr>
+        <div class="form-check mb-2">
+            {{ form.reset_onboarding }} {{ form.reset_onboarding.label_tag }}
+        </div>
+        <div class="form-text mb-3">{{ form.reset_onboarding.help_text }}</div>
+
+        <hr>
+        <div class="form-check mb-2">
+            {{ form.change_password }} {{ form.change_password.label_tag }}
+        </div>
+        <div id="passwordFields" class="d-none">
+            <div class="mb-3">
+                {{ form.new_password1.label_tag }} {{ form.new_password1 }}
+                {% if form.new_password1.errors %}<div class="text-danger small">{{ form.new_password1.errors|join:", " }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                {{ form.new_password2.label_tag }} {{ form.new_password2 }}
+                {% if form.new_password2.errors %}<div class="text-danger small">{{ form.new_password2.errors|join:", " }}</div>{% endif %}
+            </div>
+        </div>
+
         <button type="submit" class="btn btn-primary">Guardar cambios</button>
         <a href="{% url 'material:user_list' %}" class="btn btn-secondary">Cancelar</a>
     </form>
 </div>
+<script>
+    (function () {
+        var checkbox = document.getElementById('id_change_password');
+        var fields = document.getElementById('passwordFields');
+        function sync() {
+            fields.classList.toggle('d-none', !checkbox.checked);
+        }
+        checkbox.addEventListener('change', sync);
+        sync();
+    })();
+</script>
 {% endblock %}
