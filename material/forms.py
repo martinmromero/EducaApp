@@ -592,7 +592,9 @@ class SubjectForm(forms.ModelForm):
 
 class CareerForm(forms.ModelForm):
     institution = forms.ModelChoiceField(
-        queryset=InstitutionV2.objects.all(),
+        # Institución semilla (ver seed_demo_content) excluida: solo debe
+        # verse en el esquema de ejemplo del asistente de onboarding.
+        queryset=InstitutionV2.objects.filter(is_seed_demo=False),
         widget=forms.Select(attrs={'class': 'form-select'}),
         label="Institución",
         required=False,
@@ -633,7 +635,8 @@ class CareerForm(forms.ModelForm):
         # Inicialmente, vaciar los querysets dependientes
         self.fields['faculties'].queryset = FacultyV2.objects.none()
         self.fields['campus'].queryset = CampusV2.objects.none()
-        
+        self.fields['subjects'].queryset = Subject.objects.filter(is_seed_demo=False)
+
         # Si hay institución seleccionada, filtrar
         if 'institution' in self.data:
             try:
@@ -838,7 +841,7 @@ class FormatoImpresionForm(forms.ModelForm):
 
     scope = forms.ChoiceField(choices=SCOPE_CHOICES, label='Alcance')
     institution = forms.ModelChoiceField(
-        queryset=InstitutionV2.objects.filter(is_active=True).order_by('name'),
+        queryset=InstitutionV2.objects.filter(is_active=True, is_seed_demo=False).order_by('name'),
         required=False,
         label='Institución',
         empty_label='Seleccione una institución'

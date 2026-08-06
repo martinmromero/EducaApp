@@ -37,6 +37,11 @@ class InstitutionV2(models.Model):
         verbose_name="Activa",
         help_text="Indica si la institución está activa en el sistema"
     )
+    # Institución del contenido semilla (ver seed_demo_content) — solo debe
+    # aparecer en el esquema de ejemplo del asistente de onboarding, nunca
+    # en los selectores de uso normal (Crear Examen, Formatos de Impresión,
+    # etc.). Ver [[project_include_seed_missing_across_endpoints]].
+    is_seed_demo = models.BooleanField(default=False)
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Fecha de creación"
@@ -1043,6 +1048,10 @@ class Career(models.Model):
         verbose_name="Campus",
         related_name="career_campuses"  # related_name único
     )
+    # Carrera del contenido semilla (ver seed_demo_content) — mismo criterio
+    # que InstitutionV2.is_seed_demo: solo debe verse en el esquema de
+    # ejemplo del asistente, nunca en los selectores de uso normal.
+    is_seed_demo = models.BooleanField(default=False)
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Fecha de creación"

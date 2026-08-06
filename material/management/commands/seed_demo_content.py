@@ -779,6 +779,16 @@ class Command(BaseCommand):
             primary, secondary = crest_colors or ('#1c3d5a', '#d4af37')
             institucion.logo_b64 = _fake_crest_svg(crest_initials, primary, secondary)
             institucion.save(update_fields=['logo_b64'])
+        # A diferencia de Subject (donde ocultar la fila esconde también las
+        # Question/Topic reales de otro usuario que haya compartido nombre),
+        # una InstitutionV2 no acumula contenido propio de otros — como
+        # mucho, alguien tiene una UserInstitution vieja apuntando acá (p.ej.
+        # una cuenta de prueba que pasó por el wizard antes de este fix).
+        # Perder esta institución del selector no le borra nada; se marca
+        # semilla siempre, sin ese chequeo conservador.
+        if not institucion.is_seed_demo:
+            institucion.is_seed_demo = True
+            institucion.save(update_fields=['is_seed_demo'])
         return institucion
 
     def _get_campus(self, institution, name):
@@ -797,6 +807,11 @@ class Command(BaseCommand):
         career, _ = Career.objects.get_or_create(name=name)
         career.faculties.add(*faculties)
         career.campus.add(*campuses)
+        # Mismo criterio conservador que _get_institution: si ya tiene alguna
+        # materia real (no semilla) vinculada, no la marcamos semilla.
+        if not career.is_seed_demo and not career.subjects.filter(is_seed_demo=False).exists():
+            career.is_seed_demo = True
+            career.save(update_fields=['is_seed_demo'])
         return career
 
     def _seed_subject(self, *, institution, seed_user, subject_name, topics, outcomes, questions, career=None):

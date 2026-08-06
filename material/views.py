@@ -391,7 +391,7 @@ def get_questions_by_topics(request):
 @require_GET
 def get_careers_by_faculty(request, faculty_id):
     from .models import Career, FacultyV2
-    careers = Career.objects.filter(faculties__id=faculty_id).distinct()
+    careers = Career.objects.filter(faculties__id=faculty_id, is_seed_demo=False).distinct()
     data = [{'id': c.id, 'name': c.name} for c in careers]
     return JsonResponse({'careers': data})
 # Standard library imports
@@ -528,15 +528,17 @@ def get_subtopics(request):
 def get_faculties(request):
     institution_id = request.GET.get('institution_id')
     faculties = FacultyV2.objects.filter(
-        institution_id=institution_id, 
-        is_active=True
+        institution_id=institution_id,
+        is_active=True,
+        institution__is_seed_demo=False,
     ).values('id', 'name').order_by('name')
     return JsonResponse(list(faculties), safe=False)
 
 def get_campus_by_institution(request):
     institution_id = request.GET.get('institution_id')
     campus = CampusV2.objects.filter(
-        institution_id=institution_id
+        institution_id=institution_id,
+        institution__is_seed_demo=False,
     ).values('id', 'name').order_by('name')
     return JsonResponse(list(campus), safe=False)
 
@@ -1191,10 +1193,17 @@ def create_exam(request):
     if not is_demo_peek:
         request.session.pop('onb2_demo_scheme_active', None)
 
+    # Institución/Carrera del contenido semilla (ver seed_demo_content) solo
+    # deben aparecer seleccionables en el vistazo de solo lectura del
+    # asistente (?demo_peek=1, donde el prefill necesita encontrarlas entre
+    # las opciones) — nunca en el uso normal de Crear Examen.
     instituciones = InstitutionV2.objects.filter(is_active=True)
     facultades = FacultyV2.objects.filter(is_active=True)
     carreras = Career.objects.all()
     sedes = CampusV2.objects.filter(is_active=True)
+    if not is_demo_peek:
+        instituciones = instituciones.filter(is_seed_demo=False)
+        carreras = carreras.filter(is_seed_demo=False)
     materias = Subject.objects.filter(is_seed_demo=False)
     profesores = User.objects.filter(profile__role='admin') | User.objects.filter(profile__role='user')
     templates = ExamTemplate.objects.all()
@@ -1223,6 +1232,14 @@ def create_exam(request):
         return redirect('material:create_exam')
 
     form = ExamForm()
+    # ExamForm.subject viene del FK del modelo (sin límite propio), a
+    # diferencia de ContenidoForm/QuestionForm que sí filtran is_seed_demo —
+    # sin esto, las materias semilla (solo pensadas para el esquema de
+    # ejemplo del asistente) aparecían seleccionables en Crear Examen para
+    # cualquier usuario real. En el vistazo de solo lectura (?demo_peek=1)
+    # se necesita la materia semilla en las opciones para que el prefill la
+    # muestre seleccionada.
+    form.fields['subject'].queryset = Subject.objects.all() if is_demo_peek else Subject.objects.filter(is_seed_demo=False)
 
     import json as _json
     prefill_data = request.session.get('preview_exam') or {}
@@ -3743,10 +3760,13 @@ def institution_v2_list(request):
     try:
         ensure_logo_b64_column()
 
-        # Filtrar solo instituciones activas (is_active=True)
+        # Filtrar solo instituciones activas (is_active=True), sin las
+        # institución(es) semilla (si el usuario pasó por el esquema ya
+        # armado del asistente, queda una UserInstitution apuntando ahí).
         institutions = InstitutionV2.objects.filter(
             userinstitution__user=request.user,
-            is_active=True  # Solo mostrar instituciones activas
+            is_active=True,  # Solo mostrar instituciones activas
+            is_seed_demo=False,
         )
 
         if name_query:
@@ -4377,7 +4397,7 @@ CAREER_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in CAREER_FIL
 
 @login_required
 def career_list(request):
-    careers = Career.objects.all().prefetch_related('faculties', 'campus', 'subjects')
+    careers = Career.objects.filter(is_seed_demo=False).prefetch_related('faculties', 'campus', 'subjects')
 
     selected_filters = get_selected_filters(request, CAREER_FILTER_FIELDS)
     filter_options = get_filter_options(careers, CAREER_FILTER_FIELDS, selected_filters)
@@ -4696,7 +4716,13 @@ def get_faculties_by_institution(request, institution_id):
     """
     print(f"get_faculties_by_institution called with institution_id: {institution_id}")  # DEBUG
     try:
-        faculties = FacultyV2.objects.filter(institution_id=institution_id).values('id', 'name')
+        faculties = FacultyV2.objects.filter(institution_id=institution_id)
+        # Facultad semilla excluida salvo en el vistazo de solo lectura del
+        # asistente (?demo_peek=1), donde la institución elegida es
+        # justamente la semilla y necesita mostrar su facultad de ejemplo.
+        if not request.session.get('onb2_demo_scheme_active'):
+            faculties = faculties.filter(institution__is_seed_demo=False)
+        faculties = faculties.values('id', 'name')
         print(f"Faculties found: {faculties}")  # DEBUG
         return JsonResponse({'faculties': list(faculties)})
     except Exception as e:
@@ -4709,7 +4735,10 @@ def get_campuses_by_institution(request, institution_id):
     """
     print(f"get_campuses_by_institution called with institution_id: {institution_id}")  # DEBUG
     try:
-        campuses = CampusV2.objects.filter(institution_id=institution_id).values('id', 'name')
+        campuses = CampusV2.objects.filter(institution_id=institution_id)
+        if not request.session.get('onb2_demo_scheme_active'):
+            campuses = campuses.filter(institution__is_seed_demo=False)
+        campuses = campuses.values('id', 'name')
         print(f"Campuses found: {campuses}")  # DEBUG
         return JsonResponse({'campuses': list(campuses)})
     except Exception as e:
@@ -6567,7 +6596,7 @@ def institution_ai_config_view(request):
     configs = InstitutionAIConfig.objects.select_related('institution').order_by('institution__name')
     configured_ids = configs.values_list('institution_id', flat=True)
     available_institutions = InstitutionV2.objects.filter(
-        is_active=True
+        is_active=True, is_seed_demo=False
     ).exclude(pk__in=configured_ids).order_by('name')
 
     return render(request, 'material/institution_ai_config.html', {

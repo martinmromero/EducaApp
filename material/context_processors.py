@@ -47,9 +47,12 @@ def onboarding_context(request):
     if not is_wizard_page:
         return base_ctx
 
-    # Todas las instituciones activas (para el selector)
+    # Todas las instituciones activas (para el selector) — se excluyen las
+    # institución(es) semilla (ver seed_demo_content): existen solo para el
+    # examen de ejemplo de "esquema ya armado", no para que un docente real
+    # las elija como su propia institución en el paso manual del wizard.
     all_institutions = list(
-        InstitutionV2.objects.filter(is_active=True).order_by('name').values('id', 'name')
+        InstitutionV2.objects.filter(is_active=True, is_seed_demo=False).order_by('name').values('id', 'name')
     )
 
     # Instituciones ya vinculadas al usuario
