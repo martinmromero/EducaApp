@@ -227,6 +227,11 @@ function toggleBloom() {
                     title: 'Guardar examen',
                     description: 'Guardar para continuar el ejemplo.',
                     side: 'top',
+                    // Último paso: al hacer clic en "Listo" se fuerza la
+                    // misma acción que el clic real en "Guardar Examen".
+                    onNextClick: function () {
+                        document.getElementById('examSaveBtn')?.click();
+                    },
                 },
             },
         ];

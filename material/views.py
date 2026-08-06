@@ -1159,6 +1159,13 @@ def create_exam(request):
         request.session['onb2_wizard_active'] = True
     elif not is_demo_peek:
         request.session.pop('onb2_wizard_active', None)
+        # onb2_include_seed también se limpia acá, salvo en el vistazo demo:
+        # en el wizard manual (?wizard=1) lo pudo haber activado el propio
+        # usuario en el paso 3/6 (ver onboarding_save_step, step=seed_pref) y
+        # todavía lo necesita más abajo, al guardar; en navegación normal
+        # (sin wizard ni demo_peek) no debe quedar pegado de una vuelta
+        # anterior.
+        request.session.pop('onb2_include_seed', None)
     wizard_active = request.session.get('onb2_wizard_active', False)
     # Crear Examen es siempre un examen REAL — nunca el ejemplo enlatado del
     # asistente (ver onboarding_v2_demo_scheme), aunque venga con ?wizard=1
@@ -5861,6 +5868,13 @@ def onboarding_v2_demo_scheme(request):
     # real, para no ensuciar la cuenta del usuario con un Exam real antes de
     # que arme algo propio.
     request.session['onb2_demo_scheme_active'] = True
+    # get_topics?for_exam=1 (usado por create_exam.js en el vistazo de
+    # ?demo_peek=1) filtra tópicos por preguntas VISIBLES para este usuario,
+    # y solo cuenta preguntas semilla si esta marca está activa — sin
+    # setearla acá, el vistazo de Crear Examen mostraba tópicos y preguntas
+    # vacíos (ninguna pregunta del ejemplo es "propia" de este usuario, son
+    # todas del bot de contenido semilla).
+    request.session['onb2_include_seed'] = True
     return redirect('material:onboarding_v2_demo_recap')
 
 

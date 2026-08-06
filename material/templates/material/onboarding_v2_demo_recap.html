@@ -9,26 +9,32 @@
         ya está todo listo — a continuación, cada paso señala el lugar real donde ocurre en la aplicación:
     </p>
 
-    <!-- Tira compacta de progreso (no una lista alta de tarjetas): así ocupa
-         poco alto y no compite por el mismo espacio en pantalla que los
-         popovers del recorrido (side: 'right', anclados al sidebar). Queda
-         visible y actualizándose durante todo el recorrido, no solo al final. -->
-    <div class="d-flex flex-wrap gap-2 mb-4" id="recapChecklist">
-        <span class="badge rounded-pill text-bg-light border d-inline-flex align-items-center gap-2 py-2 px-3 recap-chip" id="recapItem1">
-            <i class="bi bi-circle recap-check-icon"></i>Institución y materia
-        </span>
-        <span class="badge rounded-pill text-bg-light border d-inline-flex align-items-center gap-2 py-2 px-3 recap-chip" id="recapItem2">
-            <i class="bi bi-circle recap-check-icon"></i>Tópico asignado
-        </span>
-        <span class="badge rounded-pill text-bg-light border d-inline-flex align-items-center gap-2 py-2 px-3 recap-chip" id="recapItem3">
-            <i class="bi bi-circle recap-check-icon"></i>{{ questions_count }} preguntas generadas
-        </span>
-        <span class="badge rounded-pill text-bg-light border d-inline-flex align-items-center gap-2 py-2 px-3 recap-chip" id="recapItem4">
-            <i class="bi bi-circle recap-check-icon"></i>{{ approved_count }} aprobadas
-        </span>
-        <span class="badge rounded-pill text-bg-light border d-inline-flex align-items-center gap-2 py-2 px-3 recap-chip" id="recapItem5">
-            <i class="bi bi-circle recap-check-icon"></i>Examen armado
-        </span>
+    <!-- Stepper numerado: el paso resaltado por driver.js en cada momento
+         queda marcado en azul y agrandado (recap-step-active), y los ya
+         recorridos en verde con un check (recap-step-done) — más visible
+         que la tira de chips chicos que tenía antes, sin dejar de convivir
+         con los popovers del recorrido (side: 'right', anclados al sidebar). -->
+    <div class="recap-stepper mb-4" id="recapChecklist">
+        <div class="recap-step" id="recapItem1">
+            <div class="recap-step-circle"><span class="recap-step-num">1</span><i class="bi bi-check-lg recap-step-check d-none"></i></div>
+            <div class="recap-step-label">Institución y materia</div>
+        </div>
+        <div class="recap-step" id="recapItem2">
+            <div class="recap-step-circle"><span class="recap-step-num">2</span><i class="bi bi-check-lg recap-step-check d-none"></i></div>
+            <div class="recap-step-label">Tópico asignado</div>
+        </div>
+        <div class="recap-step" id="recapItem3">
+            <div class="recap-step-circle"><span class="recap-step-num">3</span><i class="bi bi-check-lg recap-step-check d-none"></i></div>
+            <div class="recap-step-label">{{ questions_count }} preguntas generadas</div>
+        </div>
+        <div class="recap-step" id="recapItem4">
+            <div class="recap-step-circle"><span class="recap-step-num">4</span><i class="bi bi-check-lg recap-step-check d-none"></i></div>
+            <div class="recap-step-label">{{ approved_count }} aprobadas</div>
+        </div>
+        <div class="recap-step" id="recapItem5">
+            <div class="recap-step-circle"><span class="recap-step-num">5</span><i class="bi bi-check-lg recap-step-check d-none"></i></div>
+            <div class="recap-step-label">Examen armado</div>
+        </div>
     </div>
 
     <div class="d-flex flex-wrap gap-2">
@@ -42,6 +48,64 @@
     </div>
 </div>
 
+<style>
+.recap-stepper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px 10px;
+}
+.recap-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 122px;
+}
+.recap-step-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.05rem;
+    border: 2px solid #adb5bd;
+    color: #adb5bd;
+    background: transparent;
+    transition: background-color .25s ease, border-color .25s ease, color .25s ease, transform .25s ease, box-shadow .25s ease;
+}
+.recap-step-label {
+    margin-top: 8px;
+    font-size: .8rem;
+    color: #adb5bd;
+    font-weight: 500;
+    transition: color .25s ease, font-weight .25s ease;
+}
+.recap-step-done .recap-step-circle {
+    background: #198754;
+    border-color: #198754;
+    color: #fff;
+}
+.recap-step-done .recap-step-label {
+    color: inherit;
+}
+.recap-step-active .recap-step-circle {
+    background: #0d6efd;
+    border-color: #0d6efd;
+    color: #fff;
+    transform: scale(1.18);
+    box-shadow: 0 0 0 5px rgba(13, 110, 253, .25);
+}
+.recap-step-active .recap-step-label {
+    color: #0d6efd;
+    font-weight: 700;
+}
+@media (prefers-reduced-motion: reduce) {
+    .recap-step-circle { transition: none; }
+}
+</style>
+
 <script>
 (function () {
     var STEP_ITEMS = ['recapItem1', 'recapItem2', 'recapItem3', 'recapItem4', 'recapItem5'];
@@ -49,14 +113,30 @@
     function markChecked(itemId) {
         var item = document.getElementById(itemId);
         if (!item) return;
-        var icon = item.querySelector('.recap-check-icon');
-        if (icon) icon.className = 'bi bi-check-circle-fill recap-check-icon';
-        item.classList.remove('text-bg-light');
-        item.classList.add('text-bg-success');
+        item.classList.remove('recap-step-active');
+        item.classList.add('recap-step-done');
+        var num = item.querySelector('.recap-step-num');
+        var check = item.querySelector('.recap-step-check');
+        if (num) num.classList.add('d-none');
+        if (check) check.classList.remove('d-none');
     }
 
     function markAllChecked() {
         STEP_ITEMS.forEach(markChecked);
+    }
+
+    // Paso "actual" mientras el popover de driver.js sigue abierto (todavía
+    // no se avanzó): se agranda y resalta en azul, distinto del check verde
+    // que marca los pasos ya completados.
+    function setActiveStep(itemId) {
+        STEP_ITEMS.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.remove('recap-step-active');
+        });
+        var item = document.getElementById(itemId);
+        if (item && !item.classList.contains('recap-step-done')) {
+            item.classList.add('recap-step-active');
+        }
     }
 
     function expandMenu(menuId) {
@@ -80,6 +160,12 @@
                 driverObj.moveNext();
             };
         }
+        function highlight(menuId, stepItemId) {
+            return function () {
+                expandMenu(menuId);
+                setActiveStep(stepItemId);
+            };
+        }
 
         return [
             {
@@ -90,7 +176,7 @@
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem1'),
                 },
-                onHighlightStarted: function () { expandMenu('tourMenuAcademico'); },
+                onHighlightStarted: highlight('tourMenuAcademico', 'recapItem1'),
             },
             {
                 element: '#tourMenuContenidos',
@@ -100,7 +186,7 @@
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem2'),
                 },
-                onHighlightStarted: function () { expandMenu('tourMenuContenidos'); },
+                onHighlightStarted: highlight('tourMenuContenidos', 'recapItem2'),
             },
             {
                 element: '#tourMenuGenerarIA',
@@ -110,7 +196,7 @@
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem3'),
                 },
-                onHighlightStarted: function () { expandMenu('tourMenuContenidos'); },
+                onHighlightStarted: highlight('tourMenuContenidos', 'recapItem3'),
             },
             {
                 element: '#tourMenuPreguntas',
@@ -120,7 +206,7 @@
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem4'),
                 },
-                onHighlightStarted: function () { expandMenu('tourMenuPreguntas'); },
+                onHighlightStarted: highlight('tourMenuPreguntas', 'recapItem4'),
             },
             {
                 element: '#tourMenuExamenes',
@@ -130,7 +216,7 @@
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem5'),
                 },
-                onHighlightStarted: function () { expandMenu('tourMenuExamenes'); },
+                onHighlightStarted: highlight('tourMenuExamenes', 'recapItem5'),
             },
             {
                 element: '#recapViewExamBtn',
@@ -138,17 +224,15 @@
                     title: 'Crear examen',
                     description: 'Para ver el resultado, hacer clic en este botón.',
                     side: 'top',
+                    // Último paso: driver.js solo lee onNextClick DENTRO de
+                    // popover (no como propiedad del paso) — puesto afuera,
+                    // el clic en "Listo" cerraba el recorrido sin avanzar.
+                    // Se fuerza la misma acción que el clic real en el botón.
+                    onNextClick: function () {
+                        document.getElementById('recapViewExamBtn')?.click();
+                    },
                 },
                 onHighlightStarted: collapseAllMenus,
-                // Último paso: al hacer clic en "Listo" no hay un paso
-                // siguiente al que moverse (comportamiento por defecto de
-                // driver.js), así que el clic solo cerraba el recorrido sin
-                // continuar. Acá se fuerza la misma acción que tendría
-                // hacer clic en el botón real de la página.
-                onNextClick: function () {
-                    var btn = document.getElementById('recapViewExamBtn');
-                    if (btn) window.location.href = btn.href;
-                },
             },
         ];
     }
@@ -177,12 +261,12 @@
         document.getElementById('recapReplayTourBtn')?.addEventListener('click', function () {
             STEP_ITEMS.forEach(function (id) {
                 var item = document.getElementById(id);
-                var icon = item && item.querySelector('.recap-check-icon');
-                if (icon) icon.className = 'bi bi-circle recap-check-icon';
-                if (item) {
-                    item.classList.remove('text-bg-success');
-                    item.classList.add('text-bg-light');
-                }
+                if (!item) return;
+                item.classList.remove('recap-step-done', 'recap-step-active');
+                var num = item.querySelector('.recap-step-num');
+                var check = item.querySelector('.recap-step-check');
+                if (num) num.classList.remove('d-none');
+                if (check) check.classList.add('d-none');
             });
             startTour();
         });

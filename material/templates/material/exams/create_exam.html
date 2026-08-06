@@ -83,7 +83,7 @@
     </div>
 
     <!-- Sección 3 columnas: Sede / Localización - Curso / Comisión - Turno -->
-    <div class="row mb-3">
+    <div class="row mb-3" id="examExtraOptionsRow">
         <div class="col-md-4">
             <label for="sede_dropdown">Sede / Localización</label>
             <select class="form-select" name="sede_dropdown" id="sede_dropdown" onchange="toggleTextbox('sede_dropdown', 'sede_text')">
@@ -239,7 +239,7 @@
     <input type="text" class="form-control" name="title" id="id_title" maxlength="255" style="display:none;">
     </div>
 
-    <div class="card mb-3">
+    <div class="card mb-3" id="examTopicsCard">
         <div class="card-header"><strong>Temas del examen escrito</strong></div>
         <div class="card-body">
             <div class="row g-3">
@@ -292,6 +292,91 @@
     </a>
     <a href="{% url 'material:onboarding_v2_demo_recap' %}" class="btn btn-outline-secondary btn-lg">Volver</a>
 </div>
+<script>
+{# driver.js/driver.css ya se cargan globalmente en base.html — no hace falta volver a incluirlos acá. #}
+(function () {
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.driver || !window.driver.js) return;
+        window.driver.js.driver({
+            showProgress: true,
+            allowClose: true,
+            overlayOpacity: 0.6,
+            nextBtnText: 'Siguiente',
+            prevBtnText: 'Anterior',
+            doneBtnText: 'Listo',
+            steps: [
+                {
+                    element: '#plantilla',
+                    popover: {
+                        title: 'Plantilla',
+                        description: 'Se pueden crear plantillas de examen y reutilizarlas acá para no repetir la configuración cada vez.',
+                        side: 'bottom',
+                    },
+                },
+                {
+                    element: '#id_subject',
+                    popover: {
+                        title: 'Materia',
+                        description: 'Al elegir la materia se habilitan los resultados de aprendizaje (si tiene cargados) y, más abajo, los tópicos con sus preguntas.',
+                        side: 'bottom',
+                    },
+                },
+                {
+                    element: '#institucion_dropdown',
+                    popover: {
+                        title: 'Institución',
+                        description: 'Al elegir la institución se cargan automáticamente la facultad y las carreras disponibles, si ya están cargadas.',
+                        side: 'bottom',
+                    },
+                },
+                {
+                    element: '#examExtraOptionsRow',
+                    popover: {
+                        title: 'Resto de las opciones',
+                        description: 'Sede, curso/comisión, turno y las demás opciones del formulario son todas opcionales.',
+                        side: 'top',
+                    },
+                },
+                {
+                    element: '#topics_checkbox_container',
+                    popover: {
+                        title: 'Tópicos',
+                        description: 'Acá se eligen los tópicos a evaluar — uno de los datos más importantes del examen.',
+                        side: 'top',
+                    },
+                },
+                {
+                    element: '#questions_checkbox_container',
+                    popover: {
+                        title: 'Preguntas',
+                        description: 'Y acá las preguntas puntuales a incluir, dentro de los tópicos elegidos — el otro dato más importante.',
+                        side: 'top',
+                    },
+                },
+                {
+                    element: '#examTopicsCard',
+                    popover: {
+                        title: 'Temas del examen escrito',
+                        description: 'Si no se toca esta sección, se crea un solo examen. Al declarar más de un tema, se arman varios exámenes según el listado de preguntas elegidas, cada uno con su propio encabezado.',
+                        side: 'top',
+                    },
+                },
+                {
+                    element: '#demoPeekContinueBtn',
+                    popover: {
+                        title: 'Ver examen',
+                        description: 'Para ver el resultado, hacer clic en este botón.',
+                        side: 'top',
+                        onNextClick: function () {
+                            document.getElementById('demoPeekContinueBtn')?.click();
+                        },
+                    },
+                },
+            ],
+        }).drive();
+    });
+})();
+</script>
 {% endif %}
 
 {% if prefill_data_json %}
