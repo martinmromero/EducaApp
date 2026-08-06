@@ -2277,6 +2277,119 @@ def signup(request):
         form = UserCreationForm()
     return render(request, 'registration/signup.html', {'form': form})
 
+
+@login_required
+def security_question_setup(request):
+    """
+    Se pide una única vez, en el primer login (ver OnboardingGateMiddleware,
+    que redirige acá desde '/' mientras el perfil no tenga pregunta
+    configurada) — es lo que después habilita recuperar la contraseña sin
+    depender de email en /accounts/recuperar/.
+    """
+    from .models import Profile
+    profile = request.user.profile
+    error = None
+    if request.method == 'POST':
+        question = request.POST.get('security_question', '')
+        answer = request.POST.get('security_answer', '').strip()
+        valid_keys = dict(Profile.SECURITY_QUESTION_CHOICES)
+        if question in valid_keys and answer:
+            profile.security_question = question
+            profile.security_answer = answer
+            profile.save(update_fields=['security_question', 'security_answer'])
+            return redirect('material:index')
+        error = 'Elegir una pregunta y completar una respuesta.'
+    return render(request, 'material/security_question_setup.html', {
+        'question_choices': Profile.SECURITY_QUESTION_CHOICES,
+        'error': error,
+    })
+
+
+def password_reset_request(request):
+    """Paso 1 de recuperación de contraseña: pide el usuario."""
+    error = None
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        user = User.objects.filter(username=username).first()
+        has_question = bool(user and getattr(user, 'profile', None) and user.profile.security_question)
+        if not has_question:
+            error = 'No se encontró ese usuario, o todavía no tiene una pregunta de seguridad configurada. Contactar al administrador.'
+        else:
+            request.session['pwreset_username'] = username
+            request.session['pwreset_attempts'] = 0
+            return redirect('password_reset_question')
+    return render(request, 'registration/password_reset_request.html', {'error': error})
+
+
+def password_reset_question(request):
+    """Paso 2: muestra la pregunta guardada del usuario y valida la respuesta."""
+    from .models import Profile
+    username = request.session.get('pwreset_username')
+    if not username:
+        return redirect('password_reset_request')
+    user = User.objects.filter(username=username).first()
+    if not user or not getattr(user, 'profile', None) or not user.profile.security_question:
+        request.session.pop('pwreset_username', None)
+        return redirect('password_reset_request')
+
+    question_label = dict(Profile.SECURITY_QUESTION_CHOICES).get(user.profile.security_question, '')
+    error = None
+    if request.method == 'POST':
+        answer = request.POST.get('answer', '').strip()
+        saved = (user.profile.security_answer or '').strip()
+        if answer and answer.lower() == saved.lower():
+            request.session['pwreset_verified_username'] = username
+            request.session.pop('pwreset_username', None)
+            request.session.pop('pwreset_attempts', None)
+            return redirect('password_reset_new')
+        attempts = request.session.get('pwreset_attempts', 0) + 1
+        request.session['pwreset_attempts'] = attempts
+        if attempts >= 5:
+            request.session.pop('pwreset_username', None)
+            request.session.pop('pwreset_attempts', None)
+            return render(request, 'registration/password_reset_request.html', {
+                'error': 'Demasiados intentos. Volver a empezar.',
+            })
+        error = 'La respuesta no coincide. Intentar de nuevo.'
+    return render(request, 'registration/password_reset_question.html', {
+        'question_label': question_label,
+        'error': error,
+    })
+
+
+def password_reset_new(request):
+    """Paso 3: ya validada la identidad por la pregunta de seguridad, define la contraseña nueva."""
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+
+    username = request.session.get('pwreset_verified_username')
+    if not username:
+        return redirect('password_reset_request')
+    user = User.objects.filter(username=username).first()
+    if not user:
+        request.session.pop('pwreset_verified_username', None)
+        return redirect('password_reset_request')
+
+    errors = []
+    if request.method == 'POST':
+        p1 = request.POST.get('new_password1', '')
+        p2 = request.POST.get('new_password2', '')
+        if p1 != p2:
+            errors.append('Las contraseñas no coinciden.')
+        else:
+            try:
+                validate_password(p1, user=user)
+            except ValidationError as e:
+                errors = list(e.messages)
+        if not errors:
+            user.set_password(p1)
+            user.save()
+            request.session.pop('pwreset_verified_username', None)
+            messages.success(request, 'Contraseña actualizada. Ya se puede iniciar sesión.', extra_tags='general')
+            return redirect('login')
+    return render(request, 'registration/password_reset_new.html', {'errors': errors})
+
+
 @login_required
 @user_passes_test(is_admin, login_url='/')
 def user_list(request):

@@ -33,13 +33,25 @@ class OnboardingGateMiddleware:
         if (
             user is not None
             and user.is_authenticated
-            and not user.is_staff
             and request.path == INDEX_PATH
         ):
+            # Pregunta de seguridad: se pide antes que el asistente de
+            # onboarding, y a TODOS los usuarios (incluido staff/admin —
+            # también necesitan poder recuperar su contraseña). Sin esto
+            # configurado, /accounts/recuperar/ no tiene forma de validar
+            # la identidad de esa cuenta.
             try:
-                completed = user.profile.onboarding_completed
+                has_security_question = bool(user.profile.security_question)
             except Exception:
-                completed = True  # sin perfil resoluble, no bloqueamos por las dudas
-            if not completed:
-                return redirect('material:onboarding_v2_page')
+                has_security_question = True  # sin perfil resoluble, no bloqueamos por las dudas
+            if not has_security_question:
+                return redirect('material:security_question_setup')
+
+            if not user.is_staff:
+                try:
+                    completed = user.profile.onboarding_completed
+                except Exception:
+                    completed = True  # sin perfil resoluble, no bloqueamos por las dudas
+                if not completed:
+                    return redirect('material:onboarding_v2_page')
         return self.get_response(request)

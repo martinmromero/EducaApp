@@ -216,7 +216,7 @@ class ProfileAdmin(admin.ModelAdmin):
     # saltandose las protecciones de auto-degradación y "último admin" que
     # tiene la vista material:edit_user. Se restringe a superusers para que
     # ese único camino siga siendo el punto de control real.
-    list_display = ('user', 'role', 'institutions_list')
+    list_display = ('user', 'role', 'institutions_list', 'security_question', 'security_answer')
     list_filter = ('role',)
     filter_horizontal = ('institutions',)
 

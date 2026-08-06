@@ -1,0 +1,37 @@
+{% extends 'material/base.html' %}
+{% block page_title %}<i class="bi bi-shield-lock me-2"></i>Pregunta de seguridad{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 560px;">
+    <div class="alert alert-info d-flex align-items-center gap-2">
+        <i class="bi bi-info-circle-fill fs-5"></i>
+        <div>Esta pregunta y su respuesta son lo que permite recuperar la contraseña más adelante, sin depender de un email — se configura una sola vez.</div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+            {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="security_question" class="form-label">Pregunta de seguridad</label>
+                    <select class="form-select" name="security_question" id="security_question" required>
+                        <option value="">— Elegir una pregunta —</option>
+                        {% for value, label in question_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="security_answer" class="form-label">Respuesta</label>
+                    <input type="text" class="form-control" name="security_answer" id="security_answer" required>
+                    <div class="form-text">Conviene que sea una respuesta fácil de recordar y siempre igual (no cambia con el tiempo).</div>
+                </div>
+                <button type="submit" class="btn btn-primary">Guardar y continuar</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

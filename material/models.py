@@ -1019,6 +1019,33 @@ class Profile(models.Model):
         verbose_name='Tema visual',
         help_text='Skin de colores/tipografía elegido por el usuario para la interfaz.',
     )
+    SECURITY_QUESTION_CHOICES = [
+        ('primera_mascota', 'Nombre de la primera mascota'),
+        ('apellido_soltera_materno', 'Apellido de soltera materno'),
+        ('ciudad_nacimiento', 'Ciudad de nacimiento'),
+        ('comida_favorita', 'Comida favorita'),
+        ('segundo_nombre_padre', 'Segundo nombre del padre'),
+        ('marca_primer_auto', 'Marca del primer auto'),
+        ('calle_donde_crecio', 'Nombre de la calle donde creció'),
+        ('equipo_futbol', 'Equipo de fútbol preferido'),
+    ]
+    # Recuperación de contraseña sin email: se le pide al usuario en el
+    # primer login (ver OnboardingGateMiddleware) y se usa después para
+    # validar identidad en /accounts/recuperar/. La respuesta se guarda en
+    # texto plano (no hasheada) a propósito: el administrador tiene que
+    # poder verla desde el Django Admin para asistir a un docente que se
+    # olvidó tanto la contraseña como su propia respuesta.
+    security_question = models.CharField(
+        max_length=50,
+        choices=SECURITY_QUESTION_CHOICES,
+        blank=True,
+        verbose_name='Pregunta de seguridad',
+    )
+    security_answer = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name='Respuesta de seguridad',
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
