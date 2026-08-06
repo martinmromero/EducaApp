@@ -25,6 +25,26 @@
     if (group) group.classList.add('active');
   }
 
+  function expandContenidosSubmenu() {
+    const group = document.getElementById('tourMenuContenidos');
+    if (group) group.classList.add('active');
+  }
+
+  function collapseContenidosSubmenu() {
+    const group = document.getElementById('tourMenuContenidos');
+    if (group) group.classList.remove('active');
+  }
+
+  function expandPreguntasSubmenu() {
+    const group = document.getElementById('tourMenuPreguntas');
+    if (group) group.classList.add('active');
+  }
+
+  function collapsePreguntasSubmenu() {
+    const group = document.getElementById('tourMenuPreguntas');
+    if (group) group.classList.remove('active');
+  }
+
   // Pasos con selector + texto. Si un elemento no está en el DOM de la
   // página actual (ej. "Administración" solo existe para admins) se
   // descarta automáticamente al construir el tour.
@@ -45,6 +65,7 @@
         description: 'Aquí se suben los apuntes, PDFs o materiales de clase para que la IA genere preguntas a partir de ellos. Si ya hay preguntas armadas con su respuesta, no hace falta pasar por aquí: se suben directo en "Preguntas".',
         side: 'right',
       },
+      onHighlightStarted: expandContenidosSubmenu,
     },
     {
       element: '#tourMenuPreguntas',
@@ -52,6 +73,10 @@
         title: 'Preguntas',
         description: 'Aquí vive el banco de preguntas: las que se suben ya armadas y las que genera la IA. Al generar con IA se puede aprobar o rechazar cada una, pero se guardan todas — aprobadas y rechazadas — para que la IA tenga memoria de las preferencias la próxima vez.',
         side: 'right',
+      },
+      onHighlightStarted: function () {
+        collapseContenidosSubmenu();
+        expandPreguntasSubmenu();
       },
     },
     {
@@ -61,6 +86,7 @@
         description: 'Aquí se arman exámenes con el banco de preguntas — al elegir, solo aparecen las que fueron aprobadas. También viven aquí las plantillas, las rúbricas y los cuestionarios orales.',
         side: 'right',
       },
+      onHighlightStarted: collapsePreguntasSubmenu,
     },
     {
       element: '#tourMenuPlantillas',

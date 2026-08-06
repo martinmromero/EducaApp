@@ -304,8 +304,17 @@
         return match ? decodeURIComponent(match[1]) : '';
     }
 
-    function checkFirst(containerId, count) {
+    // Los checkboxes de tópicos/preguntas se arman de forma asíncrona (fetch
+    // disparado por el prefill de materia) — si el paso del recorrido llega
+    // antes de que ese fetch resuelva, el contenedor puede estar vacío
+    // todavía. Se reintenta un rato en vez de asumir que ya están.
+    function checkFirst(containerId, count, attemptsLeft) {
+        attemptsLeft = attemptsLeft === undefined ? 10 : attemptsLeft;
         var boxes = document.querySelectorAll('#' + containerId + ' input[type="checkbox"]');
+        if (!boxes.length && attemptsLeft > 0) {
+            setTimeout(function () { checkFirst(containerId, count, attemptsLeft - 1); }, 300);
+            return;
+        }
         var picked = Array.prototype.slice.call(boxes, 0, count);
         picked.forEach(function (cb) {
             if (!cb.checked) {
@@ -313,6 +322,15 @@
                 cb.dispatchEvent(new Event('change'));
             }
         });
+    }
+
+    // Re-lee directo de los checkboxes tildados (en vez de confiar en que el
+    // 'change' de cada uno ya sincronizó el <select> oculto) para no
+    // depender del orden exacto de los listeners.
+    function checkedValues(containerId, dataAttr) {
+        return Array.from(document.querySelectorAll('#' + containerId + ' input[type="checkbox"]:checked'))
+            .map(function (cb) { return cb.dataset[dataAttr]; })
+            .filter(Boolean);
     }
 
     // Antes de ir a "Ver examen": la vista previa lee la selección real de
@@ -323,10 +341,8 @@
     // antes de navegar.
     document.getElementById('demoPeekContinueBtn')?.addEventListener('click', function (ev) {
         var href = this.href;
-        var topicsSel = document.getElementById('id_topics');
-        var questionsSel = document.getElementById('id_questions');
-        var topics = topicsSel ? Array.from(topicsSel.selectedOptions).map(function (o) { return o.value; }) : [];
-        var questions = questionsSel ? Array.from(questionsSel.selectedOptions).map(function (o) { return o.value; }) : [];
+        var topics = checkedValues('topics_checkbox_container', 'topicValue');
+        var questions = checkedValues('questions_checkbox_container', 'questionValue');
         if (!topics.length && !questions.length) return; // nada elegido: se deja el comportamiento por defecto
         ev.preventDefault();
         var body = new URLSearchParams();
@@ -343,6 +359,7 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         if (!window.driver || !window.driver.js) return;
+        try {
         window.driver.js.driver({
             showProgress: true,
             allowClose: true,
@@ -430,6 +447,9 @@
                 },
             ],
         }).drive();
+        } catch (e) {
+            console.error('No se pudo iniciar el recorrido de Crear Examen:', e);
+        }
     });
 })();
 </script>
