@@ -49,7 +49,7 @@
     </div>
 
     <!-- Sección 3 columnas: Institución - Facultad - Carrera -->
-    <div class="row mb-3">
+    <div class="row mb-3" id="examInstFacCarreraRow">
         <div class="col-md-4">
             <label for="institucion_dropdown">Institución</label>
             <select class="form-select" name="institucion_dropdown" id="institucion_dropdown" onchange="toggleTextbox('institucion_dropdown', 'institucion_text')">
@@ -82,8 +82,11 @@
         </div>
     </div>
 
+    <!-- Bloque "resto de las opciones" para el recorrido de ?demo_peek=1:
+         de Sede/Localización a Instrucciones generales, inclusive. -->
+    <div id="examMiscOptionsBlock">
     <!-- Sección 3 columnas: Sede / Localización - Curso / Comisión - Turno -->
-    <div class="row mb-3" id="examExtraOptionsRow">
+    <div class="row mb-3">
         <div class="col-md-4">
             <label for="sede_dropdown">Sede / Localización</label>
             <select class="form-select" name="sede_dropdown" id="sede_dropdown" onchange="toggleTextbox('sede_dropdown', 'sede_text')">
@@ -205,11 +208,12 @@
         </div>
     </div>
 
-    <!-- Sección 1 columna: Instrucciones generales, Temas evaluados, Preguntas, Título -->
+    <!-- Sección 1 columna: Instrucciones generales -->
     <div class="mb-3">
         {{ form.instructions.label_tag }}
         {{ form.instructions }}
     </div>
+    </div><!-- /#examMiscOptionsBlock -->
     <div class="row mb-3 exam-topics-questions-row">
         <div class="col-12 col-lg-4 exam-topics-col">
             <div class="d-flex justify-content-between align-items-center mb-1">
@@ -295,6 +299,48 @@
 <script>
 {# driver.js/driver.css ya se cargan globalmente en base.html — no hace falta volver a incluirlos acá. #}
 (function () {
+    function getCsrfCookie() {
+        var match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    function checkFirst(containerId, count) {
+        var boxes = document.querySelectorAll('#' + containerId + ' input[type="checkbox"]');
+        var picked = Array.prototype.slice.call(boxes, 0, count);
+        picked.forEach(function (cb) {
+            if (!cb.checked) {
+                cb.checked = true;
+                cb.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+
+    // Antes de ir a "Ver examen": la vista previa lee la selección real de
+    // topics/questions guardada en sesión (ver onboarding_v2_demo_scheme,
+    // que por defecto usa 'all' + autoselección) — para que lo que se
+    // marcó durante este recorrido sea lo mismo que se ve después en el
+    // preview impreso, se sincroniza acá la selección actual del formulario
+    // antes de navegar.
+    document.getElementById('demoPeekContinueBtn')?.addEventListener('click', function (ev) {
+        var href = this.href;
+        var topicsSel = document.getElementById('id_topics');
+        var questionsSel = document.getElementById('id_questions');
+        var topics = topicsSel ? Array.from(topicsSel.selectedOptions).map(function (o) { return o.value; }) : [];
+        var questions = questionsSel ? Array.from(questionsSel.selectedOptions).map(function (o) { return o.value; }) : [];
+        if (!topics.length && !questions.length) return; // nada elegido: se deja el comportamiento por defecto
+        ev.preventDefault();
+        var body = new URLSearchParams();
+        topics.forEach(function (t) { body.append('topics', t); });
+        questions.forEach(function (q) { body.append('questions', q); });
+        fetch("{% url 'material:onboarding_v2_demo_update_selection' %}", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrfCookie(), 'X-Requested-With': 'XMLHttpRequest' },
+            body: body,
+        }).catch(function () {}).finally(function () {
+            window.location.href = href;
+        });
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
         if (!window.driver || !window.driver.js) return;
         window.driver.js.driver({
@@ -322,7 +368,7 @@
                     },
                 },
                 {
-                    element: '#institucion_dropdown',
+                    element: '#examInstFacCarreraRow',
                     popover: {
                         title: 'Institución',
                         description: 'Al elegir la institución se cargan automáticamente la facultad y las carreras disponibles, si ya están cargadas.',
@@ -330,10 +376,10 @@
                     },
                 },
                 {
-                    element: '#examExtraOptionsRow',
+                    element: '#examMiscOptionsBlock',
                     popover: {
                         title: 'Resto de las opciones',
-                        description: 'Sede, curso/comisión, turno y las demás opciones del formulario son todas opcionales.',
+                        description: 'Sede, curso/comisión, turno, profesor, fecha, duración, tipo de examen, modalidad e instrucciones generales: todas estas opciones son opcionales.',
                         side: 'top',
                     },
                 },
@@ -348,16 +394,26 @@
                 {
                     element: '#questions_checkbox_container',
                     popover: {
-                        title: 'Preguntas',
-                        description: 'Y acá las preguntas puntuales a incluir, dentro de los tópicos elegidos — el otro dato más importante.',
+                        title: 'Tópicos elegidos, preguntas filtradas',
+                        description: 'Al tildar algunos tópicos (como en este ejemplo), el panel de preguntas se filtra para mostrar solo las de esos tópicos.',
                         side: 'top',
                     },
+                    onHighlightStarted: function () { checkFirst('topics_checkbox_container', 2); },
+                },
+                {
+                    element: '#questions_checkbox_container',
+                    popover: {
+                        title: 'Preguntas',
+                        description: 'Y aquí se eligen las preguntas a incluir, dentro de los tópicos elegidos. Tanto tópicos como preguntas se pueden seleccionar de a uno o todos juntos, con los botones superiores.',
+                        side: 'top',
+                    },
+                    onHighlightStarted: function () { checkFirst('questions_checkbox_container', 3); },
                 },
                 {
                     element: '#examTopicsCard',
                     popover: {
                         title: 'Temas del examen escrito',
-                        description: 'Si no se toca esta sección, se crea un solo examen. Al declarar más de un tema, se arman varios exámenes según el listado de preguntas elegidas, cada uno con su propio encabezado.',
+                        description: 'Se puede crear más de un tema con preguntas distintas para la misma fecha de examen, cada uno con su propio encabezado.',
                         side: 'top',
                     },
                 },

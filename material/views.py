@@ -5879,6 +5879,34 @@ def onboarding_v2_demo_scheme(request):
 
 
 @login_required
+def onboarding_v2_demo_update_selection(request):
+    """
+    El vistazo de solo lectura en /create-exam/?demo_peek=1 recorre con
+    driver.js una selección real de tópicos/preguntas (ver create_exam.html)
+    para enseñar el filtrado, pero ese formulario nunca se envía de verdad
+    (es de lectura, no un submit real). Sin esto, preview_exam seguía
+    mostrando el sentinel 'all' + autoselección de onboarding_v2_demo_scheme,
+    y lo que se vio tildado en el recorrido no coincidía con el examen de
+    la vista previa. Se llama justo antes de navegar a "Ver examen".
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False}, status=405)
+    exam_session = request.session.get('preview_exam')
+    if not exam_session or not request.session.get('onb2_demo_scheme_active'):
+        return JsonResponse({'success': False}, status=400)
+
+    topics = [t for t in request.POST.getlist('topics') if t]
+    questions = [q for q in request.POST.getlist('questions') if q]
+    if topics:
+        exam_session['topics'] = topics
+    if questions:
+        exam_session['questions'] = questions
+    request.session['preview_exam'] = exam_session
+    request.session.pop('preview_generated_versions_ids', None)
+    return JsonResponse({'success': True})
+
+
+@login_required
 def onboarding_v2_demo_recap(request):
     """
     Pantalla intermedia entre elegir una materia de ejemplo y ver el examen

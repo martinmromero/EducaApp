@@ -20,6 +20,11 @@
     if (group) group.classList.remove('active');
   }
 
+  function expandAcademicoSubmenu() {
+    const group = document.getElementById('tourMenuAcademico');
+    if (group) group.classList.add('active');
+  }
+
   // Pasos con selector + texto. Si un elemento no está en el DOM de la
   // página actual (ej. "Administración" solo existe para admins) se
   // descarta automáticamente al construir el tour.
@@ -58,6 +63,15 @@
       },
     },
     {
+      element: '#tourMenuPlantillas',
+      popover: {
+        title: 'Plantillas',
+        description: 'Aquí se pueden crear plantillas de examen reutilizables, para no repetir la misma configuración cada vez.',
+        side: 'right',
+      },
+      onHighlightStarted: expandExamenesSubmenu,
+    },
+    {
       element: '#tourMenuFormatos',
       popover: {
         title: 'Formatos de Impresión',
@@ -73,7 +87,10 @@
         description: 'Institución, carrera y materia — se configuran una sola vez, no hace falta volver seguido aquí.',
         side: 'right',
       },
-      onHighlightStarted: collapseExamenesSubmenu,
+      onHighlightStarted: function () {
+        collapseExamenesSubmenu();
+        expandAcademicoSubmenu();
+      },
     },
     {
       element: '#tourMenuGrupos',
@@ -81,6 +98,10 @@
         title: 'Grupos',
         description: 'Grupos de confianza para compartir preguntas por materia con otros docentes.',
         side: 'right',
+      },
+      onHighlightStarted: function () {
+        const group = document.getElementById('tourMenuAcademico');
+        if (group) group.classList.remove('active');
       },
     },
     {
