@@ -9,42 +9,26 @@
         ya está todo listo — a continuación, cada paso señala el lugar real donde ocurre en la aplicación:
     </p>
 
-    <div class="list-group mb-4" id="recapChecklist">
-        <div class="list-group-item d-flex align-items-start gap-3" id="recapItem1">
-            <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
-            <div>
-                <div class="fw-semibold">Institución y materia elegidas</div>
-                <div class="text-muted small">{{ institution.name|default:"—" }} — {{ subject.name }}</div>
-            </div>
-        </div>
-        <div class="list-group-item d-flex align-items-start gap-3" id="recapItem2">
-            <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
-            <div>
-                <div class="fw-semibold">Materia y tópico asignados a las preguntas</div>
-                <div class="text-muted small">{{ topics|join:", " }}</div>
-            </div>
-        </div>
-        <div class="list-group-item d-flex align-items-start gap-3" id="recapItem3">
-            <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
-            <div>
-                <div class="fw-semibold">{{ questions_count }} preguntas generadas con IA</div>
-                <div class="text-muted small">A partir del apunte, como haría el Procesador de Documentos — ahí mismo se aprueban con un check</div>
-            </div>
-        </div>
-        <div class="list-group-item d-flex align-items-start gap-3" id="recapItem4">
-            <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
-            <div>
-                <div class="fw-semibold">{{ approved_count }} preguntas aprobadas</div>
-                <div class="text-muted small">Se guardan todas (aprobadas o no) en Mis Preguntas, para que la IA tenga en cuenta esas preferencias la próxima vez</div>
-            </div>
-        </div>
-        <div class="list-group-item d-flex align-items-start gap-3" id="recapItem5">
-            <i class="bi bi-circle text-muted fs-4 recap-check-icon"></i>
-            <div>
-                <div class="fw-semibold">Examen armado</div>
-                <div class="text-muted small">Con preguntas elegidas automáticamente de ese banco</div>
-            </div>
-        </div>
+    <!-- Tira compacta de progreso (no una lista alta de tarjetas): así ocupa
+         poco alto y no compite por el mismo espacio en pantalla que los
+         popovers del recorrido (side: 'right', anclados al sidebar). Queda
+         visible y actualizándose durante todo el recorrido, no solo al final. -->
+    <div class="d-flex flex-wrap gap-2 mb-4" id="recapChecklist">
+        <span class="badge rounded-pill text-bg-light border d-inline-flex align-items-center gap-2 py-2 px-3 recap-chip" id="recapItem1">
+            <i class="bi bi-circle recap-check-icon"></i>Institución y materia
+        </span>
+        <span class="badge rounded-pill text-bg-light border d-inline-flex align-items-center gap-2 py-2 px-3 recap-chip" id="recapItem2">
+            <i class="bi bi-circle recap-check-icon"></i>Tópico asignado
+        </span>
+        <span class="badge rounded-pill text-bg-light border d-inline-flex align-items-center gap-2 py-2 px-3 recap-chip" id="recapItem3">
+            <i class="bi bi-circle recap-check-icon"></i>{{ questions_count }} preguntas generadas
+        </span>
+        <span class="badge rounded-pill text-bg-light border d-inline-flex align-items-center gap-2 py-2 px-3 recap-chip" id="recapItem4">
+            <i class="bi bi-circle recap-check-icon"></i>{{ approved_count }} aprobadas
+        </span>
+        <span class="badge rounded-pill text-bg-light border d-inline-flex align-items-center gap-2 py-2 px-3 recap-chip" id="recapItem5">
+            <i class="bi bi-circle recap-check-icon"></i>Examen armado
+        </span>
     </div>
 
     <div class="d-flex flex-wrap gap-2">
@@ -66,8 +50,9 @@
         var item = document.getElementById(itemId);
         if (!item) return;
         var icon = item.querySelector('.recap-check-icon');
-        if (!icon) return;
-        icon.className = 'bi bi-check-circle-fill text-success fs-4 recap-check-icon';
+        if (icon) icon.className = 'bi bi-check-circle-fill recap-check-icon';
+        item.classList.remove('text-bg-light');
+        item.classList.add('text-bg-success');
     }
 
     function markAllChecked() {
@@ -97,7 +82,7 @@
                 element: '#tourMenuAcademico',
                 popover: {
                     title: 'Institución y materia',
-                    description: 'Este examen de ejemplo ya tiene cargados institución y materia — es el primer dato que se configura una sola vez, como viste en el recorrido general.',
+                    description: 'Este examen de ejemplo ya tiene cargados institución y materia — el primer dato a configurar, una sola vez, como se vio en el recorrido general.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem1'),
                 },
@@ -106,7 +91,7 @@
                 element: '#tourMenuContenidos',
                 popover: {
                     title: 'Contenidos',
-                    description: 'De acá salió el apunte que la IA usó como base — en este ejemplo ya está subido, para que veas el resultado sin tener que subir nada vos.',
+                    description: 'De acá salió el apunte que la IA usó como base — en este ejemplo ya está subido, para mostrar el resultado sin necesidad de subir nada.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem2'),
                 },
@@ -115,7 +100,7 @@
                 element: '#tourMenuGenerarIA',
                 popover: {
                     title: 'Generar preguntas con IA',
-                    description: 'Acá se generaron las preguntas de este ejemplo a partir de ese apunte, y se aprobaron con un check — el mismo paso que harías vos con tu propio material.',
+                    description: 'Acá se generaron las preguntas de este ejemplo a partir de ese apunte, y se aprobaron con un check — el mismo paso a seguir con material propio.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem3'),
                 },
@@ -125,7 +110,7 @@
                 element: '#tourMenuPreguntas',
                 popover: {
                     title: 'Mis Preguntas',
-                    description: 'Acá quedaron las {{ questions_count }} preguntas de este ejemplo — {{ approved_count }} aprobadas y el resto también guardadas, disponibles para revisar cuando quieras.',
+                    description: 'Acá quedaron las {{ questions_count }} preguntas de este ejemplo — {{ approved_count }} aprobadas y el resto también guardadas, disponibles para revisar en cualquier momento.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem4'),
                 },
@@ -135,7 +120,7 @@
                 element: '#tourMenuExamenes',
                 popover: {
                     title: 'Exámenes',
-                    description: 'Y este examen se armó automáticamente eligiendo entre esas preguntas aprobadas — dale a "Ver examen" para ver el resultado final.',
+                    description: 'Y este examen se armó automáticamente eligiendo entre esas preguntas aprobadas — hacer clic en "Ver examen" para ver el resultado.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem5'),
                 },
@@ -145,12 +130,6 @@
 
     function startTour() {
         if (!window.driver || !window.driver.js) return;
-        // El checklist vive en la misma columna donde aparecen los popovers
-        // (side: 'right' de los ítems del sidebar) — se tapaban entre sí. Se
-        // oculta mientras corre el recorrido y se revuelve al terminar, ya
-        // tildado, en vez de competir por el mismo espacio en pantalla.
-        var checklist = document.getElementById('recapChecklist');
-        if (checklist) checklist.classList.add('d-none');
         var tourDriver = window.driver.js.driver({
             showProgress: true,
             allowClose: true,
@@ -159,10 +138,7 @@
             prevBtnText: 'Anterior',
             doneBtnText: 'Listo',
             steps: [],
-            onDestroyed: function () {
-                markAllChecked();
-                if (checklist) checklist.classList.remove('d-none');
-            },
+            onDestroyed: markAllChecked,
         });
         tourDriver.setSteps(buildSteps(tourDriver));
         tourDriver.drive();
@@ -174,7 +150,11 @@
             STEP_ITEMS.forEach(function (id) {
                 var item = document.getElementById(id);
                 var icon = item && item.querySelector('.recap-check-icon');
-                if (icon) icon.className = 'bi bi-circle text-muted fs-4 recap-check-icon';
+                if (icon) icon.className = 'bi bi-circle recap-check-icon';
+                if (item) {
+                    item.classList.remove('text-bg-success');
+                    item.classList.add('text-bg-light');
+                }
             });
             startTour();
         });

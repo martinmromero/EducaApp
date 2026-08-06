@@ -171,7 +171,7 @@
               <div class="mt-3">
                 <div class="mb-2">
                   <label class="form-label">Elegir una materia ya cargada en el sistema</label>
-                  <p class="text-muted mb-2" style="font-size:.8rem">Estas son materias que cargó cualquier docente que use EducaApp, no solo vos.</p>
+                  <p class="text-muted mb-2" style="font-size:.8rem">Materias cargadas por cualquier docente que use EducaApp, no solo por esta cuenta.</p>
                   <select class="form-select form-select-lg" id="onb2SubjectExisting">
                     <option value="">— seleccionar —</option>
                   </select>
@@ -198,7 +198,7 @@
               <input type="file" class="form-control form-control-lg" id="onb2ContenidoFile" accept=".pdf,.docx,.pptx,.txt">
             </div>
             <div class="mb-3">
-              <label class="form-label">Título <span class="text-muted small">(se completa solo con el nombre del archivo; podés editarlo)</span></label>
+              <label class="form-label">Título <span class="text-muted small">(se completa solo con el nombre del archivo, editable)</span></label>
               <input type="text" class="form-control form-control-lg" id="onb2ContenidoTitle" placeholder="Se completa al elegir el archivo">
             </div>
             <div class="d-flex align-items-center gap-2">
@@ -207,9 +207,9 @@
 
             <div class="mt-4" id="onb2PrevContentsBlock" style="display:none">
               <details>
-                <summary class="text-muted onb2-toggle-summary">¿Ya subiste algo antes? Elegí uno existente en vez de subir de nuevo</summary>
+                <summary class="text-muted onb2-toggle-summary">¿Ya se subió algo antes? Elegir uno existente en vez de subir de nuevo</summary>
                 <p class="text-muted mt-2 mb-1" style="font-size:.8rem">
-                  <i class="bi bi-info-circle me-1"></i>Los archivos se borran automáticamente después de unos días; si el que buscás ya no está, subilo de nuevo.
+                  <i class="bi bi-info-circle me-1"></i>Los archivos se borran automáticamente después de unos días; si el archivo buscado ya no está, volver a subirlo.
                 </p>
                 <div id="onb2ContentsList" class="mt-2" style="max-height:220px;overflow-y:auto;border:1px solid #dee2e6;border-radius:.375rem;padding:.25rem"></div>
               </details>
@@ -229,8 +229,8 @@
             <div id="onb2AiConnectPanel" class="d-none">
               <div class="alert alert-warning">
                 <i class="bi bi-exclamation-triangle me-1"></i>
-                Todavía no tenés un proveedor de IA conectado. Pegá tu API key de <strong>Google Gemini</strong> para continuar
-                (podés generar una gratis en <span class="text-muted">Google AI Studio</span>).
+                Todavía no hay un proveedor de IA conectado. Pegar la API key de <strong>Google Gemini</strong> para continuar
+                (disponible gratis en <span class="text-muted">Google AI Studio</span>).
               </div>
               <div class="mb-2">
                 <label class="form-label">API key de Gemini</label>

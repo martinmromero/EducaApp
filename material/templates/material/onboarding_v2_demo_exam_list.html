@@ -6,7 +6,7 @@
 
     <div class="alert alert-info d-flex align-items-center gap-2" id="demoListBanner">
         <i class="bi bi-info-circle-fill fs-5"></i>
-        <div>Así se ve <strong>Mis Exámenes</strong> con tu examen de ejemplo ya guardado — nada de esto se guardó de verdad todavía.</div>
+        <div>Así se ve <strong>Mis Exámenes</strong> con el examen de ejemplo ya guardado — nada de esto se guardó de verdad todavía.</div>
     </div>
 
     <div class="row mb-4">
@@ -63,9 +63,21 @@
         </div>
     </div>
 
-    <a href="{% url 'material:onboarding_v2_demo_recap' %}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Volver al resumen del asistente
-    </a>
+    <div class="card shadow-sm mt-4" id="demoFinishCard">
+        <div class="card-body text-center py-4">
+            <i class="bi bi-flag-fill text-success" style="font-size:2rem"></i>
+            <h5 class="fw-semibold mt-2 mb-1">Recorrido de ejemplo terminado</h5>
+            <p class="text-muted mb-3">El paso siguiente es cargar información propia — institución, materia y contenido reales.</p>
+            <div class="d-flex flex-wrap gap-2 justify-content-center">
+                <a href="{% url 'material:onboarding_v2_page' %}?step=1" class="btn btn-primary btn-lg">
+                    <i class="bi bi-pencil-square me-1"></i>Cargar información propia
+                </a>
+                <a href="{% url 'material:onboarding_v2_exit' %}" class="btn btn-outline-secondary btn-lg">
+                    Salir y explorar el sistema
+                </a>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -74,10 +86,10 @@
         alert(msg);
     }
     document.getElementById('demoExamEditBtn')?.addEventListener('click', function () {
-        explain('En un examen real, acá entrarías a editarlo. En este ejemplo no hace falta — nada de esto quedó guardado todavía.');
+        explain('En un examen real, este botón llevaría a editarlo. En este ejemplo no hace falta — nada quedó guardado todavía.');
     });
     document.getElementById('demoExamDeleteBtn')?.addEventListener('click', function () {
-        explain('En un examen real, acá lo eliminarías. En este ejemplo no hay nada que borrar — nada de esto quedó guardado todavía.');
+        explain('En un examen real, este botón lo eliminaría. En este ejemplo no hay nada que borrar — nada quedó guardado todavía.');
     });
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -93,8 +105,8 @@
                 {
                     element: '#demoExamRow',
                     popover: {
-                        title: 'Tu examen guardado',
-                        description: 'Así aparecería tu examen en este listado una vez guardado — con su materia y fecha de creación.',
+                        title: 'Examen guardado',
+                        description: 'Así aparece un examen en este listado una vez guardado — con su materia y fecha de creación.',
                         side: 'bottom',
                     },
                 },
@@ -102,7 +114,7 @@
                     element: '#demoExamViewBtn',
                     popover: {
                         title: 'Ver examen',
-                        description: 'Abre el examen guardado, con las opciones de impresión y vista en pantalla.',
+                        description: 'Abre el examen guardado, con las opciones de impresión y vista en pantalla. Los botones de al lado permiten editarlo o eliminarlo.',
                         side: 'left',
                     },
                 },

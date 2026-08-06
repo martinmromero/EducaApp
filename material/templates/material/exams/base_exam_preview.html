@@ -921,6 +921,14 @@
         // simula el modal de éxito y manda al listado/detalle simulados.
         function simulateSaveExam(btn) {
             btn.disabled = true;
+            // El tour de driver.js que explica esta pantalla sigue activo
+            // (este botón es su último paso) — si no se cierra antes de
+            // mostrar el modal, quedan dos capas oscuras superpuestas (el
+            // overlay del tour + el fondo del modal), y la pantalla se ve
+            // grisada hasta hacer un clic extra para destrabarla.
+            if (window._demoExamTourDriver && window._demoExamTourDriver.isActive && window._demoExamTourDriver.isActive()) {
+                window._demoExamTourDriver.destroy();
+            }
             postSaveRedirectUrl = "{% url 'material:onboarding_v2_demo_exam_list' %}";
             document.getElementById('examSavedMessage').textContent =
                 'El examen se guardó correctamente (este es el ejemplo del asistente — no se guardó nada real todavía).';

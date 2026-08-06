@@ -124,10 +124,38 @@
     btn.focus({ preventScroll: true });
   }
 
+  // En mobile el sidebar arranca oculto fuera de pantalla (clase
+  // "mobile-open" lo trae a la vista, ver base.html). driver.js igual
+  // encuentra los elementos con document.querySelector (siguen en el DOM),
+  // así que el tour "corría" en silencio contra un sidebar invisible —
+  // se veía como si no pasara nada. Se abre el sidebar antes de arrancar
+  // si hace falta, y se cierra de nuevo al terminar.
+  function isMobileViewport() {
+    return window.innerWidth <= 768;
+  }
+
+  function ensureSidebarVisible() {
+    if (!isMobileViewport()) return false;
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar || sidebar.classList.contains('mobile-open')) return false;
+    if (typeof window.toggleSidebar === 'function') {
+      window.toggleSidebar();
+      return true;
+    }
+    return false;
+  }
+
+  function restoreSidebar(openedByTour) {
+    if (openedByTour && typeof window.closeSidebarMobile === 'function') {
+      window.closeSidebarMobile();
+    }
+  }
+
   function start() {
     if (!window.driver || !window.driver.js) return;
     const steps = buildSteps();
     if (!steps.length) return;
+    const openedSidebar = ensureSidebarVisible();
     const tourDriver = window.driver.js.driver({
       showProgress: true,
       allowClose: true,
@@ -139,6 +167,7 @@
       onPopoverRender: focusNextButton,
       onDestroyed: () => {
         try { localStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
+        restoreSidebar(openedSidebar);
       },
     });
     tourDriver.drive();
