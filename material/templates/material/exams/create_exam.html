@@ -214,26 +214,32 @@
         {{ form.instructions }}
     </div>
     </div><!-- /#examMiscOptionsBlock -->
+    <!-- Fila de encabezados (Tópicos/Preguntas + Todo/Ninguno) separada de la
+         fila de listas: así el recorrido de ?demo_peek=1 puede resaltar
+         "Selección" (los botones Todo/Ninguno de ambas columnas) sin que el
+         highlight incluya también las listas, altas y variables. -->
+    <div class="row mb-1" id="examSelectionHeaderRow">
+        <div class="col-12 col-lg-4 exam-topics-col d-flex justify-content-between align-items-center">
+            <label class="form-label mb-0" id="topics_evaluados_label">Tópicos evaluados</label>
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-secondary" id="topics_select_all">Todo</button>
+                <button type="button" class="btn btn-outline-secondary" id="topics_select_none">Ninguno</button>
+            </div>
+        </div>
+        <div class="col-12 col-lg-8 exam-questions-col d-flex justify-content-between align-items-center mt-3 mt-lg-0">
+            <label class="form-label mb-0">Preguntas</label>
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-secondary" id="questions_select_all">Todo</button>
+                <button type="button" class="btn btn-outline-secondary" id="questions_select_none">Ninguno</button>
+            </div>
+        </div>
+    </div>
     <div class="row mb-3 exam-topics-questions-row">
         <div class="col-12 col-lg-4 exam-topics-col">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <label class="form-label mb-0" id="topics_evaluados_label">Tópicos evaluados</label>
-                <div class="btn-group btn-group-sm" role="group">
-                    <button type="button" class="btn btn-outline-secondary" id="topics_select_all">Todo</button>
-                    <button type="button" class="btn btn-outline-secondary" id="topics_select_none">Ninguno</button>
-                </div>
-            </div>
             <div id="topics_checkbox_container" class="border rounded p-2" style="min-height:240px;max-height:260px;overflow:auto;"></div>
             <select multiple class="form-select d-none" name="topics" id="id_topics"></select>
         </div>
         <div class="col-12 col-lg-8 exam-questions-col mt-3 mt-lg-0">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <label class="form-label mb-0">Preguntas</label>
-                <div class="btn-group btn-group-sm" role="group">
-                    <button type="button" class="btn btn-outline-secondary" id="questions_select_all">Todo</button>
-                    <button type="button" class="btn btn-outline-secondary" id="questions_select_none">Ninguno</button>
-                </div>
-            </div>
             <div id="questions_checkbox_container" class="border rounded p-2" style="min-height:240px;max-height:260px;overflow:auto;"></div>
             <select multiple class="form-select d-none" name="questions" id="id_questions"></select>
         </div>
@@ -405,26 +411,31 @@
                     popover: {
                         title: 'Tópicos',
                         description: 'Acá se eligen los tópicos a evaluar — uno de los datos más importantes del examen.',
-                        side: 'top',
+                        side: 'right',
                     },
-                },
-                {
-                    element: '#questions_checkbox_container',
-                    popover: {
-                        title: 'Tópicos elegidos, preguntas filtradas',
-                        description: 'Al tildar algunos tópicos (como en este ejemplo), el panel de preguntas se filtra para mostrar solo las de esos tópicos.',
-                        side: 'top',
-                    },
+                    // Dispara la selección de ejemplo apenas se muestra este
+                    // paso (no en el siguiente): así el fetch asincrónico de
+                    // preguntas filtradas tiene el tiempo real de lectura +
+                    // clic en "Siguiente" para resolver antes de llegar al
+                    // paso de Preguntas, en vez de aparecer vacío.
                     onHighlightStarted: function () { checkFirst('topics_checkbox_container', 2); },
                 },
                 {
                     element: '#questions_checkbox_container',
                     popover: {
                         title: 'Preguntas',
-                        description: 'Y aquí se eligen las preguntas a incluir, dentro de los tópicos elegidos. Tanto tópicos como preguntas se pueden seleccionar de a uno o todos juntos, con los botones superiores.',
+                        description: 'Al tildar algunos tópicos (como en este ejemplo), el panel de preguntas se filtra para mostrar solo las de esos tópicos.',
                         side: 'top',
                     },
                     onHighlightStarted: function () { checkFirst('questions_checkbox_container', 3); },
+                },
+                {
+                    element: '#examSelectionHeaderRow',
+                    popover: {
+                        title: 'Selección',
+                        description: 'Tanto tópicos como preguntas se pueden seleccionar de a uno o todos juntos, con los botones superiores.',
+                        side: 'top',
+                    },
                 },
                 {
                     element: '#examTopicsCard',
