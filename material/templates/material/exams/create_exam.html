@@ -475,6 +475,13 @@ var WIZARD_PREFILL_FIELDS = {{ wizard_prefill_fields_json|default:"[]"|safe }};
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof EXAM_PREFILL === 'undefined' || !EXAM_PREFILL || !Object.keys(EXAM_PREFILL).length) return;
     var data = EXAM_PREFILL;
+    // En el vistazo de solo lectura (?demo_peek=1), data.topics/questions son
+    // sentinels ('all' / []) que nunca calzan con IDs reales — este bloque de
+    // precarga, pensado para el wizard manual, los forzaría a "sin selección"
+    // en cada tick durante los primeros ~3.5s, pisando lo que el recorrido de
+    // driver.js (create_exam.html) tilda por su cuenta. El propio recorrido
+    // ya se encarga de esos dos campos en ese modo.
+    var IS_DEMO_PEEK = {{ is_demo_peek|yesno:"true,false" }};
 
     // ONBOARDING WIZARD V2: resaltar en verde los campos que se completaron
     // solos con lo que ya cargaste en el asistente (institución, materia,
@@ -591,33 +598,37 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        var topicsOk = false;
-        var topicsSel = document.getElementById('id_topics');
-        if (topicsSel && Array.isArray(data.topics) && topicsSel.options.length) {
-            Array.from(topicsSel.options).forEach(function(opt) {
-                opt.selected = data.topics.some(function(v) { return String(v) === opt.value; });
-            });
-            // Idem: disparar 'change' una sola vez para que el fetch de
-            // preguntas-por-tema tenga tiempo de resolver antes del proximo tick.
-            if (!topicsDispatched) {
-                topicsSel.dispatchEvent(new Event('change'));
-                topicsDispatched = true;
+        var topicsOk = IS_DEMO_PEEK;
+        if (!IS_DEMO_PEEK) {
+            var topicsSel = document.getElementById('id_topics');
+            if (topicsSel && Array.isArray(data.topics) && topicsSel.options.length) {
+                Array.from(topicsSel.options).forEach(function(opt) {
+                    opt.selected = data.topics.some(function(v) { return String(v) === opt.value; });
+                });
+                // Idem: disparar 'change' una sola vez para que el fetch de
+                // preguntas-por-tema tenga tiempo de resolver antes del proximo tick.
+                if (!topicsDispatched) {
+                    topicsSel.dispatchEvent(new Event('change'));
+                    topicsDispatched = true;
+                }
+                topicsOk = true;
             }
-            topicsOk = true;
         }
 
         var carrSel = document.getElementById('carrera_dropdown');
         if (carrSel && data.carrera) carrSel.value = String(data.carrera);
 
-        var questionsOk = false;
-        var qSel = document.getElementById('id_questions');
-        if (qSel && Array.isArray(data.questions) && qSel.options.length) {
-            Array.from(qSel.options).forEach(function(opt) {
-                opt.selected = data.questions.some(function(v) { return String(v) === opt.value; });
-            });
-            var qNodes = document.querySelectorAll('#questions_checkbox_container input[type="checkbox"]');
-            qNodes.forEach(function(cb) { cb.checked = data.questions.some(function(v) { return String(v) === cb.dataset.questionValue; }); });
-            questionsOk = true;
+        var questionsOk = IS_DEMO_PEEK;
+        if (!IS_DEMO_PEEK) {
+            var qSel = document.getElementById('id_questions');
+            if (qSel && Array.isArray(data.questions) && qSel.options.length) {
+                Array.from(qSel.options).forEach(function(opt) {
+                    opt.selected = data.questions.some(function(v) { return String(v) === opt.value; });
+                });
+                var qNodes = document.querySelectorAll('#questions_checkbox_container input[type="checkbox"]');
+                qNodes.forEach(function(cb) { cb.checked = data.questions.some(function(v) { return String(v) === cb.dataset.questionValue; }); });
+                questionsOk = true;
+            }
         }
 
         if ((topicsOk && loOk && questionsOk) || tries >= 10) {

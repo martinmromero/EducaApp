@@ -367,7 +367,11 @@ def get_questions_by_topics(request):
     topics = request.GET.get('topics', '')
     topic_ids = [int(t) for t in topics.split(',') if t]
     subject_arg = int(subject_id) if subject_id and str(subject_id).isdigit() else None
-    base_qs = get_visible_questions(request.user, subject=subject_arg)
+    # Mismo include_seed que get_topics?for_exam=1: sin esto, el examen de
+    # ejemplo del asistente (cuyas preguntas son todas del bot de contenido
+    # semilla, no del usuario) siempre devolvía cero preguntas por tópico.
+    include_seed = bool(request.session.get('onb2_include_seed'))
+    base_qs = get_visible_questions(request.user, subject=subject_arg, include_seed=include_seed)
     review_filter = EXAM_ELIGIBLE_Q
     questions = Question.objects.none()
     if all_topics and subject_id:
