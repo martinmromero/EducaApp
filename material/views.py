@@ -304,6 +304,12 @@ def preview_exam(request):
             )
         ),
         'wizard_active': request.session.get('onb2_wizard_active', False),
+        # "Ejemplo del asistente": el botón Guardar simula el guardado (no
+        # persiste nada real) y lleva a un listado/detalle de Mis Exámenes
+        # también simulados — ver onboarding_v2_demo_scheme y
+        # [[project_onboarding_reform_2026_08]].
+        'is_demo': bool(request.session.get('onb2_demo_scheme_active')),
+        'demo_saved': request.GET.get('saved') == '1',
     }
 
     if is_multiversion and not print_preview:
@@ -1146,6 +1152,12 @@ def create_exam(request):
     else:
         request.session.pop('onb2_wizard_active', None)
     wizard_active = request.session.get('onb2_wizard_active', False)
+    # Crear Examen es siempre un examen REAL — nunca el ejemplo enlatado del
+    # asistente (ver onboarding_v2_demo_scheme), aunque venga con ?wizard=1
+    # (wizard manual). Si esta marca quedó pegada de una vuelta anterior por
+    # "esquema ya armado", se limpia acá para no simular el guardado de un
+    # examen real.
+    request.session.pop('onb2_demo_scheme_active', None)
 
     instituciones = InstitutionV2.objects.filter(is_active=True)
     facultades = FacultyV2.objects.filter(is_active=True)
@@ -5830,6 +5842,13 @@ def onboarding_v2_demo_scheme(request):
     }
     request.session.pop('preview_generated_versions_ids', None)
     request.session['onb2_wizard_active'] = True
+    # Marca específica de "este preview_exam es el ejemplo enlatado del
+    # asistente" — distinta de onb2_wizard_active (que también se activa en
+    # el wizard manual, donde el examen SÍ debe guardarse de verdad). Le dice
+    # a preview_exam que muestre el flujo de guardado simulado en vez del
+    # real, para no ensuciar la cuenta del usuario con un Exam real antes de
+    # que arme algo propio.
+    request.session['onb2_demo_scheme_active'] = True
     return redirect('material:onboarding_v2_demo_recap')
 
 
@@ -5863,6 +5882,30 @@ def onboarding_v2_demo_recap(request):
         'topics': topics,
         'questions_count': questions_qs.count(),
         'approved_count': questions_qs.filter(ai_approved=True).count(),
+    })
+
+
+@login_required
+def onboarding_v2_demo_exam_list(request):
+    """
+    "Mis Exámenes" simulado: se muestra después de simular el guardado del
+    examen de ejemplo (ver preview_exam con is_demo=True) — un único ítem
+    fijo, sin tocar la base de datos, para que el usuario vea cómo se vería
+    su examen ya guardado en el listado real, sin ensuciar su cuenta con un
+    Exam real todavía. Ver [[project_onboarding_reform_2026_08]].
+    """
+    exam_session = request.session.get('preview_exam')
+    if not exam_session or not request.session.get('onb2_demo_scheme_active'):
+        return redirect('material:onboarding_v2_page')
+
+    subject = Subject.objects.filter(pk=exam_session.get('subject')).first()
+    if not subject:
+        return redirect('material:onboarding_v2_page')
+
+    import datetime
+    return render(request, 'material/onboarding_v2_demo_exam_list.html', {
+        'subject': subject,
+        'today': datetime.date.today(),
     })
 
 
@@ -5904,6 +5947,7 @@ def onboarding_v2_finish(request):
     """
     request.session.pop('onb2_wizard_active', None)
     request.session.pop('onb2_include_seed', None)
+    request.session.pop('onb2_demo_scheme_active', None)
     try:
         profile = request.user.profile
         if not profile.onboarding_completed:
@@ -5923,6 +5967,7 @@ def onboarding_v2_exit(request):
     """
     request.session.pop('onb2_wizard_active', None)
     request.session.pop('onb2_include_seed', None)
+    request.session.pop('onb2_demo_scheme_active', None)
     try:
         profile = request.user.profile
         if not profile.onboarding_completed:

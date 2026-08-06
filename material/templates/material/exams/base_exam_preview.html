@@ -1,9 +1,10 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Previsualización de Examen{% endblock %} - {{ institution.name|default:"EducaApp" }}</title>
+    {% if is_demo %}<link rel="stylesheet" href="{% static 'css/vendor/driver.css' %}">{% endif %}
     <style>
         :root {
             --exam-font-family: {{ print_style.font_family|default:'Arial' }};
@@ -591,7 +592,7 @@
     <div class="exam-scroll-outer" id="examScrollOuter">
     <div class="exam-zoom-sizer" id="examZoomSizer">
     <div class="exam-container" id="examContainer">
-        <div class="header">
+        <div class="header" id="examHeaderBlock">
             {% block header %}
             <table class="header-table">
                 <tr>
@@ -688,7 +689,7 @@
         {% endif %}
 
         {% if questions_texts %}
-        <div class="section">
+        <div class="section" id="examQuestionsSection">
             <h3>Preguntas:</h3>
             <ol class="questions-list">
                 {% for question in questions_texts %}
@@ -850,6 +851,7 @@
 
     <!-- Font Awesome para íconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    {% if is_demo %}<script src="{% static 'js/vendor/driver.js.iife.js' %}"></script>{% endif %}
 
     {% block scripts %}
     <script>
@@ -913,6 +915,18 @@
                 alert('No se pudo guardar el examen. Intenta nuevamente.');
             });
         }
+
+        {% if is_demo %}
+        // Ejemplo del asistente: "Guardar" no persiste nada real — solo
+        // simula el modal de éxito y manda al listado/detalle simulados.
+        function simulateSaveExam(btn) {
+            btn.disabled = true;
+            postSaveRedirectUrl = "{% url 'material:onboarding_v2_demo_exam_list' %}";
+            document.getElementById('examSavedMessage').textContent =
+                'El examen se guardó correctamente (este es el ejemplo del asistente — no se guardó nada real todavía).';
+            document.getElementById('examSavedBackdrop').classList.add('show');
+        }
+        {% endif %}
 
         document.getElementById('examSavedOkBtn').addEventListener('click', function () {
             window.location.href = postSaveRedirectUrl;
