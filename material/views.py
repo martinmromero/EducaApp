@@ -305,11 +305,12 @@ def preview_exam(request):
         ),
         'wizard_active': request.session.get('onb2_wizard_active', False),
         # "Ejemplo del asistente": el botón Guardar simula el guardado (no
-        # persiste nada real) y lleva a un listado/detalle de Mis Exámenes
-        # también simulados — ver onboarding_v2_demo_scheme y
-        # [[project_onboarding_reform_2026_08]].
+        # persiste nada real) y lleva al listado de Mis Exámenes simulado —
+        # ver onboarding_v2_demo_scheme y [[project_onboarding_reform_2026_08]].
+        # Esta pantalla solo se ve UNA vez en el recorrido: desde el listado
+        # simulado, "Ver examen" queda deshabilitado a propósito (no hay una
+        # segunda visita con el examen ya "guardado" que mostrar).
         'is_demo': bool(request.session.get('onb2_demo_scheme_active')),
-        'demo_saved': request.GET.get('saved') == '1',
     }
 
     if is_multiversion and not print_preview:

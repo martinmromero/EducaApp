@@ -12,7 +12,15 @@
  * Se sirve desde /sw.js (no desde /static/sw.js) para que el scope por
  * default cubra todo el sitio — ver material/views.py:service_worker.
  */
-const CACHE_NAME = 'educaapp-static-v1';
+// v1 servía "cache primero, red en segundo plano" (cache.match ||
+// networkFetch): en cualquier visita con algo ya cacheado, esa visita
+// SIEMPRE mostraba la versión vieja, y recién actualizaba el cache para la
+// visita siguiente — con cada deploy, cualquier navegador que ya hubiera
+// visitado el sitio quedaba mostrando JS/CSS de un deploy atrás como
+// mínimo, indefinidamente. Como este service worker nunca promete uso
+// offline real (ver comentario de arriba), no hay motivo para preferir el
+// cache: v2 pasa a "red primero, cache solo como respaldo si falla la red".
+const CACHE_NAME = 'educaapp-static-v2';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -36,16 +44,14 @@ self.addEventListener('fetch', (event) => {
   if (!url.pathname.startsWith('/static/')) return;
 
   event.respondWith(
-    caches.open(CACHE_NAME).then((cache) =>
-      cache.match(req).then((cached) => {
-        const networkFetch = fetch(req)
-          .then((resp) => {
-            if (resp && resp.status === 200) cache.put(req, resp.clone());
-            return resp;
-          })
-          .catch(() => cached);
-        return cached || networkFetch;
+    fetch(req)
+      .then((resp) => {
+        if (resp && resp.status === 200) {
+          const copy = resp.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+        }
+        return resp;
       })
-    )
+      .catch(() => caches.open(CACHE_NAME).then((cache) => cache.match(req)))
   );
 });

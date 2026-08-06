@@ -33,7 +33,7 @@
 
     <div class="d-flex flex-wrap gap-2">
         <a href="{% url 'material:create_exam' %}?demo_peek=1" class="btn btn-primary btn-lg" id="recapViewExamBtn">
-            Ver examen <i class="bi bi-arrow-right ms-1"></i>
+            Crear examen <i class="bi bi-arrow-right ms-1"></i>
         </a>
         <button type="button" class="btn btn-outline-primary btn-lg" id="recapReplayTourBtn">
             <i class="bi bi-play-circle me-1"></i>Repetir recorrido
@@ -135,11 +135,20 @@
             {
                 element: '#recapViewExamBtn',
                 popover: {
-                    title: 'Ver examen',
+                    title: 'Crear examen',
                     description: 'Para ver el resultado, hacer clic en este botón.',
                     side: 'top',
                 },
                 onHighlightStarted: collapseAllMenus,
+                // Último paso: al hacer clic en "Listo" no hay un paso
+                // siguiente al que moverse (comportamiento por defecto de
+                // driver.js), así que el clic solo cerraba el recorrido sin
+                // continuar. Acá se fuerza la misma acción que tendría
+                // hacer clic en el botón real de la página.
+                onNextClick: function () {
+                    var btn = document.getElementById('recapViewExamBtn');
+                    if (btn) window.location.href = btn.href;
+                },
             },
         ];
     }
