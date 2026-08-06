@@ -32,7 +32,7 @@
     </div>
 
     <div class="d-flex flex-wrap gap-2">
-        <a href="{% url 'material:preview_exam' %}" class="btn btn-primary btn-lg" id="recapViewExamBtn">
+        <a href="{% url 'material:onboarding_v2_demo_create_exam' %}" class="btn btn-primary btn-lg" id="recapViewExamBtn">
             Ver examen <i class="bi bi-arrow-right ms-1"></i>
         </a>
         <button type="button" class="btn btn-outline-primary btn-lg" id="recapReplayTourBtn">
@@ -59,14 +59,18 @@
         STEP_ITEMS.forEach(markChecked);
     }
 
-    function expandContenidosSubmenu() {
-        var group = document.getElementById('tourMenuContenidos');
+    function expandMenu(menuId) {
+        document.querySelectorAll('.sidebar .menu-item').forEach(function (item) {
+            item.classList.remove('active');
+        });
+        var group = document.getElementById(menuId);
         if (group) group.classList.add('active');
     }
 
-    function collapseContenidosSubmenu() {
-        var group = document.getElementById('tourMenuContenidos');
-        if (group) group.classList.remove('active');
+    function collapseAllMenus() {
+        document.querySelectorAll('.sidebar .menu-item').forEach(function (item) {
+            item.classList.remove('active');
+        });
     }
 
     function buildSteps(driverObj) {
@@ -86,6 +90,7 @@
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem1'),
                 },
+                onHighlightStarted: function () { expandMenu('tourMenuAcademico'); },
             },
             {
                 element: '#tourMenuContenidos',
@@ -95,6 +100,7 @@
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem2'),
                 },
+                onHighlightStarted: function () { expandMenu('tourMenuContenidos'); },
             },
             {
                 element: '#tourMenuGenerarIA',
@@ -104,26 +110,36 @@
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem3'),
                 },
-                onHighlightStarted: expandContenidosSubmenu,
+                onHighlightStarted: function () { expandMenu('tourMenuContenidos'); },
             },
             {
                 element: '#tourMenuPreguntas',
                 popover: {
                     title: 'Mis Preguntas',
-                    description: 'Acá quedaron las {{ questions_count }} preguntas de este ejemplo — {{ approved_count }} aprobadas y el resto también guardadas, disponibles para revisar en cualquier momento.',
+                    description: 'Acá quedan guardadas las preguntas generadas: se pueden aprobar o rechazar una por una, y todas quedan disponibles para revisar cuando haga falta.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem4'),
                 },
-                onHighlightStarted: collapseContenidosSubmenu,
+                onHighlightStarted: function () { expandMenu('tourMenuPreguntas'); },
             },
             {
                 element: '#tourMenuExamenes',
                 popover: {
                     title: 'Exámenes',
-                    description: 'Y este examen se armó automáticamente eligiendo entre esas preguntas aprobadas — hacer clic en "Ver examen" para ver el resultado.',
+                    description: 'Y este examen se armó automáticamente eligiendo entre esas preguntas aprobadas.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem5'),
                 },
+                onHighlightStarted: function () { expandMenu('tourMenuExamenes'); },
+            },
+            {
+                element: '#recapViewExamBtn',
+                popover: {
+                    title: 'Ver examen',
+                    description: 'Para ver el resultado, hacer clic en este botón.',
+                    side: 'top',
+                },
+                onHighlightStarted: collapseAllMenus,
             },
         ];
     }
@@ -138,7 +154,10 @@
             prevBtnText: 'Anterior',
             doneBtnText: 'Listo',
             steps: [],
-            onDestroyed: markAllChecked,
+            onDestroyed: function () {
+                markAllChecked();
+                collapseAllMenus();
+            },
         });
         tourDriver.setSteps(buildSteps(tourDriver));
         tourDriver.drive();

@@ -205,7 +205,7 @@ function toggleBloom() {
                 element: '#examHeaderBlock',
                 popover: {
                     title: 'Encabezado configurable',
-                    description: 'Institución, carrera, profesor, materia y tipo de examen — todo esto se configuró en los pasos anteriores y es editable en un examen real.',
+                    description: 'Institución, carrera, profesor, materia y tipo de examen — se completan en Crear Examen y son editables en un examen real.',
                     side: 'bottom',
                 },
             },
@@ -213,16 +213,15 @@ function toggleBloom() {
                 element: '#examQuestionsSection',
                 popover: {
                     title: 'Preguntas del examen',
-                    description: 'Preguntas elegidas automáticamente del banco aprobado. Con "Mostrar respuestas" se puede ver la respuesta correcta de cada una.',
+                    description: 'Estas son las preguntas elegidas para este ejemplo, tomadas del banco de preguntas aprobadas — la cantidad por tópico la define quien arma el examen, en Crear Examen.',
                     side: 'top',
                 },
             },
-            {% if demo_saved %}
             {
-                element: '#examPrintBtn',
+                element: '#toggleAnswersBtn',
                 popover: {
-                    title: 'Imprimir / ver en pantalla',
-                    description: 'Un examen ya guardado se puede imprimir en cualquier momento, con o sin respuestas, o simplemente ver en pantalla, como en este ejemplo.',
+                    title: 'Mostrar respuestas',
+                    description: 'Con "Mostrar respuestas" se puede ver la respuesta correcta de cada una.',
                     side: 'top',
                 },
             },
@@ -236,6 +235,15 @@ function toggleBloom() {
                 },
             },
             {% endif %}
+            {% if demo_saved %}
+            {
+                element: '#examPrintBtn',
+                popover: {
+                    title: 'Imprimir / ver en pantalla',
+                    description: 'Un examen ya guardado se puede imprimir en cualquier momento, con o sin respuestas, o simplemente ver en pantalla, como en este ejemplo.',
+                    side: 'top',
+                },
+            },
             {
                 element: '#examDemoEditBtn',
                 popover: {

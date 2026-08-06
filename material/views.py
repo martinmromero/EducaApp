@@ -5886,6 +5886,37 @@ def onboarding_v2_demo_recap(request):
 
 
 @login_required
+def onboarding_v2_demo_create_exam(request):
+    """
+    Resumen tipo "Crear Examen" para el ejemplo enlatado del asistente: se
+    muestra entre onboarding_v2_demo_recap y preview_exam, para que el
+    usuario vea de dónde salen los datos que preview_exam da por ya
+    configurados, en vez de llegar directo a la vista previa sin haber visto
+    ninguna pantalla de armado. Ver [[project_onboarding_reform_2026_08]].
+    """
+    exam_session = request.session.get('preview_exam')
+    if not exam_session or not request.session.get('onb2_demo_scheme_active'):
+        return redirect('material:onboarding_v2_page')
+
+    subject = Subject.objects.filter(pk=exam_session.get('subject')).first()
+    if not subject:
+        return redirect('material:onboarding_v2_page')
+
+    institution = InstitutionV2.objects.filter(pk=exam_session.get('institucion')).first()
+    tipo_examen_labels = {'practico': 'Práctico', 'teorico': 'Teórico', 'teorico_practico': 'Teórico-práctico'}
+    tipo_modalidad_labels = {'individual': 'Individual', 'grupal': 'Grupal'}
+
+    return render(request, 'material/onboarding_v2_demo_create_exam.html', {
+        'subject': subject,
+        'institution': institution,
+        'num_versions': exam_session.get('num_versions'),
+        'questions_per_version': exam_session.get('questions_per_version'),
+        'tipo_examen': tipo_examen_labels.get(exam_session.get('tipo_examen'), exam_session.get('tipo_examen')),
+        'tipo_modalidad': tipo_modalidad_labels.get(exam_session.get('tipo_modalidad'), exam_session.get('tipo_modalidad')),
+    })
+
+
+@login_required
 def onboarding_v2_demo_exam_list(request):
     """
     "Mis Exámenes" simulado: se muestra después de simular el guardado del

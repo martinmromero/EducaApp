@@ -1,0 +1,45 @@
+{% extends 'material/base.html' %}
+{% block page_title %}<i class="bi bi-plus-circle me-2"></i>Nuevo Examen{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 700px;">
+
+    <div class="alert alert-info d-flex align-items-center gap-2">
+        <i class="bi bi-info-circle-fill fs-5"></i>
+        <div>Así se ve <strong>Crear Examen</strong> con estos datos ya completados para el ejemplo — con material propio, cada campo se completa a mano en este mismo lugar.</div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Materia</dt>
+                <dd class="col-sm-8">{{ subject.name }}</dd>
+
+                {% if institution %}
+                <dt class="col-sm-4">Institución</dt>
+                <dd class="col-sm-8">{{ institution.name }}</dd>
+                {% endif %}
+
+                <dt class="col-sm-4">Tipo de examen</dt>
+                <dd class="col-sm-8">{{ tipo_examen|default:"-" }}</dd>
+
+                <dt class="col-sm-4">Modalidad</dt>
+                <dd class="col-sm-8">{{ tipo_modalidad|default:"-" }}</dd>
+
+                <dt class="col-sm-4">Cantidad de versiones</dt>
+                <dd class="col-sm-8">{{ num_versions|default:"-" }}</dd>
+
+                <dt class="col-sm-4">Preguntas por versión</dt>
+                <dd class="col-sm-8">{{ questions_per_version|default:"-" }}</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 mt-4">
+        <a href="{% url 'material:preview_exam' %}" class="btn btn-primary btn-lg" id="demoCreateExamContinueBtn">
+            Ver examen <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+        <a href="{% url 'material:onboarding_v2_demo_recap' %}" class="btn btn-outline-secondary btn-lg">Volver</a>
+    </div>
+</div>
+{% endblock %}

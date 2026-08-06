@@ -822,10 +822,16 @@
   const requestedStep = parseInt(params.get('step'), 10);
   if (requestedStep >= 1 && requestedStep <= 6) {
     enterOwnFlow(requestedStep);
-  } else if (window.EducaAppTour) {
+  } else {
     // Tour de orientación primero, antes de pedir cualquier dato — solo la
-    // primera vez que un usuario llega acá (ver static/js/tour.js).
-    window.EducaAppTour.startIfFirstVisit();
+    // primera vez que un usuario llega acá (ver static/js/tour.js). Este
+    // script corre ANTES de que base.html cargue tour.js (que se incluye
+    // más abajo en el documento), así que window.EducaAppTour todavía no
+    // existe en este punto — hay que esperar a que el resto del documento
+    // termine de cargar antes de poder llamarlo.
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.EducaAppTour) window.EducaAppTour.startIfFirstVisit();
+    });
   }
 })();
 </script>

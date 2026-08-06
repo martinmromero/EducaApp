@@ -180,6 +180,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('comenzar/', material_views.onboarding_v2_page, name='onboarding_v2_page'),
     path('comenzar/demo/', material_views.onboarding_v2_demo_scheme, name='onboarding_v2_demo_scheme'),
     path('comenzar/demo/resumen/', material_views.onboarding_v2_demo_recap, name='onboarding_v2_demo_recap'),
+    path('comenzar/demo/crear-examen/', material_views.onboarding_v2_demo_create_exam, name='onboarding_v2_demo_create_exam'),
     path('comenzar/demo/examenes/', material_views.onboarding_v2_demo_exam_list, name='onboarding_v2_demo_exam_list'),
     path('comenzar/listo/', material_views.onboarding_v2_finish, name='onboarding_v2_finish'),
     path('comenzar/salir/', material_views.onboarding_v2_exit, name='onboarding_v2_exit'),

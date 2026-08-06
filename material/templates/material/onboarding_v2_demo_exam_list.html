@@ -43,7 +43,7 @@
                             <td><span class="badge bg-secondary text-white">Individual</span></td>
                             <td>{{ today|date:"d/m/Y" }}</td>
                             <td>
-                                <div class="btn-group" role="group">
+                                <div class="btn-group" role="group" id="demoExamActionsGroup">
                                     <a href="{% url 'material:preview_exam' %}?demo=1&saved=1"
                                        class="btn btn-sm btn-info" title="Ver examen" id="demoExamViewBtn">
                                         <i class="fas fa-eye"></i>
@@ -63,10 +63,17 @@
         </div>
     </div>
 
-    <div class="card shadow-sm mt-4" id="demoFinishCard">
+</div>
+
+<!-- Se muestra recién al terminar el recorrido guiado de esta página (ver
+     onDestroyed más abajo): tapa y deshabilita el resto del sistema, para
+     que el cierre del recorrido de ejemplo sea inconfundible en vez de
+     verse como una opción más entre otras. -->
+<div class="d-none" id="demoFinishOverlay" style="position:fixed;inset:0;background:rgba(20,20,25,0.72);z-index:1080;display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div class="card shadow-lg" style="max-width:480px;width:100%;">
         <div class="card-body text-center py-4">
-            <i class="bi bi-flag-fill text-success" style="font-size:2rem"></i>
-            <h5 class="fw-semibold mt-2 mb-1">Recorrido de ejemplo terminado</h5>
+            <i class="bi bi-flag-fill text-success" style="font-size:2.4rem"></i>
+            <h4 class="fw-semibold mt-2 mb-1">Recorrido de ejemplo terminado</h4>
             <p class="text-muted mb-3">El paso siguiente es cargar información propia — institución, materia y contenido reales.</p>
             <div class="d-flex flex-wrap gap-2 justify-content-center">
                 <a href="{% url 'material:onboarding_v2_page' %}?step=1" class="btn btn-primary btn-lg">
@@ -93,7 +100,11 @@
     });
 
     document.addEventListener('DOMContentLoaded', function () {
-        if (!window.driver || !window.driver.js) return;
+        if (!window.driver || !window.driver.js) {
+            var overlay = document.getElementById('demoFinishOverlay');
+            if (overlay) overlay.classList.remove('d-none');
+            return;
+        }
         var tourDriver = window.driver.js.driver({
             showProgress: true,
             allowClose: true,
@@ -111,14 +122,18 @@
                     },
                 },
                 {
-                    element: '#demoExamViewBtn',
+                    element: '#demoExamActionsGroup',
                     popover: {
                         title: 'Ver examen',
-                        description: 'Abre el examen guardado, con las opciones de impresión y vista en pantalla. Los botones de al lado permiten editarlo o eliminarlo.',
+                        description: 'Abre el examen guardado, con las opciones de impresión y vista en pantalla. También se puede editar o eliminar desde aquí.',
                         side: 'left',
                     },
                 },
             ],
+            onDestroyed: function () {
+                var overlay = document.getElementById('demoFinishOverlay');
+                if (overlay) overlay.classList.remove('d-none');
+            },
         });
         tourDriver.drive();
     });
