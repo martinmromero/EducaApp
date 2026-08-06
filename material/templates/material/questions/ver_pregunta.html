@@ -129,7 +129,7 @@
         </a>
         {% else %}
         <p class="text-muted small mb-0">
-          <i class="bi bi-people-fill me-1"></i>Compartida por {{ pregunta.user.get_full_name|default:pregunta.user.username }} — solo podés usarla al armar tu examen, no editarla ni borrarla.
+          <i class="bi bi-people-fill me-1"></i>Compartida por {{ pregunta.user.get_full_name|default:pregunta.user.username }} — solo se puede usar al armar un examen, no editarla ni borrarla.
         </p>
         {% endif %}
         <a href="{% url 'material:lista_preguntas' %}" class="btn btn-outline-secondary">

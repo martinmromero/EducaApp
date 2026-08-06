@@ -135,7 +135,7 @@
                     <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
                 </button>
                 <button type="button" id="toggleBulkSelectBtn" class="btn btn-outline-secondary btn-sm" onclick="toggleBulkSelect()"
-                        title="Seleccioná varias preguntas para borrarlas o exportarlas juntas">
+                        title="Seleccionar varias preguntas para borrarlas o exportarlas juntas">
                     <i class="fas fa-check-square"></i> Selección múltiple
                 </button>
                 <a href="{% url 'material:upload_questions' %}" class="btn btn-primary btn-sm">
@@ -376,8 +376,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const count = isAllFiltered ? totalFiltered : checkedOnPage();
             if (count === 0) return;
             const msg = isAllFiltered
-                ? '¿Estás seguro de que querés eliminar TODAS las ' + count + ' preguntas con los filtros actuales?\n\nEsta acción no se puede deshacer.'
-                : '¿Estás seguro de que querés eliminar ' + count + ' pregunta' + (count !== 1 ? 's' : '') + '?\n\nEsta acción no se puede deshacer.';
+                ? '¿Confirmar la eliminación de TODAS las ' + count + ' preguntas con los filtros actuales?\n\nEsta acción no se puede deshacer.'
+                : '¿Confirmar la eliminación de ' + count + ' pregunta' + (count !== 1 ? 's' : '') + '?\n\nEsta acción no se puede deshacer.';
             if (confirm(msg)) {
                 document.getElementById('bulk-delete-form').submit();
             }

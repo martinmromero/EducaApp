@@ -88,7 +88,7 @@
             <div class="card-header fw-bold"><i class="bi bi-bookmark me-2"></i>Materias asociadas</div>
             <div class="card-body">
                 {% if form.subjects.field.queryset.exists %}
-                    <p class="text-muted small mb-2">Seleccioná una o más materias. Podés dejarlo vacío y asignarlo después.</p>
+                    <p class="text-muted small mb-2">Seleccionar una o más materias. Se puede dejar vacío y asignarlo después.</p>
                     <div class="row row-cols-2 row-cols-md-3 g-2">
                         {% for subject in form.subjects.field.queryset %}
                         <div class="col">
@@ -104,7 +104,7 @@
                     </div>
                     {% if form.subjects.errors %}<div class="text-danger small mt-2">{{ form.subjects.errors }}</div>{% endif %}
                 {% else %}
-                    <p class="text-warning mb-0"><i class="bi bi-exclamation-triangle me-1"></i>No hay materias cargadas en el sistema. Podés agregarlas desde el panel de administración.</p>
+                    <p class="text-warning mb-0"><i class="bi bi-exclamation-triangle me-1"></i>No hay materias cargadas en el sistema. Se pueden agregar desde el panel de administración.</p>
                 {% endif %}
             </div>
         </div>

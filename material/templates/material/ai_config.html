@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container py-4" style="max-width: 760px;">
 
-  <p class="text-muted mb-4">Elegí cómo querés que EducaApp acceda a la inteligencia artificial.</p>
+  <p class="text-muted mb-4">Elegir cómo accede EducaApp a la inteligencia artificial.</p>
 
   <!-- Estado actual -->
   <div class="card mb-4">
@@ -40,9 +40,9 @@
                  onchange="onSourceChange()">
           <div class="flex-grow-1">
             <div class="fw-semibold"><i class="bi bi-gift me-1"></i>IA de prueba gratuita de EducaApp</div>
-            <small class="text-muted">Empezá a generar preguntas ya mismo, sin configurar nada. Usa una cuota
-            compartida entre todos los usuarios de EducaApp — es limitada y puede agotarse. Si te quedás sin cupo,
-            conectá tu propia key gratis (abajo) para seguir sin depender de la compartida.</small>
+            <small class="text-muted">Permite generar preguntas ya mismo, sin configurar nada. Usa una cuota
+            compartida entre todos los usuarios de EducaApp — es limitada y puede agotarse. Si se agota el cupo,
+            conectar una key propia gratis (abajo) permite seguir sin depender de la compartida.</small>
           </div>
         </label>
       </div>
@@ -68,7 +68,7 @@
                 <input type="url" class="form-control form-control-sm" name="ollama_url"
                        value="{{ config.ollama_url|default:'' }}"
                        placeholder="{{ default_ollama_url }}">
-                <div class="form-text">Dejá vacío para usar la URL por defecto: <code>{{ default_ollama_url }}</code></div>
+                <div class="form-text">Dejar vacío para usar la URL por defecto: <code>{{ default_ollama_url }}</code></div>
               </div>
             </div>
           </div>
@@ -86,32 +86,32 @@
                  onchange="onSourceChange()">
           <div class="flex-grow-1">
             <div class="fw-semibold"><i class="bi bi-key me-1"></i>Usar mi propia IA online</div>
-            <small class="text-muted">Usá tu cuenta personal de OpenAI, Google Gemini o Anthropic.</small>
+            <small class="text-muted">Usa una cuenta personal de OpenAI, Google Gemini o Anthropic.</small>
 
             <!-- Campos BYOK (visibles solo cuando está seleccionado) -->
             <div id="byok-fields" class="mt-3 {% if config.source != 'byok' %}d-none{% endif %}">
 
               <!-- Instructivo para obtener API Keys -->
               <div class="alert alert-info py-2 px-3 mb-3" id="byok-instructivo">
-                <div class="fw-semibold mb-1"><i class="bi bi-info-circle me-1"></i>¿Cómo obtener tu API Key?</div>
+                <div class="fw-semibold mb-1"><i class="bi bi-info-circle me-1"></i>¿Cómo obtener la API Key?</div>
                 <div id="info-openai" class="small d-none">
-                  <strong>OpenAI:</strong> Ingresá a <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>, creá una cuenta y generá una nueva clave.
+                  <strong>OpenAI:</strong> Ingresar a <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>, crear una cuenta y generar una nueva clave.
                   Los modelos recomendados son <code>gpt-4o-mini</code> (económico) o <code>gpt-4o</code>.
                 </div>
                 <div id="info-gemini" class="small d-none">
-                  <strong>Google Gemini:</strong> Ingresá a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> y generá una clave gratis.
+                  <strong>Google Gemini:</strong> Ingresar a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> y generar una clave gratis.
                   Modelo recomendado: <code>gemini-2.5-flash-lite</code> (gratis dentro de los límites del nivel free: 15 solicitudes por minuto, 1000 por día — más generoso y barato que <code>gemini-2.5-flash</code> para este uso).
                 </div>
                 <div id="info-anthropic" class="small d-none">
-                  <strong>Anthropic (Claude):</strong> Ingresá a <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com/settings/keys</a> y creá una nueva clave.
+                  <strong>Anthropic (Claude):</strong> Ingresar a <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com/settings/keys</a> y crear una nueva clave.
                   Modelo recomendado: <code>claude-3-haiku-20240307</code> (el más económico).
                 </div>
                 <div id="info-groq" class="small d-none">
-                  <strong>Groq:</strong> Ingresá a <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>. Es gratuito con límites generosos y muy rápido.
+                  <strong>Groq:</strong> Ingresar a <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>. Es gratuito con límites generosos y muy rápido.
                   Modelos: <code>llama-3.1-8b-instant</code> o <code>mixtral-8x7b-32768</code>.
                 </div>
                 <div id="info-other" class="small d-none">
-                  Consultá la documentación del proveedor para obtener tu API Key y la URL de su endpoint.
+                  Consultar la documentación del proveedor para obtener la API Key y la URL de su endpoint.
                 </div>
               </div>
 
@@ -136,7 +136,7 @@
                 <label class="form-label fw-semibold">Modelo</label>
                 <div class="input-group mb-1">
                   <select class="form-select" id="byok-model-select" onchange="onModelSelectChange()">
-                    <option value="">— Buscá los modelos disponibles con tu API Key —</option>
+                    <option value="">— Buscar los modelos disponibles con la API Key —</option>
                   </select>
                   <button class="btn btn-outline-secondary" type="button" id="byok-fetch-models-btn" onclick="fetchModels()">
                     <i class="bi bi-search"></i> Buscar modelos
@@ -152,7 +152,7 @@
                        placeholder="ej. gpt-4o-mini" oninput="onCustomModelInput()">
                 <input type="hidden" name="model" id="byok-model" value="{{ config.model }}">
                 <div class="form-text" id="byok-model-help">
-                  Ingresá tu API Key más abajo y tocá "Buscar modelos" para ver los que están disponibles para tu cuenta.
+                  Ingresar la API Key más abajo y tocar "Buscar modelos" para ver los que están disponibles para esa cuenta.
                 </div>
                 <div class="small text-danger d-none" id="byok-model-error"></div>
               </div>
@@ -179,7 +179,7 @@
                 </div>
                 {% if has_api_key and config.source == 'byok' %}
                   <div class="form-text text-success">
-                    <i class="bi bi-shield-lock me-1"></i>Key guardada y cifrada. Dejá el campo vacío para mantenerla.
+                    <i class="bi bi-shield-lock me-1"></i>Key guardada y cifrada. Dejar el campo vacío para mantenerla.
                   </div>
                 {% endif %}
               </div>
@@ -206,14 +206,14 @@
                 <span class="badge bg-secondary ms-2">No configurada</span>
               {% endif %}
             </div>
-            <small class="text-muted">Usa la API Key configurada por tu institución. No necesitás cuenta propia.</small>
+            <small class="text-muted">Usa la API Key configurada por la institución. No hace falta cuenta propia.</small>
 
             <!-- Selector de institución -->
             <div id="inst-fields" class="mt-3 {% if config.source != 'institutional' %}d-none{% endif %}">
               {% if institutions_with_ai %}
                 <label class="form-label fw-semibold">Institución</label>
                 <select class="form-select" name="institution_id">
-                  <option value="">— Seleccioná una institución —</option>
+                  <option value="">— Seleccionar una institución —</option>
                   {% for inst in institutions_with_ai %}
                     <option value="{{ inst.pk }}"
                       {% if config.institution_id == inst.pk %}selected{% endif %}>
@@ -223,8 +223,8 @@
                 </select>
               {% else %}
                 <p class="text-muted small mb-1">
-                  Ninguna de tus instituciones tiene una configuración de IA activa.
-                  {% if not is_staff %}Pedile al administrador que la configure.{% endif %}
+                  Ninguna institución asociada tiene una configuración de IA activa.
+                  {% if not is_staff %}Pedirle al administrador que la configure.{% endif %}
                 </p>
               {% endif %}
             </div>
@@ -276,7 +276,7 @@ function onProviderChange() {
 
 function resetModelSelect() {
   const select = document.getElementById('byok-model-select');
-  select.innerHTML = '<option value="">— Buscá los modelos disponibles con tu API Key —</option>';
+  select.innerHTML = '<option value="">— Buscar los modelos disponibles con la API Key —</option>';
   document.getElementById('byok-model-error').classList.add('d-none');
 }
 
@@ -293,7 +293,7 @@ function populateModelSelect(models, selectedValue) {
   }
   const placeholder = document.createElement('option');
   placeholder.value = '';
-  placeholder.textContent = '— Elegí un modelo —';
+  placeholder.textContent = '— Elegir un modelo —';
   select.appendChild(placeholder);
   models.forEach(m => {
     const opt = document.createElement('option');
@@ -373,12 +373,12 @@ function fetchModels() {
         populateModelSelect(data.models, currentModel);
         setModelHiddenValue(document.getElementById('byok-model-select').value);
       } else {
-        errorEl.textContent = data.error || 'No se pudieron obtener los modelos. Podés escribir el nombre manualmente.';
+        errorEl.textContent = data.error || 'No se pudieron obtener los modelos. Se puede escribir el nombre manualmente.';
         errorEl.classList.remove('d-none');
       }
     })
     .catch(() => {
-      errorEl.textContent = 'No se pudo conectar con el servidor. Podés escribir el nombre manualmente.';
+      errorEl.textContent = 'No se pudo conectar con el servidor. Se puede escribir el nombre manualmente.';
       errorEl.classList.remove('d-none');
     })
     .finally(() => {
@@ -402,19 +402,19 @@ function toggleKeyVisibility() {
 const STATUS_MSGS = {
   shared_demo: {
     ok:   'Usando la IA de prueba gratuita de EducaApp',
-    fail: 'La IA de prueba gratuita no está disponible ahora mismo (puede estar sin configurar o sin cupo). Probá de nuevo más tarde o conectá tu propia API Key.',
+    fail: 'La IA de prueba gratuita no está disponible ahora mismo (puede estar sin configurar o sin cupo). Probar de nuevo más tarde o conectar una API Key propia.',
   },
   ollama_local: {
     ok:   'Servidor Ollama conectado',
-    fail: 'Servidor Ollama no disponible. Verificá que el servidor esté activo y accesible desde esta red.',
+    fail: 'Servidor Ollama no disponible. Verificar que el servidor esté activo y accesible desde esta red.',
   },
   byok: {
     ok:   'Proveedor externo conectado',
-    fail: 'No se pudo conectar con el proveedor. Verificá tu API Key y el proveedor seleccionado.',
+    fail: 'No se pudo conectar con el proveedor. Verificar la API Key y el proveedor seleccionado.',
   },
   institutional: {
     ok:   'Configuración institucional activa',
-    fail: 'La configuración institucional no está disponible. Contactá al administrador.',
+    fail: 'La configuración institucional no está disponible. Contactar al administrador.',
   },
 };
 
@@ -435,7 +435,7 @@ function checkStatus() {
         if (data.provider && data.provider !== backend) detail.push(data.provider);
         if (data.model) detail.push(data.model);
         if (data.url)   detail.push(data.url);
-        if (!ready) detail.push('revisá el modelo');
+        if (!ready) detail.push('revisar el modelo');
         document.getElementById('status-detail').textContent = detail.join(' — ');
       } else {
         document.getElementById('status-icon').textContent = '❌';
@@ -459,8 +459,8 @@ function renderDemoQuota(data) {
   }
   if (!data.demo_quota || data.demo_quota.remaining_requests === null || data.demo_quota.remaining_requests === undefined) {
     box.classList.remove('d-none');
-    text.innerHTML = '<i class="bi bi-people-fill me-1"></i>Estás usando la IA compartida de EducaApp (sin key propia conectada). ' +
-      'Todavía no generaste nada con ella, así que no sabemos cuánto cupo queda — se va a ver acá apenas generes tu primera tanda de preguntas.';
+    text.innerHTML = '<i class="bi bi-people-fill me-1"></i>Se está usando la IA compartida de EducaApp (sin key propia conectada). ' +
+      'Todavía no se generó nada con ella, así que no se sabe cuánto cupo queda — se va a ver acá apenas se genere la primera tanda de preguntas.';
     return;
   }
   const q = data.demo_quota;
@@ -474,9 +474,9 @@ function renderDemoQuota(data) {
   const lowTokens = q.limit_tokens && q.remaining_tokens !== null && q.remaining_tokens !== undefined &&
     (q.remaining_tokens / q.limit_tokens) < 0.2;
   const icon = low ? '⚠️' : '<i class="bi bi-people-fill me-1"></i>';
-  text.innerHTML = icon + ' Estás usando la IA compartida de EducaApp. Cupo del día: quedan <strong>' +
+  text.innerHTML = icon + ' Se está usando la IA compartida de EducaApp. Cupo del día: quedan <strong>' +
     q.remaining_requests + ' de ' + (q.limit_requests ?? '?') + '</strong> tandas de generación.' + resetText +
-    (low ? ' Queda poco — si podés, conectá tu propia API key gratis arriba para no depender del cupo compartido.' : '') +
+    (low ? ' Queda poco — conviene conectar una API key propia gratis arriba para no depender del cupo compartido.' : '') +
     (lowTokens ? ' ⏳ Hay muchas tandas seguidas usando la IA compartida en este momento — la próxima generación puede tardar más de lo normal.' : '');
 }
 

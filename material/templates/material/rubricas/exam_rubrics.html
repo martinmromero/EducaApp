@@ -42,9 +42,9 @@
                         <strong>{{ item.grid.title }}</strong>
                         <div class="d-flex gap-1 align-items-center">
                             {% if item.er.show_in_exam %}
-                                <span class="badge bg-success" title="Al imprimir o exportar este examen, la casilla 'Incluir rúbricas' viene tildada por defecto. Podés destildarla puntualmente en cada exportación.">Incluida por defecto</span>
+                                <span class="badge bg-success" title="Al imprimir o exportar este examen, la casilla 'Incluir rúbricas' viene tildada por defecto. Se puede destildar puntualmente en cada exportación.">Incluida por defecto</span>
                             {% else %}
-                                <span class="badge bg-secondary" title="Al imprimir o exportar este examen, la casilla 'Incluir rúbricas' viene destildada por defecto. Podés tildarla puntualmente en cada exportación.">Excluida por defecto</span>
+                                <span class="badge bg-secondary" title="Al imprimir o exportar este examen, la casilla 'Incluir rúbricas' viene destildada por defecto. Se puede tildar puntualmente en cada exportación.">Excluida por defecto</span>
                             {% endif %}
                             <form method="post" class="d-inline">
                                 {% csrf_token %}
@@ -74,7 +74,7 @@
             {% else %}
                 <div class="alert alert-info">
                     <i class="bi bi-info-circle me-1"></i>
-                    Este examen no tiene rúbricas asociadas. Seleccioná una de tu biblioteca.
+                    Este examen no tiene rúbricas asociadas. Seleccionar una de la biblioteca.
                 </div>
             {% endif %}
         </div>
@@ -105,7 +105,7 @@
             {% else %}
                 <div class="alert alert-secondary">
                     <i class="bi bi-info-circle me-1"></i>
-                    Todas tus rúbricas ya están agregadas, o todavía no creaste ninguna.
+                    Todas las rúbricas ya están agregadas, o todavía no se creó ninguna.
                     <a href="{% url 'material:rubric_create' %}" class="alert-link">Crear una nueva</a>
                 </div>
             {% endif %}

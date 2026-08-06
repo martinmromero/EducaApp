@@ -5,22 +5,22 @@
 {% block content %}
 <div class="onb2-wrap">
   <div class="onb2-header">
-    <p class="text-muted mb-0">Te guiamos paso a paso: cargá tus datos, subí un contenido, aprobá preguntas generadas por IA y armá tu examen.</p>
+    <p class="text-muted mb-0">Guía paso a paso: cargar los datos, subir un contenido, aprobar preguntas generadas por IA y armar el examen.</p>
   </div>
 
   <!-- Pantalla de decisión: se muestra primero, antes de pedir cualquier dato -->
   <div id="onb2Gateway">
     <div class="card onb2-card shadow-sm">
       <div class="card-body p-4 p-lg-5 text-center">
-        <h4 class="fw-semibold mb-2">¿Cómo querés empezar?</h4>
-        <p class="text-muted mb-4">Podés cargar tu propia información, o probar el sistema en un minuto con un esquema ya armado.</p>
+        <h4 class="fw-semibold mb-2">¿Cómo empezar?</h4>
+        <p class="text-muted mb-4">Se puede cargar información propia, o probar el sistema en un minuto con un esquema ya armado.</p>
         <div class="row g-3 justify-content-center">
           <div class="col-md-6">
             <button type="button" class="btn btn-success w-100 h-100 py-4 position-relative" id="onb2GatewayDemoBtn">
               <span class="badge bg-warning text-dark position-absolute top-0 start-50 translate-middle">Recomendado</span>
               <i class="bi bi-stars d-block mb-2 mt-2" style="font-size:1.8rem"></i>
               <span class="fw-semibold d-block">Probar con un esquema ya armado</span>
-              <span class="small" style="opacity:.85">Elegí una materia de ejemplo y mirá un examen ya armado, en un minuto</span>
+              <span class="small" style="opacity:.85">Elegir una materia de ejemplo y ver un examen ya armado, en un minuto</span>
             </button>
           </div>
           <div class="col-md-6">
@@ -32,7 +32,7 @@
           </div>
         </div>
         <div id="onb2GatewayDemoPicker" class="d-none mt-4 text-start">
-          <p class="text-muted mb-2 small">Elegí una materia de ejemplo:</p>
+          <p class="text-muted mb-2 small">Elegir una materia de ejemplo:</p>
           <div id="onb2GatewayDemoCards" class="onb2-card-grid"></div>
         </div>
         <p class="text-muted mt-4 mb-0" style="font-size:.82rem">
@@ -56,48 +56,48 @@
         <div class="onb2-step-item" data-step="1">
           <div class="onb2-step-dot">1</div>
           <div class="onb2-step-text">
-            <div class="fw-semibold">Tu nombre</div>
-            <div class="text-muted small">Cómo te vamos a llamar</div>
+            <div class="fw-semibold">Nombre</div>
+            <div class="text-muted small">Cómo figura en los documentos</div>
           </div>
         </div>
         <div class="onb2-step-item" data-step="2">
           <div class="onb2-step-dot">2</div>
           <div class="onb2-step-text">
             <div class="fw-semibold">Institución</div>
-            <div class="text-muted small">Dónde vas a usar EducaApp</div>
+            <div class="text-muted small">Dónde se usa EducaApp</div>
           </div>
         </div>
         <div class="onb2-step-item" data-step="3">
           <div class="onb2-step-dot">3</div>
           <div class="onb2-step-text">
             <div class="fw-semibold">Materia</div>
-            <div class="text-muted small">Qué vas a evaluar</div>
+            <div class="text-muted small">Qué se va a evaluar</div>
           </div>
         </div>
         <div class="onb2-step-item" data-step="4">
           <div class="onb2-step-dot">4</div>
           <div class="onb2-step-text">
             <div class="fw-semibold">Contenido</div>
-            <div class="text-muted small">Subí un documento fuente</div>
+            <div class="text-muted small">Subir un documento fuente</div>
           </div>
         </div>
         <div class="onb2-step-item" data-step="5">
           <div class="onb2-step-dot"><i class="bi bi-cpu"></i></div>
           <div class="onb2-step-text">
             <div class="fw-semibold">Generar con IA</div>
-            <div class="text-muted small">Curá tus preguntas</div>
+            <div class="text-muted small">Curar las preguntas</div>
           </div>
         </div>
         <div class="onb2-step-item" data-step="6">
           <div class="onb2-step-dot"><i class="bi bi-clipboard-check"></i></div>
           <div class="onb2-step-text">
             <div class="fw-semibold">Examen</div>
-            <div class="text-muted small">Armalo y guardalo</div>
+            <div class="text-muted small">Armarlo y guardarlo</div>
           </div>
         </div>
       </div>
       <p class="text-muted mt-3 mb-0" style="font-size:.78rem">
-        <i class="bi bi-info-circle me-1"></i>Los pasos 5 y 6 te llevan a las pantallas reales de EducaApp — vas a ver una franja arriba que te ubica en el asistente.
+        <i class="bi bi-info-circle me-1"></i>Los pasos 5 y 6 llevan a las pantallas reales de EducaApp — arriba se ve una franja que ubica dentro del asistente.
       </p>
     </div>
 
@@ -108,8 +108,8 @@
 
           <!-- Paso 1 -->
           <div class="onb2-panel" id="onb2Panel1">
-            <h4 class="fw-semibold mb-1"><i class="bi bi-person me-2 text-primary"></i>¿Cómo te llamás?</h4>
-            <p class="text-muted mb-4">Usamos tu nombre para personalizar exámenes y documentos.</p>
+            <h4 class="fw-semibold mb-1"><i class="bi bi-person me-2 text-primary"></i>Nombre y apellido</h4>
+            <p class="text-muted mb-4">Se usa el nombre para personalizar exámenes y documentos.</p>
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">Nombre</label>
@@ -124,11 +124,11 @@
 
           <!-- Paso 2 -->
           <div class="onb2-panel d-none" id="onb2Panel2">
-            <h4 class="fw-semibold mb-1"><i class="bi bi-buildings me-2 text-primary"></i>¿En qué institución trabajás?</h4>
-            <p class="text-muted mb-4">Vamos a asociar tus materias y exámenes a esta institución. Podés cambiarla después.</p>
+            <h4 class="fw-semibold mb-1"><i class="bi bi-buildings me-2 text-primary"></i>Institución</h4>
+            <p class="text-muted mb-4">Se van a asociar las materias y exámenes a esta institución. Se puede cambiar después.</p>
 
             <div id="onb2InstCardsBlock" class="d-none mb-4">
-              <p class="text-muted mb-2 small">Vas a seguir usando esta institución:</p>
+              <p class="text-muted mb-2 small">Institución que se va a seguir usando:</p>
               <div id="onb2InstCards" class="onb2-card-grid"></div>
             </div>
 
@@ -144,7 +144,7 @@
                     {% endfor %}
                   </select>
                   <p class="text-muted mb-0 mt-1 d-none" id="onb2InstExistingEmpty" style="font-size:.82rem">
-                    No hay otras instituciones registradas en el sistema todavía — creá una nueva abajo.
+                    No hay otras instituciones registradas en el sistema todavía — crear una nueva abajo.
                   </p>
                 </div>
                 <div class="text-center text-muted my-3 small" id="onb2InstOrCreate">— o crear una nueva —</div>
@@ -158,8 +158,8 @@
 
           <!-- Paso 3 -->
           <div class="onb2-panel d-none" id="onb2Panel3">
-            <h4 class="fw-semibold mb-1"><i class="bi bi-book me-2 text-primary"></i>¿Qué materia vas a evaluar?</h4>
-            <p class="text-muted mb-4">La usamos para clasificar tus contenidos y las preguntas que genere la IA.</p>
+            <h4 class="fw-semibold mb-1"><i class="bi bi-book me-2 text-primary"></i>Materia</h4>
+            <p class="text-muted mb-4">Se usa para clasificar los contenidos y las preguntas que genere la IA.</p>
 
             <div id="onb2SubjectCardsBlock" class="d-none mb-4">
               <p class="text-muted mb-2 small">Tus materias:</p>
@@ -176,7 +176,7 @@
                     <option value="">— seleccionar —</option>
                   </select>
                   <p class="text-muted mb-0 mt-1 d-none" id="onb2SubjectExistingEmpty" style="font-size:.82rem">
-                    No hay otras materias registradas en el sistema todavía — creá una nueva abajo.
+                    No hay otras materias registradas en el sistema todavía — crear una nueva abajo.
                   </p>
                 </div>
                 <div class="text-center text-muted my-3 small">— o crear una nueva —</div>
@@ -190,8 +190,8 @@
 
           <!-- Paso 4 -->
           <div class="onb2-panel d-none" id="onb2Panel4">
-            <h4 class="fw-semibold mb-1"><i class="bi bi-file-earmark-arrow-up me-2 text-primary"></i>Subí un contenido</h4>
-            <p class="text-muted mb-4">Un apunte, capítulo o presentación. La IA lo va a leer para generarte preguntas en el próximo paso.</p>
+            <h4 class="fw-semibold mb-1"><i class="bi bi-file-earmark-arrow-up me-2 text-primary"></i>Subir un contenido</h4>
+            <p class="text-muted mb-4">Un apunte, capítulo o presentación. La IA lo va a leer para generar preguntas en el próximo paso.</p>
 
             <div class="mb-3">
               <label class="form-label">Archivo <span class="text-muted small">(PDF, DOCX, PPTX)</span></label>
@@ -258,8 +258,8 @@
 
           <!-- Paso 6: handoff a crear examen (navegación real, sin iframe) -->
           <div class="onb2-panel d-none" id="onb2Panel6">
-            <h4 class="fw-semibold mb-1"><i class="bi bi-clipboard-check me-2 text-primary"></i>Armá tu examen</h4>
-            <p class="text-muted mb-3">Ya tenés preguntas aprobadas y guardadas. Ahora armamos el examen: elegís materia, cantidad de preguntas, y si querés un solo tema o varios por lotes.</p>
+            <h4 class="fw-semibold mb-1"><i class="bi bi-clipboard-check me-2 text-primary"></i>Armar el examen</h4>
+            <p class="text-muted mb-3">Ya hay preguntas aprobadas y guardadas. Ahora se arma el examen: elegir materia, cantidad de preguntas, y si es un solo tema o varios por lotes.</p>
 
             <div id="onb2Step6SeedSuggest" class="alert alert-info d-none" role="alert">
               <p class="mb-2" id="onb2Step6SeedText"></p>
@@ -276,7 +276,7 @@
                 <i class="bi bi-clipboard-check me-1"></i>Continuar a crear examen
               </a>
               <p class="text-muted mt-3 mb-0" style="font-size:.82rem">
-                <a href="#" id="onb2BackToGenerateLink" class="text-muted">¿Querés generar o aprobar más preguntas antes? Volvé al paso anterior</a>
+                <a href="#" id="onb2BackToGenerateLink" class="text-muted">¿Generar o aprobar más preguntas antes? Volver al paso anterior</a>
               </p>
             </div>
           </div>
@@ -422,7 +422,7 @@
       const data = await resp.json();
       if (data.has_seed && !data.include_seed_active && data.own_count < 10) {
         document.getElementById('onb2Step6SeedText').textContent =
-          'Tenés ' + data.own_count + ' pregunta(s) propia(s) en esta materia. ¿Sumamos preguntas de ejemplo del sistema para que tu examen de prueba sea más completo?';
+          'Hay ' + data.own_count + ' pregunta(s) propia(s) en esta materia. ¿Sumar preguntas de ejemplo del sistema para completar el examen de prueba?';
         box.classList.remove('d-none');
       }
     } catch (_) { /* no bloqueamos el paso 6 por un error de red */ }
@@ -571,7 +571,7 @@
         container.querySelectorAll('.onb2-contenido-item').forEach(function (e) { e.classList.remove('onb2-selected'); });
         el.classList.add('onb2-selected');
         lastUploadedContenidoId = parseInt(el.dataset.id, 10);
-        document.getElementById('onb2UploadStatus').textContent = 'Vas a usar: “' + el.dataset.title + '”';
+        document.getElementById('onb2UploadStatus').textContent = 'Se va a usar: “' + el.dataset.title + '”';
       });
     });
   })();
@@ -641,7 +641,7 @@
         if (demoMatch) {
           const wantsSeed = window.confirm(
             'La materia "' + demoMatch.name + '" ya tiene preguntas de ejemplo del sistema.\n\n' +
-            '¿Querés sumarlas a tu banco para que tu examen de prueba sea más completo?'
+            '¿Sumarlas al banco de preguntas para completar el examen de prueba?'
           );
           await saveStep('seed_pref', { include_seed: wantsSeed });
         }
@@ -665,7 +665,7 @@
     const statusEl = document.getElementById('onb2UploadStatus');
 
     if (!file) {
-      statusEl.textContent = 'Elegí un archivo para continuar (o abrí "¿Ya subiste algo antes?" para reusar uno).';
+      statusEl.textContent = 'Elegir un archivo para continuar (o abrir "¿Ya se subió algo antes?" para reusar uno).';
       return false;
     }
 
@@ -712,7 +712,7 @@
   async function startStep5() {
     if (!lastUploadedContenidoId) {
       show5('onb2AiError');
-      document.getElementById('onb2AiErrorMsg').textContent = 'Todavía no subiste ni seleccionaste un contenido en el paso anterior.';
+      document.getElementById('onb2AiErrorMsg').textContent = 'Todavía no se subió ni se seleccionó un contenido en el paso anterior.';
       return;
     }
     show5('onb2AiChecking');
@@ -736,7 +736,7 @@
     const key = document.getElementById('onb2GeminiKey').value.trim();
     const errEl = document.getElementById('onb2ConnectError');
     errEl.textContent = '';
-    if (!key) { errEl.textContent = 'Ingresá una API key.'; return; }
+    if (!key) { errEl.textContent = 'Ingresar una API key.'; return; }
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Validando…';
     try {

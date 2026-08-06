@@ -172,8 +172,8 @@
         }
 
         const confirmMessage = selectedContents.length === 1 ?
-            "¿Estás seguro de que deseas borrar el archivo de este documento? El documento y las preguntas que lo citan como fuente se conservarán." :
-            "¿Estás seguro de que deseas borrar los archivos de los documentos seleccionados? Los documentos y las preguntas que los citan como fuente se conservarán.";
+            "¿Confirmar el borrado del archivo de este documento? El documento y las preguntas que lo citan como fuente se conservarán." :
+            "¿Confirmar el borrado de los archivos de los documentos seleccionados? Los documentos y las preguntas que los citan como fuente se conservarán.";
 
         if (confirm(confirmMessage)) {
             form.submit();

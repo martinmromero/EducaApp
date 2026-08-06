@@ -72,7 +72,7 @@
             <input type="hidden" name="institution_id" value="{{ editing.institution.pk }}">
           {% else %}
             <select class="form-select" name="institution_id" required>
-              <option value="">— Seleccioná una institución —</option>
+              <option value="">— Seleccionar una institución —</option>
               {% for inst in available_institutions %}
                 <option value="{{ inst.pk }}">{{ inst.name }}</option>
               {% endfor %}
@@ -129,7 +129,7 @@
           </div>
           {% if editing and editing.api_key_encrypted %}
             <div class="form-text text-success">
-              <i class="bi bi-shield-lock me-1"></i>Key guardada y cifrada. Dejá el campo vacío para mantenerla.
+              <i class="bi bi-shield-lock me-1"></i>Key guardada y cifrada. Dejar el campo vacío para mantenerla.
             </div>
           {% endif %}
         </div>

@@ -62,7 +62,7 @@
                         {% elif local_ai_connected %}
                             <span class="text-warning">
                                 <i class="fas fa-exclamation-triangle"></i> La conexión responde, pero el modelo configurado no es compatible para generar preguntas.
-                                Revisá proveedor y modelo en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a>.
+                                Revisar proveedor y modelo en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a>.
                             </span>
                         {% else %}
                             <span class="text-warning">
@@ -219,7 +219,7 @@
                 <div id="preflightChapterList"></div>
                 <hr>
                 <h6><i class="fas fa-list-ul"></i> Tipos de preguntas a generar</h6>
-                <p class="text-muted small mb-2">Seleccioná qué tipos incluir (se mezclarán en las preguntas generadas):</p>
+                <p class="text-muted small mb-2">Seleccionar qué tipos incluir (se mezclarán en las preguntas generadas):</p>
                 <div class="row g-2 mb-3">
                     <div class="col-6">
                         <div class="form-check">
@@ -295,7 +295,7 @@
                     <input class="form-check-input" type="checkbox" id="pauseAfterBlockToggle">
                     <label class="form-check-label" for="pauseAfterBlockToggle">
                         <strong>Pausar después de cada bloque</strong><br>
-                        <small class="text-muted">Después de ver cada bloque podés decidir si continuar o detenerte.</small>
+                        <small class="text-muted">Después de ver cada bloque se puede decidir si continuar o detenerse.</small>
                     </label>
                 </div>
             </div>
@@ -325,7 +325,7 @@
 
                 <!-- ── Paso 1: Materias ───────────────────────────────── -->
                 <h6 class="fw-bold mb-1"><i class="fas fa-book-open text-primary"></i> Materia(s)</h6>
-                <p class="text-muted small mb-2">Seleccioná una o más materias a las que asignar las preguntas:</p>
+                <p class="text-muted small mb-2">Seleccionar una o más materias a las que asignar las preguntas:</p>
                 <div id="subjectPickerList">
                     {% for subject in subjects %}
                     <div class="form-check mb-2">
@@ -356,7 +356,7 @@
                         <span class="spinner-border spinner-border-sm"></span> Cargando tópicos…
                     </div>
                     <select class="form-select mb-2" id="topicSelect">
-                        <option value="">— Seleccioná primero una materia —</option>
+                        <option value="">— Seleccionar primero una materia —</option>
                     </select>
                     <div id="newTopicBlock" style="display:none">
                         <label class="form-label small fw-bold">Nombre del nuevo tópico</label>
@@ -449,7 +449,7 @@
             <div id="pdfViewerContainer" style="display:none">
               <div class="alert alert-info py-2 mb-3 d-flex align-items-center gap-2">
                 <i class="fas fa-info-circle"></i>
-                <small>Marcá el checkbox en cada página para incluirla en el análisis de IA.</small>
+                <small>Marcar el checkbox en cada página para incluirla en el análisis de IA.</small>
               </div>
               <div id="pdfPagesGrid" class="row g-3"></div>
             </div>
@@ -458,7 +458,7 @@
             <div id="pptxViewerContainer" style="display:none">
               <div class="alert alert-info py-2 mb-3">
                 <i class="fas fa-info-circle"></i>
-                <small>Cada tarjeta representa un slide. Marcá los que querés analizar.</small>
+                <small>Cada tarjeta representa un slide. Marcar los que se quiere analizar.</small>
               </div>
               <div id="pptxSlidesGrid" class="row g-3"></div>
             </div>
@@ -511,7 +511,7 @@
             <div id="txtViewerContainer" style="display:none">
               <div class="alert alert-info py-2 mb-3">
                 <i class="fas fa-info-circle"></i>
-                <small>Cada bloque representa ~50 líneas. Marcá los que querés analizar.</small>
+                <small>Cada bloque representa ~50 líneas. Marcar los que se quiere analizar.</small>
               </div>
               <div id="txtBlocksGrid" class="row g-3"></div>
             </div>
@@ -521,7 +521,7 @@
           <div class="tab-pane fade p-3" id="previewChaptersPane">
             <div class="alert alert-secondary py-2 mb-3">
               <i class="fas fa-info-circle"></i>
-              <small>Capítulos detectados automáticamente por el procesador. Seleccioná los que querés enviar a IA.</small>
+              <small>Capítulos detectados automáticamente por el procesador. Seleccionar los que se quiere enviar a IA.</small>
             </div>
             <div id="previewChaptersList"></div>
           </div>
@@ -749,7 +749,7 @@ document.getElementById('uploadDocumentForm').addEventListener('submit', async f
         }
     } catch (error) {
         progressDiv.style.display = 'none';
-        showAiNoticeBanner('Ocurrió un error de conexión al procesar el documento. Probá de nuevo.', { title: 'Error al procesar', variant: 'danger' });
+        showAiNoticeBanner('Ocurrió un error de conexión al procesar el documento. Probar de nuevo.', { title: 'Error al procesar', variant: 'danger' });
     }
 });
 
@@ -778,8 +778,8 @@ function displayDocumentResult(data) {
         ? `<div class="alert alert-info py-2 mb-2">
                <i class="bi bi-info-circle me-1"></i>
                El documento es muy grande para procesarlo de una sola vez${data.chapters.length > 1 && !(data.toc && data.toc.length) ? ' — por eso se dividió automáticamente en bloques de páginas' : ''}.
-               Elegí capítulos (o bloques de páginas) puntuales y generá las preguntas en varias tandas
-               (más abajo vas a ver cuánto podés seleccionar por tanda).
+               Elegir capítulos (o bloques de páginas) puntuales y generar las preguntas en varias tandas
+               (más abajo se indica cuánto se puede seleccionar por tanda).
            </div>`
         : '';
 
@@ -818,7 +818,7 @@ function displayDocumentResult(data) {
                 <small class="text-muted">
                     Capacidad usada en esta tanda
                     <i class="fas fa-circle-question ms-1"
-                       title="Cada tanda de generación tiene un tope de capacidad para que el servidor no se quede colgado procesando un documento entero de una sola vez. Si necesitás más, generá en varias tandas."
+                       title="Cada tanda de generación tiene un tope de capacidad para que el servidor no se quede colgado procesando un documento entero de una sola vez. Si hace falta más, generar en varias tandas."
                        style="cursor:help"></i>
                 </small>
                 <small id="tokenBudgetLabel" class="text-muted" title="0 / ${RUN_TOKEN_BUDGET.toLocaleString()}">0%</small>
@@ -997,7 +997,7 @@ function renderDemoQuotaBox(data) {
     }
     box.innerHTML = (low ? '<i class="fas fa-triangle-exclamation text-warning"></i>' : '<i class="fas fa-people-group"></i>') +
         ` IA compartida — cupo del día: quedan <strong>${q.remaining_requests} de ${q.limit_requests ?? '?'}</strong> tandas` +
-        (low ? ' <span class="text-warning">(queda poco — conectá tu propia key en Proveedor de IA)</span>' : '') +
+        (low ? ' <span class="text-warning">(queda poco — conviene conectar una key propia en Proveedor de IA)</span>' : '') +
         resetLine +
         (lowTokens ? '<br><span class="text-warning"><i class="fas fa-hourglass-half"></i> Muchas tandas seguidas — puede tardar más de lo normal por un rato</span>' : '');
 }
@@ -1189,7 +1189,7 @@ async function generateQuestionsFromSelected() {
     const checkboxes = document.querySelectorAll('.chapter-checkbox:checked');
 
     if (checkboxes.length === 0) {
-        showAiNoticeBanner('Seleccioná al menos un capítulo para generar preguntas.', { title: 'Nada seleccionado' });
+        showAiNoticeBanner('Seleccionar al menos un capítulo para generar preguntas.', { title: 'Nada seleccionado' });
         return;
     }
 
@@ -1201,13 +1201,13 @@ async function generateQuestionsFromSelected() {
         if (!statusData.connected) {
             const providerMsg = statusData.provider || statusData.backend || 'IA';
             showAiNoticeBanner(
-                `Verificá tu configuración en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a> antes de generar preguntas. Proveedor activo: <strong>${providerMsg}</strong>.`,
+                `Verificar la configuración en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a> antes de generar preguntas. Proveedor activo: <strong>${providerMsg}</strong>.`,
                 { title: 'Proveedor de IA no disponible' }
             );
             return;
         }
     } catch (error) {
-        showAiNoticeBanner('No se pudo verificar el estado del proveedor de IA. Verificá tu conexión.', { title: 'Error de conexión', variant: 'danger' });
+        showAiNoticeBanner('No se pudo verificar el estado del proveedor de IA. Verificar la conexión.', { title: 'Error de conexión', variant: 'danger' });
         return;
     }
 
@@ -1261,7 +1261,7 @@ function showPreflightModal(indices, chapters) {
         <div class="alert alert-danger py-2">
             <i class="fas fa-ban me-1"></i>
             Esta selección supera el máximo recomendado para una sola tanda.
-            Volvé atrás y seleccioná menos capítulos o páginas; generá el resto en otra tanda.
+            Volver atrás y seleccionar menos capítulos o páginas; generar el resto en otra tanda.
         </div>`;
     }
     document.getElementById('preflightChapterList').innerHTML = chapHtml;
@@ -1276,7 +1276,7 @@ async function startGeneration() {
     // Recolectar tipos de preguntas seleccionados
     const checkedTypes = [...document.querySelectorAll('.question-type-cb:checked')].map(cb => cb.value);
     if (checkedTypes.length === 0) {
-        alert('Seleccioná al menos un tipo de pregunta.');
+        alert('Seleccionar al menos un tipo de pregunta.');
         return;
     }
     window._selectedQuestionTypes = checkedTypes;
@@ -1812,7 +1812,7 @@ function displayGeneratedQuestions(questions) {
         <div class="alert alert-info">
             <i class="fas fa-info-circle"></i>
             <strong>${questions.length} preguntas generadas</strong>
-            <br><small>Revisá cada pregunta y marcá las que deseas guardar</small>
+            <br><small>Revisar cada pregunta y marcar las que se quiere guardar</small>
         </div>
         <div class="mb-3">
             <button class="btn btn-sm btn-outline-primary" onclick="selectAllQuestions(true)">
@@ -1930,7 +1930,7 @@ function _initSubjectPicker() {
     // Reset topic/subtopic dropdowns
     const topicSel = document.getElementById('topicSelect');
     const subtopicSel = document.getElementById('subtopicSelect');
-    topicSel.innerHTML = '<option value="">— Seleccioná primero una materia —</option>';
+    topicSel.innerHTML = '<option value="">— Seleccionar primero una materia —</option>';
     subtopicSel.innerHTML = '<option value="">— Sin sub-tópico —</option>';
     document.getElementById('newTopicBlock').style.display = 'none';
     document.getElementById('newSubtopicBlock').style.display = 'none';
@@ -1972,7 +1972,7 @@ function _onSubjectPickerChange() {
         _loadTopicsForSubject(parseInt(firstChecked.value));
     } else {
         const topicSel = document.getElementById('topicSelect');
-        topicSel.innerHTML = '<option value="">— Seleccioná primero una materia —</option>';
+        topicSel.innerHTML = '<option value="">— Seleccionar primero una materia —</option>';
         document.getElementById('newTopicBlock').style.display = 'none';
         document.getElementById('subtopicSection').style.display = 'none';
     }
@@ -2103,7 +2103,7 @@ async function saveGeneratedQuestions() {
                 document.querySelectorAll('.subject-picker-cb:checked')
             ).map(cb => parseInt(cb.value));
             if (subjectIds.length === 0) {
-                alert('Seleccioná al menos una materia.');
+                alert('Seleccionar al menos una materia.');
                 return;
             }
 
@@ -2119,7 +2119,7 @@ async function saveGeneratedQuestions() {
             if (topicSel.value === '__new__') {
                 newTopicName = document.getElementById('newTopicInput').value.trim();
                 if (!newTopicName) {
-                    alert('Ingresá el nombre del nuevo tópico.');
+                    alert('Ingresar el nombre del nuevo tópico.');
                     return;
                 }
             } else if (topicSel.value) {
@@ -2129,7 +2129,7 @@ async function saveGeneratedQuestions() {
             if (subtopicSel.value === '__new__') {
                 newSubtopicName = document.getElementById('newSubtopicInput').value.trim();
                 if (!newSubtopicName) {
-                    alert('Ingresá el nombre del nuevo sub-tópico.');
+                    alert('Ingresar el nombre del nuevo sub-tópico.');
                     return;
                 }
             } else if (subtopicSel.value) {
@@ -2658,7 +2658,7 @@ async function _renderDocx(fileUrl, sections) {
       <i class="fas fa-file-word fa-2x text-primary mb-2 d-block"></i>
       <strong>Vista previa no disponible</strong><br>
       <small class="text-muted">${_escapeHtml(e.message)}</small><br>
-      <small class="text-muted mt-1 d-block">Usá el panel derecho para seleccionar las secciones a analizar.</small>
+      <small class="text-muted mt-1 d-block">Usar el panel derecho para seleccionar las secciones a analizar.</small>
     </div>`;
   }
 
@@ -2783,7 +2783,7 @@ async function generateFromPageSelection() {
   if (chaptersTabActive) {
     // Usar selección de capítulos
     const checked = [...document.querySelectorAll('.chapter-preview-cb:checked')].map(cb => parseInt(cb.value));
-    if (checked.length === 0) { alert('Seleccioná al menos un capítulo.'); return; }
+    if (checked.length === 0) { alert('Seleccionar al menos un capítulo.'); return; }
     // Cerrar preview y usar el flujo existente
     bootstrap.Modal.getInstance(document.getElementById('pagePreviewModal')).hide();
     // Simular selección en el accordion y lanzar preflight
@@ -2793,7 +2793,7 @@ async function generateFromPageSelection() {
     return;
   }
 
-  if (st.selected.size === 0) { alert('Seleccioná al menos una página.'); return; }
+  if (st.selected.size === 0) { alert('Seleccionar al menos una página.'); return; }
 
   // Verificar servidor IA
   try {
@@ -2802,13 +2802,13 @@ async function generateFromPageSelection() {
     if (!statusData.connected) {
       const providerMsg = statusData.provider || statusData.backend || 'IA';
       showAiNoticeBanner(
-        `Verificá tu configuración en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a> antes de generar preguntas. Proveedor activo: <strong>${providerMsg}</strong>.`,
+        `Verificar la configuración en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a> antes de generar preguntas. Proveedor activo: <strong>${providerMsg}</strong>.`,
         { title: 'Proveedor de IA no disponible' }
       );
       return;
     }
   } catch (e) {
-    showAiNoticeBanner('No se pudo verificar el estado del proveedor de IA. Verificá tu conexión.', { title: 'Error de conexión', variant: 'danger' });
+    showAiNoticeBanner('No se pudo verificar el estado del proveedor de IA. Verificar la conexión.', { title: 'Error de conexión', variant: 'danger' });
     return;
   }
 

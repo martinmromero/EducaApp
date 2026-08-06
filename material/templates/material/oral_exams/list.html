@@ -36,7 +36,7 @@
                         <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
                     </button>
                     <button type="button" id="toggleBulkSelectBtn" class="btn btn-outline-secondary btn-sm" onclick="toggleBulkSelect()"
-                            title="Seleccioná varios cuestionarios para borrarlos juntos">
+                            title="Seleccionar varios cuestionarios para borrarlos juntos">
                         <i class="fas fa-check-square"></i> Selección múltiple
                     </button>
                     <a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary btn-sm">
@@ -99,7 +99,7 @@
                     <div class="text-center py-5">
                         <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
                         <h5>No tienes cuestionarios orales creados</h5>
-                        <p class="text-muted">Crea tu primer cuestionario oral haciendo clic en el botón de arriba</p>
+                        <p class="text-muted">Crear el primer cuestionario oral haciendo clic en el botón de arriba</p>
                         <a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary">
                             <i class="fas fa-plus"></i> Crear Mi Primer Cuestionario
                         </a>
@@ -119,7 +119,7 @@
     <!-- Formularios individuales de eliminación (uno por cuestionario, ligados al botón de la fila) -->
     {% for exam in oral_exams %}
     <form method="post" action="{% url 'material:delete_oral_exam' exam.id %}" id="deleteRowForm_{{ exam.id }}"
-          onsubmit="return confirm('¿Estás seguro de que quieres eliminar el cuestionario &quot;{{ exam.name|escapejs }}&quot;? Esta acción no se puede deshacer.');">
+          onsubmit="return confirm('¿Confirmar la eliminación del cuestionario &quot;{{ exam.name|escapejs }}&quot;? Esta acción no se puede deshacer.');">
         {% csrf_token %}
     </form>
     {% endfor %}
@@ -159,7 +159,7 @@
     function confirmDelete() {
         const selected = document.querySelectorAll('#deleteForm input[name="oral_exam_ids"]:checked');
         if (selected.length === 0) {
-            alert('Seleccioná al menos un cuestionario oral');
+            alert('Seleccionar al menos un cuestionario oral');
             return;
         }
         if (confirm(`¿Eliminar ${selected.length} cuestionario(s) seleccionado(s)? Esta acción no se puede deshacer.`)) {

@@ -303,6 +303,15 @@ body.modal-open .sidebar-toggle-external {
     text-align: center;
 }
 
+/* Ícono de tema visual agrandado un 15% respecto del tamaño base del botón;
+   el de modo claro/oscuro (que cambia entre luna y sol por JS, ver
+   base.html) se lleva al mismo tamaño final para que ambos íconos queden
+   parejos uno al lado del otro. */
+#visualThemeDropdown i,
+#toggleMode i {
+    font-size: 1.15em;
+}
+
 /* Estilos para las instituciones favoritas */
 .favorite-star {
     cursor: pointer;

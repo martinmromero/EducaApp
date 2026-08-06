@@ -15,7 +15,7 @@
                     <i class="fas fa-star"></i> Favoritas
                 </a>
                 <button type="button" id="toggleBulkSelectBtn" class="btn btn-outline-secondary btn-sm" onclick="toggleBulkSelect()"
-                        title="Seleccioná varias materias para borrarlas juntas">
+                        title="Seleccionar varias materias para borrarlas juntas">
                     <i class="fas fa-check-square"></i> Selección múltiple
                 </button>
                 <a href="{% url 'material:create_subject' %}" class="btn btn-primary">
@@ -127,7 +127,7 @@
     function confirmDelete() {
         const selected = document.querySelectorAll('#deleteForm input[name="subject_ids"]:checked');
         if (selected.length === 0) {
-            alert('Seleccioná al menos una materia');
+            alert('Seleccionar al menos una materia');
             return;
         }
         if (confirm(`¿Eliminar ${selected.length} materia(s) seleccionada(s)? Esta acción no se puede deshacer.`)) {

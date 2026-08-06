@@ -110,7 +110,7 @@
       element: '#tourMenuAcademico',
       popover: {
         title: 'Mi espacio académico',
-        description: 'Institución, carrera y materia — se configuran una sola vez, no hace falta volver seguido aquí.',
+        description: 'Institución, carrera y materia — se configuran ocasionalmente.',
         side: 'right',
       },
       onHighlightStarted: function () {

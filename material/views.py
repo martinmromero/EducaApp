@@ -2434,10 +2434,15 @@ def mis_examenes(request):
     favorite_ids = set(Favorite.objects.filter(
         user=request.user, content_type=ContentType.objects.get_for_model(Exam)
     ).values_list('object_id', flat=True))
+    batch_favorite_ids = set(Favorite.objects.filter(
+        user=request.user, content_type=ContentType.objects.get_for_model(ExamVersionBatch)
+    ).values_list('object_id', flat=True))
     only_favorites = request.GET.get('favoritos') == '1'
     if only_favorites:
         examenes = [e for e in examenes if e.id in favorite_ids]
-        batches = []  # los lotes no son favoriteables individualmente
+        # El favorito de un lote marca el lote en sí, no cada examen que
+        # contiene — no confundir con favorite_ids (Exam individual).
+        batches = [b for b in batches if b.id in batch_favorite_ids]
 
     items = [
         {
@@ -2465,6 +2470,7 @@ def mis_examenes(request):
         'filter_querystring': get_filter_querystring(request),
         'filter_columns': MIS_EXAMENES_FILTER_COLUMNS,
         'favorite_ids': favorite_ids,
+        'batch_favorite_ids': batch_favorite_ids,
         'only_favorites': only_favorites,
         'favorites_toggle_querystring': get_filter_querystring_excluding(request, 'favoritos'),
     })
@@ -4263,6 +4269,7 @@ _FAVORITE_MODELS = {
     'exam': Exam,
     'examtemplate': ExamTemplate,
     'subject': Subject,
+    'batch': ExamVersionBatch,
 }
 
 @login_required
