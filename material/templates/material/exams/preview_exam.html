@@ -163,9 +163,6 @@ function toggleBloom() {
 <button type="button" class="secondary" id="examDemoEditBtn">
   <i class="fas fa-edit"></i> Editar
 </button>
-<a href="{% url 'material:onboarding_v2_demo_exam_list' %}" class="secondary">
-    <i class="fas fa-arrow-left"></i> Volver a Mis Exámenes
-</a>
 {% elif is_demo %}
 <button style="background:#28a745;" onclick="simulateSaveExam(this)" id="examSaveBtn">
     <i class="fas fa-save"></i> Guardar Examen
@@ -200,12 +197,37 @@ function toggleBloom() {
 
     document.addEventListener('DOMContentLoaded', function () {
         if (!window.driver || !window.driver.js) return;
+        {% if demo_saved %}
+        // Segunda visita a esta pantalla (desde Mis Exámenes de ejemplo): el
+        // encabezado, las preguntas, "Mostrar respuestas" y Bloom ya se
+        // explicaron la primera vez que se armó el examen — repetirlos acá
+        // se sentía redundante, así que este recorrido va directo a lo nuevo
+        // (imprimir / editar) y termina el ejemplo completo.
+        var steps = [
+            {
+                element: '#examPrintBtn',
+                popover: {
+                    title: 'Imprimir / ver en pantalla',
+                    description: 'Un examen ya guardado se puede imprimir en cualquier momento, con o sin respuestas, o simplemente ver en pantalla, como en este ejemplo.',
+                    side: 'top',
+                },
+            },
+            {
+                element: '#examDemoEditBtn',
+                popover: {
+                    title: 'Editar',
+                    description: 'En un examen real, este botón lleva de vuelta a Crear Examen para ajustar lo que haga falta. En este ejemplo no hace falta — no hay nada guardado todavía.',
+                    side: 'top',
+                },
+            },
+        ];
+        {% else %}
         var steps = [
             {
                 element: '#examHeaderBlock',
                 popover: {
                     title: 'Encabezado configurable',
-                    description: 'Institución, carrera, profesor, materia y tipo de examen — se completan en Crear Examen y son editables en un examen real.',
+                    description: 'Institución, carrera, profesor, materia y tipo de examen son algunos de los muchos detalles que se pueden configurar en el menú "Crear examen".',
                     side: 'bottom',
                 },
             },
@@ -213,7 +235,7 @@ function toggleBloom() {
                 element: '#examQuestionsSection',
                 popover: {
                     title: 'Preguntas del examen',
-                    description: 'Estas son las preguntas elegidas para este ejemplo, tomadas del banco de preguntas aprobadas — la cantidad por tópico la define quien arma el examen, en Crear Examen.',
+                    description: 'Estas son las preguntas elegidas para este ejemplo, tomadas del banco de preguntas aprobadas.',
                     side: 'top',
                 },
             },
@@ -235,41 +257,28 @@ function toggleBloom() {
                 },
             },
             {% endif %}
-            {% if demo_saved %}
-            {
-                element: '#examPrintBtn',
-                popover: {
-                    title: 'Imprimir / ver en pantalla',
-                    description: 'Un examen ya guardado se puede imprimir en cualquier momento, con o sin respuestas, o simplemente ver en pantalla, como en este ejemplo.',
-                    side: 'top',
-                },
-            },
-            {
-                element: '#examDemoEditBtn',
-                popover: {
-                    title: 'Editar',
-                    description: 'En un examen real, este botón lleva de vuelta a Crear Examen para ajustar lo que haga falta. En este ejemplo no hace falta — no hay nada guardado todavía.',
-                    side: 'top',
-                },
-            },
-            {% else %}
             {
                 element: '#examSaveBtn',
                 popover: {
                     title: 'Guardar examen',
-                    description: 'Así se guarda un examen real: un clic y queda disponible en Mis Exámenes. Guardar para ver cómo continúa el ejemplo (no se guarda nada real todavía).',
+                    description: 'Hacer clic en "Guardar Examen" para continuar el recorrido.',
                     side: 'top',
                 },
             },
-            {% endif %}
         ];
+        {% endif %}
         window._demoExamTourDriver = window.driver.js.driver({
             showProgress: true,
             allowClose: true,
             overlayOpacity: 0.6,
             nextBtnText: 'Siguiente',
             prevBtnText: 'Anterior',
-            doneBtnText: 'Listo',
+            doneBtnText: '{% if demo_saved %}Terminar{% else %}Listo{% endif %}',
+            {% if demo_saved %}
+            onDestroyed: function () {
+                window.location.href = "{% url 'material:onboarding_v2_demo_exam_list' %}?finish=1";
+            },
+            {% endif %}
             steps: steps,
         });
         window._demoExamTourDriver.drive();

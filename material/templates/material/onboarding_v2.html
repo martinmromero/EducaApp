@@ -830,7 +830,15 @@
     // existe en este punto — hay que esperar a que el resto del documento
     // termine de cargar antes de poder llamarlo.
     document.addEventListener('DOMContentLoaded', function () {
-      if (window.EducaAppTour) window.EducaAppTour.startIfFirstVisit();
+      // Se llama directo a start() (no startIfFirstVisit): esta rama del
+      // código ya corre solo la primera vez que se llega a /comenzar/ sin
+      // un ?step= explícito, así que ese "primera vez" ya está garantizado
+      // acá. startIfFirstVisit() además comprueba un flag en localStorage
+      // del NAVEGADOR (no de la cuenta) — en un navegador de pruebas donde
+      // ya se completó o cerró el tour alguna vez con otra cuenta, ese flag
+      // queda en '1' para siempre y el tour no vuelve a aparecer nunca,
+      // aunque sea la primera vez de esta cuenta.
+      if (window.EducaAppTour) window.EducaAppTour.start();
     });
   }
 })();

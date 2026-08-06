@@ -4,15 +4,24 @@
 {% block page_title %}<i class="bi bi-plus-circle me-2"></i>Nuevo Examen{% endblock %}
 {% block content %}
 <script src="{% static 'material/js/create_exam.js' %}"></script>
+{% if is_demo_peek %}
+<div class="alert alert-info d-flex align-items-center gap-2" id="demoPeekBanner">
+    <i class="bi bi-info-circle-fill fs-5"></i>
+    <div>Así se ve <strong>Crear Examen</strong> con los datos de este ejemplo ya cargados — con material propio, cada campo se completa acá mismo.</div>
+</div>
+{% endif %}
 {% if wizard_active %}
 {% include 'material/_onb2_banner.html' with onb2_step=6 onb2_step_label="Armá tu examen" %}
 {% endif %}
 {% if wizard_active %}<div class="onb2-focus-frame">{% endif %}
+<div{% if is_demo_peek %} style="pointer-events:none;opacity:0.85;" id="demoPeekFormWrap"{% endif %}>
 <form method="post" id="examCreateForm">
     {% csrf_token %}
     {{ form.non_field_errors }}
+    {% if not is_demo_peek %}
     <a href="{% url 'material:create_exam' %}?limpiar=1" class="btn btn-secondary">Limpiar datos</a>
     <button type="submit" name="preview" value="1" class="btn btn-info ms-2">Vista previa</button>
+    {% endif %}
 
     <!-- Sección 2 columnas: Plantilla - Materia -->
     <div class="row mb-3">
@@ -270,9 +279,20 @@
         <input type="text" class="form-control" name="alumno" id="alumno" placeholder="Completar en papel" disabled>
     </div>
 
+    {% if not is_demo_peek %}
     <button type="submit" name="preview" value="1" class="btn btn-info me-2 mt-3">Validar cuestionarios</button>
+    {% endif %}
 </form>
+</div>
 {% if wizard_active %}</div>{% endif %}
+{% if is_demo_peek %}
+<div class="d-flex flex-wrap gap-2 mt-3">
+    <a href="{% url 'material:preview_exam' %}" class="btn btn-primary btn-lg" id="demoPeekContinueBtn">
+        Ver examen <i class="bi bi-arrow-right ms-1"></i>
+    </a>
+    <a href="{% url 'material:onboarding_v2_demo_recap' %}" class="btn btn-outline-secondary btn-lg">Volver</a>
+</div>
+{% endif %}
 
 {% if prefill_data_json %}
 <script>

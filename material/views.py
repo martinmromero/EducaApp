@@ -1147,17 +1147,27 @@ def create_exam(request):
     # limpiamos cualquier flag viejo: si no lo hiciéramos, alguien que abandonó
     # el wizard a mitad de camino vería el banner "seguís en el asistente"
     # pegado semanas después, en un uso totalmente normal de la app.
+    # ONBOARDING WIZARD V2 (ejemplo enlatado): ?demo_peek=1 muestra esta misma
+    # pantalla real, con los datos del ejemplo ya cargados (por el mismo
+    # mecanismo de prefill de más abajo), de solo lectura y sin tocar el
+    # estado de sesión del ejemplo — es un vistazo de paso, entre el resumen
+    # y la vista previa del examen, no un flujo nuevo a completar.
+    is_demo_peek = request.GET.get('demo_peek') == '1' and bool(request.session.get('onb2_demo_scheme_active'))
+
     if request.GET.get('wizard') == '1':
         request.session['onb2_wizard_active'] = True
-    else:
+    elif not is_demo_peek:
         request.session.pop('onb2_wizard_active', None)
     wizard_active = request.session.get('onb2_wizard_active', False)
     # Crear Examen es siempre un examen REAL — nunca el ejemplo enlatado del
     # asistente (ver onboarding_v2_demo_scheme), aunque venga con ?wizard=1
     # (wizard manual). Si esta marca quedó pegada de una vuelta anterior por
     # "esquema ya armado", se limpia acá para no simular el guardado de un
-    # examen real.
-    request.session.pop('onb2_demo_scheme_active', None)
+    # examen real — excepto en el vistazo de solo lectura de arriba, que
+    # necesita que la marca siga viva para que preview_exam seguido de esto
+    # siga tratándose como el ejemplo del asistente.
+    if not is_demo_peek:
+        request.session.pop('onb2_demo_scheme_active', None)
 
     instituciones = InstitutionV2.objects.filter(is_active=True)
     facultades = FacultyV2.objects.filter(is_active=True)
@@ -1277,6 +1287,7 @@ def create_exam(request):
         'prefill_data_json': prefill_data_json,
         'wizard_active': wizard_active,
         'wizard_prefill_fields_json': _json.dumps(wizard_prefill_fields),
+        'is_demo_peek': is_demo_peek,
     }
     return render(request, 'material/exams/create_exam.html', context)
 
@@ -5882,37 +5893,6 @@ def onboarding_v2_demo_recap(request):
         'topics': topics,
         'questions_count': questions_qs.count(),
         'approved_count': questions_qs.filter(ai_approved=True).count(),
-    })
-
-
-@login_required
-def onboarding_v2_demo_create_exam(request):
-    """
-    Resumen tipo "Crear Examen" para el ejemplo enlatado del asistente: se
-    muestra entre onboarding_v2_demo_recap y preview_exam, para que el
-    usuario vea de dónde salen los datos que preview_exam da por ya
-    configurados, en vez de llegar directo a la vista previa sin haber visto
-    ninguna pantalla de armado. Ver [[project_onboarding_reform_2026_08]].
-    """
-    exam_session = request.session.get('preview_exam')
-    if not exam_session or not request.session.get('onb2_demo_scheme_active'):
-        return redirect('material:onboarding_v2_page')
-
-    subject = Subject.objects.filter(pk=exam_session.get('subject')).first()
-    if not subject:
-        return redirect('material:onboarding_v2_page')
-
-    institution = InstitutionV2.objects.filter(pk=exam_session.get('institucion')).first()
-    tipo_examen_labels = {'practico': 'Práctico', 'teorico': 'Teórico', 'teorico_practico': 'Teórico-práctico'}
-    tipo_modalidad_labels = {'individual': 'Individual', 'grupal': 'Grupal'}
-
-    return render(request, 'material/onboarding_v2_demo_create_exam.html', {
-        'subject': subject,
-        'institution': institution,
-        'num_versions': exam_session.get('num_versions'),
-        'questions_per_version': exam_session.get('questions_per_version'),
-        'tipo_examen': tipo_examen_labels.get(exam_session.get('tipo_examen'), exam_session.get('tipo_examen')),
-        'tipo_modalidad': tipo_modalidad_labels.get(exam_session.get('tipo_modalidad'), exam_session.get('tipo_modalidad')),
     })
 
 

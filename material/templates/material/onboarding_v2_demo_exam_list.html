@@ -100,8 +100,13 @@
     });
 
     document.addEventListener('DOMContentLoaded', function () {
-        if (!window.driver || !window.driver.js) {
-            var overlay = document.getElementById('demoFinishOverlay');
+        var overlay = document.getElementById('demoFinishOverlay');
+        // Se vuelve a esta página con ?finish=1 al terminar el recorrido de
+        // la vista previa del examen (segunda visita) — ese recorrido ya
+        // mostró "Ver examen" apuntando a estos mismos botones, así que acá
+        // no hace falta repetirlo: se muestra directo el cierre del ejemplo.
+        var skipTour = new URLSearchParams(window.location.search).get('finish') === '1';
+        if (skipTour || !window.driver || !window.driver.js) {
             if (overlay) overlay.classList.remove('d-none');
             return;
         }

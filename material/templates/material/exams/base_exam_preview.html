@@ -510,6 +510,15 @@
             .bloom-sidebar {
                 display: none;
             }
+            /* Si se imprime con el recorrido guiado (driver.js) todavía
+               activo, que no aparezca el oscurecido ni el globo de texto
+               en el documento impreso/en pantalla de impresión (no se toca
+               .driver-active-element: esa clase se aplica sobre el propio
+               contenido resaltado, no sobre una capa aparte). */
+            .driver-overlay,
+            .driver-popover {
+                display: none !important;
+            }
             .header {
                 page-break-after: avoid;
             }
@@ -930,9 +939,10 @@
                 window._demoExamTourDriver.destroy();
             }
             postSaveRedirectUrl = "{% url 'material:onboarding_v2_demo_exam_list' %}";
-            document.getElementById('examSavedMessage').textContent =
-                'El examen se guardó correctamente (este es el ejemplo del asistente — no se guardó nada real todavía).';
+            document.getElementById('examSavedMessage').textContent = 'El examen se guardó correctamente.';
             document.getElementById('examSavedBackdrop').classList.add('show');
+            var okBtn = document.getElementById('examSavedOkBtn');
+            if (okBtn) okBtn.focus();
         }
         {% endif %}
 
