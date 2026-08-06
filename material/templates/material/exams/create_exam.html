@@ -23,267 +23,319 @@
     <button type="submit" name="preview" value="1" class="btn btn-info ms-2">Vista previa</button>
     {% endif %}
 
-    <!-- Sección 2 columnas: Plantilla - Materia -->
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <label for="plantilla">Plantilla</label>
-            <select class="form-select" name="plantilla" id="plantilla">
-                <option value="">Examen vacío</option>
-                {% for template in templates %}
-                    <option value="{{ template.id }}">{{ template }}</option>
-                {% endfor %}
-            </select>
+    <!-- ÁREA 1: Datos básicos (plantilla → duración) -->
+    <div class="exam-area card mb-3" id="examArea1">
+        <div class="exam-area-header card-header" data-bs-toggle="collapse" data-bs-target="#examArea1Body" role="button" aria-expanded="true" aria-controls="examArea1Body">
+            <span class="exam-area-title"><span class="exam-area-num">1</span>Datos básicos</span>
+            <i class="bi bi-chevron-down exam-area-chevron"></i>
         </div>
-        <div class="col-md-6">
-            {{ form.subject.label_tag }}
-            {{ form.subject }}
-        </div>
-    </div>
+        <div class="collapse show" id="examArea1Body">
+        <div class="card-body">
 
-    <!-- Sección 1 columna: Resultados de aprendizaje (solo si la materia elegida tiene) -->
-    <div class="mb-3 d-none" id="learning_outcomes_section">
-        <label for="id_learning_outcomes">Resultados de aprendizaje</label>
-        <div id="learning_outcomes_container">
-            <!-- Los checkboxes se poblarán dinámicamente -->
-        </div>
-    </div>
-
-    <!-- Sección 3 columnas: Institución - Facultad - Carrera -->
-    <div class="row mb-3" id="examInstFacCarreraRow">
-        <div class="col-md-4">
-            <label for="institucion_dropdown">Institución</label>
-            <select class="form-select" name="institucion_dropdown" id="institucion_dropdown" onchange="toggleTextbox('institucion_dropdown', 'institucion_text')">
-                <option value="">Seleccionar institución</option>
-                {% for institucion in instituciones %}
-                    <option value="{{ institucion.id }}">{{ institucion.name }}</option>
-                {% endfor %}
-                <option value="otro">Otro</option>
-            </select>
-            <input type="text" class="form-control mt-2" name="institucion_text" id="institucion_text" placeholder="Ingrese institución" style="display:none;">
-        </div>
-        <div class="col-md-4">
-            <label for="facultad_dropdown">Facultad</label>
-            <select class="form-select" name="facultad_dropdown" id="facultad_dropdown" onchange="toggleTextbox('facultad_dropdown', 'facultad_text')">
-                <option value="">Seleccionar facultad</option>
-                <option value="otro">Otro</option>
-            </select>
-            <input type="text" class="form-control mt-2" name="facultad_text" id="facultad_text" placeholder="Ingrese facultad" style="display:none;">
-        </div>
-        <div class="col-md-4">
-            <label for="carrera_dropdown">Carrera</label>
-            <select class="form-select" name="carrera_dropdown" id="carrera_dropdown" onchange="toggleTextbox('carrera_dropdown', 'carrera_text')">
-                <option value="">Seleccionar carrera</option>
-                {% for carrera in carreras %}
-                    <option value="{{ carrera.id }}">{{ carrera.name }}</option>
-                {% endfor %}
-                <option value="otro">Otro</option>
-            </select>
-            <input type="text" class="form-control mt-2" name="carrera_text" id="carrera_text" placeholder="Ingrese carrera" style="display:none;">
-        </div>
-    </div>
-
-    <!-- Bloque "resto de las opciones" para el recorrido de ?demo_peek=1:
-         de Sede/Localización a Instrucciones generales, inclusive. -->
-    <div id="examMiscOptionsBlock">
-    <!-- Sección 3 columnas: Sede / Localización - Curso / Comisión - Turno -->
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <label for="sede_dropdown">Sede / Localización</label>
-            <select class="form-select" name="sede_dropdown" id="sede_dropdown" onchange="toggleTextbox('sede_dropdown', 'sede_text')">
-                <option value="">Seleccionar sede</option>
-                <option value="otro">Otro</option>
-            </select>
-            <input type="text" class="form-control mt-2" name="sede_text" id="sede_text" placeholder="Ingrese sede" style="display:none;">
-        </div>
-        <div class="col-md-4">
-            <label for="curso">Curso / Comisión </label>
-            <input type="text" class="form-control" name="curso" id="curso">
-        </div>
-        <div class="col-md-4">
-            <label for="turno_dropdown">Turno</label>
-            <select class="form-select" name="turno_dropdown" id="turno_dropdown" onchange="toggleTextbox('turno_dropdown', 'turno_text')">
-                <option value="">Seleccionar turno</option>
-                <option value="Mañana">Mañana</option>
-                <option value="Tarde">Tarde</option>
-                <option value="Noche">Noche</option>
-                <option value="otro">Otro</option>
-            </select>
-            <input type="text" class="form-control mt-2" name="turno_text" id="turno_text" placeholder="Ingrese turno" style="display:none;">
-        </div>
-    </div>
-
-    <!-- Sección 4 columnas: Profesor - Fecha - Año - Duración (minutos) -->
-    <div class="row mb-3">
-        <div class="col-md-3">
-            <label for="profesor_dropdown">Profesor</label>
-            <select class="form-select" name="profesor_dropdown" id="profesor_dropdown" onchange="toggleTextbox('profesor_dropdown', 'profesor_text')">
-                <option value="">Seleccionar profesor</option>
-                {% for profesor in profesores %}
-                    <option value="{{ profesor.id }}">{{ profesor.get_full_name }}</option>
-                {% endfor %}
-                <option value="otro">Otro</option>
-            </select>
-            <input type="text" class="form-control mt-2" name="profesor_text" id="profesor_text" placeholder="Ingrese profesor" style="display:none;">
-        </div>
-        <div class="col-md-3">
-            <label for="fecha">Fecha</label>
-            <input type="date" class="form-control" name="fecha" id="fecha">
-        </div>
-        <div class="col-md-3">
-            <label for="year">Año para el encabezado <small class="text-muted">(el actual; se puede cambiar)</small></label>
-            <input type="number" class="form-control" name="year" id="year" min="1900" max="2100">
-        </div>
-        <div class="col-md-3">
-            <label for="id_duration_minutes">Duración</label>
-            <div class="input-group">
-                {{ form.duration_minutes }}
-                <select class="form-select" id="duration_unit" style="max-width: 8.5rem;">
-                    <option value="minutos" selected>minutos</option>
-                    <option value="horas">horas</option>
-                    <option value="dias">días</option>
-                    <option value="semanas">semanas</option>
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sección 3 espacios: Tipo de examen (radio), Modalidad (radio), Modalidad de resolución (checkboxes) -->
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <label for="tipo_examen_select">Tipo de examen</label>
-            <select class="form-select" name="tipo_examen" id="tipo_examen_select">
-                <option value="">Seleccionar...</option>
-                <option value="1er_parcial">1er. Parcial</option>
-                <option value="2do_parcial">2do. Parcial</option>
-                <option value="3er_parcial">3er. Parcial</option>
-                <option value="final">Final</option>
-                <option value="recuperatorio">Recuperatorio</option>
-                <option value="practico">Práctico</option>
-            </select>
-
-            <label class="mt-3">Modalidad</label>
-            <div>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="tipo_modalidad" id="modalidad_individual" value="individual">
-                    <label class="form-check-label" for="modalidad_individual">Individual</label>
+            <!-- Sección 2 columnas: Plantilla - Materia -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="plantilla">Plantilla</label>
+                    <select class="form-select" name="plantilla" id="plantilla">
+                        <option value="">Examen vacío</option>
+                        {% for template in templates %}
+                            <option value="{{ template.id }}">{{ template }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="tipo_modalidad" id="modalidad_grupal" value="grupal">
-                    <label class="form-check-label" for="modalidad_grupal">Grupal</label>
+                <div class="col-md-6">
+                    {{ form.subject.label_tag }}
+                    {{ form.subject }}
                 </div>
             </div>
-        </div>
-        <div class="col-md-8">
-            <label>Modalidad de resolución</label>
-            <div class="resolucion-grid">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_oral" value="oral">
-                    <label class="form-check-label" for="resolucion_oral">Oral</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_escrito" value="escrito">
-                    <label class="form-check-label" for="resolucion_escrito">Escrito</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_presencial" value="presencial">
-                    <label class="form-check-label" for="resolucion_presencial">Presencial</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_virtual" value="virtual">
-                    <label class="form-check-label" for="resolucion_virtual">Virtual</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_domiciliario" value="domiciliario">
-                    <label class="form-check-label" for="resolucion_domiciliario">Domiciliario</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_hibrido" value="hibrido">
-                    <label class="form-check-label" for="resolucion_hibrido">Híbrido</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_otro" value="otro">
-                    <label class="form-check-label" for="resolucion_otro">Otro</label>
+
+            <!-- Sección 1 columna: Resultados de aprendizaje (solo si la materia elegida tiene) -->
+            <div class="mb-3 d-none" id="learning_outcomes_section">
+                <label for="id_learning_outcomes">Resultados de aprendizaje</label>
+                <div id="learning_outcomes_container">
+                    <!-- Los checkboxes se poblarán dinámicamente -->
                 </div>
             </div>
+
+            <!-- Sección 3 columnas: Institución - Facultad - Carrera -->
+            <div class="row mb-3" id="examInstFacCarreraRow">
+                <div class="col-md-4">
+                    <label for="institucion_dropdown">Institución</label>
+                    <select class="form-select" name="institucion_dropdown" id="institucion_dropdown" onchange="toggleTextbox('institucion_dropdown', 'institucion_text')">
+                        <option value="">Seleccionar institución</option>
+                        {% for institucion in instituciones %}
+                            <option value="{{ institucion.id }}">{{ institucion.name }}</option>
+                        {% endfor %}
+                        <option value="otro">Otro</option>
+                    </select>
+                    <input type="text" class="form-control mt-2" name="institucion_text" id="institucion_text" placeholder="Ingrese institución" style="display:none;">
+                </div>
+                <div class="col-md-4">
+                    <label for="facultad_dropdown">Facultad</label>
+                    <select class="form-select" name="facultad_dropdown" id="facultad_dropdown" onchange="toggleTextbox('facultad_dropdown', 'facultad_text')">
+                        <option value="">Seleccionar facultad</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                    <input type="text" class="form-control mt-2" name="facultad_text" id="facultad_text" placeholder="Ingrese facultad" style="display:none;">
+                </div>
+                <div class="col-md-4">
+                    <label for="carrera_dropdown">Carrera</label>
+                    <select class="form-select" name="carrera_dropdown" id="carrera_dropdown" onchange="toggleTextbox('carrera_dropdown', 'carrera_text')">
+                        <option value="">Seleccionar carrera</option>
+                        {% for carrera in carreras %}
+                            <option value="{{ carrera.id }}">{{ carrera.name }}</option>
+                        {% endfor %}
+                        <option value="otro">Otro</option>
+                    </select>
+                    <input type="text" class="form-control mt-2" name="carrera_text" id="carrera_text" placeholder="Ingrese carrera" style="display:none;">
+                </div>
+            </div>
+
+            <!-- Resto de Área 1, para el recorrido de ?demo_peek=1: de Sede/
+                 Localización a Duración, inclusive. -->
+            <div id="examArea1Extra">
+            <!-- Sección 3 columnas: Sede / Localización - Curso / Comisión - Turno -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label for="sede_dropdown">Sede / Localización</label>
+                    <select class="form-select" name="sede_dropdown" id="sede_dropdown" onchange="toggleTextbox('sede_dropdown', 'sede_text')">
+                        <option value="">Seleccionar sede</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                    <input type="text" class="form-control mt-2" name="sede_text" id="sede_text" placeholder="Ingrese sede" style="display:none;">
+                </div>
+                <div class="col-md-4">
+                    <label for="curso">Curso / Comisión </label>
+                    <input type="text" class="form-control" name="curso" id="curso">
+                </div>
+                <div class="col-md-4">
+                    <label for="turno_dropdown">Turno</label>
+                    <select class="form-select" name="turno_dropdown" id="turno_dropdown" onchange="toggleTextbox('turno_dropdown', 'turno_text')">
+                        <option value="">Seleccionar turno</option>
+                        <option value="Mañana">Mañana</option>
+                        <option value="Tarde">Tarde</option>
+                        <option value="Noche">Noche</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                    <input type="text" class="form-control mt-2" name="turno_text" id="turno_text" placeholder="Ingrese turno" style="display:none;">
+                </div>
+            </div>
+
+            <!-- Sección 4 columnas: Profesor - Fecha - Año - Duración (minutos) -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label for="profesor_dropdown">Profesor</label>
+                    <select class="form-select" name="profesor_dropdown" id="profesor_dropdown" onchange="toggleTextbox('profesor_dropdown', 'profesor_text')">
+                        <option value="">Seleccionar profesor</option>
+                        {% for profesor in profesores %}
+                            <option value="{{ profesor.id }}">{{ profesor.get_full_name }}</option>
+                        {% endfor %}
+                        <option value="otro">Otro</option>
+                    </select>
+                    <input type="text" class="form-control mt-2" name="profesor_text" id="profesor_text" placeholder="Ingrese profesor" style="display:none;">
+                </div>
+                <div class="col-md-3">
+                    <label for="fecha">Fecha</label>
+                    <input type="date" class="form-control" name="fecha" id="fecha">
+                </div>
+                <div class="col-md-3">
+                    <label for="year">Año para el encabezado</label>
+                    <input type="number" class="form-control" name="year" id="year" min="1900" max="2100">
+                </div>
+                <div class="col-md-3">
+                    <label for="id_duration_minutes">Duración</label>
+                    <div class="input-group">
+                        {{ form.duration_minutes }}
+                        <select class="form-select" id="duration_unit" style="max-width: 8.5rem;">
+                            <option value="minutos" selected>minutos</option>
+                            <option value="horas">horas</option>
+                            <option value="dias">días</option>
+                            <option value="semanas">semanas</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            </div><!-- /#examArea1Extra -->
+
+        </div>
         </div>
     </div>
 
-    <!-- Sección 1 columna: Instrucciones generales -->
-    <div class="mb-3">
-        {{ form.instructions.label_tag }}
-        {{ form.instructions }}
+    <!-- ÁREA 2: Tipo y detalles (tipo de examen → instrucciones generales) -->
+    <div class="exam-area card mb-3" id="examArea2">
+        <div class="exam-area-header card-header" data-bs-toggle="collapse" data-bs-target="#examArea2Body" role="button" aria-expanded="false" aria-controls="examArea2Body">
+            <span class="exam-area-title"><span class="exam-area-num">2</span>Tipo y detalles del examen</span>
+            <i class="bi bi-chevron-down exam-area-chevron"></i>
+        </div>
+        <div class="collapse" id="examArea2Body">
+        <div class="card-body">
+
+            <!-- Sección 3 espacios: Tipo de examen (radio), Modalidad (radio), Modalidad de resolución (checkboxes) -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label for="tipo_examen_select">Tipo de examen</label>
+                    <select class="form-select" name="tipo_examen" id="tipo_examen_select">
+                        <option value="">Seleccionar...</option>
+                        <option value="1er_parcial">1er. Parcial</option>
+                        <option value="2do_parcial">2do. Parcial</option>
+                        <option value="3er_parcial">3er. Parcial</option>
+                        <option value="final">Final</option>
+                        <option value="recuperatorio">Recuperatorio</option>
+                        <option value="practico">Práctico</option>
+                    </select>
+
+                    <label class="mt-3">Modalidad</label>
+                    <div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="tipo_modalidad" id="modalidad_individual" value="individual">
+                            <label class="form-check-label" for="modalidad_individual">Individual</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="tipo_modalidad" id="modalidad_grupal" value="grupal">
+                            <label class="form-check-label" for="modalidad_grupal">Grupal</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <label>Modalidad de resolución</label>
+                    <div class="resolucion-grid">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_oral" value="oral">
+                            <label class="form-check-label" for="resolucion_oral">Oral</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_escrito" value="escrito">
+                            <label class="form-check-label" for="resolucion_escrito">Escrito</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_presencial" value="presencial">
+                            <label class="form-check-label" for="resolucion_presencial">Presencial</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_virtual" value="virtual">
+                            <label class="form-check-label" for="resolucion_virtual">Virtual</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_domiciliario" value="domiciliario">
+                            <label class="form-check-label" for="resolucion_domiciliario">Domiciliario</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_hibrido" value="hibrido">
+                            <label class="form-check-label" for="resolucion_hibrido">Híbrido</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_otro" value="otro">
+                            <label class="form-check-label" for="resolucion_otro">Otro</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nombre del examen: individual o por lotes (varios temas) -->
+            <div class="mb-3">
+                <label for="batch_name" class="form-label">Nombre del examen</label>
+                <input type="text" class="form-control" id="batch_name" name="batch_name" placeholder="Se sugiere automáticamente si se deja vacío">
+            </div>
+
+            <!-- Instrucciones generales -->
+            <div class="mb-3">
+                {{ form.instructions.label_tag }}
+                {{ form.instructions }}
+            </div>
+
+        </div>
+        </div>
     </div>
-    </div><!-- /#examMiscOptionsBlock -->
-    <!-- Fila de encabezados (Tópicos/Preguntas + Todo/Ninguno) separada de la
-         fila de listas: así el recorrido de ?demo_peek=1 puede resaltar
-         "Selección" (los botones Todo/Ninguno de ambas columnas) sin que el
-         highlight incluya también las listas, altas y variables. -->
-    <div class="row mb-1" id="examSelectionHeaderRow">
-        <div class="col-12 col-lg-4 exam-topics-col d-flex justify-content-between align-items-center">
-            <label class="form-label mb-0" id="topics_evaluados_label">Tópicos evaluados</label>
-            <div class="btn-group btn-group-sm" role="group">
-                <button type="button" class="btn btn-outline-secondary" id="topics_select_all">Todo</button>
-                <button type="button" class="btn btn-outline-secondary" id="topics_select_none">Ninguno</button>
+
+    <!-- ÁREA 3: Tópicos y preguntas -->
+    <div class="exam-area card mb-3" id="examArea3">
+        <div class="exam-area-header card-header" data-bs-toggle="collapse" data-bs-target="#examArea3Body" role="button" aria-expanded="false" aria-controls="examArea3Body">
+            <span class="exam-area-title"><span class="exam-area-num">3</span>Tópicos y preguntas</span>
+            <i class="bi bi-chevron-down exam-area-chevron"></i>
+        </div>
+        <div class="collapse" id="examArea3Body">
+        <div class="card-body">
+
+            <!-- Fila de encabezados (Tópicos/Preguntas + Todo/Ninguno) separada de la
+                 fila de listas: así el recorrido de ?demo_peek=1 puede resaltar
+                 "Selección" (los botones Todo/Ninguno de ambas columnas) sin que el
+                 highlight incluya también las listas, altas y variables. -->
+            <div class="row mb-1" id="examSelectionHeaderRow">
+                <div class="col-12 col-lg-4 exam-topics-col d-flex justify-content-between align-items-center">
+                    <label class="form-label mb-0" id="topics_evaluados_label">Tópicos evaluados</label>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary" id="topics_select_all">Todo</button>
+                        <button type="button" class="btn btn-outline-secondary" id="topics_select_none">Ninguno</button>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-8 exam-questions-col d-flex justify-content-between align-items-center mt-3 mt-lg-0">
+                    <label class="form-label mb-0">Preguntas</label>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary" id="questions_select_all">Todo</button>
+                        <button type="button" class="btn btn-outline-secondary" id="questions_select_none">Ninguno</button>
+                    </div>
+                </div>
+            </div>
+            <div class="row mb-3 exam-topics-questions-row">
+                <div class="col-12 col-lg-4 exam-topics-col">
+                    <div id="topics_checkbox_container" class="border rounded p-2" style="min-height:240px;max-height:260px;overflow:auto;"></div>
+                    <select multiple class="form-select d-none" name="topics" id="id_topics"></select>
+                </div>
+                <div class="col-12 col-lg-8 exam-questions-col mt-3 mt-lg-0">
+                    <div id="questions_checkbox_container" class="border rounded p-2" style="min-height:240px;max-height:260px;overflow:auto;"></div>
+                    <select multiple class="form-select d-none" name="questions" id="id_questions"></select>
+                </div>
+            </div>
+
+        </div>
+        </div>
+    </div>
+
+    <!-- ÁREA 4: Temas del examen escrito -->
+    <div class="exam-area card mb-3" id="examArea4">
+        <div class="exam-area-header card-header" data-bs-toggle="collapse" data-bs-target="#examArea4Body" role="button" aria-expanded="false" aria-controls="examArea4Body">
+            <span class="exam-area-title">
+                <span class="exam-area-num">4</span>Temas del examen escrito
+                <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip" data-bs-placement="right" title="Se puede crear más de un tema con preguntas distintas para la misma fecha de examen, cada uno con su propio encabezado." onclick="event.stopPropagation()"></i>
+            </span>
+            <i class="bi bi-chevron-down exam-area-chevron"></i>
+        </div>
+        <div class="collapse" id="examArea4Body">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="num_versions" class="form-label">Cantidad de temas</label>
+                    <input type="number" min="1" value="1" class="form-control" id="num_versions" name="num_versions">
+                </div>
+                <div class="col-md-6">
+                    <label for="questions_per_version" class="form-label">Preguntas por tema</label>
+                    <input type="number" min="1" class="form-control" id="questions_per_version" name="questions_per_version" placeholder="Ej: 10">
+                </div>
+            </div>
+            <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" id="balance_by_topic" name="balance_by_topic" checked>
+                <label class="form-check-label" for="balance_by_topic">
+                    Distribución equitativa por tópico
+                </label>
+            </div>
+
+            <!-- Opciones para varios temas: arranca colapsado, se abre solo si
+                 se declara más de un tema (ver script más abajo). -->
+            <div class="collapse mt-3" id="examMultiTemaOptions">
+                <div class="border-top pt-3">
+                    <label for="batch_semester" class="form-label">Cuatrimestre</label>
+                    <input type="text" class="form-control" id="batch_semester" name="batch_semester" placeholder="Ej: 1C" style="max-width: 220px;">
+                </div>
             </div>
         </div>
-        <div class="col-12 col-lg-8 exam-questions-col d-flex justify-content-between align-items-center mt-3 mt-lg-0">
-            <label class="form-label mb-0">Preguntas</label>
-            <div class="btn-group btn-group-sm" role="group">
-                <button type="button" class="btn btn-outline-secondary" id="questions_select_all">Todo</button>
-                <button type="button" class="btn btn-outline-secondary" id="questions_select_none">Ninguno</button>
-            </div>
         </div>
     </div>
-    <div class="row mb-3 exam-topics-questions-row">
-        <div class="col-12 col-lg-4 exam-topics-col">
-            <div id="topics_checkbox_container" class="border rounded p-2" style="min-height:240px;max-height:260px;overflow:auto;"></div>
-            <select multiple class="form-select d-none" name="topics" id="id_topics"></select>
-        </div>
-        <div class="col-12 col-lg-8 exam-questions-col mt-3 mt-lg-0">
-            <div id="questions_checkbox_container" class="border rounded p-2" style="min-height:240px;max-height:260px;overflow:auto;"></div>
-            <select multiple class="form-select d-none" name="questions" id="id_questions"></select>
-        </div>
-    </div>
+
+    <!-- Campos ocultos: Título, Alumno/a -->
     <div class="mb-3" style="display:none;">
     <label for="id_title">Título</label>
     <input type="text" class="form-control" name="title" id="id_title" maxlength="255" style="display:none;">
     </div>
-
-    <div class="card mb-3" id="examTopicsCard">
-        <div class="card-header"><strong>Temas del examen escrito</strong></div>
-        <div class="card-body">
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <label for="num_versions" class="form-label">Cantidad de temas</label>
-                    <input type="number" min="1" value="1" class="form-control" id="num_versions" name="num_versions">
-                </div>
-                <div class="col-md-4">
-                    <label for="questions_per_version" class="form-label">Preguntas por tema</label>
-                    <input type="number" min="1" class="form-control" id="questions_per_version" name="questions_per_version" placeholder="Ej: 10">
-                </div>
-                <div class="col-md-4 d-flex align-items-end">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="balance_by_topic" name="balance_by_topic" checked>
-                        <label class="form-check-label" for="balance_by_topic">
-                            Distribución equitativa por tópico
-                        </label>
-                    </div>
-                </div>
-            </div>
-            <div class="row g-3 mt-1">
-                <div class="col-md-4">
-                    <label for="batch_semester" class="form-label">Cuatrimestre</label>
-                    <input type="text" class="form-control" id="batch_semester" name="batch_semester" placeholder="Ej: 1C">
-                </div>
-                <div class="col-md-8">
-                    <label for="batch_name" class="form-label">Nombre del lote (editable)</label>
-                    <input type="text" class="form-control" id="batch_name" name="batch_name" placeholder="Se sugiere automáticamente si se deja vacío">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Campo Alumno/a oculto -->
     <div class="mb-3" style="display:none;">
         <label for="alumno">Alumno/a</label>
         <input type="text" class="form-control" name="alumno" id="alumno" placeholder="Completar en papel" disabled>
@@ -295,6 +347,88 @@
 </form>
 </div>
 {% if wizard_active %}</div>{% endif %}
+
+<script>
+(function () {
+    function collapseInstance(bodyId) {
+        var el = document.getElementById(bodyId);
+        if (!el || !window.bootstrap) return null;
+        return window.bootstrap.Collapse.getOrCreateInstance(el, { toggle: false });
+    }
+    function openArea(n) {
+        var inst = collapseInstance('examArea' + n + 'Body');
+        if (inst) inst.show();
+    }
+    function closeArea(n) {
+        var inst = collapseInstance('examArea' + n + 'Body');
+        if (inst) inst.hide();
+    }
+    // Expuesto para que el recorrido de ?demo_peek=1 (más abajo) fuerce la
+    // apertura del área correspondiente en cada paso, ya que ahí no hay una
+    // interacción real de usuario que dispare el avance automático.
+    window.EducaAppExamAreas = { openArea: openArea, closeArea: closeArea };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // El chevron gira según el estado del área (Bootstrap actualiza el
+        // aria-expanded del header solo si data-bs-target apunta bien).
+        document.querySelectorAll('.exam-area-header').forEach(function (header) {
+            var target = document.querySelector(header.getAttribute('data-bs-target'));
+            if (!target) return;
+            target.addEventListener('show.bs.collapse', function () { header.setAttribute('aria-expanded', 'true'); });
+            target.addEventListener('hide.bs.collapse', function () { header.setAttribute('aria-expanded', 'false'); });
+        });
+
+        // Avance automático: al terminar de completar un área, se cierra y se
+        // abre la siguiente. El usuario siempre puede volver a abrir o cerrar
+        // cualquier área a mano haciendo clic en su encabezado (el collapse
+        // de Bootstrap no se lo impide).
+        function advance(fromArea, toArea) {
+            closeArea(fromArea);
+            openArea(toArea);
+        }
+
+        var durationInput = document.getElementById('id_duration_minutes');
+        var durationUnit = document.getElementById('duration_unit');
+        [durationInput, durationUnit].forEach(function (el) {
+            if (el) el.addEventListener('change', function () { advance(1, 2); });
+        });
+
+        var instructions = document.getElementById('id_instructions');
+        if (instructions) instructions.addEventListener('blur', function () { advance(2, 3); });
+
+        // Los checkboxes de preguntas se arman dinámicamente (fetch por
+        // tópico elegido) — se delega el listener al contenedor en vez de
+        // engancharlo pregunta por pregunta.
+        var questionsContainer = document.getElementById('questions_checkbox_container');
+        if (questionsContainer) {
+            var advancedFrom3 = false;
+            questionsContainer.addEventListener('change', function (ev) {
+                if (advancedFrom3 || !ev.target.matches('input[type="checkbox"]:checked')) return;
+                advancedFrom3 = true;
+                advance(3, 4);
+            });
+        }
+
+        // Área 4 más orgánica: el bloque de Cuatrimestre (relevante solo con
+        // varios temas) arranca colapsado y se abre solo si se declara más
+        // de un tema.
+        var numVersions = document.getElementById('num_versions');
+        var multiTemaEl = document.getElementById('examMultiTemaOptions');
+        if (numVersions && multiTemaEl && window.bootstrap) {
+            var multiTemaInst = window.bootstrap.Collapse.getOrCreateInstance(multiTemaEl, { toggle: false });
+            numVersions.addEventListener('change', function () {
+                var n = parseInt(numVersions.value, 10);
+                if (n > 1) multiTemaInst.show(); else multiTemaInst.hide();
+            });
+        }
+
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+            if (window.bootstrap) new window.bootstrap.Tooltip(el);
+        });
+    });
+})();
+</script>
+
 {% if is_demo_peek %}
 <div class="d-flex flex-wrap gap-2 mt-3">
     <a href="{% url 'material:preview_exam' %}" class="btn btn-primary btn-lg" id="demoPeekContinueBtn">
@@ -365,6 +499,7 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         if (!window.driver || !window.driver.js) return;
+        var areas = window.EducaAppExamAreas || { openArea: function () {}, closeArea: function () {} };
         try {
         window.driver.js.driver({
             showProgress: true,
@@ -381,6 +516,7 @@
                         description: 'Se pueden crear plantillas de examen y reutilizarlas acá para no repetir la configuración cada vez.',
                         side: 'bottom',
                     },
+                    onHighlightStarted: function () { areas.openArea(1); },
                 },
                 {
                     element: '#id_subject',
@@ -399,10 +535,10 @@
                     },
                 },
                 {
-                    element: '#examMiscOptionsBlock',
+                    element: '#examArea1Extra',
                     popover: {
                         title: 'Resto de las opciones',
-                        description: 'Sede, curso/comisión, turno, profesor, fecha, duración, tipo de examen, modalidad e instrucciones generales: todas estas opciones son opcionales.',
+                        description: 'Sede, curso/comisión, turno, profesor, fecha y duración: todas estas opciones son opcionales.',
                         side: 'top',
                     },
                 },
@@ -418,7 +554,11 @@
                     // preguntas filtradas tiene el tiempo real de lectura +
                     // clic en "Siguiente" para resolver antes de llegar al
                     // paso de Preguntas, en vez de aparecer vacío.
-                    onHighlightStarted: function () { checkFirst('topics_checkbox_container', 2); },
+                    onHighlightStarted: function () {
+                        areas.closeArea(1);
+                        areas.openArea(3);
+                        checkFirst('topics_checkbox_container', 2);
+                    },
                 },
                 {
                     element: '#questions_checkbox_container',
@@ -438,11 +578,15 @@
                     },
                 },
                 {
-                    element: '#examTopicsCard',
+                    element: '#examArea4',
                     popover: {
                         title: 'Temas del examen escrito',
                         description: 'Se puede crear más de un tema con preguntas distintas para la misma fecha de examen, cada uno con su propio encabezado.',
                         side: 'top',
+                    },
+                    onHighlightStarted: function () {
+                        areas.closeArea(3);
+                        areas.openArea(4);
                     },
                 },
                 {
@@ -662,6 +806,65 @@ document.addEventListener('DOMContentLoaded', function() {
         flex: 0 0 70%;
         max-width: 70%;
     }
+}
+
+/* ── Áreas colapsables ─────────────────────────────────────────────── */
+.exam-area-header {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    user-select: none;
+}
+.exam-area-title {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+}
+.exam-area-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6em;
+    height: 1.6em;
+    border-radius: 50%;
+    background: var(--bs-primary, #0d6efd);
+    color: #fff;
+    font-size: 0.8em;
+    margin-right: 0.6em;
+    flex-shrink: 0;
+}
+.exam-area-chevron {
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+.exam-area-header[aria-expanded="true"] .exam-area-chevron {
+    transform: rotate(180deg);
+}
+
+/* ── Panel de tópicos/preguntas: el texto completo tiene que leerse bien,
+     no cortarse ni desalinearse con el checkbox cuando ocupa varias
+     líneas. ── */
+#topics_checkbox_container .form-check,
+#questions_checkbox_container .form-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5em;
+    padding-left: 0;
+    margin-bottom: 0.6em;
+}
+#topics_checkbox_container .form-check-input,
+#questions_checkbox_container .form-check-input {
+    float: none;
+    margin-left: 0;
+    margin-top: 0.25em;
+    flex-shrink: 0;
+}
+#topics_checkbox_container .form-check-label,
+#questions_checkbox_container .form-check-label {
+    white-space: normal;
+    overflow-wrap: break-word;
 }
 </style>
 {% endblock %}

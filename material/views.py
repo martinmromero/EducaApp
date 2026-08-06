@@ -379,7 +379,10 @@ def get_questions_by_topics(request):
     elif topic_ids:
         questions = base_qs.filter(topic_id__in=topic_ids).filter(review_filter)
     data = [
-        {'id': q.id, 'text': q.question_text[:80], 'topic_id': q.topic_id}
+        # Texto completo (sin truncar): quien arma el examen necesita poder
+        # distinguir preguntas parecidas, y el panel ya es una lista con
+        # scroll propio pensada para texto de varias líneas.
+        {'id': q.id, 'text': q.question_text, 'topic_id': q.topic_id}
         for q in questions
     ]
     return JsonResponse(data, safe=False)
