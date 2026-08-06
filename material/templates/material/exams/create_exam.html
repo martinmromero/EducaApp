@@ -19,8 +19,10 @@
     {% csrf_token %}
     {{ form.non_field_errors }}
     {% if not is_demo_peek %}
-    <a href="{% url 'material:create_exam' %}?limpiar=1" class="btn btn-secondary">Limpiar datos</a>
-    <button type="submit" name="preview" value="1" class="btn btn-info ms-2">Vista previa</button>
+    <div class="mb-4">
+        <a href="{% url 'material:create_exam' %}?limpiar=1" class="btn btn-secondary">Limpiar datos</a>
+        <button type="submit" name="preview" value="1" class="btn btn-info ms-2">Vista previa</button>
+    </div>
     {% endif %}
 
     <!-- ÁREA 1: Datos básicos (plantilla → duración) -->
@@ -105,7 +107,7 @@
                     <input type="text" class="form-control mt-2" name="sede_text" id="sede_text" placeholder="Ingrese sede" style="display:none;">
                 </div>
                 <div class="col-md-4">
-                    <label for="curso">Curso / Comisión </label>
+                    <label for="curso">Año / Curso / Comisión</label>
                     <input type="text" class="form-control" name="curso" id="curso">
                 </div>
                 <div class="col-md-4">
@@ -153,6 +155,25 @@
                             <option value="semanas">semanas</option>
                         </select>
                     </div>
+                </div>
+            </div>
+
+            <!-- Período académico (bimestre/trimestre/cuatrimestre/semestre):
+                 alimenta el nombre sugerido del examen (Área 2), igual que
+                 antes lo hacía el campo libre "Cuatrimestre". -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label for="periodo_numero">Período</label>
+                    <div class="input-group">
+                        <input type="number" min="1" class="form-control" id="periodo_numero" placeholder="1" style="max-width: 5rem;">
+                        <select class="form-select" id="periodo_tipo">
+                            <option value="Bimestre">Bimestre</option>
+                            <option value="Trimestre">Trimestre</option>
+                            <option value="Cuatrimestre" selected>Cuatrimestre</option>
+                            <option value="Semestre">Semestre</option>
+                        </select>
+                    </div>
+                    <input type="hidden" id="batch_semester" name="batch_semester">
                 </div>
             </div>
             </div><!-- /#examArea1Extra -->
@@ -318,15 +339,6 @@
                     Distribución equitativa por tópico
                 </label>
             </div>
-
-            <!-- Opciones para varios temas: arranca colapsado, se abre solo si
-                 se declara más de un tema (ver script más abajo). -->
-            <div class="collapse mt-3" id="examMultiTemaOptions">
-                <div class="border-top pt-3">
-                    <label for="batch_semester" class="form-label">Cuatrimestre</label>
-                    <input type="text" class="form-control" id="batch_semester" name="batch_semester" placeholder="Ej: 1C" style="max-width: 220px;">
-                </div>
-            </div>
         </div>
         </div>
     </div>
@@ -409,18 +421,23 @@
             });
         }
 
-        // Área 4 más orgánica: el bloque de Cuatrimestre (relevante solo con
-        // varios temas) arranca colapsado y se abre solo si se declara más
-        // de un tema.
-        var numVersions = document.getElementById('num_versions');
-        var multiTemaEl = document.getElementById('examMultiTemaOptions');
-        if (numVersions && multiTemaEl && window.bootstrap) {
-            var multiTemaInst = window.bootstrap.Collapse.getOrCreateInstance(multiTemaEl, { toggle: false });
-            numVersions.addEventListener('change', function () {
-                var n = parseInt(numVersions.value, 10);
-                if (n > 1) multiTemaInst.show(); else multiTemaInst.hide();
-            });
+        // Período académico (Área 1): number + selector, igual que Duración.
+        // Su valor combinado alimenta el campo oculto "batch_semester", que
+        // es lo que create_exam.js ya usaba para sugerir el nombre del examen.
+        var periodoNumero = document.getElementById('periodo_numero');
+        var periodoTipo = document.getElementById('periodo_tipo');
+        var batchSemesterHidden = document.getElementById('batch_semester');
+        function syncPeriodo() {
+            if (!batchSemesterHidden) return;
+            var numero = periodoNumero ? periodoNumero.value.trim() : '';
+            var tipo = periodoTipo ? periodoTipo.value : '';
+            batchSemesterHidden.value = numero ? (numero + ' ' + tipo) : '';
+            batchSemesterHidden.dispatchEvent(new Event('input'));
         }
+        [periodoNumero, periodoTipo].forEach(function (el) {
+            if (el) el.addEventListener('change', syncPeriodo);
+            if (el) el.addEventListener('input', syncPeriodo);
+        });
 
         document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
             if (window.bootstrap) new window.bootstrap.Tooltip(el);
@@ -538,7 +555,7 @@
                     element: '#examArea1Extra',
                     popover: {
                         title: 'Resto de las opciones',
-                        description: 'Sede, curso/comisión, turno, profesor, fecha y duración: todas estas opciones son opcionales.',
+                        description: 'Sede, curso/comisión, turno, profesor, fecha, duración y período académico: todas estas opciones son opcionales.',
                         side: 'top',
                     },
                 },

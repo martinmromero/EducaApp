@@ -784,9 +784,16 @@ def _suggest_batch_name(subject, exam_data, institution_name, versions_count, ye
     tipo = tipo_map.get(exam_data.get('tipo_examen', ''), 'examen')
     materia = subject.name if subject else 'sin materia'
     institucion = institution_name or 'sin institucion'
-    cuatri = exam_data.get('batch_semester') or 'sin cuatrimestre'
+    # "batch_semester" es el campo oculto que sincroniza el Período (número +
+    # Bimestre/Trimestre/Cuatrimestre/Semestre) del Área 1 del formulario.
+    periodo = exam_data.get('batch_semester') or 'sin periodo'
+    curso = (exam_data.get('curso') or '').strip()
     year_str = str(year) if year else 'sin año'
-    return f"{tipo} - {materia} - {institucion} - {cuatri} - {year_str} - {versions_count} opciones"
+    parts = [tipo, materia, institucion, periodo]
+    if curso:
+        parts.append(curso)
+    parts += [year_str, f"{versions_count} opciones"]
+    return " - ".join(parts)
 
 
 def _arrange_questions_avoiding_same_topic_consecutive(question_list):

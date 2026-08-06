@@ -191,7 +191,10 @@ document.addEventListener('DOMContentLoaded', function() {
         var tipo = document.getElementById('tipo_examen_select')?.value || 'examen';
         var subject = document.getElementById('id_subject');
         var institution = document.getElementById('institucion_dropdown');
-        var semester = document.getElementById('batch_semester')?.value || 'sin cuatrimestre';
+        // "batch_semester" es el campo oculto que sincroniza el Período
+        // (número + Bimestre/Trimestre/Cuatrimestre/Semestre) del Área 1.
+        var semester = document.getElementById('batch_semester')?.value || 'sin periodo';
+        var curso = document.getElementById('curso')?.value.trim() || '';
         var versions = document.getElementById('num_versions')?.value || '1';
         var fecha = document.getElementById('fecha')?.value || '';
         var yearInput = document.getElementById('year')?.value || '';
@@ -209,7 +212,10 @@ document.addEventListener('DOMContentLoaded', function() {
         var subjectLabel = subject && subject.selectedOptions[0] ? subject.selectedOptions[0].textContent : 'sin materia';
         var institutionLabel = institution && institution.selectedOptions[0] ? institution.selectedOptions[0].textContent : 'sin institucion';
 
-        batchInput.value = `${tipoLabel} - ${subjectLabel} - ${institutionLabel} - ${semester} - ${year} - ${versions} opciones`;
+        var parts = [tipoLabel, subjectLabel, institutionLabel, semester];
+        if (curso) parts.push(curso);
+        parts.push(year, versions + ' opciones');
+        batchInput.value = parts.join(' - ');
     }
 
     var batchNameInput = document.getElementById('batch_name');
@@ -524,6 +530,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('id_subject')?.addEventListener(evtName, updateSuggestedBatchName);
         document.getElementById('institucion_dropdown')?.addEventListener(evtName, updateSuggestedBatchName);
         document.getElementById('batch_semester')?.addEventListener(evtName, updateSuggestedBatchName);
+        document.getElementById('curso')?.addEventListener(evtName, updateSuggestedBatchName);
         document.getElementById('num_versions')?.addEventListener(evtName, updateSuggestedBatchName);
         document.getElementById('fecha')?.addEventListener(evtName, updateSuggestedBatchName);
         document.getElementById('year')?.addEventListener(evtName, updateSuggestedBatchName);
