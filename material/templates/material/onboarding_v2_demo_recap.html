@@ -97,7 +97,7 @@
                 element: '#tourMenuAcademico',
                 popover: {
                     title: 'Institución y materia',
-                    description: 'En este espacio se elige, para las materias reales, a qué institución y carrera pertenecen — es el mismo dato que ya tiene cargado este examen de ejemplo.',
+                    description: 'Este examen de ejemplo ya tiene cargados institución y materia — es el primer dato que se configura una sola vez, como viste en el recorrido general.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem1'),
                 },
@@ -106,7 +106,7 @@
                 element: '#tourMenuContenidos',
                 popover: {
                     title: 'Contenidos',
-                    description: 'Aquí se sube el apunte, que la IA usa como base para generar las preguntas. La materia y el tópico se asignan después, al guardarlas.',
+                    description: 'De acá salió el apunte que la IA usó como base — en este ejemplo ya está subido, para que veas el resultado sin tener que subir nada vos.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem2'),
                 },
@@ -115,7 +115,7 @@
                 element: '#tourMenuGenerarIA',
                 popover: {
                     title: 'Generar preguntas con IA',
-                    description: 'La IA genera las preguntas a partir del apunte. Al guardarlas se elige la materia correspondiente y, opcionalmente, el tópico y sub-tópico — así se armaron las preguntas de este ejemplo, y ahí mismo se aprueban con un check.',
+                    description: 'Acá se generaron las preguntas de este ejemplo a partir de ese apunte, y se aprobaron con un check — el mismo paso que harías vos con tu propio material.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem3'),
                 },
@@ -125,7 +125,7 @@
                 element: '#tourMenuPreguntas',
                 popover: {
                     title: 'Mis Preguntas',
-                    description: 'Ahí queda guardada cada pregunta generada, aprobada o no, para que la próxima generación tenga en cuenta esas preferencias.',
+                    description: 'Acá quedaron las {{ questions_count }} preguntas de este ejemplo — {{ approved_count }} aprobadas y el resto también guardadas, disponibles para revisar cuando quieras.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem4'),
                 },
@@ -135,7 +135,7 @@
                 element: '#tourMenuExamenes',
                 popover: {
                     title: 'Exámenes',
-                    description: 'Y aquí se arma el examen, eligiendo cuántas preguntas usar de cada tópico. Se puede partir de una plantilla ya guardada, y definir detalles como tipo de examen, modalidad, fecha, y más.',
+                    description: 'Y este examen se armó automáticamente eligiendo entre esas preguntas aprobadas — dale a "Ver examen" para ver el resultado final.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem5'),
                 },
@@ -145,6 +145,12 @@
 
     function startTour() {
         if (!window.driver || !window.driver.js) return;
+        // El checklist vive en la misma columna donde aparecen los popovers
+        // (side: 'right' de los ítems del sidebar) — se tapaban entre sí. Se
+        // oculta mientras corre el recorrido y se revuelve al terminar, ya
+        // tildado, en vez de competir por el mismo espacio en pantalla.
+        var checklist = document.getElementById('recapChecklist');
+        if (checklist) checklist.classList.add('d-none');
         var tourDriver = window.driver.js.driver({
             showProgress: true,
             allowClose: true,
@@ -153,7 +159,10 @@
             prevBtnText: 'Anterior',
             doneBtnText: 'Listo',
             steps: [],
-            onDestroyed: markAllChecked,
+            onDestroyed: function () {
+                markAllChecked();
+                if (checklist) checklist.classList.remove('d-none');
+            },
         });
         tourDriver.setSteps(buildSteps(tourDriver));
         tourDriver.drive();
