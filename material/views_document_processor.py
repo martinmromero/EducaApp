@@ -729,6 +729,13 @@ def generate_questions_from_chapters(request):
             questions_per_chunk = max(1, min(12, total_questions // max(total_chunks_all, 1)))
 
             for chunk_idx, chunk in enumerate(chunks):
+                if not _chunk_has_content(chunk):
+                    logger.warning(f"Chunk {chunk_idx + 1}/{len(chunks)} de '{title}' sin texto suficiente, se omite.")
+                    failed_chunks.append({
+                        'chapter': title, 'chunk': chunk_idx + 1, 'total_chunks': len(chunks),
+                        'error': 'Fragmento sin texto extraíble (posible página escaneada o solo con imágenes) — no se generaron preguntas.',
+                    })
+                    continue
                 # Pequeño respiro entre requests: pedir varios fragmentos
                 # seguidos sin pausa puede superar el límite por minuto (TPM/RPM)
                 # de Groq incluso con cada request individual dentro de lo
@@ -844,6 +851,19 @@ def _chapters_total_tokens(chapters):
 def _fmt_es(n):
     """Formatea un entero con punto como separador de miles (convención local)."""
     return f'{n:,}'.replace(',', '.')
+
+
+# Por debajo de esto, un chunk no tiene texto real para generar preguntas
+# (páginas escaneadas sin OCR, slides solo con imágenes, secciones vacías
+# entre encabezados) — sin este piso, el prompt le llegaba a la IA con
+# "TEXTO:" seguido de nada, y el modelo generaba preguntas sobre el propio
+# prompt (ej. "¿qué tipo de pregunta se indica como 'opcion_multiple'?")
+# en vez de sobre el documento. Ver [[project_fotosintesis_prompt_leak]].
+MIN_CHUNK_CHARS = 40
+
+
+def _chunk_has_content(chunk):
+    return bool(chunk and len(chunk.strip()) >= MIN_CHUNK_CHARS)
 
 
 def _split_into_chunks(content, max_tokens=3000):
@@ -1218,6 +1238,10 @@ def stream_questions(request, job_id):
 
             for i, chunk in enumerate(chunks):
                 chunk_idx_global += 1
+                if not _chunk_has_content(chunk):
+                    logger.warning(f"SSE chunk {chunk_idx_global} de '{title}' sin texto suficiente, se omite.")
+                    yield f'data: {json_module.dumps({"type": "chunk_error", "chunk": chunk_idx_global, "total_chunks": total_chunks_all, "chapter_title": title, "message": "Fragmento sin texto extraíble (posible página escaneada o solo con imágenes) — no se generaron preguntas."})}\n\n'
+                    continue
                 # Pequeño respiro entre requests: varios fragmentos seguidos sin
                 # pausa pueden superar el límite por minuto (TPM/RPM) de Groq.
                 if chunk_idx_global > 1:

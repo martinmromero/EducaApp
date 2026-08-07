@@ -279,6 +279,13 @@ class DocumentProcessor:
 
             content = '\n\n'.join(chapter_text)
 
+            # Sin texto (páginas escaneadas sin OCR, secciones vacías): no
+            # tiene sentido ofrecerlo como capítulo seleccionable — generar
+            # preguntas de ahí no tiene de dónde salir más que del propio
+            # prompt. Ver [[project_fotosintesis_prompt_leak]].
+            if not content.strip():
+                continue
+
             chapters.append({
                 'title': item['display_title'],
                 'content': content,
@@ -311,6 +318,12 @@ class DocumentProcessor:
                 block_text.append(text.strip())
 
             content = '\n\n'.join(block_text)
+
+            # Mismo criterio que _extract_chapters_from_toc: un bloque de
+            # páginas enteramente escaneadas/sin texto no se ofrece como
+            # "capítulo" seleccionable.
+            if not content.strip():
+                continue
 
             chapters.append({
                 'title': f'Páginas {start_page + 1}-{end_page}',
@@ -455,7 +468,12 @@ class DocumentProcessor:
         # Guardar último capítulo
         if current_chapter:
             chapters_list.append(current_chapter)
-        
+
+        # Descartar secciones sin contenido (dos Heading 1 seguidos, o el
+        # último heading del documento sin texto debajo) — no tiene sentido
+        # ofrecerlas como capítulo seleccionable para generar preguntas.
+        chapters_list = [ch for ch in chapters_list if ch['content'].strip()]
+
         # Si no hay capítulos, considerar todo el documento
         if not chapters_list:
             full_text = '\n\n'.join([p.text for p in doc.paragraphs])
