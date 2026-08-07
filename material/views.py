@@ -5999,7 +5999,13 @@ def onboarding_v2_page(request):
     termine de verdad (onboarding_v2_finish) o salga explícitamente
     (onboarding_v2_exit / "Saltar asistente").
     """
-    return render(request, 'material/onboarding_v2.html', {})
+    # ?first=1 (solo lo agrega OnboardingGateMiddleware, en la invitación real
+    # de primer login) distingue esta visita de una posterior al asistente —
+    # ej. desde la tarjeta "Asistente guiado" de Inicio. El tour de driver.js
+    # y el badge "Recomendado" del esquema ya armado solo tienen sentido la
+    # primera vez.
+    is_first_visit = request.GET.get('first') == '1'
+    return render(request, 'material/onboarding_v2.html', {'is_first_visit': is_first_visit})
 
 
 @login_required

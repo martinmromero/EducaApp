@@ -78,6 +78,27 @@
           display: none !important;
         }
       }
+      /* Mismo criterio de fallback que arriba: el ícono de tema visual y el
+         de modo claro/oscuro (este último se re-crea por JS al alternar,
+         ver más abajo, así que un estilo puesto solo en el <i> del HTML
+         se pierde en el primer toggle) necesitan quedar agrandados sí o
+         sí, sin depender de que static/css/styles.css se haya actualizado. */
+      #visualThemeDropdown i,
+      #toggleMode i {
+        font-size: 1.15em !important;
+      }
+      /* Utilidades estilo tarjeta de estadística (usadas en lista_preguntas.html
+         y ahora también en index.html) — no existen en ningún CSS cargado
+         (no hay SB-Admin-2), así que quedan acá para no depender del pipeline
+         de static/css/styles.css. */
+      .border-left-primary { border-left: .25rem solid var(--bs-primary) !important; }
+      .border-left-info { border-left: .25rem solid var(--bs-info) !important; }
+      .border-left-success { border-left: .25rem solid var(--bs-success) !important; }
+      .border-left-warning { border-left: .25rem solid var(--bs-warning) !important; }
+      .border-left-secondary { border-left: .25rem solid var(--bs-secondary) !important; }
+      .border-left-danger { border-left: .25rem solid var(--bs-danger) !important; }
+      .text-gray-800 { color: #5a5c69 !important; }
+      [data-bs-theme="dark"] .text-gray-800 { color: #dcdde3 !important; }
     </style>
 </head>
 

@@ -17,7 +17,9 @@
         <div class="row g-3 justify-content-center">
           <div class="col-md-6">
             <button type="button" class="btn btn-success w-100 h-100 py-4 position-relative" id="onb2GatewayDemoBtn">
+              {% if is_first_visit %}
               <span class="badge bg-warning text-dark position-absolute top-0 start-50 translate-middle">Recomendado</span>
+              {% endif %}
               <i class="bi bi-stars d-block mb-2 mt-2" style="font-size:1.8rem"></i>
               <span class="fw-semibold d-block">Probar con un esquema ya armado</span>
               <span class="small" style="opacity:.85">Elegir una materia de ejemplo y ver un examen ya armado, en un minuto</span>
@@ -838,7 +840,13 @@
       // ya se completó o cerró el tour alguna vez con otra cuenta, ese flag
       // queda en '1' para siempre y el tour no vuelve a aparecer nunca,
       // aunque sea la primera vez de esta cuenta.
-      if (window.EducaAppTour) window.EducaAppTour.start();
+      //
+      // El tour solo tiene sentido en la invitación real de primer login
+      // (?first=1, la pone únicamente OnboardingGateMiddleware) — si se
+      // llega acá de otra forma (ej. tarjeta "Asistente guiado" de Inicio,
+      // en una visita posterior) no debe autoiniciarse.
+      var isFirstVisit = {{ is_first_visit|yesno:"true,false" }};
+      if (isFirstVisit && window.EducaAppTour) window.EducaAppTour.start();
     });
   }
 })();

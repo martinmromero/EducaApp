@@ -19,6 +19,7 @@ verdad (onboarding_v2_finish) o al salir a propósito ("Saltar asistente" /
 "Salir del asistente").
 """
 from django.shortcuts import redirect
+from django.urls import reverse
 
 # Único punto de entrada que dispara la invitación al asistente.
 INDEX_PATH = '/'
@@ -53,5 +54,11 @@ class OnboardingGateMiddleware:
                 except Exception:
                     completed = True  # sin perfil resoluble, no bloqueamos por las dudas
                 if not completed:
-                    return redirect('material:onboarding_v2_page')
+                    # ?first=1 distingue esta invitación real de primer login
+                    # de una visita posterior al asistente (ej. desde la
+                    # tarjeta "Asistente guiado" de Inicio) — la pantalla de
+                    # decisión usa esta marca para decidir si arranca el
+                    # tour de driver.js y si marca "Recomendado" el esquema
+                    # ya armado (ambos solo tienen sentido la primera vez).
+                    return redirect(f"{reverse('material:onboarding_v2_page')}?first=1")
         return self.get_response(request)
