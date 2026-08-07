@@ -104,7 +104,7 @@
         {% if user.is_authenticated %}
             <div class="user-info">
                 <i class="bi bi-person-circle me-2"></i>
-                Hola, {{ user.username }}
+                Hola, {{ user.first_name|default:user.username }}
             </div>
         {% endif %}
 
