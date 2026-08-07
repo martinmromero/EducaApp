@@ -331,10 +331,15 @@ from django.views.decorators.http import require_GET
 from .models import ExamTemplate, Subject, Question, LearningOutcome, Topic
 
 # AJAX: obtener datos de plantilla de examen
+@login_required
 @require_GET
 def get_exam_template(request, template_id):
+    # Las plantillas son privadas de quien las crea (no existe ningún
+    # mecanismo para compartirlas, a diferencia de materias/preguntas) — sin
+    # este filtro, cualquier usuario autenticado podía traerse los datos de
+    # la plantilla de otro con solo adivinar/incrementar el ID.
     try:
-        template = ExamTemplate.objects.get(id=template_id)
+        template = ExamTemplate.objects.get(id=template_id, created_by=request.user)
     except ExamTemplate.DoesNotExist:
         return JsonResponse({'error': 'Plantilla no encontrada'}, status=404)
 
@@ -1206,7 +1211,11 @@ def create_exam(request):
         carreras = carreras.filter(is_seed_demo=False)
     materias = Subject.objects.filter(is_seed_demo=False)
     profesores = User.objects.filter(profile__role='admin') | User.objects.filter(profile__role='user')
-    templates = ExamTemplate.objects.all()
+    # Las plantillas son privadas de quien las crea (no existe ningún
+    # mecanismo para compartirlas) — mostrar las de otros usuarios era
+    # además la puerta de entrada al problema de get_exam_template de más
+    # arriba, no solo una opción confusa en el desplegable.
+    templates = ExamTemplate.objects.filter(created_by=request.user)
 
     if request.method == 'POST':
         form = ExamForm(request.POST)
@@ -1239,7 +1248,23 @@ def create_exam(request):
     # cualquier usuario real. En el vistazo de solo lectura (?demo_peek=1)
     # se necesita la materia semilla en las opciones para que el prefill la
     # muestre seleccionada.
-    form.fields['subject'].queryset = Subject.objects.all() if is_demo_peek else Subject.objects.filter(is_seed_demo=False)
+    if is_demo_peek:
+        form.fields['subject'].queryset = Subject.objects.all()
+    else:
+        # Subject es global por nombre (sin dueño) — mostrar TODAS las
+        # materias no-semilla dejaba elegibles materias de otros docentes
+        # sin ninguna pregunta visible para este usuario (propia o
+        # compartida por grupo), con el panel de Tópicos/Preguntas vacío
+        # como único indicio. Mismo criterio de visibilidad que ya usa
+        # get_topics?for_exam=1: si no hay nada elegible para armar un
+        # examen ahí, la materia no debería aparecer como opción.
+        from .content_visibility import get_visible_questions, EXAM_ELIGIBLE_Q
+        visible_subject_ids = get_visible_questions(request.user).filter(
+            EXAM_ELIGIBLE_Q
+        ).values_list('subjects__id', flat=True).distinct()
+        form.fields['subject'].queryset = Subject.objects.filter(
+            is_seed_demo=False, id__in=visible_subject_ids
+        )
 
     import json as _json
     prefill_data = request.session.get('preview_exam') or {}
