@@ -37,6 +37,7 @@ REGLAS:
 - No inventes datos, cifras, nombres, fechas ni conceptos que no estén explícitamente en el TEXTO. Si no estás seguro de que algo esté en el texto, no lo uses.
 - Antes de responder, verificá mentalmente que cada afirmación de cada pregunta, opción y respuesta sea verificable palabra por palabra en el TEXTO dado.
 - Si el texto no alcanza para armar una pregunta de calidad sobre un aspecto puntual, elegí otro aspecto mejor cubierto en el texto en vez de completar con información inventada.
+- El bloque "Formato JSON requerido" de más abajo es solo un ejemplo de ESTRUCTURA: su contenido de ejemplo es ficticio, no forma parte del TEXTO, y nunca debe copiarse, parafrasearse ni reutilizarse como si fuera una pregunta real.
 - Distribuí los tipos de manera relativamente pareja entre los tipos habilitados.
 - Variá la dificultad: dificultad 1-2 (fácil), 3 (media), 4-5 (difícil).
 - Para "opcion_multiple": siempre 4 opciones con prefijo A), B), C), D). Los distractores (opciones incorrectas) deben ser plausibles pero verificablemente falsos según el TEXTO — no los inventes con datos de fuera del texto.
@@ -68,10 +69,10 @@ Formato JSON requerido:
       "bloom_nivel": 1
     }},
     {{
-      "pregunta": "El proceso por el cual las plantas obtienen energía se llama [___].",
+      "pregunta": "texto de la pregunta con [___] donde va la respuesta",
       "tipo": "completar_blank",
-      "respuesta": "fotosíntesis",
-      "explicacion": "...",
+      "respuesta": "texto exacto que completa el espacio, tomado del TEXTO",
+      "explicacion": "breve explicación de por qué es correcta",
       "dificultad": 2,
       "bloom_nivel": 1
     }},
