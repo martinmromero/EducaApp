@@ -15,11 +15,10 @@
         <h4 class="fw-semibold mb-2">¿Cómo empezar?</h4>
         <p class="text-muted mb-4">Se puede cargar información propia, o probar el sistema en un minuto con un esquema ya armado.</p>
         <div class="row g-3 justify-content-center">
+          {% if is_first_visit %}
           <div class="col-md-6">
             <button type="button" class="btn btn-success w-100 h-100 py-4 position-relative" id="onb2GatewayDemoBtn">
-              {% if is_first_visit %}
               <span class="badge bg-warning text-dark position-absolute top-0 start-50 translate-middle">Recomendado</span>
-              {% endif %}
               <i class="bi bi-stars d-block mb-2 mt-2" style="font-size:1.8rem"></i>
               <span class="fw-semibold d-block">Probar con un esquema ya armado</span>
               <span class="small" style="opacity:.85">Elegir una materia de ejemplo y ver un examen ya armado, en un minuto</span>
@@ -32,6 +31,22 @@
               <span class="text-muted small">Institución, materia y preguntas propias, con ayuda de IA</span>
             </button>
           </div>
+          {% else %}
+          <div class="col-md-6">
+            <button type="button" class="btn btn-primary w-100 h-100 py-4" id="onb2GatewayOwnBtn">
+              <i class="bi bi-pencil-square d-block mb-2" style="font-size:1.8rem"></i>
+              <span class="fw-semibold d-block">Cargar mi propia información</span>
+              <span class="small" style="opacity:.85">Institución, materia y preguntas propias, con ayuda de IA</span>
+            </button>
+          </div>
+          <div class="col-md-6">
+            <button type="button" class="btn btn-outline-secondary w-100 h-100 py-4" id="onb2GatewayDemoBtn">
+              <i class="bi bi-stars d-block mb-2" style="font-size:1.8rem"></i>
+              <span class="fw-semibold d-block">Probar con un esquema ya armado</span>
+              <span class="text-muted small">Elegir una materia de ejemplo y ver un examen ya armado, en un minuto</span>
+            </button>
+          </div>
+          {% endif %}
         </div>
         <div id="onb2GatewayDemoPicker" class="d-none mt-4 text-start">
           <p class="text-muted mb-2 small">Elegir una materia de ejemplo:</p>

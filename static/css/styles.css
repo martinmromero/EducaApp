@@ -297,9 +297,11 @@ body.modal-open .sidebar-toggle-external {
     display: block;
 }
 
-/* Estilos para el botón de modo oscuro */
+/* Botón de modo oscuro: se deja sin overrides de tamaño para que quede
+   igual de chico que su vecino #visualThemeDropdown (mismo btn-sm, mismo
+   contenido de un solo ícono) — antes tenía un ancho fijo de 120px que lo
+   hacía notoriamente más grande. */
 .mode-toggle-button {
-    width: 120px;
     text-align: center;
 }
 
