@@ -212,11 +212,11 @@
                             <td data-label="Estado IA">
                                 {% if pregunta.generated_by_ai %}
                                     {% if pregunta.ai_approved is None %}
-                                        <span class="badge badge-warning">⏳ Sin revisar</span>
+                                        <span class="badge text-bg-warning">⏳ Sin revisar</span>
                                     {% elif pregunta.ai_approved %}
-                                        <span class="badge badge-success">✅ Aprobada</span>
+                                        <span class="badge text-bg-success">✅ Aprobada</span>
                                     {% else %}
-                                        <span class="badge badge-danger">❌ Rechazada</span>
+                                        <span class="badge text-bg-danger">❌ Rechazada</span>
                                     {% endif %}
                                 {% else %}
                                     <span class="text-muted">—</span>
