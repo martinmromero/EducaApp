@@ -163,33 +163,32 @@ Convenciones que debe respetar la página que lo incluye:
             margin-bottom: .5rem;
             box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
         }
-        /* Etiqueta arriba, valor abajo (en vez de lado a lado): un valor
-           largo sin espacios (nombre de archivo, texto de pregunta) al lado
-           de la etiqueta no cortaba línea por una particularidad de flexbox
-           (los ítems de flex no encogen por debajo de su contenido a menos
-           que se les fuerce min-width:0) y terminaba empujando toda la fila
-           — y con ella, toda la lista — a un scroll horizontal invisible que
-           recortaba el borde izquierdo de TODAS las tarjetas por igual. */
+        /* Etiqueta y valor van en flujo de texto normal (inline), no en una
+           fila de flexbox lado a lado: eso es justamente lo que evita el bug
+           anterior (un valor largo sin espacios empujando toda la fila a
+           scroll horizontal — los ítems de flex no encogen por debajo de su
+           contenido salvo que se fuerce min-width:0, y esto no aplica acá
+           porque no hay flex). Como consecuencia natural, "etiqueta: valor"
+           corto queda en un mismo renglón, y uno largo corta línea solo
+           donde hace falta, como cualquier párrafo. */
         .column-filter-table td {
             display: block;
             flex: 1 1 100%;
             min-width: 0;
             max-width: 100%;
-            padding: .3rem 0 !important;
+            padding: .25rem 0 !important;
             border: none !important;
             background-color: transparent !important;
             overflow-wrap: anywhere;
             word-break: break-word;
         }
         .column-filter-table td::before {
-            content: attr(data-label);
-            display: block;
+            content: attr(data-label) ": ";
             font-weight: 600;
             font-size: .7rem;
             text-transform: uppercase;
             letter-spacing: .02em;
             color: var(--bs-secondary-color);
-            margin-bottom: .1rem;
         }
         .column-filter-table td.rt-card-title {
             order: -1;
@@ -211,7 +210,9 @@ Convenciones que debe respetar la página que lo incluye:
         .column-filter-table td.rt-card-badge::before {
             content: none;
         }
-        /* Separador antes de la última columna (por convención, "Acciones"). */
+        /* Separador antes de la última columna (por convención, "Acciones") —
+           sin su etiqueta: los íconos (ver/editar/borrar) ya se explican
+           solos, no hace falta el texto "Acciones:" antes. */
         .column-filter-table tr > td:last-of-type {
             border-top: 1px solid var(--bs-border-color) !important;
             margin-top: .4rem;
@@ -219,7 +220,7 @@ Convenciones que debe respetar la página que lo incluye:
             text-align: right;
         }
         .column-filter-table tr > td:last-of-type::before {
-            text-align: left;
+            content: none;
         }
     }
 </style>
