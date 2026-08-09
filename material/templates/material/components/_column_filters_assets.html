@@ -109,6 +109,12 @@ Convenciones que debe respetar la página que lo incluye:
        aplicado; el resto de los listados con column-filter-table quedan
        apilados sin etiquetas hasta que se les sume lo mismo. */
     @media (max-width: 767.98px) {
+        /* Nunca debe hacer falta scroll horizontal acá adentro: si algún
+           valor no puede cortarse (ver word-break/overflow-wrap más abajo),
+           que se recorte antes que forzar scroll de toda la lista. */
+        .table-responsive:has(.column-filter-table) {
+            overflow-x: hidden;
+        }
         .column-filter-table thead {
             display: none;
         }
@@ -116,11 +122,15 @@ Convenciones que debe respetar la página que lo incluye:
         .column-filter-table tbody {
             display: block;
             width: 100%;
+            max-width: 100%;
         }
         .column-filter-table tr {
             display: flex;
             flex-wrap: wrap;
-            align-items: center;
+            align-items: flex-start;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
             background: var(--bs-body-bg);
             border: 1px solid var(--bs-border-color);
             border-radius: .6rem;
@@ -128,33 +138,40 @@ Convenciones que debe respetar la página que lo incluye:
             margin-bottom: .6rem;
             box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
         }
+        /* Etiqueta arriba, valor abajo (en vez de lado a lado): un valor
+           largo sin espacios (nombre de archivo, texto de pregunta) al lado
+           de la etiqueta no cortaba línea por una particularidad de flexbox
+           (los ítems de flex no encogen por debajo de su contenido a menos
+           que se les fuerce min-width:0) y terminaba empujando toda la fila
+           — y con ella, toda la lista — a un scroll horizontal invisible que
+           recortaba el borde izquierdo de TODAS las tarjetas por igual. */
         .column-filter-table td {
-            display: flex;
+            display: block;
             flex: 1 1 100%;
-            justify-content: space-between;
-            align-items: center;
-            gap: .5rem;
-            padding: .25rem 0 !important;
+            min-width: 0;
+            max-width: 100%;
+            padding: .3rem 0 !important;
             border: none !important;
             background-color: transparent !important;
-            text-align: right;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
         .column-filter-table td::before {
             content: attr(data-label);
+            display: block;
             font-weight: 600;
-            font-size: .72rem;
+            font-size: .7rem;
             text-transform: uppercase;
             letter-spacing: .02em;
             color: var(--bs-secondary-color);
-            text-align: left;
-            flex: 0 0 auto;
+            margin-bottom: .1rem;
         }
         .column-filter-table td.rt-card-title {
             order: -1;
             flex: 1 1 auto;
+            min-width: 0;
             font-weight: 700;
             font-size: 1rem;
-            text-align: left;
         }
         .column-filter-table td.rt-card-title::before {
             content: none;
@@ -174,7 +191,10 @@ Convenciones que debe respetar la página que lo incluye:
             border-top: 1px solid var(--bs-border-color) !important;
             margin-top: .4rem;
             padding-top: .6rem !important;
-            justify-content: flex-end;
+            text-align: right;
+        }
+        .column-filter-table tr > td:last-of-type::before {
+            text-align: left;
         }
     }
 </style>
