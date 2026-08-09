@@ -2,18 +2,24 @@
 {% if messages %}
     <div class="messages-container mb-3">
         {% for message in messages %}
-            <div class="alert 
-                {% if message.tags == 'error' or message.tags == 'danger' %}alert-danger
-                {% elif message.tags == 'warning' %}alert-warning
-                {% elif message.tags == 'info' %}alert-info
-                {% else %}alert-success{% endif %} 
+            <!-- Clasificar por message.level_tag (siempre 'error'/'warning'/
+                 'info'/'success'/'debug' solo), NO por message.tags: ese
+                 incluye extra_tags pegado adelante (ej. "general warning"),
+                 así que un mensaje con extra_tags nunca calzaba con ninguna
+                 de estas comparaciones exactas y siempre caía en el "else"
+                 (verde), sin importar si era error/warning de verdad. -->
+            <div class="alert
+                {% if message.level_tag == 'error' or message.level_tag == 'danger' %}alert-danger
+                {% elif message.level_tag == 'warning' %}alert-warning
+                {% elif message.level_tag == 'info' %}alert-info
+                {% else %}alert-success{% endif %}
                 alert-dismissible fade show" role="alert">
                 <strong>
-                    {% if message.tags == 'error' or message.tags == 'danger' %}
+                    {% if message.level_tag == 'error' or message.level_tag == 'danger' %}
                         <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    {% elif message.tags == 'warning' %}
+                    {% elif message.level_tag == 'warning' %}
                         <i class="bi bi-exclamation-circle-fill me-2"></i>
-                    {% elif message.tags == 'info' %}
+                    {% elif message.level_tag == 'info' %}
                         <i class="bi bi-info-circle-fill me-2"></i>
                     {% else %}
                         <i class="bi bi-check-circle-fill me-2"></i>

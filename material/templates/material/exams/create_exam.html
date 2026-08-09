@@ -12,6 +12,28 @@
     <div>Así se ve <strong>Crear Examen</strong> con los datos de este ejemplo ya cargados — con material propio, cada campo se completa acá mismo.</div>
 </div>
 {% endif %}
+
+<!-- Los mensajes generales del servidor (validaciones al volver de crear el
+     examen, ej. "no se seleccionó ningún tópico") se reubican acá adentro
+     como modal en vez de quedar como banner arriba de la página — ver
+     create_exam.js. Como banner, quedaban muy arriba y con el mismo tono
+     para todo (el bug de color ya se corrigió en messages.html, pero
+     igual convenía que el usuario tuviera que confirmarlo antes de seguir
+     completando el formulario, en vez de arriesgarse a no notarlo). -->
+<div class="modal fade" id="pageMessageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pageMessageModalTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="pageMessageModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% if wizard_active %}
 {% include 'material/_onb2_banner.html' with onb2_step=6 onb2_step_label="Armar el examen" %}
 {% endif %}
