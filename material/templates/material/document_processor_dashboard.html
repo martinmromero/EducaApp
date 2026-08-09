@@ -3,8 +3,12 @@
 
 {% block title %}Procesador de Documentos - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-magic me-2"></i>Generar preguntas con IA{% endblock %}
+{% block body_extra_attrs %}{% if not wizard_active %}data-tour-page="doc_processor"{% endif %}{% endblock %}
 
 {% block content %}
+{% if not wizard_active %}
+<script src="{% static 'js/page_tours/doc_processor_tour.js' %}"></script>
+{% endif %}
 <div class="container-fluid mt-2 mt-md-4" id="docProcessorPage">
     {% if wizard_active %}
     <div class="row">
@@ -112,8 +116,11 @@
         </div>
     </div>
 
-    <!-- Tabs de funcionalidades -->
-    <ul class="nav nav-tabs {% if wizard_active %}d-none{% endif %}" id="docProcessorTabs" role="tablist">
+    <!-- Tabs de funcionalidades: "Procesar Documento" ya no es una pestaña
+         propia (se fundió en el paso "Documento" del flujo de abajo) — esta
+         barra solo tiene sentido si además hay una segunda pestaña real
+         (Modelos Locales, con Ollama) entre la que elegir. -->
+    <ul class="nav nav-tabs {% if wizard_active or backend_type != 'ollama_local' %}d-none{% endif %}" id="docProcessorTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab">
                 <i class="fas fa-upload"></i> Procesar Documento
@@ -131,73 +138,83 @@
     <div class="tab-content {% if wizard_active %}mt-2{% else %}mt-4{% endif %}" id="docProcessorTabContent">
         <!-- Tab 1: Procesar Documento Completo -->
         <div class="tab-pane fade show active" id="upload" role="tabpanel">
-            <div class="row">
-                <div class="{% if wizard_active %}d-none{% else %}col-md-4{% endif %}" id="uploadFormCol">
-                    <!-- Barra compacta que reemplaza la card de subida una vez que ya
-                         hay un resultado — si no, en mobile el formulario entero (file
-                         input, título, checkbox, botón) queda arriba de los capítulos
-                         y obliga a scrollear de más para llegar a "elegir contenido". -->
-                    <div id="uploadCollapsedBar" class="alert alert-light border d-none align-items-center justify-content-between gap-2 py-2 px-3 mb-3">
-                        <span class="text-truncate small"><i class="fas fa-file-alt me-1 text-muted"></i><span id="uploadCollapsedName"></span></span>
-                        <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" onclick="expandUploadForm()">
+            <!-- Flujo de un solo proceso (subir → elegir → generar), en vez de
+                 pestaña + dos columnas: la columna de subida, colapsada a una
+                 barra angosta, quedaba estirada a la altura de la de al lado
+                 (las filas de Bootstrap estiran las columnas por igual) y dejaba
+                 un hueco vacío enorme en desktop. Acá cada paso es un bloque en
+                 una sola columna; el que ya se resolvió se colapsa a un renglón
+                 con un check y "Cambiar" (ver collapseUploadForm()/
+                 expandUploadForm()) — sin numerarlos como los asistentes. -->
+            <div class="doc-flow">
+                <div class="step-block active {% if wizard_active %}d-none{% endif %}" id="stepDocumento">
+                    <div class="step-head">
+                        <span class="step-title"><i class="fas fa-file-arrow-up"></i> Documento</span>
+                        <span class="step-summary d-none" id="stepDocumentoSummary"></span>
+                        <button type="button" class="btn btn-sm btn-link step-change-btn d-none" id="stepDocumentoChangeBtn" onclick="expandUploadForm()">
                             <i class="fas fa-rotate"></i> Cambiar
                         </button>
                     </div>
-                    <div class="card" id="uploadFormCard">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0"><i class="fas fa-upload"></i> Subir Documento</h5>
-                        </div>
-                        <div class="card-body">
-                            <form id="uploadDocumentForm" enctype="multipart/form-data">
-                                {% csrf_token %}
-                                <div class="mb-3">
-                                    <label class="form-label">Archivo</label>
-                                    <input type="file" class="form-control" id="documentFile" name="documento" accept=".pdf,.docx,.pptx,.txt" required>
-                                    <small class="text-muted">Formatos: PDF, DOCX, PPTX, TXT (máx {{ max_file_size_mb }}MB)</small>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label class="form-label">Título <small class="text-muted">(se guardará en Mis Contenidos)</small></label>
-                                    <input type="text" class="form-control" id="contenidoTitle" name="contenido_title" placeholder="Se completa al elegir el archivo" autocomplete="off">
-                                </div>
-
-                                <div class="mb-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="cleanDocumentToggle" checked
-                                               onchange="document.getElementById('removeHeadersHidden').value = this.checked; document.getElementById('removeFootersHidden').value = this.checked;">
-                                        <label class="form-check-label" for="cleanDocumentToggle">
-                                            Quitar encabezados y pies de página repetidos
-                                            <i class="fas fa-circle-question text-muted ms-1"
-                                               title="Sacamos el texto que se repite arriba y abajo de cada hoja (como el nombre de la institución o el número de página) para que la IA analice solo el contenido real del documento y las consultas sean más rápidas."
-                                               style="cursor:help"></i>
-                                        </label>
-                                    </div>
-                                    <input type="hidden" name="remove_headers" id="removeHeadersHidden" value="true">
-                                    <input type="hidden" name="remove_footers" id="removeFootersHidden" value="true">
-                                </div>
-
-                                <button type="submit" class="btn btn-primary w-100">
-                                    <i class="fas fa-cogs"></i> Procesar Documento
-                                </button>
-                            </form>
-
-                            <div id="uploadProgress" class="mt-3" style="display:none;">
-                                <div class="progress">
-                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
-                                </div>
-                                <small class="text-muted">Procesando...</small>
+                    <div class="step-body" id="uploadFormCard">
+                        <form id="uploadDocumentForm" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label">Archivo</label>
+                                <input type="file" class="form-control" id="documentFile" name="documento" accept=".pdf,.docx,.pptx,.txt" required>
+                                <small class="text-muted">Formatos: PDF, DOCX, PPTX, TXT (máx {{ max_file_size_mb }}MB)</small>
                             </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Título <small class="text-muted">(se guardará en Mis Contenidos)</small></label>
+                                <input type="text" class="form-control" id="contenidoTitle" name="contenido_title" placeholder="Se completa al elegir el archivo" autocomplete="off">
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="cleanDocumentToggle" checked
+                                           onchange="document.getElementById('removeHeadersHidden').value = this.checked; document.getElementById('removeFootersHidden').value = this.checked;">
+                                    <label class="form-check-label" for="cleanDocumentToggle">
+                                        Quitar encabezados y pies de página repetidos
+                                        <i class="fas fa-circle-question text-muted ms-1"
+                                           title="Sacamos el texto que se repite arriba y abajo de cada hoja (como el nombre de la institución o el número de página) para que la IA analice solo el contenido real del documento y las consultas sean más rápidas."
+                                           style="cursor:help"></i>
+                                    </label>
+                                </div>
+                                <input type="hidden" name="remove_headers" id="removeHeadersHidden" value="true">
+                                <input type="hidden" name="remove_footers" id="removeFootersHidden" value="true">
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-cogs"></i> Procesar Documento
+                            </button>
+                        </form>
+
+                        <div id="uploadProgress" class="mt-3" style="display:none;">
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                            </div>
+                            <small class="text-muted">Procesando...</small>
                         </div>
                     </div>
                 </div>
 
-                <div class="{% if wizard_active %}col-12{% else %}col-md-8{% endif %}" id="resultCol">
-                    <div id="resultCard" class="card {% if wizard_active %}border-0{% endif %}" style="display:none;">
-                        <div class="card-header bg-success text-white {% if wizard_active %}py-1 px-2{% endif %}">
-                            <h5 class="mb-0 {% if wizard_active %}fs-6{% endif %}"><i class="fas fa-check-circle"></i> Resultado del Procesamiento</h5>
-                        </div>
-                        <div class="card-body {% if wizard_active %}px-0{% endif %}">
-                            <div id="resultContent"></div>
+                <div class="step-block {% if wizard_active %}no-chrome{% else %}pending{% endif %}" id="stepContenido">
+                    {% if not wizard_active %}
+                    <div class="step-head">
+                        <span class="step-title"><i class="fas fa-list-check"></i> Elegir y generar</span>
+                    </div>
+                    {% endif %}
+                    <div class="step-body">
+                        <p class="step-pending-msg text-muted small mb-0 {% if wizard_active %}d-none{% endif %}" id="stepContenidoPending">
+                            Subir un documento para elegir qué generar.
+                        </p>
+                        <div id="resultCard" class="card {% if wizard_active %}border-0{% else %}border-0 bg-transparent{% endif %}" style="display:none;">
+                            <div class="card-header bg-success text-white {% if wizard_active %}py-1 px-2{% else %}d-none{% endif %}">
+                                <h5 class="mb-0 {% if wizard_active %}fs-6{% endif %}"><i class="fas fa-check-circle"></i> Resultado del Procesamiento</h5>
+                            </div>
+                            <div class="card-body {% if wizard_active %}px-0{% else %}p-0{% endif %}">
+                                <div id="resultContent"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -696,25 +713,40 @@ const WIZARD_ACTIVE = {{ wizard_active|yesno:"true,false" }};
 // — no aplica en modo wizard, donde esa columna ya está oculta de entrada.
 function collapseUploadForm(filename) {
     if (WIZARD_ACTIVE) return;
+    // Paso "Documento" -> resuelto (colapsado a un renglón con check).
+    const step1 = document.getElementById('stepDocumento');
+    step1.classList.remove('active');
+    step1.classList.add('done');
     document.getElementById('uploadFormCard').classList.add('d-none');
-    const bar = document.getElementById('uploadCollapsedBar');
-    bar.classList.remove('d-none');
-    bar.classList.add('d-flex');
-    document.getElementById('uploadCollapsedName').textContent = filename || 'Documento cargado';
-    document.getElementById('uploadFormCol').className = 'col-12 col-md-3';
-    document.getElementById('resultCol').className = 'col-12 col-md-9';
+    const summary = document.getElementById('stepDocumentoSummary');
+    summary.textContent = filename || 'Documento cargado';
+    summary.classList.remove('d-none');
+    document.getElementById('stepDocumentoChangeBtn').classList.remove('d-none');
+
+    // Paso "Elegir y generar" -> activo.
+    const step2 = document.getElementById('stepContenido');
+    step2.classList.remove('pending');
+    step2.classList.add('active');
+    document.getElementById('stepContenidoPending').classList.add('d-none');
+
     document.getElementById('docStatusHeader').classList.add('d-none');
     document.getElementById('docStatusHr').classList.add('d-none');
 }
 
 function expandUploadForm() {
+    const step1 = document.getElementById('stepDocumento');
+    step1.classList.add('active');
+    step1.classList.remove('done');
     document.getElementById('uploadFormCard').classList.remove('d-none');
-    const bar = document.getElementById('uploadCollapsedBar');
-    bar.classList.add('d-none');
-    bar.classList.remove('d-flex');
-    document.getElementById('uploadFormCol').className = 'col-md-4';
-    document.getElementById('resultCol').className = 'col-md-8';
+    document.getElementById('stepDocumentoSummary').classList.add('d-none');
+    document.getElementById('stepDocumentoChangeBtn').classList.add('d-none');
+
+    const step2 = document.getElementById('stepContenido');
+    step2.classList.add('pending');
+    step2.classList.remove('active');
+    document.getElementById('stepContenidoPending').classList.remove('d-none');
     document.getElementById('resultCard').style.display = 'none';
+
     document.getElementById('docStatusHeader').classList.remove('d-none');
     document.getElementById('docStatusHr').classList.remove('d-none');
 }
@@ -752,17 +784,25 @@ function expandUploadForm() {
 
     function showAutoLoadError(message) {
         resultCard.style.display = 'block';
+        {% if wizard_active %}
         const header = resultCard.querySelector('.card-header');
-        if (header) header.className = 'card-header bg-danger text-white';
+        if (header) header.className = 'card-header bg-danger text-white py-1 px-2';
         const headerTitle = resultCard.querySelector('.card-header h5');
         if (headerTitle) headerTitle.innerHTML = '<i class="fas fa-exclamation-triangle"></i> No se pudo cargar el documento';
+        {% else %}
+        // El paso "Elegir y generar" pasa a activo así no queda el mensaje de
+        // "subí un documento primero" al lado del error.
+        const step2 = document.getElementById('stepContenido');
+        if (step2) { step2.classList.remove('pending'); step2.classList.add('active'); }
+        document.getElementById('stepContenidoPending')?.classList.add('d-none');
+        {% endif %}
         const content = document.getElementById('resultContent');
         let extra = '';
         {% if wizard_active %}
         extra = '<div class="mt-2"><a href="{% url "material:onboarding_v2_page" %}?step=4" class="btn btn-sm btn-outline-secondary">' +
                 '<i class="bi bi-arrow-left"></i> Volver al asistente y subir de nuevo</a></div>';
         {% endif %}
-        if (content) content.innerHTML = '<div class="alert alert-danger mb-0">' + message + extra + '</div>';
+        if (content) content.innerHTML = '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-triangle"></i> No se pudo cargar el documento. ' + message + extra + '</div>';
     }
 })();
 
@@ -857,7 +897,7 @@ function displayDocumentResult(data) {
         ? `<div class="rt-compact-notice mb-2">
                <i class="fas fa-layer-group"></i> Documento grande — elegí qué generar primero
                <i class="fas fa-circle-question rt-notice-q"
-                  title="El documento es muy grande para procesarlo de una sola vez${data.chapters.length > 1 && !(data.toc && data.toc.length) ? '. Por eso se dividió automáticamente en bloques de páginas' : ''}. Elegí capítulos (o bloques de páginas) puntuales y generá el resto en otra tanda."
+                  title="El documento es muy grande para procesarlo de una sola vez${data.chapters.length > 1 && !(data.toc && data.toc.length) ? '. Por eso se dividió automáticamente en bloques de páginas' : ''}. Elegir capítulos (o bloques de páginas) puntuales y generar el resto en otra tanda."
                   style="cursor:help"></i>
            </div>`
         : '';
@@ -924,7 +964,7 @@ function displayDocumentResult(data) {
         <div class="rt-selection-summary mt-3">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <small class="text-muted">
-                    <span id="selectionSummaryText">Elegí al menos un capítulo para generar</span>
+                    <span id="selectionSummaryText">Elegir al menos un capítulo para generar</span>
                     <i class="fas fa-circle-question ms-1"
                        title="Cada tanda de generación tiene un tope de capacidad para que el servidor no se quede colgado procesando un documento entero de una sola vez. Si hace falta más, generar en varias tandas."
                        style="cursor:help"></i>
@@ -973,7 +1013,7 @@ function updateGenerateButton() {
         if (cb.checked) return;
         cb.disabled = atBudget;
         cb.title = atBudget
-            ? 'Llegaste al máximo recomendado para esta tanda. Generá esta selección primero, o deseleccioná otro capítulo para hacer lugar.'
+            ? 'Máximo recomendado alcanzado para esta tanda. Generar esta selección primero, o deseleccionar otro capítulo para hacer lugar.'
             : '';
         if (card) card.classList.toggle('disabled', atBudget);
     });
@@ -982,7 +1022,7 @@ function updateGenerateButton() {
     if (summaryText) {
         summaryText.textContent = checkboxes.length > 0
             ? `${checkboxes.length} capítulo(s) elegido(s)`
-            : 'Elegí al menos un capítulo para generar';
+            : 'Elegir al menos un capítulo para generar';
     }
 
     const btn = document.getElementById('generateQuestionsBtn');
@@ -3061,6 +3101,73 @@ function _escapeHtml(str) {
 .rt-selection-summary {
   border-top: 1px solid var(--bs-border-color);
   padding-top: .7rem;
+}
+
+/* ── Flujo de un solo proceso (Documento / Elegir y generar) ────────
+   Reemplaza la fila de dos columnas (subida + resultado): esa fila
+   estiraba ambas columnas a la misma altura (comportamiento por default
+   de una .row de Bootstrap), así que al colapsar la de subida a una
+   barrita quedaba un hueco vacío al lado, tan alto como la lista de
+   capítulos. Acá cada paso es un bloque en una sola columna — el que ya
+   se resolvió se colapsa a un renglón (ver collapseUploadForm() /
+   expandUploadForm()), sin numerarlos como los asistentes. */
+.doc-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.step-block {
+  border-left: 3px solid var(--bs-border-color);
+  border-radius: .4rem;
+  background: var(--bs-tertiary-bg, rgba(0, 0, 0, .02));
+  transition: border-color .15s, background-color .15s;
+}
+.step-block.active {
+  border-left-color: var(--bs-primary);
+  background: transparent;
+}
+.step-block.done {
+  border-left-color: var(--bs-success);
+  background: transparent;
+}
+.step-block.no-chrome {
+  border-left: none;
+  background: transparent;
+  border-radius: 0;
+}
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .65rem .9rem;
+  font-weight: 700;
+  font-size: .95rem;
+}
+.step-block.done .step-head {
+  color: var(--bs-success);
+}
+.step-block.active .step-head {
+  color: var(--bs-primary);
+}
+.step-summary {
+  font-size: .82rem;
+  font-weight: 400;
+  color: var(--bs-secondary-color);
+}
+.step-change-btn {
+  margin-left: auto;
+  font-size: .8rem;
+  text-decoration: none;
+}
+.step-body {
+  padding: 0 .9rem .9rem;
+}
+.step-block.done .step-body {
+  display: none;
+}
+.step-pending-msg {
+  padding: 0 .9rem .9rem;
+  font-style: italic;
 }
 
 /* Menos margen desperdiciado en mobile: el container-fluid de la página +
