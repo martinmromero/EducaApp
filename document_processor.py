@@ -144,11 +144,28 @@ class DocumentProcessor:
                 doc, headers_to_remove, footers_to_remove
             )
             result['full_text'] = full_text
+
+            # Se re-arma por página (en vez de reusar full_text tal cual)
+            # para poder incrustar los marcadores de página — full_text no
+            # los lleva a propósito, por si algo más adelante llega a
+            # mostrarlo directo al usuario.
+            doc_pages = []
+            doc_printed_pages = []
+            page_texts = []
+            for page_num in range(doc.page_count):
+                raw_text = doc[page_num].get_text()
+                doc_pages.append(page_num + 1)
+                doc_printed_pages.append(self._detect_printed_page_number(raw_text))
+                text = self._remove_repetitive_patterns(raw_text, headers_to_remove, footers_to_remove)
+                page_texts.append(text.strip())
+            content = self._join_pages_with_markers(doc_pages, page_texts)
+
             result['chapters'] = [{
                 'title': 'Documento completo',
-                'content': full_text,
-                'tokens': self.count_tokens(full_text),
-                'pages': list(range(1, doc.page_count + 1))
+                'content': content,
+                'tokens': self.count_tokens(content),
+                'pages': doc_pages,
+                'printed_pages': doc_printed_pages,
             }]
         
         # Calcular stats finales
@@ -271,26 +288,34 @@ class DocumentProcessor:
 
             # Extraer texto de páginas del capítulo
             chapter_text = []
+            chapter_pages = []
+            chapter_printed_pages = []
             for page_num in range(start_page, end_page):
                 if page_num < doc.page_count:
-                    text = doc[page_num].get_text()
-                    text = self._remove_repetitive_patterns(text, headers, footers)
+                    raw_text = doc[page_num].get_text()
+                    chapter_pages.append(page_num + 1)
+                    chapter_printed_pages.append(self._detect_printed_page_number(raw_text))
+                    text = self._remove_repetitive_patterns(raw_text, headers, footers)
                     chapter_text.append(text.strip())
-
-            content = '\n\n'.join(chapter_text)
 
             # Sin texto (páginas escaneadas sin OCR, secciones vacías): no
             # tiene sentido ofrecerlo como capítulo seleccionable — generar
             # preguntas de ahí no tiene de dónde salir más que del propio
-            # prompt. Ver [[project_fotosintesis_prompt_leak]].
-            if not content.strip():
+            # prompt. Ver [[project_fotosintesis_prompt_leak]]. Se chequea
+            # ANTES de sumar los marcadores de página (ver _join_pages_with_
+            # markers): esos marcadores no son texto real y siempre dejarían
+            # el content "no vacío" aunque las páginas no tengan nada.
+            if not ''.join(chapter_text).strip():
                 continue
+
+            content = self._join_pages_with_markers(chapter_pages, chapter_text)
 
             chapters.append({
                 'title': item['display_title'],
                 'content': content,
                 'tokens': self.count_tokens(content),
-                'pages': list(range(start_page + 1, end_page + 1))
+                'pages': chapter_pages,
+                'printed_pages': chapter_printed_pages,
             })
 
         return chapters
@@ -312,24 +337,30 @@ class DocumentProcessor:
             end_page = min(start_page + pages_per_block, total_pages)
 
             block_text = []
+            block_pages = []
+            block_printed_pages = []
             for page_num in range(start_page, end_page):
-                text = doc[page_num].get_text()
-                text = self._remove_repetitive_patterns(text, headers, footers)
+                raw_text = doc[page_num].get_text()
+                block_pages.append(page_num + 1)
+                block_printed_pages.append(self._detect_printed_page_number(raw_text))
+                text = self._remove_repetitive_patterns(raw_text, headers, footers)
                 block_text.append(text.strip())
-
-            content = '\n\n'.join(block_text)
 
             # Mismo criterio que _extract_chapters_from_toc: un bloque de
             # páginas enteramente escaneadas/sin texto no se ofrece como
-            # "capítulo" seleccionable.
-            if not content.strip():
+            # "capítulo" seleccionable (chequeado antes de los marcadores de
+            # página, que no son texto real — ver _join_pages_with_markers).
+            if not ''.join(block_text).strip():
                 continue
+
+            content = self._join_pages_with_markers(block_pages, block_text)
 
             chapters.append({
                 'title': f'Páginas {start_page + 1}-{end_page}',
                 'content': content,
                 'tokens': self.count_tokens(content),
-                'pages': list(range(start_page + 1, end_page + 1))
+                'pages': block_pages,
+                'printed_pages': block_printed_pages,
             })
 
         return chapters
@@ -412,9 +443,60 @@ class DocumentProcessor:
                 continue
             
             cleaned_lines.append(line)
-        
+
         return '\n'.join(cleaned_lines)
-    
+
+    # Patrones conservadores para el número "impreso" de una página (el que
+    # el libro muestra en el pie/encabezado, ej. "322"), que puede no
+    # coincidir con el índice físico de la página dentro del PDF subido (ej.
+    # subir solo un capítulo aislado de un libro: la página física 2 del PDF
+    # puede decir "322" impreso). Solo se buscan en la primera/última línea
+    # no vacía de la página — donde vive un número de página real — para no
+    # confundir un número cualquiera del cuerpo del texto con la paginación.
+    _PRINTED_PAGE_PATTERNS = (
+        re.compile(r'^p[aá]g(?:ina)?\.?\s*(\d{1,4})$', re.IGNORECASE),
+        re.compile(r'^[-–—]?\s*(\d{1,4})\s*[-–—]?$'),
+    )
+
+    def _detect_printed_page_number(self, page_text: str) -> Optional[int]:
+        """
+        Busca el número de página impreso en la primera/última línea de una
+        página. Devuelve None si no encuentra nada que calce con confianza
+        (nunca "inventa" un número) — en ese caso, quien use esto debe caer
+        de vuelta al índice físico de la página como aproximación.
+        """
+        lines = [l.strip() for l in page_text.split('\n') if l.strip()]
+        if not lines:
+            return None
+        candidates = [lines[0], lines[-1]] if len(lines) > 1 else [lines[0]]
+        for line in candidates:
+            for pattern in self._PRINTED_PAGE_PATTERNS:
+                match = pattern.match(line)
+                if match:
+                    number = int(match.group(1))
+                    if 0 < number < 5000:  # sanity: descarta años, códigos, etc.
+                        return number
+        return None
+
+    _PAGE_MARKER_PREFIX = '\x00P'
+    _PAGE_MARKER_SUFFIX = '\x00'
+
+    def _join_pages_with_markers(self, physical_pages: List[int], page_texts: List[str]) -> str:
+        """
+        Une el texto de cada página con '\\n\\n', igual que antes, pero
+        antepone a cada una un marcador invisible (byte de control + número
+        de página física, ej. "\\x00P23\\x00") que nadie ve en pantalla. Sirve
+        para que el fragmentado por tokens (_split_into_chunks, en
+        views_document_processor.py) pueda reconstruir de qué página física
+        salió cada fragmento realmente enviado a la IA, y así citar la
+        fuente exacta de cada pregunta generada en vez de "todo el capítulo".
+        El marcador se descarta ahí antes de mandar el texto al modelo.
+        """
+        return '\n\n'.join(
+            f'{self._PAGE_MARKER_PREFIX}{page}{self._PAGE_MARKER_SUFFIX}{text}'
+            for page, text in zip(physical_pages, page_texts)
+        )
+
     # ========================================================================
     # DOCX PROCESSING
     # ========================================================================

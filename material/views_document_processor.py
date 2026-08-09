@@ -12,6 +12,7 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.conf import settings
 import os
+import re
 import uuid
 import shutil
 import tempfile
@@ -37,6 +38,18 @@ from material.ia_processor import (
 from material.local_ai_client import local_ai
 
 logger = logging.getLogger(__name__)
+
+# document_processor.py incrusta marcadores invisibles de página
+# (\x00P<pagina física>\x00, ver _join_pages_with_markers) en el 'content'
+# de cada capítulo, para que _split_into_chunks pueda citar de qué página
+# salió cada fragmento realmente mandado a la IA (ver Question.source_page /
+# source_chapters más abajo). Nunca deben llegar a algo que se le muestra al
+# usuario (content_preview) — quedarían como "P23" pegado en medio del texto.
+_PAGE_MARKER_RE = re.compile(r'\x00P(\d+)\x00')
+
+
+def _strip_page_markers(text):
+    return _PAGE_MARKER_RE.sub('', text or '')
 
 
 @login_required
@@ -225,7 +238,7 @@ def upload_and_process_document(request):
                 {
                     'title': ch.get('title', ''),
                     'tokens': ch.get('tokens', 0),
-                    'content_preview': ch.get('content', '')[:6000],
+                    'content_preview': _strip_page_markers(ch.get('content', ''))[:6000],
                     'pages': ch.get('pages', [])
                 }
                 for ch in result.get('chapters', [])
@@ -417,7 +430,7 @@ def process_contenido_by_id(request, contenido_id):
                 {
                     'title': ch.get('title', ''),
                     'tokens': ch.get('tokens', 0),
-                    'content_preview': ch.get('content', '')[:6000],
+                    'content_preview': _strip_page_markers(ch.get('content', ''))[:6000],
                     'pages': ch.get('pages', [])
                 }
                 for ch in result.get('chapters', [])
@@ -726,7 +739,12 @@ def generate_questions_from_chapters(request):
 
         for chapter, chunks in chapter_chunks:
             title = chapter.get('title', 'Capítulo')
-            pages = chapter.get('pages', [])
+            chapter_pages = chapter.get('pages', [])
+            # Física → impresa (ver document_processor._detect_printed_page_number):
+            # si el libro tiene su propia numeración (ej. un capítulo aislado
+            # que en el PDF empieza en la página física 2 pero dice "322"
+            # impreso), se cita esa — si no se detectó, se cae a la física.
+            printed_map = dict(zip(chapter_pages, chapter.get('printed_pages', [])))
             logger.info(f"Procesando capítulo '{title}' ({len(chunks)} chunk(s))")
 
             # Piso de 1 (no 2): con muchos chunks chicos, un piso más alto
@@ -736,7 +754,7 @@ def generate_questions_from_chapters(request):
             questions_per_chunk = max(1, min(12, total_questions // max(total_chunks_all, 1)))
 
             for chunk_idx, chunk in enumerate(chunks):
-                if not _chunk_has_content(chunk):
+                if not _chunk_has_content(chunk['text']):
                     logger.warning(f"Chunk {chunk_idx + 1}/{len(chunks)} de '{title}' sin texto suficiente, se omite.")
                     failed_chunks.append({
                         'chapter': title, 'chunk': chunk_idx + 1, 'total_chunks': len(chunks),
@@ -752,7 +770,7 @@ def generate_questions_from_chapters(request):
                     time.sleep(2)
                 try:
                     chunk_questions = _generate_questions_for_chunk(
-                        chunk, title, questions_per_chunk, chunk_idx, len(chunks),
+                        chunk['text'], title, questions_per_chunk, chunk_idx, len(chunks),
                         question_types=question_types, backend=_ai_backend,
                         existing_questions=existing_questions_list,
                     )
@@ -764,10 +782,12 @@ def generate_questions_from_chapters(request):
                 # preguntas" al pie de la letra, puede devolver bastantes más.
                 remaining = max(0, total_questions - len(all_questions))
                 chunk_questions = chunk_questions[:remaining]
-                # Cada pregunta se etiqueta con el capítulo del que realmente salió
-                # (no con todos los capítulos de la tanda).
+                # Cada pregunta se etiqueta con las páginas del FRAGMENTO puntual
+                # del que realmente salió (no con todo el capítulo/tanda).
+                chunk_pages = chunk['pages'] or chapter_pages
+                display_pages = sorted({printed_map.get(p) or p for p in chunk_pages}) if chunk_pages else []
                 for q in chunk_questions:
-                    q['source_chapters'] = [{'title': title, 'pages': pages}]
+                    q['source_chapters'] = [{'title': title, 'pages': display_pages}]
                     q['source_file'] = filename
                 all_questions.extend(chunk_questions)
                 logger.info(f"  chunk {chunk_idx + 1}/{len(chunks)}: {len(chunk_questions)} preguntas")
@@ -874,7 +894,30 @@ def _chunk_has_content(chunk):
 
 
 def _split_into_chunks(content, max_tokens=3000):
-    """Divide el contenido en fragmentos de ≤ max_tokens tokens."""
+    """Divide el contenido en fragmentos de ≤ max_tokens tokens.
+
+    Devuelve una lista de dicts {'text': ..., 'pages': [...]} — 'text' es el
+    texto del fragmento listo para mandar a la IA (sin marcadores), y
+    'pages' son las páginas físicas del PDF de origen que aportaron texto a
+    ESE fragmento puntual (no las de todo el capítulo), reconstruidas a
+    partir de los marcadores invisibles que document_processor.py incrusta
+    en 'content' (ver _join_pages_with_markers). Para contenido sin
+    marcadores (DOCX/PPTX/TXT, que no tienen ese concepto de página física),
+    'pages' queda vacía — quien llama debe caer de vuelta a las páginas del
+    capítulo entero en ese caso.
+    """
+    raw_chunks = _split_into_chunks_raw(content, max_tokens=max_tokens)
+    result = []
+    for raw in raw_chunks:
+        pages = sorted({int(p) for p in _PAGE_MARKER_RE.findall(raw)})
+        result.append({'text': _PAGE_MARKER_RE.sub('', raw).strip(), 'pages': pages})
+    return result
+
+
+def _split_into_chunks_raw(content, max_tokens=3000):
+    """Algoritmo de fragmentado en sí (por párrafos, y por líneas si un
+    párrafo solo ya supera max_tokens) — ver _split_into_chunks (el que hay
+    que usar desde afuera) para la envoltura consciente de páginas."""
     total_tokens = count_tokens(content)
     if total_tokens <= max_tokens:
         return [content]
@@ -1233,6 +1276,10 @@ def stream_questions(request, job_id):
             pages = chapter.get('pages', [])
             chapter_pages = set(pages)
             chapter_images = [img for img in doc_images if img['page'] in chapter_pages][:3]
+            # Física → impresa (ver document_processor._detect_printed_page_number
+            # y el mismo comentario en generate_questions_from_chapters): si no
+            # se detectó número impreso para una página, se cita la física.
+            printed_map = dict(zip(pages, chapter.get('printed_pages', [])))
             # Si el usuario pidió una cantidad fija por bloque, respetarla;
             # si no, distribuir total_questions entre todos los chunks. El piso
             # es 1 (no 2): con muchos chunks chicos, un piso de 2 podía duplicar
@@ -1245,7 +1292,7 @@ def stream_questions(request, job_id):
 
             for i, chunk in enumerate(chunks):
                 chunk_idx_global += 1
-                if not _chunk_has_content(chunk):
+                if not _chunk_has_content(chunk['text']):
                     logger.warning(f"SSE chunk {chunk_idx_global} de '{title}' sin texto suficiente, se omite.")
                     yield f'data: {json_module.dumps({"type": "chunk_error", "chunk": chunk_idx_global, "total_chunks": total_chunks_all, "chapter_title": title, "message": "Fragmento sin texto extraíble (posible página escaneada o solo con imágenes) — no se generaron preguntas."})}\n\n'
                     continue
@@ -1255,17 +1302,22 @@ def stream_questions(request, job_id):
                     time.sleep(2)
                 try:
                     raw_questions = _generate_questions_for_chunk(
-                        chunk, title, questions_per_chunk, i, len(chunks),
+                        chunk['text'], title, questions_per_chunk, i, len(chunks),
                         question_types=question_types, backend=backend,
                         existing_questions=existing_questions_list,
                         images=chapter_images if i == 0 else None,
                     )
+                    # Páginas del FRAGMENTO puntual del que salieron estas
+                    # preguntas (no de todo el capítulo/tanda) — ver comentario
+                    # análogo en generate_questions_from_chapters.
+                    chunk_pages = chunk['pages'] or pages
+                    display_pages = sorted({printed_map.get(p) or p for p in chunk_pages}) if chunk_pages else []
                     new_qs = []
                     for q in raw_questions:
                         key = q.get('pregunta', '').lower().strip()[:80]
                         if key and key not in seen_keys:
                             seen_keys.add(key)
-                            q['source_chapters'] = [{'title': title, 'pages': pages}]
+                            q['source_chapters'] = [{'title': title, 'pages': display_pages}]
                             q['source_file'] = filename
                             new_qs.append(q)
 

@@ -130,11 +130,11 @@
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">Nombre</label>
-                <input type="text" class="form-control form-control-lg" id="onb2FirstName" placeholder="Ej: María" value="{{ user.first_name }}">
+                <input type="text" class="form-control form-control-lg" id="onb2FirstName" placeholder="Ej: María" value="{{ user.first_name }}" autocomplete="off">
               </div>
               <div class="col-md-6">
                 <label class="form-label">Apellido</label>
-                <input type="text" class="form-control form-control-lg" id="onb2LastName" placeholder="Ej: García" value="{{ user.last_name }}">
+                <input type="text" class="form-control form-control-lg" id="onb2LastName" placeholder="Ej: García" value="{{ user.last_name }}" autocomplete="off">
               </div>
             </div>
           </div>
@@ -216,7 +216,7 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Título <span class="text-muted small">(se completa solo con el nombre del archivo, editable)</span></label>
-              <input type="text" class="form-control form-control-lg" id="onb2ContenidoTitle" placeholder="Se completa al elegir el archivo">
+              <input type="text" class="form-control form-control-lg" id="onb2ContenidoTitle" placeholder="Se completa al elegir el archivo" autocomplete="off">
             </div>
             <div class="d-flex align-items-center gap-2">
               <span id="onb2UploadStatus" class="text-muted small"></span>
