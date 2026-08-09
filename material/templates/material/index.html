@@ -12,7 +12,7 @@
         .index-stat-tab .stat-value { font-size: clamp(1rem, 2vw, 1.5rem); }
     </style>
     <div class="row g-3 my-2">
-        <div class="col-6 col-md-3 index-stat-tab">
+        <div class="col-6 col-md-4 index-stat-tab">
             <a href="{% url 'material:mis_contenidos' %}" class="card border-left-primary shadow text-decoration-none h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
@@ -25,7 +25,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3 index-stat-tab">
+        <div class="col-6 col-md-4 index-stat-tab">
             <a href="{% url 'material:lista_preguntas' %}" class="card border-left-info shadow text-decoration-none h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
@@ -38,7 +38,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3 index-stat-tab">
+        <div class="col-6 col-md-4 index-stat-tab">
             <a href="{% url 'material:mis_examenes' %}" class="card border-left-success shadow text-decoration-none h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
@@ -51,23 +51,15 @@
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3 index-stat-tab">
-            <a href="{% url 'material:onboarding_v2_page' %}" class="card border-left-warning shadow text-decoration-none h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-compass text-warning me-2"></i>
-                        <div>
-                            <div class="text-uppercase text-warning fw-bold mb-0 stat-label">Asistente guiado</div>
-                        </div>
-                    </div>
-                </div>
-            </a>
-        </div>
     </div>
 
+    <!-- El "Asistente guiado" no es un dato (no tiene número como los otros
+         tres), es una acción — va acá abajo como un botón más, junto a
+         "Subir Material" / "Crear Examen", no mezclado entre las cifras. -->
     <div class="d-grid gap-2 d-md-block my-4">
         <a href="{% url 'material:upload_contenido' %}" class="btn btn-primary btn-lg">Subir Material</a>
         <a href="{% url 'material:create_exam' %}" class="btn btn-secondary btn-lg">Crear Examen</a>
+        <a href="{% url 'material:onboarding_v2_page' %}" class="btn btn-outline-primary btn-lg"><i class="bi bi-compass me-1"></i>Asistente guiado</a>
     </div>
 
     {% if ultimos_examenes %}

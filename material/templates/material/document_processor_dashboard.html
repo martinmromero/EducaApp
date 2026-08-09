@@ -368,6 +368,23 @@
     </div>
 </div>
 
+<!-- Resultado de guardar preguntas — reemplaza los alert() nativos (ver
+     showSaveResultModal() en el <script> de más abajo). -->
+<div class="modal fade" id="saveResultModal" tabindex="-1" aria-labelledby="saveResultTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-center">
+            <div class="modal-body p-4">
+                <div class="mb-3" id="saveResultIcon"></div>
+                <h5 class="mb-2" id="saveResultTitle"></h5>
+                <p class="text-muted mb-0" id="saveResultBody"></p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center pt-0">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal para selección de materias antes de guardar -->
 <div class="modal fade" id="subjectPickerModal" tabindex="-1" aria-labelledby="subjectPickerLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -2284,6 +2301,18 @@ async function saveGeneratedQuestions() {
     }
 }
 
+// Reemplaza los alert()/confirm() de resultado nativos del navegador (feos
+// y, peor, invisibles si el usuario ya miró para otro lado) por un modal
+// prolijo — ver #saveResultModal más abajo en el HTML.
+function showSaveResultModal(ok, title, message) {
+    document.getElementById('saveResultIcon').innerHTML = ok
+        ? '<i class="fas fa-circle-check text-success" style="font-size:3rem;"></i>'
+        : '<i class="fas fa-circle-xmark text-danger" style="font-size:3rem;"></i>';
+    document.getElementById('saveResultTitle').textContent = title;
+    document.getElementById('saveResultBody').textContent = message;
+    new bootstrap.Modal(document.getElementById('saveResultModal')).show();
+}
+
 async function doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, newSubtopicName) {
     const selectedCheckboxes = document.querySelectorAll('.question-approve-checkbox:checked');
     const unselectedCheckboxes = document.querySelectorAll('.question-approve-checkbox:not(:checked)');
@@ -2311,12 +2340,17 @@ async function doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, ne
     if (!confirm(`¿Guardar ${approvedQuestions.length} preguntas aprobadas y ${rejectedQuestions.length} rechazadas?`)) {
         return;
     }
-    
-    // Deshabilitar botón
+
+    // Deshabilitar botón (queda sin efecto visible: para este punto
+    // questionsModal y subjectPickerModal ya están cerrados, así que nadie
+    // ve este botón — ver window.EducaAppLoading.show() más abajo, que es
+    // la señal de "está andando" que sí queda visible en cualquier momento
+    // del flujo, sin importar qué modal esté abierto o cerrado.)
     const saveBtn = document.getElementById('saveQuestionsBtn');
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-    
+    window.EducaAppLoading.show('Guardando preguntas…');
+
     try {
         const response = await fetch('{% url "material:save_generated_questions" %}', {
             method: 'POST',
@@ -2358,19 +2392,20 @@ async function doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, ne
                 window.location.href = backUrl;
             }, 1300);
             {% else %}
-            alert(`✅ ${data.saved_count} preguntas guardadas exitosamente`);
+            showSaveResultModal(true, '¡Listo!', `${data.saved_count} pregunta(s) guardada(s) correctamente.`);
             {% endif %}
 
             // Limpiar checkboxes (questionsModal ya fue cerrado antes de guardar)
             document.querySelectorAll('.chapter-checkbox').forEach(cb => cb.checked = false);
             updateGenerateButton();
         } else {
-            alert(`❌ Error: ${data.error}`);
+            showSaveResultModal(false, 'No se pudo guardar', data.error);
         }
     } catch (error) {
-        alert(`❌ Error al guardar: ${error.message}`);
+        showSaveResultModal(false, 'No se pudo guardar', error.message);
         console.error('Error:', error);
     } finally {
+        window.EducaAppLoading.hide();
         saveBtn.disabled = false;
         saveBtn.innerHTML = '<i class="fas fa-save"></i> Guardar Preguntas Seleccionadas';
     }

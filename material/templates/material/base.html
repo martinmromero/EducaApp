@@ -246,9 +246,32 @@
                         <i class="bi bi-house"></i>
                     </a>
                     {% if user.is_authenticated %}
-                        <button type="button" id="tourHelpBtn" class="btn btn-outline-primary" title="Ver recorrido guiado">
-                            <i class="bi bi-question-lg"></i>
-                        </button>
+                        <!-- Si la pantalla registró su propio recorrido corto (ver
+                             comentario más abajo, junto al script), esto se abre
+                             como un dropdown con las dos opciones en vez de un
+                             modal — si no hay ninguno registrado, es un botón
+                             común que arranca directo el recorrido general (ver
+                             el <script> que arma esto en el bloque de scripts). -->
+                        <div class="dropdown d-inline-block">
+                            <button type="button" id="tourHelpBtn" class="btn btn-outline-primary" title="Ver recorrido guiado">
+                                <i class="bi bi-question-lg"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" id="tourHelpMenu" aria-labelledby="tourHelpBtn">
+                                <li><h6 class="dropdown-header">¿Qué recorrido ver?</h6></li>
+                                <li>
+                                    <a class="dropdown-item" href="#" id="tourChoiceGeneralItem">
+                                        <span class="fw-semibold d-block">Recorrido general</span>
+                                        <span class="small text-muted d-block text-wrap">El menú lateral y las funciones principales de EducaApp.</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" id="tourChoicePageItem">
+                                        <span class="fw-semibold d-block" id="tourChoicePageLabel">Recorrido de esta pantalla</span>
+                                        <span class="small text-muted d-block text-wrap">Solo lo que se puede hacer acá.</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     {% endif %}
                 </div>
             </div>
@@ -281,33 +304,6 @@
                 <span class="visually-hidden">Procesando…</span>
             </div>
             <div id="globalLoadingMessage" class="fw-semibold mb-0"></div>
-        </div>
-    </div>
-
-    <!-- Menú "¿Qué recorrido ver?" — el botón "?" del navbar abre esto en vez
-         de arrancar directo el recorrido general cuando la pantalla actual
-         registró también un recorrido propio (ver window.EducaAppTour en
-         static/js/tour.js, y static/js/page_tours/create_exam_tour.js como
-         primer caso). Si no hay ninguno registrado para la pantalla, el
-         botón sigue arrancando el recorrido general sin mostrar este menú. -->
-    <div class="modal fade" id="tourChoiceModal" tabindex="-1" aria-labelledby="tourChoiceModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="tourChoiceModalLabel"><i class="bi bi-question-circle me-1"></i>¿Qué recorrido ver?</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body d-grid gap-2">
-                    <button type="button" class="btn btn-outline-primary text-start py-3" id="tourChoiceGeneralBtn">
-                        <span class="fw-semibold d-block">Recorrido general</span>
-                        <span class="small text-muted">El menú lateral y las funciones principales de EducaApp.</span>
-                    </button>
-                    <button type="button" class="btn btn-primary text-start py-3" id="tourChoicePageBtn">
-                        <span class="fw-semibold d-block" id="tourChoicePageLabel">Recorrido de esta pantalla</span>
-                        <span class="small" style="opacity:.85">Solo lo que se puede hacer acá.</span>
-                    </button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -553,34 +549,41 @@
         // Recorrido guiado (driver.js) — ver static/js/tour.js. Si la
         // pantalla actual registró también su propio recorrido corto (ver
         // data-tour-page en <body> y window.EducaAppTour.getCurrentPageTour),
-        // se ofrece elegir entre el general y el de esta pantalla en vez de
-        // arrancar el general directo.
+        // el botón "?" despliega un dropdown para elegir entre el general y
+        // el de esta pantalla en vez de arrancar el general directo (antes
+        // era un modal — mucho para elegir entre dos opciones cortas).
         const tourHelpBtn = document.getElementById('tourHelpBtn');
         if (tourHelpBtn && window.EducaAppTour) {
+            let tourDropdown = null;
+
             tourHelpBtn.addEventListener('click', () => {
                 const pageTour = window.EducaAppTour.getCurrentPageTour && window.EducaAppTour.getCurrentPageTour();
                 if (!pageTour) { window.EducaAppTour.start(); return; }
 
                 document.getElementById('tourChoicePageLabel').textContent = pageTour.label || 'Recorrido de esta pantalla';
-                const modalEl = document.getElementById('tourChoiceModal');
-                const modal = new bootstrap.Modal(modalEl);
-                let choice = null;
+                if (!tourDropdown) tourDropdown = new bootstrap.Dropdown(tourHelpBtn);
+                tourDropdown.show();
+            });
 
-                // Se espera a que el modal termine de cerrarse (hidden.bs.modal)
-                // antes de arrancar driver.js: si arranca mientras el modal
-                // todavía está en su animación de cierre, el backdrop de
-                // Bootstrap se pisa con el overlay del recorrido (mismo
-                // problema que preflightModal → questionsModal más abajo en
-                // document_processor_dashboard.html).
-                modalEl.addEventListener('hidden.bs.modal', function onHidden() {
-                    modalEl.removeEventListener('hidden.bs.modal', onHidden);
-                    if (choice === 'general') window.EducaAppTour.start();
-                    else if (choice === 'page') pageTour.start();
-                }, { once: true });
+            document.getElementById('tourChoiceGeneralItem').addEventListener('click', (e) => {
+                e.preventDefault();
+                tourDropdown?.hide();
+                window.EducaAppTour.start();
+            });
+            document.getElementById('tourChoicePageItem').addEventListener('click', (e) => {
+                e.preventDefault();
+                tourDropdown?.hide();
+                const pageTour = window.EducaAppTour.getCurrentPageTour && window.EducaAppTour.getCurrentPageTour();
+                if (pageTour) pageTour.start();
+            });
 
-                document.getElementById('tourChoiceGeneralBtn').onclick = () => { choice = 'general'; modal.hide(); };
-                document.getElementById('tourChoicePageBtn').onclick = () => { choice = 'page'; modal.hide(); };
-                modal.show();
+            // Puramente cosmético: agrega la flechita de dropdown solo si de
+            // verdad hay algo entre qué elegir en esta pantalla — si no, el
+            // botón "?" sigue viéndose (y comportándose) como un botón común.
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.EducaAppTour.getCurrentPageTour && window.EducaAppTour.getCurrentPageTour()) {
+                    tourHelpBtn.classList.add('dropdown-toggle');
+                }
             });
         }
 
