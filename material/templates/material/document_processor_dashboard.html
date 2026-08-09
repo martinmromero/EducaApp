@@ -21,8 +21,11 @@
                 <div>
                     <p class="text-muted mb-0">Analiza documentos PDF, DOCX, PPTX con detección automática de estructura para generar preguntas con IA</p>
                 </div>
-                <div class="w-100 w-md-auto">
-                    <!-- Estado del servidor local de IA -->
+                <div class="w-100 w-md-auto d-flex align-items-center flex-wrap gap-2 justify-content-md-end">
+                    <!-- Estado del servidor de IA: solo lo esencial siempre visible.
+                         El resto (modelo activo, cupo compartido, etc.) se movió a un
+                         panel que aparece con click en el ícono "i", para no llenar
+                         de texto el encabezado (ver #aiStatusInfoPanel más abajo). -->
                     <div id="localAIStatus" class="d-flex align-items-center flex-wrap gap-2">
                         {% if local_ai_ready %}
                         <span class="badge bg-success px-3 py-2">
@@ -46,39 +49,55 @@
                         <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
                             <i class="fas fa-sync"></i>
                         </button>
-                        <a href="{% url 'material:ai_config' %}" class="btn btn-sm btn-outline-primary ms-1" title="Configurar proveedor de IA">
-                            <i class="fas fa-cog"></i>
-                        </a>
                     </div>
-                    <small class="text-muted d-block mt-1 text-md-end" id="aiStatusDetail">
-                        {% if local_ai_ready %}
-                            <span id="unlimitedTokensBadge">
-                                <i class="fas fa-infinity text-success"></i> <strong class="text-success">Sin límite por tanda</strong>
-                            </span>
-                            <br>
-                            <span id="currentModelBadge">
-                                <i class="fas fa-brain text-info"></i> Modelo activo: <strong id="currentModelName">{{ selected_model }}</strong>
-                            </span>
-                        {% elif local_ai_connected %}
-                            <span class="text-warning">
-                                <i class="fas fa-exclamation-triangle"></i> La conexión responde, pero el modelo configurado no es compatible para generar preguntas.
-                                Revisar proveedor y modelo en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a>.
-                            </span>
-                        {% else %}
-                            <span class="text-warning">
-                                <i class="fas fa-info-circle"></i> Configure un proveedor de IA para usar el generador de preguntas
-                            </span>
-                        {% endif %}
-                    </small>
-                    <small class="text-muted d-block mt-1 text-md-end {% if not using_shared_fallback %}d-none{% endif %}" id="demoQuotaBox">
-                        {% if demo_quota and demo_quota.remaining_requests is not None %}
-                            <i class="fas fa-people-group"></i> IA compartida — cupo del día: quedan <strong id="demoQuotaText">{{ demo_quota.remaining_requests }} de {{ demo_quota.limit_requests|default:"?" }}</strong> tandas
-                            {% if demo_quota.requests_reset_at %}<br><span class="fst-italic">Se renueva {{ demo_quota.requests_reset_at|date:"H:i" }}</span>{% endif %}
-                            {% if demo_quota_low_tokens %}<br><span class="text-warning"><i class="fas fa-hourglass-half"></i> Muchas tandas seguidas — puede tardar más de lo normal por un rato</span>{% endif %}
-                        {% else %}
-                            <i class="fas fa-people-group"></i> Usando la IA compartida de EducaApp
-                        {% endif %}
-                    </small>
+                    <div class="position-relative">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="aiStatusInfoBtn" title="Ver detalles del proveedor de IA">
+                            <i class="fas fa-circle-info"></i>
+                        </button>
+                        <div id="aiStatusInfoPanel" class="d-none position-absolute end-0 mt-1 p-3 bg-body border rounded shadow-sm"
+                             style="z-index:1050;min-width:280px;">
+                            <small class="text-muted d-block" id="aiStatusDetail">
+                                {% if local_ai_ready %}
+                                    {% if backend_type == 'ollama_local' %}
+                                    <span id="unlimitedTokensBadge">
+                                        <i class="fas fa-infinity text-success"></i> <strong class="text-success">Sin límite por tanda</strong>
+                                    </span>
+                                    <br>
+                                    {% else %}
+                                    <span id="unlimitedTokensBadge" style="display:none">
+                                        <i class="fas fa-infinity text-success"></i> <strong class="text-success">Sin límite por tanda</strong>
+                                    </span>
+                                    {% endif %}
+                                    <span id="currentModelBadge">
+                                        <i class="fas fa-brain text-info"></i> Modelo activo: <strong id="currentModelName">{{ selected_model }}</strong>
+                                    </span>
+                                {% elif local_ai_connected %}
+                                    <span class="text-warning">
+                                        <i class="fas fa-exclamation-triangle"></i> La conexión responde, pero el modelo configurado no es compatible para generar preguntas.
+                                        Revisar proveedor y modelo en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a>.
+                                    </span>
+                                {% else %}
+                                    <span class="text-warning">
+                                        <i class="fas fa-info-circle"></i> Configure un proveedor de IA para usar el generador de preguntas
+                                    </span>
+                                {% endif %}
+                            </small>
+                            <small class="text-muted d-block mt-2 {% if not using_shared_fallback %}d-none{% endif %}" id="demoQuotaBox">
+                                {% if demo_quota and demo_quota.remaining_requests is not None %}
+                                    <i class="fas fa-people-group"></i> IA compartida — cupo del día: quedan <strong id="demoQuotaText">{{ demo_quota.remaining_requests }} de {{ demo_quota.limit_requests|default:"?" }}</strong> tandas
+                                    {% if demo_quota.requests_reset_at %}<br><span class="fst-italic">Se renueva ~{{ demo_quota.requests_reset_at|date:"H:i" }}
+                                        <i class="fas fa-circle-question ms-1" title="Dato aproximado: se toma del último chequeo hecho, no se actualiza solo en tiempo real." style="cursor:help"></i>
+                                    </span>{% endif %}
+                                    {% if demo_quota_low_tokens %}<br><span class="text-warning"><i class="fas fa-hourglass-half"></i> Uso compartido alto ahora mismo (de todos los que usan la IA de prueba) — puede tardar más de lo normal por un rato</span>{% endif %}
+                                {% else %}
+                                    <i class="fas fa-people-group"></i> Usando la IA compartida de EducaApp
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    <a href="{% url 'material:ai_config' %}" class="btn btn-sm btn-outline-primary" title="Configurar proveedor de IA">
+                        <i class="fas fa-cog"></i>
+                    </a>
                 </div>
             </div>
             <div id="aiNoticeBanner"></div>
@@ -218,8 +237,12 @@
             <div class="modal-body">
                 <div id="preflightChapterList"></div>
                 <hr>
-                <h6><i class="fas fa-list-ul"></i> Tipos de preguntas a generar</h6>
-                <p class="text-muted small mb-2">Seleccionar qué tipos incluir (se mezclarán en las preguntas generadas):</p>
+                <h6 class="mb-2">
+                    <i class="fas fa-list-ul"></i> Tipos de preguntas a generar
+                    <i class="fas fa-circle-question text-muted ms-1"
+                       title="Los tipos elegidos se mezclan entre sí en las preguntas generadas."
+                       style="cursor:help"></i>
+                </h6>
                 <div class="row g-2 mb-3">
                     <div class="col-6">
                         <div class="form-check">
@@ -269,24 +292,22 @@
                 <div class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="includeImagesToggle">
                     <label class="form-check-label" for="includeImagesToggle">
-                        <strong>Incluir imágenes del documento</strong> <span class="badge bg-secondary">Beta</span><br>
-                        <small class="text-muted">
-                            Manda diagramas/fotos del PDF a la IA para que también genere preguntas sobre ellos.
-                            Solo funciona con PDF y un modelo de IA con soporte de imágenes (hoy: Gemini) — más
-                            lento y consume más cupo. Si el modelo configurado no soporta imágenes, esos
-                            fragmentos van a fallar y se van a marcar como error.
-                        </small>
+                        <strong>Incluir imágenes del documento</strong> <span class="badge bg-secondary">Beta</span>
+                        <i class="fas fa-circle-question text-muted ms-1"
+                           title="Manda diagramas/fotos del PDF a la IA para que también genere preguntas sobre ellos. Solo funciona con PDF y un modelo con soporte de imágenes (hoy: Gemini) — más lento y consume más cupo. Si el modelo configurado no soporta imágenes, esos fragmentos van a fallar y se van a marcar como error."
+                           style="cursor:help"></i>
                     </label>
                 </div>
                 <hr>
-                <h6><i class="fas fa-sliders-h"></i> Mientras se generan las preguntas</h6>
-                <p class="text-muted small mb-2">
-                    Vas a ver las preguntas aparecer en pantalla a medida que la IA las va generando,
-                    en vez de esperar a que estén todas listas.
-                </p>
+                <h6 class="mb-2">
+                    <i class="fas fa-sliders-h"></i> Mientras se generan las preguntas
+                    <i class="fas fa-circle-question text-muted ms-1"
+                       title="Vas a ver las preguntas aparecer en pantalla a medida que la IA las va generando, en vez de esperar a que estén todas listas."
+                       style="cursor:help"></i>
+                </h6>
                 <div class="mb-2">
                     <label for="questionsPerBlockInput" class="form-label mb-1">
-                        Preguntas por bloque <small class="text-muted">(0 = calcular automáticamente)</small>
+                        Preguntas por bloque <small class="text-muted">(0 = automático)</small>
                     </label>
                     <input type="number" class="form-control form-control-sm" id="questionsPerBlockInput"
                            min="0" max="12" value="0" step="1" style="max-width:120px">
@@ -294,8 +315,10 @@
                 <div class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="pauseAfterBlockToggle">
                     <label class="form-check-label" for="pauseAfterBlockToggle">
-                        <strong>Pausar después de cada bloque</strong><br>
-                        <small class="text-muted">Después de ver cada bloque se puede decidir si continuar o detenerse.</small>
+                        <strong>Pausar después de cada bloque</strong>
+                        <i class="fas fa-circle-question text-muted ms-1"
+                           title="Después de ver cada bloque se puede decidir si continuar o detenerse."
+                           style="cursor:help"></i>
                     </label>
                 </div>
             </div>
@@ -928,7 +951,6 @@ async function checkLocalAIStatus() {
         const statusDiv = document.getElementById('localAIStatus');
         const unlimitedBadge = document.getElementById('unlimitedTokensBadge');
         
-        const aiConfigUrl = '{% url "material:ai_config" %}';
         const providerLabel = data.provider || data.backend || 'IA';
         if (data.connected) {
             statusDiv.innerHTML = `
@@ -939,9 +961,6 @@ async function checkLocalAIStatus() {
                 <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
                     <i class="fas fa-sync"></i>
                 </button>
-                <a href="${aiConfigUrl}" class="btn btn-sm btn-outline-primary ms-1" title="Configurar proveedor de IA">
-                    <i class="fas fa-cog"></i>
-                </a>
             `;
             unlimitedBadge.style.display = data.backend === 'ollama_local' ? 'inline' : 'none';
 
@@ -959,9 +978,6 @@ async function checkLocalAIStatus() {
                 <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
                     <i class="fas fa-sync"></i>
                 </button>
-                <a href="${aiConfigUrl}" class="btn btn-sm btn-outline-primary ms-1" title="Configurar proveedor de IA">
-                    <i class="fas fa-cog"></i>
-                </a>
             `;
             unlimitedBadge.style.display = 'none';
             const modelsCountBadge = document.getElementById('modelsCountBadge');
@@ -992,14 +1008,15 @@ function renderDemoQuotaBox(data) {
     let resetLine = '';
     if (q.requests_reset_at) {
         const resetDate = new Date(q.requests_reset_at);
-        resetLine = '<br><span class="fst-italic">Se renueva ' +
-            resetDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + '</span>';
+        resetLine = '<br><span class="fst-italic">Se renueva ~' +
+            resetDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) +
+            ' <i class="fas fa-circle-question ms-1" title="Dato aproximado: se toma del último chequeo hecho, no se actualiza solo en tiempo real." style="cursor:help"></i></span>';
     }
     box.innerHTML = (low ? '<i class="fas fa-triangle-exclamation text-warning"></i>' : '<i class="fas fa-people-group"></i>') +
         ` IA compartida — cupo del día: quedan <strong>${q.remaining_requests} de ${q.limit_requests ?? '?'}</strong> tandas` +
         (low ? ' <span class="text-warning">(queda poco — conviene conectar una key propia en Proveedor de IA)</span>' : '') +
         resetLine +
-        (lowTokens ? '<br><span class="text-warning"><i class="fas fa-hourglass-half"></i> Muchas tandas seguidas — puede tardar más de lo normal por un rato</span>' : '');
+        (lowTokens ? '<br><span class="text-warning"><i class="fas fa-hourglass-half"></i> Uso compartido alto ahora mismo (de todos los que usan la IA de prueba) — puede tardar más de lo normal por un rato</span>' : '');
 }
 
 async function loadLocalModels() {
@@ -1150,7 +1167,7 @@ function showModelDetails(details) {
 // Verificar estado al cargar la página
 document.addEventListener('DOMContentLoaded', function() {
     checkLocalAIStatus();
-    
+
     // Recargar modelos automáticamente cada 60 segundos si estamos en la tab de modelos
     setInterval(function() {
         const modelsTab = document.getElementById('models-tab');
@@ -1158,6 +1175,23 @@ document.addEventListener('DOMContentLoaded', function() {
             checkLocalAIStatus();
         }
     }, 60000);
+
+    // Panel de detalles del proveedor de IA (modelo activo, cupo compartido) —
+    // oculto por defecto, aparece con click en el ícono "i" en vez de ocupar
+    // lugar fijo en el encabezado (ver #aiStatusInfoPanel más arriba).
+    const infoBtn = document.getElementById('aiStatusInfoBtn');
+    const infoPanel = document.getElementById('aiStatusInfoPanel');
+    if (infoBtn && infoPanel) {
+        infoBtn.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            infoPanel.classList.toggle('d-none');
+        });
+        document.addEventListener('click', function (ev) {
+            if (!infoPanel.classList.contains('d-none') && !infoPanel.contains(ev.target) && ev.target !== infoBtn) {
+                infoPanel.classList.add('d-none');
+            }
+        });
+    }
 });
 
 // ============================================
@@ -1194,6 +1228,7 @@ async function generateQuestionsFromSelected() {
     }
 
     // Verificar PRIMERO que el servidor IA esté disponible
+    window.EducaAppLoading.show('Verificando conexión con la IA…');
     try {
         const statusResponse = await fetch('{% url "material:check_local_ai_status" %}');
         const statusData = await statusResponse.json();
@@ -1209,6 +1244,8 @@ async function generateQuestionsFromSelected() {
     } catch (error) {
         showAiNoticeBanner('No se pudo verificar el estado del proveedor de IA. Verificar la conexión.', { title: 'Error de conexión', variant: 'danger' });
         return;
+    } finally {
+        window.EducaAppLoading.hide();
     }
 
     // Recopilar índices y datos de capítulos seleccionados
@@ -1242,20 +1279,27 @@ function showPreflightModal(indices, chapters) {
     else if (estimatedSecs < 900) timeLabel = `⏳ ~${estimatedMin} min`;
     else                          timeLabel = `☕ ~${estimatedMin} min (mucho contenido)`;
 
-    let chapHtml = `
-        <div class="alert alert-secondary py-2">
-            <strong>Capítulos seleccionados:</strong>
-            <ul class="mb-1 mt-1">
-    `;
-    chapters.forEach(ch => {
-        const chunks = Math.ceil((ch.tokens || 500) / 3000);
-        chapHtml += `<li>${ch.title} — <span class="text-muted">${relativeSizeBadge(ch.tokens)}, ~${chunks} fragmento(s)</span></li>`;
-    });
     const totalPct = Math.min(999, Math.round((totalTokens / RUN_TOKEN_BUDGET) * 100));
-    chapHtml += `</ul>
+    let chapHtml = `<div class="alert alert-secondary py-2 mb-2">`;
+    if (chapters.length === 1) {
+        // Un solo capítulo: el detalle por capítulo y el total son el mismo
+        // número, así que se muestran en una sola línea en vez de repetirlo.
+        const chunks = Math.ceil((chapters[0].tokens || 500) / 3000);
+        chapHtml += `
+            <strong>${chapters[0].title}</strong> — ${relativeSizeBadge(chapters[0].tokens)}, ~${chunks} fragmento(s)
+            · Tiempo estimado: ${timeLabel}
+        `;
+    } else {
+        chapHtml += `<strong>Capítulos seleccionados:</strong><ul class="mb-1 mt-1">`;
+        chapters.forEach(ch => {
+            const chunks = Math.ceil((ch.tokens || 500) / 3000);
+            chapHtml += `<li>${ch.title} — <span class="text-muted">${relativeSizeBadge(ch.tokens)}, ~${chunks} fragmento(s)</span></li>`;
+        });
+        chapHtml += `</ul>
             <strong>Total:</strong> <span title="${totalTokens.toLocaleString()} — referencia interna de tamaño">${totalPct}% de una tanda</span> · ${totalChunksEst} fragmento(s) · Tiempo estimado: ${timeLabel}
-        </div>
-    `;
+        `;
+    }
+    chapHtml += `</div>`;
     if (overBudget) {
         chapHtml += `
         <div class="alert alert-danger py-2">

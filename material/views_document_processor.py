@@ -453,7 +453,14 @@ def check_local_ai_status(request):
         config, _ = UserAIConfig.objects.get_or_create(user=request.user)
         backend = get_backend_for_user(request.user)
         status = backend.get_status()
-        status['backend'] = config.source
+        # OJO: NO pisar status['backend'] con config.source. config.source es
+        # la preferencia guardada por el usuario ('ollama_local', 'byok', etc.),
+        # pero get_backend_for_user() puede resolver a un backend real distinto
+        # (ej. Ollama no disponible → cae al fallback compartido de Groq) sin
+        # tocar esa preferencia. Pisar 'backend' acá rompía el chequeo de "Sin
+        # límite por tanda" (piensa que sigue en Ollama local cuando en
+        # realidad está usando el fallback compartido con cupo limitado).
+        status['source'] = config.source
         if isinstance(backend, GlobalFallbackBackend):
             status['using_shared_fallback'] = True
             ensure_fresh_demo_quota()

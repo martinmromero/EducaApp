@@ -226,5 +226,32 @@
     if (!done) start();
   }
 
-  window.EducaAppTour = { start, startIfFirstVisit };
+  // ── Recorridos específicos por pantalla ──────────────────────────────────
+  // Además del recorrido general de arriba, una pantalla puede registrar su
+  // propio recorrido corto (ver static/js/page_tours/create_exam_tour.js
+  // para el primer caso, "Crear examen"). El botón "?" del navbar (ver
+  // base.html) ofrece elegir entre ambos cuando hay uno registrado para la
+  // pantalla actual; si no hay ninguno, arranca directo el recorrido
+  // general, igual que antes.
+  //
+  // Convención para agregar un recorrido a una pantalla nueva:
+  //   1. En la plantilla, setear <body data-tour-page="mi_pantalla">
+  //      (ver {% block body_extra_attrs %} en base.html).
+  //   2. Cargar un script propio (ej. static/js/page_tours/mi_pantalla_tour.js)
+  //      que llame a window.EducaAppTour.registerPageTour('mi_pantalla', {
+  //        label: 'Texto para el botón del menú',
+  //        start: function () { ... arma los steps y llama a .drive() ... },
+  //      });
+  const pageTours = {};
+
+  function registerPageTour(key, def) {
+    pageTours[key] = def;
+  }
+
+  function getCurrentPageTour() {
+    const key = document.body && document.body.dataset.tourPage;
+    return key ? (pageTours[key] || null) : null;
+  }
+
+  window.EducaAppTour = { start, startIfFirstVisit, registerPageTour, getCurrentPageTour };
 })();

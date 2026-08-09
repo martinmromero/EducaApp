@@ -1,9 +1,11 @@
 
 {% extends 'material/base.html' %}
 {% load static %}
+{% block body_extra_attrs %}data-tour-page="create_exam"{% endblock %}
 {% block page_title %}<i class="bi bi-plus-circle me-2"></i>Nuevo Examen{% endblock %}
 {% block content %}
 <script src="{% static 'material/js/create_exam.js' %}"></script>
+<script src="{% static 'js/page_tours/create_exam_tour.js' %}"></script>
 {% if is_demo_peek %}
 <div class="alert alert-info d-flex align-items-center gap-2" id="demoPeekBanner">
     <i class="bi bi-info-circle-fill fs-5"></i>
@@ -454,40 +456,17 @@
     <a href="{% url 'material:onboarding_v2_demo_recap' %}" class="btn btn-outline-secondary btn-lg">Volver</a>
 </div>
 <script>
-{# driver.js/driver.css ya se cargan globalmente en base.html — no hace falta volver a incluirlos acá. #}
+{# Los steps del recorrido en sí (driver.js) viven en
+   static/js/page_tours/create_exam_tour.js, compartidos con el modo
+   "consulta" que dispara el botón "?" del navbar fuera del onboarding (ver
+   registerPageTour en static/js/tour.js). Acá solo queda lo que es
+   específico de ESTE vistazo de demo: sincronizar la selección con la
+   sesión antes de navegar a "Ver examen", y disparar el recorrido en modo
+   demo apenas carga la página. #}
 (function () {
     function getCsrfCookie() {
         var match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
         return match ? decodeURIComponent(match[1]) : '';
-    }
-
-    // Los checkboxes de tópicos/preguntas se arman de forma asíncrona (fetch
-    // disparado por el prefill de materia) — si el paso del recorrido llega
-    // antes de que ese fetch resuelva, el contenedor puede estar vacío
-    // todavía. Se reintenta un rato en vez de asumir que ya están.
-    function checkFirst(containerId, count, attemptsLeft) {
-        attemptsLeft = attemptsLeft === undefined ? 10 : attemptsLeft;
-        var boxes = document.querySelectorAll('#' + containerId + ' input[type="checkbox"]');
-        if (!boxes.length && attemptsLeft > 0) {
-            setTimeout(function () { checkFirst(containerId, count, attemptsLeft - 1); }, 300);
-            return;
-        }
-        var picked = Array.prototype.slice.call(boxes, 0, count);
-        picked.forEach(function (cb) {
-            if (!cb.checked) {
-                cb.checked = true;
-                cb.dispatchEvent(new Event('change'));
-            }
-        });
-    }
-
-    // Re-lee directo de los checkboxes tildados (en vez de confiar en que el
-    // 'change' de cada uno ya sincronizó el <select> oculto) para no
-    // depender del orden exacto de los listeners.
-    function checkedValues(containerId, dataAttr) {
-        return Array.from(document.querySelectorAll('#' + containerId + ' input[type="checkbox"]:checked'))
-            .map(function (cb) { return cb.dataset[dataAttr]; })
-            .filter(Boolean);
     }
 
     // Antes de ir a "Ver examen": la vista previa lee la selección real de
@@ -498,6 +477,7 @@
     // antes de navegar.
     document.getElementById('demoPeekContinueBtn')?.addEventListener('click', function (ev) {
         var href = this.href;
+        var checkedValues = window.EducaAppCreateExamTour.checkedValues;
         var topics = checkedValues('topics_checkbox_container', 'topicValue');
         var questions = checkedValues('questions_checkbox_container', 'questionValue');
         if (!topics.length && !questions.length) return; // nada elegido: se deja el comportamiento por defecto
@@ -515,113 +495,7 @@
     });
 
     document.addEventListener('DOMContentLoaded', function () {
-        if (!window.driver || !window.driver.js) return;
-        var areas = window.EducaAppExamAreas || { openArea: function () {}, closeArea: function () {} };
-        try {
-        window.driver.js.driver({
-            showProgress: true,
-            allowClose: true,
-            overlayOpacity: 0.6,
-            nextBtnText: 'Siguiente',
-            prevBtnText: 'Anterior',
-            doneBtnText: 'Listo',
-            steps: [
-                {
-                    element: '#plantilla',
-                    popover: {
-                        title: 'Plantilla',
-                        description: 'Se pueden crear plantillas de examen y reutilizarlas acá para no repetir la configuración cada vez.',
-                        side: 'bottom',
-                    },
-                    onHighlightStarted: function () { areas.openArea(1); },
-                },
-                {
-                    element: '#id_subject',
-                    popover: {
-                        title: 'Materia',
-                        description: 'Al elegir la materia se habilitan los resultados de aprendizaje (si tiene cargados) y, más abajo, los tópicos con sus preguntas.',
-                        side: 'bottom',
-                    },
-                },
-                {
-                    element: '#examInstFacCarreraRow',
-                    popover: {
-                        title: 'Institución',
-                        description: 'Al elegir la institución se cargan automáticamente la facultad y las carreras disponibles, si ya están cargadas.',
-                        side: 'bottom',
-                    },
-                },
-                {
-                    element: '#examArea1Extra',
-                    popover: {
-                        title: 'Resto de las opciones',
-                        description: 'Sede, curso/comisión, turno, profesor, fecha, duración y período académico: todas estas opciones son opcionales.',
-                        side: 'top',
-                    },
-                },
-                {
-                    element: '#topics_checkbox_container',
-                    popover: {
-                        title: 'Tópicos',
-                        description: 'Acá se eligen los tópicos a evaluar — uno de los datos más importantes del examen.',
-                        side: 'right',
-                    },
-                    // Dispara la selección de ejemplo apenas se muestra este
-                    // paso (no en el siguiente): así el fetch asincrónico de
-                    // preguntas filtradas tiene el tiempo real de lectura +
-                    // clic en "Siguiente" para resolver antes de llegar al
-                    // paso de Preguntas, en vez de aparecer vacío.
-                    onHighlightStarted: function () {
-                        areas.closeArea(1);
-                        areas.openArea(3);
-                        checkFirst('topics_checkbox_container', 2);
-                    },
-                },
-                {
-                    element: '#questions_checkbox_container',
-                    popover: {
-                        title: 'Preguntas',
-                        description: 'Al tildar algunos tópicos (como en este ejemplo), el panel de preguntas se filtra para mostrar solo las de esos tópicos.',
-                        side: 'top',
-                    },
-                    onHighlightStarted: function () { checkFirst('questions_checkbox_container', 3); },
-                },
-                {
-                    element: '#examSelectionHeaderRow',
-                    popover: {
-                        title: 'Selección',
-                        description: 'Tanto tópicos como preguntas se pueden seleccionar de a uno o todos juntos, con los botones superiores.',
-                        side: 'top',
-                    },
-                },
-                {
-                    element: '#examArea4',
-                    popover: {
-                        title: 'Temas del examen escrito',
-                        description: 'Se puede crear más de un tema con preguntas distintas para la misma fecha de examen, cada uno con su propio encabezado.',
-                        side: 'top',
-                    },
-                    onHighlightStarted: function () {
-                        areas.closeArea(3);
-                        areas.openArea(4);
-                    },
-                },
-                {
-                    element: '#demoPeekContinueBtn',
-                    popover: {
-                        title: 'Ver examen',
-                        description: 'Para ver el resultado, hacer clic en este botón.',
-                        side: 'top',
-                        onNextClick: function () {
-                            document.getElementById('demoPeekContinueBtn')?.click();
-                        },
-                    },
-                },
-            ],
-        }).drive();
-        } catch (e) {
-            console.error('No se pudo iniciar el recorrido de Crear Examen:', e);
-        }
+        if (window.EducaAppCreateExamTour) window.EducaAppCreateExamTour.start({ demo: true });
     });
 })();
 </script>

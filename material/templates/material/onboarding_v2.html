@@ -686,7 +686,8 @@
       return false;
     }
 
-    statusEl.textContent = 'Subiendo y leyendo el documento…';
+    statusEl.textContent = '';
+    window.EducaAppLoading.show('Subiendo y leyendo el documento…');
     const fd = new FormData();
     fd.append('documento', file);
     if (titleInput.value.trim()) fd.append('contenido_title', titleInput.value.trim());
@@ -710,6 +711,8 @@
     } catch (e) {
       statusEl.textContent = 'Error de red al subir el archivo.';
       return false;
+    } finally {
+      window.EducaAppLoading.hide();
     }
   }
 
