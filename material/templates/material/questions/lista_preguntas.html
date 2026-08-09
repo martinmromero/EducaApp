@@ -189,14 +189,14 @@
                     <tbody>
                         {% for pregunta in preguntas %}
                         <tr>
-                            <td class="bulk-select-col d-none">
+                            <td class="bulk-select-col d-none rt-card-select">
                                 <input type="checkbox" name="pregunta_ids" value="{{ pregunta.pk }}" class="pregunta-checkbox">
                             </td>
-                            <td>{% for s in pregunta.subjects.all %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
-                            <td>{{ pregunta.topic.name|default:"-" }}</td>
-                            {% if subtemas_count > 0 %}<td>{{ pregunta.subtopic.name|default:"-" }}</td>{% endif %}
-                            <td>{{ pregunta.question_text|truncatechars:100 }}</td>
-                            <td>
+                            <td data-label="Materia">{% for s in pregunta.subjects.all %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+                            <td data-label="Tópico">{{ pregunta.topic.name|default:"-" }}</td>
+                            {% if subtemas_count > 0 %}<td data-label="Sub-tópico">{{ pregunta.subtopic.name|default:"-" }}</td>{% endif %}
+                            <td class="rt-card-title" data-label="Pregunta">{{ pregunta.question_text|truncatechars:100 }}</td>
+                            <td data-label="Bloom">
                                 {% if pregunta.bloom_level %}
                                     {% if pregunta.bloom_level == 1 %}<span class="badge" style="background:#e3f2fd;color:#1565c0;">N1 Recordar</span>
                                     {% elif pregunta.bloom_level == 2 %}<span class="badge" style="background:#e8f5e9;color:#2e7d32;">N2 Comprender</span>
@@ -209,7 +209,7 @@
                                     <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td data-label="Estado IA">
                                 {% if pregunta.generated_by_ai %}
                                     {% if pregunta.ai_approved is None %}
                                         <span class="badge badge-warning">⏳ Sin revisar</span>
@@ -222,7 +222,7 @@
                                     <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td data-label="Origen">
                                 {% if pregunta.user_id == request.user.id %}
                                     <span class="badge bg-primary">Tuya</span>
                                 {% else %}
@@ -231,7 +231,7 @@
                                     </span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td data-label="Acciones">
                                 <div class="btn-group" role="group">
                                     <a href="{% url 'material:ver_pregunta' pregunta.pk %}"
                                        class="btn btn-sm btn-info" title="Ver pregunta">
