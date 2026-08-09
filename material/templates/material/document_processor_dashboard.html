@@ -921,10 +921,6 @@ function displayDocumentResult(data) {
             ${data.stats.removed_footers ? ` · Footers eliminados: ${data.stats.removed_footers}` : ''}
         </div>
         <hr>
-        <div class="rt-step-indicator mb-3">
-            <span class="rt-step active"><i class="fas fa-list-check"></i> 1 · Elegir contenido</span>
-            <span class="rt-step"><i class="fas fa-magic"></i> 2 · Generar</span>
-        </div>
         <div class="rt-chapter-grid" id="chaptersGrid">
     `;
 
@@ -3023,24 +3019,6 @@ function _escapeHtml(str) {
   margin-left: auto;
   cursor: help;
   opacity: .8;
-}
-.rt-step-indicator {
-  display: flex;
-  gap: .5rem;
-}
-.rt-step {
-  flex: 1 1 0;
-  text-align: center;
-  font-size: .78rem;
-  font-weight: 700;
-  padding: .4rem .5rem;
-  border-radius: .4rem;
-  background: var(--bs-tertiary-bg, #f1f3f5);
-  color: var(--bs-secondary-color);
-}
-.rt-step.active {
-  background: var(--bs-primary);
-  color: #fff;
 }
 .rt-chapter-grid {
   display: grid;
