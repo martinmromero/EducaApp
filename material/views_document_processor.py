@@ -620,6 +620,8 @@ def generate_questions_from_chapters(request):
                 'error': error_msg
             }, status=503)
 
+        _content_chunk_tokens, _output_tokens_ceiling = _chunking_budget(_ai_backend)
+
         # question_types enviados por el cliente (lista de strings)
         question_types = data.get('question_types') or []
 
@@ -731,7 +733,7 @@ def generate_questions_from_chapters(request):
         # 60 en total).
         chapter_chunks = [
             (chapter, _split_into_chunks(
-                chapter.get('content', chapter.get('content_preview', '')), max_tokens=3000
+                chapter.get('content', chapter.get('content_preview', '')), max_tokens=_content_chunk_tokens
             ))
             for chapter in chapters_to_process
         ]
@@ -773,6 +775,7 @@ def generate_questions_from_chapters(request):
                         chunk['text'], title, questions_per_chunk, chunk_idx, len(chunks),
                         question_types=question_types, backend=_ai_backend,
                         existing_questions=existing_questions_list,
+                        output_tokens_ceiling=_output_tokens_ceiling,
                     )
                 except Exception as exc:
                     logger.warning(f"Chunk {chunk_idx + 1}/{len(chunks)} de '{title}' falló: {exc}")
@@ -893,6 +896,44 @@ def _chunk_has_content(chunk):
     return bool(chunk and len(chunk.strip()) >= MIN_CHUNK_CHARS)
 
 
+# Defaults históricos: 3000 tokens de contenido por fragmento, hasta 4096 de
+# salida. Le quedan cortos a algunos modelos gratuitos del fallback
+# compartido (ej. llama-3.1-8b-instant en Groq, con un límite de apenas 6000
+# tokens por minuto/TPM): contenido + resto del prompt + salida reservada
+# supera ese TPM y Groq rechaza la request entera con "Request too large"
+# — no es un tema de reintentos, la request en sí ya viene sobredimensionada.
+_DEFAULT_CONTENT_CHUNK_TOKENS = 3000
+_DEFAULT_OUTPUT_TOKENS_CEILING = 4096
+
+
+def _chunking_budget(backend):
+    """Cuánto contenido mandar por fragmento y cuántos tokens de salida pedir,
+    respetando el TPM real del proveedor cuando se conoce (fallback
+    compartido de demo, vía el último cupo capturado de sus headers reales —
+    ver GlobalFallbackBackend._save_quota_snapshot). Con proveedores propios
+    (BYOK) no se conoce ese límite de antemano, así que se usan los defaults
+    de siempre.
+
+    Devuelve (content_max_tokens, output_max_tokens_ceiling).
+    """
+    from .ai_router import GlobalFallbackBackend, get_global_demo_quota
+
+    if not isinstance(backend, GlobalFallbackBackend):
+        return _DEFAULT_CONTENT_CHUNK_TOKENS, _DEFAULT_OUTPUT_TOKENS_CEILING
+
+    quota = get_global_demo_quota()
+    tpm = quota.get('limit_tokens') if quota else None
+    if not tpm:
+        return _DEFAULT_CONTENT_CHUNK_TOKENS, _DEFAULT_OUTPUT_TOKENS_CEILING
+
+    # Reparto conservador del TPM real: ~35% contenido, ~50% salida, ~15% de
+    # margen para el resto del prompt (instrucciones, preguntas ya generadas
+    # para no repetir, etc.) que no se cuenta acá.
+    content_budget = max(600, min(_DEFAULT_CONTENT_CHUNK_TOKENS, int(tpm * 0.35)))
+    output_budget = max(400, min(_DEFAULT_OUTPUT_TOKENS_CEILING, int(tpm * 0.5)))
+    return content_budget, output_budget
+
+
 def _split_into_chunks(content, max_tokens=3000):
     """Divide el contenido en fragmentos de ≤ max_tokens tokens.
 
@@ -987,7 +1028,7 @@ def _build_generation_prompt(context):
         return DEFAULT_PROMPT_TEMPLATE.format(**context), DEFAULT_TEMPERATURE
 
 
-def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None, existing_questions=None, images=None):
+def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None, existing_questions=None, images=None, output_tokens_ceiling=None):
     """Genera preguntas para un fragmento de capítulo usando la IA configurada.
 
     Args:
@@ -1003,6 +1044,8 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
             no soporta imágenes, la llamada falla y este chunk se reporta como error
             (igual que cualquier otro fallo de chunk) — es responsabilidad de quien
             llama no pasar `images` salvo que el usuario lo haya pedido explícitamente.
+        output_tokens_ceiling: tope de tokens de salida a pedirle al modelo (ver
+            _chunking_budget) — None usa el default histórico (4096).
     """
     import json as json_module
 
@@ -1071,7 +1114,7 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
     # "413 Payload Too Large" — el proveedor rechaza la request directamente en
     # vez de truncar. 4096 es más conservador; si se pide más de ~12 preguntas
     # en un mismo chunk, igual puede no alcanzar y quedar corto, pero no falla.
-    gen_max_tokens = min(4096, 300 * max(num_questions, 1) + 500)
+    gen_max_tokens = min(output_tokens_ceiling or _DEFAULT_OUTPUT_TOKENS_CEILING, 300 * max(num_questions, 1) + 500)
 
     # Ollama (local_ai/OllamaBackend) no tiene parámetro `images` — solo se lo
     # pasamos al backend externo, y solo cuando hay imágenes de verdad, para
@@ -1197,6 +1240,7 @@ def stream_questions(request, job_id):
         existing_questions_list = job.get('existing_questions_list') or []
         existing_texts_set = set(job.get('existing_texts_set') or [])
         include_images = bool(job.get('include_images'))
+        content_chunk_tokens, output_tokens_ceiling = _chunking_budget(backend)
 
         # Obtener contenido completo (misma lógica que generate_questions_from_chapters)
         chapters_to_process = []
@@ -1258,7 +1302,7 @@ def stream_questions(request, job_id):
         total_chunks_all = 0
         for chapter in chapters_to_process:
             content = chapter.get('content', chapter.get('content_preview', ''))
-            chunks = _split_into_chunks(content, max_tokens=3000)
+            chunks = _split_into_chunks(content, max_tokens=content_chunk_tokens)
             chapter_splits.append(chunks)
             total_chunks_all += len(chunks)
 
@@ -1306,6 +1350,7 @@ def stream_questions(request, job_id):
                         question_types=question_types, backend=backend,
                         existing_questions=existing_questions_list,
                         images=chapter_images if i == 0 else None,
+                        output_tokens_ceiling=output_tokens_ceiling,
                     )
                     # Páginas del FRAGMENTO puntual del que salieron estas
                     # preguntas (no de todo el capítulo/tanda) — ver comentario
