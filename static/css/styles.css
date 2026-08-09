@@ -217,6 +217,28 @@ body.modal-open .sidebar-toggle-external {
     .form-control, .form-select, .btn {
         font-size: 1rem;
     }
+
+    /* Red de seguridad sitewide: ya pasó más de una vez que un contenido
+       angosto en su origen (texto largo sin espacios, badges con
+       white-space:nowrap dentro de un acordeón/fila flex) empujaba a su
+       contenedor más allá del ancho de pantalla y "se escapaba" visualmente
+       del borde de la tarjeta — no solo en un lugar puntual, en cualquier
+       pantalla que use ese mismo patrón. En vez de perseguir cada caso, se
+       corta la posibilidad de raíz: nada puede generar scroll horizontal de
+       toda la página en mobile, y los badges (que por defecto de Bootstrap
+       no cortan línea) pueden cortar si hace falta en vez de desbordar. */
+    html, body {
+        overflow-x: hidden;
+        max-width: 100%;
+    }
+    .badge {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+    .accordion-button {
+        flex-wrap: wrap;
+    }
 }
 
 /* Estilos para el modo oscuro — [data-bs-theme="dark"] en <html> es el
