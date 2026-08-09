@@ -311,13 +311,19 @@
         </div>
     </div>
 
-    <!-- Mensajes generales del servidor (messages.warning/.error, arriba de
-         {% show_messages "general" %}): los de warning/error se sacan del
-         banner y se muestran acá, en un modal que hay que cerrar a
-         propósito — como banner quedaban lejos de foco y era fácil seguir
-         interactuando con la página sin notar por qué algo no funcionó. Los
-         de éxito/info siguen como banner (no interrumpen, son solo una
-         confirmación). Ver el <script> más abajo que lo arma. -->
+    <!-- Mensajes generales del servidor (arriba, cerca del inicio de esta
+         misma página, va el bloque que los renderiza como banner): los de
+         warning/error se sacan de ahí y se muestran acá, en un modal que
+         hay que cerrar a propósito — como banner quedaban lejos de foco y
+         era fácil seguir interactuando con la página sin notar por qué
+         algo no funcionó. Los de éxito/info siguen como banner (no
+         interrumpen, son solo una confirmación). Lo arma el script de más
+         abajo. OJO: nunca poner una template tag tipo llave-porciento
+         dentro de un comentario HTML — Django la ejecuta igual (no sabe
+         que está "adentro de un comentario"), y si esa tag renderiza HTML
+         que a su vez trae su propio comentario, el primer cierre que
+         encuentra el navegador termina el comentario de afuera antes de
+         tiempo y el resto queda como texto suelto visible en la página. -->
     <div class="modal fade" id="pageMessageModal" tabindex="-1" aria-labelledby="pageMessageModalTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
