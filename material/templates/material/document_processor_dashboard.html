@@ -125,8 +125,18 @@
         <!-- Tab 1: Procesar Documento Completo -->
         <div class="tab-pane fade show active" id="upload" role="tabpanel">
             <div class="row">
-                <div class="{% if wizard_active %}d-none{% else %}col-md-4{% endif %}">
-                    <div class="card">
+                <div class="{% if wizard_active %}d-none{% else %}col-md-4{% endif %}" id="uploadFormCol">
+                    <!-- Barra compacta que reemplaza la card de subida una vez que ya
+                         hay un resultado — si no, en mobile el formulario entero (file
+                         input, título, checkbox, botón) queda arriba de los capítulos
+                         y obliga a scrollear de más para llegar a "elegir contenido". -->
+                    <div id="uploadCollapsedBar" class="alert alert-light border d-none align-items-center justify-content-between gap-2 py-2 px-3 mb-3">
+                        <span class="text-truncate small"><i class="fas fa-file-alt me-1 text-muted"></i><span id="uploadCollapsedName"></span></span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" onclick="expandUploadForm()">
+                            <i class="fas fa-rotate"></i> Cambiar
+                        </button>
+                    </div>
+                    <div class="card" id="uploadFormCard">
                         <div class="card-header bg-primary text-white">
                             <h5 class="mb-0"><i class="fas fa-upload"></i> Subir Documento</h5>
                         </div>
@@ -174,7 +184,7 @@
                     </div>
                 </div>
 
-                <div class="{% if wizard_active %}col-12{% else %}col-md-8{% endif %}">
+                <div class="{% if wizard_active %}col-12{% else %}col-md-8{% endif %}" id="resultCol">
                     <div id="resultCard" class="card {% if wizard_active %}border-0{% endif %}" style="display:none;">
                         <div class="card-header bg-success text-white {% if wizard_active %}py-1 px-2{% endif %}">
                             <h5 class="mb-0 {% if wizard_active %}fs-6{% endif %}"><i class="fas fa-check-circle"></i> Resultado del Procesamiento</h5>
@@ -672,6 +682,32 @@
 </div>
 
 <script>
+const WIZARD_ACTIVE = {{ wizard_active|yesno:"true,false" }};
+
+// Colapsa la card de "Subir Documento" a una barra compacta una vez que ya
+// hay un resultado para mostrar (ver comentario en el HTML de uploadFormCol)
+// — no aplica en modo wizard, donde esa columna ya está oculta de entrada.
+function collapseUploadForm(filename) {
+    if (WIZARD_ACTIVE) return;
+    document.getElementById('uploadFormCard').classList.add('d-none');
+    const bar = document.getElementById('uploadCollapsedBar');
+    bar.classList.remove('d-none');
+    bar.classList.add('d-flex');
+    document.getElementById('uploadCollapsedName').textContent = filename || 'Documento cargado';
+    document.getElementById('uploadFormCol').className = 'col-12 col-md-3';
+    document.getElementById('resultCol').className = 'col-12 col-md-9';
+}
+
+function expandUploadForm() {
+    document.getElementById('uploadFormCard').classList.remove('d-none');
+    const bar = document.getElementById('uploadCollapsedBar');
+    bar.classList.add('d-none');
+    bar.classList.remove('d-flex');
+    document.getElementById('uploadFormCol').className = 'col-md-4';
+    document.getElementById('resultCol').className = 'col-md-8';
+    document.getElementById('resultCard').style.display = 'none';
+}
+
 // Auto-procesar si se llega desde "Mis Contenidos" con un contenido preseleccionado
 (function() {
     const contenidoId = '{{ preselected_contenido_id }}';
@@ -693,6 +729,7 @@
         if (data.success) {
             displayDocumentResult(data);
             resultCard.style.display = 'block';
+            collapseUploadForm(data.filename);
         } else {
             showAutoLoadError(data.error || 'No se pudo cargar el documento.');
         }
@@ -767,6 +804,7 @@ document.getElementById('uploadDocumentForm').addEventListener('submit', async f
         if (data.success) {
             displayDocumentResult(data);
             resultCard.style.display = 'block';
+            collapseUploadForm(data.filename);
         } else {
             showAiNoticeBanner(data.error, { title: 'No se pudo procesar el documento', variant: 'danger' });
         }
@@ -779,14 +817,19 @@ document.getElementById('uploadDocumentForm').addEventListener('submit', async f
 const RUN_TOKEN_BUDGET = {{ run_token_budget|default:45000 }};
 const TOTAL_TOKEN_BUDGET = {{ total_token_budget|default:50000 }};
 
-// Etiqueta de tamaño relativo a la capacidad de una tanda (sin exponer el
-// número técnico de tokens en la vista principal — queda solo en el tooltip).
-function relativeSizeBadge(tokens) {
+// Tamaño relativo a la capacidad de una tanda (sin exponer el número
+// técnico de tokens en la vista principal — queda solo en el tooltip).
+function relativeSizeInfo(tokens) {
     const pct = Math.round(((tokens || 0) / RUN_TOKEN_BUDGET) * 100);
-    let label = 'chico';
-    if (pct >= 50) label = 'grande';
-    else if (pct >= 15) label = 'mediano';
-    return `<span class="badge bg-secondary ms-2" title="${(tokens || 0).toLocaleString()} — referencia interna de tamaño">${label} (~${pct}% de una tanda)</span>`;
+    let label = 'chico', colorClass = 'bg-success';
+    if (pct >= 50) { label = 'grande'; colorClass = 'bg-danger'; }
+    else if (pct >= 15) { label = 'mediano'; colorClass = 'bg-warning'; }
+    return { pct, label, colorClass, tokens: tokens || 0 };
+}
+
+function relativeSizeBadge(tokens) {
+    const info = relativeSizeInfo(tokens);
+    return `<span class="badge bg-secondary ms-2" title="${info.tokens.toLocaleString()} — referencia interna de tamaño">${info.label} (~${info.pct}% de una tanda)</span>`;
 }
 
 function displayDocumentResult(data) {
@@ -795,62 +838,43 @@ function displayDocumentResult(data) {
         ? `<div class="alert alert-warning py-2 mb-2"><i class="bi bi-exclamation-triangle me-1"></i>${data.duplicate_message}</div>`
         : '';
 
-    // Documento muy extenso: sugerir generar por capítulos en vez de todo junto
+    // Documento muy extenso: se genera por partes. Un renglón compacto en
+    // vez de un párrafo — el detalle de cuánto entra por tanda ya se ve más
+    // abajo, en el resumen de selección, no hace falta repetirlo acá.
     const budgetExceeded = data.token_budget && data.token_budget.exceeds_total_budget;
     const extensiveAlert = budgetExceeded
-        ? `<div class="alert alert-info py-2 mb-2">
-               <i class="bi bi-info-circle me-1"></i>
-               El documento es muy grande para procesarlo de una sola vez${data.chapters.length > 1 && !(data.toc && data.toc.length) ? ' — por eso se dividió automáticamente en bloques de páginas' : ''}.
-               Elegir capítulos (o bloques de páginas) puntuales y generar las preguntas en varias tandas
-               (más abajo se indica cuánto se puede seleccionar por tanda).
+        ? `<div class="rt-compact-notice mb-2">
+               <i class="fas fa-layer-group"></i> Documento grande — elegí qué generar primero
+               <i class="fas fa-circle-question rt-notice-q"
+                  title="El documento es muy grande para procesarlo de una sola vez${data.chapters.length > 1 && !(data.toc && data.toc.length) ? '. Por eso se dividió automáticamente en bloques de páginas' : ''}. Elegí capítulos (o bloques de páginas) puntuales y generá el resto en otra tanda."
+                  style="cursor:help"></i>
            </div>`
         : '';
 
     let html = dupAlert + extensiveAlert + `
-        <h5>${data.filename}
-            ${data.contenido_id ? `<a id="contenidoSavedBadge" href="{% url 'material:mis_contenidos' %}" class="badge bg-success ms-2 text-decoration-none"><i class="fas fa-check"></i> Guardado en Mis Contenidos</a>` : ''}
-        </h5>
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <strong>Páginas/Slides:</strong> ${data.stats.total_pages || data.stats.total_slides || 'N/A'}<br>
-                <strong>Capítulos:</strong> ${data.stats.total_chapters}<br>
-                <strong>Extensión:</strong>
-                <span class="badge bg-primary" title="${data.stats.total_tokens.toLocaleString()} — referencia interna de tamaño">
-                    ${Math.min(100, Math.round((data.stats.total_tokens / TOTAL_TOKEN_BUDGET) * 100))}% de lo recomendado para procesar junto
-                </span>
-            </div>
-            <div class="col-md-6">
-                ${data.stats.removed_headers ? `<small class="text-muted">Headers eliminados: ${data.stats.removed_headers}</small><br>` : ''}
-                ${data.stats.removed_footers ? `<small class="text-muted">Footers eliminados: ${data.stats.removed_footers}</small>` : ''}
-            </div>
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+            <h5 class="mb-0">${data.filename}
+                ${data.contenido_id ? `<a id="contenidoSavedBadge" href="{% url 'material:mis_contenidos' %}" class="badge bg-success ms-2 text-decoration-none"><i class="fas fa-check"></i> Guardado en Mis Contenidos</a>` : ''}
+            </h5>
+            <button class="btn btn-outline-primary btn-sm flex-shrink-0" onclick="openPagePreview()">
+                <i class="fas fa-eye"></i> Vista previa de páginas
+            </button>
+        </div>
+        <div class="text-muted small mb-3">
+            ${data.stats.total_pages || data.stats.total_slides || 'N/A'} páginas/slides ·
+            ${data.stats.total_chapters} capítulo(s) ·
+            <span class="badge bg-primary" title="${data.stats.total_tokens.toLocaleString()} — referencia interna de tamaño">
+                ${Math.min(100, Math.round((data.stats.total_tokens / TOTAL_TOKEN_BUDGET) * 100))}% de lo recomendado para procesar junto
+            </span>
+            ${data.stats.removed_headers ? `<br>Headers eliminados: ${data.stats.removed_headers}` : ''}
+            ${data.stats.removed_footers ? ` · Footers eliminados: ${data.stats.removed_footers}` : ''}
         </div>
         <hr>
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6>Capítulos Detectados:</h6>
-            <div class="d-flex gap-2">
-                <button class="btn btn-outline-primary" onclick="openPagePreview()">
-                    <i class="fas fa-eye"></i> Vista previa de páginas
-                </button>
-                <button id="generateQuestionsBtn" class="btn btn-success" onclick="generateQuestionsFromSelected()" disabled>
-                    <i class="fas fa-magic"></i> Generar con IA (por capítulo)
-                </button>
-            </div>
+        <div class="rt-step-indicator mb-3">
+            <span class="rt-step active"><i class="fas fa-list-check"></i> 1 · Elegir contenido</span>
+            <span class="rt-step"><i class="fas fa-magic"></i> 2 · Generar</span>
         </div>
-        <div class="mb-3">
-            <div class="d-flex justify-content-between align-items-center">
-                <small class="text-muted">
-                    Capacidad usada en esta tanda
-                    <i class="fas fa-circle-question ms-1"
-                       title="Cada tanda de generación tiene un tope de capacidad para que el servidor no se quede colgado procesando un documento entero de una sola vez. Si hace falta más, generar en varias tandas."
-                       style="cursor:help"></i>
-                </small>
-                <small id="tokenBudgetLabel" class="text-muted" title="0 / ${RUN_TOKEN_BUDGET.toLocaleString()}">0%</small>
-            </div>
-            <div class="progress" style="height:6px;">
-                <div id="tokenBudgetBar" class="progress-bar" role="progressbar" style="width:0%"></div>
-            </div>
-        </div>
-        <div class="accordion" id="chaptersAccordion">
+        <div class="rt-chapter-grid" id="chaptersGrid">
     `;
 
     // Guardar datos globalmente para usar después
@@ -861,42 +885,52 @@ function displayDocumentResult(data) {
     const singleChapter = data.chapters.length === 1;
 
     data.chapters.forEach((chapter, index) => {
-        const checkboxHtml = singleChapter
-            ? `<input class="form-check-input chapter-checkbox" type="checkbox" value="${index}"
-                       data-tokens="${chapter.tokens || 0}" id="chapterCheck${index}" checked
-                       style="display:none" onchange="updateGenerateButton()">`
-            : `<div class="form-check ms-3 me-2">
-                    <input class="form-check-input chapter-checkbox" type="checkbox" value="${index}"
-                           data-tokens="${chapter.tokens || 0}" id="chapterCheck${index}" onchange="updateGenerateButton()">
-                    <label class="form-check-label visually-hidden" for="chapterCheck${index}">
-                        Seleccionar ${chapter.title}
-                    </label>
-               </div>`;
+        const info = relativeSizeInfo(chapter.tokens);
+        const pageRange = (chapter.pages && chapter.pages.length)
+            ? (chapter.pages.length > 1 ? `Páginas ${chapter.pages[0]}–${chapter.pages[chapter.pages.length - 1]}` : `Página ${chapter.pages[0]}`)
+            : '';
+        const checkedAttr = singleChapter ? 'checked' : '';
 
         html += `
-            <div class="accordion-item">
-                <h2 class="accordion-header d-flex align-items-center">
-                    ${checkboxHtml}
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#chapter${index}">
-                        ${chapter.title} ${relativeSizeBadge(chapter.tokens)}
-                    </button>
-                </h2>
-                <div id="chapter${index}" class="accordion-collapse collapse" data-bs-parent="#chaptersAccordion">
-                    <div class="accordion-body">
-                        <p><small class="text-muted">Páginas: ${chapter.pages.join(', ')}</small></p>
-                        <p>${chapter.content_preview}</p>
-                    </div>
+            <label class="rt-chapter-card" for="chapterCheck${index}" data-index="${index}">
+                <input class="form-check-input chapter-checkbox visually-hidden" type="checkbox" value="${index}"
+                       data-tokens="${chapter.tokens || 0}" id="chapterCheck${index}" ${checkedAttr}
+                       onchange="updateGenerateButton()">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <span class="rt-chapter-title">${chapter.title}</span>
+                    <span class="rt-chapter-check-icon"><i class="fas fa-check"></i></span>
                 </div>
-            </div>
+                <div class="rt-chapter-meter"><span class="rt-chapter-meter-fill ${info.colorClass}" style="width:${Math.min(100, info.pct)}%"></span></div>
+                <div class="text-muted small" title="${info.tokens.toLocaleString()} — referencia interna de tamaño">
+                    ${pageRange}${pageRange ? ' · ' : ''}${info.label} (~${info.pct}% de una tanda)
+                </div>
+            </label>
         `;
     });
 
-    html += '</div>';
-    document.getElementById('resultContent').innerHTML = html;
+    html += `
+        </div>
+        <div class="rt-selection-summary mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <small class="text-muted">
+                    <span id="selectionSummaryText">Elegí al menos un capítulo para generar</span>
+                    <i class="fas fa-circle-question ms-1"
+                       title="Cada tanda de generación tiene un tope de capacidad para que el servidor no se quede colgado procesando un documento entero de una sola vez. Si hace falta más, generar en varias tandas."
+                       style="cursor:help"></i>
+                </small>
+                <small id="tokenBudgetLabel" class="text-muted" title="0 / ${RUN_TOKEN_BUDGET.toLocaleString()}">0%</small>
+            </div>
+            <div class="progress mb-2" style="height:6px;">
+                <div id="tokenBudgetBar" class="progress-bar" role="progressbar" style="width:0%"></div>
+            </div>
+            <button id="generateQuestionsBtn" class="btn btn-success w-100" onclick="generateQuestionsFromSelected()" disabled>
+                <i class="fas fa-magic"></i> Generar con IA
+            </button>
+        </div>
+    `;
 
-    if (singleChapter) {
-        updateGenerateButton();
-    }
+    document.getElementById('resultContent').innerHTML = html;
+    updateGenerateButton();
 }
 
 // Actualiza el botón de generar, la barra de tokens y bloquea capítulos
@@ -923,17 +957,27 @@ function updateGenerateButton() {
     // para que el usuario no arme una tanda que el servidor va a rechazar.
     const atBudget = selectedTokens >= RUN_TOKEN_BUDGET;
     allCheckboxes.forEach(cb => {
+        const card = cb.closest('.rt-chapter-card');
+        if (card) card.classList.toggle('selected', cb.checked);
         if (cb.checked) return;
         cb.disabled = atBudget;
         cb.title = atBudget
             ? 'Llegaste al máximo recomendado para esta tanda. Generá esta selección primero, o deseleccioná otro capítulo para hacer lugar.'
             : '';
+        if (card) card.classList.toggle('disabled', atBudget);
     });
+
+    const summaryText = document.getElementById('selectionSummaryText');
+    if (summaryText) {
+        summaryText.textContent = checkboxes.length > 0
+            ? `${checkboxes.length} capítulo(s) elegido(s)`
+            : 'Elegí al menos un capítulo para generar';
+    }
 
     const btn = document.getElementById('generateQuestionsBtn');
     if (btn) {
         btn.disabled = checkboxes.length === 0;
-        btn.innerHTML = checkboxes.length > 0 ? 
+        btn.innerHTML = checkboxes.length > 0 ?
             `<i class="fas fa-magic"></i> Generar Preguntas (${checkboxes.length} capítulos)` :
             `<i class="fas fa-magic"></i> Generar Preguntas con IA`;
     }
@@ -2905,6 +2949,109 @@ function _escapeHtml(str) {
 </script>
 
 <style>
+/* ── Selección de capítulos por tarjetas (en vez de acordeón) ───────
+   Ver displayDocumentResult()/updateGenerateButton() en el <script> de
+   arriba. Cada tarjeta es un <label> asociado a su checkbox — clickear
+   cualquier parte de la tarjeta lo togglea, sin JS extra. */
+.rt-compact-notice {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .85rem;
+  font-weight: 600;
+  color: #084298;
+  background: #e7f1ff;
+  border-radius: .4rem;
+  padding: .45rem .7rem;
+}
+[data-bs-theme="dark"] .rt-compact-notice {
+  color: #9ec5fe;
+  background: rgba(13, 110, 253, 0.15);
+}
+.rt-notice-q {
+  margin-left: auto;
+  cursor: help;
+  opacity: .8;
+}
+.rt-step-indicator {
+  display: flex;
+  gap: .5rem;
+}
+.rt-step {
+  flex: 1 1 0;
+  text-align: center;
+  font-size: .78rem;
+  font-weight: 700;
+  padding: .4rem .5rem;
+  border-radius: .4rem;
+  background: var(--bs-tertiary-bg, #f1f3f5);
+  color: var(--bs-secondary-color);
+}
+.rt-step.active {
+  background: var(--bs-primary);
+  color: #fff;
+}
+.rt-chapter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: .6rem;
+}
+.rt-chapter-card {
+  display: block;
+  border: 1.5px solid var(--bs-border-color);
+  border-radius: .6rem;
+  padding: .65rem .8rem;
+  cursor: pointer;
+  transition: border-color .15s, background-color .15s;
+}
+.rt-chapter-card:hover {
+  border-color: var(--bs-primary);
+}
+.rt-chapter-card.selected {
+  border-color: var(--bs-primary);
+  background: var(--edu-accent-soft-bg, #eaf2ff);
+}
+.rt-chapter-card.disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+.rt-chapter-title {
+  font-weight: 700;
+  font-size: .92rem;
+}
+.rt-chapter-check-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--bs-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .6rem;
+  color: transparent;
+}
+.rt-chapter-card.selected .rt-chapter-check-icon {
+  background: var(--bs-primary);
+  border-color: var(--bs-primary);
+  color: #fff;
+}
+.rt-chapter-meter {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bs-tertiary-bg, #e9ecef);
+  overflow: hidden;
+  margin: .4rem 0 .3rem;
+}
+.rt-chapter-meter-fill {
+  display: block;
+  height: 100%;
+}
+.rt-selection-summary {
+  border-top: 1px solid var(--bs-border-color);
+  padding-top: .7rem;
+}
+
 .page-thumb-card {
   transition: border-color 0.15s, box-shadow 0.15s;
   cursor: pointer;
