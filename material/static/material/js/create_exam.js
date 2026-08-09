@@ -2,45 +2,8 @@
 // JS para el formulario de creación de examen
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Mensajes generales del servidor (ej. "no se seleccionó ningún tópico
-    // ni pregunta") se reubican del banner de arriba de la página a un modal
-    // que hay que cerrar a propósito — como banner quedaban muy arriba y
-    // era fácil no notarlos y seguir completando el formulario sin saber
-    // por qué no se había armado el examen la vez anterior.
-    (function () {
-        var container = document.querySelector('.messages-container');
-        if (!container) return;
-        var alertEls = Array.prototype.slice.call(container.querySelectorAll('.alert'));
-        if (!alertEls.length) return;
-
-        var RANK = { danger: 3, warning: 2, info: 1, success: 0 };
-        var worst = 'success';
-        alertEls.forEach(function (el) {
-            Object.keys(RANK).forEach(function (variant) {
-                if (el.classList.contains('alert-' + variant) && RANK[variant] > RANK[worst]) {
-                    worst = variant;
-                }
-            });
-            var closeBtn = el.querySelector('.btn-close');
-            if (closeBtn) closeBtn.remove();
-            el.classList.remove('alert-dismissible', 'fade', 'show');
-            el.classList.add('mb-2');
-            document.getElementById('pageMessageModalBody').appendChild(el);
-        });
-        container.remove();
-
-        var TITLES = {
-            danger: { text: 'Error', icon: 'bi-exclamation-triangle-fill text-danger' },
-            warning: { text: 'Atención', icon: 'bi-exclamation-circle-fill text-warning' },
-            info: { text: 'Aviso', icon: 'bi-info-circle-fill text-info' },
-            success: { text: 'Listo', icon: 'bi-check-circle-fill text-success' },
-        };
-        var t = TITLES[worst];
-        document.getElementById('pageMessageModalTitle').innerHTML =
-            '<i class="bi ' + t.icon + ' me-2"></i>' + t.text;
-
-        new bootstrap.Modal(document.getElementById('pageMessageModal')).show();
-    })();
+    // El pasaje de mensajes warning/error a modal es sitewide ahora — ver
+    // #pageMessageModal y el <script> que lo arma en base.html.
 
     // Año del encabezado: arranca en el año actual salvo que el usuario lo
     // cambie a mano, o que un prefill (editar examen / plantilla) traiga uno
