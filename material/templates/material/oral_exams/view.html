@@ -466,7 +466,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Assign names button clicked');
             const studentNames = document.getElementById('studentNames').value;
             if (!studentNames.trim()) {
-                alert('Por favor, ingrese los nombres de los estudiantes.');
+                window.EducaAppModal.alert('Por favor, ingrese los nombres de los estudiantes.', { title: 'Falta información', variant: 'warning' });
                 return;
             }
             
@@ -755,12 +755,12 @@ function evaluateQuestion(studentQuestionId, evaluation, btn) {
             // Actualizar contadores globales
             updateEvaluationCounters();
         } else {
-            alert('Error al evaluar: ' + data.error);
+            window.EducaAppModal.alert('Error al evaluar: ' + data.error, { title: 'Error', variant: 'danger' });
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error de conexión al evaluar la pregunta.');
+        window.EducaAppModal.alert('Error de conexión al evaluar la pregunta.', { title: 'Error de conexión', variant: 'danger' });
     });
 }
 
@@ -797,7 +797,7 @@ function assignStudentNames(studentNames) {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error de conexión al asignar nombres.');
+        window.EducaAppModal.alert('Error de conexión al asignar nombres.', { title: 'Error de conexión', variant: 'danger' });
     });
 }
 
@@ -1015,7 +1015,7 @@ function exchangeQuestion(studentQuestionId, newQuestionId) {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
     if (!csrfToken) {
         console.error('CSRF token not found!');
-        alert('Error: Token de seguridad no encontrado. Recarga la página.');
+        window.EducaAppModal.alert('Error: Token de seguridad no encontrado. Recarga la página.', { title: 'Error', variant: 'danger' });
         return;
     }
     
@@ -1115,8 +1115,8 @@ function exchangeQuestion(studentQuestionId, newQuestionId) {
             errorMessage += ` Detalle: ${error.message}`;
         }
         
-        alert(errorMessage);
-        
+        window.EducaAppModal.alert(errorMessage, { title: 'Error de conexión', variant: 'danger' });
+
         // También mostrar en el modal si está abierto
         const errorDiv = document.createElement('div');
         errorDiv.className = 'alert alert-danger mt-3';
