@@ -42,3 +42,9 @@ db.sqlite3
 
 # Archivos temporales del procesador de documentos (sesiones IA)
 media/doc_sessions/
+
+# Salida de "collectstatic" (STATIC_ROOT en settings.py) — se regenera
+# fresca en cada deploy de Render, nunca es lo que realmente se sirve en
+# producción. Estaba trackeada por error, 4MB/173 archivos quedando cada
+# vez más desactualizados en cada commit (auditoría 2026-08-10).
+staticfiles/
