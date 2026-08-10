@@ -124,7 +124,7 @@
       });
       const replaceData = await replaceRes.json();
       if (!replaceData.success) {
-        alert(replaceData.error || 'No se pudo cambiar la pregunta.');
+        window.EducaAppModal.alert(replaceData.error || 'No se pudo cambiar la pregunta.', { title: 'Error', variant: 'danger' });
         return;
       }
       location.reload();
@@ -146,7 +146,7 @@
       const res = await fetch(`{% url 'material:exam_version_available_questions' %}?exam_id=${currentExamId}&question_id=${currentQuestionId}`);
       const data = await res.json();
       if (!data.success) {
-        alert(data.error || 'No se pudieron cargar alternativas.');
+        window.EducaAppModal.alert(data.error || 'No se pudieron cargar alternativas.', { title: 'Error', variant: 'danger' });
         return;
       }
 
@@ -204,12 +204,12 @@
           document.getElementById('batchSavedModalMessage').textContent = data.message || 'Lote guardado correctamente.';
           savedModal.show();
         } else {
-          alert(data.message || 'No se pudo guardar el nombre del lote.');
+          window.EducaAppModal.alert(data.message || 'No se pudo guardar el nombre del lote.', { title: 'Error al guardar', variant: 'danger' });
         }
       })
       .catch(function () {
         renameBtn.disabled = false;
-        alert('No se pudo guardar el nombre del lote. Intenta nuevamente.');
+        window.EducaAppModal.alert('No se pudo guardar el nombre del lote. Intenta nuevamente.', { title: 'Error al guardar', variant: 'danger' });
       });
   });
 })();
