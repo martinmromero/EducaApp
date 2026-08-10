@@ -410,7 +410,7 @@ nivel_bloom: 2
                                     loadTopics(subjectIds, response.topic.id);
                                     $('#newTopicContainer').hide();
                                 } else {
-                                    alert(response.error || 'Error al crear el tópico');
+                                    window.EducaAppModal.alert(response.error || 'Error al crear el tópico', { title: 'Error', variant: 'danger' });
                                 }
                             }
                         });
@@ -445,7 +445,7 @@ nivel_bloom: 2
                                     loadSubtopics(topicId, response.subtopic.id);
                                     $('#newSubtopicContainer').hide();
                                 } else {
-                                    alert(response.error || 'Error al crear el sub-tópico');
+                                    window.EducaAppModal.alert(response.error || 'Error al crear el sub-tópico', { title: 'Error', variant: 'danger' });
                                 }
                             }
                         });

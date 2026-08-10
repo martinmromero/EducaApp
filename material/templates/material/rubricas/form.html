@@ -142,7 +142,7 @@
         });
         tbl.querySelectorAll('[data-remove-level]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                if (levels.length <= 1) { alert('La rúbrica debe tener al menos un nivel.'); return; }
+                if (levels.length <= 1) { window.EducaAppModal.alert('La rúbrica debe tener al menos un nivel.', { title: 'No se puede quitar', variant: 'warning' }); return; }
                 syncFromDOM();
                 var idx = parseInt(this.dataset.removeLevel);
                 levels.splice(idx, 1);
@@ -152,7 +152,7 @@
         });
         tbl.querySelectorAll('[data-remove-criterion]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                if (criteria.length <= 1) { alert('La rúbrica debe tener al menos un criterio.'); return; }
+                if (criteria.length <= 1) { window.EducaAppModal.alert('La rúbrica debe tener al menos un criterio.', { title: 'No se puede quitar', variant: 'warning' }); return; }
                 syncFromDOM();
                 criteria.splice(parseInt(this.dataset.removeCriterion), 1);
                 renderGrid();
