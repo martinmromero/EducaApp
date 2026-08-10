@@ -94,24 +94,24 @@
                 <div class="col-12">
                     <div class="alert alert-info">
                         <h6><i class="fas fa-chart-bar"></i> Resumen de Evaluaciones</h6>
-                        <div class="row text-center">
-                            <div class="col-3">
-                                <span class="badge text-bg-success rounded-pill" style="font-size: 1rem;">
+                        <div class="row text-center g-2">
+                            <div class="col-6 col-sm-3">
+                                <span class="badge text-bg-success rounded-pill w-100 py-2 text-nowrap" style="font-size: clamp(0.75rem, 3vw, 1rem);">
                                     <i class="fas fa-check"></i> Bien: <span id="goodCount">0</span>
                                 </span>
                             </div>
-                            <div class="col-3">
-                                <span class="badge text-bg-warning rounded-pill" style="font-size: 1rem;">
+                            <div class="col-6 col-sm-3">
+                                <span class="badge text-bg-warning rounded-pill w-100 py-2 text-nowrap" style="font-size: clamp(0.75rem, 3vw, 1rem);">
                                     <i class="fas fa-minus"></i> Regular: <span id="regularCount">0</span>
                                 </span>
                             </div>
-                            <div class="col-3">
-                                <span class="badge text-bg-danger rounded-pill" style="font-size: 1rem;">
+                            <div class="col-6 col-sm-3">
+                                <span class="badge text-bg-danger rounded-pill w-100 py-2 text-nowrap" style="font-size: clamp(0.75rem, 3vw, 1rem);">
                                     <i class="fas fa-times"></i> Mal: <span id="badCount">0</span>
                                 </span>
                             </div>
-                            <div class="col-3">
-                                <span class="badge text-bg-secondary rounded-pill" style="font-size: 1rem;">
+                            <div class="col-6 col-sm-3">
+                                <span class="badge text-bg-secondary rounded-pill w-100 py-2 text-nowrap" style="font-size: clamp(0.75rem, 3vw, 1rem);">
                                     <i class="fas fa-clock"></i> Pendientes: <span id="pendingCount">{{ total_questions }}</span>
                                 </span>
                             </div>
@@ -202,30 +202,35 @@
                                 
                                 <!-- Sistema de evaluación -->
                                 <div class="evaluation-section mt-3" data-student-question-id="{{ sq.id }}">
-                                    <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center gap-2">
                                         <small class="text-muted">
-                                            <strong>Evaluación:</strong> 
+                                            <strong>Evaluación:</strong>
                                             <span class="current-evaluation text-{{ sq.evaluation|default:'secondary' }}">
                                                 {% if sq.evaluation == 'bien' %}✓ Bien
-                                                {% elif sq.evaluation == 'regular' %}~ Regular  
+                                                {% elif sq.evaluation == 'regular' %}~ Regular
                                                 {% elif sq.evaluation == 'mal' %}✗ Mal
                                                 {% else %}⏳ Pendiente{% endif %}
                                             </span>
                                         </small>
-                                        <div class="btn-group btn-group-sm" role="group">
-                                            <button type="button" class="btn {% if sq.evaluation == 'bien' %}btn-success{% else %}btn-outline-success{% endif %} eval-btn" 
+                                        <!-- d-flex flex-wrap en vez de btn-group: btn-group fuerza una
+                                             sola fila y en mobile terminaba apretando cada boton hasta
+                                             que el propio texto ("Regular", "Pendiente") cortaba línea
+                                             adentro. Así, si no entran los 4 en una fila, bajan a una
+                                             segunda en vez de aplastarse. -->
+                                        <div class="d-flex flex-wrap gap-1 eval-btn-group" role="group">
+                                            <button type="button" class="btn btn-sm {% if sq.evaluation == 'bien' %}btn-success{% else %}btn-outline-success{% endif %} eval-btn"
                                                     data-evaluation="bien" data-student-question-id="{{ sq.id }}">
                                                 <i class="fas fa-check"></i> Bien
                                             </button>
-                                            <button type="button" class="btn {% if sq.evaluation == 'regular' %}btn-warning{% else %}btn-outline-warning{% endif %} eval-btn" 
+                                            <button type="button" class="btn btn-sm {% if sq.evaluation == 'regular' %}btn-warning{% else %}btn-outline-warning{% endif %} eval-btn"
                                                     data-evaluation="regular" data-student-question-id="{{ sq.id }}">
                                                 <i class="fas fa-minus"></i> Regular
                                             </button>
-                                            <button type="button" class="btn {% if sq.evaluation == 'mal' %}btn-danger{% else %}btn-outline-danger{% endif %} eval-btn" 
+                                            <button type="button" class="btn btn-sm {% if sq.evaluation == 'mal' %}btn-danger{% else %}btn-outline-danger{% endif %} eval-btn"
                                                     data-evaluation="mal" data-student-question-id="{{ sq.id }}">
                                                 <i class="fas fa-times"></i> Mal
                                             </button>
-                                            <button type="button" class="btn {% if sq.evaluation == 'pendiente' %}btn-secondary{% else %}btn-outline-secondary{% endif %} eval-btn" 
+                                            <button type="button" class="btn btn-sm {% if sq.evaluation == 'pendiente' %}btn-secondary{% else %}btn-outline-secondary{% endif %} eval-btn"
                                                     data-evaluation="pendiente" data-student-question-id="{{ sq.id }}">
                                                 <i class="fas fa-clock"></i> Pendiente
                                             </button>
