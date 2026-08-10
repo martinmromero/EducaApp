@@ -78,27 +78,27 @@
                         <tbody>
                             {% for template in exam_templates %}
                             <tr>
-                                <td class="bulk-select-col d-none">
+                                <td class="rt-card-select bulk-select-col d-none">
                                     <input type="checkbox" name="template_ids" value="{{ template.id }}">
                                 </td>
-                                <td>
+                                <td class="rt-card-badge">
                                     <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
                                             data-model="examtemplate" data-id="{{ template.id }}"
                                             data-active="{% if template.id in favorite_ids %}1{% else %}0{% endif %}"></button>
                                 </td>
-                                <td>{% if template.institution_name_snapshot %}{{ template.institution_name_snapshot }}{% else %}{{ template.institution.name|default:"-" }}{% endif %}</td>
-                                <td>{% if template.faculty_name_snapshot %}{{ template.faculty_name_snapshot }}{% else %}{{ template.faculty.name|default:"-" }}{% endif %}</td>
-                                <td>{{ template.career_name_snapshot|default:template.career.name|default:"-" }}</td>
-                                <td>{% if template.subject_name_snapshot %}{{ template.subject_name_snapshot }}{% else %}{{ template.subject.name|default:"-" }}{% endif %}</td>
-                                <td>
+                                <td class="rt-card-title" data-label="Institución">{% if template.institution_name_snapshot %}{{ template.institution_name_snapshot }}{% else %}{{ template.institution.name|default:"-" }}{% endif %}</td>
+                                <td data-label="Facultad">{% if template.faculty_name_snapshot %}{{ template.faculty_name_snapshot }}{% else %}{{ template.faculty.name|default:"-" }}{% endif %}</td>
+                                <td data-label="Carrera">{{ template.career_name_snapshot|default:template.career.name|default:"-" }}</td>
+                                <td data-label="Materia">{% if template.subject_name_snapshot %}{{ template.subject_name_snapshot }}{% else %}{{ template.subject.name|default:"-" }}{% endif %}</td>
+                                <td data-label="Profesor">
                                     {% if template.professor %}
                                         {{ template.professor.get_full_name }}
                                     {% else %}
                                         -
                                     {% endif %}
                                 </td>
-                                <td>{{ template.year }}</td>
-                                <td>
+                                <td data-label="Año">{{ template.year }}</td>
+                                <td data-label="Acciones">
                                     <div class="btn-group" role="group">
                                         <a href="{% url 'material:view_exam_template' template.id %}"
                                            class="btn btn-sm btn-info" title="Ver plantilla" target="_blank">

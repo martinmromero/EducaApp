@@ -69,7 +69,7 @@
                         <tbody>
                             {% for institution in institutions %}
                                 <tr class="position-relative">
-                                    <td class="bulk-select-col d-none align-middle">
+                                    <td class="rt-card-select bulk-select-col d-none align-middle">
                                         <input type="checkbox" name="institution_ids" value="{{ institution.pk }}">
                                     </td>
                                     <!-- Versión desktop -->
@@ -129,8 +129,12 @@
                                         </div>
                                     </td>
 
-                                    <!-- Versión móvil -->
-                                    <td class="align-middle d-md-none">
+                                    <!-- Versión móvil: esta tarjeta ya arma su propio layout a mano
+                                         (nombre, logo, badges), así que se marca rt-card-title solo
+                                         para que la etiqueta automática de la tarjeta mobile (ver
+                                         _column_filters_assets.html) no le agregue un "prefijo: "
+                                         vacío delante — no es para heredar su estilo de título. -->
+                                    <td class="align-middle d-md-none rt-card-title">
                                         <div class="d-flex flex-column gap-2 p-2">
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <a href="{% url 'material:institution_v2_detail' institution.pk %}" class="text-decoration-none text-dark fw-bold institution-name">

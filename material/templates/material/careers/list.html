@@ -70,32 +70,32 @@
                         <tbody>
                             {% for career in careers %}
                             <tr>
-                                <td class="bulk-select-col d-none">
+                                <td class="rt-card-select bulk-select-col d-none">
                                     <input type="checkbox" name="career_ids" value="{{ career.pk }}">
                                 </td>
-                                <td>{{ career.name }}</td>
-                                <td>
+                                <td class="rt-card-title" data-label="Nombre">{{ career.name }}</td>
+                                <td data-label="Facultades">
                                     {% for faculty in career.faculties.all %}
                                     <span class="badge bg-secondary">{{ faculty.name }}</span>
                                     {% empty %}
                                     <span class="text-muted">Sin asignar</span>
                                     {% endfor %}
                                 </td>
-                                <td>
+                                <td data-label="Campus">
                                     {% for campus in career.campus.all %}
                                     <span class="badge bg-info">{{ campus.name }}</span>
                                     {% empty %}
                                     <span class="text-muted">Sin asignar</span>
                                     {% endfor %}
                                 </td>
-                                <td>
+                                <td data-label="Materias">
                                     {% for subject in career.subjects.all %}
                                     <span class="badge bg-success">{{ subject.name }}</span>
                                     {% empty %}
                                     <span class="text-muted">Sin asignar</span>
                                     {% endfor %}
                                 </td>
-                                <td>
+                                <td data-label="Acciones">
                                     <div class="btn-group" role="group">
                                         <a href="{% url 'material:career_detail' pk=career.pk %}"
                                            class="btn btn-sm btn-info" title="Ver detalles">

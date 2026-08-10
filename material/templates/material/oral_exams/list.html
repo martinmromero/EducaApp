@@ -64,17 +64,17 @@
                             <tbody>
                                 {% for exam in oral_exams %}
                                 <tr>
-                                    <td class="bulk-select-col d-none">
+                                    <td class="rt-card-select bulk-select-col d-none">
                                         <input type="checkbox" name="oral_exam_ids" value="{{ exam.id }}">
                                     </td>
-                                    <td>{{ exam.name }}</td>
-                                    <td>{{ exam.subject.name }}</td>
-                                    <td>{{ exam.num_groups }}</td>
-                                    <td>{{ exam.students_per_group }}</td>
-                                    <td>{{ exam.questions_per_student }}</td>
-                                    <td>{{ exam.total_students }}</td>
-                                    <td>{{ exam.created_at|date:"d/m/Y" }}</td>
-                                    <td>
+                                    <td class="rt-card-title" data-label="Nombre">{{ exam.name }}</td>
+                                    <td data-label="Materia">{{ exam.subject.name }}</td>
+                                    <td data-label="Grupos">{{ exam.num_groups }}</td>
+                                    <td data-label="Est. por grupo">{{ exam.students_per_group }}</td>
+                                    <td data-label="Preg. por est.">{{ exam.questions_per_student }}</td>
+                                    <td data-label="Total estudiantes">{{ exam.total_students }}</td>
+                                    <td data-label="Creado">{{ exam.created_at|date:"d/m/Y" }}</td>
+                                    <td data-label="Acciones">
                                         <div class="btn-group btn-group-sm" role="group">
                                             <a href="{% url 'material:view_oral_exam' exam.id %}"
                                                class="btn btn-sm btn-info"
