@@ -583,7 +583,16 @@ def _parse_duration_to_seconds(raw: Optional[str]) -> Optional[float]:
     return total if (hours or minutes or seconds) else None
 
 
-class GlobalFallbackBackend:
+class SharedDemoBackend:
+    """Marcador común para los backends del fallback compartido de demo
+    (GlobalFallbackBackend de un solo proveedor, o DemoRoutingBackend con
+    Groq+Gemini enrutando entre sí) — usar esto en `isinstance`, nunca la
+    clase concreta, así no hay que tocar cada chequeo cada vez que se suma
+    una variante nueva de backend compartido."""
+    pass
+
+
+class GlobalFallbackBackend(SharedDemoBackend):
     """Envuelve el backend real del fallback de demo (GlobalAIConfig) para
     registrar, después de cada llamada de generación real, el cupo restante que
     haya informado el proveedor (hoy solo Groq expone RPD/TPM en los headers de
@@ -637,17 +646,22 @@ class GlobalFallbackBackend:
             logger.warning(f'No se pudo guardar el snapshot de cupo del fallback global: {e}')
 
 
-def _global_demo_backend():
-    """
-    Devuelve el backend construido a partir de GlobalAIConfig (fallback de
-    demo, editable solo desde Django Admin) si hay uno activo y con key,
-    o None si no está configurado.
-    """
+def _demo_config_for(provider):
+    """Fila de GlobalAIConfig activa para un proveedor puntual (groq/gemini),
+    o None. Se busca por proveedor explícito, no por "la primera activa" —
+    con Groq y Gemini activos al mismo tiempo (ver DemoRoutingBackend), un
+    `.filter(is_active=True).first()` sin más quedaría a merced del orden
+    de la tabla."""
     try:
         from .models import GlobalAIConfig
-        cfg = GlobalAIConfig.objects.filter(is_active=True).first()
+        return GlobalAIConfig.objects.filter(provider=provider, is_active=True).first()
     except Exception:
         return None
+
+
+def _build_demo_fallback(cfg):
+    """Arma un GlobalFallbackBackend a partir de una fila de GlobalAIConfig
+    ya resuelta, o None si no hay fila o no tiene key cargada."""
     if cfg is None or not cfg.api_key_encrypted:
         return None
     model = cfg.model or ('gemini-2.5-flash-lite' if cfg.provider == 'gemini' else 'gpt-4o-mini')
@@ -663,16 +677,124 @@ def _global_demo_backend():
         return None
 
 
+class DemoRoutingBackend(SharedDemoBackend):
+    """Fallback compartido de demo con dos proveedores: Groq como default
+    para texto ("usar Groq siempre que se pueda") y Gemini reservado para
+    lo que Groq no puede hacer — imágenes (Groq no tiene modelos con
+    visión) y como respaldo si Groq ya gastó su cupo del día. Gemini nunca
+    recibe texto mientras Groq tenga margen: no es un segundo default, es
+    el "de más".
+
+    Si un fragmento trae texto E imágenes a la vez, quien llama (ver
+    generate_questions_from_chapters en views_document_processor.py) hace
+    dos llamadas separadas — una sin `images` (texto, va a Groq) y otra
+    solo con `images` (va a Gemini) — en vez de mandar todo junto, que
+    forzaría también el texto a Gemini.
+    """
+    def __init__(self, groq_backend, gemini_backend):
+        self._groq = groq_backend      # GlobalFallbackBackend | None
+        self._gemini = gemini_backend  # GlobalFallbackBackend | None
+
+    def is_available(self):
+        if self._groq and self._groq.is_available():
+            return True
+        return bool(self._gemini and self._gemini.is_available())
+
+    def get_status(self):
+        # Un solo dict, como espera el resto del código — el de Groq
+        # (el proveedor "default") si existe, si no el de Gemini. Esto es
+        # sobre conectividad, no sobre cupo: el enrutado por cupo pasa en
+        # generate(), no acá.
+        primary = self._groq or self._gemini
+        return primary.get_status() if primary else {'connected': False, 'backend': 'none'}
+
+    def refresh_quota(self):
+        if self._groq:
+            self._groq.refresh_quota()
+
+    def _groq_quota_exhausted(self):
+        """Chequeo proactivo con el último cupo conocido (puede tener hasta
+        `ensure_fresh_demo_quota`'s max_age_seconds de atraso). generate()
+        además reacciona en caliente si Groq devuelve un error de cupo pese
+        a que este chequeo decía que había margen."""
+        if not self._groq:
+            return True
+        try:
+            from .models import GlobalAIConfig
+            cfg = GlobalAIConfig.objects.filter(pk=self._groq._config_id).first()
+        except Exception:
+            return False
+        if cfg is None:
+            return False
+        if cfg.quota_remaining_requests is not None and cfg.quota_remaining_requests <= 0:
+            return True
+        if cfg.quota_remaining_tokens is not None and cfg.quota_limit_tokens and cfg.quota_remaining_tokens <= 0:
+            return True
+        return False
+
+    @staticmethod
+    def _looks_like_quota_error(result):
+        if not isinstance(result, dict) or result.get('success'):
+            return False
+        if result.get('status_code') == 429:
+            return True
+        error = (result.get('error') or '').lower()
+        return '429' in error or 'límite' in error or 'limit' in error or 'quota' in error
+
+    def generate(self, *args, images=None, **kwargs):
+        # Imágenes: Groq no tiene modelos con visión — van directo a Gemini,
+        # y (por diseño) nada que no sea una llamada con imágenes usa Gemini.
+        if images:
+            if not self._gemini:
+                return {
+                    'success': False,
+                    'error': 'No hay un proveedor con soporte de imágenes configurado.',
+                    'text': None,
+                }
+            return self._gemini.generate(*args, images=images, **kwargs)
+
+        # Texto: Groq primero, siempre que se pueda.
+        if self._groq and not self._groq_quota_exhausted():
+            result = self._groq.generate(*args, **kwargs)
+            if result.get('success') or not self._looks_like_quota_error(result):
+                return result
+            logger.info('Groq sin cupo pese al chequeo previo (error de cupo en caliente) — reintentando con Gemini.')
+
+        if self._gemini:
+            return self._gemini.generate(*args, **kwargs)
+
+        if self._groq:
+            # No hay Gemini de respaldo configurado: devolver el intento de
+            # Groq tal cual (con cupo agotado, probablemente falle, pero es
+            # la única opción real).
+            return self._groq.generate(*args, **kwargs)
+
+        return {'success': False, 'error': 'No hay proveedor de IA compartido configurado.', 'text': None}
+
+
+def _global_demo_backend():
+    """
+    Backend compartido de demo (fallback editable desde Django Admin,
+    GlobalAIConfig). Groq y Gemini son proveedores intencionalmente
+    especiales acá (ver DemoRoutingBackend) — si ambos están activos y con
+    key, se enrutan entre sí; si solo uno lo está, se usa ese para todo
+    (mismo comportamiento que antes de sumar el enrutado); si ninguno,
+    devuelve None.
+    """
+    groq_fb = _build_demo_fallback(_demo_config_for('groq'))
+    gemini_fb = _build_demo_fallback(_demo_config_for('gemini'))
+    if groq_fb is not None and gemini_fb is not None:
+        return DemoRoutingBackend(groq_fb, gemini_fb)
+    return groq_fb or gemini_fb
+
+
 def get_global_demo_quota():
-    """Último cupo conocido del fallback de demo (GlobalAIConfig activo), tomado
-    de la última llamada real (generación de preguntas o ping de refresco vía
-    `ensure_fresh_demo_quota`) que se haya hecho con esa key.
-    Devuelve None si no hay fallback activo o todavía no se registró ningún cupo."""
-    try:
-        from .models import GlobalAIConfig
-        cfg = GlobalAIConfig.objects.filter(is_active=True).first()
-    except Exception:
-        return None
+    """Último cupo conocido de Groq (el proveedor default del fallback de
+    demo — ver DemoRoutingBackend), tomado de la última llamada real
+    (generación de preguntas o ping de refresco vía `ensure_fresh_demo_quota`)
+    que se haya hecho con esa key. Devuelve None si Groq no está configurado
+    como fallback de demo o todavía no se registró ningún cupo."""
+    cfg = _demo_config_for('groq')
     if cfg is None or cfg.quota_checked_at is None:
         return None
     return {
@@ -687,9 +809,10 @@ def get_global_demo_quota():
 
 
 def ensure_fresh_demo_quota(max_age_seconds=3600):
-    """Si el fallback global está activo y el último cupo conocido tiene más de
-    `max_age_seconds` (o nunca se registró ninguno), hace un ping mínimo
-    (`GlobalFallbackBackend.refresh_quota`) para refrescarlo antes de leerlo.
+    """Si Groq (el proveedor default del fallback de demo) está activo y el
+    último cupo conocido tiene más de `max_age_seconds` (o nunca se
+    registró ninguno), hace un ping mínimo (`GlobalFallbackBackend.
+    refresh_quota`) para refrescarlo antes de leerlo.
 
     El throttle es a propósito: `GlobalAIConfig` es una única fila compartida
     por todos los usuarios, así que sin este límite, cada carga de pantalla de
@@ -698,19 +821,15 @@ def ensure_fresh_demo_quota(max_age_seconds=3600):
     mirando la pantalla al mismo tiempo. Llamar antes de `get_global_demo_quota()`
     en cualquier vista que muestre el cupo.
     """
-    try:
-        from django.utils import timezone
-        from .models import GlobalAIConfig
-        cfg = GlobalAIConfig.objects.filter(is_active=True).first()
-    except Exception:
-        return
+    from django.utils import timezone
+    cfg = _demo_config_for('groq')
     if cfg is None or not cfg.api_key_encrypted:
         return
     if cfg.quota_checked_at is not None:
         age = (timezone.now() - cfg.quota_checked_at).total_seconds()
         if age < max_age_seconds:
             return
-    backend = _global_demo_backend()
+    backend = _build_demo_fallback(cfg)
     if backend is not None:
         backend.refresh_quota()
 

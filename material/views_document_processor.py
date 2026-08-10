@@ -321,11 +321,11 @@ def document_processor_dashboard(request):
     """
     from material.models import Subject
     # Obtener backend configurado para este usuario (no la instancia global)
-    from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota, GlobalFallbackBackend
+    from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota, SharedDemoBackend
     backend = get_backend_for_user(request.user)
     ai_status = backend.get_status()
 
-    using_shared_fallback = isinstance(backend, GlobalFallbackBackend)
+    using_shared_fallback = isinstance(backend, SharedDemoBackend)
     if using_shared_fallback:
         ensure_fresh_demo_quota()
     demo_quota = get_global_demo_quota() if using_shared_fallback else None
@@ -461,7 +461,7 @@ def check_local_ai_status(request):
         JSON con estado de conexión y modelo activo
     """
     try:
-        from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota, GlobalFallbackBackend
+        from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota, SharedDemoBackend
         from .models import UserAIConfig
         config, _ = UserAIConfig.objects.get_or_create(user=request.user)
         backend = get_backend_for_user(request.user)
@@ -474,7 +474,7 @@ def check_local_ai_status(request):
         # límite por tanda" (piensa que sigue en Ollama local cuando en
         # realidad está usando el fallback compartido con cupo limitado).
         status['source'] = config.source
-        if isinstance(backend, GlobalFallbackBackend):
+        if isinstance(backend, SharedDemoBackend):
             status['using_shared_fallback'] = True
             ensure_fresh_demo_quota()
             quota = get_global_demo_quota()
@@ -916,9 +916,9 @@ def _chunking_budget(backend):
 
     Devuelve (content_max_tokens, output_max_tokens_ceiling).
     """
-    from .ai_router import GlobalFallbackBackend, get_global_demo_quota
+    from .ai_router import SharedDemoBackend, get_global_demo_quota
 
-    if not isinstance(backend, GlobalFallbackBackend):
+    if not isinstance(backend, SharedDemoBackend):
         return _DEFAULT_CONTENT_CHUNK_TOKENS, _DEFAULT_OUTPUT_TOKENS_CEILING
 
     quota = get_global_demo_quota()
@@ -1345,13 +1345,32 @@ def stream_questions(request, job_id):
                 if chunk_idx_global > 1:
                     time.sleep(2)
                 try:
-                    raw_questions = _generate_questions_for_chunk(
+                    text_questions = _generate_questions_for_chunk(
                         chunk['text'], title, questions_per_chunk, i, len(chunks),
                         question_types=question_types, backend=backend,
                         existing_questions=existing_questions_list,
-                        images=chapter_images if i == 0 else None,
                         output_tokens_ceiling=output_tokens_ceiling,
                     )
+                    image_questions = []
+                    if chapter_images and i == 0:
+                        # Texto e imágenes van por separado a su proveedor
+                        # correspondiente (ver DemoRoutingBackend en
+                        # ai_router.py): Groq no tiene modelos con visión, así
+                        # que mandar todo junto en una sola llamada forzaba
+                        # también el texto a Gemini. Si esta segunda llamada
+                        # falla, no se pierde lo ya generado del texto — se
+                        # loguea y se sigue solo con eso.
+                        try:
+                            image_questions = _generate_questions_for_chunk(
+                                chunk['text'], title, questions_per_chunk, i, len(chunks),
+                                question_types=question_types, backend=backend,
+                                existing_questions=existing_questions_list + text_questions,
+                                images=chapter_images,
+                                output_tokens_ceiling=output_tokens_ceiling,
+                            )
+                        except Exception as img_exc:
+                            logger.warning(f"SSE chunk {chunk_idx_global} (imágenes) de '{title}' falló: {img_exc}")
+                    raw_questions = text_questions + image_questions
                     # Páginas del FRAGMENTO puntual del que salieron estas
                     # preguntas (no de todo el capítulo/tanda) — ver comentario
                     # análogo en generate_questions_from_chapters.

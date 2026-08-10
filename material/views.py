@@ -6651,12 +6651,12 @@ def ai_config_list_models(request):
 def ai_config_status(request):
     """Endpoint JSON que devuelve el estado actual del backend configurado."""
     from django.http import JsonResponse
-    from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota, GlobalFallbackBackend
+    from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota, SharedDemoBackend
     from .models import UserAIConfig
 
     config, _ = UserAIConfig.objects.get_or_create(user=request.user)
     backend = get_backend_for_user(request.user)
-    is_global_fallback = isinstance(backend, GlobalFallbackBackend)
+    is_global_fallback = isinstance(backend, SharedDemoBackend)
     try:
         status = backend.get_status()
         # Siempre devolver el source real del usuario como 'backend'
