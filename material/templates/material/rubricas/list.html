@@ -2,6 +2,7 @@
 {% block page_title %}<i class="bi bi-card-checklist me-2"></i>Rúbricas{% endblock %}
 
 {% block content %}
+{% include 'material/components/_mobile_card_table.html' %}
 <div class="container mt-4">
     <div class="d-flex justify-content-end align-items-center mb-4">
         <a href="{% url 'material:rubric_create' %}" class="btn btn-primary">
@@ -20,7 +21,7 @@
 
     {% if rubricas %}
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle mobile-card-table">
                 <thead class="table-secondary">
                     <tr>
                         <th>Título</th>
@@ -33,23 +34,23 @@
                 <tbody>
                     {% for rubrica in rubricas %}
                     <tr>
-                        <td><strong>{{ rubrica.title }}</strong></td>
-                        <td class="text-center">
+                        <td class="rt-card-title" data-label="Título"><strong>{{ rubrica.title }}</strong></td>
+                        <td class="text-center" data-label="Niveles">
                             {% if rubrica.level_count %}
                                 <span class="badge bg-primary">{{ rubrica.level_count }}</span>
                             {% else %}
                                 <span class="text-muted small">—</span>
                             {% endif %}
                         </td>
-                        <td class="text-center">
+                        <td class="text-center" data-label="Criterios">
                             {% if rubrica.criterion_count %}
                                 <span class="badge bg-success">{{ rubrica.criterion_count }}</span>
                             {% else %}
                                 <span class="text-muted small">—</span>
                             {% endif %}
                         </td>
-                        <td class="text-nowrap text-muted small">{{ rubrica.updated_at|date:"d/m/Y H:i" }}</td>
-                        <td class="text-end text-nowrap">
+                        <td class="text-nowrap text-muted small" data-label="Modificada">{{ rubrica.updated_at|date:"d/m/Y H:i" }}</td>
+                        <td class="text-end text-nowrap" data-label="Acciones">
                             <a href="{% url 'material:rubric_edit' rubrica.pk %}" class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-pencil"></i> Editar
                             </a>

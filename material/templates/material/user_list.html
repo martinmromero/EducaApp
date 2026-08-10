@@ -3,6 +3,7 @@
 {% block page_title %}<i class="bi bi-people-fill me-2"></i>Usuarios{% endblock %}
 
 {% block content %}
+{% include 'material/components/_mobile_card_table.html' %}
 <div class="container">
     {% show_messages "usuarios" %}
     <div class="d-flex justify-content-end mb-3">
@@ -10,7 +11,8 @@
             <i class="bi bi-person-plus me-1"></i>Nuevo usuario
         </a>
     </div>
-    <table class="table table-striped">
+    <div class="table-responsive">
+    <table class="table table-striped mobile-card-table">
         <thead>
             <tr>
                 <th>ID</th>
@@ -28,22 +30,22 @@
         <tbody>
             {% for user in users %}
             <tr>
-                <td>{{ user.id }}</td>
-                <td>{{ user.username }}</td>
-                <td>{{ user.first_name }}</td>
-                <td>{{ user.last_name }}</td>
-                <td>{{ user.email }}</td>
-                <td>{{ user.profile.get_role_display }}</td>
-                <td>
+                <td data-label="ID">{{ user.id }}</td>
+                <td class="rt-card-title" data-label="Usuario">{{ user.username }}</td>
+                <td data-label="Nombre">{{ user.first_name }}</td>
+                <td data-label="Apellido">{{ user.last_name }}</td>
+                <td data-label="Email">{{ user.email }}</td>
+                <td data-label="Rol">{{ user.profile.get_role_display }}</td>
+                <td data-label="Estado">
                     {% if user.is_active %}
                         <span class="badge bg-success">Activo</span>
                     {% else %}
                         <span class="badge bg-danger">Inactivo</span>
                     {% endif %}
                 </td>
-                <td>{{ user.last_login|default:"Nunca" }}</td>
-                <td>{{ user.date_joined }}</td>
-                <td>
+                <td data-label="Última conexión">{{ user.last_login|default:"Nunca" }}</td>
+                <td data-label="Fecha de registro">{{ user.date_joined }}</td>
+                <td data-label="Acciones">
                     <a href="{% url 'material:edit_user' user.id %}" class="btn btn-sm btn-primary">Editar</a>
                     <a href="{% url 'material:delete_user' user.id %}" class="btn btn-sm btn-danger">Eliminar</a>
                 </td>
@@ -51,5 +53,6 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 {% endblock %}

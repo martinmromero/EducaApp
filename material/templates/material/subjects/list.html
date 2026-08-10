@@ -2,6 +2,7 @@
 {% load message_tags %}
 {% block page_title %}<i class="bi bi-book me-2"></i>Materias{% endblock %}
 {% block content %}
+{% include 'material/components/_mobile_card_table.html' %}
 {% show_messages "materias" %}
 <form method="post" action="{% url 'material:bulk_eliminar_subjects' %}" id="deleteForm">
     {% csrf_token %}
@@ -25,7 +26,7 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover mobile-card-table">
                     <thead>
                         <tr>
                             <th class="bulk-select-col d-none" style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
@@ -38,16 +39,16 @@
                     <tbody>
                         {% for subject in subjects %}
                         <tr>
-                            <td class="bulk-select-col d-none">
+                            <td class="rt-card-select bulk-select-col d-none">
                                 <input type="checkbox" name="subject_ids" value="{{ subject.pk }}">
                             </td>
-                            <td>
+                            <td class="rt-card-badge">
                                 <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
                                         data-model="subject" data-id="{{ subject.pk }}"
                                         data-active="{% if subject.pk in favorite_ids %}1{% else %}0{% endif %}"></button>
                             </td>
-                            <td>{{ subject.name }}</td>
-                            <td>
+                            <td class="rt-card-title" data-label="Nombre">{{ subject.name }}</td>
+                            <td data-label="Resultados de aprendizaje">
                                 {% with outcomes=subject.get_all_outcomes %}
                                     {% if outcomes %}
                                         <ul class="mb-0 ps-3">
@@ -60,7 +61,7 @@
                                     {% endif %}
                                 {% endwith %}
                             </td>
-                            <td>
+                            <td data-label="Acciones">
                                 <div class="btn-group">
                                     <a href="{% url 'material:subject_detail' pk=subject.pk %}" class="btn btn-sm btn-info" title="Ver materia">
                                         <i class="fas fa-eye"></i>

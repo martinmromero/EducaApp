@@ -3,6 +3,7 @@
 {% block page_title %}<i class="bi bi-collection me-2"></i>Mis Contenidos{% endblock %}
 
 {% block content %}
+{% include 'material/components/_mobile_card_table.html' %}
 <div class="container">
 
     <!-- Mensajes específicos de contenidos -->
@@ -22,7 +23,7 @@
     <form method="post" action="{% url 'material:delete_contenido' %}" id="deleteFormVigentes">
         {% csrf_token %}
         <div class="table-responsive">
-            <table class="table table-striped">
+            <table class="table table-striped mobile-card-table">
                 <thead>
                     <tr>
                         <th>Seleccionar</th>
@@ -36,20 +37,20 @@
                 <tbody>
                     {% for contenido in vigentes %}
                     <tr>
-                        <td>
+                        <td class="rt-card-select">
                             <input type="checkbox" name="contenido_ids" value="{{ contenido.id }}">
                         </td>
-                        <td>{{ contenido.title }}</td>
-                        <td>
+                        <td class="rt-card-title" data-label="Título">{{ contenido.title }}</td>
+                        <td data-label="Archivo">
                             <span class="text-success"><i class="bi bi-file-earmark-check me-1"></i>{{ contenido.file.name }}</span>
                         </td>
-                        <td>{{ contenido.uploaded_at|date:"d/m/Y H:i" }}</td>
-                        <td>
+                        <td data-label="Fecha de subida">{{ contenido.uploaded_at|date:"d/m/Y H:i" }}</td>
+                        <td data-label="Estado del archivo">
                             <span class="badge bg-warning text-dark">
                                 <i class="bi bi-clock me-1"></i>Se elimina al cerrar sesión
                             </span>
                         </td>
-                        <td>
+                        <td data-label="Acciones">
                             <a href="{% url 'material:document_processor_dashboard' %}?contenido_id={{ contenido.id }}"
                                class="btn btn-sm btn-primary">
                                 Analizar con IA
@@ -108,7 +109,7 @@
         </form>
 
         <div class="table-responsive">
-            <table class="table table-striped">
+            <table class="table table-striped mobile-card-table">
                 <thead>
                     <tr>
                         <th>Título</th>
@@ -121,11 +122,11 @@
                 <tbody>
                     {% for contenido in borrados_page %}
                     <tr>
-                        <td>{{ contenido.title }}</td>
-                        <td>{{ contenido.isbn|default:"—" }}</td>
-                        <td>{% for materia in contenido.subjects.all %}{{ materia.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
-                        <td>{{ contenido.uploaded_at|date:"d/m/Y H:i" }}</td>
-                        <td>
+                        <td class="rt-card-title" data-label="Título">{{ contenido.title }}</td>
+                        <td data-label="ISBN">{{ contenido.isbn|default:"—" }}</td>
+                        <td data-label="Materias">{% for materia in contenido.subjects.all %}{{ materia.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
+                        <td data-label="Fecha de subida">{{ contenido.uploaded_at|date:"d/m/Y H:i" }}</td>
+                        <td data-label="Archivo eliminado el">
                             <span class="badge bg-secondary">
                                 <i class="bi bi-trash me-1"></i>{{ contenido.file_deleted_at|date:"d/m/Y" }}
                             </span>

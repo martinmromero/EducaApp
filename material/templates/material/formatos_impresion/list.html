@@ -2,13 +2,14 @@
 {% block page_title %}<i class="bi bi-printer me-2"></i>Formatos de Impresión{% endblock %}
 
 {% block content %}
+{% include 'material/components/_mobile_card_table.html' %}
 <div class="container mt-4">
     <div class="d-flex justify-content-end align-items-center mb-3">
         <a href="{% url 'material:formato_impresion_create' %}" class="btn btn-primary">Nuevo formato</a>
     </div>
 
     <div class="table-responsive">
-        <table class="table table-striped">
+        <table class="table table-striped mobile-card-table">
             <thead>
                 <tr>
                     <th>Nombre</th>
@@ -22,16 +23,16 @@
             <tbody>
                 {% for formato in formatos %}
                 <tr>
-                    <td>{{ formato.nombre }}</td>
-                    <td>
+                    <td class="rt-card-title" data-label="Nombre">{{ formato.nombre }}</td>
+                    <td data-label="Alcance">
                         {% if formato.user_id %}Usuario
                         {% elif formato.institution_id %}{{ formato.institution.name }}
                         {% else %}Global{% endif %}
                     </td>
-                    <td>{{ formato.fuente }}</td>
-                    <td>{{ formato.tamano_fuente }} pt</td>
-                    <td>{% if formato.es_default %}Sí{% else %}No{% endif %}</td>
-                    <td>
+                    <td data-label="Fuente">{{ formato.fuente }}</td>
+                    <td data-label="Tamaño">{{ formato.tamano_fuente }} pt</td>
+                    <td data-label="Predeterminado">{% if formato.es_default %}Sí{% else %}No{% endif %}</td>
+                    <td data-label="Acciones">
                         <a href="{% url 'material:formato_impresion_edit' formato.pk %}" class="btn btn-sm btn-warning">Editar</a>
                         {% if not formato.es_default %}
                         <form method="post" action="{% url 'material:formato_impresion_set_default' formato.pk %}" class="d-inline">

@@ -1,6 +1,7 @@
 {% extends "material/base.html" %}
 
 {% block content %}
+{% include 'material/components/_mobile_card_table.html' %}
 <div class="container">
     <div class="row mb-4">
         <div class="col">
@@ -21,7 +22,7 @@
         <div class="card-body">
             {% if logs %}
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover mobile-card-table">
                     <thead>
                         <tr>
                             <th>Acción</th>
@@ -33,8 +34,8 @@
                     <tbody>
                         {% for log in logs %}
                         <tr>
-                            <td>
-                                <span class="badge 
+                            <td class="rt-card-badge">
+                                <span class="badge
                                     {% if log.action == 'create' %}bg-success
                                     {% elif log.action == 'update' %}bg-warning
                                     {% elif log.action == 'delete' %}bg-danger
@@ -46,9 +47,9 @@
                                     {% endif %}
                                 </span>
                             </td>
-                            <td>
+                            <td class="rt-card-title" data-label="Detalles">
                                 {% if log.action == 'update' %}
-                                    Campo <strong>{{ log.details.field }}</strong> cambiado de 
+                                    Campo <strong>{{ log.details.field }}</strong> cambiado de
                                     "{{ log.details.old_value }}" a "{{ log.details.new_value }}"
                                 {% elif log.action == 'create' %}
                                     Institución creada: {{ log.details.name }}
@@ -56,8 +57,8 @@
                                     Institución eliminada: {{ log.details.name }}
                                 {% endif %}
                             </td>
-                            <td>{{ log.user.username|default:"Sistema" }}</td>
-                            <td>{{ log.created_at|date:"d/m/Y H:i" }}</td>
+                            <td data-label="Usuario">{{ log.user.username|default:"Sistema" }}</td>
+                            <td data-label="Fecha">{{ log.created_at|date:"d/m/Y H:i" }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

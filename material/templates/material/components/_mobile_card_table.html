@@ -1,0 +1,116 @@
+{% comment %}
+Versión liviana (solo CSS, sin la maquinaria de filtros por columna) del
+mismo patrón "tabla → tarjetas apiladas en mobile" que usa
+_column_filters_assets.html (ver ese archivo para los listados que sí
+tienen filtros por columna vía material/column_filters.py). Para listados
+simples que no necesitan filtrar, incluir este archivo en vez de forzar
+todo el sistema de filtros solo para heredar el CSS mobile.
+
+Convención que debe respetar la página que lo incluye:
+- La <table> debe tener la clase "mobile-card-table".
+- Cada <td> necesita data-label="..." calcado del <th> correspondiente.
+- Opcionalmente, una celda puede marcarse como:
+    - rt-card-title: el dato principal — se muestra grande, sin etiqueta,
+      como título de la tarjeta.
+    - rt-card-select / rt-card-badge: checkbox de selección o insignia
+      corta — flotan junto al título en vez de ir como fila propia.
+- Por convención, la ÚLTIMA columna ("Acciones") queda separada con un
+  borde arriba y alineada a la derecha, sin etiqueta propia.
+{% endcomment %}
+<style>
+    @media (max-width: 767.98px) {
+        .table-responsive:has(.mobile-card-table) {
+            overflow-x: hidden;
+        }
+        .container-fluid:has(.mobile-card-table) {
+            padding-left: .5rem;
+            padding-right: .5rem;
+        }
+        .card:has(.mobile-card-table) {
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            background: transparent;
+        }
+        .card:has(.mobile-card-table) > .card-header {
+            padding-left: .25rem;
+            padding-right: .25rem;
+            background: transparent;
+        }
+        .card:has(.mobile-card-table) > .card-body {
+            padding-left: 0;
+            padding-right: 0;
+        }
+        .mobile-card-table thead {
+            display: none;
+        }
+        .mobile-card-table,
+        .mobile-card-table tbody {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+        }
+        .mobile-card-table tr {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            background: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: .6rem;
+            padding: .6rem .7rem;
+            margin-bottom: .5rem;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+        }
+        .mobile-card-table td {
+            display: block;
+            flex: 1 1 100%;
+            min-width: 0;
+            max-width: 100%;
+            padding: .25rem 0 !important;
+            border: none !important;
+            background-color: transparent !important;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .mobile-card-table td::before {
+            content: attr(data-label) ": ";
+            font-weight: 600;
+            font-size: .7rem;
+            text-transform: uppercase;
+            letter-spacing: .02em;
+            color: var(--bs-secondary-color);
+        }
+        .mobile-card-table td.rt-card-title {
+            order: -1;
+            flex: 1 1 auto;
+            min-width: 0;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+        .mobile-card-table td.rt-card-title::before {
+            content: none;
+        }
+        .mobile-card-table td.rt-card-select,
+        .mobile-card-table td.rt-card-badge {
+            order: -2;
+            flex: 0 0 auto;
+            padding: 0 !important;
+        }
+        .mobile-card-table td.rt-card-select::before,
+        .mobile-card-table td.rt-card-badge::before {
+            content: none;
+        }
+        .mobile-card-table tr > td:last-of-type {
+            border-top: 1px solid var(--bs-border-color) !important;
+            margin-top: .4rem;
+            padding-top: .6rem !important;
+            text-align: right;
+        }
+        .mobile-card-table tr > td:last-of-type::before {
+            content: none;
+        }
+    }
+</style>
