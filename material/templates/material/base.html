@@ -440,6 +440,20 @@
         };
       })();
 
+      // Reemplazo puntual para el patrón <form onsubmit="return confirm(...)">:
+      // como EducaAppModal.confirm() es async, no puede devolver el booleano
+      // que onsubmit necesita en el momento — siempre bloquea el submit
+      // nativo (return false) y, si el usuario confirma, manda el form por
+      // su cuenta. Uso: onsubmit="return eduConfirmSubmit(event, 'mensaje')".
+      window.eduConfirmSubmit = function (event, message, opts) {
+        event.preventDefault();
+        const form = event.target;
+        window.EducaAppModal.confirm(message, opts).then(function (ok) {
+          if (ok) form.submit();
+        });
+        return false;
+      };
+
       // Ver comentario de #pageMessageModal más arriba: pasa los mensajes
       // warning/error del banner de arriba de la página a un modal.
       (function () {

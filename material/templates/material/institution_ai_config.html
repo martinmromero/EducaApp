@@ -38,7 +38,7 @@
               <a href="?edit={{ cfg.pk }}" class="btn btn-sm btn-outline-primary">
                 <i class="bi bi-pencil"></i>
               </a>
-              <form method="post" action="?delete={{ cfg.pk }}" onsubmit="return confirm('¿Eliminar esta configuración?')">
+              <form method="post" action="?delete={{ cfg.pk }}" onsubmit="return eduConfirmSubmit(event, '¿Eliminar esta configuración?', {title: 'Eliminar configuración', variant: 'danger', okLabel: 'Eliminar'});">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-sm btn-outline-danger">
                   <i class="bi bi-trash"></i>

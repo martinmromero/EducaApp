@@ -150,7 +150,7 @@
     <!-- Formularios individuales de eliminación (uno por plantilla, ligados al botón de la fila) -->
     {% for template in exam_templates %}
     <form method="post" action="{% url 'material:delete_exam_template' %}" id="deleteRowForm_{{ template.id }}"
-          onsubmit="return confirm('¿Eliminar esta plantilla?');">
+          onsubmit="return eduConfirmSubmit(event, '¿Eliminar esta plantilla?', {title: 'Eliminar plantilla', variant: 'danger', okLabel: 'Eliminar'});">
         {% csrf_token %}
         <input type="hidden" name="template_ids" value="{{ template.id }}">
     </form>

@@ -55,7 +55,7 @@
                                 <i class="bi bi-pencil"></i> Editar
                             </a>
                             <form method="post" action="{% url 'material:rubric_delete' rubrica.pk %}" class="d-inline"
-                                  onsubmit="return confirm('¿Eliminar la rúbrica «{{ rubrica.title }}»?')">
+                                  onsubmit="return eduConfirmSubmit(event, '¿Eliminar la rúbrica «{{ rubrica.title|escapejs }}»?', {title: 'Eliminar rúbrica', variant: 'danger', okLabel: 'Eliminar'});">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-sm btn-outline-danger">
                                     <i class="bi bi-trash"></i> Eliminar

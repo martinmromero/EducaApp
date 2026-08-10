@@ -119,7 +119,7 @@
     <!-- Formularios individuales de eliminación (uno por cuestionario, ligados al botón de la fila) -->
     {% for exam in oral_exams %}
     <form method="post" action="{% url 'material:delete_oral_exam' exam.id %}" id="deleteRowForm_{{ exam.id }}"
-          onsubmit="return confirm('¿Confirmar la eliminación del cuestionario &quot;{{ exam.name|escapejs }}&quot;? Esta acción no se puede deshacer.');">
+          onsubmit="return eduConfirmSubmit(event, '¿Confirmar la eliminación del cuestionario &quot;{{ exam.name|escapejs }}&quot;? Esta acción no se puede deshacer.', {title: 'Eliminar cuestionario', variant: 'danger', okLabel: 'Eliminar'});">
         {% csrf_token %}
     </form>
     {% endfor %}

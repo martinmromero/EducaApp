@@ -156,12 +156,12 @@
     {% for item in items %}
     {% if item.kind == 'batch' %}
     <form method="post" action="{% url 'material:eliminar_exam_batch' item.batch.id %}" id="deleteRowForm_batch_{{ item.batch.id }}"
-          onsubmit="return confirm('¿Eliminar este lote y todos sus temas?');">
+          onsubmit="return eduConfirmSubmit(event, '¿Eliminar este lote y todos sus temas?', {title: 'Eliminar lote', variant: 'danger', okLabel: 'Eliminar'});">
         {% csrf_token %}
     </form>
     {% else %}
     <form method="post" action="{% url 'material:eliminar_examen' item.examen.pk %}" id="deleteRowForm_exam_{{ item.examen.pk }}"
-          onsubmit="return confirm('¿Eliminar este examen?');">
+          onsubmit="return eduConfirmSubmit(event, '¿Eliminar este examen?', {title: 'Eliminar examen', variant: 'danger', okLabel: 'Eliminar'});">
         {% csrf_token %}
     </form>
     {% endif %}
