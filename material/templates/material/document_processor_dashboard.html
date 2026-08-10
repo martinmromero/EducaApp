@@ -1229,7 +1229,7 @@ async function loadLocalModels() {
 }
 
 async function setActiveModel(modelName) {
-    if (!confirm(`¿Cambiar el modelo activo a "${modelName}"?`)) {
+    if (!await window.EducaAppModal.confirm(`¿Cambiar el modelo activo a "${modelName}"?`, { title: 'Cambiar modelo', okLabel: 'Cambiar' })) {
         return;
     }
     
@@ -1252,7 +1252,7 @@ async function setActiveModel(modelName) {
             document.getElementById('currentModelName').textContent = modelName;
             
             // Mostrar mensaje de éxito
-            alert(`✅ Modelo cambiado exitosamente a: ${modelName}`);
+            window.EducaAppModal.alert(`Modelo cambiado exitosamente a: ${modelName}`, { title: 'Listo', variant: 'success' });
             
             // Recargar lista de modelos
             await loadLocalModels();
@@ -1260,16 +1260,16 @@ async function setActiveModel(modelName) {
             // Actualizar estado general
             await checkLocalAIStatus();
         } else {
-            alert(`❌ Error al cambiar modelo: ${data.error}`);
+            window.EducaAppModal.alert(`Error al cambiar modelo: ${data.error}`, { title: 'Error', variant: 'danger' });
         }
     } catch (error) {
         console.error('Error al cambiar modelo:', error);
-        alert('❌ Error al cambiar el modelo');
+        window.EducaAppModal.alert('Error al cambiar el modelo', { title: 'Error', variant: 'danger' });
     }
 }
 
 function showModelDetails(details) {
-    alert('Detalles del modelo:\n\n' + JSON.stringify(details, null, 2));
+    window.EducaAppModal.alert(JSON.stringify(details, null, 2), { title: 'Detalles del modelo' });
 }
 
 // Verificar estado al cargar la página
@@ -1428,7 +1428,7 @@ async function startGeneration() {
     // Recolectar tipos de preguntas seleccionados
     const checkedTypes = [...document.querySelectorAll('.question-type-cb:checked')].map(cb => cb.value);
     if (checkedTypes.length === 0) {
-        alert('Seleccionar al menos un tipo de pregunta.');
+        window.EducaAppModal.alert('Seleccionar al menos un tipo de pregunta.', { title: 'Falta información', variant: 'warning' });
         return;
     }
     window._selectedQuestionTypes = checkedTypes;
@@ -2211,16 +2211,15 @@ async function saveGeneratedQuestions() {
     const unselectedCheckboxes = document.querySelectorAll('.question-approve-checkbox:not(:checked)');
     
     if (selectedCheckboxes.length === 0 && unselectedCheckboxes.length === 0) {
-        alert('No hay preguntas para guardar');
+        window.EducaAppModal.alert('No hay preguntas para guardar', { title: 'Nada para guardar', variant: 'warning' });
         return;
     }
 
     // Advertir si el análisis progresivo todavía está en curso
     if (window._activeEventSource) {
-        const continuar = confirm(
-            'Todavía no se terminó de analizar todo el capítulo elegido.\n' +
-            '¿Desea guardar hasta acá?\n\n' +
-            'Esto detiene el análisis faltante.'
+        const continuar = await window.EducaAppModal.confirm(
+            'Todavía no se terminó de analizar todo el capítulo elegido. ¿Desea guardar hasta acá? Esto detiene el análisis faltante.',
+            { title: 'Análisis en curso', variant: 'warning', okLabel: 'Guardar y detener' }
         );
         if (!continuar) return;
         // Detener el stream
@@ -2255,7 +2254,7 @@ async function saveGeneratedQuestions() {
                 document.querySelectorAll('.subject-picker-cb:checked')
             ).map(cb => parseInt(cb.value));
             if (subjectIds.length === 0) {
-                alert('Seleccionar al menos una materia.');
+                window.EducaAppModal.alert('Seleccionar al menos una materia.', { title: 'Falta información', variant: 'warning' });
                 return;
             }
 
@@ -2271,7 +2270,7 @@ async function saveGeneratedQuestions() {
             if (topicSel.value === '__new__') {
                 newTopicName = document.getElementById('newTopicInput').value.trim();
                 if (!newTopicName) {
-                    alert('Ingresar el nombre del nuevo tópico.');
+                    window.EducaAppModal.alert('Ingresar el nombre del nuevo tópico.', { title: 'Falta información', variant: 'warning' });
                     return;
                 }
             } else if (topicSel.value) {
@@ -2281,7 +2280,7 @@ async function saveGeneratedQuestions() {
             if (subtopicSel.value === '__new__') {
                 newSubtopicName = document.getElementById('newSubtopicInput').value.trim();
                 if (!newSubtopicName) {
-                    alert('Ingresar el nombre del nuevo sub-tópico.');
+                    window.EducaAppModal.alert('Ingresar el nombre del nuevo sub-tópico.', { title: 'Falta información', variant: 'warning' });
                     return;
                 }
             } else if (subtopicSel.value) {
@@ -2337,7 +2336,7 @@ async function doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, ne
         });
     });
     
-    if (!confirm(`¿Guardar ${approvedQuestions.length} preguntas aprobadas y ${rejectedQuestions.length} rechazadas?`)) {
+    if (!await window.EducaAppModal.confirm(`¿Guardar ${approvedQuestions.length} preguntas aprobadas y ${rejectedQuestions.length} rechazadas?`, { title: 'Guardar preguntas', okLabel: 'Guardar' })) {
         return;
     }
 
@@ -2516,7 +2515,7 @@ function _loadDocxPreview(callback) {
 // --- Abrir el modal ---
 async function openPagePreview() {
   if (!window.currentDocumentData) {
-    alert('Primero sube o seleccioná un documento.');
+    window.EducaAppModal.alert('Primero sube o seleccioná un documento.', { title: 'Falta un documento', variant: 'warning' });
     return;
   }
 
@@ -2953,7 +2952,7 @@ async function generateFromPageSelection() {
   if (chaptersTabActive) {
     // Usar selección de capítulos
     const checked = [...document.querySelectorAll('.chapter-preview-cb:checked')].map(cb => parseInt(cb.value));
-    if (checked.length === 0) { alert('Seleccionar al menos un capítulo.'); return; }
+    if (checked.length === 0) { window.EducaAppModal.alert('Seleccionar al menos un capítulo.', { title: 'Nada seleccionado', variant: 'warning' }); return; }
     // Cerrar preview y usar el flujo existente
     bootstrap.Modal.getInstance(document.getElementById('pagePreviewModal')).hide();
     // Simular selección en el accordion y lanzar preflight
@@ -2963,7 +2962,7 @@ async function generateFromPageSelection() {
     return;
   }
 
-  if (st.selected.size === 0) { alert('Seleccionar al menos una página.'); return; }
+  if (st.selected.size === 0) { window.EducaAppModal.alert('Seleccionar al menos una página.', { title: 'Nada seleccionado', variant: 'warning' }); return; }
 
   // Verificar servidor IA
   try {
@@ -3005,12 +3004,12 @@ async function generateFromPageSelection() {
     });
     pagesData = await resp.json();
   } catch (e) {
-    alert('Error al obtener el texto de las páginas: ' + e.message);
+    window.EducaAppModal.alert('Error al obtener el texto de las páginas: ' + e.message, { title: 'Error', variant: 'danger' });
     return;
   }
 
   if (!pagesData.success) {
-    alert('Error: ' + pagesData.error);
+    window.EducaAppModal.alert(pagesData.error, { title: 'Error', variant: 'danger' });
     return;
   }
 
