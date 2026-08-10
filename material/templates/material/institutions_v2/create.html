@@ -158,10 +158,11 @@ document.addEventListener('DOMContentLoaded', function() {
         let formCount = parseInt(totalForms.value);
 
         // Eliminar elementos
-        container.addEventListener('click', function(e) {
+        container.addEventListener('click', async function(e) {
             if (e.target.closest('.remove-' + prefix)) {
                 const form = e.target.closest('.formset-form');
-                if (form.querySelector('[name$="-name"]').value === '' || confirm('¿Eliminar esta entrada?')) {
+                const isEmpty = form.querySelector('[name$="-name"]').value === '';
+                if (isEmpty || await window.EducaAppModal.confirm('¿Eliminar esta entrada?', {title: 'Eliminar entrada', variant: 'warning', okLabel: 'Eliminar'})) {
                     form.remove();
                     updateFormIndices(prefix);
                 }

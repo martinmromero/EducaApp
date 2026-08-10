@@ -656,9 +656,10 @@
         // ofrecemos: nunca se mezcla con preguntas de otra materia.
         const demoMatch = (ONB_DATA.demoSubjects || []).find(function (s) { return s.id === res.subject_id; });
         if (demoMatch) {
-          const wantsSeed = window.confirm(
-            'La materia "' + demoMatch.name + '" ya tiene preguntas de ejemplo del sistema.\n\n' +
-            '¿Sumarlas al banco de preguntas para completar el examen de prueba?'
+          const wantsSeed = await window.EducaAppModal.confirm(
+            'La materia "' + demoMatch.name + '" ya tiene preguntas de ejemplo del sistema. ' +
+            '¿Sumarlas al banco de preguntas para completar el examen de prueba?',
+            { title: 'Preguntas de ejemplo disponibles', variant: 'info', okLabel: 'Sumarlas', cancelLabel: 'No, gracias' }
           );
           await saveStep('seed_pref', { include_seed: wantsSeed });
         }

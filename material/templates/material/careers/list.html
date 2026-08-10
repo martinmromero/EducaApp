@@ -200,14 +200,15 @@
         });
     });
 
-    function confirmDelete() {
+    async function confirmDelete() {
         const selected = document.querySelectorAll('#deleteForm input[name="career_ids"]:checked');
         if (selected.length === 0) {
-            alert('Seleccione al menos una carrera');
+            window.EducaAppModal.alert('Seleccione al menos una carrera', { title: 'Nada seleccionado', variant: 'warning' });
             return;
         }
 
-        if (confirm(`¿Eliminar ${selected.length} carrera(s) seleccionada(s)? Esta acción no se puede deshacer.`)) {
+        const ok = await window.EducaAppModal.confirm(`¿Eliminar ${selected.length} carrera(s) seleccionada(s)? Esta acción no se puede deshacer.`, { title: 'Eliminar carreras', variant: 'danger', okLabel: 'Eliminar' });
+        if (ok) {
             document.getElementById('deleteForm').submit();
         }
     }

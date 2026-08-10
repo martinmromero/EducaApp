@@ -916,12 +916,12 @@
                     document.getElementById('examSavedMessage').textContent = data.message || 'El examen se guardó correctamente.';
                     document.getElementById('examSavedBackdrop').classList.add('show');
                 } else {
-                    alert(data.message || 'No se pudo guardar el examen.');
+                    window.EducaAppModal.alert(data.message || 'No se pudo guardar el examen.', { title: 'Error al guardar', variant: 'danger' });
                 }
             })
             .catch(function () {
                 btn.disabled = false;
-                alert('No se pudo guardar el examen. Intenta nuevamente.');
+                window.EducaAppModal.alert('No se pudo guardar el examen. Intenta nuevamente.', { title: 'Error al guardar', variant: 'danger' });
             });
         }
 

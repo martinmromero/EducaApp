@@ -440,16 +440,28 @@
         };
       })();
 
-      // Reemplazo puntual para el patrón <form onsubmit="return confirm(...)">:
-      // como EducaAppModal.confirm() es async, no puede devolver el booleano
-      // que onsubmit necesita en el momento — siempre bloquea el submit
-      // nativo (return false) y, si el usuario confirma, manda el form por
-      // su cuenta. Uso: onsubmit="return eduConfirmSubmit(event, 'mensaje')".
+      // Reemplazo puntual para <form onsubmit="return confirm(...)"> o
+      // <button onclick="return confirm(...)">: como EducaAppModal.confirm()
+      // es async, no puede devolver el booleano que onsubmit/onclick
+      // necesitan en el momento — siempre bloquea el submit nativo (return
+      // false) y, si el usuario confirma, manda el form por su cuenta.
+      // Usable en ambos casos: onsubmit="return eduConfirmSubmit(event, '...')"
+      // o onclick="return eduConfirmSubmit(event, '...')" en un botón submit.
+      // En el caso del botón, usa requestSubmit(boton) en vez de form.submit()
+      // — si el botón tiene name/value propios (ej. action=restore_default,
+      // para distinguir qué botón se apretó del lado del servidor),
+      // form.submit() los perdería, requestSubmit() los conserva.
       window.eduConfirmSubmit = function (event, message, opts) {
         event.preventDefault();
-        const form = event.target;
+        const submitter = event.target;
+        const form = submitter.form || submitter;
         window.EducaAppModal.confirm(message, opts).then(function (ok) {
-          if (ok) form.submit();
+          if (!ok) return;
+          if (submitter !== form && typeof form.requestSubmit === 'function') {
+            form.requestSubmit(submitter);
+          } else {
+            form.submit();
+          }
         });
         return false;
       };

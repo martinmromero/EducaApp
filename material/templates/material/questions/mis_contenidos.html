@@ -164,11 +164,11 @@
 
 <!-- Script para manejar la confirmación de borrado y expandir el acordeón si hay filtros/página activos -->
 <script>
-    function confirmDelete(formId) {
+    async function confirmDelete(formId) {
         const form = document.getElementById(formId);
         const selectedContents = form.querySelectorAll('input[name="contenido_ids"]:checked');
         if (selectedContents.length === 0) {
-            alert("Por favor, selecciona al menos un documento para borrar.");
+            window.EducaAppModal.alert("Por favor, selecciona al menos un documento para borrar.", { title: 'Nada seleccionado', variant: 'warning' });
             return;
         }
 
@@ -176,7 +176,8 @@
             "¿Confirmar el borrado del archivo de este documento? El documento y las preguntas que lo citan como fuente se conservarán." :
             "¿Confirmar el borrado de los archivos de los documentos seleccionados? Los documentos y las preguntas que los citan como fuente se conservarán.";
 
-        if (confirm(confirmMessage)) {
+        const ok = await window.EducaAppModal.confirm(confirmMessage, { title: 'Borrar archivo', variant: 'warning', okLabel: 'Borrar' });
+        if (ok) {
             form.submit();
         }
     }

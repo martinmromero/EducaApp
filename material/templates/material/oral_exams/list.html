@@ -156,13 +156,14 @@
         });
     }
 
-    function confirmDelete() {
+    async function confirmDelete() {
         const selected = document.querySelectorAll('#deleteForm input[name="oral_exam_ids"]:checked');
         if (selected.length === 0) {
-            alert('Seleccionar al menos un cuestionario oral');
+            window.EducaAppModal.alert('Seleccionar al menos un cuestionario oral', { title: 'Nada seleccionado', variant: 'warning' });
             return;
         }
-        if (confirm(`¿Eliminar ${selected.length} cuestionario(s) seleccionado(s)? Esta acción no se puede deshacer.`)) {
+        const ok = await window.EducaAppModal.confirm(`¿Eliminar ${selected.length} cuestionario(s) seleccionado(s)? Esta acción no se puede deshacer.`, { title: 'Eliminar cuestionarios', variant: 'danger', okLabel: 'Eliminar' });
+        if (ok) {
             document.getElementById('deleteForm').submit();
         }
     }

@@ -371,14 +371,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Confirmación antes de borrar
     if (deleteBtn) {
-        deleteBtn.addEventListener('click', function() {
+        deleteBtn.addEventListener('click', async function() {
             const isAllFiltered = deleteAllInput.value === '1';
             const count = isAllFiltered ? totalFiltered : checkedOnPage();
             if (count === 0) return;
             const msg = isAllFiltered
-                ? '¿Confirmar la eliminación de TODAS las ' + count + ' preguntas con los filtros actuales?\n\nEsta acción no se puede deshacer.'
-                : '¿Confirmar la eliminación de ' + count + ' pregunta' + (count !== 1 ? 's' : '') + '?\n\nEsta acción no se puede deshacer.';
-            if (confirm(msg)) {
+                ? '¿Confirmar la eliminación de TODAS las ' + count + ' preguntas con los filtros actuales? Esta acción no se puede deshacer.'
+                : '¿Confirmar la eliminación de ' + count + ' pregunta' + (count !== 1 ? 's' : '') + '? Esta acción no se puede deshacer.';
+            const ok = await window.EducaAppModal.confirm(msg, { title: 'Eliminar preguntas', variant: 'danger', okLabel: 'Eliminar' });
+            if (ok) {
                 document.getElementById('bulk-delete-form').submit();
             }
         });

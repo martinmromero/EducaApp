@@ -592,7 +592,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function showError(message) {
-        alert(message); // TODO: Implementar un sistema de notificaciones más elegante
+        window.EducaAppModal.alert(message, { title: 'Error', variant: 'danger' });
     }
 });
 </script>
