@@ -239,6 +239,21 @@ body.modal-open .sidebar-toggle-external {
     .accordion-button {
         flex-wrap: wrap;
     }
+
+    /* "Doble marco": base.html ya envuelve {% block content %} en su propio
+       .container-fluid (mt-3). Bastantes templates arrancan ADEMÁS con su
+       propio <div class="container-fluid">, así que en mobile el contenido
+       real quedaba encerrado en el padding lateral de DOS containers
+       apilados en vez de uno — en una pantalla de ~360-400px eso solía
+       comerse una porción real del ancho disponible. En vez de sacar el
+       container-fluid de cada template (son más de 20), se neutraliza acá
+       el padding de cualquier container-fluid anidado dentro de otro: el
+       de más afuera (el de base.html) sigue poniendo el margen de página,
+       el de adentro deja de sumar el suyo encima. */
+    .container-fluid .container-fluid {
+        padding-left: 0;
+        padding-right: 0;
+    }
 }
 
 /* Estilos para el modo oscuro — [data-bs-theme="dark"] en <html> es el
