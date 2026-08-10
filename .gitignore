@@ -17,6 +17,16 @@ __pycache__/
 # el medio, como un reset de contraseña con changepassword.
 db.sqlite3
 
+# Cualquier otro dump/backup de sqlite (db-*.sqlite3, db_backup_*.sqlite3,
+# etc.) — ya se colaron varios de estos como commits de "una vez" que
+# quedaron pesando en el historial para siempre (auditoría 2026-08-10).
+*.sqlite3
+
+# Backups puntuales tipo *_backup.json (mismo motivo que arriba) — si algún
+# fixture real necesita este patrón de nombre, agregar una excepción acá
+# con "!nombre_real.json" en vez de sacar la regla general.
+*_backup*.json
+
 # Ignorar archivos de entorno
 .env
 
