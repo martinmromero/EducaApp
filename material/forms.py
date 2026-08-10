@@ -7,7 +7,7 @@ import math
 from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
     Subject, Topic, Subtopic, LearningOutcome, User,
-    InstitutionV2, CampusV2, FacultyV2, Career, InstitutionCareer, CareerSubject, UserInstitution,
+    InstitutionV2, CampusV2, FacultyV2, Career, InstitutionCareer, UserInstitution,
     OralExamSet, Rubric, ExamRubric, FormatoImpresion
 )
 from crispy_forms.helper import FormHelper
@@ -662,15 +662,6 @@ class CareerForm(forms.ModelForm):
                 ).order_by('name')
             except InstitutionCareer.DoesNotExist:
                 pass
-
-class InstitutionCareerForm(forms.ModelForm):
-    class Meta:
-        model = InstitutionCareer
-        fields = ['institution', 'career']
-
-class CareerSimpleForm(CareerForm):
-    """Compatibilidad: mantiene create simple pero con el mismo formulario completo."""
-    pass
 
 class OralExamForm(forms.ModelForm):
     topics = forms.ModelMultipleChoiceField(

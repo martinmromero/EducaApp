@@ -436,7 +436,7 @@ from django.contrib.contenttypes.models import ContentType
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
     UserEditForm, UserCreateForm, UserSelfEditForm, ContenidoForm,
-    LearningOutcomeForm, SubjectForm, ProfileForm,CareerForm,CareerSimpleForm,
+    LearningOutcomeForm, SubjectForm, ProfileForm, CareerForm,
     OralExamForm, FormatoImpresionForm
 )
 from .print_format_utils import (
@@ -4392,16 +4392,6 @@ def delete_faculty_v2(request, institution_id, faculty_id):
         return redirect('material:institution_v2_detail', pk=institution.pk)
     return render(request, 'material/faculties_v2/confirm_delete.html', {'faculty': faculty, 'institution': institution})
 
-# Agregar al final de views.py
-""" @login_required
-def count_favorite_institutions(request):
-        count = UserInstitution.objects.filter(
-        user=request.user,
-        is_favorite=True
-    ).count()
-    return JsonResponse({'count': count})
-"""
-
 # --- Favoritos (genérico: exámenes, plantillas, materias) ---
 _FAVORITE_MODELS = {
     'exam': Exam,
@@ -4450,31 +4440,6 @@ def subject_list(request):
         'favorite_ids': favorite_ids,
         'only_favorites': request.GET.get('favoritos') == '1',
     })
-
-@login_required
-def create_subject(request):
-    if request.method == 'POST':
-        form = SubjectForm(request.POST)
-        if form.is_valid():
-            subject = form.save()
-            messages.success(request, 'Materia creada exitosamente', extra_tags='materias')
-            return redirect('material:subject_list')
-    else:
-        form = SubjectForm()
-    return render(request, 'material/subjects/form.html', {'form': form, 'action': 'Crear'})
-
-@login_required
-def edit_subject(request, pk):
-    subject = get_object_or_404(Subject, pk=pk)
-    if request.method == 'POST':
-        form = SubjectForm(request.POST, instance=subject)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Materia actualizada exitosamente', extra_tags='materias')
-            return redirect('material:subject_detail', pk=pk)
-    else:
-        form = SubjectForm(instance=subject)
-    return render(request, 'material/subjects/form.html', {'form': form, 'action': 'Editar'})
 
 @login_required
 def delete_subject(request, pk):
@@ -4583,21 +4548,6 @@ def bulk_eliminar_careers(request):
     else:
         messages.success(request, f'Se eliminaron {count} carreras exitosamente.', extra_tags='carreras')
     return redirect('material:career_list')
-
-@login_required
-def create_career(request):
-    if request.method == 'POST':
-        form = CareerForm(request.POST)
-        if form.is_valid():
-            career = form.save()
-            messages.success(request, 'Carrera creada exitosamente', extra_tags='carreras')
-            return redirect('material:career_list')
-    else:
-        form = CareerForm()
-    return render(request, 'material/careers/form.html', {
-        'form': form,
-        'action': 'Crear'
-    })
 
 @login_required
 def delete_career(request, pk):

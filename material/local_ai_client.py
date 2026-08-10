@@ -226,32 +226,6 @@ class LocalAIClient:
                 'text': None
             }
     
-    def chat(
-        self, 
-        messages: List[Dict[str, str]], 
-        model: Optional[str] = None,
-        **kwargs
-    ) -> Dict[str, Any]:
-        """
-        Genera respuesta con contexto conversacional.
-        
-        Args:
-            messages: Lista de mensajes [{'role': 'user'|'assistant', 'content': '...'}]
-            model: Modelo a usar
-            **kwargs: Parámetros adicionales
-        
-        Returns:
-            Dict con respuesta
-        """
-        # Convertir mensajes a formato de prompt
-        prompt = ''
-        for msg in messages:
-            role = 'Usuario' if msg['role'] == 'user' else 'Asistente'
-            prompt += f"{role}: {msg['content']}\n"
-        prompt += 'Asistente:'
-        
-        return self.generate(prompt, model, **kwargs)
-
     def warmup_model(self, model: Optional[str] = None) -> bool:
         """
         Carga el modelo en GPU enviando una generación mínima.

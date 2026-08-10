@@ -48,16 +48,3 @@ def show_messages(context, categories=None):
     """
     filtered_messages = get_filtered_messages(context, categories)
     return {'messages': filtered_messages}
-
-
-@register.filter
-def has_messages_for_category(messages, category):
-    """
-    Filtro para verificar si hay mensajes para una categoría específica.
-    """
-    for message in messages:
-        message_tags = message.extra_tags if message.extra_tags else 'general'
-        message_categories = [tag.strip() for tag in message_tags.split(',')]
-        if category in message_categories:
-            return True
-    return False

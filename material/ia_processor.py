@@ -193,20 +193,6 @@ def count_tokens(text):
     return _processor.count_tokens(text)
 
 
-def count_tokens_file(file_path):
-    """
-    NUEVA FUNCIÓN: Cuenta tokens de un archivo completo.
-    
-    Args:
-        file_path: Ruta al archivo
-    
-    Returns:
-        Número total de tokens
-    """
-    result = extract_text_advanced(file_path)
-    return result['stats'].get('total_tokens', 0)
-
-
 def split_text_by_tokens(text, max_tokens=4000):
     """
     NUEVA FUNCIÓN: Divide texto en chunks que no excedan límite de tokens.
@@ -238,15 +224,6 @@ def optimize_text_for_ai(text, remove_extra_whitespace=True):
         remove_urls=False,  # Por defecto no quitar URLs en documentos académicos
         remove_emails=False
     )
-
-
-def split_text_into_chapters(text):
-    """
-    Divide el texto en capítulos basados en títulos detectados.
-    NOTA: Para mejor detección, usar extract_text_advanced() que usa TOC.
-    """
-    chapters = re.split(r'(?i)(cap[ií]tulo \d+|secci[oó]n \d+)', text)
-    return [c.strip() for c in chapters if c.strip()]
 
 
 def extract_book_metadata(file_path):
