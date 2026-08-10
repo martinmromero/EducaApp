@@ -4865,7 +4865,7 @@ class LearningOutcomeListView(ListView):
     def get_queryset(self):
         return LearningOutcome.objects.filter(
             subject_id=self.kwargs['subject_id']
-        ).order_by('code')
+        ).order_by('created_at')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
