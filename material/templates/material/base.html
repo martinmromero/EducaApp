@@ -335,6 +335,25 @@
         </div>
     </div>
 
+    <!-- Reemplazo genérico de alert()/confirm() nativos del navegador — feos,
+         no se pueden estilizar, y confirm() bloquea todo el hilo de JS
+         mientras espera. Cualquier página puede usar
+         window.EducaAppModal.alert(mensaje, opciones) /
+         .confirm(mensaje, opciones) (esta última devuelve una Promise<bool>,
+         hay que usarla con await). Ver el <script> de más abajo. -->
+    <div class="modal fade" id="eduModal" tabindex="-1" aria-labelledby="eduModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="eduModalTitle"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="eduModalBody"></div>
+                <div class="modal-footer" id="eduModalFooter"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -353,6 +372,73 @@
           el.classList.remove('d-flex');
         }
       };
+
+      // window.EducaAppModal: reemplazo de alert()/confirm() nativos (ver
+      // comentario del modal #eduModal más arriba). alert() también
+      // devuelve una Promise (se resuelve al cerrarse) por si alguna
+      // pantalla necesita encadenar algo después, aunque la mayoría de los
+      // usos no necesitan esperarla.
+      window.EducaAppModal = (function () {
+        const modalEl = document.getElementById('eduModal');
+        const titleEl = document.getElementById('eduModalTitle');
+        const bodyEl = document.getElementById('eduModalBody');
+        const footerEl = document.getElementById('eduModalFooter');
+        const ICONS = {
+          info: 'bi-info-circle-fill text-primary',
+          success: 'bi-check-circle-fill text-success',
+          warning: 'bi-exclamation-triangle-fill text-warning',
+          danger: 'bi-x-circle-fill text-danger',
+        };
+        let bsModal = null;
+        function getModal() {
+          if (!bsModal) bsModal = new bootstrap.Modal(modalEl);
+          return bsModal;
+        }
+        function setHeader(title, variant) {
+          const icon = ICONS[variant] || ICONS.info;
+          titleEl.innerHTML = '<i class="bi ' + icon + ' me-2"></i>' + title;
+        }
+        return {
+          alert: function (message, opts) {
+            opts = opts || {};
+            setHeader(opts.title || 'Aviso', opts.variant || 'info');
+            bodyEl.textContent = message;
+            footerEl.innerHTML = '<button type="button" class="btn btn-primary" data-bs-dismiss="modal">Entendido</button>';
+            return new Promise(function (resolve) {
+              modalEl.addEventListener('hidden.bs.modal', function onHidden() {
+                modalEl.removeEventListener('hidden.bs.modal', onHidden);
+                resolve();
+              }, { once: true });
+              getModal().show();
+            });
+          },
+          confirm: function (message, opts) {
+            opts = opts || {};
+            setHeader(opts.title || 'Confirmar', opts.variant || 'warning');
+            bodyEl.textContent = message;
+            const okVariant = opts.okVariant || (opts.variant === 'danger' ? 'danger' : 'primary');
+            footerEl.innerHTML =
+              '<button type="button" class="btn btn-secondary" id="eduModalCancelBtn">' + (opts.cancelLabel || 'Cancelar') + '</button>' +
+              '<button type="button" class="btn btn-' + okVariant + '" id="eduModalOkBtn">' + (opts.okLabel || 'Confirmar') + '</button>';
+            return new Promise(function (resolve) {
+              let settled = false;
+              const modal = getModal();
+              function finish(result) {
+                if (settled) return;
+                settled = true;
+                resolve(result);
+              }
+              modalEl.addEventListener('hidden.bs.modal', function onHidden() {
+                modalEl.removeEventListener('hidden.bs.modal', onHidden);
+                finish(false); // cerrado sin elegir (backdrop, Escape, X) = cancelar
+              }, { once: true });
+              document.getElementById('eduModalOkBtn').onclick = function () { finish(true); modal.hide(); };
+              document.getElementById('eduModalCancelBtn').onclick = function () { finish(false); modal.hide(); };
+              modal.show();
+            });
+          },
+        };
+      })();
 
       // Ver comentario de #pageMessageModal más arriba: pasa los mensajes
       // warning/error del banner de arriba de la página a un modal.
