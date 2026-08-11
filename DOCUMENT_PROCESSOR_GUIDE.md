@@ -91,7 +91,16 @@ result = processor.process_pdf(
 # {
 #     'metadata': {'title': str, 'author': str, 'total_pages': int},
 #     'toc': [{'level': int, 'title': str, 'page': int}],
-#     'chapters': [{'title': str, 'content': str, 'tokens': int, 'pages': [int]}],
+#     'chapters': [{
+#         'title': str,
+#         'content': str,           # incluye marcadores invisibles de página, ver más abajo
+#         'tokens': int,
+#         'pages': [int],           # páginas físicas del PDF subido (índice dentro del archivo)
+#         'printed_pages': [int|None],  # número de página IMPRESO detectado en cada página física
+#                                        # (el que el libro muestra en pie/encabezado), o None si no
+#                                        # se pudo detectar con confianza. Puede no coincidir con 'pages'
+#                                        # cuando se sube un capítulo aislado de un libro más grande.
+#     }],
 #     'stats': {'total_tokens': int, 'removed_headers': int, ...}
 # }
 ```
@@ -101,6 +110,32 @@ result = processor.process_pdf(
 - ✅ Detecta estructura jerárquica automáticamente
 - ✅ Mejor manejo de PDFs complejos (multi-columna, tablas)
 - ✅ Más rápido que PyPDF2
+
+### A.1) Cita de la página real de origen de cada pregunta
+
+Desde el commit `ab3c916`, `process_pdf()` incrusta un **marcador invisible de
+página** al principio del texto de cada página física (`_join_pages_with_markers`,
+formato `\x00P<página>\x00` — un byte de control que nunca se muestra en
+pantalla). Esto permite que el fragmentado por tokens que hace
+`material/views_document_processor.py` (`_split_into_chunks`) sepa, para cada
+fragmento de texto que realmente se le manda a la IA, de qué página física
+salió — y así cada pregunta generada pueda citar su página de origen real en
+vez de "todo el capítulo".
+
+Además, `_detect_printed_page_number()` busca en la primera/última línea no
+vacía de cada página un número de página **impreso** (el que el libro
+muestra, ej. "322"), que puede no coincidir con el índice físico dentro del
+PDF subido — por ejemplo, si se sube solo un capítulo aislado de un libro, la
+página física 2 del PDF puede decir "322" impreso. Cuando se detecta ese
+número con confianza se prioriza sobre el índice físico al citar la fuente;
+si no se detecta nada (nunca se "inventa" un número), se cae de vuelta a la
+página física. Este resultado queda en `printed_pages`, alineado por índice
+con `pages`.
+
+Quien consuma `content` directamente (fuera del flujo de generación de
+preguntas) debe tener en cuenta que lleva estos marcadores incrustados; para
+mostrarlo a un usuario hay que quitarlos primero (ver `_strip_page_markers`
+en `views_document_processor.py`).
 
 ### B) Procesamiento de DOCX
 
@@ -418,14 +453,20 @@ for page in pdf.pages[:5]:  # Solo primeras 5 en vez de 10
    print(processor.get_stats_summary(result))
    ```
 
-2. **Optimizar para la IA local (Ollama)**
+2. **Optimizar para la generación con IA**
    - Siempre contar tokens antes de enviar al modelo
    - Dividir documentos grandes en chunks por límite de contexto
    - Limpiar texto repetitivo para mejorar calidad de respuestas
+   - El backend real que recibe estos chunks lo decide `material/ai_router.py`
+     por usuario: hoy el default es el fallback compartido de demo (Groq para
+     texto, Gemini para imágenes/respaldo — ver `GlobalAIConfig`), con BYOK
+     (API key propia) como alternativa configurable y **Ollama local como
+     plan de respaldo para escenarios sin internet**, no como backend
+     principal.
 
 3. **Ver también**
    - `EDUCAAPP_INTEGRATION.md` — Referencia de endpoints REST disponibles
-   - `LOCAL_AI_SETUP_SUMMARY.md` — Configuración del servidor Ollama
+   - `LOCAL_AI_SETUP_SUMMARY.md` — Configuración del servidor Ollama (respaldo offline, no el backend principal)
 
 ---
 

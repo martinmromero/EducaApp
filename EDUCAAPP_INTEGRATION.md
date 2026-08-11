@@ -2,8 +2,18 @@
 
 ## 📋 Resumen Ejecutivo
 
-**Fecha:** 29 octubre 2025  
-**Estado:** ✅ **COMPLETADO Y FUNCIONANDO**
+**Fecha original de esta integración:** 29 octubre 2025
+**Estado:** ✅ **EN PRODUCCIÓN** (evolucionado bastante desde la integración original — ver notas más abajo)
+
+> **Nota de vigencia:** este documento describe la integración inicial de
+> `document_processor.py` en EducaApp. Desde entonces se agregaron citas de
+> página real por pregunta (commit `ab3c916`), un router multi-proveedor de
+> IA (`material/ai_router.py` — Groq/Gemini como fallback compartido de demo,
+> BYOK, e **Ollama local solo como respaldo offline**, no como backend
+> principal), extracción de imágenes para modelos con visión, streaming SSE
+> de preguntas y varios endpoints nuevos. Las secciones de abajo fueron
+> actualizadas para reflejar el estado actual del código; donde queda texto
+> histórico sin verificar se indica explícitamente.
 
 Se ha integrado exitosamente el módulo de **Document Processor** en EducaApp con las siguientes mejoras:
 
@@ -17,7 +27,7 @@ Se ha integrado exitosamente el módulo de **Document Processor** en EducaApp co
 
 2. **Nuevas Vistas y Endpoints**
    - ✅ `material/views_document_processor.py` creado
-   - ✅ 11 endpoints REST bajo `/doc-processor/`
+   - ✅ 14 endpoints REST bajo `/doc-processor/` (ver tabla completa más abajo)
    - ✅ Dashboard interactivo con interfaz web
 
 3. **URLs Configuradas**
@@ -25,12 +35,13 @@ Se ha integrado exitosamente el módulo de **Document Processor** en EducaApp co
    - ✅ Rutas bajo `/doc-processor/`
 
 4. **Templates HTML**
-   - ✅ Dashboard completo con 3 tabs interactivos
+   - ✅ Dashboard de un solo flujo guiado (Documento → selección de páginas/capítulos → generación IA),
+     con una pestaña adicional "Modelos Locales" que solo aparece cuando el backend activo es Ollama
    - ✅ AJAX para procesamiento en tiempo real
 
 5. **Servidor Django**
    - ✅ Sin errores
-   - ✅ Corriendo en http://127.0.0.1:8000/
+   - ✅ Corre en Render (producción) y localmente en http://127.0.0.1:8000/
 
 ---
 
@@ -40,26 +51,37 @@ Se ha integrado exitosamente el módulo de **Document Processor** en EducaApp co
 ```
 http://127.0.0.1:8000/doc-processor/
 ```
-Interface completa con 3 funcionalidades:
-- Tab 1: Procesar documento completo
-- Tab 2: Contador rápido de tokens
-- Tab 3: Optimizador de texto
+El dashboard es un flujo guiado de un solo paso a paso (no un set de tabs
+independientes como en la integración original):
+1. Subir o elegir un documento ya guardado (Mis Contenidos)
+2. Elegir qué páginas/capítulos/slides procesar, con vista previa
+3. Configurar tipos de pregunta y generar con IA (síncrono o streaming SSE)
+
+Además, si el backend de IA activo del usuario es Ollama local, aparece una
+pestaña extra "Modelos Locales" para elegir el modelo Ollama activo — no se
+muestra con los demás backends (Groq/Gemini compartido, BYOK).
 
 ### API Endpoints
 
 | Endpoint | Método | Descripción |
 |----------|--------|-------------|
-| `/doc-processor/` | GET | Dashboard interactivo con 3 tabs |
-| `/doc-processor/upload/` | POST | Procesar documento con extracción completa |
-| `/doc-processor/count-tokens/` | POST | Conteo rápido de tokens y estimación de costos |
+| `/doc-processor/` | GET | Dashboard interactivo |
+| `/doc-processor/upload/` | POST | Subir y procesar documento (guarda como `Contenido`, deduplica por hash) |
 | `/doc-processor/split-chunks/` | POST | Dividir texto en chunks por límite de tokens |
-| `/doc-processor/local-ai/status/` | GET | Estado del servidor Ollama |
-| `/doc-processor/local-ai/models/` | GET | Listar modelos disponibles en Ollama |
-| `/doc-processor/local-ai/set-model/` | POST | Cambiar modelo activo |
-| `/doc-processor/generate-questions/` | POST | Generar preguntas con IA desde capítulos |
-| `/doc-processor/generate-questions/stream/<job_id>/` | GET | Stream SSE de preguntas (tiempo real) |
-| `/doc-processor/save-questions/` | POST | Guardar preguntas generadas en la BD |
-| `/doc-processor/process-contenido/<id>/` | POST | Procesar contenido educativo por ID |
+| `/doc-processor/local-ai/status/` | GET | Estado del backend de IA configurado para el usuario (Ollama, fallback Groq/Gemini o BYOK) |
+| `/doc-processor/local-ai/models/` | GET | Listar modelos disponibles en el servidor Ollama local |
+| `/doc-processor/local-ai/set-model/` | POST | Cambiar el modelo Ollama activo |
+| `/doc-processor/generate-questions/` | POST | Generar preguntas con IA desde capítulos (modo directo o `stream_mode` para SSE) |
+| `/doc-processor/generate-questions/stream/<job_id>/` | GET | Stream SSE de preguntas a medida que se generan |
+| `/doc-processor/save-questions/` | POST | Guardar preguntas aprobadas/rechazadas en la BD |
+| `/doc-processor/topics-by-subject/<subject_id>/` | GET | Temas/subtemas de una materia (usado por el modal de guardado) |
+| `/doc-processor/process-contenido/<contenido_id>/` | GET | Reprocesar un `Contenido` ya guardado y preseleccionarlo en el dashboard |
+| `/doc-processor/page-preview/` | GET | Metadata del documento en sesión para el visor de páginas (PDF.js / DOCX / PPTX) |
+| `/doc-processor/pages-text/` | POST | Extraer texto de páginas/slides/secciones puntuales elegidas por el usuario |
+| `/doc-processor/serve-file/` | GET | Sirve el archivo original en sesión (necesario en Render, donde `/media/` no se sirve con `DEBUG=False`) |
+
+No existe un endpoint `/doc-processor/count-tokens/` independiente en el código actual — el conteo de tokens
+se muestra como parte de la respuesta de `/doc-processor/upload/` y `/doc-processor/process-contenido/<id>/`.
 
 ---
 
@@ -132,20 +154,13 @@ fetch('/doc-processor/upload/', {
 .then(data => {
     console.log('Tokens totales:', data.stats.total_tokens);
     console.log('Capítulos:', data.chapters);
-});
-
-// Solo contar tokens
-fetch('/doc-processor/count-tokens/', {
-    method: 'POST',
-    body: formData,
-    headers: {'X-CSRFToken': csrfToken}
-})
-.then(res => res.json())
-.then(data => {
-    console.log('Tokens:', data.total_tokens);
-    console.log('Costo estimado:', data.estimated_cost_usd, 'USD');
+    console.log('Presupuesto de tokens:', data.token_budget);
 });
 ```
+
+> No existe un endpoint separado solo para contar tokens — el conteo (`stats.total_tokens`)
+> y el presupuesto (`token_budget`) vienen incluidos en la respuesta de `/doc-processor/upload/`
+> y de `/doc-processor/process-contenido/<id>/`.
 
 ### 3. Uso Directo del DocumentProcessor
 
@@ -178,49 +193,29 @@ chunks = processor.split_by_token_limit(result['chapters'][0]['content'], max_to
 ## 🎨 Interfaz Web
 
 ### Dashboard Principal
-El dashboard tiene 3 tabs:
 
-**Tab 1: Procesar Documento**
-- Sube PDF/DOCX/PPTX
-- Opciones para eliminar headers/footers
-- Resultado muestra:
-  - Metadata del documento
-  - Total de tokens
-  - Capítulos con accordion expandible
-  - Preview de cada capítulo
+El dashboard original de 3 tabs (Procesar / Tokens / Optimizador) fue
+rediseñado a un **flujo guiado de un solo paso a paso** (`doc-flow` en el
+template), porque el "Contador de tokens" y el "Optimizador" sueltos no
+tenían suficiente uso propio fuera del flujo real de generación de preguntas
+y terminaron fusionados dentro del paso "Documento":
 
-**Tab 2: Contador de Tokens**
-- Sube documento
-- Calcula tokens totales
-- Estima costo en USD (GPT-4)
+1. **Documento**: subir un archivo nuevo (PDF/DOCX/PPTX/TXT) o elegir uno ya
+   guardado en Mis Contenidos. Muestra metadata, total de tokens y presupuesto
+   disponible. Cada paso ya resuelto se colapsa a un renglón con un check y
+   botón "Cambiar" en vez de quedar como tabs numerados.
+2. **Selección de contenido**: vista previa por página (PDF, vía PDF.js),
+   por sección (DOCX) o por slide (PPTX), con checkboxes para elegir qué
+   procesar — o los capítulos/bloques detectados automáticamente por TOC.
+3. **Generación**: elegir tipos de pregunta, cantidad total deseada, si
+   incluir imágenes (modelos con visión) y generar — en modo directo o con
+   barra de progreso en tiempo real vía streaming SSE.
 
-**Tab 3: Optimizador**
-- Pega texto
-- Optimiza reduciendo espacios extras
-- Muestra ahorro en % y tokens
-- Botón para copiar resultado
-
-### Capturas de Funcionalidades
-
-```
-┌─────────────────────────────────────────┐
-│ Procesador de Documentos con IA         │
-├─────────────────────────────────────────┤
-│ [Procesar] [Tokens] [Optimizar]         │
-├─────────────────────────────────────────┤
-│                                         │
-│ Subir Documento          │ Resultados  │
-│ ┌──────────────┐         │             │
-│ │ Seleccionar  │         │ Metadata    │
-│ │ Archivo      │         │ • Páginas   │
-│ └──────────────┘         │ • Tokens    │
-│ ☑ Eliminar headers       │             │
-│ ☑ Eliminar footers       │ Capítulos   │
-│                          │ ▼ Cap 1     │
-│ [Procesar Documento]     │   200 tokens│
-│                          │ ▼ Cap 2     │
-└─────────────────────────────────────────┘
-```
+Además, **solo si el backend de IA activo del usuario es Ollama local**,
+aparece una pestaña extra "Modelos Locales" para listar y cambiar el modelo
+Ollama activo. Con cualquier otro backend (fallback compartido Groq/Gemini,
+o BYOK) esa pestaña no se muestra — ver la nota sobre Ollama como respaldo,
+no backend principal, más abajo y en `LOCAL_AI_SETUP_SUMMARY.md`.
 
 ---
 
@@ -260,8 +255,8 @@ http://127.0.0.1:8000/doc-processor/
 | **Estructura** | ❌ Manual | ✅ Automática (capítulos) |
 | **Optimización** | ❌ No | ✅ Ahorro 30-40% tokens |
 | **Dashboard Web** | ❌ No | ✅ Interface completa |
-| **API REST** | ❌ No | ✅ 5 endpoints |
-| **Costo Estimado** | ❌ No | ✅ Cálculo en USD |
+| **API REST** | ❌ No | ✅ 14 endpoints (ver tabla arriba) |
+| **Costo Estimado** | ❌ No | ✅ Presupuesto de tokens por tanda/documento |
 
 ---
 
@@ -274,7 +269,8 @@ http://127.0.0.1:8000/doc-processor/
 
 ### Integración Django
 - ✅ `material/ia_processor.py` (migrado a PyMuPDF)
-- ✅ `material/views_document_processor.py` (nuevo, 5 vistas)
+- ✅ `material/views_document_processor.py` (14 vistas a la fecha; ver tabla de endpoints arriba)
+- ✅ `material/ai_router.py` (router de backends de IA: fallback Groq/Gemini, BYOK, Ollama local)
 - ✅ `material/urls.py` (añadidas rutas)
 - ✅ `material/templates/material/document_processor_dashboard.html` (nuevo)
 
@@ -381,8 +377,8 @@ Revisar que las URLs en el fetch coincidan con las configuradas.
 - [x] Puede subir y procesar PDFs
 - [x] Puede subir y procesar DOCX
 - [x] Puede subir y procesar PPTX
-- [x] Contador de tokens funciona
-- [x] Optimizador de texto funciona
+- [x] Conteo de tokens funciona (integrado en la respuesta de `/upload/`, ya no como pantalla propia)
+- [x] Limpieza/optimización de texto funciona (automática dentro del flujo, ya no como pantalla propia)
 - [x] Resultados se muestran correctamente
 - [x] `ia_processor.py` no da errores de import
 - [x] Funciones originales mantienen compatibilidad
@@ -396,11 +392,16 @@ Revisar que las URLs en el fetch coincidan con las configuradas.
    - Verificar que detecta capítulos correctamente
    - Validar conteo de tokens
 
-2. **Generación de preguntas con IA local** — ✅ IMPLEMENTADO
+2. **Generación de preguntas con IA** — ✅ IMPLEMENTADO
    - Endpoint activo: `POST /doc-processor/generate-questions/`
    - Stream en tiempo real: `GET /doc-processor/generate-questions/stream/<job_id>/`
    - Guardado en BD: `POST /doc-processor/save-questions/`
-   - Ver `LOCAL_AI_SETUP_SUMMARY.md` para detalles del servidor Ollama
+   - El backend real lo resuelve `material/ai_router.py` por usuario: el default
+     es el fallback compartido de demo (Groq para texto, Gemini para
+     imágenes/respaldo de cupo), con BYOK como alternativa configurable en
+     "Proveedor de IA". **Ollama local es un plan de respaldo para escenarios
+     sin internet, no el backend principal** — ver `LOCAL_AI_SETUP_SUMMARY.md`
+     y `SOLUCION_ERROR_IA.md` para su configuración específica.
 
 3. **Agregar almacenamiento**
    - Guardar resultados en BD

@@ -1,12 +1,24 @@
 # ERROR: Servidor IA no disponible
 
+> **⚠️ Esta guía aplica solo si tenés "Ollama local" seleccionado como
+> proveedor de IA.** Ollama es el **plan de respaldo offline**, no el backend
+> principal de EducaApp — la mayoría de los usuarios usan el fallback
+> compartido de demo (Groq/Gemini, sin configuración propia) o su propia API
+> key (BYOK) en "Proveedor de IA", ninguno de los cuales depende de la VPN
+> descrita acá. Si tu error NO menciona `192.168.12.236:11434`, esta guía no
+> aplica: revisá el mensaje de error tal cual lo muestra el dashboard (suele
+> indicar si es un problema de API key, cupo agotado, o del proveedor
+> externo) o `/herramientas/groq-monitor/` para el estado del fallback
+> compartido.
+
 ## 🔴 Problema
 El error que estás viendo:
 ```
 HTTPConnectionPool(host='192.168.12.236', port=11434): Read timed out. (read timeout=60)
 ```
 
-Significa que **no puedes conectarte al servidor Ollama** en la intranet.
+Significa que **no puedes conectarte al servidor Ollama** en la intranet — esto solo
+puede pasar si elegiste Ollama local como tu proveedor de IA (ver nota arriba).
 
 ## ✅ Solución
 
@@ -96,3 +108,6 @@ Antes de hacer clic en "Generar Preguntas con IA":
 
 **Última actualización:** 2026-02-08
 **Sistema:** EducaApp - Generación automática de preguntas con IA
+**Alcance:** Solo para usuarios con "Ollama local" seleccionado en Proveedor de IA — el
+backend por defecto (Groq/Gemini compartido) y BYOK no dependen de la VPN ni del servidor
+descrito en esta guía.

@@ -1,13 +1,31 @@
 # 🎓 ¿Qué hace EducaApp? - Guía Funcional Completa
 
 > **Guía para usuarios, instituciones educativas y tomadores de decisiones**  
-> Versión: Mayo 2026
+> Versión: Agosto 2026
 
 ---
 
 ## 📖 Introducción
 
 EducaApp es un **sistema integral de gestión educativa** diseñado para facilitar la creación, organización y evaluación del proceso de enseñanza-aprendizaje. Permite a docentes e instituciones administrar contenido educativo, generar evaluaciones de manera inteligente y realizar un seguimiento completo del proceso evaluativo.
+
+### Navegación
+
+El menú lateral organiza todas las funciones en grupos temáticos: **Contenidos**
+(subir material y generar preguntas con IA), **Preguntas** (banco propio),
+**Exámenes** (armado, plantillas, rúbricas, orales, formatos de impresión),
+**Mi espacio académico** (instituciones, carreras, materias), **Grupos**
+(compartir preguntas con colegas de confianza) y, para administradores,
+**Administración** (usuarios, monitoreo de IA, configuración de prompts).
+Las tablas principales (preguntas, exámenes, contenidos, instituciones) se
+adaptan automáticamente a tarjetas apiladas en pantallas chicas, en vez de
+tablas angostas difíciles de leer en el celular.
+
+Para cuentas nuevas, `/comenzar/` ofrece un **asistente de configuración
+guiado** de varios pasos (institución → materia → contenido → generación con
+IA) que arma un primer examen de punta a punta sin necesitar que el usuario
+sepa de antemano por dónde empezar — ver la sección "¿Cómo Empezar?" al final
+de este documento.
 
 ---
 
@@ -28,25 +46,23 @@ Ayuda a supervisar materias, resultados de aprendizaje y contenidos evaluativos 
 
 ### 1. 🏫 Gestión de la Estructura Institucional
 
-EducaApp permite organizar toda la estructura de una institución educativa de manera jerárquica:
+EducaApp permite organizar toda la estructura de una institución educativa de manera jerárquica, desde **Instituciones** (`/instituciones-v2/`):
 
 #### **Instituciones**
 - Crear y administrar una o varias instituciones educativas
 - Subir el logo institucional para personalización
 - Marcar instituciones como "favoritas" para acceso rápido
-- Consultar historial completo de cambios realizados
+- Consultar historial completo de cambios realizados (`/instituciones-v2/logs/<id>/`)
 
-#### **Campus o Sedes**
-- Registrar diferentes campus de la institución
-- Agregar dirección y datos de cada sede
-- Activar/desactivar sedes según necesidad
-
-#### **Facultades o Departamentos**
-- Organizar facultades dentro de cada institución
-- Asignar nombres y códigos identificativos
+#### **Campus/Sedes y Facultades/Departamentos**
+- Se gestionan **dentro de la pantalla de edición de la institución** (formulario
+  con secciones embebidas para agregar/editar sedes y facultades), no como
+  pantallas separadas — simplifica el flujo: toda la estructura de una
+  institución se edita en un solo lugar.
+- Cada sede admite dirección y datos propios; cada facultad, nombre y código.
 
 #### **Carreras**
-- Crear carreras académicas
+- Crear carreras académicas (`/careers/`)
 - Asociar carreras con facultades y campus específicos
 - Definir qué materias pertenecen a cada carrera
 
@@ -121,11 +137,11 @@ Cuando sube un PDF, EducaApp **automáticamente extrae**:
 Esto ahorra tiempo al usuario, que solo debe verificar y confirmar los datos.
 
 #### **Análisis Avanzado de Documentos**
-El sistema ofrece herramientas profesionales para analizar documentos:
+Como parte del mismo flujo de subida (no como herramientas sueltas), el sistema:
 
-- **Contador de Tokens**: Calcula cuántos "tokens" tiene el documento (útil para procesamiento con inteligencia artificial)
-- **División en Segmentos**: Divide automáticamente documentos largos en partes manejables
-- **Optimización de Texto**: Limpia y prepara el contenido para mejor procesamiento
+- **Cuenta tokens** del documento y de cada capítulo/página, para orientar cuánto contenido conviene seleccionar por tanda de generación
+- **Divide automáticamente** documentos largos en fragmentos manejables al mandarlos a la IA, respetando el límite de contexto del modelo
+- **Limpia texto repetitivo** (headers/footers/números de página) antes de generar preguntas, para no ensuciar el contenido real
 
 ---
 
@@ -152,7 +168,7 @@ Esta es una de las funcionalidades **más potentes** de EducaApp:
 4. **Generación Automática**: La IA crea automáticamente:
    - Preguntas relevantes basadas en el contenido
    - Respuestas correctas y detalladas
-   - Diferentes tipos de preguntas (opción múltiple, verdadero/falso, desarrollo)
+   - Diferentes tipos de preguntas (opción múltiple, verdadero/falso, completar el espacio, desarrollo)
 
 5. **Curaduría del Docente**: El sistema presenta **todas las preguntas generadas** y el docente:
    - Revisa cada pregunta y respuesta
@@ -176,14 +192,32 @@ Esta es una de las funcionalidades **más potentes** de EducaApp:
 
 #### **Motor de Inteligencia Artificial**
 
-EducaApp utiliza un **servidor Ollama local** con el modelo `llama3.1:8b` para la generación de preguntas:
+EducaApp elige el proveedor de IA por usuario (`material/ai_router.py`,
+`get_backend_for_user`). Hay tres modos, configurables en "Proveedor de IA":
 
-- 🏠 **Servidor en intranet**: No depende de servicios externos de pago (OpenAI, etc.)
-- 🔒 **Tokens ilimitados**: Al ser local, no hay límite ni costo por generación
-- ⚡ **Velocidad**: ~14 segundos por generación con `llama3.1:8b`
-- 🌐 **Requiere VPN**: El servidor IA solo es accesible desde la red local o vía VPN
+- 🌐 **Fallback compartido de demo (default)**: **Groq** para texto (rápido y
+  gratuito dentro de su cupo diario) con **Gemini** como respaldo para
+  imágenes/diagramas (Groq no tiene modelos con visión) y cuando Groq agota
+  su cupo del día. No requiere que el docente configure nada — funciona "de
+  fábrica" para cuentas nuevas. El cupo restante puede monitorearse en
+  `/herramientas/groq-monitor/` (solo administradores).
+- 🔑 **BYOK (clave propia)**: el docente o la institución cargan su propia API
+  key de OpenAI, Anthropic, Groq, Gemini u otro proveedor compatible, sin
+  depender del cupo compartido.
+- 💻 **Ollama local**: un servidor Ollama en red interna, pensado como **plan
+  de respaldo para escenarios sin internet** (por ejemplo, generar preguntas
+  en un lugar sin conectividad confiable), no como el motor principal —
+  requiere VPN/red local y no está disponible desde Render (producción).
 
-> Para configuración técnica del servidor IA, ver `LOCAL_AI_SETUP_SUMMARY.md`
+Si un fragmento del documento incluye imágenes relevantes (diagramas, fotos),
+el sistema puede mandarlas junto con el texto a un modelo con visión para que
+la pregunta generada haga referencia a lo que se ve en ellas. Cada pregunta
+generada también cita la **página real de origen** dentro del documento
+(incluyendo, cuando es detectable, el número de página *impreso* del libro,
+no solo el índice físico del PDF subido).
+
+> Para la configuración técnica del servidor Ollama de respaldo, ver
+> `LOCAL_AI_SETUP_SUMMARY.md` (no es el backend principal).
 
 #### **Beneficios**
 - ⏱️ **Ahorro de tiempo**: Reduce horas de trabajo creando preguntas
@@ -198,9 +232,10 @@ EducaApp utiliza un **servidor Ollama local** con el modelo `llama3.1:8b` para l
 EducaApp mantiene un **repositorio organizado** de todas las preguntas:
 
 #### **Tipos de Preguntas**
-- **Opción múltiple**: Con varias alternativas
+- **Opción múltiple**: Con varias alternativas (4 opciones, una correcta)
 - **Verdadero/Falso**: Afirmaciones para validar
-- **Desarrollo**: Preguntas abiertas con respuesta extensa
+- **Completar el espacio**: Frase con un espacio en blanco a completar
+- **Desarrollo**: Preguntas abiertas con respuesta extensa (con respuesta de referencia)
 
 #### **Información de cada Pregunta**
 - Texto de la pregunta
@@ -311,6 +346,8 @@ El editor de preguntas cuenta con un diseño en dos columnas:
 
 ---
 
+### 8. 🎤 Exámenes Orales
+
 Esta funcionalidad permite evaluar a grupos de estudiantes mediante exámenes orales con **distribución automática e inteligente** de preguntas.
 
 #### **Configuración del Examen Oral**
@@ -372,7 +409,36 @@ El sistema **calcula automáticamente**:
 
 ---
 
-### 9. 👥 Gestión de Usuarios
+### 9. 🤝 Grupos de Confianza (Compartir Preguntas)
+
+Permite a docentes compartir su banco de preguntas por materia con colegas
+de confianza, sin necesidad de pertenecer a la misma institución formal en
+el sistema — el alcance es **por grupo de invitación**, no institucional.
+
+#### **Cómo Funciona**
+
+1. **Crear un grupo**: cualquier docente puede crear un grupo de confianza
+   (`/grupos/nuevo/`) y queda como su primer miembro.
+2. **Invitar colegas**: los miembros aceptados de un grupo pueden invitar a
+   otros usuarios por nombre de usuario. La invitación queda **pendiente**
+   hasta que la persona invitada la acepta o la rechaza
+   (`/grupos/invitaciones/`).
+3. **Compartir una materia**: un miembro del grupo elige qué materia
+   compartir con el resto — a partir de ahí, los demás miembros pueden ver
+   y usar las preguntas de esa materia al armar sus propios exámenes.
+4. **Indicador en el menú**: si tenés invitaciones pendientes, el ítem
+   "Grupos" del menú lateral muestra un contador en rojo.
+
+#### **Por qué "de confianza" y no institucional**
+
+El diseño original contemplaba compartir preguntas a nivel institución, pero
+se optó por grupos explícitos basados en invitación: un docente decide con
+quién comparte su banco de preguntas, en vez de que la pertenencia a una
+institución en el sistema habilite acceso automático.
+
+---
+
+### 10. 👥 Gestión de Usuarios
 
 EducaApp incluye un sistema completo de administración de usuarios:
 
@@ -406,7 +472,7 @@ Cada usuario puede:
 
 ---
 
-### 10. 📊 Consulta y Reportes
+### 11. 📊 Consulta y Reportes
 
 #### **Mis Exámenes**
 - Ver todos los exámenes creados
@@ -466,14 +532,24 @@ Cada usuario puede:
 ### Flujo 3: Organizar la Estructura Institucional
 
 1. ✅ Crear institución con logo
-2. ✅ Agregar campus/sedes
-3. ✅ Crear facultades
-4. ✅ Definir carreras
-5. ✅ Agregar materias
-6. ✅ Asociar materias con carreras
-7. ✅ Definir resultados de aprendizaje por materia
-8. ✅ Crear temas y subtemas
-9. ✅ El sistema queda listo para uso
+2. ✅ Agregar campus/sedes y facultades (embebido en la misma pantalla de edición de la institución)
+3. ✅ Definir carreras
+4. ✅ Agregar materias
+5. ✅ Asociar materias con carreras
+6. ✅ Definir resultados de aprendizaje por materia
+7. ✅ Crear temas y subtemas
+8. ✅ El sistema queda listo para uso
+
+> **Atajo para cuentas nuevas**: en vez de hacer estos pasos a mano, el
+> asistente de `/comenzar/` guía la creación de institución, materia y primer
+> contenido en un solo flujo (ver "¿Cómo Empezar?" más abajo).
+
+### Flujo 4: Compartir un Banco de Preguntas con Colegas
+
+1. ✅ Crear un grupo de confianza (o aceptar una invitación a uno existente)
+2. ✅ Invitar a colegas por nombre de usuario
+3. ✅ Elegir qué materia compartir con el grupo
+4. ✅ Los demás miembros ya pueden usar esas preguntas al armar sus exámenes
 
 ---
 
@@ -489,7 +565,7 @@ Cada usuario puede:
 ### Para Instituciones
 - 📏 **Estandarización**: Formatos consistentes en todas las evaluaciones
 - 👥 **Gestión Centralizada**: Control de usuarios, roles y permisos
-- 📚 **Banco Institucional**: Repositorio común de preguntas por materia
+- 🤝 **Bancos Compartidos por Grupo**: Repositorio de preguntas compartido entre colegas de confianza, por materia (grupos de invitación, no institucional — ver sección 9)
 - 🔍 **Auditoría**: Historial completo de cambios y modificaciones
 - 💾 **Preservación**: Contenidos y evaluaciones guardadas permanentemente
 
@@ -502,13 +578,23 @@ Cada usuario puede:
 
 ## 🚀 ¿Cómo Empezar?
 
-1. **Instalación**: El sistema se instala en un servidor o computadora
-2. **Configuración Inicial**: Crear institución, facultades, carreras
-3. **Cargar Materias**: Definir las asignaturas que se dictan
-4. **Subir Contenidos**: Comenzar a cargar materiales educativos
-5. **Generar Preguntas**: Usar la IA para crear el banco de preguntas
-6. **Crear Evaluaciones**: Diseñar exámenes escritos y orales
-7. **Evaluar Estudiantes**: Utilizar las herramientas de calificación
+**Camino recomendado para una cuenta nueva:**
+
+1. **Registrarse** y entrar a la app — el sistema te lleva directo al
+   **asistente de configuración** (`/comenzar/`), un flujo guiado de varios
+   pasos que arma institución, materia y primer contenido/examen sin
+   necesitar que sepas de antemano por dónde empezar. Se puede salir en
+   cualquier momento ("Saltar asistente") y retomar la configuración manual.
+2. **Subir Contenidos**: cargar materiales educativos (PDF, Word, PowerPoint)
+3. **Generar Preguntas**: usar la IA para crear el banco de preguntas
+4. **Crear Evaluaciones**: diseñar exámenes escritos y orales
+5. **Evaluar Estudiantes**: utilizar las herramientas de calificación
+6. **(Opcional) Compartir**: crear o unirse a un grupo de confianza para
+   compartir el banco de preguntas de una materia con colegas
+
+**Configuración manual** (sin pasar por el asistente): crear institución →
+sedes/facultades → carreras → materias → resultados de aprendizaje → temas y
+subtemas, como se detalla en el Flujo 3 más arriba.
 
 ---
 
@@ -516,10 +602,10 @@ Cada usuario puede:
 
 Para más información técnica, consultar:
 - **README.md**: Documentación técnica completa
-- **DOCUMENT_PROCESSOR_GUIDE.md**: Guía del procesador de documentos
+- **DOCUMENT_PROCESSOR_GUIDE.md**: Guía del procesador de documentos (incluye el mecanismo de cita de página real)
 - **METADATA_EXTRACTION_FEATURE.md**: Detalles de extracción de metadata
-- **LOCAL_AI_SETUP_SUMMARY.md**: Configuración y estado del servidor IA local (Ollama)
-- **SOLUCION_ERROR_IA.md**: Solución de problemas de conectividad con el servidor IA
+- **LOCAL_AI_SETUP_SUMMARY.md**: Configuración del servidor Ollama de respaldo offline (NO es el backend principal — el default es el fallback compartido Groq/Gemini, ver sección 4)
+- **SOLUCION_ERROR_IA.md**: Solución de problemas de conectividad, específico para quienes usan Ollama local
 - **EDUCAAPP_INTEGRATION.md**: Referencia técnica de integración de módulos (para desarrolladores)
 
 ---
@@ -542,5 +628,5 @@ EducaApp es un **ecosistema completo** que:
 
 ---
 
-*Documento actualizado: Enero 2024*  
-*Versión del Sistema: 2026.01*
+*Documento actualizado: Agosto 2026*  
+*Versión del Sistema: 2026.08*
