@@ -1,3 +1,7 @@
+# candidato a borrar: limpieza de una sola vez para contenidos con los
+# títulos placeholder de abajo (bug ya corregido en el flujo que los
+# generaba) — no referenciado en render.yaml ni en ningún otro deploy
+# config. Ver auditoría de código 2026-08-10.
 from django.core.management.base import BaseCommand
 from material.models import Contenido, Question
 
