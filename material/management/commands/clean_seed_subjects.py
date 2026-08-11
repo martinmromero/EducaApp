@@ -7,11 +7,15 @@ en material/models.py, que ya evita que vuelva a pasar de acá en adelante).
 
 Para cada pregunta de un usuario distinto del bot semilla que esté colgada
 de la materia semilla:
-  1. Resuelve (o crea) una materia REAL aparte con el mismo nombre —
-     nunca reutiliza la fila semilla, aunque todavía no esté marcada
-     is_seed_demo=True (por eso NO usa get_or_create_real_subject acá: esa
-     función matchea por is_seed_demo=False, y la fila semilla justamente
-     tiene ese flag en False mientras siga contaminada — sería circular).
+  1. Resuelve (o crea) una materia REAL aparte con el mismo nombre, con
+     created_by=ese usuario — nunca reutiliza la fila semilla (aunque
+     todavía no esté marcada is_seed_demo=True, por eso NO usa
+     get_or_create_real_subject acá: esa función matchea por
+     is_seed_demo=False, y la fila semilla justamente tiene ese flag en
+     False mientras siga contaminada — sería circular), y nunca comparte
+     esa fila real entre dos usuarios distintos aunque ambos hayan
+     contaminado la misma materia semilla (Subject.created_by determina
+     quién la ve en /materias/ y Crear Examen).
   2. Si la pregunta tenía un tópico de la materia semilla, resuelve/crea el
      tópico equivalente bajo la materia real y reasigna la pregunta ahí.
   3. Reemplaza la materia semilla por la real en Question.subjects.
@@ -58,23 +62,35 @@ class Command(BaseCommand):
                     self.stdout.write(f'"{name}": limpia, sin cambios.')
                 continue
 
-            # Materia real aparte — nunca la fila semilla, aunque todavía
-            # tenga is_seed_demo=False por seguir contaminada.
-            real_subject = Subject.objects.filter(
-                name=name, is_seed_demo=False
-            ).exclude(pk=seed_subject.pk).first()
-            created_real = False
-            if not real_subject:
-                real_subject = Subject.objects.create(name=name, is_seed_demo=False)
-                created_real = True
+            # Materia real aparte por cada usuario contaminado — nunca la
+            # fila semilla (aunque todavía tenga is_seed_demo=False por
+            # seguir contaminada), y nunca compartida entre dos usuarios
+            # distintos: Subject.created_by ahora determina quién la ve en
+            # /materias/ y Crear Examen (ver
+            # [[project_subject_topic_global_sharing_bug]]), así que
+            # juntar acá a dos docentes distintos en una sola fila
+            # reproduciría el mismo bug que ya se corrigió en
+            # get_or_create_real_subject().
+            real_subjects_by_user = {}
 
-            self.stdout.write(
-                f'"{name}": {len(contaminated)} pregunta(s) ajena(s) -> '
-                f'Subject id={real_subject.id} ({"nueva" if created_real else "existente"}).'
-            )
+            def _real_subject_for(user):
+                if user.id in real_subjects_by_user:
+                    return real_subjects_by_user[user.id]
+                real_subject = Subject.objects.filter(
+                    name=name, is_seed_demo=False, created_by=user
+                ).exclude(pk=seed_subject.pk).first()
+                if not real_subject:
+                    real_subject = Subject.objects.create(name=name, is_seed_demo=False, created_by=user)
+                real_subjects_by_user[user.id] = real_subject
+                return real_subject
 
-            topic_map = {}
+            self.stdout.write(f'"{name}": {len(contaminated)} pregunta(s) ajena(s) a reasignar.')
+
+            topic_maps_by_subject = {}
             for question in contaminated:
+                real_subject = _real_subject_for(question.user)
+                topic_map = topic_maps_by_subject.setdefault(real_subject.id, {})
+
                 if question.topic_id and question.topic.subject_id == seed_subject.id:
                     old_topic = question.topic
                     if old_topic.id not in topic_map:
@@ -88,7 +104,10 @@ class Command(BaseCommand):
 
                 question.subjects.remove(seed_subject)
                 question.subjects.add(real_subject)
-                self.stdout.write(f'  - pregunta #{question.id} (usuario {question.user.username}) movida.')
+                self.stdout.write(
+                    f'  - pregunta #{question.id} (usuario {question.user.username}) -> '
+                    f'Subject id={real_subject.id}.'
+                )
 
             seed_subject.is_seed_demo = True
             seed_subject.save(update_fields=['is_seed_demo'])
