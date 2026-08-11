@@ -11,7 +11,6 @@ Fecha: 29 octubre 2025
 """
 
 import fitz  # PyMuPDF
-import pdfplumber
 import tiktoken
 from markdownify import markdownify as md
 from docx import Document
@@ -45,7 +44,7 @@ class DocumentProcessor:
         }
     
     # ========================================================================
-    # PDF PROCESSING (PyMuPDF + pdfplumber)
+    # PDF PROCESSING (PyMuPDF)
     # ========================================================================
     
     def process_pdf(self, file_path: str,
@@ -119,12 +118,12 @@ class DocumentProcessor:
                 for level, title, page in toc
             ]
         
-        # Detectar headers/footers repetitivos con pdfplumber
+        # Detectar headers/footers repetitivos
         headers_to_remove = []
         footers_to_remove = []
-        
+
         if remove_headers or remove_footers:
-            headers_to_remove, footers_to_remove = self._detect_repetitive_text(file_path)
+            headers_to_remove, footers_to_remove = self._detect_repetitive_text(doc)
         
         # Extraer texto por capítulo si hay TOC, sino por páginas
         if result['toc'] and len(result['toc']) > 0:
@@ -139,16 +138,9 @@ class DocumentProcessor:
                 doc, headers_to_remove, footers_to_remove, pages_per_block
             )
         else:
-            # Sin TOC y documento corto: un solo capítulo alcanza.
-            full_text = self._extract_clean_text(
-                doc, headers_to_remove, footers_to_remove
-            )
-            result['full_text'] = full_text
-
-            # Se re-arma por página (en vez de reusar full_text tal cual)
-            # para poder incrustar los marcadores de página — full_text no
-            # los lleva a propósito, por si algo más adelante llega a
-            # mostrarlo directo al usuario.
+            # Sin TOC y documento corto: un solo capítulo alcanza. Se
+            # extrae directo por página (una sola pasada sobre el PDF)
+            # para poder incrustar los marcadores de página.
             doc_pages = []
             doc_printed_pages = []
             page_texts = []
@@ -180,81 +172,69 @@ class DocumentProcessor:
         doc.close()
         return result
     
-    def _detect_repetitive_text(self, file_path: str, 
+    def _detect_repetitive_text(self, doc: fitz.Document,
                                 threshold: float = 0.7) -> Tuple[List[str], List[str]]:
         """
-        Detecta headers y footers repetitivos usando pdfplumber.
-        
+        Detecta headers y footers repetitivos.
+
+        Reusa el `fitz.Document` ya abierto por process_pdf en vez de abrir
+        el PDF de nuevo con pdfplumber: pdfplumber (pdfminer.six por debajo,
+        con análisis de layout completo) es notablemente más lento que
+        PyMuPDF para lo mismo, y aquí solo se necesita texto plano de las
+        primeras páginas — no vale la pena una segunda librería ni una
+        segunda apertura del archivo solo para eso.
+
         Args:
-            file_path: Ruta al PDF
+            doc: Documento PyMuPDF ya abierto
             threshold: Porcentaje de páginas donde debe aparecer para considerarse repetitivo (0-1)
-        
+
         Returns:
             Tupla (headers, footers) con listas de textos a eliminar
         """
         headers = []
         footers = []
-        
-        with pdfplumber.open(file_path) as pdf:
-            total_pages = len(pdf.pages)
-            if total_pages == 0:
-                return [], []
-            
-            # Recolectar primeras/últimas líneas de cada página
-            top_lines = []
-            bottom_lines = []
-            
-            for page in pdf.pages[:min(10, total_pages)]:  # Samplear primeras 10 páginas
-                text = page.extract_text()
-                if not text:
-                    continue
-                
-                lines = text.strip().split('\n')
-                if len(lines) > 0:
-                    top_lines.append(lines[0].strip())
-                if len(lines) > 1:
-                    bottom_lines.append(lines[-1].strip())
-            
-            # Contar frecuencias
-            top_counter = Counter(top_lines)
-            bottom_counter = Counter(bottom_lines)
-            
-            # Identificar repetitivos (aparecen en >threshold% de páginas)
-            min_occurrences = int(len(top_lines) * threshold)
-            
-            for text, count in top_counter.items():
-                if count >= min_occurrences and len(text) > 5:  # Mín 5 chars
-                    headers.append(text)
-                    self.stats['removed_headers'] += count
-            
-            for text, count in bottom_counter.items():
-                if count >= min_occurrences and len(text) > 3:
-                    # Ignorar números de página simples
-                    if not re.match(r'^\d+$', text):
-                        footers.append(text)
-                        self.stats['removed_footers'] += count
-        
+
+        total_pages = doc.page_count
+        if total_pages == 0:
+            return [], []
+
+        # Recolectar primeras/últimas líneas de cada página
+        top_lines = []
+        bottom_lines = []
+
+        for page_num in range(min(10, total_pages)):  # Samplear primeras 10 páginas
+            text = doc[page_num].get_text()
+            if not text:
+                continue
+
+            lines = text.strip().split('\n')
+            if len(lines) > 0:
+                top_lines.append(lines[0].strip())
+            if len(lines) > 1:
+                bottom_lines.append(lines[-1].strip())
+
+        # Contar frecuencias
+        top_counter = Counter(top_lines)
+        bottom_counter = Counter(bottom_lines)
+
+        # Identificar repetitivos (aparecen en >threshold% de páginas)
+        min_occurrences = int(len(top_lines) * threshold)
+
+        for text, count in top_counter.items():
+            if count >= min_occurrences and len(text) > 5:  # Mín 5 chars
+                headers.append(text)
+                self.stats['removed_headers'] += count
+
+        for text, count in bottom_counter.items():
+            if count >= min_occurrences and len(text) > 3:
+                # Ignorar números de página simples
+                if not re.match(r'^\d+$', text):
+                    footers.append(text)
+                    self.stats['removed_footers'] += count
+
         return headers, footers
     
-    def _extract_clean_text(self, doc: fitz.Document, 
-                           headers: List[str], 
-                           footers: List[str]) -> str:
-        """
-        Extrae texto limpio de todo el documento, removiendo headers/footers.
-        """
-        clean_text = []
-        
-        for page in doc:
-            text = page.get_text()
-            
-            # Limpiar headers/footers
-            text = self._remove_repetitive_patterns(text, headers, footers)
-            
-            clean_text.append(text.strip())
-        
-        return '\n\n'.join(clean_text)
-    
-    def _extract_chapters_from_toc(self, doc: fitz.Document, 
+    def _extract_chapters_from_toc(self, doc: fitz.Document,
                                    toc: List[Dict],
                                    headers: List[str],
                                    footers: List[str]) -> List[Dict]:

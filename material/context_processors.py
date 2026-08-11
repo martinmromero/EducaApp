@@ -5,6 +5,7 @@ from .models import (
     InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic, Contenido,
     InstitutionSubject, GroupMembership,
 )
+from .content_visibility import get_visible_subjects
 from .views import is_admin as _is_admin
 
 
@@ -65,23 +66,28 @@ def onboarding_context(request):
         for inst in InstitutionV2.objects.filter(id__in=user_inst_ids).order_by('name')
     ]
 
-    # Materias del usuario (via contenidos subidos por el)
+    # Materias del usuario (dueño real, no ya no se infiere solo de haber
+    # subido un Contenido: una materia armada solo con preguntas también
+    # cuenta como propia)
     user_subjects = list(
-        Subject.objects.filter(contenidos__uploaded_by=request.user, is_seed_demo=False)
-        .distinct().order_by('name').values('id', 'name')
+        Subject.objects.filter(created_by=request.user, is_seed_demo=False)
+        .order_by('name').values('id', 'name')
     )
 
-    # Todas las materias REALES del sistema para el picker "elegí materia
-    # existente" del paso 3 — se excluyen las materias semilla (is_seed_demo)
-    # a propósito: son solo para el examen de ejemplo del asistente, no algo
-    # que un docente deba poder "elegir como su materia real" (ver
-    # [[project_subject_topic_global_sharing_bug]]).
+    # Materias visibles para el picker "elegí materia existente" del paso 3:
+    # propias + compartidas por otros vía grupos de confianza. Antes era
+    # Subject.objects.filter(is_seed_demo=False) a secas — TODAS las materias
+    # reales del sistema, de cualquier docente, quedaban expuestas (con sus
+    # temas y resultados de aprendizaje) y hasta editables por ID desde acá.
+    # Ver [[project_subject_topic_global_sharing_bug]].
+    visible_subject_ids = list(get_visible_subjects(request.user).values_list('id', flat=True))
+
     outcomes_by_subj = {}
-    for lo in LearningOutcome.objects.values('id', 'subject_id', 'description'):
+    for lo in LearningOutcome.objects.filter(subject_id__in=visible_subject_ids).values('id', 'subject_id', 'description'):
         outcomes_by_subj.setdefault(lo['subject_id'], []).append({'id': lo['id'], 'text': lo['description']})
 
     topics_by_subj = {}
-    for t in Topic.objects.values('id', 'subject_id', 'name'):
+    for t in Topic.objects.filter(subject_id__in=visible_subject_ids).values('id', 'subject_id', 'name'):
         topics_by_subj.setdefault(t['subject_id'], []).append({'id': t['id'], 'text': t['name']})
 
     all_subjects = [
@@ -91,7 +97,7 @@ def onboarding_context(request):
             'outcomes': outcomes_by_subj.get(s['id'], []),
             'topics': topics_by_subj.get(s['id'], []),
         }
-        for s in Subject.objects.filter(is_seed_demo=False).order_by('name').values('id', 'name')
+        for s in Subject.objects.filter(id__in=visible_subject_ids).order_by('name').values('id', 'name')
     ]
 
     # Contenidos subidos por el usuario (últimos 20)

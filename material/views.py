@@ -1719,16 +1719,21 @@ def save_exam_from_session(request):
 
 @login_required
 def create_exam_template(request):
+    from .content_visibility import get_visible_subjects
+
     # Obtener instituciones del usuario
     user_institutions = InstitutionV2.objects.filter(
         userinstitution__user=request.user,
         is_active=True
     )
-    
-    # Obtener materias del usuario (usando el related_name correcto)
-    subjects = Subject.objects.filter(
-        subject_institutions__institution__in=user_institutions
-    ).distinct()
+
+    # Materias visibles del usuario (propias + compartidas vía grupos de
+    # confianza). Antes se derivaban de compartir institución con otro
+    # docente (subject_institutions__institution__in=user_institutions):
+    # las instituciones son públicas a propósito (cualquiera puede unirse),
+    # así que ese filtro dejaba ver las materias de cualquier otro docente
+    # de la misma institución. Ver [[project_subject_topic_global_sharing_bug]].
+    subjects = get_visible_subjects(request.user)
 
     if request.method == 'POST':
         form = ExamTemplateForm(
@@ -1819,7 +1824,11 @@ def create_exam_template(request):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         institution_id = request.GET.get('institution_id')
         if institution_id:
-            institution_subjects = Subject.objects.filter(
+            # Se filtra dentro de las materias visibles del usuario, no de
+            # todas las de la institución — antes esto devolvía outcomes de
+            # cualquier institución con solo pasar su ID por querystring,
+            # sin chequear que el usuario perteneciera a ella.
+            institution_subjects = subjects.filter(
                 subject_institutions__institution_id=institution_id
             )
             outcomes = LearningOutcome.objects.filter(
@@ -1991,14 +2000,13 @@ def edit_exam_template(request, template_id):
         # GET request - crear formulario con la instancia existente
         form = ExamTemplateForm(instance=template, user=request.user)
 
-    # Obtener subjects disponibles para el usuario
-    subjects = Subject.objects.filter(is_seed_demo=False)
-    if hasattr(request.user, 'profile') and hasattr(request.user.profile, 'institutions'):
-        user_institutions = request.user.profile.institutions.all()
-        if user_institutions:
-            subjects = Subject.objects.filter(
-                subject_institutions__institution__in=user_institutions
-            ).distinct()
+    # Materias visibles del usuario (propias + compartidas). El fallback
+    # anterior (request.user.profile.institutions, campo v1 ya muerto desde
+    # el rediseño de instituciones) siempre resultaba en lista vacía, así
+    # que en la práctica esto mostraba SIEMPRE todas las materias del
+    # sistema sin excepción. Ver [[project_subject_topic_global_sharing_bug]].
+    from .content_visibility import get_visible_subjects
+    subjects = get_visible_subjects(request.user)
 
     context = {
         'form': form,
@@ -3250,16 +3258,20 @@ def mis_contenidos(request):
 
     base_qs = Contenido.objects.filter(uploaded_by=request.user).prefetch_related('subjects')
 
-    vigentes = base_qs.filter(file_deleted_at__isnull=True).order_by('-uploaded_at')
+    vigentes_qs = base_qs.filter(file_deleted_at__isnull=True).order_by('-uploaded_at')
+    vigentes_paginator = Paginator(vigentes_qs, 25)
+    vigentes_page = vigentes_paginator.get_page(request.GET.get('vpage'))
 
     # El archivo puede haber desaparecido sin que file_deleted_at se haya
     # actualizado (la sesión sigue abierta pero el storage es efímero, hubo
-    # un redeploy, etc.). Reconciliamos contra el storage real antes de mostrar
-    # la lista para que "vigentes" no muestre archivos que ya no existen.
-    stale_ids = [c.id for c in vigentes if not c.file_actually_exists()]
+    # un redeploy, etc.). Reconciliamos contra el storage real solo sobre la
+    # página que se va a mostrar, no sobre todos los vigentes del usuario:
+    # con muchos documentos, chequear el storage de todos en cada request
+    # es I/O sincrónico innecesario en un worker único.
+    stale_ids = [c.id for c in vigentes_page if not c.file_actually_exists()]
     if stale_ids:
         _delete_files_for_queryset(Contenido.objects.filter(id__in=stale_ids))
-        vigentes = base_qs.filter(file_deleted_at__isnull=True).order_by('-uploaded_at')
+        vigentes_page = vigentes_paginator.get_page(request.GET.get('vpage'))
 
     borrados_qs = base_qs.filter(file_deleted_at__isnull=False)
 
@@ -3286,7 +3298,7 @@ def mis_contenidos(request):
     materias = Subject.objects.filter(contenidos__uploaded_by=request.user).distinct().order_by('name')
 
     return render(request, 'material/questions/mis_contenidos.html', {
-        'vigentes': vigentes,
+        'vigentes_page': vigentes_page,
         'borrados_page': borrados_page,
         'materias': materias,
         'q': q,
@@ -3518,7 +3530,7 @@ def process_csv_file(file, contenido, user):
                 continue
                 
             # Obtener o crear la materia (real, no mezcla con materias semilla)
-            subject, _ = get_or_create_real_subject(row.get('materia', 'General'))
+            subject, _ = get_or_create_real_subject(row.get('materia', 'General'), user)
 
             # Obtener o crear el tema
             topic, _ = Topic.objects.get_or_create(
@@ -3608,7 +3620,7 @@ def process_txt_file(file, contenido, user):
 def create_question_from_dict(data, contenido, user):
     from .models import Subject, Topic, Subtopic, Question, get_or_create_real_subject
     # Obtener o crear Subject (real, no mezcla con materias semilla)
-    subject, _ = get_or_create_real_subject(data.get('materia', 'General'))
+    subject, _ = get_or_create_real_subject(data.get('materia', 'General'), user)
 
     # Obtener o crear Topic
     topic, _ = Topic.objects.get_or_create(
@@ -4429,7 +4441,8 @@ def toggle_favorite(request):
 # Subjects CRUD
 @login_required
 def subject_list(request):
-    subjects = Subject.objects.filter(is_seed_demo=False)
+    from .content_visibility import get_visible_subjects
+    subjects = get_visible_subjects(request.user)
     favorite_ids = set(Favorite.objects.filter(
         user=request.user, content_type=ContentType.objects.get_for_model(Subject)
     ).values_list('object_id', flat=True))
@@ -4443,7 +4456,9 @@ def subject_list(request):
 
 @login_required
 def delete_subject(request, pk):
-    subject = get_object_or_404(Subject, pk=pk)
+    # Solo el dueño puede borrar — las compartidas por otros vía grupos de
+    # confianza son visibles/usables pero no borrables.
+    subject = get_object_or_404(Subject, pk=pk, created_by=request.user)
     if request.method == 'POST':
         try:
             subject.delete()
@@ -4467,7 +4482,8 @@ def bulk_eliminar_subjects(request):
         messages.error(request, 'No se seleccionó ninguna materia para eliminar.', extra_tags='materias')
         return redirect('material:subject_list')
 
-    subjects = Subject.objects.filter(pk__in=ids)
+    # Solo las propias — ver nota de ownership en delete_subject.
+    subjects = Subject.objects.filter(pk__in=ids, created_by=request.user)
     count = subjects.count()
     try:
         subjects.delete()
@@ -5866,9 +5882,11 @@ def onboarding_save_step(request):
                     )
 
             if existing_subject_id and body.get('edit_subject'):
-                # Editar materia existente
+                # Editar materia existente — solo si es dueño (antes cualquier
+                # usuario podía editar/renombrar la materia de otro con solo
+                # conocer su ID, ver [[project_subject_topic_global_sharing_bug]])
                 try:
-                    subj = Subject.objects.get(pk=existing_subject_id)
+                    subj = Subject.objects.get(pk=existing_subject_id, created_by=request.user)
                     extra['subject_id'] = subj.id
                     new_name = body.get('new_name', '').strip()
                     if new_name and new_name != subj.name:
@@ -5895,10 +5913,16 @@ def onboarding_save_step(request):
                 except Subject.DoesNotExist:
                     pass
             elif existing_subject_id:
-                # Solo vincular — no editar
-                extra['subject_id'] = int(existing_subject_id)
+                # Solo vincular — no editar. Se valida que la materia sea
+                # visible para este usuario (propia o compartida): antes se
+                # aceptaba cualquier ID sin chequeo, permitiendo vincular
+                # (y de ahí en más, escribir temas/preguntas) sobre la
+                # materia de otro usuario con solo conocer su ID.
+                from .content_visibility import get_visible_subjects
+                if get_visible_subjects(request.user).filter(pk=existing_subject_id).exists():
+                    extra['subject_id'] = int(existing_subject_id)
             elif subject_name:
-                subject, _ = get_or_create_real_subject(subject_name)
+                subject, _ = get_or_create_real_subject(subject_name, request.user)
                 extra['subject_id'] = subject.id
 
                 # Resultados de aprendizaje opcionales

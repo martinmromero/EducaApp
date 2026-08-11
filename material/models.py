@@ -333,6 +333,19 @@ class Subject(models.Model):
         verbose_name="Materia semilla del sistema (demo)",
         help_text="Sembrada por seed_demo_content para el asistente de configuración — no es una materia real de ningún docente.",
     )
+    # Dueño real de la materia. Antes Subject no tenía dueño y se matcheaba
+    # solo por nombre (ver comentario de is_seed_demo más arriba y
+    # [[project_subject_topic_global_sharing_bug]]): dos docentes que
+    # escribían "Programación I" terminaban compartiendo la misma fila sin
+    # saberlo, y /materias/ mostraba TODAS las materias del sistema a
+    # cualquier usuario. get_or_create_real_subject() ahora matchea por
+    # (nombre, usuario) — cada docente tiene su propia fila incluso con
+    # nombres iguales. Nullable porque las filas históricas sin ningún
+    # Question/Contenido asociado no tienen forma de inferir un dueño.
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='owned_subjects', verbose_name="Creada por",
+    )
 
     class Meta:
         db_table = 'material_subjects'
@@ -404,7 +417,7 @@ class Subject(models.Model):
         super().save(*args, **kwargs)
 
 
-def get_or_create_real_subject(name):
+def get_or_create_real_subject(name, user):
     """
     Punto único para crear/matchear una materia REAL por nombre (CSV/TXT,
     "Nueva materia", generador de IA, paso 3 del wizard cuando el docente
@@ -413,11 +426,16 @@ def get_or_create_real_subject(name):
     "Programación I" y solo existe la materia semilla con ese nombre, se
     crea una fila real aparte en vez de mezclar su contenido con el
     ejemplo del asistente (ver Subject.is_seed_demo).
+
+    Matchea por (nombre, user) y no por nombre a secas: antes, dos docentes
+    que tipeaban el mismo nombre de materia terminaban compartiendo la misma
+    fila (y por lo tanto sus temas, resultados de aprendizaje y visibilidad
+    en /materias/) sin saberlo. Ver [[project_subject_topic_global_sharing_bug]].
     """
-    subject = Subject.objects.filter(name=name, is_seed_demo=False).first()
+    subject = Subject.objects.filter(name=name, is_seed_demo=False, created_by=user).first()
     if subject:
         return subject, False
-    return Subject.objects.create(name=name, is_seed_demo=False), True
+    return Subject.objects.create(name=name, is_seed_demo=False, created_by=user), True
 
 
 class LearningOutcome(models.Model):

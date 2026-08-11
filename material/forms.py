@@ -265,11 +265,18 @@ class ExamTemplateForm(forms.ModelForm):
 
         if user:
             self.fields['institution'].queryset = InstitutionV2.objects.filter(
-                userinstitution__user=user, 
+                userinstitution__user=user,
                 is_active=True
             )
+            # Antes 'subject' no tenía queryset propio (default: TODAS las
+            # materias del sistema) — la vista podía mostrar un desplegable
+            # acotado, pero el POST en sí validaba contra cualquier Subject
+            # existente. Ver [[project_subject_topic_global_sharing_bug]].
+            from .content_visibility import get_visible_subjects
+            self.fields['subject'].queryset = get_visible_subjects(user)
         else:
             self.fields['institution'].queryset = InstitutionV2.objects.none()
+            self.fields['subject'].queryset = Subject.objects.none()
 
         self.fields['faculty'].queryset = FacultyV2.objects.none()
         self.fields['campus'].queryset = CampusV2.objects.none()

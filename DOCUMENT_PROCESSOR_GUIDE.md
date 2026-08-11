@@ -4,8 +4,7 @@
 
 Se ha instalado exitosamente el **Stack Completo** de procesamiento de documentos:
 
-- ✅ **PyMuPDF** 1.26.5 (reemplaza a PyPDF2)
-- ✅ **pdfplumber** 0.11.7
+- ✅ **PyMuPDF** 1.26.5 (reemplaza a PyPDF2 y a pdfplumber, que se usaba solo para detectar headers/footers repetitivos)
 - ✅ **tiktoken** 0.12.0
 - ✅ **markdownify** 1.2.0
 - ✅ **python-docx** 0.8.11
@@ -307,7 +306,7 @@ Archivos generados:
 |---------|---------------|-----------------|
 | Extracción TOC | ❌ No | ✅ Sí, nativo |
 | Detección de estructura | ❌ Manual | ✅ Automática |
-| Headers/Footers | ❌ No detecta | ✅ Detecta con pdfplumber |
+| Headers/Footers | ❌ No detecta | ✅ Detecta (sampleo de texto plano) |
 | PDFs complejos | ⚠️ Problemas | ✅ Excelente |
 | Velocidad | ⚠️ Lento | ✅ Rápido |
 | Conteo de tokens | ❌ No | ✅ tiktoken integrado |
@@ -400,7 +399,6 @@ headers, footers = self._detect_repetitive_text(
 ## 📚 Recursos
 
 - **PyMuPDF Docs**: https://pymupdf.readthedocs.io/
-- **pdfplumber**: https://github.com/jsvine/pdfplumber
 - **tiktoken**: https://github.com/openai/tiktoken
 - **OpenAI Pricing**: https://openai.com/pricing
 

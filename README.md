@@ -123,7 +123,6 @@ La aplicación estará disponible en `http://127.0.0.1:8000/`
 |---------|---------|-----------|
 | Django | 4.2.20 | Framework web principal |
 | PyMuPDF | 1.26.5 | Procesamiento avanzado de archivos PDF |
-| pdfplumber | 0.11.7 | Extracción de datos de PDFs |
 | tiktoken | 0.12.0 | Contador de tokens para IA |
 | markdownify | 1.2.0 | Conversión de HTML a Markdown |
 | python-docx | 0.8.11 | Procesamiento de archivos Word |

@@ -9,7 +9,26 @@ una relación permanente que el propio usuario configuró en "Mis grupos").
 from django.conf import settings
 from django.db.models import Q
 
-from .models import Question, SubjectShare
+from .models import Question, Subject, SubjectShare
+
+
+def get_visible_subjects(user):
+    """Materias propias del usuario, más las compartidas con él por otros
+    usuarios a través de un `SharingGroup` del que es miembro aceptado.
+
+    Antes /materias/ (y el picker de materia del wizard) mostraban
+    Subject.objects.filter(is_seed_demo=False) a secas: todas las materias
+    reales del sistema, de cualquier docente, a cualquier usuario. Ver
+    [[project_subject_topic_global_sharing_bug]].
+    """
+    return Subject.objects.filter(is_seed_demo=False).filter(
+        Q(created_by=user) |
+        Q(
+            group_shares__is_active=True,
+            group_shares__group__memberships__user=user,
+            group_shares__group__memberships__status='accepted',
+        )
+    ).distinct()
 
 
 def get_visible_questions(user, subject=None, include_seed=False):
