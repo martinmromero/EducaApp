@@ -13,10 +13,24 @@ reseteando una cuenta ya existente) — nunca especulativamente ni en lote,
 para no inflar la base de datos con cuentas que nadie pidió.
 """
 import datetime
+import logging
+import threading
+import uuid
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db import IntegrityError, connection
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
+
+# "Siempre una copia de Área de Pruebas lista sin asignar" (ver
+# ensure_spare_pool): cuántos repuestos completamente clonados se
+# mantienen en el pool en todo momento. En 1 alcanza para que
+# entrar/resetear sea instantáneo para el caso común (un solo docente
+# haciéndolo a la vez) — subir esto es tan simple como cambiar el número,
+# no hay nada más codificado contra "1" en particular.
+SPARE_POOL_TARGET_SIZE = 1
 
 from .models import (
     CampusV2,
@@ -60,13 +74,45 @@ def _seed_user():
 
 
 def get_or_create_training_account(real_user):
-    """Devuelve la cuenta del Área de Pruebas de este docente, creándola
-    (y poblándola con una copia del contenido semilla) si es la primera vez."""
+    """Devuelve la cuenta del Área de Pruebas de este docente. Si es la
+    primera vez, toma un repuesto ya clonado del pool (instantáneo) — si
+    no hay ninguno disponible en este momento, cae al camino sincrónico de
+    siempre (clonar de cero acá mismo). Cualquiera de los dos casos
+    dispara una reposición del pool en background."""
     link = TrainingAccountLink.objects.filter(real_user=real_user).select_related('training_user').first()
     if link:
         return link.training_user
 
-    training_user = User.objects.create(username=f'training__{real_user.pk}', is_active=True)
+    spare = _find_spare_training_account()
+    if spare is not None:
+        try:
+            TrainingAccountLink.objects.create(real_user=real_user, training_user=spare)
+            training_user = spare
+        except IntegrityError:
+            # Otro request en simultáneo se llevó este mismo repuesto justo
+            # antes — no hay repuesto libre después de todo, cae al camino
+            # sincrónico.
+            training_user = _provision_and_link(real_user)
+    else:
+        training_user = _provision_and_link(real_user)
+
+    _apply_real_user_preferences(training_user, real_user)
+    _replenish_pool_async()
+    return training_user
+
+
+def _provision_and_link(real_user):
+    training_user = _provision_training_account(f'training__{real_user.pk}')
+    TrainingAccountLink.objects.create(real_user=real_user, training_user=training_user)
+    return training_user
+
+
+def _provision_training_account(username):
+    """Crea una cuenta de Área de Pruebas completa y autocontenida (User +
+    Profile + clon del contenido semilla) sin emparejarla con nadie
+    todavía — el llamador decide si queda como repuesto en el pool o se
+    empareja de una con un docente real."""
+    training_user = User.objects.create(username=username, is_active=True)
     training_user.set_unusable_password()
     training_user.save()
 
@@ -74,16 +120,89 @@ def get_or_create_training_account(real_user):
     profile.role = 'user'
     profile.is_training_account = True
     profile.onboarding_completed = True
-    try:
-        profile.visual_theme = real_user.profile.visual_theme
-    except Exception:
-        pass
-    profile.save(update_fields=['role', 'is_training_account', 'onboarding_completed', 'visual_theme'])
-
-    TrainingAccountLink.objects.create(real_user=real_user, training_user=training_user)
+    profile.save(update_fields=['role', 'is_training_account', 'onboarding_completed'])
 
     clone_seed_content_into(training_user)
     return training_user
+
+
+def _apply_real_user_preferences(training_user, real_user):
+    """El tema visual se copia recién al asignar (no al provisionar el
+    repuesto): un repuesto en el pool todavía no sabe qué docente real lo
+    va a reclamar."""
+    try:
+        training_user.profile.visual_theme = real_user.profile.visual_theme
+        training_user.profile.save(update_fields=['visual_theme'])
+    except Exception:
+        pass
+
+
+def _find_spare_training_account():
+    """Una cuenta de Área de Pruebas ya clonada pero todavía sin
+    emparejar con ningún docente (no tiene fila en TrainingAccountLink),
+    o None si el pool está vacío en este momento."""
+    return User.objects.filter(
+        profile__is_training_account=True,
+    ).exclude(
+        id__in=TrainingAccountLink.objects.values('training_user_id'),
+    ).order_by('id').first()
+
+
+def _spare_pool_size():
+    return User.objects.filter(
+        profile__is_training_account=True,
+    ).exclude(
+        id__in=TrainingAccountLink.objects.values('training_user_id'),
+    ).count()
+
+
+def ensure_spare_pool(target_size=SPARE_POOL_TARGET_SIZE):
+    """Repone el pool de repuestos hasta `target_size`. Sincrónico a
+    propósito — pensado para llamarse desde un comando de management (deploy)
+    o encolado en un thread aparte para no bloquear un request (ver
+    `_replenish_pool_async`). Devuelve cuántos repuestos nuevos creó."""
+    missing = target_size - _spare_pool_size()
+    created = 0
+    for _ in range(max(missing, 0)):
+        _provision_training_account(f'training_spare__{uuid.uuid4().hex[:12]}')
+        created += 1
+    return created
+
+
+def _replenish_pool_async():
+    """Fire-and-forget: si el pool quedó corto, arranca un thread aparte
+    para reponerlo sin demorar la respuesta al usuario. Si el thread no
+    llega a terminar (reciclado del worker, excepción, etc.) no pasa nada
+    grave — es una optimización, no una dependencia dura: la próxima vez
+    que alguien entre/resetee y no encuentre repuesto, cae sola al camino
+    sincrónico de siempre (ver get_or_create_training_account/
+    reset_training_account)."""
+    def _worker():
+        try:
+            ensure_spare_pool()
+        except Exception:
+            logger.exception('No se pudo reponer en background el pool del Área de Pruebas.')
+        finally:
+            connection.close()  # el thread no comparte la conexión del request
+    threading.Thread(target=_worker, daemon=True).start()
+
+
+def _delete_training_account_async(training_user_id):
+    """Fire-and-forget: borra en background una cuenta de Área de Pruebas
+    que ya quedó desvinculada (ver reset_training_account) — se le pasa
+    el ID, no el objeto, porque un objeto obtenido con la conexión del
+    request no es seguro de reusar desde otro thread."""
+    def _worker():
+        try:
+            training_user = User.objects.filter(pk=training_user_id).first()
+            if training_user is not None:
+                delete_all_content_for_training_user(training_user)
+                training_user.delete()
+        except Exception:
+            logger.exception('No se pudo borrar en background la cuenta vieja del Área de Pruebas.')
+        finally:
+            connection.close()
+    threading.Thread(target=_worker, daemon=True).start()
 
 
 def clone_seed_content_into(training_user):
@@ -323,7 +442,35 @@ def delete_all_content_for_training_user(training_user):
 
 
 def reset_training_account(training_user):
-    """Vacía y repuebla la cuenta de práctica. Se llama SOLO desde una
-    acción explícita (propia o de un admin) — nunca automáticamente."""
-    delete_all_content_for_training_user(training_user)
-    clone_seed_content_into(training_user)
+    """Resetea el Área de Pruebas del docente dueño de `training_user`. Se
+    llama SOLO desde una acción explícita (propia o de un admin) — nunca
+    automáticamente.
+
+    Si hay un repuesto ya listo en el pool, hace un swap instantáneo: el
+    vínculo pasa a apuntar al repuesto (ya clonado) y la cuenta vieja se
+    borra en background. Si no hay repuesto disponible, cae al camino de
+    siempre: vaciar y reclonar la misma cuenta en el lugar (más lento,
+    pero funciona igual). En ambos casos repone el pool en background.
+
+    Devuelve la cuenta de práctica vigente después del reset — puede ser
+    una cuenta distinta (User) a la que se pasó como argumento, así que
+    el llamador que dependa de la sesión (ver training_views.py) tiene
+    que revisar si cambió y volver a loguearse como corresponde.
+    """
+    link = TrainingAccountLink.objects.select_related('training_user').get(training_user=training_user)
+    old_training_user = link.training_user
+
+    spare = _find_spare_training_account()
+    if spare is None:
+        delete_all_content_for_training_user(old_training_user)
+        clone_seed_content_into(old_training_user)
+        _replenish_pool_async()
+        return old_training_user
+
+    _apply_real_user_preferences(spare, link.real_user)
+    link.training_user = spare
+    link.save(update_fields=['training_user'])
+
+    _delete_training_account_async(old_training_user.id)
+    _replenish_pool_async()
+    return spare

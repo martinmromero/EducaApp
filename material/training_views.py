@@ -66,9 +66,19 @@ def salir_area_pruebas(request):
 def restablecer_area_pruebas(request):
     # Solo se puede restablecer estando DENTRO del Área de Pruebas — nunca
     # se dispara solo ni automáticamente.
-    if not request.session.get(SESSION_ACTING_AS_TRAINING_FOR):
+    real_user_id = request.session.get(SESSION_ACTING_AS_TRAINING_FOR)
+    if not real_user_id:
         raise PermissionDenied
-    reset_training_account(request.user)
+
+    new_training_user = reset_training_account(request.user)
+    if new_training_user.id != request.user.id:
+        # Hubo swap a un repuesto del pool (ver reset_training_account):
+        # la cuenta vieja de esta sesión ya no existe/existirá — hay que
+        # volver a loguearse como la cuenta nueva. login() limpia la
+        # sesión, por eso la marca se reescribe después.
+        login(request, new_training_user, backend=_LOGIN_BACKEND)
+        request.session[SESSION_ACTING_AS_TRAINING_FOR] = real_user_id
+
     messages.success(
         request,
         'Área de Pruebas restablecida: todo lo que se había creado allí se borró y se repuso el contenido de ejemplo.',
