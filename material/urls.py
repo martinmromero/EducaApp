@@ -122,6 +122,7 @@ urlpatterns = [
 # Subjects CRUD
 path('subjects/', material_views.subject_list, name='subject_list'),
     path('favoritos/toggle/', material_views.toggle_favorite, name='toggle_favorite'),
+    path('favoritos/', material_views.favoritos_list, name='favoritos_list'),
 # linea siguiente obsoleta. si funciona dos renglones abajo, borrar 1 renglon abajo de subject create
 #path('subjects/create/', material_views.create_subject, name='create_subject'),
 path('subjects/create/', material_views.SubjectCreateView.as_view(), name='create_subject'),

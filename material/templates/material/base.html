@@ -178,18 +178,6 @@
             {% endif %}
         </a>
 
-        <!-- Área de Pruebas: siempre visible, no solo post-onboarding. .menu-item
-             ya da el mismo padding/color/hover que los links de al lado (ver
-             styles.css) — solo hace falta sacarle el chrome nativo de <button>. -->
-        <form method="post"
-              action="{% if in_training_mode %}{% url 'material:salir_area_pruebas' %}{% else %}{% url 'material:entrar_area_pruebas' %}{% endif %}">
-            {% csrf_token %}
-            <button type="submit" class="menu-item" style="width:100%; text-align:left; background:none; border:none;">
-                <i class="bi bi-mortarboard me-2"></i>
-                {% if in_training_mode %}Volver a Producción{% else %}Área de Pruebas{% endif %}
-            </button>
-        </form>
-
         <!-- Menú de Administración (solo para administradores) -->
         {% if is_admin %}
             <div class="menu-item" onclick="toggleSubmenu(this)">
@@ -258,14 +246,17 @@
                         <i class="bi bi-house"></i>
                     </a>
                     {% if user.is_authenticated %}
-                        <!-- Si la pantalla registró su propio recorrido corto (ver
-                             comentario más abajo, junto al script), esto se abre
-                             como un dropdown con las dos opciones en vez de un
-                             modal — si no hay ninguno registrado, es un botón
-                             común que arranca directo el recorrido general (ver
-                             el <script> que arma esto en el bloque de scripts). -->
+                        <!-- Botón "?": dropdown real de Bootstrap (data-bs-toggle
+                             fijo) para que el cierre al hacer clic afuera lo maneje
+                             Bootstrap solo, en vez de un show() manual sin ese
+                             comportamiento. La opción "Recorrido de esta pantalla"
+                             se muestra u oculta según si la pantalla registró su
+                             propio recorrido corto (ver show.bs.dropdown más abajo,
+                             junto al script). Área de Pruebas vive siempre acá
+                             abajo, como última opción del menú. -->
                         <div class="dropdown d-inline-block">
-                            <button type="button" id="tourHelpBtn" class="btn btn-outline-primary" title="Ver recorrido guiado">
+                            <button type="button" id="tourHelpBtn" class="btn btn-outline-primary dropdown-toggle"
+                                    data-bs-toggle="dropdown" aria-expanded="false" title="Ver recorrido guiado">
                                 <i class="bi bi-question-lg"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end" id="tourHelpMenu" aria-labelledby="tourHelpBtn">
@@ -276,11 +267,22 @@
                                         <span class="small text-muted d-block text-wrap">El menú lateral y las funciones principales de EducaApp.</span>
                                     </a>
                                 </li>
-                                <li>
+                                <li id="tourChoicePageItemWrap" class="d-none">
                                     <a class="dropdown-item" href="#" id="tourChoicePageItem">
                                         <span class="fw-semibold d-block" id="tourChoicePageLabel">Recorrido de esta pantalla</span>
-                                        <span class="small text-muted d-block text-wrap">Solo lo que se puede hacer acá.</span>
+                                        <span class="small text-muted d-block text-wrap">Recorrido por esta función específica.</span>
                                     </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form method="post"
+                                          action="{% if in_training_mode %}{% url 'material:salir_area_pruebas' %}{% else %}{% url 'material:entrar_area_pruebas' %}{% endif %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item">
+                                            <i class="bi bi-mortarboard me-2"></i>
+                                            {% if in_training_mode %}Volver a Producción{% else %}Área de Pruebas{% endif %}
+                                        </button>
+                                    </form>
                                 </li>
                             </ul>
                         </div>
@@ -701,44 +703,38 @@
             updateMobileToggleButton();
           });
 
-        // Recorrido guiado (driver.js) — ver static/js/tour.js. Si la
-        // pantalla actual registró también su propio recorrido corto (ver
-        // data-tour-page en <body> y window.EducaAppTour.getCurrentPageTour),
-        // el botón "?" despliega un dropdown para elegir entre el general y
-        // el de esta pantalla en vez de arrancar el general directo (antes
-        // era un modal — mucho para elegir entre dos opciones cortas).
+        // Recorrido guiado (driver.js) — ver static/js/tour.js. El botón "?"
+        // es un dropdown real de Bootstrap (data-bs-toggle="dropdown" fijo en
+        // el HTML): Bootstrap maneja solo la apertura y el cierre al hacer
+        // clic afuera. Antes se abría con un show() manual disparado por un
+        // click propio y sin data-bs-toggle, así que el listener de "clic
+        // afuera cierra el dropdown" de Bootstrap (que busca por ese
+        // atributo) nunca lo encontraba y el menú quedaba siempre desplegado.
+        // Si la pantalla actual registró también su propio recorrido corto
+        // (ver data-tour-page en <body> y window.EducaAppTour.getCurrentPageTour),
+        // la opción "Recorrido de esta pantalla" se muestra recién al abrir
+        // el dropdown (show.bs.dropdown); si no, queda oculta.
         const tourHelpBtn = document.getElementById('tourHelpBtn');
         if (tourHelpBtn && window.EducaAppTour) {
-            let tourDropdown = null;
-
-            tourHelpBtn.addEventListener('click', () => {
+            tourHelpBtn.addEventListener('show.bs.dropdown', () => {
                 const pageTour = window.EducaAppTour.getCurrentPageTour && window.EducaAppTour.getCurrentPageTour();
-                if (!pageTour) { window.EducaAppTour.start(); return; }
-
-                document.getElementById('tourChoicePageLabel').textContent = pageTour.label || 'Recorrido de esta pantalla';
-                if (!tourDropdown) tourDropdown = new bootstrap.Dropdown(tourHelpBtn);
-                tourDropdown.show();
+                const pageItemWrap = document.getElementById('tourChoicePageItemWrap');
+                if (pageTour) {
+                    document.getElementById('tourChoicePageLabel').textContent = pageTour.label || 'Recorrido de esta pantalla';
+                    pageItemWrap.classList.remove('d-none');
+                } else {
+                    pageItemWrap.classList.add('d-none');
+                }
             });
 
             document.getElementById('tourChoiceGeneralItem').addEventListener('click', (e) => {
                 e.preventDefault();
-                tourDropdown?.hide();
                 window.EducaAppTour.start();
             });
             document.getElementById('tourChoicePageItem').addEventListener('click', (e) => {
                 e.preventDefault();
-                tourDropdown?.hide();
                 const pageTour = window.EducaAppTour.getCurrentPageTour && window.EducaAppTour.getCurrentPageTour();
                 if (pageTour) pageTour.start();
-            });
-
-            // Puramente cosmético: agrega la flechita de dropdown solo si de
-            // verdad hay algo entre qué elegir en esta pantalla — si no, el
-            // botón "?" sigue viéndose (y comportándose) como un botón común.
-            document.addEventListener('DOMContentLoaded', () => {
-                if (window.EducaAppTour.getCurrentPageTour && window.EducaAppTour.getCurrentPageTour()) {
-                    tourHelpBtn.classList.add('dropdown-toggle');
-                }
             });
         }
 

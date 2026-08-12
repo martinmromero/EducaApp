@@ -242,7 +242,7 @@ def preview_exam(request):
             reason = 'No se encontraron preguntas disponibles para los tópicos/preguntas seleccionados.'
         messages.warning(
             request,
-            f'{reason} Elegí al menos un tópico (o preguntas puntuales) antes de generar el examen.',
+            f'{reason} Elegir al menos un tópico (o preguntas puntuales) antes de generar el examen.',
             extra_tags='general',
         )
         return redirect('material:create_exam')
@@ -615,12 +615,17 @@ def index(request):
         )
     except Exception:
         ultimos_examenes = []
+    try:
+        favoritos_count = Favorite.objects.filter(user=request.user).count()
+    except Exception:
+        favoritos_count = 0
 
     context = {
         'is_admin': is_admin(request.user),
         'contenidos_count': contenidos_count,
         'preguntas_count': preguntas_count,
         'examenes_count': examenes_count,
+        'favoritos_count': favoritos_count,
         'ultimos_examenes': ultimos_examenes,
     }
     return render(request, 'material/index.html', context)
@@ -2460,7 +2465,7 @@ def edit_user(request, user_id):
                 or not form.cleaned_data.get('is_active')
             )
             if demoting_or_deactivating and user == request.user:
-                messages.error(request, 'No podés quitarte tu propio rol de administrador ni desactivar tu cuenta.', extra_tags='usuarios')
+                messages.error(request, 'No se puede quitar el propio rol de administrador ni desactivar la propia cuenta.', extra_tags='usuarios')
                 return redirect('material:edit_user', user_id=user.id)
             if demoting_or_deactivating and _is_last_active_admin(user):
                 messages.error(request, 'No se puede quitar el rol de administrador ni desactivar al último administrador del sistema.', extra_tags='usuarios')
@@ -2478,7 +2483,7 @@ def delete_user(request, user_id):
     user = get_object_or_404(User, id=user_id)
     if request.method == 'POST':
         if user == request.user:
-            messages.error(request, 'No podés eliminar tu propia cuenta.', extra_tags='usuarios')
+            messages.error(request, 'No se puede eliminar la propia cuenta.', extra_tags='usuarios')
             return redirect('material:user_list')
         if is_admin(user) and _is_last_active_admin(user):
             messages.error(request, 'No se puede eliminar al último administrador del sistema.', extra_tags='usuarios')
@@ -4413,7 +4418,7 @@ def delete_faculty_v2(request, institution_id, faculty_id):
         return redirect('material:institution_v2_detail', pk=institution.pk)
     return render(request, 'material/faculties_v2/confirm_delete.html', {'faculty': faculty, 'institution': institution})
 
-# --- Favoritos (genérico: exámenes, plantillas, materias) ---
+# --- Favoritos (genérico: exámenes, plantillas, materias, lotes) ---
 _FAVORITE_MODELS = {
     'exam': Exam,
     'examtemplate': ExamTemplate,
@@ -4421,11 +4426,32 @@ _FAVORITE_MODELS = {
     'batch': ExamVersionBatch,
 }
 
+
+def _favoritable_queryset(model_key, user):
+    """Alcance de "lo que este usuario puede marcar/ver como favorito" para
+    cada tipo — antes toggle_favorite hacía get_object_or_404(model_cls, ...)
+    a secas, sin dueño: cualquier usuario logueado podía favoritear el
+    examen/plantilla/lote de cualquier otro por ID. Subject usa
+    get_visible_subjects (propias + compartidas), no solo created_by,
+    porque una materia compartida por un grupo de confianza es
+    legítimamente favoriteable aunque no sea propia."""
+    if model_key == 'exam':
+        return Exam.objects.filter(created_by=user)
+    if model_key == 'examtemplate':
+        return ExamTemplate.objects.filter(created_by=user)
+    if model_key == 'batch':
+        return ExamVersionBatch.objects.filter(created_by=user)
+    if model_key == 'subject':
+        from .content_visibility import get_visible_subjects
+        return get_visible_subjects(user)
+    return None
+
+
 @login_required
 def toggle_favorite(request):
     """
     Alterna favorito para cualquiera de los modelos en _FAVORITE_MODELS.
-    POST: model ('exam'|'examtemplate'|'subject'), object_id.
+    POST: model ('exam'|'examtemplate'|'subject'|'batch'), object_id.
     Devuelve JSON {'is_favorite': bool} para actualizar el ícono sin recargar.
     """
     if request.method != 'POST':
@@ -4433,12 +4459,12 @@ def toggle_favorite(request):
 
     model_key = request.POST.get('model')
     object_id = request.POST.get('object_id')
-    model_cls = _FAVORITE_MODELS.get(model_key)
-    if not model_cls or not object_id:
+    qs = _favoritable_queryset(model_key, request.user)
+    if qs is None or not object_id:
         return JsonResponse({'error': 'Parámetros inválidos'}, status=400)
 
-    obj = get_object_or_404(model_cls, pk=object_id)
-    content_type = ContentType.objects.get_for_model(model_cls)
+    obj = get_object_or_404(qs, pk=object_id)
+    content_type = ContentType.objects.get_for_model(_FAVORITE_MODELS[model_key])
     favorite, created = Favorite.objects.get_or_create(
         user=request.user, content_type=content_type, object_id=obj.pk
     )
@@ -4446,6 +4472,50 @@ def toggle_favorite(request):
         favorite.delete()
         return JsonResponse({'is_favorite': False})
     return JsonResponse({'is_favorite': True})
+
+
+@login_required
+def favoritos_list(request):
+    """Todos los favoritos del usuario (exámenes, plantillas, materias,
+    lotes) en una sola pantalla. Cada Favorite es una fila genérica (ver
+    modelo), así que se resuelve en bloque por tipo — máximo 4 queries
+    extra (una por modelo en _FAVORITE_MODELS), no una por favorito.
+    Un favorito cuyo objeto ya no existe o ya no es visible para este
+    usuario (borrado, o dejó de compartirse) simplemente no se muestra —
+    no se autoborra la fila Favorite, por si vuelve a ser visible después."""
+    favorites = Favorite.objects.filter(user=request.user).select_related('content_type').order_by('-created_at')
+
+    ct_model_to_key = {
+        ContentType.objects.get_for_model(model_cls).model: key
+        for key, model_cls in _FAVORITE_MODELS.items()
+    }
+
+    favs_by_ct_model = {}
+    for fav in favorites:
+        favs_by_ct_model.setdefault(fav.content_type.model, []).append(fav)
+
+    resolved = {}  # (ct_model, object_id) -> objeto
+    for ct_model, favs_for_model in favs_by_ct_model.items():
+        model_key = ct_model_to_key.get(ct_model)
+        qs = _favoritable_queryset(model_key, request.user)
+        if qs is None:
+            continue
+        ids = [f.object_id for f in favs_for_model]
+        for obj in qs.filter(pk__in=ids):
+            resolved[(ct_model, obj.pk)] = obj
+
+    items = []
+    for fav in favorites:
+        obj = resolved.get((fav.content_type.model, fav.object_id))
+        if obj is None:
+            continue
+        items.append({
+            'kind': ct_model_to_key.get(fav.content_type.model),
+            'object': obj,
+            'favorited_at': fav.created_at,
+        })
+
+    return render(request, 'material/favoritos_list.html', {'items': items})
 
 # Subjects CRUD
 @login_required
@@ -6018,7 +6088,7 @@ def onboarding_v2_demo_scheme(request):
 
     subject_id = request.GET.get('subject_id', '')
     if not subject_id.isdigit():
-        messages.error(request, 'Elegí una materia de ejemplo válida.', extra_tags='general')
+        messages.error(request, 'Elegir una materia de ejemplo válida.', extra_tags='general')
         return redirect('material:onboarding_v2_page')
 
     subject = Subject.objects.filter(
@@ -6243,7 +6313,7 @@ def onboarding_v2_connect_gemini(request):
 
     api_key = (body.get('api_key') or '').strip()
     if not api_key:
-        return JsonResponse({'ok': False, 'error': 'Ingresá una API key.'}, status=400)
+        return JsonResponse({'ok': False, 'error': 'Ingresar una API key.'}, status=400)
 
     backend = GeminiBackend(api_key=api_key)
     if not backend.is_available():
@@ -6685,7 +6755,7 @@ def institution_ai_config_view(request):
     from .models import InstitutionAIConfig, InstitutionV2
 
     if not is_admin(request.user):
-        messages.error(request, 'No tenés permiso para acceder a esta sección.')
+        messages.error(request, 'No hay permiso para acceder a esta sección.')
         return redirect('material:ai_config')
 
     # ── Eliminar ──
@@ -6988,7 +7058,7 @@ def question_generation_prompt_config(request):
                 messages.error(
                     request,
                     f'El prompt tiene un placeholder inválido ({e}) — no se guardó. '
-                    f'Revisá que solo uses los placeholders documentados abajo.',
+                    f'Revisar que solo se usen los placeholders documentados abajo.',
                     extra_tags='general',
                 )
             else:
@@ -7017,7 +7087,7 @@ def groq_monitor_page(request):
     from .groq_monitor import VISION_TEST_MODELS
 
     if not is_admin(request.user):
-        messages.error(request, 'No tenés permiso para acceder a esta sección.', extra_tags='general')
+        messages.error(request, 'No hay permiso para acceder a esta sección.', extra_tags='general')
         return redirect('material:index')
 
     cfg, _ = GroqMonitorSchedule.objects.get_or_create(pk=1)

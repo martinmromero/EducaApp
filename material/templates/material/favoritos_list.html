@@ -1,0 +1,97 @@
+{% extends 'material/base.html' %}
+{% block page_title %}<i class="bi bi-star-fill me-2"></i>Favoritos{% endblock %}
+
+{% block content %}
+{% include 'material/components/_mobile_card_table.html' %}
+<div class="container-fluid">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Mis Favoritos</h6>
+        </div>
+        <div class="card-body">
+            {% if items %}
+            <div class="table-responsive">
+                <table class="table table-striped mobile-card-table" id="favoritosTable">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Tipo</th>
+                            <th>Nombre</th>
+                            <th>Detalle</th>
+                            <th>Favoriteado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr data-favorite-row data-model="{{ item.kind }}" data-id="{{ item.object.pk }}">
+                            <td class="rt-card-badge">
+                                <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
+                                        data-model="{{ item.kind }}" data-id="{{ item.object.pk }}"
+                                        data-active="1" title="Quitar de favoritos"></button>
+                            </td>
+                            <td data-label="Tipo">
+                                {% if item.kind == 'exam' %}
+                                    <span class="badge bg-success">Examen</span>
+                                {% elif item.kind == 'examtemplate' %}
+                                    <span class="badge bg-primary">Plantilla</span>
+                                {% elif item.kind == 'subject' %}
+                                    <span class="badge bg-warning text-dark">Materia</span>
+                                {% elif item.kind == 'batch' %}
+                                    <span class="badge bg-info text-white">Lote</span>
+                                {% endif %}
+                            </td>
+                            <td class="rt-card-title" data-label="Nombre">
+                                {% if item.kind == 'exam' %}{{ item.object.title }}
+                                {% elif item.kind == 'examtemplate' %}{{ item.object.subject_name_snapshot|default:item.object.subject.name }}
+                                {% elif item.kind == 'subject' %}{{ item.object.name }}
+                                {% elif item.kind == 'batch' %}{{ item.object.name }}
+                                {% endif %}
+                            </td>
+                            <td data-label="Detalle">
+                                {% if item.kind == 'exam' %}{{ item.object.subject.name|default:'—' }}
+                                {% elif item.kind == 'examtemplate' %}{{ item.object.institution_name_snapshot|default:'—' }}
+                                {% elif item.kind == 'subject' %}{{ item.object.careers.all|join:', '|default:'—' }}
+                                {% elif item.kind == 'batch' %}{{ item.object.subject.name|default:'—' }} &middot; {{ item.object.version_count }} versiones
+                                {% endif %}
+                            </td>
+                            <td data-label="Favoriteado">{{ item.favorited_at|date:"d/m/Y" }}</td>
+                            <td data-label="Acciones">
+                                {% if item.kind == 'exam' %}
+                                    <a href="{% url 'material:ver_examen' item.object.pk %}" class="btn btn-sm btn-info" title="Ver examen"><i class="fas fa-eye"></i></a>
+                                {% elif item.kind == 'examtemplate' %}
+                                    <a href="{% url 'material:view_exam_template' item.object.pk %}" class="btn btn-sm btn-info" title="Ver plantilla"><i class="fas fa-eye"></i></a>
+                                {% elif item.kind == 'subject' %}
+                                    <a href="{% url 'material:subject_detail' item.object.pk %}" class="btn btn-sm btn-info" title="Ver materia"><i class="fas fa-eye"></i></a>
+                                {% elif item.kind == 'batch' %}
+                                    <a href="{% url 'material:view_exam_batch' item.object.pk %}" class="btn btn-sm btn-info" title="Ver lote"><i class="fas fa-eye"></i></a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-star fa-3x text-muted mb-3"></i>
+                <h5>Todavía no hay favoritos marcados</h5>
+                <p class="text-muted">Tocar la estrella en Exámenes, Plantillas, Materias o Lotes para verlos aquí.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Esta pantalla solo muestra favoritos: si se saca la estrella acá
+    // mismo, la fila ya no pertenece a la lista — se quita en vivo en vez
+    // de esperar a recargar la página.
+    document.addEventListener('favoriteToggled', function (e) {
+        if (e.detail.isFavorite) return;
+        const btn = e.detail.btn;
+        const row = btn.closest('[data-favorite-row]');
+        if (row) row.remove();
+    });
+</script>
+{% endblock %}
