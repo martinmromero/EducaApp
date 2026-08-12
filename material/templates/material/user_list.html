@@ -24,6 +24,7 @@
                 <th>Estado</th>
                 <th>Última Conexión</th>
                 <th>Fecha de Registro</th>
+                <th>Área de Pruebas</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -45,6 +46,18 @@
                 </td>
                 <td data-label="Última conexión">{{ user.last_login|default:"Nunca" }}</td>
                 <td data-label="Fecha de registro">{{ user.date_joined }}</td>
+                <td data-label="Área de Pruebas">
+                    {% if user.training_link %}
+                        <span class="text-muted small d-block">Creada el {{ user.training_link.created_at|date:"d/m/Y" }}</span>
+                        <form method="post" action="{% url 'material:admin_restablecer_area_pruebas' user.id %}"
+                              onsubmit="return eduConfirmSubmit(event, '¿Restablecer el Área de Pruebas de \'{{ user.username|escapejs }}\'? Se borra todo lo que haya creado ahí y se repone el contenido de ejemplo.', {title: 'Restablecer Área de Pruebas', variant: 'warning', okLabel: 'Restablecer'});">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-warning mt-1">Restablecer</button>
+                        </form>
+                    {% else %}
+                        <span class="text-muted small">Sin área de pruebas creada</span>
+                    {% endif %}
+                </td>
                 <td data-label="Acciones">
                     <a href="{% url 'material:edit_user' user.id %}" class="btn btn-sm btn-primary">Editar</a>
                     <a href="{% url 'material:delete_user' user.id %}" class="btn btn-sm btn-danger">Eliminar</a>

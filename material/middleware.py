@@ -36,19 +36,29 @@ class OnboardingGateMiddleware:
             and user.is_authenticated
             and request.path == INDEX_PATH
         ):
-            # Pregunta de seguridad: se pide antes que el asistente de
-            # onboarding, y a TODOS los usuarios (incluido staff/admin —
-            # también necesitan poder recuperar su contraseña). Sin esto
-            # configurado, /accounts/recuperar/ no tiene forma de validar
-            # la identidad de esa cuenta.
             try:
-                has_security_question = bool(user.profile.security_question)
+                is_training_account = user.profile.is_training_account
             except Exception:
-                has_security_question = True  # sin perfil resoluble, no bloqueamos por las dudas
-            if not has_security_question:
-                return redirect('material:security_question_setup')
+                is_training_account = False
 
-            if not user.is_staff:
+            # Pregunta de seguridad: se pide antes que el asistente de
+            # onboarding, y a TODOS los usuarios reales (incluido staff/admin
+            # — también necesitan poder recuperar su contraseña). Sin esto
+            # configurado, /accounts/recuperar/ no tiene forma de validar la
+            # identidad de esa cuenta. Las cuentas del Área de Pruebas quedan
+            # afuera de este gate entero: no tienen contraseña utilizable
+            # (no se accede por login normal, ver training_accounts.py), así
+            # que "recuperar contraseña" no aplica, y su onboarding ya queda
+            # completo desde que se crean.
+            if not is_training_account:
+                try:
+                    has_security_question = bool(user.profile.security_question)
+                except Exception:
+                    has_security_question = True  # sin perfil resoluble, no bloqueamos por las dudas
+                if not has_security_question:
+                    return redirect('material:security_question_setup')
+
+            if not user.is_staff and not is_training_account:
                 try:
                     completed = user.profile.onboarding_completed
                 except Exception:

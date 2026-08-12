@@ -280,7 +280,11 @@ class ExamTemplateForm(forms.ModelForm):
 
         self.fields['faculty'].queryset = FacultyV2.objects.none()
         self.fields['campus'].queryset = CampusV2.objects.none()
-        self.fields['professor'].queryset = User.objects.filter(is_active=True)
+        # Excluye las cuentas espejo del Área de Pruebas — nunca son un
+        # profesor real elegible.
+        self.fields['professor'].queryset = User.objects.filter(
+            is_active=True
+        ).exclude(profile__is_training_account=True)
         self.fields['professor'].label_from_instance = lambda obj: f"{obj.first_name} {obj.last_name} ({obj.username})"
         
         # Configurar outcomes basado en la materia seleccionada

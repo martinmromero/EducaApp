@@ -178,6 +178,18 @@
             {% endif %}
         </a>
 
+        <!-- Área de Pruebas: siempre visible, no solo post-onboarding. .menu-item
+             ya da el mismo padding/color/hover que los links de al lado (ver
+             styles.css) — solo hace falta sacarle el chrome nativo de <button>. -->
+        <form method="post"
+              action="{% if in_training_mode %}{% url 'material:salir_area_pruebas' %}{% else %}{% url 'material:entrar_area_pruebas' %}{% endif %}">
+            {% csrf_token %}
+            <button type="submit" class="menu-item" style="width:100%; text-align:left; background:none; border:none;">
+                <i class="bi bi-mortarboard me-2"></i>
+                {% if in_training_mode %}Volver a Producción{% else %}Área de Pruebas{% endif %}
+            </button>
+        </form>
+
         <!-- Menú de Administración (solo para administradores) -->
         {% if is_admin %}
             <div class="menu-item" onclick="toggleSubmenu(this)">
@@ -276,6 +288,23 @@
                 </div>
             </div>
         </nav>
+
+        {% if in_training_mode %}
+        <div class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap gap-2 mb-0 rounded-0" role="alert">
+            <span><i class="bi bi-mortarboard-fill me-2"></i>Estás en el <strong>Área de Pruebas</strong> — lo que hagas acá no afecta tu cuenta real.</span>
+            <div class="d-flex gap-2">
+                <form method="post" action="{% url 'material:restablecer_area_pruebas' %}"
+                      onsubmit="return eduConfirmSubmit(event, '¿Restablecer el Área de Pruebas? Se borra todo lo que creaste acá y se repone el contenido de ejemplo.', {title: 'Restablecer Área de Pruebas', variant: 'warning', okLabel: 'Restablecer'});">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-dark">Restablecer</button>
+                </form>
+                <form method="post" action="{% url 'material:salir_area_pruebas' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-dark">Volver a Producción</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Mensajes generales del sistema -->
         {% load message_tags %}

@@ -16,10 +16,20 @@
         <a href="{% url 'material:mis_examenes' %}" class="btn btn-primary btn-lg">
           <i class="bi bi-file-earmark-text me-1"></i>Ver mis exámenes
         </a>
+        <form method="post" action="{% url 'material:entrar_area_pruebas' %}" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success btn-lg">
+            <i class="bi bi-mortarboard me-1"></i>Probar el Área de Pruebas
+          </button>
+        </form>
         <a href="{% url 'material:index' %}" class="btn btn-outline-secondary btn-lg">
           <i class="bi bi-house me-1"></i>Volver al inicio
         </a>
       </div>
+      <p class="text-muted small mt-3 mb-0">
+        El Área de Pruebas es un espacio aparte con contenido de ejemplo para practicar crear
+        preguntas, exámenes y más sin tocar tu cuenta real — podés entrar cuando quieras desde el menú.
+      </p>
     </div>
   </div>
 </div>

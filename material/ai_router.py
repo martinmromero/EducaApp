@@ -834,15 +834,80 @@ def ensure_fresh_demo_quota(max_age_seconds=3600):
         backend.refresh_quota()
 
 
+class TrainingQuotaGuardBackend(SharedDemoBackend):
+    """Envuelve un backend del fallback compartido de demo cuando quien
+    genera es una cuenta del Área de Pruebas: si el cupo global restante
+    cae por debajo del 50%, corta la generación acá en vez de dejar que
+    compita con uso real de producción por el mismo pool — GlobalAIConfig
+    es una única fila compartida por todos, no hay balde separado por
+    cuenta (ver material/training_accounts.py)."""
+
+    _MIN_REMAINING_RATIO = 0.5
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def is_available(self):
+        return self._inner.is_available()
+
+    def get_status(self):
+        return self._inner.get_status()
+
+    def refresh_quota(self):
+        self._inner.refresh_quota()
+
+    def _quota_low(self):
+        quota = get_global_demo_quota()
+        if not quota:
+            return False  # sin dato todavía — no bloquear preventivamente
+        limit = quota.get('limit_requests')
+        remaining = quota.get('remaining_requests')
+        if limit and remaining is not None and remaining / limit < self._MIN_REMAINING_RATIO:
+            return True
+        limit_tokens = quota.get('limit_tokens')
+        remaining_tokens = quota.get('remaining_tokens')
+        if limit_tokens and remaining_tokens is not None and remaining_tokens / limit_tokens < self._MIN_REMAINING_RATIO:
+            return True
+        return False
+
+    def generate(self, *args, **kwargs):
+        if self._quota_low():
+            return {
+                'success': False,
+                'error': (
+                    'El cupo compartido de generación de IA está bajo — se reserva '
+                    'para uso real. Podés seguir usando las preguntas de ejemplo ya '
+                    'cargadas en el Área de Pruebas, o intentar de nuevo más tarde.'
+                ),
+                'text': None,
+            }
+        return self._inner.generate(*args, **kwargs)
+
+
 # ---------------------------------------------------------------------------
 # API pública
 # ---------------------------------------------------------------------------
 def get_backend_for_user(user) -> 'OllamaBackend | OpenAICompatibleBackend | AnthropicBackend':
     """
-    Devuelve el backend de IA configurado para el usuario.
+    Devuelve el backend de IA configurado para el usuario. Si el usuario es
+    una cuenta del Área de Pruebas y el backend resuelto es el fallback
+    compartido de demo, se envuelve con TrainingQuotaGuardBackend (ver
+    arriba) — en cualquier otro caso (BYOK, institucional, Ollama local)
+    no aplica, esos no tocan el pool compartido.
     Si no tiene configuración o la configuración está incompleta,
     cae de vuelta a OllamaBackend.
     """
+    backend = _resolve_backend_for_user(user)
+    if isinstance(backend, SharedDemoBackend):
+        try:
+            if user.profile.is_training_account:
+                return TrainingQuotaGuardBackend(backend)
+        except Exception:
+            pass
+    return backend
+
+
+def _resolve_backend_for_user(user):
     try:
         from .models import UserAIConfig
         config, _ = UserAIConfig.objects.get_or_create(user=user)

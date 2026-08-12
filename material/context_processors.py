@@ -40,6 +40,10 @@ def onboarding_context(request):
         'is_admin': _is_admin(request.user),
         'visual_theme': profile.visual_theme,
         'visual_theme_choices': profile.VISUAL_THEME_CHOICES,
+        # Área de Pruebas: la marca de sesión (ver training_views.py) es lo
+        # único que hace falta acá — no una consulta a TrainingAccountLink,
+        # ya se revalidó contra esa tabla al entrar/salir.
+        'in_training_mode': bool(request.session.get('acting_as_training_for')),
     }
 
     is_wizard_page = (

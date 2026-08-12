@@ -1210,7 +1210,9 @@ def create_exam(request):
         instituciones = instituciones.filter(is_seed_demo=False)
         carreras = carreras.filter(is_seed_demo=False)
     materias = Subject.objects.filter(is_seed_demo=False)
-    profesores = User.objects.filter(profile__role='admin') | User.objects.filter(profile__role='user')
+    profesores = (
+        User.objects.filter(profile__role='admin') | User.objects.filter(profile__role='user')
+    ).exclude(profile__is_training_account=True)
     # Las plantillas son privadas de quien las crea (no existe ningún
     # mecanismo para compartirlas) — mostrar las de otros usuarios era
     # además la puerta de entrada al problema de get_exam_template de más
@@ -2426,7 +2428,10 @@ def password_reset_new(request):
 @login_required
 @user_passes_test(is_admin, login_url='/')
 def user_list(request):
-    users = User.objects.all()
+    # Las cuentas espejo del Área de Pruebas nunca aparecen como fila
+    # propia (no son un docente) — su estado se muestra colgado de la fila
+    # del docente real dueño, vía select_related('training_link__training_user').
+    users = User.objects.exclude(profile__is_training_account=True).select_related('training_link__training_user')
     return render(request, 'material/user_list.html', {'users': users})
 
 @login_required
@@ -6791,7 +6796,7 @@ def grupo_detalle(request, pk):
     member_ids = set(memberships.filter(status__in=['pending', 'accepted']).values_list('user_id', flat=True))
     invitable_users = UserModel.objects.filter(is_active=True).exclude(
         id__in=member_ids
-    ).exclude(id=request.user.id).order_by('username')
+    ).exclude(id=request.user.id).exclude(profile__is_training_account=True).order_by('username')
 
     my_subjects = Subject.objects.filter(questions__user=request.user).distinct().order_by('name')
     shared_subject_ids = set(
@@ -6822,7 +6827,9 @@ def grupo_invitar(request, pk):
 
     user_id = request.POST.get('user_id')
     if str(user_id).isdigit():
-        target = User.objects.filter(pk=int(user_id), is_active=True).exclude(pk=request.user.id).first()
+        target = User.objects.filter(pk=int(user_id), is_active=True).exclude(
+            pk=request.user.id
+        ).exclude(profile__is_training_account=True).first()
         if target and not GroupMembership.objects.filter(group=group, user=target).exists():
             GroupMembership.objects.create(
                 group=group, user=target, status='pending', invited_by=request.user,

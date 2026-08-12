@@ -2,6 +2,7 @@ from django.urls import path
 from . import views as material_views  # Usar el mismo alias para todas las vistas
 from . import views_document_processor as doc_views  # Importar vistas del procesador de documentos
 from . import views_export as export_views  # Exportación DOCX / PDF
+from . import training_views  # Área de Pruebas
 
 app_name = 'material'
 
@@ -26,6 +27,10 @@ urlpatterns = [
     path('users/nuevo/', material_views.create_user, name='create_user'),
     path('users/edit/<int:user_id>/', material_views.edit_user, name='edit_user'),
     path('users/delete/<int:user_id>/', material_views.delete_user, name='delete_user'),
+    path('users/<int:user_id>/area-pruebas/restablecer/', training_views.admin_restablecer_area_pruebas, name='admin_restablecer_area_pruebas'),
+    path('area-pruebas/entrar/', training_views.entrar_area_pruebas, name='entrar_area_pruebas'),
+    path('area-pruebas/salir/', training_views.salir_area_pruebas, name='salir_area_pruebas'),
+    path('area-pruebas/restablecer/', training_views.restablecer_area_pruebas, name='restablecer_area_pruebas'),
     path('mis-datos/', material_views.mis_datos, name='mis_datos'),
     path('formatos-impresion/', material_views.formato_impresion_list, name='formato_impresion_list'),
     path('formatos-impresion/nuevo/', material_views.formato_impresion_create, name='formato_impresion_create'),

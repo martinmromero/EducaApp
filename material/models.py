@@ -1064,9 +1064,49 @@ class Profile(models.Model):
         blank=True,
         verbose_name='Respuesta de seguridad',
     )
+    # Cuenta espejo del Área de Pruebas (ver TrainingAccountLink más abajo)
+    # — nunca una cuenta real de un docente. Se chequea con un booleano
+    # propio en vez de resolver siempre por join contra TrainingAccountLink
+    # porque esto se filtra en cada listado de "todos los usuarios activos"
+    # (profesor de plantilla/examen, invitar a grupo de confianza).
+    is_training_account = models.BooleanField(
+        default=False,
+        verbose_name='Es cuenta del Área de Pruebas',
+        help_text='Cuenta espejo automática, nunca un docente real — se excluye de selectores de usuario.',
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
+
+
+class TrainingAccountLink(models.Model):
+    """
+    Empareja a un docente real con su cuenta espejo del Área de Pruebas.
+    "Entrar" al Área de Pruebas es un login() real como training_user (ver
+    material/training_accounts.py) — no una bandera de sesión que cambie el
+    dueño de cada consulta, así todas las vistas existentes (ya scopeadas
+    por request.user en todos lados) funcionan sin tocarlas. Esta tabla es
+    la única fuente de verdad de qué cuenta espejo pertenece a qué docente
+    real — salir_area_pruebas la revalida siempre, nunca confía solo en el
+    ID guardado en sesión.
+    """
+    real_user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name='training_link',
+        verbose_name='Docente real',
+    )
+    training_user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name='real_account_link',
+        verbose_name='Cuenta del Área de Pruebas',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Vínculo de Área de Pruebas'
+        verbose_name_plural = 'Vínculos de Área de Pruebas'
+
+    def __str__(self):
+        return f'{self.real_user.username} ↔ {self.training_user.username}'
+
 
 class Career(models.Model):
     name = models.CharField(
