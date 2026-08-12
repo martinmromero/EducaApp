@@ -29,10 +29,14 @@ def entrar_area_pruebas(request):
     # contra session fixation) — la marca se setea DESPUÉS, si no se
     # perdería en ese flush.
     request.session[SESSION_ACTING_AS_TRAINING_FOR] = real_user.id
+    # extra_tags='area_pruebas_modal' a propósito: no pasa por el banner de
+    # mensajes normal (ver base.html) — ahí ya se muestra el banner fijo
+    # de "Estás en el Área de Pruebas" y se pisaban los dos. Este mensaje
+    # se muestra como modal en vez de eso.
     messages.success(
         request,
         'Entraste al Área de Pruebas. Todo lo que hagas acá queda separado de tu cuenta real.',
-        extra_tags='general',
+        extra_tags='area_pruebas_modal',
     )
     return redirect('material:index')
 
@@ -68,7 +72,7 @@ def restablecer_area_pruebas(request):
     messages.success(
         request,
         'Área de Pruebas restablecida — todo lo que habías creado ahí se borró y se repuso el contenido de ejemplo.',
-        extra_tags='general',
+        extra_tags='area_pruebas_modal',
     )
     return redirect('material:index')
 

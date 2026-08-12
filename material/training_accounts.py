@@ -30,6 +30,7 @@ from .models import (
     Favorite,
     FormatoImpresion,
     InstitutionSubject,
+    InstitutionV2,
     LearningOutcome,
     OralExamSet,
     Question,
@@ -40,6 +41,7 @@ from .models import (
     Subject,
     Topic,
     TrainingAccountLink,
+    UserInstitution,
 )
 
 # Campos de Exam que se copian tal cual del examen semilla al clon — todo lo
@@ -91,6 +93,15 @@ def clone_seed_content_into(training_user):
     aparte (created_by=training_user) — nunca se reutiliza ni se apunta a
     la fila semilla original."""
     seed_user = _seed_user()
+
+    # Las instituciones en sí son públicas/compartidas por diseño (no se
+    # clonan), pero la lista "mis instituciones" SÍ es personal por usuario
+    # (UserInstitution) — sin esto, /instituciones-v2/ le queda vacía a la
+    # cuenta de práctica aunque sus plantillas de examen ya referencien
+    # estas mismas instituciones semilla. Idempotente (unique_together),
+    # seguro de llamar de nuevo en cada reset.
+    for institution in InstitutionV2.objects.filter(is_seed_demo=True):
+        UserInstitution.objects.get_or_create(user=training_user, institution=institution)
 
     for seed_subject in Subject.objects.filter(is_seed_demo=True):
         subject = Subject.objects.create(

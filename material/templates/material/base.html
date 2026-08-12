@@ -526,6 +526,20 @@
 
         new bootstrap.Modal(document.getElementById('pageMessageModal')).show();
       })();
+
+      // Mensajes del Área de Pruebas (entrar/restablecer): se muestran como
+      // modal en vez de en el banner de mensajes de arriba porque ese
+      // banner ya está ocupado por el aviso fijo de "Estás en el Área de
+      // Pruebas" — mostrar los dos ahí se pisaba visualmente.
+      {% load message_tags %}
+      {% get_filtered_messages "area_pruebas_modal" as apm_messages %}
+      {% if apm_messages %}
+      (function () {
+        {% for m in apm_messages %}
+        window.EducaAppModal.alert('{{ m.message|escapejs }}', { title: 'Área de Pruebas', variant: 'success' });
+        {% endfor %}
+      })();
+      {% endif %}
     </script>
     <script src="{% static 'js/vendor/driver.js.iife.js' %}"></script>
     <script src="{% static 'js/tour.js' %}"></script>

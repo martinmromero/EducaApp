@@ -3923,12 +3923,16 @@ def institution_v2_list(request):
 
         # Filtrar solo instituciones activas (is_active=True), sin las
         # institución(es) semilla (si el usuario pasó por el esquema ya
-        # armado del asistente, queda una UserInstitution apuntando ahí).
+        # armado del asistente, queda una UserInstitution apuntando ahí) —
+        # excepto para la cuenta del Área de Pruebas, para la que las
+        # instituciones semilla SÍ son "las suyas" a propósito (ver
+        # training_accounts.py, que la vincula explícitamente a esas).
         institutions = InstitutionV2.objects.filter(
             userinstitution__user=request.user,
             is_active=True,  # Solo mostrar instituciones activas
-            is_seed_demo=False,
         )
+        if not getattr(request.user.profile, 'is_training_account', False):
+            institutions = institutions.filter(is_seed_demo=False)
 
         if name_query:
             institutions = institutions.filter(name__icontains=name_query)
@@ -4528,7 +4532,22 @@ CAREER_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in CAREER_FIL
 
 @login_required
 def career_list(request):
-    careers = Career.objects.filter(is_seed_demo=False).prefetch_related('faculties', 'campus', 'subjects')
+    # Career no tiene dueño propio (a diferencia de Subject, ver
+    # [[project_subject_topic_global_sharing_bug]]) — mismo bug de fondo,
+    # todavía no resuelto de raíz. Fix parcial acá: se acota a las
+    # instituciones a las que pertenece el usuario actual (real o cuenta
+    # del Área de Pruebas), que alcanza para separar una cuenta de otra —
+    # dos usuarios reales que comparten la misma institución pública
+    # todavía se ven las carreras entre sí, igual que pasaba con Subject
+    # antes del fix completo.
+    user_institution_ids = UserInstitution.objects.filter(user=request.user).values_list('institution_id', flat=True)
+    careers = Career.objects.filter(faculties__institution_id__in=user_institution_ids)
+    # Igual que institution_v2_list: is_seed_demo=False solo para cuentas
+    # reales — la cuenta del Área de Pruebas está vinculada a propósito a
+    # instituciones semilla, y sus carreras SÍ deben verse ahí.
+    if not getattr(request.user.profile, 'is_training_account', False):
+        careers = careers.filter(is_seed_demo=False)
+    careers = careers.distinct().prefetch_related('faculties', 'campus', 'subjects')
 
     selected_filters = get_selected_filters(request, CAREER_FILTER_FIELDS)
     filter_options = get_filter_options(careers, CAREER_FILTER_FIELDS, selected_filters)
