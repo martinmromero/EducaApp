@@ -35,7 +35,7 @@ def entrar_area_pruebas(request):
     # se muestra como modal en vez de eso.
     messages.success(
         request,
-        'Entraste al Área de Pruebas. Todo lo que hagas acá queda separado de tu cuenta real.',
+        'Ingresó al Área de Pruebas. Todo lo que se haga aquí queda separado de la cuenta real.',
         extra_tags='area_pruebas_modal',
     )
     return redirect('material:index')
@@ -57,7 +57,7 @@ def salir_area_pruebas(request):
         raise PermissionDenied
 
     login(request, real_user, backend=_LOGIN_BACKEND)
-    messages.success(request, 'Volviste a tu cuenta real.', extra_tags='general')
+    messages.success(request, 'Volvió a la cuenta real.', extra_tags='general')
     return redirect('material:index')
 
 
@@ -71,7 +71,7 @@ def restablecer_area_pruebas(request):
     reset_training_account(request.user)
     messages.success(
         request,
-        'Área de Pruebas restablecida — todo lo que habías creado ahí se borró y se repuso el contenido de ejemplo.',
+        'Área de Pruebas restablecida: todo lo que se había creado allí se borró y se repuso el contenido de ejemplo.',
         extra_tags='area_pruebas_modal',
     )
     return redirect('material:index')
