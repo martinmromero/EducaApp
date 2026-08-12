@@ -10,21 +10,33 @@ vistas de edición/borrado de Question ya filtran por `user=request.user`,
 así que un usuario distinto del dueño nunca puede tocarlas.
 """
 import base64
+import datetime
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import CommandError
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
 from material.models import (
     CampusV2,
     Career,
+    Contenido,
+    Exam,
+    ExamRubric,
+    ExamTemplate,
+    ExamVersionBatch,
     FacultyV2,
     InstitutionSubject,
     InstitutionV2,
     LearningOutcome,
+    OralExamSet,
     Question,
+    Rubric,
+    RubricCell,
+    RubricCriterion,
+    RubricLevel,
     Subject,
     Topic,
 )
@@ -275,6 +287,24 @@ PROGRAMACION_QUESTIONS = [
     ),
 ]
 
+PROGRAMACION_RUBRIC_CRITERIA = [
+    'Corrección de la solución',
+    'Uso de estructuras de control',
+    'Diseño de funciones y modularización',
+    'Elección de estructuras de datos',
+]
+
+PROGRAMACION_CONTENIDO = dict(
+    title='Introducción a la Programación: Conceptos y Estructuras Fundamentales',
+    author='M. Alonso Torres',
+    publisher='Editorial Cátedra Universitaria',
+    year=2023,
+    edition='3ra edición',
+    pages=412,
+    isbn='978-987-1234-56-7',
+    chapter='Capítulos 1 a 4',
+)
+
 BASES_DE_DATOS_TOPICS = [
     ('Modelo relacional', 5),
     ('Consultas SQL', 5),
@@ -486,6 +516,24 @@ BASES_DE_DATOS_QUESTIONS = [
     ),
 ]
 
+BASES_DE_DATOS_RUBRIC_CRITERIA = [
+    'Diseño del modelo relacional',
+    'Construcción de consultas SQL',
+    'Aplicación de normalización',
+    'Comprensión de transacciones y concurrencia',
+]
+
+BASES_DE_DATOS_CONTENIDO = dict(
+    title='Fundamentos de Bases de Datos Relacionales',
+    author='R. Fernández Paredes',
+    publisher='Editorial Cátedra Universitaria',
+    year=2022,
+    edition='2da edición',
+    pages=356,
+    isbn='978-987-1234-57-4',
+    chapter='Capítulos 2, 5 y 7',
+)
+
 BIOLOGIA_TOPICS = [
     ('La célula y sus organelas', 5),
     ('Membrana celular y transporte', 4),
@@ -693,6 +741,37 @@ BIOLOGIA_QUESTIONS = [
 ]
 
 
+BIOLOGIA_RUBRIC_CRITERIA = [
+    'Identificación de organelas y sus funciones',
+    'Explicación de mecanismos de transporte celular',
+    'Comprensión de la división celular',
+    'Análisis del material genético',
+]
+
+BIOLOGIA_CONTENIDO = dict(
+    title='Biología Celular y Molecular: Fundamentos',
+    author='C. Ibáñez Ruiz',
+    publisher='Editorial Cátedra Universitaria',
+    year=2021,
+    edition='4ta edición',
+    pages=488,
+    isbn='978-987-1234-58-1',
+    chapter='Unidades 1 a 4',
+)
+
+# Escala de niveles compartida por las rúbricas semilla — mismo default que
+# usa rubric_create() para una rúbrica nueva creada por un usuario real (ver
+# material/views.py::DEFAULT_LEVELS), así el ejemplo se ve como cualquier
+# rúbrica que el docente arme a mano.
+RUBRIC_LEVEL_LABELS = ['4', '3', '2', '1']
+RUBRIC_LEVEL_TEXT = {
+    '4': 'Domina completamente este aspecto, con justificación clara y sin errores.',
+    '3': 'Aplica correctamente este aspecto, con errores menores que no afectan el resultado global.',
+    '2': 'Aplica este aspecto de forma parcial o con errores que afectan el resultado.',
+    '1': 'No logra aplicar este aspecto o la respuesta está ausente.',
+}
+
+
 class Command(BaseCommand):
     help = (
         'Crea/actualiza el contenido de ejemplo del sistema (instituciones, materias, '
@@ -737,7 +816,7 @@ class Command(BaseCommand):
                 campuses=[campus2],
             )
 
-            self._seed_subject(
+            subject_programacion = self._seed_subject(
                 institution=institucion1,
                 seed_user=seed_user,
                 subject_name='Programación I',
@@ -746,7 +825,7 @@ class Command(BaseCommand):
                 questions=PROGRAMACION_QUESTIONS,
                 career=carrera1,
             )
-            self._seed_subject(
+            subject_bd = self._seed_subject(
                 institution=institucion1,
                 seed_user=seed_user,
                 subject_name='Bases de Datos',
@@ -755,7 +834,7 @@ class Command(BaseCommand):
                 questions=BASES_DE_DATOS_QUESTIONS,
                 career=carrera1,
             )
-            self._seed_subject(
+            subject_biologia = self._seed_subject(
                 institution=institucion2,
                 seed_user=seed_user,
                 subject_name='Biología Celular',
@@ -764,6 +843,35 @@ class Command(BaseCommand):
                 questions=BIOLOGIA_QUESTIONS,
                 career=carrera2,
             )
+
+            # Rúbricas, contenidos, exámenes terminados y cuestionarios
+            # orales de ejemplo — paridad de contenido semilla con lo que un
+            # docente real puede armar, auditada antes de construir el área
+            # de pruebas (ver [[project_seed_demo_content_hijack_risk_parking_lot]]).
+            subject_extras = [
+                (subject_programacion, PROGRAMACION_RUBRIC_CRITERIA, PROGRAMACION_CONTENIDO,
+                 institucion1.name, facultad1.name, campus1.name, carrera1.name),
+                (subject_bd, BASES_DE_DATOS_RUBRIC_CRITERIA, BASES_DE_DATOS_CONTENIDO,
+                 institucion1.name, facultad1.name, campus1.name, carrera1.name),
+                (subject_biologia, BIOLOGIA_RUBRIC_CRITERIA, BIOLOGIA_CONTENIDO,
+                 institucion2.name, facultad2.name, campus2.name, carrera2.name),
+            ]
+            for (subject, rubric_criteria, contenido_info,
+                 institution_name, faculty_name, campus_name, career_name) in subject_extras:
+                rubric = self._seed_rubric(subject, seed_user, rubric_criteria)
+                self._seed_contenido(subject, seed_user, contenido_info)
+                individual_exam = self._seed_individual_exam(
+                    subject, seed_user, institution_name, faculty_name, campus_name, career_name,
+                )
+                if individual_exam:
+                    self._seed_exam_rubric_link(individual_exam, rubric)
+                self._seed_batch_exam(
+                    subject, seed_user, institution_name, faculty_name, campus_name, career_name,
+                )
+                self._seed_oral_exam(subject, seed_user)
+
+            self._seed_exam_template(institucion1, facultad1, carrera1, campus1, subject_programacion, seed_user)
+            self._seed_exam_template(institucion2, facultad2, carrera2, campus2, subject_biologia, seed_user)
 
         self.stdout.write(self.style.SUCCESS('Contenido de ejemplo sincronizado correctamente.'))
 
@@ -878,6 +986,233 @@ class Command(BaseCommand):
             )
             if created:
                 question.subjects.add(subject)
+
+        return subject
+
+    def _seed_rubric(self, subject, seed_user, criteria_names):
+        """Rúbrica de ejemplo para la materia, con la misma escala de niveles
+        ('4','3','2','1') que usa rubric_create() por defecto para una
+        rúbrica nueva armada a mano — así el ejemplo semilla no se distingue
+        estructuralmente de una real."""
+        title = f'Rúbrica de evaluación — {subject.name}'
+        rubric, created = Rubric.objects.get_or_create(title=title, created_by=seed_user)
+        if not created:
+            return rubric
+
+        levels = {}
+        for i, label in enumerate(RUBRIC_LEVEL_LABELS):
+            levels[label] = RubricLevel.objects.create(rubric=rubric, label=label, order=i)
+
+        for j, name in enumerate(criteria_names):
+            criterion = RubricCriterion.objects.create(rubric=rubric, name=name, order=j)
+            for label, level in levels.items():
+                RubricCell.objects.create(
+                    criterion=criterion, level=level, description=RUBRIC_LEVEL_TEXT[label],
+                )
+        return rubric
+
+    def _seed_contenido(self, subject, seed_user, info):
+        """Contenido bibliográfico ficticio pero coherente con la materia,
+        creado ya con file_deleted_at en el pasado: representa un documento
+        subido hace tiempo cuyo archivo físico ya expiró (política real de
+        la app), quedando solo los metadatos y las preguntas que lo citan —
+        exactamente lo que un docente ve en /mis-contenidos/ para un
+        documento viejo. Evita además el estado transitorio "vigente sin
+        archivo" que la reconciliación de mis_contenidos() reclasificaría
+        como borrado en la primera visita.
+        """
+        contenido, created = Contenido.objects.get_or_create(
+            title=info['title'],
+            uploaded_by=seed_user,
+            defaults={
+                'author': info['author'],
+                'publisher': info['publisher'],
+                'year': info['year'],
+                'edition': info['edition'],
+                'pages': info['pages'],
+                'isbn': info['isbn'],
+                'chapter': info['chapter'],
+                'file_deleted_at': timezone.now() - datetime.timedelta(days=30),
+            },
+        )
+        if created:
+            contenido.subjects.add(subject)
+            # Todas las preguntas semilla de esta materia citan este único
+            # contenido como fuente — coherente con que sea el único
+            # material subido para esta materia.
+            Question.objects.filter(subjects=subject, user=seed_user).update(contenido=contenido)
+        return contenido
+
+    def _exam_common_kwargs(self, subject, seed_user, institution_name, faculty_name, campus_name, career_name):
+        topics_snapshot = list(Topic.objects.filter(subject=subject).values_list('name', flat=True))
+        outcomes_snapshot = list(LearningOutcome.objects.filter(subject=subject).values_list('description', flat=True))
+        return dict(
+            instructions=(
+                'Responda todas las preguntas de forma clara y ordenada. No se permite '
+                'el uso de material de consulta salvo indicación contraria del docente.'
+            ),
+            duration_minutes=90,
+            year=2026,
+            exam_mode='escrito',
+            exam_group='individual',
+            shift='mañana',
+            resolution_time='90 minutos',
+            topics_to_evaluate='\n'.join(topics_snapshot),
+            notes_and_recommendations='Revisar los conceptos fundamentales de la materia antes del examen.',
+            institution_name=institution_name,
+            faculty_name=faculty_name,
+            campus_name=campus_name,
+            subject_name=subject.name,
+            career_name=career_name,
+            topics_snapshot=topics_snapshot,
+            outcomes_snapshot=outcomes_snapshot,
+            date_str='15/06/2026',
+            professor=seed_user,
+            created_by=seed_user,
+            subject=subject,
+            is_published=True,
+        )
+
+    def _seed_individual_exam(self, subject, seed_user, institution_name, faculty_name, campus_name, career_name):
+        existing = Exam.objects.filter(
+            subject=subject, created_by=seed_user, version_batch__isnull=True, exam_type='final',
+        ).first()
+        if existing:
+            return existing
+
+        from material.views import _pick_questions_for_versions
+        versions = _pick_questions_for_versions(
+            subject=subject,
+            selected_topics=Topic.objects.filter(subject=subject),
+            user=seed_user,
+            versions_count=1,
+            questions_per_version=8,
+            balance_by_topic=True,
+            include_seed=False,
+        )
+        if not versions or not versions[0]:
+            return None
+
+        exam = Exam.objects.create(
+            title=f'Final — {subject.name}',
+            exam_type='final',
+            **self._exam_common_kwargs(subject, seed_user, institution_name, faculty_name, campus_name, career_name),
+        )
+        exam.topics.set(Topic.objects.filter(subject=subject))
+        exam.questions.set(versions[0])
+        return exam
+
+    def _seed_batch_exam(self, subject, seed_user, institution_name, faculty_name, campus_name, career_name):
+        if ExamVersionBatch.objects.filter(subject=subject, created_by=seed_user).exists():
+            return
+
+        from material.views import _pick_questions_for_versions
+        versions = _pick_questions_for_versions(
+            subject=subject,
+            selected_topics=Topic.objects.filter(subject=subject),
+            user=seed_user,
+            versions_count=3,
+            questions_per_version=8,
+            balance_by_topic=True,
+            include_seed=False,
+        )
+        if not versions:
+            return
+
+        batch = ExamVersionBatch.objects.create(
+            name=f'Lote — {subject.name}',
+            created_by=seed_user,
+            subject=subject,
+            institution_name=institution_name,
+            exam_type='parcial',
+            semester='1er cuatrimestre',
+            year=2026,
+            version_count=len(versions),
+            questions_per_version=8,
+        )
+        common = self._exam_common_kwargs(subject, seed_user, institution_name, faculty_name, campus_name, career_name)
+        for i, version_questions in enumerate(versions, start=1):
+            if not version_questions:
+                continue
+            v_exam = Exam.objects.create(
+                title=f'1er Parcial — {subject.name} (versión {i})',
+                exam_type='parcial',
+                partial_number='1ro',
+                version_batch=batch,
+                version_number=i,
+                **common,
+            )
+            v_exam.topics.set(Topic.objects.filter(subject=subject))
+            v_exam.questions.set(version_questions)
+
+    def _seed_exam_rubric_link(self, exam, rubric):
+        ExamRubric.objects.get_or_create(exam=exam, rubric=rubric, defaults={'show_in_exam': True, 'position': 0})
+
+    def _seed_oral_exam(self, subject, seed_user):
+        """20 alumnos totales (4 grupos x 5), 4 preguntas por alumno —
+        reusa generate_oral_exam_questions(), el mismo algoritmo de
+        distribución que usa create_oral_exam() para un cuestionario real,
+        así el ejemplo semilla se arma exactamente como uno de verdad."""
+        name = f'Cuestionario Oral — {subject.name}'
+        oral_exam, created = OralExamSet.objects.get_or_create(
+            name=name, subject=subject, user=seed_user,
+            defaults={
+                'num_groups': 4,
+                'students_per_group': 5,
+                'questions_per_student': 4,
+                'total_students': 20,
+            },
+        )
+        if created:
+            oral_exam.topics.set(Topic.objects.filter(subject=subject))
+            from material.views import generate_oral_exam_questions
+            try:
+                generate_oral_exam_questions(oral_exam)
+            except ValueError:
+                # Sin preguntas suficientes para los tópicos seleccionados —
+                # no debería pasar con el volumen de preguntas semilla, pero
+                # no vale la pena romper todo el comando por esto.
+                pass
+        return oral_exam
+
+    def _seed_exam_template(self, institution, faculty, career, campus, subject, seed_user):
+        existing = ExamTemplate.objects.filter(
+            institution=institution, subject=subject, created_by=seed_user,
+        ).first()
+        if existing:
+            return existing
+
+        topics_snapshot = list(Topic.objects.filter(subject=subject).values_list('name', flat=True))
+        outcomes_snapshot = list(LearningOutcome.objects.filter(subject=subject).values_list('description', flat=True))
+
+        template = ExamTemplate.objects.create(
+            institution=institution,
+            faculty=faculty,
+            career=career,
+            campus=campus,
+            subject=subject,
+            professor=seed_user,
+            year=2026,
+            exam_type='final',
+            exam_mode='presencial',
+            shift='manana',
+            resolution_time='90 minutos',
+            topics_to_evaluate='\n'.join(topics_snapshot),
+            notes_and_recommendations=(
+                'Revisar los conceptos fundamentales de la materia antes del examen. '
+                'Se recomienda practicar ejercicios de las guías de la cátedra.'
+            ),
+            created_by=seed_user,
+            institution_name_snapshot=institution.name,
+            faculty_name_snapshot=faculty.name,
+            campus_name_snapshot=campus.name if campus else '',
+            career_name_snapshot=career.name,
+            subject_name_snapshot=subject.name,
+            topics_snapshot=topics_snapshot,
+            outcomes_snapshot=outcomes_snapshot,
+        )
+        template.learning_outcomes.set(LearningOutcome.objects.filter(subject=subject))
+        return template
 
     @staticmethod
     def _to_options_json(options):
