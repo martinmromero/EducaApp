@@ -488,7 +488,7 @@ def list_models_for_provider(provider: str, api_key: str, base_url: Optional[str
     Devuelve (success: bool, models: list[str], error: str).
     """
     if not api_key:
-        return False, [], 'Ingresá una API Key para poder listar los modelos.'
+        return False, [], 'Ingresar una API Key para poder listar los modelos.'
 
     try:
         if provider == 'gemini':
@@ -544,7 +544,7 @@ def list_models_for_provider(provider: str, api_key: str, base_url: Optional[str
 
     except Exception as e:
         logger.error(f'Error listando modelos de {provider}: {e}')
-        return False, [], 'No se pudo conectar con el proveedor. Verificá la API Key e intentá de nuevo.'
+        return False, [], 'No se pudo conectar con el proveedor. Verificar la API Key e intentar de nuevo.'
 
 
 # ---------------------------------------------------------------------------
@@ -876,7 +876,7 @@ class TrainingQuotaGuardBackend(SharedDemoBackend):
                 'success': False,
                 'error': (
                     'El cupo compartido de generación de IA está bajo — se reserva '
-                    'para uso real. Podés seguir usando las preguntas de ejemplo ya '
+                    'para uso real. Se pueden seguir usando las preguntas de ejemplo ya '
                     'cargadas en el Área de Pruebas, o intentar de nuevo más tarde.'
                 ),
                 'text': None,

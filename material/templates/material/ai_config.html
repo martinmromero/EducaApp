@@ -460,7 +460,7 @@ function renderDemoQuota(data) {
   if (!data.demo_quota || data.demo_quota.remaining_requests === null || data.demo_quota.remaining_requests === undefined) {
     box.classList.remove('d-none');
     text.innerHTML = '<i class="bi bi-people-fill me-1"></i>Se está usando la IA compartida de EducaApp (sin key propia conectada). ' +
-      'Todavía no se generó nada con ella, así que no se sabe cuánto cupo queda — se va a ver acá apenas se genere la primera tanda de preguntas.';
+      'Todavía no se generó nada con ella, así que no se sabe cuánto cupo queda — se va a ver aquí apenas se genere la primera tanda de preguntas.';
     return;
   }
   const q = data.demo_quota;

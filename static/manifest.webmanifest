@@ -1,7 +1,7 @@
 {
   "name": "EducaApp",
   "short_name": "EducaApp",
-  "description": "Cargá material educativo, generá preguntas con IA y armá exámenes.",
+  "description": "Cargar material educativo, generar preguntas con IA y armar exámenes.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

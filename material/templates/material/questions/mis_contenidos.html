@@ -182,7 +182,7 @@
         const form = document.getElementById(formId);
         const selectedContents = form.querySelectorAll('input[name="contenido_ids"]:checked');
         if (selectedContents.length === 0) {
-            window.EducaAppModal.alert("Por favor, selecciona al menos un documento para borrar.", { title: 'Nada seleccionado', variant: 'warning' });
+            window.EducaAppModal.alert("Seleccionar al menos un documento para borrar.", { title: 'Nada seleccionado', variant: 'warning' });
             return;
         }
 

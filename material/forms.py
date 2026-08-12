@@ -68,7 +68,7 @@ class ContenidoForm(forms.ModelForm):
             if archivo.size > max_mb * 1024 * 1024:
                 raise ValidationError(
                     f'El archivo pesa {archivo.size / (1024 * 1024):.1f}MB y supera el máximo permitido '
-                    f'de {max_mb}MB. Si es un PDF escaneado, probá comprimirlo o subir solo las páginas necesarias.'
+                    f'de {max_mb}MB. Si es un PDF escaneado, probar comprimirlo o subir solo las páginas necesarias.'
                 )
         return archivo
 
@@ -348,7 +348,7 @@ class UserEditForm(forms.ModelForm):
             p1 = cleaned_data.get('new_password1')
             p2 = cleaned_data.get('new_password2')
             if not p1:
-                self.add_error('new_password1', 'Ingresá la nueva contraseña.')
+                self.add_error('new_password1', 'Ingresar la nueva contraseña.')
             elif p1 != p2:
                 self.add_error('new_password2', 'Las contraseñas no coinciden.')
             else:

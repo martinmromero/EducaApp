@@ -52,7 +52,7 @@
         element: '#plantilla',
         popover: {
           title: 'Plantilla',
-          description: 'Se pueden crear plantillas de examen y reutilizarlas acá para no repetir la configuración cada vez.',
+          description: 'Se pueden crear plantillas de examen y reutilizarlas aquí para no repetir la configuración cada vez.',
           side: 'bottom',
         },
         onHighlightStarted: function () { areas.openArea(1); },
@@ -85,7 +85,7 @@
         element: '#topics_checkbox_container',
         popover: {
           title: 'Tópicos',
-          description: 'Acá se eligen los tópicos a evaluar — uno de los datos más importantes del examen.',
+          description: 'Aquí se eligen los tópicos a evaluar — uno de los datos más importantes del examen.',
           side: 'right',
         },
         onHighlightStarted: function () {
@@ -141,7 +141,7 @@
       // de llegar al paso de Preguntas, en vez de aparecer vacío.
       checkFirst('topics_checkbox_container', 2);
     };
-    topicsStep.popover.description = 'Acá se eligen los tópicos a evaluar (en este ejemplo ya se tildan un par, para mostrar el resto del flujo).';
+    topicsStep.popover.description = 'Aquí se eligen los tópicos a evaluar (en este ejemplo ya se tildan un par, para mostrar el resto del flujo).';
 
     var questionsStep = steps[5];
     questionsStep.onHighlightStarted = function () { checkFirst('questions_checkbox_container', 3); };

@@ -7,7 +7,7 @@
     {% if examenes_afectados %}
         <div class="alert alert-warning">
             <strong>Atención:</strong> esta pregunta está usada en {{ examenes_afectados|length }} examen{{ examenes_afectados|length|pluralize:",es" }}.
-            Si la eliminás, quedará{{ examenes_afectados|length|pluralize:",n" }} con una pregunta menos y vas a tener que reemplazarla:
+            Si se elimina, quedará{{ examenes_afectados|length|pluralize:",n" }} con una pregunta menos y habrá que reemplazarla:
             <ul class="mb-0">
                 {% for examen in examenes_afectados %}
                     <li>{{ examen.title }}</li>

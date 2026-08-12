@@ -90,7 +90,7 @@ def upload_and_process_document(request):
             'success': False,
             'error': (
                 f'El archivo pesa {archivo.size / (1024 * 1024):.1f}MB y supera el máximo permitido '
-                f'de {max_upload_mb}MB. Si es un PDF escaneado, probá comprimirlo o subir solo las páginas necesarias.'
+                f'de {max_upload_mb}MB. Si es un PDF escaneado, probar comprimirlo o subir solo las páginas necesarias.'
             )
         }, status=400)
 
@@ -387,7 +387,7 @@ def process_contenido_by_id(request, contenido_id):
         return JsonResponse({
             'success': False,
             'error': f'El archivo de "{contenido.title}" ya no está disponible en el servidor '
-                     f'(se elimina automáticamente después de unos días). Subí el documento de nuevo.',
+                     f'(se elimina automáticamente después de unos días). Subir el documento de nuevo.',
         }, status=404)
 
     file_path = contenido.file.path
@@ -610,11 +610,11 @@ def generate_questions_from_chapters(request):
             if backend_type == 'ollama_local':
                 error_msg = (
                     'Servidor Ollama no disponible. '
-                    'Para usar el generador de IA en producción, configurá un proveedor '
+                    'Para usar el generador de IA en producción, configurar un proveedor '
                     'en "Proveedor de IA" (BYOK con OpenAI, Anthropic, etc.).'
                 )
             else:
-                error_msg = f'Proveedor de IA ({backend_type}) no disponible. Verificá tu configuración y API key.'
+                error_msg = f'Proveedor de IA ({backend_type}) no disponible. Verificar la configuración y la API key.'
             return JsonResponse({
                 'success': False,
                 'error': error_msg
@@ -715,8 +715,8 @@ def generate_questions_from_chapters(request):
             return JsonResponse({
                 'success': False,
                 'error': (
-                    f'Seleccionaste {_fmt_es(selected_tokens)} tokens de contenido, y el máximo por '
-                    f'tanda es {_fmt_es(run_budget)}. Elegí menos capítulos y generá el resto en otra tanda.'
+                    f'Se seleccionaron {_fmt_es(selected_tokens)} tokens de contenido, y el máximo por '
+                    f'tanda es {_fmt_es(run_budget)}. Elegir menos capítulos y generar el resto en otra tanda.'
                 ),
             }, status=400)
 
@@ -810,7 +810,7 @@ def generate_questions_from_chapters(request):
                 f'La IA no pudo generar preguntas válidas en {len(failed_chunks)} de los fragmentos procesados.'
                 if failed_chunks else
                 'La IA respondió, pero no generó preguntas válidas. '
-                'Revisá el proveedor y el modelo configurado, especialmente en Gemini.'
+                'Revisar el proveedor y el modelo configurado, especialmente en Gemini.'
             )
             return JsonResponse({
                 'success': False,
@@ -1291,8 +1291,8 @@ def stream_questions(request, job_id):
         run_budget = settings.CONTENIDO_MAX_RUN_TOKENS
         if selected_tokens > run_budget:
             budget_msg = (
-                f'Seleccionaste {_fmt_es(selected_tokens)} tokens de contenido, y el máximo por '
-                f'tanda es {_fmt_es(run_budget)}. Elegí menos capítulos y generá el resto en otra tanda.'
+                f'Se seleccionaron {_fmt_es(selected_tokens)} tokens de contenido, y el máximo por '
+                f'tanda es {_fmt_es(run_budget)}. Elegir menos capítulos y generar el resto en otra tanda.'
             )
             yield f'data: {json_module.dumps({"type": "error", "message": budget_msg})}\n\n'
             return

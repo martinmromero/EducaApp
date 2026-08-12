@@ -21,7 +21,7 @@
         element: '#stepDocumento',
         popover: {
           title: 'Documento',
-          description: 'Subir acá un PDF, DOCX, PPTX o TXT. Una vez procesado, este bloque se resume solo a un renglón — se puede reabrir en cualquier momento con "Cambiar".',
+          description: 'Subir aquí un PDF, DOCX, PPTX o TXT. Una vez procesado, este bloque se resume solo a un renglón — se puede reabrir en cualquier momento con "Cambiar".',
           side: 'right',
           align: 'start',
         },
@@ -30,7 +30,7 @@
         element: '#stepContenido',
         popover: {
           title: 'Elegir y generar',
-          description: 'Acá aparecen los capítulos detectados de un documento ya cargado, para elegir cuáles analizar y generar las preguntas con IA.',
+          description: 'Aquí aparecen los capítulos detectados de un documento ya cargado, para elegir cuáles analizar y generar las preguntas con IA.',
           side: 'right',
           align: 'start',
         },
