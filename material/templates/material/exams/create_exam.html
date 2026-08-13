@@ -733,6 +733,15 @@ document.addEventListener('DOMContentLoaded', function() {
 .exam-area-header[aria-expanded="true"] .exam-area-chevron {
     transform: rotate(180deg);
 }
+/* Usado solo por el recorrido guiado (create_exam_tour.js) al cambiar de
+   área: sin esto, el collapse de Bootstrap anima ~350ms y driver.js mide
+   la posición del paso ANTES de que la animación termine (measura de forma
+   síncrona apenas corre onHighlightStarted), mostrando un salto visible al
+   lugar viejo antes de autocorregirse. Con la transición desactivada el
+   cambio de área es instantáneo, así que no hay nada que corregir después. */
+.tour-no-transition {
+    transition: none !important;
+}
 
 /* ── Panel de tópicos/preguntas: el texto completo tiene que leerse bien,
      no cortarse ni desalinearse con el checkbox cuando ocupa varias

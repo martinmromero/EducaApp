@@ -46,17 +46,35 @@
       .filter(Boolean);
   }
 
-  // Las 4 "áreas" son acordeones Bootstrap (collapse animado, ~350ms) — un
-  // solo lugar que decide "de las 4, esta es la única abierta" en vez de
-  // que cada paso abra/cierre relativo al paso anterior. Con la versión
-  // anterior (relativa), retroceder con "Anterior" a un paso cuya área ya
-  // se había cerrado al avanzar la dejaba colapsada — el recorrido
-  // resaltaba un elemento invisible y el popover aparecía en cualquier
-  // lugar. Al ser siempre absoluta ("mostrar solo el área N"), da igual
-  // desde qué paso se venga.
+  // Las 4 "áreas" son acordeones Bootstrap — un solo lugar que decide "de
+  // las 4, esta es la única abierta" en vez de que cada paso abra/cierre
+  // relativo al paso anterior. Con la versión anterior (relativa),
+  // retroceder con "Anterior" a un paso cuya área ya se había cerrado al
+  // avanzar la dejaba colapsada — el recorrido resaltaba un elemento
+  // invisible y el popover aparecía en cualquier lugar. Al ser siempre
+  // absoluta ("mostrar solo el área N"), da igual desde qué paso se venga.
+  //
+  // El collapse de Bootstrap anima ~350ms — driver.js mide la posición del
+  // paso de forma SÍNCRONA apenas termina onHighlightStarted, sin esperar
+  // a que esa animación termine, así que se veía un salto visible al lugar
+  // viejo/vacío antes de autocorregirse solo un rato después (más notorio
+  // cuanto más se tardaba en corregir). Se desactiva la transición del
+  // collapse mientras cambia el área (clase .tour-no-transition, ver CSS en
+  // create_exam.html) para que el cambio sea instantáneo y no haya nada que
+  // corregir después.
   function showOnlyArea(areas, n) {
+    var bodies = [1, 2, 3, 4].map(function (i) { return document.getElementById('examArea' + i + 'Body'); });
+    bodies.forEach(function (el) { if (el) el.classList.add('tour-no-transition'); });
     [1, 2, 3, 4].forEach(function (i) {
       if (i === n) areas.openArea(i); else areas.closeArea(i);
+    });
+    // Fuerza a que el navegador aplique el cambio ya (reflow síncrono), y
+    // recién en el siguiente frame se reactiva la transición normal — así
+    // no afecta la apertura/cierre manual que el usuario haga con el mouse
+    // fuera del recorrido.
+    bodies.forEach(function (el) { if (el) void el.offsetHeight; });
+    requestAnimationFrame(function () {
+      bodies.forEach(function (el) { if (el) el.classList.remove('tour-no-transition'); });
     });
   }
 
@@ -174,13 +192,11 @@
 
   // Envuelve el onHighlightStarted de cada paso (si lo tiene) para que,
   // antes que nada, se asegure de que su área quede abierta — sin importar
-  // desde qué paso se venga ni en qué dirección. Después de abrir/cerrar,
-  // el collapse de Bootstrap tarda ~350ms en animar: si driver.js mide la
-  // posición antes de que termine, el resaltado queda mal ubicado (esto es
-  // lo que además rompía al cambiar el tamaño de la ventana, porque
-  // cualquier recálculo de posición partía de una medición vieja). Se
-  // vuelve a pedir la posición correcta con tourDriver.refresh() una vez
-  // que la animación ya terminó.
+  // desde qué paso se venga ni en qué dirección (ver showOnlyArea). El
+  // refresh() en el frame siguiente es solo un resguardo por si driver.js
+  // ya había leído la posición un instante antes de que el cambio de área
+  // (ahora instantáneo) se aplicara — no es la corrección con demora visible
+  // que había antes.
   function attachAreaHandling(steps, areas, tourDriver) {
     steps.forEach(function (step) {
       if (step.area === undefined) return;
@@ -188,7 +204,7 @@
       step.onHighlightStarted = function () {
         showOnlyArea(areas, step.area);
         if (stepOwnHandler) stepOwnHandler();
-        setTimeout(function () { tourDriver.refresh(); }, 400);
+        requestAnimationFrame(function () { tourDriver.refresh(); });
       };
     });
     return steps;
