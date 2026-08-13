@@ -153,6 +153,34 @@
         });
     }
 
+    // En mobile el sidebar arranca oculto fuera de pantalla (clase
+    // "mobile-open" lo trae a la vista, ver base.html) — este recorrido
+    // resalta ítems DENTRO del sidebar, así que si no se abre primero, el
+    // recorrido "corre" contra elementos fuera de pantalla y el resaltado
+    // aparece en cualquier lugar (mismo problema que ya resolvía
+    // static/js/tour.js para el recorrido general, pero este recorrido
+    // aparte de esta pantalla nunca lo hacía).
+    function isMobileViewport() {
+        return window.innerWidth <= 768;
+    }
+
+    function ensureSidebarVisible() {
+        if (!isMobileViewport()) return false;
+        var sidebar = document.getElementById('sidebar');
+        if (!sidebar || sidebar.classList.contains('mobile-open')) return false;
+        if (typeof window.toggleSidebar === 'function') {
+            window.toggleSidebar();
+            return true;
+        }
+        return false;
+    }
+
+    function restoreSidebar(openedByTour) {
+        if (openedByTour && typeof window.closeSidebarMobile === 'function') {
+            window.closeSidebarMobile();
+        }
+    }
+
     function buildSteps(driverObj) {
         function nextAndCheck(itemId) {
             return function (element, step, opts) {
@@ -239,6 +267,7 @@
 
     function startTour() {
         if (!window.driver || !window.driver.js) return;
+        var openedSidebar = ensureSidebarVisible();
         var tourDriver = window.driver.js.driver({
             showProgress: true,
             allowClose: true,
@@ -250,10 +279,18 @@
             onDestroyed: function () {
                 markAllChecked();
                 collapseAllMenus();
+                restoreSidebar(openedSidebar);
             },
         });
         tourDriver.setSteps(buildSteps(tourDriver));
-        tourDriver.drive();
+        if (openedSidebar) {
+            // El sidebar recién se abrió (transición de ~0.25s, ver
+            // base.html) — se espera a que termine antes de arrancar, así
+            // el primer paso no mide una posición todavía en movimiento.
+            setTimeout(function () { tourDriver.drive(); }, 260);
+        } else {
+            tourDriver.drive();
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function () {

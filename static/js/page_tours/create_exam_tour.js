@@ -46,19 +46,34 @@
       .filter(Boolean);
   }
 
-  function baseSteps(areas) {
+  // Las 4 "áreas" son acordeones Bootstrap (collapse animado, ~350ms) — un
+  // solo lugar que decide "de las 4, esta es la única abierta" en vez de
+  // que cada paso abra/cierre relativo al paso anterior. Con la versión
+  // anterior (relativa), retroceder con "Anterior" a un paso cuya área ya
+  // se había cerrado al avanzar la dejaba colapsada — el recorrido
+  // resaltaba un elemento invisible y el popover aparecía en cualquier
+  // lugar. Al ser siempre absoluta ("mostrar solo el área N"), da igual
+  // desde qué paso se venga.
+  function showOnlyArea(areas, n) {
+    [1, 2, 3, 4].forEach(function (i) {
+      if (i === n) areas.openArea(i); else areas.closeArea(i);
+    });
+  }
+
+  function baseSteps() {
     return [
       {
         element: '#plantilla',
+        area: 1,
         popover: {
           title: 'Plantilla',
           description: 'Se pueden crear plantillas de examen y reutilizarlas aquí para no repetir la configuración cada vez.',
           side: 'bottom',
         },
-        onHighlightStarted: function () { areas.openArea(1); },
       },
       {
         element: '#id_subject',
+        area: 1,
         popover: {
           title: 'Materia',
           description: 'Al elegir la materia se habilitan los resultados de aprendizaje (si tiene cargados) y, más abajo, los tópicos con sus preguntas.',
@@ -67,6 +82,7 @@
       },
       {
         element: '#examInstFacCarreraRow',
+        area: 1,
         popover: {
           title: 'Institución',
           description: 'Al elegir la institución se cargan automáticamente la facultad y las carreras disponibles, si ya están cargadas.',
@@ -75,6 +91,7 @@
       },
       {
         element: '#examArea1Extra',
+        area: 1,
         popover: {
           title: 'Resto de las opciones',
           description: 'Sede, curso/comisión, turno, profesor, fecha, duración y período académico: todas estas opciones son opcionales.',
@@ -83,18 +100,16 @@
       },
       {
         element: '#topics_checkbox_container',
+        area: 3,
         popover: {
           title: 'Tópicos',
           description: 'Aquí se eligen los tópicos a evaluar — uno de los datos más importantes del examen.',
           side: 'right',
         },
-        onHighlightStarted: function () {
-          areas.closeArea(1);
-          areas.openArea(3);
-        },
       },
       {
         element: '#questions_checkbox_container',
+        area: 3,
         popover: {
           title: 'Preguntas',
           description: 'Al tildar tópicos, el panel de preguntas se filtra para mostrar solo las de esos tópicos.',
@@ -103,6 +118,7 @@
       },
       {
         element: '#examSelectionHeaderRow',
+        area: 3,
         popover: {
           title: 'Selección',
           description: 'Tanto tópicos como preguntas se pueden seleccionar de a uno o todos juntos, con los botones superiores.',
@@ -111,14 +127,11 @@
       },
       {
         element: '#examArea4',
+        area: 4,
         popover: {
           title: 'Temas del examen escrito',
           description: 'Se puede crear más de un tema con preguntas distintas para la misma fecha de examen, cada uno con su propio encabezado.',
           side: 'top',
-        },
-        onHighlightStarted: function () {
-          areas.closeArea(3);
-          areas.openArea(4);
         },
       },
     ];
@@ -128,13 +141,11 @@
   // tópicos/preguntas de ejemplo y agrega un paso final que lleva a "Ver
   // examen" — ninguna de las dos cosas tiene sentido en modo consulta sobre
   // el formulario real.
-  function demoSteps(areas) {
-    var steps = baseSteps(areas);
+  function demoSteps() {
+    var steps = baseSteps();
 
     var topicsStep = steps[4];
-    var openTopicsArea = topicsStep.onHighlightStarted;
     topicsStep.onHighlightStarted = function () {
-      openTopicsArea();
       // Dispara la selección de ejemplo apenas se muestra este paso (no en
       // el siguiente): así el fetch asincrónico de preguntas filtradas tiene
       // el tiempo real de lectura + clic en "Siguiente" para resolver antes
@@ -161,9 +172,31 @@
     return steps;
   }
 
-  function buildSteps(opts) {
-    var areas = window.EducaAppExamAreas || { openArea: function () {}, closeArea: function () {} };
-    var steps = (opts && opts.demo) ? demoSteps(areas) : baseSteps(areas);
+  // Envuelve el onHighlightStarted de cada paso (si lo tiene) para que,
+  // antes que nada, se asegure de que su área quede abierta — sin importar
+  // desde qué paso se venga ni en qué dirección. Después de abrir/cerrar,
+  // el collapse de Bootstrap tarda ~350ms en animar: si driver.js mide la
+  // posición antes de que termine, el resaltado queda mal ubicado (esto es
+  // lo que además rompía al cambiar el tamaño de la ventana, porque
+  // cualquier recálculo de posición partía de una medición vieja). Se
+  // vuelve a pedir la posición correcta con tourDriver.refresh() una vez
+  // que la animación ya terminó.
+  function attachAreaHandling(steps, areas, tourDriver) {
+    steps.forEach(function (step) {
+      if (step.area === undefined) return;
+      var stepOwnHandler = step.onHighlightStarted;
+      step.onHighlightStarted = function () {
+        showOnlyArea(areas, step.area);
+        if (stepOwnHandler) stepOwnHandler();
+        setTimeout(function () { tourDriver.refresh(); }, 400);
+      };
+    });
+    return steps;
+  }
+
+  function buildSteps(opts, areas, tourDriver) {
+    var steps = (opts && opts.demo) ? demoSteps() : baseSteps();
+    attachAreaHandling(steps, areas, tourDriver);
     // Defensivo: descarta pasos cuyo elemento no esté en el DOM (la pantalla
     // real siempre los tiene, pero evita romper el recorrido si el form se
     // llega a simplificar más adelante).
@@ -172,18 +205,24 @@
 
   function start(opts) {
     if (!window.driver || !window.driver.js) return;
-    var steps = buildSteps(opts);
-    if (!steps.length) return;
+    var areas = window.EducaAppExamAreas || { openArea: function () {}, closeArea: function () {} };
     try {
-      window.driver.js.driver({
+      // Se crea el driver primero (sin steps) para que los propios steps
+      // puedan llamar a tourDriver.refresh() desde su onHighlightStarted —
+      // ver attachAreaHandling.
+      var tourDriver = window.driver.js.driver({
         showProgress: true,
         allowClose: true,
         overlayOpacity: 0.6,
         nextBtnText: 'Siguiente',
         prevBtnText: 'Anterior',
         doneBtnText: 'Listo',
-        steps: steps,
-      }).drive();
+        steps: [],
+      });
+      var steps = buildSteps(opts, areas, tourDriver);
+      if (!steps.length) return;
+      tourDriver.setSteps(steps);
+      tourDriver.drive();
     } catch (e) {
       console.error('No se pudo iniciar el recorrido de Crear Examen:', e);
     }
