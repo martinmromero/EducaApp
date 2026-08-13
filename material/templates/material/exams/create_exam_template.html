@@ -227,34 +227,23 @@
 
 {% if edit_mode and template %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Disparar evento change en institución para cargar datos dependientes
-    {% if template.institution %}
-    const institutionSelect = document.getElementById('id_institution');
-    if (institutionSelect) {
-        institutionSelect.dispatchEvent(new Event('change'));
-        
-        // Después de cargar facultades, seleccionar la correcta
-        setTimeout(function() {
-            {% if template.faculty %}
-            const facultySelect = document.getElementById('id_faculty');
-            if (facultySelect) {
-                facultySelect.value = '{{ template.faculty.id }}';
-                facultySelect.dispatchEvent(new Event('change'));
-                
-                // Después de cargar carreras, seleccionar la correcta
-                setTimeout(function() {
-                    {% if template.career %}
-                    const careerSelect = document.getElementById('id_career');
-                    if (careerSelect) {
-                        careerSelect.value = '{{ template.career.id }}';
-                    }
-                    {% endif %}
-                }, 500);
-            }
-            {% endif %}
-        }, 500);
+document.addEventListener('DOMContentLoaded', async function() {
+    // La institución ya viene seleccionada desde el servidor (su queryset
+    // es real, a diferencia de facultad/campus — ver ExamTemplateForm), así
+    // que create_exam_template.js ya arrancó la carga de facultades al
+    // cargar la página (ver window.EducaAppTemplateDependentsReady). Antes
+    // acá se disparaba un SEGUNDO change (carga duplicada) y se adivinaba
+    // cuándo terminaba con un setTimeout fijo de 500ms — si el fetch
+    // tardaba más (normal en producción, no tanto en localhost), "Facultad"
+    // quedaba en blanco pese a que la plantilla sí la tenía guardada.
+    // Carrera no necesita nada de esto: su queryset tampoco se fuerza a
+    // vacío, así que ya llega correctamente seleccionada en el HTML.
+    {% if template.institution and template.faculty %}
+    if (window.EducaAppTemplateDependentsReady) {
+        await window.EducaAppTemplateDependentsReady;
     }
+    const facultySelect = document.getElementById('id_faculty');
+    if (facultySelect) facultySelect.value = '{{ template.faculty.id }}';
     {% endif %}
     
     // Pre-seleccionar learning outcomes después de que se carguen

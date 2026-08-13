@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
 async function loadDependents(institutionId) {
     if (!institutionId) {
         facultySelect.innerHTML = '<option value="">---------</option>';
-        campusSelect.innerHTML = '<option value="">---------</option>';
+        if (campusSelect) campusSelect.innerHTML = '<option value="">---------</option>';
         return;
     }
 
@@ -44,7 +44,7 @@ async function loadDependents(institutionId) {
         const facultiesResponse = await fetch(`/get_faculties_by_institution/${institutionId}/`);
         if (!facultiesResponse.ok) throw new Error('Error cargando facultades');
         const faculties = await facultiesResponse.json();
-        
+
         facultySelect.innerHTML = '<option value="">---------</option>';
         faculties.faculties.forEach(faculty => {
             facultySelect.add(new Option(faculty.name, faculty.id));
@@ -55,6 +55,14 @@ async function loadDependents(institutionId) {
         facultySelect.innerHTML = '<option value="">Error cargando facultades</option>';
     }
 }
+// Expuesto para que el script inline de modo edición (ver
+// create_exam_template.html) pueda esperar a que termine ESTA MISMA carga
+// en vez de arrancar una segunda en paralelo, y saber con certeza cuándo
+// ya hay opciones de facultad para poder seleccionar la actual — antes se
+// adivinaba con un setTimeout fijo (500ms) que no alcanzaba si el fetch
+// tardaba más (típico en producción, no tanto en localhost), dejando
+// "Facultad" en blanco pese a que la plantilla sí la tenía guardada.
+window.EducaAppLoadTemplateDependents = loadDependents;
 
     // =============================================
     // SECCIÓN 3: NOTIFICACIONES TOAST
@@ -197,9 +205,12 @@ async function loadDependents(institutionId) {
     // =============================================
     // SECCIÓN 5: EVENT LISTENERS INICIALES
     // =============================================
-    // Cargar dependientes si hay institución seleccionada al inicio
+    // Cargar dependientes si hay institución seleccionada al inicio (modo
+    // edición: la institución ya viene con valor desde el servidor). Se
+    // guarda la promesa para que el script inline de modo edición pueda
+    // esperar a ESTA carga en vez de arrancar una segunda en paralelo.
     if (institutionSelect && institutionSelect.value) {
-        loadDependents(institutionSelect.value);
+        window.EducaAppTemplateDependentsReady = loadDependents(institutionSelect.value);
     }
 
     // Listener para cambios en la institución
