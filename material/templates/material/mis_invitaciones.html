@@ -1,0 +1,74 @@
+{% extends 'material/base.html' %}
+{% block page_title %}<i class="bi bi-send-plus me-2"></i>Invitaciones{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="alert alert-info d-flex align-items-center gap-2">
+        <i class="bi bi-info-circle-fill fs-5"></i>
+        <div>Cada link generado sirve para dar de alta una cuenta nueva y es de un solo uso: una vez que la persona invitada completa sus datos, el link queda inválido.</div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-1"></i>Generar invitación
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h6 class="m-0 fw-bold">Invitaciones generadas</h6>
+        </div>
+        <div class="card-body">
+            {% if items %}
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Link</th>
+                            <th>Creada por</th>
+                            <th>Fecha</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>
+                                {% if not item.invitation.is_used %}
+                                <div class="input-group input-group-sm" style="max-width: 420px;">
+                                    <input type="text" class="form-control" value="{{ item.link }}" readonly onclick="this.select();">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText('{{ item.link }}'); this.innerText='Copiado';">Copiar</button>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.invitation.created_by.username }}</td>
+                            <td>{{ item.invitation.created_at|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% if item.invitation.is_used %}
+                                <span class="badge bg-secondary">Usada por {{ item.invitation.used_by.username }}</span>
+                                {% else %}
+                                <span class="badge bg-success">Pendiente</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-send-plus fa-3x text-muted mb-3"></i>
+                <h5>Todavía no se generó ninguna invitación</h5>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

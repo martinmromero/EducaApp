@@ -184,6 +184,7 @@
                 <i class="bi bi-shield-lock-fill me-2"></i> Administración
                 <div class="submenu">
                     <a href="{% url 'material:user_list' %}"><i class="bi bi-people-fill me-2"></i>Usuarios</a>
+                    <a href="{% url 'material:mis_invitaciones' %}"><i class="bi bi-send-plus me-2"></i>Invitaciones</a>
                     <a href="{% url 'material:groq_monitor_page' %}"><i class="bi bi-activity me-2"></i>Monitoreo Groq</a>
                     <a href="{% url 'material:question_generation_prompt_config' %}"><i class="bi bi-chat-square-text me-2"></i>Prompt de generación IA</a>
                     <a href="{% url 'material:institution_ai_config' %}"><i class="bi bi-cpu me-2"></i>IA Institucional</a>
@@ -635,7 +636,7 @@
             });
         }
 
-        // Tema visual (skin de marca: Slack/BMW/Linear/Figma/Clay) — se aplica
+        // Tema visual (skin de marca: Slack/Linear/Figma) — se aplica
         // al instante vía data-visual-theme en <html> (ver static/css/skins.css)
         // y se guarda en el perfil del usuario para que persista entre sesiones.
         const visualThemeOptions = document.querySelectorAll('.visual-theme-option');

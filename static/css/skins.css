@@ -1,7 +1,7 @@
 /*
- * Skins de "tema visual" — inspirados en Slack, BMW, Linear, Figma y Clay
- * (ver DESIGN-*.md). Se activan poniendo data-visual-theme="slack|bmw|
- * linear|figma|clay" en <html> (ver base.html / material:set_visual_theme).
+ * Skins de "tema visual" — inspirados en Slack, Linear y Figma
+ * (ver DESIGN-*.md). Se activan poniendo data-visual-theme="slack|
+ * linear|figma" en <html> (ver base.html / material:set_visual_theme).
  *
  * No tocan --bs-body-bg/--edu-sidebar-bg/--edu-topbar-bg salvo cuando el
  * tinte de canvas es parte central de la marca, y sólo bajo
@@ -68,54 +68,6 @@
   --bs-btn-hover-border-color: #4a154b;
   --bs-btn-active-bg: #4a154b;
   --bs-btn-active-border-color: #4a154b;
-}
-
-/* ---------- BMW: azul corporativo, esquinas rectas, tipografía 700/300 ---------- */
-[data-visual-theme="bmw"] {
-  --bs-primary: #1c69d4;
-  --bs-primary-rgb: 28, 105, 212;
-  --bs-link-color: #1c69d4;
-  --bs-link-color-rgb: 28, 105, 212;
-  --bs-link-hover-color: #0653b6;
-  --bs-border-radius: 0;
-  --bs-border-radius-sm: 0;
-  --bs-border-radius-lg: 0;
-  --edu-accent-soft-bg: #eaf2ff;
-  --edu-accent-soft-border: #b9d3f7;
-  --edu-accent-soft-text: #1c69d4;
-  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
-  --bs-body-font-weight: 300;
-}
-[data-visual-theme="bmw"]:not([data-bs-theme="dark"]) {
-  --edu-sidebar-bg: #eef3fb;
-  --edu-topbar-bg: #f5f8fd;
-}
-[data-visual-theme="bmw"] h1, [data-visual-theme="bmw"] h2,
-[data-visual-theme="bmw"] h3, [data-visual-theme="bmw"] h4,
-[data-visual-theme="bmw"] h5, [data-visual-theme="bmw"] h6,
-[data-visual-theme="bmw"] .btn, [data-visual-theme="bmw"] label {
-  font-weight: 700;
-}
-[data-visual-theme="bmw"] .btn { border-radius: 0; }
-[data-visual-theme="bmw"] .card,
-[data-visual-theme="bmw"] .form-control,
-[data-visual-theme="bmw"] .form-select {
-  border-radius: 0;
-}
-[data-visual-theme="bmw"] .btn-primary {
-  --bs-btn-bg: #1c69d4;
-  --bs-btn-border-color: #1c69d4;
-  --bs-btn-hover-bg: #0653b6;
-  --bs-btn-hover-border-color: #0653b6;
-  --bs-btn-active-bg: #0653b6;
-  --bs-btn-active-border-color: #0653b6;
-  --bs-btn-focus-shadow-rgb: 28, 105, 212;
-}
-[data-visual-theme="bmw"] .btn-outline-primary {
-  --bs-btn-color: #1c69d4;
-  --bs-btn-border-color: #1c69d4;
-  --bs-btn-hover-bg: #1c69d4;
-  --bs-btn-hover-border-color: #1c69d4;
 }
 
 /* ---------- Linear: lavanda-azul, radios chicos, tracking negativo ---------- */
@@ -202,48 +154,4 @@
   --bs-btn-border-color: #000000;
   --bs-btn-hover-bg: #000000;
   --bs-btn-hover-border-color: #000000;
-}
-
-/* ---------- Clay: canvas crema, botón casi-negro, radios generosos ---------- */
-[data-visual-theme="clay"] {
-  --bs-primary: #0a0a0a;
-  --bs-primary-rgb: 10, 10, 10;
-  --bs-link-color: #0a0a0a;
-  --bs-link-color-rgb: 10, 10, 10;
-  --bs-link-hover-color: #1f1f1f;
-  --bs-border-radius: 0.75rem;
-  --bs-border-radius-sm: 0.5rem;
-  --bs-border-radius-lg: 1rem;
-  --edu-accent-soft-bg: #ffe3ee;
-  --edu-accent-soft-border: #ffc2d9;
-  --edu-accent-soft-text: #0a0a0a;
-  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
-  --bs-body-font-weight: 400;
-}
-[data-visual-theme="clay"]:not([data-bs-theme="dark"]) {
-  --bs-body-bg: #fffaf0;
-  --edu-sidebar-bg: #faf5e8;
-  --edu-topbar-bg: #fdf8ec;
-}
-[data-visual-theme="clay"] h1, [data-visual-theme="clay"] h2,
-[data-visual-theme="clay"] h3, [data-visual-theme="clay"] h4,
-[data-visual-theme="clay"] h5, [data-visual-theme="clay"] h6 {
-  font-weight: 500;
-  letter-spacing: -0.03em;
-}
-[data-visual-theme="clay"] .btn { border-radius: 0.75rem; }
-[data-visual-theme="clay"] .btn-primary {
-  --bs-btn-bg: #0a0a0a;
-  --bs-btn-border-color: #0a0a0a;
-  --bs-btn-hover-bg: #1f1f1f;
-  --bs-btn-hover-border-color: #1f1f1f;
-  --bs-btn-active-bg: #1f1f1f;
-  --bs-btn-active-border-color: #1f1f1f;
-  --bs-btn-focus-shadow-rgb: 10, 10, 10;
-}
-[data-visual-theme="clay"] .btn-outline-primary {
-  --bs-btn-color: #0a0a0a;
-  --bs-btn-border-color: #0a0a0a;
-  --bs-btn-hover-bg: #0a0a0a;
-  --bs-btn-hover-border-color: #0a0a0a;
 }

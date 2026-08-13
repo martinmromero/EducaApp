@@ -23,6 +23,9 @@ urlpatterns = [
     path('exam-templates/save/', material_views.save_exam_template, name='save_exam_template'),
     path('signup/', material_views.signup, name='signup'),
     path('seguridad/configurar/', material_views.security_question_setup, name='security_question_setup'),
+    # INVITACIONES (alta de cuentas nuevas por link, solo admin)
+    path('invitaciones/', material_views.mis_invitaciones, name='mis_invitaciones'),
+    path('inv/<str:token>/', material_views.invitacion_aceptar, name='invitacion_aceptar'),
     path('users/', material_views.user_list, name='user_list'),
     path('users/nuevo/', material_views.create_user, name='create_user'),
     path('users/edit/<int:user_id>/', material_views.edit_user, name='edit_user'),
