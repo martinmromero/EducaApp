@@ -3,6 +3,7 @@
 
 {% block content %}
 {% include 'material/components/_mobile_card_table.html' %}
+{% url 'material:favoritos_list' as favoritos_url %}
 <div class="container-fluid">
     <div class="card shadow mb-4">
         <div class="card-header py-3">
@@ -39,6 +40,8 @@
                                     <span class="badge bg-warning text-dark">Materia</span>
                                 {% elif item.kind == 'batch' %}
                                     <span class="badge bg-info text-white">Lote</span>
+                                {% elif item.kind == 'oral' %}
+                                    <span class="badge bg-secondary">Cuestionario oral</span>
                                 {% endif %}
                             </td>
                             <td class="rt-card-title" data-label="Nombre">
@@ -46,6 +49,7 @@
                                 {% elif item.kind == 'examtemplate' %}{{ item.object.subject_name_snapshot|default:item.object.subject.name }}
                                 {% elif item.kind == 'subject' %}{{ item.object.name }}
                                 {% elif item.kind == 'batch' %}{{ item.object.name }}
+                                {% elif item.kind == 'oral' %}{{ item.object.name }}
                                 {% endif %}
                             </td>
                             <td data-label="Detalle">
@@ -53,25 +57,69 @@
                                 {% elif item.kind == 'examtemplate' %}{{ item.object.institution_name_snapshot|default:'—' }}
                                 {% elif item.kind == 'subject' %}{{ item.object.careers.all|join:', '|default:'—' }}
                                 {% elif item.kind == 'batch' %}{{ item.object.subject.name|default:'—' }} &middot; {{ item.object.version_count }} versiones
+                                {% elif item.kind == 'oral' %}{{ item.object.subject.name|default:'—' }}
                                 {% endif %}
                             </td>
                             <td data-label="Favoriteado">{{ item.favorited_at|date:"d/m/Y" }}</td>
                             <td data-label="Acciones">
+                                <div class="btn-group" role="group">
                                 {% if item.kind == 'exam' %}
-                                    <a href="{% url 'material:ver_examen' item.object.pk %}" class="btn btn-sm btn-info" title="Ver examen"><i class="fas fa-eye"></i></a>
+                                    <a href="{% url 'material:ver_examen' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver examen"><i class="fas fa-eye"></i></a>
+                                    <a href="{% url 'material:editar_examen' item.object.pk %}" class="btn btn-sm btn-warning" title="Editar examen"><i class="fas fa-edit"></i></a>
+                                    <button type="submit" form="deleteFav_exam_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar examen"><i class="fas fa-trash"></i></button>
                                 {% elif item.kind == 'examtemplate' %}
-                                    <a href="{% url 'material:view_exam_template' item.object.pk %}" class="btn btn-sm btn-info" title="Ver plantilla"><i class="fas fa-eye"></i></a>
+                                    <a href="{% url 'material:view_exam_template' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver plantilla"><i class="fas fa-eye"></i></a>
+                                    <a href="{% url 'material:edit_exam_template' item.object.pk %}" class="btn btn-sm btn-warning" title="Editar plantilla"><i class="fas fa-edit"></i></a>
+                                    <button type="submit" form="deleteFav_examtemplate_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar plantilla"><i class="fas fa-trash"></i></button>
                                 {% elif item.kind == 'subject' %}
-                                    <a href="{% url 'material:subject_detail' item.object.pk %}" class="btn btn-sm btn-info" title="Ver materia"><i class="fas fa-eye"></i></a>
+                                    <a href="{% url 'material:subject_detail' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver materia"><i class="fas fa-eye"></i></a>
+                                    <a href="{% url 'material:edit_subject' pk=item.object.pk %}" class="btn btn-sm btn-warning" title="Editar materia"><i class="fas fa-edit"></i></a>
+                                    <a href="{% url 'material:delete_subject' pk=item.object.pk %}" class="btn btn-sm btn-danger" title="Eliminar materia"><i class="fas fa-trash"></i></a>
                                 {% elif item.kind == 'batch' %}
-                                    <a href="{% url 'material:view_exam_batch' item.object.pk %}" class="btn btn-sm btn-info" title="Ver lote"><i class="fas fa-eye"></i></a>
+                                    <a href="{% url 'material:view_exam_batch' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver lote"><i class="fas fa-eye"></i></a>
+                                    <button type="submit" form="deleteFav_batch_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar lote"><i class="fas fa-trash"></i></button>
+                                {% elif item.kind == 'oral' %}
+                                    <a href="{% url 'material:view_oral_exam' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver cuestionario"><i class="fas fa-eye"></i></a>
+                                    <button type="submit" form="deleteFav_oral_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar cuestionario"><i class="fas fa-trash"></i></button>
                                 {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+
+            <!-- Formularios de borrado, uno por ítem eliminable (ligados a su
+                 botón por form=id, ver arriba) — no pueden ir dentro de la
+                 tabla (un <form> no es un hijo válido de <tbody>). Cada
+                 acción de borrar reutiliza la misma vista que su pantalla de
+                 origen, así que al confirmar redirige ahí (Mis Exámenes,
+                 Plantillas, etc.), no de vuelta a esta lista. -->
+            {% for item in items %}
+                {% if item.kind == 'exam' %}
+                <form method="post" action="{% url 'material:eliminar_examen' item.object.pk %}" id="deleteFav_exam_{{ item.object.pk }}"
+                      onsubmit="return eduConfirmSubmit(event, '¿Eliminar el examen &quot;{{ item.object.title|escapejs }}&quot;? Esta acción no se puede deshacer.', {title: 'Eliminar examen', variant: 'danger', okLabel: 'Eliminar'});">
+                    {% csrf_token %}
+                </form>
+                {% elif item.kind == 'examtemplate' %}
+                <form method="post" action="{% url 'material:delete_exam_template' %}" id="deleteFav_examtemplate_{{ item.object.pk }}"
+                      onsubmit="return eduConfirmSubmit(event, '¿Eliminar esta plantilla? Esta acción no se puede deshacer.', {title: 'Eliminar plantilla', variant: 'danger', okLabel: 'Eliminar'});">
+                    {% csrf_token %}
+                    <input type="hidden" name="template_ids" value="{{ item.object.pk }}">
+                </form>
+                {% elif item.kind == 'batch' %}
+                <form method="post" action="{% url 'material:eliminar_exam_batch' item.object.pk %}" id="deleteFav_batch_{{ item.object.pk }}"
+                      onsubmit="return eduConfirmSubmit(event, '¿Eliminar el lote &quot;{{ item.object.name|escapejs }}&quot;? Esta acción no se puede deshacer.', {title: 'Eliminar lote', variant: 'danger', okLabel: 'Eliminar'});">
+                    {% csrf_token %}
+                </form>
+                {% elif item.kind == 'oral' %}
+                <form method="post" action="{% url 'material:delete_oral_exam' item.object.pk %}" id="deleteFav_oral_{{ item.object.pk }}"
+                      onsubmit="return eduConfirmSubmit(event, '¿Eliminar el cuestionario &quot;{{ item.object.name|escapejs }}&quot;? Esta acción no se puede deshacer.', {title: 'Eliminar cuestionario', variant: 'danger', okLabel: 'Eliminar'});">
+                    {% csrf_token %}
+                </form>
+                {% endif %}
+            {% endfor %}
             {% else %}
             <div class="text-center py-5">
                 <i class="fas fa-star fa-3x text-muted mb-3"></i>

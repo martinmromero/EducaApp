@@ -279,7 +279,7 @@
         <button class="btn btn-success" onclick="printAll()">
             <i class="fas fa-print"></i> Imprimir Todo
         </button>
-        <a href="{% url 'material:list_oral_exams' %}" class="btn btn-secondary">
+        <a href="{{ back_url }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Volver a la lista
         </a>
         <a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary">

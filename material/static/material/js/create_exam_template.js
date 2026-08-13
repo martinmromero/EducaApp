@@ -461,6 +461,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // =============================================
 function setupSaveTemplate() {
     const saveBtn = document.getElementById('save-template-btn');
+    const saveAsCopyBtn = document.getElementById('save-as-copy-btn');
     if (!saveBtn) return;
 
     // Función de notificación tipo toast y scroll arriba
@@ -476,10 +477,15 @@ function setupSaveTemplate() {
         toast.show();
     };
 
-    saveBtn.addEventListener('click', async function(e) {
-        e.preventDefault(); // Evita submit estándar
+    // Un solo handler para los dos botones (Guardar / Guardar como copia):
+    // difieren solo en save_mode. 'update' pisa la plantilla que se está
+    // editando (template_id, ya viene en el form como hidden field);
+    // 'copy' siempre crea una fila nueva — es el comportamiento de antes,
+    // ahora explícito en vez de ser lo único que existía.
+    async function handleSave(btn, saveMode) {
         const form = document.getElementById('examTemplateForm');
         const formData = new FormData(form);
+        formData.set('save_mode', saveMode);
 
         // Agregar todos los campos posibles (sin validación)
         const optionalFields = {
@@ -495,8 +501,10 @@ function setupSaveTemplate() {
         });
 
         // Estado de carga
-        const originalText = saveBtn.innerHTML;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        btn.disabled = true;
+        if (saveAsCopyBtn) saveAsCopyBtn.disabled = true;
         saveBtn.disabled = true;
 
         try {
@@ -509,24 +517,41 @@ function setupSaveTemplate() {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || 'Error al guardar la plantilla');
             }
 
-            // Mostrar notificación y redirigir al listado
-            showNotification('Plantilla guardada correctamente');
+            // En modo edición (update o copia) el destino natural es el
+            // listado de plantillas — quedarse en un form de "Crear" recién
+            // guardado confunde. Al crear desde cero (sin template_id) se
+            // mantiene el destino de siempre.
+            const isEditFlow = formData.has('template_id') && formData.get('template_id');
+            showNotification(saveMode === 'update' ? 'Plantilla actualizada correctamente' : 'Plantilla guardada correctamente');
             setTimeout(function() {
-                window.location.href = '/create-exam-template/';
+                window.location.href = isEditFlow ? '/exam-templates/' : '/create-exam-template/';
             }, 1200); // 1.2 segundos para que el usuario vea el mensaje y se recargue la página
         } catch (error) {
             console.error('Error:', error);
             showNotification(error.message, 'danger');
         } finally {
-            saveBtn.innerHTML = originalText;
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            if (saveAsCopyBtn) saveAsCopyBtn.disabled = false;
             saveBtn.disabled = false;
         }
+    }
+
+    saveBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        handleSave(saveBtn, saveBtn.dataset.saveMode || 'copy');
     });
+    if (saveAsCopyBtn) {
+        saveAsCopyBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            handleSave(saveAsCopyBtn, 'copy');
+        });
+    }
 }
 
 

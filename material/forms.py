@@ -248,7 +248,7 @@ class ExamTemplateForm(forms.ModelForm):
         model = ExamTemplate
         fields = [
             'institution', 'faculty', 'career', 'subject', 'campus', 'professor',
-            'resolution_time',
+            'resolution_time', 'print_format',
             'learning_outcomes', 'notes_and_recommendations', 'topics_to_evaluate'
         ]
         widgets = {
@@ -257,6 +257,7 @@ class ExamTemplateForm(forms.ModelForm):
             ),
             'notes_and_recommendations': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
             'topics_to_evaluate': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+            'print_format': forms.Select(attrs={'class': 'form-select'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -274,9 +275,14 @@ class ExamTemplateForm(forms.ModelForm):
             # existente. Ver [[project_subject_topic_global_sharing_bug]].
             from .content_visibility import get_visible_subjects
             self.fields['subject'].queryset = get_visible_subjects(user)
+            from .print_format_utils import get_visible_print_formats
+            self.fields['print_format'].queryset = get_visible_print_formats(user)
         else:
             self.fields['institution'].queryset = InstitutionV2.objects.none()
             self.fields['subject'].queryset = Subject.objects.none()
+            self.fields['print_format'].queryset = FormatoImpresion.objects.none()
+        self.fields['print_format'].required = False
+        self.fields['print_format'].empty_label = 'Usar el predeterminado (institución/usuario)'
 
         self.fields['faculty'].queryset = FacultyV2.objects.none()
         self.fields['campus'].queryset = CampusV2.objects.none()
@@ -841,12 +847,21 @@ class FormatoImpresionForm(forms.ModelForm):
         ('global', 'Global del sistema'),
     ]
 
-    scope = forms.ChoiceField(choices=SCOPE_CHOICES, label='Alcance')
+    # Declarados a mano (no son campos del modelo) — Meta.widgets NO les
+    # aplica el 'form-select' a estos dos: Django solo usa Meta.widgets para
+    # los campos que el ModelForm infiere solo, no para los declarados
+    # explícitamente acá arriba. Sin el widget puesto a mano quedaban como
+    # <select> nativos sin estilo, distintos del resto del formulario.
+    scope = forms.ChoiceField(
+        choices=SCOPE_CHOICES, label='Alcance',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
     institution = forms.ModelChoiceField(
         queryset=InstitutionV2.objects.filter(is_active=True, is_seed_demo=False).order_by('name'),
         required=False,
         label='Institución',
-        empty_label='Seleccione una institución'
+        empty_label='Seleccione una institución',
+        widget=forms.Select(attrs={'class': 'form-select'}),
     )
 
     class Meta:
@@ -903,7 +918,15 @@ class FormatoImpresionForm(forms.ModelForm):
         if self.current_user:
             institution_ids = UserInstitution.objects.filter(user=self.current_user).values_list('institution_id', flat=True)
             self.fields['institution'].queryset = InstitutionV2.objects.filter(id__in=institution_ids, is_active=True).order_by('name')
-            if not getattr(self.current_user, 'profile', None) or self.current_user.profile.role != 'admin':
+            # Import local (no a nivel de módulo): views.py importa forms.py,
+            # así que un import arriba del archivo sería circular. Se usa el
+            # is_admin() canónico (superuser OR profile.role=='admin') en vez
+            # de reimplementar el chequeo acá — la versión anterior solo
+            # miraba profile.role y por eso un superuser con el role default
+            # ('user', ver comentario de is_admin) no veía la opción 'Global'
+            # pese a que sí puede editar formatos globales ya existentes.
+            from .views import is_admin
+            if not is_admin(self.current_user):
                 self.fields['scope'].choices = [choice for choice in self.SCOPE_CHOICES if choice[0] != 'global']
 
         if self.instance.pk:

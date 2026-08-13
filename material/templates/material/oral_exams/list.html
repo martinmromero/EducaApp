@@ -30,11 +30,16 @@
         <div class="card shadow mb-4">
             <div class="card-header py-3 d-flex justify-content-between align-items-center">
                 <h6 class="m-0 font-weight-bold text-primary">Listado de Cuestionarios Orales</h6>
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 align-items-center flex-wrap">
                     <button type="button" class="btn btn-outline-secondary btn-sm desktop-filters-trigger{% if active_filter_count %} active{% endif %}"
                             onclick="{% if active_filter_count %}clearAllColumnFilters(){% else %}toggleDesktopColumnFilters(this){% endif %}">
                         <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
                     </button>
+                    <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if favorites_toggle_querystring %}&{{ favorites_toggle_querystring }}{% endif %}"
+                       class="btn btn-sm {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
+                       title="Mostrar solo favoritos">
+                        <i class="fas fa-star"></i> Favoritos
+                    </a>
                     <button type="button" id="toggleBulkSelectBtn" class="btn btn-outline-secondary btn-sm" onclick="toggleBulkSelect()"
                             title="Seleccionar varios cuestionarios para borrarlos juntos">
                         <i class="fas fa-check-square"></i> Selección múltiple
@@ -51,6 +56,7 @@
                             <thead>
                                 <tr>
                                     <th class="bulk-select-col d-none" style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
+                                    <th style="width:40px;"></th>
                                     <th>Nombre</th>
                                     <th class="filterable-col">Materia {% include 'material/components/_column_filter_dropdown.html' with field='subject' label='Materia' options=filter_options.subject selected=selected_filters.subject prefix='d' %}</th>
                                     <th class="filterable-col">Grupos {% include 'material/components/_column_filter_dropdown.html' with field='num_groups' label='Grupos' options=filter_options.num_groups selected=selected_filters.num_groups prefix='d' %}</th>
@@ -66,6 +72,11 @@
                                 <tr>
                                     <td class="rt-card-select bulk-select-col d-none">
                                         <input type="checkbox" name="oral_exam_ids" value="{{ exam.id }}">
+                                    </td>
+                                    <td class="rt-card-badge">
+                                        <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
+                                                data-model="oral" data-id="{{ exam.id }}"
+                                                data-active="{% if exam.id in favorite_ids %}1{% else %}0{% endif %}"></button>
                                     </td>
                                     <td class="rt-card-title" data-label="Nombre">{{ exam.name }}</td>
                                     <td data-label="Materia">{{ exam.subject.name }}</td>

@@ -99,15 +99,38 @@
                 </div>
             </div>
 
+            <!-- Formato de impresión: es parte de la plantilla, no solo un
+                 dato de contenido — dos plantillas de la misma institución
+                 pueden querer imprimirse distinto. Sin elegir nada acá sigue
+                 aplicando el default de siempre (institución/usuario). El
+                 armado del formato en sí (tamaño de hoja, fuente, márgenes,
+                 colores, vista previa en vivo) es una pantalla completa
+                 aparte — se abre en una pestaña nueva para no perder lo ya
+                 cargado acá; al volver, el nuevo formato ya aparece en el
+                 desplegable. -->
+            <div class="form-group">
+                <div class="form-row">
+                    <label for="{{ form.print_format.id_for_label }}">{{ form.print_format.label }}</label>
+                    <div class="input-combo">
+                        {{ form.print_format }}
+                        <a href="{% url 'material:formato_impresion_create' %}" target="_blank" rel="noopener"
+                           class="btn btn-sm btn-outline-secondary" title="Crear un formato de impresión nuevo en otra pestaña">
+                            <i class="fas fa-plus"></i> Nuevo
+                        </a>
+                    </div>
+                    <small class="form-text text-muted">Si no elegís uno, se usa el formato predeterminado de la institución o de tu cuenta.</small>
+                </div>
+            </div>
+
             <!-- Duración del examen -->
             <div class="form-group">
                 <div class="form-row">
                     <label for="resolution_time">Tiempo de Examen</label>
-                    <input type="text" 
-                        name="resolution_time" 
+                    <input type="text"
+                        name="resolution_time"
                         id="id_resolution_time"
-                        class="form-control" 
-                        placeholder="Ej: 90 minutos, 2 horas" 
+                        class="form-control"
+                        placeholder="Ej: 90 minutos, 2 horas"
                         value="60 minutos"
                         required>
                     <small class="form-text text-muted">Ingrese la duración completa (ej: "90 minutos" o "2 horas")</small>
@@ -168,10 +191,15 @@
     </div>
 
     <div class="form-actions">
-        <button type="button" id="save-template-btn" class="btn btn-primary">
-            <i class="fas fa-save"></i> 
-            {% if edit_mode %}Guardar copia de plantilla{% else %}Guardar Plantilla{% endif %}
+        <button type="button" id="save-template-btn" class="btn btn-primary" data-save-mode="{% if edit_mode %}update{% else %}copy{% endif %}">
+            <i class="fas fa-save"></i>
+            {% if edit_mode %}Guardar{% else %}Guardar Plantilla{% endif %}
         </button>
+        {% if edit_mode %}
+        <button type="button" id="save-as-copy-btn" class="btn btn-outline-primary" data-save-mode="copy">
+            <i class="fas fa-copy"></i> Guardar como copia
+        </button>
+        {% endif %}
         <button type="button" onclick="previewExamTemplate()" class="btn btn-secondary">
             <i class="fas fa-eye"></i> Previsualizar
         </button>

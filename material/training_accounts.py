@@ -396,7 +396,6 @@ def _clone_exam_template(seed_subject, subject, training_user):
     if not faculty or not career:
         return
 
-    topics_snapshot = list(Topic.objects.filter(subject=subject).values_list('name', flat=True))
     outcomes_snapshot = list(LearningOutcome.objects.filter(subject=subject).values_list('description', flat=True))
 
     template = ExamTemplate.objects.create(
@@ -410,8 +409,6 @@ def _clone_exam_template(seed_subject, subject, training_user):
         exam_type='final',
         exam_mode='presencial',
         shift='manana',
-        resolution_time='90 minutos',
-        topics_to_evaluate='\n'.join(topics_snapshot),
         notes_and_recommendations='Revisar los conceptos fundamentales de la materia antes del examen.',
         created_by=training_user,
         institution_name_snapshot=institution.name,
@@ -419,7 +416,6 @@ def _clone_exam_template(seed_subject, subject, training_user):
         campus_name_snapshot=campus.name if campus else '',
         career_name_snapshot=career.name,
         subject_name_snapshot=subject.name,
-        topics_snapshot=topics_snapshot,
         outcomes_snapshot=outcomes_snapshot,
     )
     template.learning_outcomes.set(LearningOutcome.objects.filter(subject=subject))

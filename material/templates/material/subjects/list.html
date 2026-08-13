@@ -9,7 +9,7 @@
     <div class="card shadow">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Listado de Materias</h5>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 align-items-center flex-wrap">
                 <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}"
                    class="btn btn-sm {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
                    title="Mostrar solo favoritas">
@@ -19,7 +19,7 @@
                         title="Seleccionar varias materias para borrarlas juntas">
                     <i class="fas fa-check-square"></i> Selección múltiple
                 </button>
-                <a href="{% url 'material:create_subject' %}" class="btn btn-primary">
+                <a href="{% url 'material:create_subject' %}" class="btn btn-primary btn-sm">
                     <i class="fas fa-plus"></i> Nueva Materia
                 </a>
             </div>

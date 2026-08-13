@@ -72,7 +72,7 @@ function toggleBloom() {
             <i class="bi bi-card-checklist"></i> {% if has_rubrics %}Gestionar rúbricas{% else %}Agregar rúbricas{% endif %}
         </button>
     </a>
-    <a href="{% url 'material:mis_examenes' %}">
+    <a href="{{ back_url }}">
         <button class="secondary">
             <i class="fas fa-arrow-left"></i> Volver
         </button>

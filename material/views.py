@@ -1870,6 +1870,14 @@ def preview_exam_template(request):
         subject = Subject.objects.get(id=request.POST['subject'])
         professor = User.objects.get(id=request.POST.get('professor', request.user.id))
 
+        # Si ya se eligió un formato de impresión en el form (antes de
+        # guardar la plantilla), la vista previa lo respeta — mismo criterio
+        # que view_exam_template una vez guardada.
+        print_format_id = request.POST.get('print_format')
+        chosen_print_format = get_visible_print_formats(request.user).filter(
+            pk=print_format_id
+        ).first() if print_format_id else None
+
         # Obtener los outcomes seleccionados del modelo LearningOutcome
         outcomes_to_display = []
         if selected_outcomes:
@@ -1915,8 +1923,9 @@ def preview_exam_template(request):
             'learning_outcomes': outcomes_to_display,
             'current_date': '',  # Las plantillas no tienen fecha: se muestra en blanco
             'print_style': get_print_style_context(
-                resolve_print_format_for_context(user=request.user, institution=institution)
+                chosen_print_format or resolve_print_format_for_context(user=request.user, institution=institution)
             ),
+            'back_url': reverse('material:list_exam_templates'),
         }
 
         return render(request, 'material/exams/preview_exam_template.html', context)
@@ -2081,9 +2090,13 @@ def view_exam_template(request, template_id):
         'learning_outcomes': outcomes_to_display,
         'current_date': '',  # Las plantillas no tienen fecha: se muestra en blanco
         'is_preview': False,
+        # El formato elegido en la plantilla es más específico que los
+        # defaults de usuario/institución — se usa primero si está seteado,
+        # y solo si no, se cae a la cadena de siempre.
         'print_style': get_print_style_context(
-            resolve_print_format_for_context(user=request.user, institution=template.institution)
+            template.print_format or resolve_print_format_for_context(user=request.user, institution=template.institution)
         ),
+        'back_url': _safe_next_url(request, reverse('material:list_exam_templates')),
     }
 
     return render(request, 'material/exams/preview_exam_template.html', context)
@@ -2093,7 +2106,20 @@ def view_exam_template(request, template_id):
 def save_exam_template(request):
     if request.method == 'POST':
         try:
-            exam_template_data = {
+            # No pasa por ExamTemplateForm (este endpoint arma el dict a mano
+            # desde POST) — el formato elegido se valida igual que en
+            # toggle_favorite: solo uno visible para este usuario, nunca
+            # confiando en el ID crudo del POST.
+            print_format_id_raw = request.POST.get('print_format')
+            print_format_obj = None
+            if print_format_id_raw and print_format_id_raw.isdigit():
+                print_format_obj = get_visible_print_formats(request.user).filter(pk=print_format_id_raw).first()
+
+            # Campos de contenido — se aplican tanto al crear una plantilla
+            # nueva como al actualizar una existente (save_mode='update').
+            # created_by/year quedan afuera a propósito: son metadata de
+            # creación, no algo que "editar" deba tocar.
+            content_fields = {
                 'institution_id': request.POST.get('institution'),
                 'faculty_id': request.POST.get('faculty'),
                 'career_id': request.POST.get('career'),
@@ -2101,25 +2127,44 @@ def save_exam_template(request):
                 'exam_mode': request.POST.get('exam_mode'),
                 'exam_type': request.POST.get('exam_type'),
                 'resolution_time': request.POST.get('resolution_time', '60 minutos'),
-                'created_by': request.user,
                 'campus_id': request.POST.get('campus'),
                 'professor_id': request.POST.get('professor', request.user.id),
                 'topics_to_evaluate': request.POST.get('topics_to_evaluate', ''),
                 'notes_and_recommendations': request.POST.get('notes_and_recommendations', ''),
-                'year': timezone.now().year  # Asegurar que tenga año
+                'print_format': print_format_obj,
             }
 
             # Validación mínima
             required_fields = ['institution_id', 'faculty_id', 'career_id', 'subject_id']
-            if not all(exam_template_data[field] for field in required_fields):
+            if not all(content_fields[field] for field in required_fields):
                 return JsonResponse({
-                    'success': False, 
+                    'success': False,
                     'error': 'Institución, Facultad, Carrera y Materia son requeridos'
                 }, status=400)
 
-            # Crear la plantilla
-            exam_template = ExamTemplate(**exam_template_data)
-            exam_template.save(skip_validation=True)
+            # 'update' pisa la plantilla que se está editando en vez de crear
+            # una nueva — antes esto NUNCA pasaba (no se leía template_id en
+            # ningún lado), así que "Editar" en realidad siempre creaba una
+            # copia sin que nadie lo pidiera. Ahora es una elección explícita
+            # del usuario (botón "Guardar" vs "Guardar como copia"). Se
+            # revalida el dueño acá — nunca alcanza con que el ID venga en
+            # el POST.
+            save_mode = request.POST.get('save_mode', 'copy')
+            template_id = request.POST.get('template_id')
+            if save_mode == 'update' and template_id and template_id.isdigit():
+                exam_template = get_object_or_404(ExamTemplate, pk=template_id, created_by=request.user)
+                for field, value in content_fields.items():
+                    setattr(exam_template, field, value)
+                exam_template.save(skip_validation=True)
+                success_message = 'Plantilla actualizada correctamente'
+            else:
+                exam_template = ExamTemplate(
+                    created_by=request.user,
+                    year=timezone.now().year,
+                    **content_fields,
+                )
+                exam_template.save(skip_validation=True)
+                success_message = 'Plantilla guardada correctamente'
 
             # Manejar outcomes
             outcomes_ids = []
@@ -2132,22 +2177,33 @@ def save_exam_template(request):
             if outcomes_ids:
                 outcomes = LearningOutcome.objects.filter(
                     id__in=outcomes_ids,
-                    subject_id=exam_template_data['subject_id']
+                    subject_id=content_fields['subject_id']
                 )
                 exam_template.learning_outcomes.set(outcomes)
+            elif save_mode == 'update':
+                # A diferencia de crear (donde "vacío" es el estado inicial
+                # normal), en un update explícito vaciar la lista es una
+                # elección real del usuario y hay que respetarla.
+                exam_template.learning_outcomes.clear()
 
             return JsonResponse({
-                'success': True, 
-                'message': 'Plantilla guardada correctamente',
+                'success': True,
+                'message': success_message,
                 'template_id': exam_template.id
             })
+
+        except Http404:
+            return JsonResponse({
+                'success': False,
+                'error': 'La plantilla no existe o no te pertenece.'
+            }, status=404)
 
         except IntegrityError as e:
             return JsonResponse({
                 'success': False,
                 'error': 'Error de integridad en la base de datos: ' + str(e)
             }, status=400)
-            
+
         except Exception as e:
             logger.error(f"Error saving exam template: {str(e)}", exc_info=True)
             return JsonResponse({
@@ -2316,6 +2372,107 @@ def signup(request):
     else:
         form = UserCreationForm()
     return render(request, 'registration/signup.html', {'form': form})
+
+
+@login_required
+def mis_invitaciones(request):
+    """Panel de administración: genera links de invitación de un solo uso
+    para dar de alta cuentas nuevas (ver invitacion_aceptar)."""
+    from .models import Invitation
+
+    if not is_admin(request.user):
+        messages.error(request, 'No hay permiso para acceder a esta sección.')
+        return redirect('material:index')
+
+    if request.method == 'POST':
+        Invitation.objects.create(created_by=request.user)
+        return redirect('material:mis_invitaciones')
+
+    invitations = Invitation.objects.select_related('created_by', 'used_by')
+    items = [
+        {
+            'invitation': inv,
+            'link': request.build_absolute_uri(
+                reverse('material:invitacion_aceptar', args=[inv.token])
+            ),
+        }
+        for inv in invitations
+    ]
+    return render(request, 'material/mis_invitaciones.html', {'items': items})
+
+
+def invitacion_aceptar(request, token):
+    """Formulario público (sin login) que reclama una Invitation: crea la
+    cuenta con los datos cargados acá y loguea directo, dejando que
+    OnboardingGateMiddleware lleve al wizard habitual porque la pregunta de
+    seguridad ya queda seteada y onboarding_completed sigue en False."""
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+    from .models import Invitation, Profile
+
+    invitation = get_object_or_404(Invitation, token=token)
+    if invitation.is_used():
+        return render(request, 'registration/invitacion_aceptar.html', {'invitation_used': True})
+
+    errors = []
+    posted = {}
+    if request.method == 'POST':
+        posted = request.POST
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        username = request.POST.get('username', '').strip()
+        p1 = request.POST.get('password1', '')
+        p2 = request.POST.get('password2', '')
+        security_question = request.POST.get('security_question', '')
+        security_answer = request.POST.get('security_answer', '').strip()
+        valid_questions = dict(Profile.SECURITY_QUESTION_CHOICES)
+
+        if not first_name:
+            errors.append('Completar el nombre.')
+        if not last_name:
+            errors.append('Completar el apellido.')
+        if not username:
+            errors.append('Completar el usuario.')
+        elif User.objects.filter(username=username).exists():
+            errors.append('Ese nombre de usuario ya está en uso.')
+        if p1 != p2:
+            errors.append('Las contraseñas no coinciden.')
+        elif not p1:
+            errors.append('Completar la contraseña.')
+        else:
+            try:
+                validate_password(p1)
+            except ValidationError as e:
+                errors.extend(e.messages)
+        if security_question not in valid_questions:
+            errors.append('Elegir una pregunta de seguridad.')
+        if not security_answer:
+            errors.append('Completar la respuesta a la pregunta de seguridad.')
+
+        if not errors:
+            user = User.objects.create(
+                username=username, first_name=first_name, last_name=last_name, email=email,
+            )
+            user.set_password(p1)
+            user.save()
+            profile = user.profile
+            profile.security_question = security_question
+            profile.security_answer = security_answer
+            profile.save(update_fields=['security_question', 'security_answer'])
+
+            invitation.used_at = timezone.now()
+            invitation.used_by = user
+            invitation.save(update_fields=['used_at', 'used_by'])
+
+            login(request, user)
+            return redirect('material:index')
+
+    return render(request, 'registration/invitacion_aceptar.html', {
+        'errors': errors,
+        'posted': posted,
+        'question_choices': Profile.SECURITY_QUESTION_CHOICES,
+    })
 
 
 @login_required
@@ -2639,6 +2796,7 @@ def view_exam_batch(request, batch_id):
     return render(request, 'material/exams/view_exam_batch.html', {
         'batch': batch,
         'versions': versions,
+        'back_url': _safe_next_url(request, reverse('material:mis_examenes')),
     })
 
 
@@ -2978,6 +3136,7 @@ def ver_examen(request, pk):
         'print_style': get_print_style_context(print_format),
         'rubric_grids': rubric_grids,
         'has_rubrics': bool(rubric_grids),
+        'back_url': _safe_next_url(request, reverse('material:mis_examenes')),
     })
 
 
@@ -4418,12 +4577,29 @@ def delete_faculty_v2(request, institution_id, faculty_id):
         return redirect('material:institution_v2_detail', pk=institution.pk)
     return render(request, 'material/faculties_v2/confirm_delete.html', {'faculty': faculty, 'institution': institution})
 
+def _safe_next_url(request, default):
+    """Resuelve a dónde debe volver un botón "Volver" — ?next=... si vino de
+    algún lado que lo necesite pasar (ver /favoritos/, que enlaza a exámenes/
+    plantillas/materias/lotes/orales y quiere que el "Volver" de esas
+    pantallas regrese ahí en vez de a su listado de siempre), o `default`
+    (el listado de siempre) si no vino ninguno o no es una ruta propia del
+    sitio — nunca se usa un ?next= que apunte a otro dominio."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+    next_url = request.GET.get('next')
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return next_url
+    return default
+
+
 # --- Favoritos (genérico: exámenes, plantillas, materias, lotes) ---
 _FAVORITE_MODELS = {
     'exam': Exam,
     'examtemplate': ExamTemplate,
     'subject': Subject,
     'batch': ExamVersionBatch,
+    'oral': OralExamSet,
 }
 
 
@@ -4441,6 +4617,8 @@ def _favoritable_queryset(model_key, user):
         return ExamTemplate.objects.filter(created_by=user)
     if model_key == 'batch':
         return ExamVersionBatch.objects.filter(created_by=user)
+    if model_key == 'oral':
+        return OralExamSet.objects.filter(user=user)
     if model_key == 'subject':
         from .content_visibility import get_visible_subjects
         return get_visible_subjects(user)
@@ -4584,6 +4762,7 @@ class SubjectDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['outcomes'] = self.object.outcome_relations.all()  # Eliminado .order_by('code')
+        context['back_url'] = _safe_next_url(self.request, reverse('material:subject_list'))
         return context
 
 
@@ -5341,7 +5520,8 @@ def view_oral_exam(request, exam_id):
         'oral_exam': oral_exam,
         'groups': groups,
         'total_students': total_students,
-        'total_questions': total_questions
+        'total_questions': total_questions,
+        'back_url': _safe_next_url(request, reverse('material:list_oral_exams')),
     })
 
 ORAL_EXAM_FILTER_FIELDS = [
@@ -5359,6 +5539,13 @@ def list_oral_exams(request):
     filter_options = get_filter_options(base_qs, ORAL_EXAM_FILTER_FIELDS, selected_filters)
     oral_exams = apply_column_filters(request, base_qs, ORAL_EXAM_FILTER_FIELDS).order_by('-created_at')
 
+    favorite_ids = set(Favorite.objects.filter(
+        user=request.user, content_type=ContentType.objects.get_for_model(OralExamSet)
+    ).values_list('object_id', flat=True))
+    only_favorites = request.GET.get('favoritos') == '1'
+    if only_favorites:
+        oral_exams = oral_exams.filter(pk__in=favorite_ids)
+
     # Agregar total de estudiantes a cada examen
     for exam in oral_exams:
         exam.total_students = exam.num_groups * exam.students_per_group
@@ -5370,6 +5557,9 @@ def list_oral_exams(request):
         'active_filter_count': get_active_filter_count(selected_filters),
         'filter_querystring': get_filter_querystring(request),
         'filter_columns': ORAL_EXAM_FILTER_COLUMNS,
+        'favorite_ids': favorite_ids,
+        'only_favorites': only_favorites,
+        'favorites_toggle_querystring': get_filter_querystring_excluding(request, 'favoritos'),
     })
 
 

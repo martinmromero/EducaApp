@@ -1182,7 +1182,6 @@ class Command(BaseCommand):
         if existing:
             return existing
 
-        topics_snapshot = list(Topic.objects.filter(subject=subject).values_list('name', flat=True))
         outcomes_snapshot = list(LearningOutcome.objects.filter(subject=subject).values_list('description', flat=True))
 
         template = ExamTemplate.objects.create(
@@ -1196,8 +1195,6 @@ class Command(BaseCommand):
             exam_type='final',
             exam_mode='presencial',
             shift='manana',
-            resolution_time='90 minutos',
-            topics_to_evaluate='\n'.join(topics_snapshot),
             notes_and_recommendations=(
                 'Revisar los conceptos fundamentales de la materia antes del examen. '
                 'Se recomienda practicar ejercicios de las guías de la cátedra.'
@@ -1208,7 +1205,6 @@ class Command(BaseCommand):
             campus_name_snapshot=campus.name if campus else '',
             career_name_snapshot=career.name,
             subject_name_snapshot=subject.name,
-            topics_snapshot=topics_snapshot,
             outcomes_snapshot=outcomes_snapshot,
         )
         template.learning_outcomes.set(LearningOutcome.objects.filter(subject=subject))

@@ -6,7 +6,7 @@
 <button onclick="window.print()">
     <i class="fas fa-print"></i> Imprimir Examen
 </button>
-<a href="{% url 'material:list_exam_templates' %}">
+<a href="{{ back_url }}">
     <button class="secondary">
         <i class="fas fa-arrow-left"></i> Volver
     </button>

@@ -1011,10 +1011,8 @@ class Profile(models.Model):
     VISUAL_THEME_CHOICES = [
         ('default', 'EducaApp'),
         ('slack', 'Slack'),
-        ('bmw', 'BMW'),
         ('linear', 'Linear'),
         ('figma', 'Figma'),
-        ('clay', 'Clay'),
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -1106,6 +1104,45 @@ class TrainingAccountLink(models.Model):
 
     def __str__(self):
         return f'{self.real_user.username} ↔ {self.training_user.username}'
+
+
+class Invitation(models.Model):
+    """
+    Invitación para dar de alta una cuenta nueva vía link compartible.
+    El token se genera al crear la invitación; el User recién se crea
+    cuando la persona invitada completa el formulario en invitacion_aceptar.
+    Un link es de un solo uso: una vez reclamado (used_at seteado) queda
+    inválido.
+    """
+    token = models.CharField(max_length=64, unique=True, editable=False)
+    created_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='invitaciones_creadas',
+        verbose_name='Creada por',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+    used_by = models.OneToOneField(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='invitacion_aceptada', verbose_name='Aceptada por',
+    )
+
+    class Meta:
+        verbose_name = 'Invitación'
+        verbose_name_plural = 'Invitaciones'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        estado = f'usada por {self.used_by.username}' if self.used_by_id else 'pendiente'
+        return f'Invitación de {self.created_by.username} ({estado})'
+
+    def is_used(self):
+        return self.used_at is not None
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            import secrets
+            self.token = secrets.token_urlsafe(6)
+        super().save(*args, **kwargs)
 
 
 class Career(models.Model):
@@ -1436,13 +1473,29 @@ class ExamTemplate(models.Model):
         blank=True,
         verbose_name="Logo institucional"
     )
-    
+
     custom_css = models.TextField(
         blank=True,
         help_text="CSS personalizado para la plantilla",
         verbose_name="Estilos CSS"
     )
-    
+
+    # El formato es parte de la plantilla, no solo un dato de contenido: dos
+    # plantillas de la misma institución pueden querer imprimirse distinto
+    # (ej. "Final" vs "Trabajo Práctico"). Si no se elige ninguno acá, sigue
+    # aplicando la cadena de resolución de siempre (institución → usuario →
+    # global, ver print_format_utils.resolve_print_format_for_context) — este
+    # campo es un nivel más específico que se inserta ANTES de esa cadena,
+    # no la reemplaza.
+    print_format = models.ForeignKey(
+        'FormatoImpresion',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='exam_templates',
+        verbose_name="Formato de impresión",
+    )
+
     class Meta:
         verbose_name = "Plantilla de examen"
         verbose_name_plural = "Plantillas de examen"
