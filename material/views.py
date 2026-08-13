@@ -2365,8 +2365,8 @@ def mis_invitaciones(request):
     items = [
         {
             'invitation': inv,
-            'link': request.build_absolute_uri(
-                reverse('material:invitacion_aceptar', args=[inv.token])
+            'link': settings.PUBLIC_BASE_URL.rstrip('/') + reverse(
+                'material:invitacion_aceptar', args=[inv.token]
             ),
         }
         for inv in invitations

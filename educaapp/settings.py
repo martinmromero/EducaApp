@@ -26,6 +26,11 @@ ALLOWED_HOSTS.extend(['educaapp.vercel.app', 'localhost', '127.0.0.1'])
 # Configurás la lista de confianza para el login (CSRF)
 CSRF_TRUSTED_ORIGINS = ['https://educaapp.onrender.com', 'https://educaapp.vercel.app']
 
+# URL pública de la app (Vercel actúa de redirect proxy hacia Render). Se usa
+# para armar links que se comparten fuera de la app (ej. invitaciones), para
+# que siempre apunten al dominio público en vez del host real de Render.
+PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'https://educaapp.vercel.app')
+
 # Usuario técnico dueño de todo el contenido semilla/demo del sistema
 # (instituciones, materias y preguntas de ejemplo no borrables). Se crea via
 # la migración de datos material/migrations/0042_seed_content_user.py.
@@ -159,7 +164,20 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Session settings
 SESSION_COOKIE_AGE = 1209600  # 2 semanas en segundos
-SESSION_SAVE_EVERY_REQUEST = True
+# False (default de Django): un request que solo LEE la sesión (ej. cualquier
+# vista con @login_required, que ya toca la sesión para resolver request.user)
+# no la vuelve a guardar. Con True, todo request la regrababa igual, incluso
+# sin cambios — si ese request cargó la sesión ANTES de que otro request
+# concurrente le escribiera una clave nueva (ej. subir un documento), su save
+# posterior pisaba esa escritura con la copia vieja. Reproducido en vivo:
+# subir un PDF justo después de cargar el dashboard (mientras sus fetches
+# iniciales, ej. checkLocalAIStatus(), todavía están en vuelo) podía borrar
+# session['doc_processor'] silenciosamente, y "Generar preguntas" caía al
+# preview truncado a 6000 caracteres en vez del contenido completo. Ver
+# [[project_pdf_inspector_evaluation]]. Los varios `request.session.modified
+# = True` explícitos en el código (ver doc_processor, security setup, etc.)
+# siguen garantizando el guardado real cuando SÍ hay una escritura.
+SESSION_SAVE_EVERY_REQUEST = False
 
 # Security settings (para cuando DEBUG=False)
 if not DEBUG:
