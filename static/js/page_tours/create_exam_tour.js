@@ -192,11 +192,19 @@
 
   // Envuelve el onHighlightStarted de cada paso (si lo tiene) para que,
   // antes que nada, se asegure de que su área quede abierta — sin importar
-  // desde qué paso se venga ni en qué dirección (ver showOnlyArea). El
-  // refresh() en el frame siguiente es solo un resguardo por si driver.js
-  // ya había leído la posición un instante antes de que el cambio de área
-  // (ahora instantáneo) se aplicara — no es la corrección con demora visible
-  // que había antes.
+  // desde qué paso se venga ni en qué dirección (ver showOnlyArea).
+  //
+  // driver.js llama a onHighlightStarted y RECIÉN DESPUÉS hace su propio
+  // scrollIntoView() del elemento (si no está ya visible) antes de pintar
+  // el resaltado. Cambiar de área cambia cuánto scroll hace falta (p.ej. al
+  // cerrarse un área de arriba, el resto de la página sube) — si se deja
+  // que driver.js decida y ejecute ese scroll por su cuenta después de que
+  // este callback ya terminó, a veces el resaltado se pinta con la página
+  // todavía en la posición de scroll vieja, y se ve un salto chico antes de
+  // asentarse (más notorio en pasos más abajo en la página, donde hace
+  // falta scrollear más). Se hace el scroll acá mismo, ya con el área en su
+  // tamaño final — así cuando driver.js revisa si hace falta scrollear, el
+  // elemento ya está a la vista y no hace nada.
   function attachAreaHandling(steps, areas, tourDriver) {
     steps.forEach(function (step) {
       if (step.area === undefined) return;
@@ -204,6 +212,8 @@
       step.onHighlightStarted = function () {
         showOnlyArea(areas, step.area);
         if (stepOwnHandler) stepOwnHandler();
+        var el = document.querySelector(step.element);
+        if (el) el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'center' });
         requestAnimationFrame(function () { tourDriver.refresh(); });
       };
     });
