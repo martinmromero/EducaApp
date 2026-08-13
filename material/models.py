@@ -791,8 +791,14 @@ class Exam(models.Model):
         related_name="exams"
     )
 
+    # Es el único campo de texto libre que Crear Examen realmente expone
+    # (notes_and_recommendations existe en el modelo pero no tiene ningún
+    # control en esa pantalla) — por eso el verbose_name es "Notas y
+    # recomendaciones" y no "Instrucciones generales" como originalmente,
+    # para que coincida con lo que en la práctica siempre termina siendo:
+    # tipeado a mano o traído de una plantilla.
     instructions = models.TextField(
-        verbose_name="Instrucciones generales",
+        verbose_name="Notas y recomendaciones",
         blank=True,
         null=True
     )
@@ -1406,29 +1412,13 @@ class ExamTemplate(models.Model):
         null=True
     )
     
-    # Duración como string combinado (simplificado)
-    resolution_time = models.CharField(
-        max_length=50,
-        verbose_name="Duración del examen",
-        help_text="Ej: 90 minutos, 2 horas",
-        blank=True,
-        null=True,
-        default=None
-    )
-    
     # Contenido evaluativo
     learning_outcomes = models.ManyToManyField(
         LearningOutcome,
         verbose_name="Resultados de aprendizaje",
         blank=True
     )
-   
-    topics_to_evaluate = models.TextField(
-        verbose_name="Tópicos a evaluar",
-        help_text="Listado de tópicos incluidos en el examen",
-        blank=True
-    )
-   
+
     notes_and_recommendations = models.TextField(
         verbose_name="Notas y recomendaciones",
         blank=True
@@ -1448,7 +1438,6 @@ class ExamTemplate(models.Model):
     campus_name_snapshot = models.CharField(max_length=255, blank=True, default='', verbose_name="Sede (snapshot)")
     career_name_snapshot = models.CharField(max_length=255, blank=True, default='', verbose_name="Carrera (snapshot)")
     subject_name_snapshot = models.CharField(max_length=255, blank=True, default='', verbose_name="Materia (snapshot)")
-    topics_snapshot = models.JSONField(default=list, blank=True, verbose_name="Temas (snapshot)")
     outcomes_snapshot = models.JSONField(default=list, blank=True, verbose_name="Resultados de aprendizaje (snapshot)")
 
     created_at = models.DateTimeField(
@@ -1514,27 +1503,14 @@ class ExamTemplate(models.Model):
             exam_name += f" {self.get_partial_number_display()}"  
         return f"{self.subject} - {exam_name} ({self.year})"
     
-    def clean(self):
-        # Validación personalizada
-        if not self.resolution_time:
-            raise ValidationError("Debe especificar la duración del examen")
-        
-        # Validar formato de tiempo (más flexible)
-        resolution_time_lower = self.resolution_time.lower()
-        valid_units = ['minuto', 'hora', 'día', 'semana', 'min', 'hr', 'h', 'm']
-        
-        if not any(unit in resolution_time_lower for unit in valid_units):
-            raise ValidationError("Formato de duración inválido. Use 'minutos', 'horas', 'días' o 'semanas'")
-
     def save(self, *args, **kwargs):
+        # skip_validation existe porque save_exam_template arma la plantilla
+        # a mano desde POST (no pasa por ExamTemplateForm) y ya hace su
+        # propia validación mínima de campos requeridos antes de llegar acá.
         skip_validation = kwargs.pop('skip_validation', False)
-        if skip_validation:
-            super().save(*args, **kwargs)
-        else:
-            # Solo validar si resolution_time no está vacío
-            if self.resolution_time and self.resolution_time.strip():
-                self.full_clean()
-            super().save(*args, **kwargs)
+        if not skip_validation:
+            self.full_clean()
+        super().save(*args, **kwargs)
 
 # Modelo para Cuestionarios Orales
 class OralExamSet(models.Model):

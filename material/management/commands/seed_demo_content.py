@@ -1047,9 +1047,18 @@ class Command(BaseCommand):
         topics_snapshot = list(Topic.objects.filter(subject=subject).values_list('name', flat=True))
         outcomes_snapshot = list(LearningOutcome.objects.filter(subject=subject).values_list('description', flat=True))
         return dict(
+            # Único campo de texto libre que la app realmente expone en Crear
+            # Examen (Exam.instructions, etiquetado "Notas y recomendaciones"
+            # ahí) — Exam.notes_and_recommendations no tiene ningún control en
+            # el flujo real, así que un examen semilla con ambos poblados
+            # mostraría dos secciones con ese mismo título. Se deja
+            # notes_and_recommendations vacío (default del modelo) a
+            # propósito, para que el examen de ejemplo se vea igual que
+            # cualquier examen real creado a mano.
             instructions=(
                 'Responda todas las preguntas de forma clara y ordenada. No se permite '
-                'el uso de material de consulta salvo indicación contraria del docente.'
+                'el uso de material de consulta salvo indicación contraria del docente. '
+                'Revisar los conceptos fundamentales de la materia antes del examen.'
             ),
             duration_minutes=90,
             year=2026,
@@ -1058,7 +1067,6 @@ class Command(BaseCommand):
             shift='mañana',
             resolution_time='90 minutos',
             topics_to_evaluate='\n'.join(topics_snapshot),
-            notes_and_recommendations='Revisar los conceptos fundamentales de la materia antes del examen.',
             institution_name=institution_name,
             faculty_name=faculty_name,
             campus_name=campus_name,

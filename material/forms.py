@@ -248,15 +248,14 @@ class ExamTemplateForm(forms.ModelForm):
         model = ExamTemplate
         fields = [
             'institution', 'faculty', 'career', 'subject', 'campus', 'professor',
-            'resolution_time', 'print_format',
-            'learning_outcomes', 'notes_and_recommendations', 'topics_to_evaluate'
+            'print_format',
+            'learning_outcomes', 'notes_and_recommendations',
         ]
         widgets = {
             'learning_outcomes': forms.CheckboxSelectMultiple(
                 attrs={'class': 'learning-outcomes-checkbox'}
             ),
             'notes_and_recommendations': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
-            'topics_to_evaluate': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'print_format': forms.Select(attrs={'class': 'form-select'}),
         }
 

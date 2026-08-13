@@ -490,7 +490,6 @@ function setupSaveTemplate() {
         // Agregar todos los campos posibles (sin validación)
         const optionalFields = {
             'exam_mode': document.getElementById('id_exam_mode')?.value || '',
-            'resolution_time': document.getElementById('id_resolution_time')?.value || '',
             'learning_outcomes': Array.from(document.querySelectorAll('.outcome-checkbox:checked'))
                                 .map(cb => cb.value).join(',')
         };

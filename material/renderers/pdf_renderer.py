@@ -168,7 +168,7 @@ def _append_payload(flow, payload, style_text, style_title, style_h2, *, include
             flow.append(Spacer(1, 8))
 
         elif tipo in {'instrucciones', 'instrucciones_generales'} and block.get('texto'):
-            flow.append(Paragraph('Instrucciones generales', style_h2))
+            flow.append(Paragraph('Notas y recomendaciones', style_h2))
             flow.append(Paragraph(block['texto'].replace('\n', '<br/>'), style_text))
 
         elif tipo in {'lista_outcomes', 'resultados_aprendizaje'} and block.get('items'):

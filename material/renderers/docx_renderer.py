@@ -122,7 +122,7 @@ def _append_payload(doc, payload, formato):
             _append_student_data_table(doc, block, base_size, title_rgb, text_rgb, font_name)
 
         elif tipo in {'instrucciones', 'instrucciones_generales'} and block.get('texto'):
-            add_line('Instrucciones generales', bold=True, size=base_size + 1, color=title_rgb)
+            add_line('Notas y recomendaciones', bold=True, size=base_size + 1, color=title_rgb)
             add_line(block['texto'])
 
         elif tipo in {'lista_outcomes', 'resultados_aprendizaje'} and block.get('items'):

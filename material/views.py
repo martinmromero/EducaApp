@@ -347,9 +347,7 @@ def get_exam_template(request, template_id):
         'subject_id': template.subject.id if template.subject else None,
         'title': getattr(template, 'title', None),
         'instructions': getattr(template, 'notes_and_recommendations', None),
-        'duration_minutes': template.resolution_time,
         'questions': list(template.question_set.values_list('id', flat=True)) if hasattr(template, 'question_set') else [],
-        'topics': [int(tid) for tid in template.topics_to_evaluate.split(',') if tid.isdigit()] if template.topics_to_evaluate else [],
         'learning_outcomes': list(template.learning_outcomes.values_list('id', flat=True)),
         'institution_id': template.institution.id if template.institution else None,
         'faculty_id': template.faculty.id if template.faculty else None,
@@ -1754,15 +1752,6 @@ def create_exam_template(request):
                 with transaction.atomic():
                     exam_template = form.save(commit=False)
                     exam_template.created_by = request.user
-                    
-                    resolution_time = (
-                        f"{form.cleaned_data['resolution_time_number']} "
-                        f"{form.cleaned_data['resolution_time_unit']}"
-                    )
-                    exam_template.notes_and_recommendations += (
-                        f"\n\nDuración estimada: {resolution_time}"
-                    )
-                    
                     exam_template.save()
                     form.save_m2m()
 
@@ -1772,16 +1761,14 @@ def create_exam_template(request):
                     exam_template.campus_name_snapshot      = exam_template.campus.name      if exam_template.campus_id      else ''
                     exam_template.career_name_snapshot      = exam_template.career.name      if exam_template.career_id      else ''
                     exam_template.subject_name_snapshot     = exam_template.subject.name     if exam_template.subject_id     else ''
-                    raw_topics = exam_template.topics_to_evaluate or ''
-                    exam_template.topics_snapshot = [t.strip() for t in raw_topics.split('\n') if t.strip()]
                     exam_template.outcomes_snapshot = list(
                         exam_template.learning_outcomes.values_list('description', flat=True)
                     )
                     exam_template.save(update_fields=[
                         'institution_name_snapshot', 'faculty_name_snapshot', 'campus_name_snapshot',
-                        'career_name_snapshot', 'subject_name_snapshot', 'topics_snapshot', 'outcomes_snapshot',
+                        'career_name_snapshot', 'subject_name_snapshot', 'outcomes_snapshot',
                     ])
-                    
+
                     InstitutionLog.objects.create(
                         institution=exam_template.institution,
                         user=request.user,
@@ -1803,15 +1790,7 @@ def create_exam_template(request):
                     extra_tags='danger'
                 )
     else:
-        initial_data = {
-            'resolution_time_number': 60,
-            'resolution_time_unit': 'minutes'
-        }
-        
-        form = ExamTemplateForm(
-            initial=initial_data,
-            user=request.user
-        )
+        form = ExamTemplateForm(user=request.user)
     
     context = {
         'form': form,
@@ -1892,11 +1871,13 @@ def preview_exam_template(request):
                 for outcome in outcomes
             ]
 
-        # Crear un objeto exam-like para compatibilidad con el template base
+        # Crear un objeto exam-like para compatibilidad con el template base.
+        # 'instructions' vacío a propósito — mismo criterio que view_exam_template:
+        # una plantilla solo tiene notes_and_recommendations, no un segundo
+        # campo de texto libre.
         exam_data = {
             'title': '',  # Las plantillas no tienen título por defecto
-            'instructions': request.POST.get('notes_and_recommendations', ''),
-            'duration_minutes': request.POST.get('resolution_time', '60 minutos'),
+            'instructions': '',
             'tipo_examen': request.POST.get('exam_type', ''),
             'tipo_modalidad': request.POST.get('exam_mode', ''),
             'modalidad_resolucion': [],  # No disponible en plantillas
@@ -1917,8 +1898,6 @@ def preview_exam_template(request):
             'professor': professor,
             'exam_mode': request.POST.get('exam_mode', ''),
             'exam_type': request.POST.get('exam_type', ''),
-            'resolution_time': request.POST.get('resolution_time', '60 minutos'),
-            'topics_to_evaluate': request.POST.get('topics_to_evaluate', ''),
             'notes_and_recommendations': request.POST.get('notes_and_recommendations', ''),
             'learning_outcomes': outcomes_to_display,
             'current_date': '',  # Las plantillas no tienen fecha: se muestra en blanco
@@ -1982,14 +1961,12 @@ def edit_exam_template(request, template_id):
                 exam_template.campus_name_snapshot      = exam_template.campus.name      if exam_template.campus_id      else ''
                 exam_template.career_name_snapshot      = exam_template.career.name      if exam_template.career_id      else ''
                 exam_template.subject_name_snapshot     = exam_template.subject.name     if exam_template.subject_id     else ''
-                raw_topics = exam_template.topics_to_evaluate or ''
-                exam_template.topics_snapshot = [t.strip() for t in raw_topics.split('\n') if t.strip()]
                 exam_template.outcomes_snapshot = list(
                     exam_template.learning_outcomes.values_list('description', flat=True)
                 )
                 exam_template.save(update_fields=[
                     'institution_name_snapshot', 'faculty_name_snapshot', 'campus_name_snapshot',
-                    'career_name_snapshot', 'subject_name_snapshot', 'topics_snapshot', 'outcomes_snapshot',
+                    'career_name_snapshot', 'subject_name_snapshot', 'outcomes_snapshot',
                 ])
                 
                 print(f"DEBUG: Después de save():")
@@ -2059,11 +2036,14 @@ def view_exam_template(request, template_id):
         for outcome in template.learning_outcomes.all()
     ]
 
-    # Crear un objeto exam-like para compatibilidad con el template base
+    # Crear un objeto exam-like para compatibilidad con el template base.
+    # 'instructions' queda vacío a propósito: una plantilla solo tiene un
+    # campo de texto libre (notes_and_recommendations, ver abajo) — antes
+    # se repetía acá también y el preview mostraba el mismo párrafo dos
+    # veces, como "Instrucciones generales" Y "Notas y recomendaciones".
     exam_data = {
         'title': getattr(template, 'title', ''),
-        'instructions': template.notes_and_recommendations,
-        'duration_minutes': template.resolution_time,
+        'instructions': '',
         'tipo_examen': template.get_exam_type_display(),
         'tipo_modalidad': template.get_exam_mode_display(),
         'curso': '',
@@ -2084,8 +2064,6 @@ def view_exam_template(request, template_id):
         'professor': template.professor,
         'exam_mode': template.get_exam_mode_display(),
         'exam_type': template.get_exam_type_display(),
-        'resolution_time': template.resolution_time,
-        'topics_to_evaluate': template.topics_to_evaluate,
         'notes_and_recommendations': template.notes_and_recommendations,
         'learning_outcomes': outcomes_to_display,
         'current_date': '',  # Las plantillas no tienen fecha: se muestra en blanco
@@ -2126,10 +2104,8 @@ def save_exam_template(request):
                 'subject_id': request.POST.get('subject'),
                 'exam_mode': request.POST.get('exam_mode'),
                 'exam_type': request.POST.get('exam_type'),
-                'resolution_time': request.POST.get('resolution_time', '60 minutos'),
                 'campus_id': request.POST.get('campus'),
                 'professor_id': request.POST.get('professor', request.user.id),
-                'topics_to_evaluate': request.POST.get('topics_to_evaluate', ''),
                 'notes_and_recommendations': request.POST.get('notes_and_recommendations', ''),
                 'print_format': print_format_obj,
             }
