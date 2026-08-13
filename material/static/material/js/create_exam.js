@@ -33,6 +33,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let questionsFetchToken = 0;
 
+    // Cuando se elige una plantilla, hay que esperar a que las cascadas
+    // asíncronas (materia → tópicos/resultados, institución → facultad/sede,
+    // facultad → carrera) terminen ANTES de poder seleccionar el valor
+    // guardado en cada dropdown dependiente — si no, el <option> todavía no
+    // existe y la selección se pierde en silencio. Antes se adivinaba con
+    // setTimeout fijos (600ms / 400ms): en producción (más lento que
+    // localhost) esos fetches a veces no llegaban a tiempo, dejando
+    // "Facultad" en blanco y, en cadena, "Carrera" cayendo al fallback de
+    // "(no asociada)" porque el <select> de carrera se vaciaba al disparar
+    // el 'change' de una facultad vacía. Cada listener de abajo guarda su
+    // propia promesa acá para que el flujo de plantilla pueda esperarla de
+    // verdad en vez de adivinar cuánto tarda.
+    let subjectDependentsPromise = Promise.resolve();
+    let institucionDependentsPromise = Promise.resolve();
+    let facultadDependentsPromise = Promise.resolve();
+
     function getSelectedTopicIds() {
         var topicsSelect = document.getElementById('id_topics');
         if (!topicsSelect) return [];
@@ -230,131 +246,121 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Autocompletar campos al seleccionar una plantilla
     var plantillaSelect = document.getElementById('plantilla');
-    plantillaSelect.addEventListener('change', function() {
+    plantillaSelect.addEventListener('change', async function() {
         var plantillaId = this.value;
-            if (!plantillaId) {
-                location.reload();
-                return;
-            }
-            if (plantillaId) {
-            fetch('/get-exam-template/' + plantillaId + '/')
-                .then(function(response) { return response.json(); })
-                .then(function(data) {
-                    // Materia
-                    if (data.subject_id) {
-                        var subjectSelect = document.getElementById('id_subject');
-                        subjectSelect.value = data.subject_id;
-                        subjectSelect.dispatchEvent(new Event('change'));
-                    }
-                    // Institución
-                    if (data.institution_id) {
-                        var institucionSelect = document.getElementById('institucion_dropdown');
-                        institucionSelect.value = data.institution_id;
-                        institucionSelect.dispatchEvent(new Event('change'));
-                    }
-                    // Esperar a que los dropdowns dependientes se llenen
-                    setTimeout(function() {
-                        // Facultad
-                        if (data.faculty_id) {
-                            var facultadSelect = document.getElementById('facultad_dropdown');
-                            facultadSelect.value = data.faculty_id;
-                            facultadSelect.dispatchEvent(new Event('change'));
-                            // Esperar a que el dropdown de carrera se llene por la cascada
-                            setTimeout(function() {
-                                if (data.career_id) {
-                                    var carreraSelect = document.getElementById('carrera_dropdown');
-                                    var found = false;
-                                    Array.from(carreraSelect.options).forEach(function(option) {
-                                        if (option.value == data.career_id) {
-                                            found = true;
-                                        }
-                                    });
-                                    if (!found) {
-                                        // Buscar el nombre de la carrera por AJAX y agregarla como opción temporal
-                                        fetch('/get-career-name/' + data.career_id + '/')
-                                            .then(function(response) { return response.json(); })
-                                            .then(function(careerData) {
-                                                var option = document.createElement('option');
-                                                option.value = data.career_id;
-                                                option.textContent = careerData.name + ' (no asociada)';
-                                                option.selected = true;
-                                                carreraSelect.appendChild(option);
-                                            });
-                                    } else {
-                                        carreraSelect.value = data.career_id;
-                                    }
-                                }
-                            }, 400);
-                        }
-                        // Sede
-                        if (data.campus_id) {
-                            var sedeSelect = document.getElementById('sede_dropdown');
-                            sedeSelect.value = data.campus_id;
-                        }
-                        // Temas evaluados
-                        if (data.topics && Array.isArray(data.topics)) {
-                            var topicsSelect = document.getElementById('id_topics');
-                            if (topicsSelect) {
-                                Array.from(topicsSelect.options).forEach(function(option) {
-                                    option.selected = data.topics.includes(parseInt(option.value));
-                                });
-                            }
-                        }
-                        // Resultados de aprendizaje
-                        if (data.learning_outcomes && Array.isArray(data.learning_outcomes)) {
-                            var outcomesContainer = document.getElementById('learning_outcomes_container');
-                            if (outcomesContainer) {
-                                Array.from(outcomesContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(checkbox) {
-                                    checkbox.checked = data.learning_outcomes.includes(parseInt(checkbox.value));
-                                });
-                            }
-                        }
-                        // Preguntas
-                        if (data.questions && Array.isArray(data.questions)) {
-                            var questionsSelect = document.getElementById('id_questions');
-                            if (questionsSelect) {
-                                Array.from(questionsSelect.options).forEach(function(option) {
-                                    option.selected = data.questions.includes(parseInt(option.value));
-                                });
-                            }
-                        }
-                        // Profesor
-                        if (data.professor_id) {
-                            var profesorSelect = document.getElementById('profesor_dropdown');
-                            profesorSelect.value = data.professor_id;
-                        }
-                        // Tipo de examen
-                        if (data.exam_type) {
-                            var tipoExamenSelect = document.getElementById('tipo_examen_select');
-                            if (tipoExamenSelect) tipoExamenSelect.value = data.exam_type;
-                        }
-                        // Modalidad de examen
-                        if (data.exam_mode) {
-                            var modalidadRadio = document.querySelector('input[name="tipo_modalidad"][value="' + data.exam_mode + '"]');
-                            if (modalidadRadio) modalidadRadio.checked = true;
-                        }
-                        // Turno
-                        if (data.shift) {
-                            var turnoSelect = document.getElementById('turno_dropdown');
-                            turnoSelect.value = data.shift;
-                        }
-                    }, 600); // Espera 600ms para asegurar que los campos se llenen
-                    // Título
-                    if (data.title) {
-                        var titleInput = document.getElementById('id_title');
-                        if (titleInput) titleInput.value = data.title;
-                    }
-                    // Instrucciones
-                    if (data.instructions) {
-                        var instructionsInput = document.getElementById('id_instructions');
-                        if (instructionsInput) instructionsInput.value = data.instructions;
-                    }
-                    // Duración
-                    if (data.duration_minutes) {
-                        var durationInput = document.getElementById('id_duration_minutes');
-                        if (durationInput) durationInput.value = data.duration_minutes;
-                    }
+        if (!plantillaId) {
+            location.reload();
+            return;
+        }
+
+        var response = await fetch('/get-exam-template/' + plantillaId + '/');
+        var data = await response.json();
+
+        // Título / Instrucciones / Duración: no dependen de ninguna cascada,
+        // se completan de una.
+        if (data.title) {
+            var titleInput = document.getElementById('id_title');
+            if (titleInput) titleInput.value = data.title;
+        }
+        if (data.instructions) {
+            var instructionsInput = document.getElementById('id_instructions');
+            if (instructionsInput) instructionsInput.value = data.instructions;
+        }
+        if (data.duration_minutes) {
+            var durationInput = document.getElementById('id_duration_minutes');
+            if (durationInput) durationInput.value = data.duration_minutes;
+        }
+
+        // Materia → espera a que tópicos/resultados de aprendizaje terminen
+        // de cargar antes de tildar lo que trae la plantilla.
+        if (data.subject_id) {
+            subjectSelect.value = data.subject_id;
+            subjectSelect.dispatchEvent(new Event('change'));
+            await subjectDependentsPromise;
+        }
+        if (data.topics && Array.isArray(data.topics)) {
+            Array.from(topicsSelect.options).forEach(function(option) {
+                option.selected = data.topics.includes(parseInt(option.value));
+            });
+            renderTopicsCheckboxes();
+            loadQuestionsBySelectedTopics();
+        }
+        if (data.learning_outcomes && Array.isArray(data.learning_outcomes)) {
+            var outcomesContainer = document.getElementById('learning_outcomes_container');
+            if (outcomesContainer) {
+                Array.from(outcomesContainer.querySelectorAll('input[type="checkbox"]')).forEach(function(checkbox) {
+                    checkbox.checked = data.learning_outcomes.includes(parseInt(checkbox.value));
                 });
+            }
+        }
+
+        // Institución → espera a que facultad/sede terminen de cargar antes
+        // de seleccionar la facultad de la plantilla (si no, el <option>
+        // todavía no existe y la selección se pierde en silencio).
+        if (data.institution_id) {
+            institucionSelect.value = data.institution_id;
+            institucionSelect.dispatchEvent(new Event('change'));
+            await institucionDependentsPromise;
+        }
+        if (data.faculty_id) {
+            facultadSelect.value = data.faculty_id;
+            facultadSelect.dispatchEvent(new Event('change'));
+            // Facultad → espera a que carrera termine de cargar antes de
+            // buscar la carrera de la plantilla entre las opciones.
+            await facultadDependentsPromise;
+        }
+        if (data.career_id) {
+            var found = Array.from(carreraSelect.options).some(function(option) {
+                return option.value == data.career_id;
+            });
+            if (found) {
+                carreraSelect.value = data.career_id;
+            } else {
+                // La carrera de la plantilla no está entre las de la
+                // facultad actual (p.ej. cambió de facultad después de
+                // guardar la plantilla) — se agrega igual como opción
+                // aparte, marcada, para no perder el dato silenciosamente.
+                var careerResponse = await fetch('/get-career-name/' + data.career_id + '/');
+                var careerData = await careerResponse.json();
+                var option = document.createElement('option');
+                option.value = data.career_id;
+                option.textContent = careerData.name + ' (no asociada)';
+                option.selected = true;
+                carreraSelect.appendChild(option);
+            }
+        }
+        if (data.campus_id) {
+            sedeSelect.value = data.campus_id;
+        }
+
+        // Preguntas
+        if (data.questions && Array.isArray(data.questions)) {
+            var questionsSelect = document.getElementById('id_questions');
+            if (questionsSelect) {
+                Array.from(questionsSelect.options).forEach(function(option) {
+                    option.selected = data.questions.includes(parseInt(option.value));
+                });
+            }
+        }
+        // Profesor
+        if (data.professor_id) {
+            var profesorSelect = document.getElementById('profesor_dropdown');
+            profesorSelect.value = data.professor_id;
+        }
+        // Tipo de examen
+        if (data.exam_type) {
+            var tipoExamenSelect = document.getElementById('tipo_examen_select');
+            if (tipoExamenSelect) tipoExamenSelect.value = data.exam_type;
+        }
+        // Modalidad de examen
+        if (data.exam_mode) {
+            var modalidadRadio = document.querySelector('input[name="tipo_modalidad"][value="' + data.exam_mode + '"]');
+            if (modalidadRadio) modalidadRadio.checked = true;
+        }
+        // Turno
+        if (data.shift) {
+            var turnoSelect = document.getElementById('turno_dropdown');
+            turnoSelect.value = data.shift;
         }
     });
     // Temas evaluados según materia seleccionada
@@ -369,7 +375,7 @@ document.addEventListener('DOMContentLoaded', function() {
             questionsSelect.innerHTML = '';
         }
         // Temas evaluados
-        fetch('/get-topics/?subject_id=' + subjectId + '&for_exam=1')
+        var topicsPromise = fetch('/get-topics/?subject_id=' + subjectId + '&for_exam=1')
             .then(function(response) {
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 return response.json();
@@ -393,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         // Resultados de aprendizaje como checkboxes
-        fetch('/get-learning-outcomes/?subject_id=' + subjectId)
+        var outcomesPromise = fetch('/get-learning-outcomes/?subject_id=' + subjectId)
             .then(function(response) {
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 return response.json();
@@ -425,6 +431,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(function(err) {
                 console.error('No se pudieron cargar los resultados de aprendizaje:', err);
             });
+        subjectDependentsPromise = Promise.all([topicsPromise, outcomesPromise]);
     });
 
     // Compatibilidad: si alguien cambia el select oculto manualmente
@@ -475,10 +482,11 @@ document.addEventListener('DOMContentLoaded', function() {
         carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
         sedeSelect.innerHTML = '<option value="">Seleccionar sede</option><option value="otro">Otro</option>';
         if (!institucionId || !/^\d+$/.test(institucionId)) {
+            institucionDependentsPromise = Promise.resolve();
             return;
         }
         // Filtrar facultades por institución
-        fetch('/get_faculties_by_institution/' + institucionId + '/')
+        var facultiesPromise = fetch('/get_faculties_by_institution/' + institucionId + '/')
             .then(function(response) { return response.json(); })
             .then(function(data) {
                 facultadSelect.innerHTML = '<option value="">Seleccionar facultad</option><option value="otro">Otro</option>';
@@ -492,7 +500,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         // Filtrar sedes por institución
-        fetch('/get_campuses_by_institution/' + institucionId + '/')
+        var campusesPromise = fetch('/get_campuses_by_institution/' + institucionId + '/')
             .then(function(response) { return response.json(); })
             .then(function(data) {
                 sedeSelect.innerHTML = '<option value="">Seleccionar sede</option><option value="otro">Otro</option>';
@@ -505,16 +513,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 }
             });
+        institucionDependentsPromise = Promise.all([facultiesPromise, campusesPromise]);
     });
 
     facultadSelect.addEventListener('change', function() {
         var facultadId = this.value;
         if (!facultadId || !/^\d+$/.test(facultadId)) {
             carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
+            facultadDependentsPromise = Promise.resolve();
             return;
         }
         // Filtrar carreras por facultad
-        fetch('/get-careers-by-faculty/' + facultadId + '/')
+        facultadDependentsPromise = fetch('/get-careers-by-faculty/' + facultadId + '/')
             .then(function(response) { return response.json(); })
             .then(function(data) {
                 carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
