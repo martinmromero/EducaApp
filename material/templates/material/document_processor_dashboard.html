@@ -900,10 +900,43 @@ function relativeSizeBadge(tokens) {
     return `<span class="badge bg-secondary ms-2" title="${info.tokens.toLocaleString()} — referencia interna de tamaño">${info.label} (~${info.pct}% de una tanda)</span>`;
 }
 
+// Compacta una lista de números de página en rangos legibles, ej.
+// [3,4,5,12,14,15] -> "3-5, 12, 14-15".
+function formatPageRanges(pages) {
+    const sorted = [...pages].sort((a, b) => a - b);
+    const ranges = [];
+    let start = sorted[0], prev = sorted[0];
+    for (let i = 1; i <= sorted.length; i++) {
+        const n = sorted[i];
+        if (n === prev + 1) {
+            prev = n;
+            continue;
+        }
+        ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
+        start = prev = n;
+    }
+    return ranges.join(', ');
+}
+
 function displayDocumentResult(data) {
     // Aviso de duplicado si aplica
     const dupAlert = data.duplicate_message
         ? `<div class="alert alert-warning py-2 mb-2"><i class="bi bi-exclamation-triangle me-1"></i>${data.duplicate_message}</div>`
+        : '';
+
+    // Páginas que pdf-inspector detectó como escaneadas/sin texto: avisar
+    // con precisión cuáles son, en vez del hueco anterior (esas páginas
+    // simplemente desaparecían de los capítulos sin ninguna explicación).
+    // Ya no quedan afuera de la generación: con "Incluir imágenes del
+    // documento" tildado, la IA (Gemini) genera a partir de esas páginas
+    // como imágenes en vez de texto.
+    const scannedAlert = (data.scanned_pages && data.scanned_pages.length > 0)
+        ? `<div class="alert alert-warning py-2 mb-2"><i class="bi bi-exclamation-triangle me-1"></i>
+               ${data.scanned_pages.length === 1 ? 'La página' : 'Las páginas'} ${formatPageRanges(data.scanned_pages)}
+               ${data.scanned_pages.length === 1 ? 'parece ser una imagen escaneada' : 'parecen ser imágenes escaneadas'}
+               y no se pudo extraer texto de ${data.scanned_pages.length === 1 ? 'ella' : 'ellas'}.
+               Para generar preguntas de todos modos, tildar "Incluir imágenes del documento" al configurar la generación.
+           </div>`
         : '';
 
     // Documento muy extenso: se genera por partes. Un renglón compacto en
@@ -919,7 +952,7 @@ function displayDocumentResult(data) {
            </div>`
         : '';
 
-    let html = dupAlert + extensiveAlert + `
+    let html = dupAlert + scannedAlert + extensiveAlert + `
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
             <h5 class="mb-0">${data.filename}
                 ${data.contenido_id ? `<a id="contenidoSavedBadge" href="{% url 'material:mis_contenidos' %}" class="badge bg-success ms-2 text-decoration-none"><i class="fas fa-check"></i> Guardado en Mis Contenidos</a>` : ''}

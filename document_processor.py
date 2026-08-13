@@ -19,6 +19,7 @@ from typing import Dict, List, Tuple, Optional
 import re
 from collections import Counter
 import json
+import pdf_inspector
 
 
 class DocumentProcessor:
@@ -77,6 +78,7 @@ class DocumentProcessor:
                 'metadata': {...},
                 'toc': [...],
                 'chapters': [{'title': str, 'content': str, 'tokens': int, 'pages': [int]}],
+                'scanned_pages': [int],  # páginas 1-indexed sin texto extraíble
                 'stats': {...}
             }
         """
@@ -85,6 +87,7 @@ class DocumentProcessor:
             'toc': [],
             'chapters': [],
             'full_text': '',
+            'scanned_pages': [],
             'stats': {}
         }
 
@@ -107,8 +110,16 @@ class DocumentProcessor:
             'total_pages': doc.page_count,
             'format': doc.metadata.get('format', 'PDF')
         }
-        
+
         self.stats['total_pages'] = doc.page_count
+
+        # Chequeo rápido (~0.2s incluso en libros de 600 páginas, ver
+        # [[project_pdf_inspector_evaluation]]) de qué páginas son imágenes
+        # escaneadas sin texto. PyMuPDF no distingue "no hay texto" de
+        # "está vacía" — antes esas páginas simplemente desaparecían de los
+        # capítulos sin ningún aviso. Best-effort: si pdf-inspector falla
+        # con este archivo, seguimos con la extracción normal sin el aviso.
+        result['scanned_pages'] = self._detect_scanned_pages(file_path)
         
         # Extraer TOC (tabla de contenidos) si existe
         if extract_toc:
@@ -125,17 +136,22 @@ class DocumentProcessor:
         if remove_headers or remove_footers:
             headers_to_remove, footers_to_remove = self._detect_repetitive_text(doc)
         
+        # Páginas escaneadas: ya no son motivo automático para descartar un
+        # capítulo (ver más abajo) — con la IA de imágenes (Gemini) se puede
+        # generar igual a partir de ellas, así que se mantienen seleccionables.
+        scanned_pages_set = set(result['scanned_pages'])
+
         # Extraer texto por capítulo si hay TOC, sino por páginas
         if result['toc'] and len(result['toc']) > 0:
             result['chapters'] = self._extract_chapters_from_toc(
-                doc, result['toc'], headers_to_remove, footers_to_remove
+                doc, result['toc'], headers_to_remove, footers_to_remove, scanned_pages_set
             )
         elif doc.page_count > pages_per_block:
             # Sin TOC y documento largo: partirlo en bloques de páginas para
             # que se pueda seleccionar y generar por partes, en vez de un
             # único capítulo gigante imposible de procesar de una corrida.
             result['chapters'] = self._extract_chapters_by_page_blocks(
-                doc, headers_to_remove, footers_to_remove, pages_per_block
+                doc, headers_to_remove, footers_to_remove, pages_per_block, scanned_pages_set
             )
         else:
             # Sin TOC y documento corto: un solo capítulo alcanza. Se
@@ -150,15 +166,26 @@ class DocumentProcessor:
                 doc_printed_pages.append(self._detect_printed_page_number(raw_text))
                 text = self._remove_repetitive_patterns(raw_text, headers_to_remove, footers_to_remove)
                 page_texts.append(text.strip())
-            content = self._join_pages_with_markers(doc_pages, page_texts)
 
-            result['chapters'] = [{
-                'title': 'Documento completo',
-                'content': content,
-                'tokens': self.count_tokens(content),
-                'pages': doc_pages,
-                'printed_pages': doc_printed_pages,
-            }]
+            # Mismo criterio que _extract_chapters_from_toc/_extract_chapters_
+            # by_page_blocks: un documento entero sin texto SE DESCARTA solo si
+            # tampoco es escaneado (ej. página realmente vacía) — ver
+            # [[project_fotosintesis_prompt_leak]]. Si es escaneado, se
+            # mantiene: la IA de imágenes puede generar a partir de ahí.
+            # Chequeado antes de los marcadores de página, que no son texto real.
+            has_text = bool(''.join(page_texts).strip())
+            all_scanned = bool(doc_pages) and set(doc_pages).issubset(scanned_pages_set)
+            if not has_text and not all_scanned:
+                result['chapters'] = []
+            else:
+                content = self._join_pages_with_markers(doc_pages, page_texts)
+                result['chapters'] = [{
+                    'title': 'Documento completo',
+                    'content': content,
+                    'tokens': self.count_tokens(content),
+                    'pages': doc_pages,
+                    'printed_pages': doc_printed_pages,
+                }]
         
         # Calcular stats finales
         result['stats'] = {
@@ -171,7 +198,21 @@ class DocumentProcessor:
         
         doc.close()
         return result
-    
+
+    def _detect_scanned_pages(self, file_path: str) -> List[int]:
+        """
+        Devuelve las páginas (1-indexed) que pdf-inspector clasifica como
+        escaneadas/sin texto extraíble. Nunca levanta excepción: ante
+        cualquier error (archivo atípico, versión de pdf-inspector distinta,
+        etc.) devuelve lista vacía y la extracción sigue con PyMuPDF como
+        si este chequeo no existiera.
+        """
+        try:
+            detection = pdf_inspector.detect_pdf(file_path)
+            return sorted(detection.pages_needing_ocr)
+        except Exception:
+            return []
+
     def _detect_repetitive_text(self, doc: fitz.Document,
                                 threshold: float = 0.7) -> Tuple[List[str], List[str]]:
         """
@@ -237,7 +278,8 @@ class DocumentProcessor:
     def _extract_chapters_from_toc(self, doc: fitz.Document,
                                    toc: List[Dict],
                                    headers: List[str],
-                                   footers: List[str]) -> List[Dict]:
+                                   footers: List[str],
+                                   scanned_pages: Optional[set] = None) -> List[Dict]:
         """
         Extrae contenido organizado por capítulos según TOC.
         Detecta automáticamente el nivel más granular: si un nivel-1 tiene
@@ -245,6 +287,7 @@ class DocumentProcessor:
         parte). Si un nivel-1 no tiene hijos, lo considera capítulo directo.
         """
         chapters = []
+        scanned_pages = scanned_pages or set()
 
         flat_items = self._flatten_toc_to_chapters(toc)
 
@@ -278,14 +321,19 @@ class DocumentProcessor:
                     text = self._remove_repetitive_patterns(raw_text, headers, footers)
                     chapter_text.append(text.strip())
 
-            # Sin texto (páginas escaneadas sin OCR, secciones vacías): no
-            # tiene sentido ofrecerlo como capítulo seleccionable — generar
-            # preguntas de ahí no tiene de dónde salir más que del propio
-            # prompt. Ver [[project_fotosintesis_prompt_leak]]. Se chequea
-            # ANTES de sumar los marcadores de página (ver _join_pages_with_
-            # markers): esos marcadores no son texto real y siempre dejarían
-            # el content "no vacío" aunque las páginas no tengan nada.
-            if not ''.join(chapter_text).strip():
+            # Sin texto: se descarta como capítulo seleccionable SOLO si
+            # tampoco es escaneado (secciones realmente vacías) — generar
+            # preguntas de ahí no tendría de dónde salir más que del propio
+            # prompt. Ver [[project_fotosintesis_prompt_leak]]. Si en cambio
+            # son páginas escaneadas (detectadas por pdf-inspector), se
+            # mantiene: la IA de imágenes (Gemini) puede generar a partir de
+            # ellas aunque no tengan texto. Se chequea ANTES de sumar los
+            # marcadores de página (ver _join_pages_with_markers): esos
+            # marcadores no son texto real y siempre dejarían el content "no
+            # vacío" aunque las páginas no tengan nada.
+            has_text = bool(''.join(chapter_text).strip())
+            all_scanned = bool(chapter_pages) and set(chapter_pages).issubset(scanned_pages)
+            if not has_text and not all_scanned:
                 continue
 
             content = self._join_pages_with_markers(chapter_pages, chapter_text)
@@ -303,7 +351,8 @@ class DocumentProcessor:
     def _extract_chapters_by_page_blocks(self, doc: fitz.Document,
                                          headers: List[str],
                                          footers: List[str],
-                                         pages_per_block: int) -> List[Dict]:
+                                         pages_per_block: int,
+                                         scanned_pages: Optional[set] = None) -> List[Dict]:
         """
         Divide un PDF sin TOC en bloques consecutivos de páginas, cada uno
         tratado como un "capítulo" seleccionable. Es el equivalente sintético
@@ -312,6 +361,7 @@ class DocumentProcessor:
         """
         chapters = []
         total_pages = doc.page_count
+        scanned_pages = scanned_pages or set()
 
         for start_page in range(0, total_pages, pages_per_block):
             end_page = min(start_page + pages_per_block, total_pages)
@@ -326,11 +376,14 @@ class DocumentProcessor:
                 text = self._remove_repetitive_patterns(raw_text, headers, footers)
                 block_text.append(text.strip())
 
-            # Mismo criterio que _extract_chapters_from_toc: un bloque de
-            # páginas enteramente escaneadas/sin texto no se ofrece como
-            # "capítulo" seleccionable (chequeado antes de los marcadores de
+            # Mismo criterio que _extract_chapters_from_toc: un bloque sin
+            # texto se descarta solo si tampoco es escaneado — si lo es, se
+            # mantiene seleccionable porque la IA de imágenes puede generar
+            # a partir de esas páginas (chequeado antes de los marcadores de
             # página, que no son texto real — ver _join_pages_with_markers).
-            if not ''.join(block_text).strip():
+            has_text = bool(''.join(block_text).strip())
+            all_scanned = bool(block_pages) and set(block_pages).issubset(scanned_pages)
+            if not has_text and not all_scanned:
                 continue
 
             content = self._join_pages_with_markers(block_pages, block_text)

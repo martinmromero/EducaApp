@@ -222,7 +222,7 @@ def upload_and_process_document(request):
         }
         request.session.modified = True
         # ---------------------------------------------------
-        
+
         total_tokens = result.get('stats', {}).get('total_tokens', 0)
 
         # Formatear respuesta (content_preview solo para mostrar en UI)
@@ -234,6 +234,7 @@ def upload_and_process_document(request):
             'duplicate_message': duplicate_message,
             'metadata': result.get('metadata', {}),
             'stats': result.get('stats', {}),
+            'scanned_pages': result.get('scanned_pages', []),
             'chapters': [
                 {
                     'title': ch.get('title', ''),
@@ -426,6 +427,7 @@ def process_contenido_by_id(request, contenido_id):
             'contenido_id': contenido.id,
             'metadata': result.get('metadata', {}),
             'stats': result.get('stats', {}),
+            'scanned_pages': result.get('scanned_pages', []),
             'chapters': [
                 {
                     'title': ch.get('title', ''),
@@ -1086,12 +1088,23 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
             + "\n\nGenerá preguntas completamente distintas a las anteriores, sobre aspectos o ángulos diferentes del texto.\n"
         )
 
-    images_note = (
-        "\nTambién se incluyen una o más imágenes de este fragmento del documento "
-        "(diagramas, gráficos, fotos). Si aportan contenido educativo relevante, "
-        "generá al menos una pregunta que haga referencia a lo que se ve en ellas.\n"
-        if images else ""
-    )
+    if images and not (content and content.strip()):
+        # Página escaneada sin capa de texto: no hay "TEXTO:" real más abajo,
+        # así que hay que decírselo explícito para que no invente contenido
+        # ni pregunte sobre la ausencia de texto — ver [[project_fotosintesis_prompt_leak]].
+        images_note = (
+            "\nEste fragmento no tiene texto extraíble (es una página escaneada). "
+            "Se incluyen las imágenes de esas páginas: generá las preguntas basándote "
+            "pura y exclusivamente en lo que se ve en ellas.\n"
+        )
+    elif images:
+        images_note = (
+            "\nTambién se incluyen una o más imágenes de este fragmento del documento "
+            "(diagramas, gráficos, fotos). Si aportan contenido educativo relevante, "
+            "generá al menos una pregunta que haga referencia a lo que se ve en ellas.\n"
+        )
+    else:
+        images_note = ""
 
     prompt_context = {
         'num_questions': num_questions,
@@ -1336,7 +1349,9 @@ def stream_questions(request, job_id):
 
             for i, chunk in enumerate(chunks):
                 chunk_idx_global += 1
-                if not _chunk_has_content(chunk['text']):
+                chunk_images = chapter_images if (chapter_images and i == 0) else []
+                chunk_has_text = _chunk_has_content(chunk['text'])
+                if not chunk_has_text and not chunk_images:
                     logger.warning(f"SSE chunk {chunk_idx_global} de '{title}' sin texto suficiente, se omite.")
                     yield f'data: {json_module.dumps({"type": "chunk_error", "chunk": chunk_idx_global, "total_chunks": total_chunks_all, "chapter_title": title, "message": "Fragmento sin texto extraíble (posible página escaneada o solo con imágenes) — no se generaron preguntas."})}\n\n'
                     continue
@@ -1345,14 +1360,20 @@ def stream_questions(request, job_id):
                 if chunk_idx_global > 1:
                     time.sleep(2)
                 try:
-                    text_questions = _generate_questions_for_chunk(
-                        chunk['text'], title, questions_per_chunk, i, len(chunks),
-                        question_types=question_types, backend=backend,
-                        existing_questions=existing_questions_list,
-                        output_tokens_ceiling=output_tokens_ceiling,
-                    )
+                    # Fragmento sin texto propio (página escaneada) pero con
+                    # imágenes asociadas: no tiene sentido una llamada de solo
+                    # texto — el chunk_error de arriba ya la habría descartado
+                    # si tampoco tuviera imágenes.
+                    text_questions = []
+                    if chunk_has_text:
+                        text_questions = _generate_questions_for_chunk(
+                            chunk['text'], title, questions_per_chunk, i, len(chunks),
+                            question_types=question_types, backend=backend,
+                            existing_questions=existing_questions_list,
+                            output_tokens_ceiling=output_tokens_ceiling,
+                        )
                     image_questions = []
-                    if chapter_images and i == 0:
+                    if chunk_images:
                         # Texto e imágenes van por separado a su proveedor
                         # correspondiente (ver DemoRoutingBackend en
                         # ai_router.py): Groq no tiene modelos con visión, así
@@ -1365,7 +1386,7 @@ def stream_questions(request, job_id):
                                 chunk['text'], title, questions_per_chunk, i, len(chunks),
                                 question_types=question_types, backend=backend,
                                 existing_questions=existing_questions_list + text_questions,
-                                images=chapter_images,
+                                images=chunk_images,
                                 output_tokens_ceiling=output_tokens_ceiling,
                             )
                         except Exception as img_exc:
