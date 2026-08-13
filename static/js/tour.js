@@ -53,7 +53,7 @@
       element: '#tourSidebarBrand',
       popover: {
         title: '¡Bienvenido a EducaApp!',
-        description: 'Este recorrido presenta brevemente la ubicación de las funciones principales. Puede repetirse en cualquier momento desde el botón "?" de arriba.',
+        description: 'Este recorrido presenta brevemente la ubicación de las funciones principales. Puede repetirse en cualquier momento desde el botón "?" disponible.',
         side: 'right',
         align: 'start',
       },
@@ -62,7 +62,7 @@
       element: '#tourMenuContenidos',
       popover: {
         title: 'Contenidos',
-        description: 'Aquí se suben los apuntes, PDFs o materiales de clase para que la IA genere preguntas a partir de ellos. Si ya hay preguntas armadas con su respuesta, no hace falta pasar por aquí: se suben directo en "Preguntas".',
+        description: 'Aquí se suben los apuntes, PDFs o materiales de clase para que la IA genere preguntas a partir de ellos.',
         side: 'right',
       },
       onHighlightStarted: expandContenidosSubmenu,
@@ -71,7 +71,7 @@
       element: '#tourMenuPreguntas',
       popover: {
         title: 'Preguntas',
-        description: 'Aquí vive el banco de preguntas: las que se suben ya armadas y las que genera la IA. Al generar con IA se puede aprobar o rechazar cada una, pero se guardan todas — aprobadas y rechazadas — para que la IA tenga memoria de las preferencias la próxima vez.',
+        description: 'Aquí vive el banco de preguntas: si ya hay preguntas armadas con su respuesta, se pueden subir directo tanto individualmente como en lotes. Las que genera la IA se pueden aprobar o rechazar cada una, pero se guardan todas, para que la IA tenga memoria de las preferencias la próxima vez.',
         side: 'right',
       },
       onHighlightStarted: function () {
