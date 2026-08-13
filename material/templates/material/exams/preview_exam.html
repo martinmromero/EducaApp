@@ -183,70 +183,18 @@ function toggleBloom() {
 {{ block.super }}
 {% if is_demo %}
 <script>
-(function () {
-    document.addEventListener('DOMContentLoaded', function () {
-        if (!window.driver || !window.driver.js) return;
-        var steps = [
-            {
-                element: '#examHeaderBlock',
-                popover: {
-                    title: 'Encabezado configurable',
-                    description: 'Institución, carrera, profesor, materia y tipo de examen son algunos de los muchos detalles que se pueden configurar en el menú "Crear examen".',
-                    side: 'bottom',
-                },
-            },
-            {
-                element: '#examQuestionsSection',
-                popover: {
-                    title: 'Preguntas del examen',
-                    description: 'Estas son las preguntas elegidas para este ejemplo, tomadas del banco de preguntas aprobadas; la cantidad de preguntas se puede configurar.',
-                    side: 'top',
-                },
-            },
-            {
-                element: '#toggleAnswersBtn',
-                popover: {
-                    title: 'Mostrar respuestas',
-                    description: 'Con "Mostrar respuestas" se puede ver la respuesta correcta de cada una.',
-                    side: 'top',
-                },
-            },
-            {% if bloom_display %}
-            {
-                element: '#bloomSidebar',
-                popover: {
-                    title: 'Distribución cognitiva (Bloom)',
-                    description: 'Resumen del nivel de exigencia cognitiva de cada pregunta del examen — útil para balancear la dificultad general.',
-                    side: 'left',
-                },
-            },
-            {% endif %}
-            {
-                element: '#examSaveBtn',
-                popover: {
-                    title: 'Guardar examen',
-                    description: 'Guardar para continuar el ejemplo.',
-                    side: 'top',
-                    // Último paso: al hacer clic en "Listo" se fuerza la
-                    // misma acción que el clic real en "Guardar Examen".
-                    onNextClick: function () {
-                        document.getElementById('examSaveBtn')?.click();
-                    },
-                },
-            },
-        ];
-        window._demoExamTourDriver = window.driver.js.driver({
-            showProgress: true,
-            allowClose: true,
-            overlayOpacity: 0.6,
-            nextBtnText: 'Siguiente',
-            prevBtnText: 'Anterior',
-            doneBtnText: 'Listo',
-            steps: steps,
-        });
-        window._demoExamTourDriver.drive();
-    });
-})();
+{# Los steps del recorrido en sí (driver.js) viven en
+   static/js/page_tours/preview_exam_tour.js, compartidos con el modo
+   "consulta" que dispara el botón "?" del toolbar (ver base_exam_preview.html)
+   fuera del onboarding, y con ver_examen.html. Acá solo queda disparar el
+   modo demo apenas carga la página, guardando la instancia en
+   window._demoExamTourDriver — simulateSaveExam() (base_exam_preview.html)
+   la destruye antes de mostrar el modal de guardado simulado, para que no
+   queden dos overlays oscuros superpuestos. #}
+document.addEventListener('DOMContentLoaded', function () {
+    if (!window.EducaAppPreviewExamTour || !window.driver || !window.driver.js) return;
+    window.EducaAppPreviewExamTour.start({ demo: true });
+});
 </script>
 {% endif %}
 {% endblock %}

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Previsualización de Examen{% endblock %} - {{ institution.name|default:"EducaApp" }}</title>
-    {% if is_demo %}<link rel="stylesheet" href="{% static 'css/vendor/driver.css' %}">{% endif %}
+    <link rel="stylesheet" href="{% static 'css/vendor/driver.css' %}">
     <style>
         :root {
             --exam-font-family: {{ print_style.font_family|default:'Arial' }};
@@ -597,6 +597,9 @@
         <span class="exam-zoom-level" id="examZoomLevel">100%</span>
         <button type="button" id="examZoomIn" title="Acercar">+</button>
         <button type="button" id="examZoomFit" title="Ajustar a pantalla"><i class="fas fa-expand"></i></button>
+        {% if not is_demo %}
+        <button type="button" id="examTourBtn" title="Recorrido guiado de esta pantalla"><i class="fas fa-question-circle"></i></button>
+        {% endif %}
     </div>
     <div class="exam-scroll-outer" id="examScrollOuter">
     <div class="exam-zoom-sizer" id="examZoomSizer">
@@ -860,7 +863,15 @@
 
     <!-- Font Awesome para íconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    {% if is_demo %}<script src="{% static 'js/vendor/driver.js.iife.js' %}"></script>{% endif %}
+    <script src="{% static 'js/vendor/driver.js.iife.js' %}"></script>
+    <script src="{% static 'js/page_tours/preview_exam_tour.js' %}"></script>
+    {% if not is_demo %}
+    <script>
+        document.getElementById('examTourBtn')?.addEventListener('click', function () {
+            if (window.EducaAppPreviewExamTour) window.EducaAppPreviewExamTour.start({ demo: false });
+        });
+    </script>
+    {% endif %}
 
     {% block scripts %}
     <script>
