@@ -183,14 +183,14 @@ function toggleBloom() {
 {{ block.super }}
 {% if is_demo %}
 <script>
-{# Los steps del recorrido en sí (driver.js) viven en
+/* Los steps del recorrido en sí (driver.js) viven en
    static/js/page_tours/preview_exam_tour.js, compartidos con el modo
    "consulta" que dispara el botón "?" del toolbar (ver base_exam_preview.html)
    fuera del onboarding, y con ver_examen.html. Acá solo queda disparar el
    modo demo apenas carga la página, guardando la instancia en
    window._demoExamTourDriver — simulateSaveExam() (base_exam_preview.html)
    la destruye antes de mostrar el modal de guardado simulado, para que no
-   queden dos overlays oscuros superpuestos. #}
+   queden dos overlays oscuros superpuestos. */
 document.addEventListener('DOMContentLoaded', function () {
     if (!window.EducaAppPreviewExamTour || !window.driver || !window.driver.js) return;
     window.EducaAppPreviewExamTour.start({ demo: true });

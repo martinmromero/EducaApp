@@ -456,13 +456,13 @@
     <a href="{% url 'material:onboarding_v2_demo_recap' %}" class="btn btn-outline-secondary btn-lg">Volver</a>
 </div>
 <script>
-{# Los steps del recorrido en sí (driver.js) viven en
+/* Los steps del recorrido en sí (driver.js) viven en
    static/js/page_tours/create_exam_tour.js, compartidos con el modo
    "consulta" que dispara el botón "?" del navbar fuera del onboarding (ver
    registerPageTour en static/js/tour.js). Acá solo queda lo que es
    específico de ESTE vistazo de demo: sincronizar la selección con la
    sesión antes de navegar a "Ver examen", y disparar el recorrido en modo
-   demo apenas carga la página. #}
+   demo apenas carga la página. */
 (function () {
     function getCsrfCookie() {
         var match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
