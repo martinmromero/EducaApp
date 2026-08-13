@@ -1047,14 +1047,12 @@ class Command(BaseCommand):
         topics_snapshot = list(Topic.objects.filter(subject=subject).values_list('name', flat=True))
         outcomes_snapshot = list(LearningOutcome.objects.filter(subject=subject).values_list('description', flat=True))
         return dict(
-            # Único campo de texto libre que la app realmente expone en Crear
-            # Examen (Exam.instructions, etiquetado "Notas y recomendaciones"
-            # ahí) — Exam.notes_and_recommendations no tiene ningún control en
-            # el flujo real, así que un examen semilla con ambos poblados
-            # mostraría dos secciones con ese mismo título. Se deja
-            # notes_and_recommendations vacío (default del modelo) a
-            # propósito, para que el examen de ejemplo se vea igual que
-            # cualquier examen real creado a mano.
+            # Único campo de texto libre de Exam (instructions, etiquetado
+            # "Notas y recomendaciones") — el campo separado
+            # notes_and_recommendations que existía en paralelo se eliminó
+            # del modelo (ver [[project_examtemplate_vs_exam_field_audit_parking_lot]]),
+            # así que ya no hay riesgo de que un examen semilla muestre dos
+            # secciones con ese mismo título.
             instructions=(
                 'Responda todas las preguntas de forma clara y ordenada. No se permite '
                 'el uso de material de consulta salvo indicación contraria del docente. '

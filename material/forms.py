@@ -945,8 +945,10 @@ class FormatoImpresionForm(forms.ModelForm):
 
         if scope == 'institution' and not institution:
             self.add_error('institution', 'Debe seleccionar una institución para este alcance.')
-        if scope == 'global' and self.current_user and self.current_user.profile.role != 'admin':
-            self.add_error('scope', 'Solo un administrador puede crear formatos globales.')
+        if scope == 'global' and self.current_user:
+            from .views import is_admin
+            if not is_admin(self.current_user):
+                self.add_error('scope', 'Solo un administrador puede crear formatos globales.')
         return cleaned_data
 
     def save(self, commit=True):

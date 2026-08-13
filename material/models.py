@@ -791,12 +791,16 @@ class Exam(models.Model):
         related_name="exams"
     )
 
-    # Es el único campo de texto libre que Crear Examen realmente expone
-    # (notes_and_recommendations existe en el modelo pero no tiene ningún
-    # control en esa pantalla) — por eso el verbose_name es "Notas y
-    # recomendaciones" y no "Instrucciones generales" como originalmente,
-    # para que coincida con lo que en la práctica siempre termina siendo:
-    # tipeado a mano o traído de una plantilla.
+    # Único campo de texto libre de Exam — Exam.notes_and_recommendations
+    # existió en paralelo (sin ningún control real en Crear Examen) y
+    # producía secciones duplicadas en la vista previa cuando ambos se
+    # poblaban con el mismo texto (ver [[project_examtemplate_vs_exam_field_audit_parking_lot]]);
+    # se eliminó el campo entero en vez de solo dejar de usarlo, para que la
+    # duplicación sea imposible en vez de estar solo parcheada. El
+    # verbose_name es "Notas y recomendaciones" (no "Instrucciones
+    # generales" como originalmente) para que coincida con lo que en la
+    # práctica siempre termina siendo: tipeado a mano o traído de una
+    # plantilla.
     instructions = models.TextField(
         verbose_name="Notas y recomendaciones",
         blank=True,
@@ -949,11 +953,6 @@ class Exam(models.Model):
         null=True,
         verbose_name="Tópicos a evaluar"
     )
-    notes_and_recommendations = models.TextField(  
-        blank=True,  
-        null=True,  
-        verbose_name="Notas y recomendaciones"  
-    )  
     institution_name = models.CharField(max_length=255, blank=True, default='', verbose_name="Institución (texto)")
     faculty_name = models.CharField(max_length=255, blank=True, default='', verbose_name="Facultad (texto)")
     campus_name = models.CharField(max_length=255, blank=True, default='', verbose_name="Sede (texto)")

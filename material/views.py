@@ -293,7 +293,6 @@ def preview_exam(request):
         'duracion_minutos': exam.get('duration_minutes', ''),
         'modalidad_resolucion': exam.get('modalidad_resolucion', []),
         'instructions': exam.get('instructions', ''),
-        'notes_and_recommendations': exam.get('notes_and_recommendations', ''),
         'bloom_display': bloom_display,
         'total_exam_questions': total_exam_questions,
         'suggested_batch_name': suggested_batch_name,
@@ -1623,7 +1622,6 @@ def save_exam_from_session(request):
                     'alumno': exam_data.get('alumno') or '',
                     'curso': exam_data.get('curso') or '',
                     'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
-                    'notes_and_recommendations': exam_data.get('notes_and_recommendations') or None,
                 }
                 for field_name, field_value in exam_kwargs.items():
                     setattr(editing_exam, field_name, field_value)
@@ -1658,7 +1656,6 @@ def save_exam_from_session(request):
                     'alumno': exam_data.get('alumno') or '',
                     'curso': exam_data.get('curso') or '',
                     'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
-                    'notes_and_recommendations': exam_data.get('notes_and_recommendations') or None,
                 }
                 if supports_version_batches and batch is not None:
                     exam_kwargs['version_batch'] = batch
@@ -3103,7 +3100,6 @@ def ver_examen(request, pk):
         'duracion_minutos': examen.duration_minutes,
         'modalidad_resolucion': modalidad_list,
         'instructions': examen.instructions or '',
-        'notes_and_recommendations': examen.notes_and_recommendations or '',
         'questions_texts': questions_texts,
         'outcomes_texts': outcomes_texts,
         'topics_texts': topics_texts,

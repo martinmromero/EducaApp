@@ -62,7 +62,7 @@ from .models import (
 # que no depende de qué Subject/Topic/Question puntual se haya clonado.
 _EXAM_COPY_FIELDS = [
     'instructions', 'duration_minutes', 'year', 'exam_mode', 'exam_group', 'shift',
-    'resolution_time', 'topics_to_evaluate', 'notes_and_recommendations',
+    'resolution_time', 'topics_to_evaluate',
     'institution_name', 'faculty_name', 'campus_name', 'career_name',
     'topics_snapshot', 'outcomes_snapshot', 'date_str', 'is_published',
 ]
