@@ -6275,7 +6275,10 @@ def onboarding_v2_demo_scheme(request):
         'learning_outcomes': [],
         'questions': [],
         'num_versions': '1',
-        'questions_per_version': '10',
+        # 5, no 10: el objetivo de este examen es mostrar el flujo completo
+        # del vistazo (Crear Examen -> Ver examen) sin que la vista previa
+        # ocupe más de una pantalla estándar al hacer scroll.
+        'questions_per_version': '5',
         'balance_by_topic': '1',
         'tipo_examen': 'practico',
         'tipo_modalidad': 'individual',
