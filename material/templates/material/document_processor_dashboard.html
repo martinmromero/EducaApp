@@ -824,13 +824,21 @@ function expandUploadForm() {
 })();
 
 // Form: Procesar Documento
-// Auto-completar título desde el nombre del archivo
+// Auto-completar título desde el nombre del archivo. Se actualiza cada vez
+// que se elige un archivo nuevo (no solo la primera vez) — pero solo si el
+// título actual sigue siendo el auto-completado de un archivo anterior, no
+// si el usuario ya lo editó a mano (en ese caso, no se lo pisa).
+let titleWasAutoFilled = true;
+document.getElementById('contenidoTitle').addEventListener('input', function() {
+    titleWasAutoFilled = false;
+});
 document.getElementById('documentFile').addEventListener('change', function() {
     const file = this.files[0];
     if (!file) return;
     const titleInput = document.getElementById('contenidoTitle');
-    if (!titleInput.value) {
+    if (!titleInput.value || titleWasAutoFilled) {
         titleInput.value = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-]+/g, ' ');
+        titleWasAutoFilled = true;
     }
 });
 
@@ -918,6 +926,71 @@ function formatPageRanges(pages) {
     return ranges.join(', ');
 }
 
+// Tarjetas vs lista para elegir capítulos: preferencia por navegador (no por
+// documento), igual que el modo claro/oscuro.
+const CHAPTER_VIEW_STORAGE_KEY = 'docProcessorChapterView';
+
+function getChapterViewPreference() {
+    try {
+        return localStorage.getItem(CHAPTER_VIEW_STORAGE_KEY) === 'list' ? 'list' : 'cards';
+    } catch (e) {
+        return 'cards';
+    }
+}
+
+function updateChapterViewButtons(mode) {
+    const cardsBtn = document.getElementById('chapterViewCardsBtn');
+    const listBtn = document.getElementById('chapterViewListBtn');
+    if (!cardsBtn || !listBtn) return;
+    cardsBtn.classList.toggle('active', mode !== 'list');
+    listBtn.classList.toggle('active', mode === 'list');
+}
+
+function setChapterView(mode) {
+    try {
+        localStorage.setItem(CHAPTER_VIEW_STORAGE_KEY, mode);
+    } catch (e) { /* localStorage no disponible (modo privado, etc.) — la preferencia simplemente no persiste */ }
+    const grid = document.getElementById('chaptersGrid');
+    if (grid) grid.classList.toggle('rt-view-list', mode === 'list');
+    updateChapterViewButtons(mode);
+}
+
+// Arma solo las tarjetas/filas de capítulos (sin el contenedor), para poder
+// reusarlo tanto en el render inicial como si en algún momento hiciera falta
+// re-renderizar la lista sin tocar el resto de displayDocumentResult().
+function renderChapterCardsHTML(chapters) {
+    // Si hay un solo capítulo (documento sin estructura interna detectada),
+    // no tiene sentido pedir que lo "seleccione": va directo, sin checkbox.
+    const singleChapter = chapters.length === 1;
+    let itemsHtml = '';
+
+    chapters.forEach((chapter, index) => {
+        const info = relativeSizeInfo(chapter.tokens);
+        const pageRange = (chapter.pages && chapter.pages.length)
+            ? (chapter.pages.length > 1 ? `Páginas ${chapter.pages[0]}–${chapter.pages[chapter.pages.length - 1]}` : `Página ${chapter.pages[0]}`)
+            : '';
+        const checkedAttr = singleChapter ? 'checked' : '';
+
+        itemsHtml += `
+            <label class="rt-chapter-card" for="chapterCheck${index}" data-index="${index}">
+                <input class="form-check-input chapter-checkbox visually-hidden" type="checkbox" value="${index}"
+                       data-tokens="${chapter.tokens || 0}" id="chapterCheck${index}" ${checkedAttr}
+                       onchange="updateGenerateButton()">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <span class="rt-chapter-title">${chapter.title}</span>
+                    <span class="rt-chapter-check-icon"><i class="fas fa-check"></i></span>
+                </div>
+                <div class="rt-chapter-meter"><span class="rt-chapter-meter-fill ${info.colorClass}" style="width:${Math.min(100, info.pct)}%"></span></div>
+                <div class="text-muted small" title="${info.tokens.toLocaleString()} — referencia interna de tamaño">
+                    ${pageRange}${pageRange ? ' · ' : ''}${info.label} (~${info.pct}% de una tanda)
+                </div>
+            </label>
+        `;
+    });
+
+    return itemsHtml;
+}
+
 function displayDocumentResult(data) {
     // Aviso de duplicado si aplica
     const dupAlert = data.duplicate_message
@@ -952,60 +1025,45 @@ function displayDocumentResult(data) {
            </div>`
         : '';
 
-    let html = dupAlert + scannedAlert + extensiveAlert + `
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
-            <h5 class="mb-0">${data.filename}
-                ${data.contenido_id ? `<a id="contenidoSavedBadge" href="{% url 'material:mis_contenidos' %}" class="badge bg-success ms-2 text-decoration-none"><i class="fas fa-check"></i> Guardado en Mis Contenidos</a>` : ''}
-            </h5>
-            <button class="btn btn-outline-primary btn-sm flex-shrink-0" onclick="openPagePreview()">
-                <i class="fas fa-eye"></i> Vista previa de páginas
-            </button>
-        </div>
-        <div class="text-muted small mb-3">
-            ${data.stats.total_pages || data.stats.total_slides || 'N/A'} páginas/slides ·
-            ${data.stats.total_chapters} capítulo(s) ·
-            <span class="badge bg-primary" title="${data.stats.total_tokens.toLocaleString()} — referencia interna de tamaño">
-                ${Math.min(100, Math.round((data.stats.total_tokens / TOTAL_TOKEN_BUDGET) * 100))}% de lo recomendado para procesar junto
-            </span>
-            ${data.stats.removed_headers ? `<br>Headers eliminados: ${data.stats.removed_headers}` : ''}
-            ${data.stats.removed_footers ? ` · Footers eliminados: ${data.stats.removed_footers}` : ''}
-        </div>
-        <hr>
-        <div class="rt-chapter-grid" id="chaptersGrid">
-    `;
-
     // Guardar datos globalmente para usar después
     window.currentDocumentData = data;
 
-    // Si hay un solo capítulo (documento sin estructura interna detectada),
-    // no tiene sentido pedir que lo "seleccione": va directo, sin checkbox.
-    const singleChapter = data.chapters.length === 1;
+    const chapterView = getChapterViewPreference();
 
-    data.chapters.forEach((chapter, index) => {
-        const info = relativeSizeInfo(chapter.tokens);
-        const pageRange = (chapter.pages && chapter.pages.length)
-            ? (chapter.pages.length > 1 ? `Páginas ${chapter.pages[0]}–${chapter.pages[chapter.pages.length - 1]}` : `Página ${chapter.pages[0]}`)
-            : '';
-        const checkedAttr = singleChapter ? 'checked' : '';
-
-        html += `
-            <label class="rt-chapter-card" for="chapterCheck${index}" data-index="${index}">
-                <input class="form-check-input chapter-checkbox visually-hidden" type="checkbox" value="${index}"
-                       data-tokens="${chapter.tokens || 0}" id="chapterCheck${index}" ${checkedAttr}
-                       onchange="updateGenerateButton()">
-                <div class="d-flex justify-content-between align-items-start gap-2">
-                    <span class="rt-chapter-title">${chapter.title}</span>
-                    <span class="rt-chapter-check-icon"><i class="fas fa-check"></i></span>
+    let html = `
+        <div class="rt-doc-top-sticky">
+            ${dupAlert}${scannedAlert}${extensiveAlert}
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                <h5 class="mb-0">${data.filename}
+                    ${data.contenido_id ? `<a id="contenidoSavedBadge" href="{% url 'material:mis_contenidos' %}" class="badge bg-success ms-2 text-decoration-none"><i class="fas fa-check"></i> Guardado en Mis Contenidos</a>` : ''}
+                </h5>
+                <button class="btn btn-outline-primary btn-sm flex-shrink-0" onclick="openPagePreview()">
+                    <i class="fas fa-eye"></i> Vista previa de páginas
+                </button>
+            </div>
+            <div class="text-muted small mb-3">
+                ${data.stats.total_pages || data.stats.total_slides || 'N/A'} páginas/slides ·
+                ${data.stats.total_chapters} capítulo(s) ·
+                <span class="badge bg-primary" title="${data.stats.total_tokens.toLocaleString()} — referencia interna de tamaño">
+                    ${Math.min(100, Math.round((data.stats.total_tokens / TOTAL_TOKEN_BUDGET) * 100))}% de lo recomendado para procesar junto
+                </span>
+                ${data.stats.removed_headers ? `<br>Headers eliminados: ${data.stats.removed_headers}` : ''}
+                ${data.stats.removed_footers ? ` · Footers eliminados: ${data.stats.removed_footers}` : ''}
+            </div>
+            <hr class="mb-2">
+            <div class="d-flex justify-content-end mb-2">
+                <div class="btn-group btn-group-sm" role="group" aria-label="Vista de capítulos">
+                    <button type="button" id="chapterViewCardsBtn" class="btn btn-outline-secondary" onclick="setChapterView('cards')" title="Ver como tarjetas">
+                        <i class="fas fa-grip"></i> Tarjetas
+                    </button>
+                    <button type="button" id="chapterViewListBtn" class="btn btn-outline-secondary" onclick="setChapterView('list')" title="Ver como lista">
+                        <i class="fas fa-list"></i> Lista
+                    </button>
                 </div>
-                <div class="rt-chapter-meter"><span class="rt-chapter-meter-fill ${info.colorClass}" style="width:${Math.min(100, info.pct)}%"></span></div>
-                <div class="text-muted small" title="${info.tokens.toLocaleString()} — referencia interna de tamaño">
-                    ${pageRange}${pageRange ? ' · ' : ''}${info.label} (~${info.pct}% de una tanda)
-                </div>
-            </label>
-        `;
-    });
-
-    html += `
+            </div>
+        </div>
+        <div class="rt-chapter-grid${chapterView === 'list' ? ' rt-view-list' : ''}" id="chaptersGrid">
+            ${renderChapterCardsHTML(data.chapters)}
         </div>
         <div class="rt-selection-summary mt-3">
             <div class="d-flex justify-content-between align-items-center mb-1">
@@ -1027,6 +1085,7 @@ function displayDocumentResult(data) {
     `;
 
     document.getElementById('resultContent').innerHTML = html;
+    updateChapterViewButtons(chapterView);
     updateGenerateButton();
 }
 
@@ -3092,6 +3151,45 @@ function _escapeHtml(str) {
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: .6rem;
 }
+/* Vista lista (alternativa a las tarjetas, ver setChapterView()): una
+   columna, filas compactas — mismo <label class="rt-chapter-card"> de
+   siempre, solo cambia el layout interno vía este modificador en el grid
+   padre, así toda la lógica de selección (updateGenerateButton(), etc.)
+   sigue funcionando sin tocarla. */
+.rt-chapter-grid.rt-view-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.rt-view-list .rt-chapter-card {
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  border-radius: 0;
+  padding: .5rem .3rem;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+.rt-view-list .rt-chapter-card:first-child {
+  border-top: 1.5px solid var(--bs-border-color);
+}
+.rt-view-list .rt-chapter-card > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.rt-view-list .rt-chapter-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rt-view-list .rt-chapter-meter {
+  display: none;
+}
+.rt-view-list .rt-chapter-card > div.text-muted {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 .rt-chapter-card {
   display: block;
   border: 1.5px solid var(--bs-border-color);
@@ -3143,9 +3241,26 @@ function _escapeHtml(str) {
   display: block;
   height: 100%;
 }
+/* El sector medio (tarjetas/lista de capítulos) sigue scrolleando con el
+   resto de la página, como siempre — lo que cambia es que el encabezado
+   (arriba) y el resumen + botón "Generar" (abajo) quedan fijos (sticky) en
+   los bordes de la pantalla mientras se scrollea ese sector medio, en vez
+   de desaparecer de la vista con documentos de muchos capítulos. */
+.rt-doc-top-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bs-body-bg);
+  padding-top: .25rem;
+}
 .rt-selection-summary {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background: var(--bs-body-bg);
   border-top: 1px solid var(--bs-border-color);
   padding-top: .7rem;
+  padding-bottom: .5rem;
 }
 
 /* ── Flujo de un solo proceso (Documento / Elegir y generar) ────────
