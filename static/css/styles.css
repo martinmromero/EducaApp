@@ -226,9 +226,18 @@ body.modal-open .sidebar-toggle-external {
        pantalla que use ese mismo patrón. En vez de perseguir cada caso, se
        corta la posibilidad de raíz: nada puede generar scroll horizontal de
        toda la página en mobile, y los badges (que por defecto de Bootstrap
-       no cortan línea) pueden cortar si hace falta en vez de desbordar. */
+       no cortan línea) pueden cortar si hace falta en vez de desbordar.
+       overflow-x: clip (no hidden): "hidden" convierte a html/body en
+       scroll container y eso rompe position:sticky en toda la página (los
+       encabezados/pies fijos del procesador de documentos dejaban de
+       pegarse en mobile, solo en mobile, porque esta regla solo corre acá
+       abajo de 768px) — "clip" recorta el desborde horizontal igual, sin
+       ese efecto secundario. overflow-y:visible explícito porque, por
+       spec, dejar overflow-y sin tocar mientras overflow-x no es "visible"
+       lo computa como "auto" (que también rompería sticky). */
     html, body {
-        overflow-x: hidden;
+        overflow-x: clip;
+        overflow-y: visible;
         max-width: 100%;
     }
     .badge {

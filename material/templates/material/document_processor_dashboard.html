@@ -931,6 +931,12 @@ function formatPageRanges(pages) {
 const CHAPTER_VIEW_STORAGE_KEY = 'docProcessorChapterView';
 
 function getChapterViewPreference() {
+    // En mobile la vista lista arranca siempre en "Tarjetas": con el ancho
+    // angosto, la fila de lista no tiene lugar para mostrar el título
+    // completo + la metadata sin recortarlo. La preferencia guardada en
+    // localStorage (elegida quizás desde desktop) no aplica acá — el
+    // usuario igual puede tocar "Lista" en el momento si quiere.
+    if (window.innerWidth < 768) return 'cards';
     try {
         return localStorage.getItem(CHAPTER_VIEW_STORAGE_KEY) === 'list' ? 'list' : 'cards';
     } catch (e) {
@@ -976,12 +982,12 @@ function renderChapterCardsHTML(chapters) {
                 <input class="form-check-input chapter-checkbox visually-hidden" type="checkbox" value="${index}"
                        data-tokens="${chapter.tokens || 0}" id="chapterCheck${index}" ${checkedAttr}
                        onchange="updateGenerateButton()">
-                <div class="d-flex justify-content-between align-items-start gap-2">
+                <div class="rt-chapter-head d-flex justify-content-between align-items-start gap-2">
                     <span class="rt-chapter-title">${chapter.title}</span>
                     <span class="rt-chapter-check-icon"><i class="fas fa-check"></i></span>
                 </div>
                 <div class="rt-chapter-meter"><span class="rt-chapter-meter-fill ${info.colorClass}" style="width:${Math.min(100, info.pct)}%"></span></div>
-                <div class="text-muted small" title="${info.tokens.toLocaleString()} — referencia interna de tamaño">
+                <div class="rt-chapter-meta text-muted small" title="${info.tokens.toLocaleString()} — referencia interna de tamaño">
                     ${pageRange}${pageRange ? ' · ' : ''}${info.label} (~${info.pct}% de una tanda)
                 </div>
             </label>
@@ -992,9 +998,15 @@ function renderChapterCardsHTML(chapters) {
 }
 
 function displayDocumentResult(data) {
-    // Aviso de duplicado si aplica
+    // Aviso de duplicado si aplica. Dismissible (botón X, Bootstrap
+    // alert-dismissible) y fuera del bloque sticky: son avisos de una sola
+    // vez, no hace falta que ocupen espacio fijo en pantalla todo el
+    // tiempo (ver bug report — "ocupan demasiado espacio" incluso en web).
     const dupAlert = data.duplicate_message
-        ? `<div class="alert alert-warning py-2 mb-2"><i class="bi bi-exclamation-triangle me-1"></i>${data.duplicate_message}</div>`
+        ? `<div class="alert alert-warning alert-dismissible py-2 mb-2">
+               <i class="bi bi-exclamation-triangle me-1"></i>${data.duplicate_message}
+               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+           </div>`
         : '';
 
     // Páginas que pdf-inspector detectó como escaneadas/sin texto: avisar
@@ -1002,13 +1014,16 @@ function displayDocumentResult(data) {
     // simplemente desaparecían de los capítulos sin ninguna explicación).
     // Ya no quedan afuera de la generación: con "Incluir imágenes del
     // documento" tildado, la IA (Gemini) genera a partir de esas páginas
-    // como imágenes en vez de texto.
+    // como imágenes en vez de texto. Dismissible y fuera del sticky, mismo
+    // motivo que dupAlert.
     const scannedAlert = (data.scanned_pages && data.scanned_pages.length > 0)
-        ? `<div class="alert alert-warning py-2 mb-2"><i class="bi bi-exclamation-triangle me-1"></i>
+        ? `<div class="alert alert-warning alert-dismissible py-2 mb-2">
+               <i class="bi bi-exclamation-triangle me-1"></i>
                ${data.scanned_pages.length === 1 ? 'La página' : 'Las páginas'} ${formatPageRanges(data.scanned_pages)}
                ${data.scanned_pages.length === 1 ? 'parece ser una imagen escaneada' : 'parecen ser imágenes escaneadas'}
                y no se pudo extraer texto de ${data.scanned_pages.length === 1 ? 'ella' : 'ellas'}.
                Para generar preguntas de todos modos, tildar "Incluir imágenes del documento" al configurar la generación.
+               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
            </div>`
         : '';
 
@@ -1031,8 +1046,9 @@ function displayDocumentResult(data) {
     const chapterView = getChapterViewPreference();
 
     let html = `
+        ${dupAlert}${scannedAlert}
         <div class="rt-doc-top-sticky">
-            ${dupAlert}${scannedAlert}${extensiveAlert}
+            ${extensiveAlert}
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
                 <h5 class="mb-0">${data.filename}
                     ${data.contenido_id ? `<a id="contenidoSavedBadge" href="{% url 'material:mis_contenidos' %}" class="badge bg-success ms-2 text-decoration-none"><i class="fas fa-check"></i> Guardado en Mis Contenidos</a>` : ''}
@@ -1043,10 +1059,7 @@ function displayDocumentResult(data) {
             </div>
             <div class="text-muted small mb-3">
                 ${data.stats.total_pages || data.stats.total_slides || 'N/A'} páginas/slides ·
-                ${data.stats.total_chapters} capítulo(s) ·
-                <span class="badge bg-primary" title="${data.stats.total_tokens.toLocaleString()} — referencia interna de tamaño">
-                    ${Math.min(100, Math.round((data.stats.total_tokens / TOTAL_TOKEN_BUDGET) * 100))}% de lo recomendado para procesar junto
-                </span>
+                ${data.stats.total_chapters} capítulo(s)
                 ${data.stats.removed_headers ? `<br>Headers eliminados: ${data.stats.removed_headers}` : ''}
                 ${data.stats.removed_footers ? ` · Footers eliminados: ${data.stats.removed_footers}` : ''}
             </div>
@@ -1101,26 +1114,39 @@ function updateGenerateButton() {
     const label = document.getElementById('tokenBudgetLabel');
     const bar = document.getElementById('tokenBudgetBar');
     if (label && bar) {
-        const pct = Math.min(100, Math.round((selectedTokens / RUN_TOKEN_BUDGET) * 100));
-        label.textContent = pct + '%';
+        // El texto muestra el % real, sin techo — si la selección se pasa del
+        // máximo (ej. un capítulo grande que solo ya supera el 100%), decir
+        // "100%" sería engañoso: parece que entra justo cuando en realidad el
+        // servidor va a rechazar la tanda. La barra visual sí se topea en
+        // 100% (no puede dibujarse más ancha que su contenedor).
+        const rawPct = Math.round((selectedTokens / RUN_TOKEN_BUDGET) * 100);
+        const barPct = Math.min(100, rawPct);
+        label.textContent = rawPct + '%';
         label.title = `${selectedTokens.toLocaleString()} / ${RUN_TOKEN_BUDGET.toLocaleString()}`;
-        bar.style.width = pct + '%';
+        bar.style.width = barPct + '%';
         bar.classList.remove('bg-success', 'bg-warning', 'bg-danger');
-        bar.classList.add(pct < 70 ? 'bg-success' : (pct < 100 ? 'bg-warning' : 'bg-danger'));
+        bar.classList.add(rawPct < 70 ? 'bg-success' : (rawPct < 100 ? 'bg-warning' : 'bg-danger'));
     }
 
-    // Si ya llegamos (o superamos) el tope, bloquear capítulos no seleccionados
-    // para que el usuario no arme una tanda que el servidor va a rechazar.
-    const atBudget = selectedTokens >= RUN_TOKEN_BUDGET;
+    // Grisar, uno por uno, solo los capítulos que YA NO ENTRAN sumados a lo
+    // elegido — no todos en bloque apenas se llega al tope. Así un capítulo
+    // chico que todavía cabe sigue eligible aunque ya haya uno grande
+    // seleccionado cerca del máximo. "selectedTokens > 0 &&" es a propósito:
+    // sin nada elegido todavía no se grisa ni el capítulo más grande del
+    // documento (puede haber uno solo grande que por sí mismo ya supere el
+    // 100%, ej. un apéndice largo) — se lo deja elegir igual como primera
+    // selección, para no dejarlo permanentemente inseleccionable.
     allCheckboxes.forEach(cb => {
         const card = cb.closest('.rt-chapter-card');
         if (card) card.classList.toggle('selected', cb.checked);
         if (cb.checked) return;
-        cb.disabled = atBudget;
-        cb.title = atBudget
-            ? 'Máximo recomendado alcanzado para esta tanda. Generar esta selección primero, o deseleccionar otro capítulo para hacer lugar.'
+        const chapterTokens = parseInt(cb.dataset.tokens || '0', 10);
+        const wouldExceed = selectedTokens > 0 && (selectedTokens + chapterTokens) > RUN_TOKEN_BUDGET;
+        cb.disabled = wouldExceed;
+        cb.title = wouldExceed
+            ? 'Sumado a lo ya elegido, supera el máximo recomendado para esta tanda. Generar esta selección primero, o deseleccionar otro capítulo para hacer lugar.'
             : '';
-        if (card) card.classList.toggle('disabled', atBudget);
+        if (card) card.classList.toggle('disabled', wouldExceed);
     });
 
     const summaryText = document.getElementById('selectionSummaryText');
@@ -3168,27 +3194,38 @@ function _escapeHtml(str) {
   border-radius: 0;
   padding: .5rem .3rem;
   display: flex;
-  align-items: center;
-  gap: .75rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: .2rem .75rem;
+  max-width: 100%;
 }
 .rt-view-list .rt-chapter-card:first-child {
   border-top: 1.5px solid var(--bs-border-color);
 }
-.rt-view-list .rt-chapter-card > div:first-child {
-  flex: 1 1 auto;
+/* Selector por clase, no por :first-child — el primer hijo real del <label>
+   es el <input type="checkbox"> (visually-hidden), así que ":first-child"
+   nunca matcheaba ningún <div> acá y esta regla no se aplicaba nunca: el
+   título no se achicaba y el texto se salía del margen de la tarjeta
+   (overflow horizontal, visible tanto en mobile como en desktop). */
+.rt-view-list .rt-chapter-head {
+  flex: 1 1 220px;
   min-width: 0;
+  max-width: 100%;
 }
+/* Sin recorte: títulos largos (con el prefijo "PARTE › Capítulo") se leen
+   completos en varias líneas en vez de perderse con "...". */
 .rt-view-list .rt-chapter-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: break-word;
+  display: block;
 }
 .rt-view-list .rt-chapter-meter {
   display: none;
 }
-.rt-view-list .rt-chapter-card > div.text-muted {
-  flex: 0 0 auto;
-  white-space: nowrap;
+.rt-view-list .rt-chapter-meta {
+  flex: 1 1 auto;
+  white-space: normal;
+  min-width: 0;
 }
 .rt-chapter-card {
   display: block;
@@ -3245,7 +3282,12 @@ function _escapeHtml(str) {
    resto de la página, como siempre — lo que cambia es que el encabezado
    (arriba) y el resumen + botón "Generar" (abajo) quedan fijos (sticky) en
    los bordes de la pantalla mientras se scrollea ese sector medio, en vez
-   de desaparecer de la vista con documentos de muchos capítulos. */
+   de desaparecer de la vista con documentos de muchos capítulos. Sticky
+   solo arriba de 768px: en mobile el encabezado puede tener varias líneas
+   de avisos (documento duplicado, documento grande) y fijarlo ahí se come
+   la mayor parte de la pantalla — ver override en @media más abajo. El pie
+   (resumen + botón) sí se mantiene fijo en mobile, es una sola línea y no
+   tiene ese problema. */
 .rt-doc-top-sticky {
   position: sticky;
   top: 0;
@@ -3342,6 +3384,11 @@ function _escapeHtml(str) {
   #docProcessorPage .card-body {
     padding-left: .85rem;
     padding-right: .85rem;
+  }
+  /* Ver comentario en .rt-doc-top-sticky: en mobile no queda fijo. */
+  .rt-doc-top-sticky {
+    position: static;
+    padding-top: 0;
   }
 }
 
