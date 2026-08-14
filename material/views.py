@@ -7467,11 +7467,15 @@ def neon_usage_page(request):
     Panel staff-only: consulta la API de Neon (console.neon.tech), no la
     propia base de datos, para mostrar si el autosuspend está funcionando.
 
-    El número que importa acá es "% del período con el compute activo": en
-    uso liviano normal debería ser bajo, porque Neon apaga el compute solo
-    (scale to zero) a los 5 min de inactividad. Si está cerca de 100%, algo
-    le está pisando el autosuspend — exactamente lo que pasaba con cada ping
-    de /health/ antes del fix del 2026-08-14 (ver groq_monitor.py).
+    Dos señales distintas, a propósito:
+    - "% del período con el compute activo": promedio de TODO el período
+      (desde el 1° del mes). Útil para ver la tendencia, pero NO distingue
+      uso real de un bug tipo el de /health/ (antes del fix del
+      2026-08-14) — ambos se ven igual acá, es solo volumen acumulado.
+    - Estado del endpoint ahora mismo (current_state/last_active/
+      suspended_at): esto SÍ es una prueba directa e inequívoca. Si dice
+      "idle" con un suspended_at reciente, el autosuspend está funcionando
+      en este instante — no hace falta inferir nada de un promedio.
 
     No reconstruye CU-hours exactas: dependen del tamaño del compute (CU) en
     cada momento, que esta llamada no expone. Para el número oficial de
@@ -7535,6 +7539,30 @@ def neon_usage_page(request):
                 'elapsed_pct': elapsed_pct,
                 'active_pct_of_elapsed': active_pct_of_elapsed,
             })
+
+            # Estado del compute AHORA MISMO — a diferencia del % de arriba
+            # (que es un promedio de todo el período y no distingue uso real
+            # de un bug tipo el de /health/), esto es una prueba directa: si
+            # dice "idle" y suspended_at es reciente, el autosuspend está
+            # funcionando en este instante, sin ambigüedad ni inferencia.
+            try:
+                ep_resp = requests.get(
+                    f'https://console.neon.tech/api/v2/projects/{settings.NEON_PROJECT_ID}/endpoints',
+                    headers={'Authorization': f'Bearer {settings.NEON_API_KEY}', 'Accept': 'application/json'},
+                    timeout=8,
+                )
+                ep_resp.raise_for_status()
+                endpoints = ep_resp.json().get('endpoints') or []
+                endpoint = endpoints[0] if endpoints else None
+                if endpoint:
+                    context.update({
+                        'ep_state': endpoint.get('current_state'),
+                        'ep_last_active': parse_datetime(endpoint.get('last_active') or ''),
+                        'ep_suspended_at': parse_datetime(endpoint.get('suspended_at') or ''),
+                        'ep_suspend_timeout_seconds': endpoint.get('suspend_timeout_seconds'),
+                    })
+            except Exception:
+                logger.exception('Error consultando el estado del endpoint de Neon')
         except Exception as e:
             logger.exception('Error consultando la API de Neon')
             context['error'] = str(e)

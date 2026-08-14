@@ -22,6 +22,34 @@
             <strong>No se pudo consultar la API de Neon:</strong> {{ error }}
         </div>
     {% else %}
+        {% if ep_state %}
+            <div class="alert {% if ep_state == 'idle' %}alert-success{% elif ep_state == 'active' %}alert-info{% else %}alert-secondary{% endif %} d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+                <div>
+                    <strong>
+                        {% if ep_state == 'idle' %}
+                            <i class="bi bi-moon-fill me-1"></i>Dormido (idle) ahora mismo
+                        {% elif ep_state == 'active' %}
+                            <i class="bi bi-lightning-fill me-1"></i>Activo ahora mismo
+                        {% else %}
+                            Estado: {{ ep_state }}
+                        {% endif %}
+                    </strong>
+                    <span class="ms-2 small">
+                        {% if ep_state == 'idle' and ep_suspended_at %}
+                            — suspendido desde {{ ep_suspended_at|date:"d/m H:i" }} ({{ ep_suspended_at|timesince }} atrás)
+                        {% endif %}
+                        {% if ep_last_active %}
+                            · última actividad: {{ ep_last_active|date:"d/m H:i" }} ({{ ep_last_active|timesince }} atrás)
+                        {% endif %}
+                    </span>
+                </div>
+                <span class="small text-muted">
+                    Esta es una lectura del instante, no un promedio — a diferencia del % de más abajo,
+                    esto SÍ prueba directamente si el autosuspend está funcionando ahora.
+                </span>
+            </div>
+        {% endif %}
+
         <div class="row g-3 mb-4">
             <div class="col-md-4">
                 <div class="card shadow-sm h-100">
@@ -68,13 +96,20 @@
         </div>
 
         <div class="alert alert-secondary">
-            <p class="mb-1"><strong>Cómo leer el "% con el compute activo":</strong></p>
+            <p class="mb-1"><strong>Cómo leer estas dos señales:</strong></p>
+            <p class="mb-1">
+                El <strong>estado de arriba</strong> (idle/activo) es una foto del instante: si dice "idle" con
+                un rato sin actividad, el autosuspend está funcionando ahora mismo, sin vuelta que darle.
+            </p>
             <p class="mb-0">
-                Neon apaga el compute solo (scale to zero) a los 5 minutos de inactividad. Con uso liviano
-                normal este porcentaje debería ser bajo — el compute duerme la mayor parte del tiempo y
-                solo se despierta cuando hay tráfico real. Si está cerca de 100%, algo le está pisando el
-                autosuspend (por ejemplo, un ping externo — UptimeRobot, un healthcheck — que toca la base
-                de datos con mucha frecuencia). Así se detectó y corrigió el consumo excesivo del 2026-08-14.
+                El <strong>% de acá abajo</strong> es un promedio de todo el período (desde el 1° del mes) —
+                sirve para ver la tendencia general, pero por sí solo <u>no distingue</u> uso real de un bug
+                tipo el de <code>/health/</code> (corregido 2026-08-14): las dos causas suben este número
+                igual. Para diferenciarlas hay que mirar el patrón: uso real tiende a ser en ráfagas
+                (mientras alguien usa la app), mientras que un bug de autosuspend da actividad constante y
+                pareja las 24 horas — si el % vuelve a subir mucho, revisá el estado de arriba varias veces
+                en el día: si siempre dice "activo" o "idle" por muy poco rato, es más probable que sea un
+                bug nuevo que un pico de uso real.
             </p>
         </div>
     {% endif %}
