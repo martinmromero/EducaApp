@@ -46,8 +46,9 @@
       .filter(Boolean);
   }
 
-  // Las 4 "áreas" son acordeones Bootstrap — un solo lugar que decide "de
-  // las 4, esta es la única abierta" en vez de que cada paso abra/cierre
+  // Las "áreas" son acordeones Bootstrap (5 en total, aunque el recorrido
+  // solo usa pasos en 1, 3 y 4) — un solo lugar que decide "de todas, esta
+  // es la única abierta" en vez de que cada paso abra/cierre
   // relativo al paso anterior. Con la versión anterior (relativa),
   // retroceder con "Anterior" a un paso cuya área ya se había cerrado al
   // avanzar la dejaba colapsada — el recorrido resaltaba un elemento
@@ -63,9 +64,9 @@
   // create_exam.html) para que el cambio sea instantáneo y no haya nada que
   // corregir después.
   function showOnlyArea(areas, n) {
-    var bodies = [1, 2, 3, 4].map(function (i) { return document.getElementById('examArea' + i + 'Body'); });
+    var bodies = [1, 2, 3, 4, 5].map(function (i) { return document.getElementById('examArea' + i + 'Body'); });
     bodies.forEach(function (el) { if (el) el.classList.add('tour-no-transition'); });
-    [1, 2, 3, 4].forEach(function (i) {
+    [1, 2, 3, 4, 5].forEach(function (i) {
       if (i === n) areas.openArea(i); else areas.closeArea(i);
     });
     // Fuerza a que el navegador aplique el cambio ya (reflow síncrono), y
@@ -240,6 +241,15 @@
         showProgress: true,
         allowClose: true,
         overlayOpacity: 0.6,
+        // Con animate:true, driver.js anima el resaltado ~400ms entre pasos
+        // y recién pinta el popover a mitad de esa animación, releyendo la
+        // posición del elemento en ese instante — una segunda ventana de
+        // carrera además de la que ya se resolvía con el scroll manual de
+        // attachAreaHandling (a veces caía con el popover mal ubicado, p.ej.
+        // el paso "Tópicos" apareciendo arriba a la izquierda). Al desactivar
+        // la animación, el popover se pinta en el mismo tick que nuestro
+        // manejo de área/scroll, sin ventana intermedia.
+        animate: false,
         nextBtnText: 'Siguiente',
         prevBtnText: 'Anterior',
         doneBtnText: 'Listo',

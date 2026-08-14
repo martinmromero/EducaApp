@@ -71,12 +71,28 @@
         <button type="button" class="btn btn-success" id="saveExamVersionsBtn">
           <i class="fas fa-save"></i> Guardar examen
         </button>
+        {% if is_editing_exam %}
+        <button type="button" class="btn btn-primary" id="saveAsNewVersionsBtn">
+          <i class="fas fa-copy"></i> Guardar como nuevo examen
+        </button>
+        {% endif %}
         <button type="button" class="btn btn-secondary" onclick="history.back()">
           <i class="fas fa-arrow-left"></i> Editar selección
         </button>
       </div>
     </div>
   </div>
+
+  {% if rubric_grids %}
+  <div class="card mb-3 preview-version-card">
+    <div class="card-header"><strong>Rúbricas</strong></div>
+    <div class="card-body table-responsive">
+      {% for grid in rubric_grids %}
+        {% include 'material/rubricas/_grid_table.html' with grid=grid %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 
   {% for version in versions_preview %}
   <div class="card mb-3">
@@ -137,6 +153,28 @@
     </div>
   </div>
 </div>
+
+{% if is_editing_exam %}
+<div class="modal fade" id="examVersionsSaveAsNewModal" tabindex="-1" aria-labelledby="examVersionsSaveAsNewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="examVersionsSaveAsNewModalLabel"><i class="fas fa-copy"></i> Guardar como nuevo examen</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">El examen original no se va a modificar: se va a crear un examen nuevo con los cambios actuales.</p>
+        <label for="saveAsNewVersionsNameInput" class="form-label">Nombre del nuevo examen</label>
+        <input type="text" class="form-control" id="saveAsNewVersionsNameInput">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="saveAsNewVersionsConfirmBtn">Guardar como nuevo</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <script>
 (function () {
@@ -260,13 +298,12 @@
     window.location.href = postSaveRedirectUrl;
   });
 
-  saveBtn.addEventListener('click', function () {
-    saveBtn.disabled = true;
-    const batchNameInput = document.getElementById('batchNameInput');
+  function submitSaveExam(btn, extraParams) {
+    btn.disabled = true;
     const formData = new FormData();
-    if (batchNameInput) {
-      formData.append('batch_name', batchNameInput.value);
-    }
+    Object.keys(extraParams || {}).forEach(function (key) {
+      formData.append(key, extraParams[key]);
+    });
     fetch("{% url 'material:save_exam_from_session' %}", {
       method: 'POST',
       headers: {
@@ -277,7 +314,7 @@
     })
       .then(function (response) { return response.json(); })
       .then(function (data) {
-        saveBtn.disabled = false;
+        btn.disabled = false;
         if (data.success) {
           if (data.redirect_url) postSaveRedirectUrl = data.redirect_url;
           document.getElementById('examVersionsSavedModalMessage').textContent = data.message || 'El examen se guardó correctamente.';
@@ -287,10 +324,49 @@
         }
       })
       .catch(function () {
-        saveBtn.disabled = false;
+        btn.disabled = false;
         window.EducaAppModal.alert('No se pudo guardar el examen. Intenta nuevamente.', { title: 'Error al guardar', variant: 'danger' });
       });
+  }
+
+  saveBtn.addEventListener('click', function () {
+    const batchNameInput = document.getElementById('batchNameInput');
+    submitSaveExam(saveBtn, { batch_name: batchNameInput ? batchNameInput.value : '' });
   });
+
+  // "Guardar como nuevo examen" (solo disponible editando un examen
+  // existente, ver material:editar_examen): pide un nombre y guarda un
+  // examen/lote nuevo sin tocar el original — ver save_as_new en
+  // save_exam_from_session.
+  const saveAsNewBtn = document.getElementById('saveAsNewVersionsBtn');
+  if (saveAsNewBtn) {
+    const saveAsNewModalEl = document.getElementById('examVersionsSaveAsNewModal');
+    const saveAsNewNameInput = document.getElementById('saveAsNewVersionsNameInput');
+    let saveAsNewModal = null;
+    function getSaveAsNewModal() {
+      if (!saveAsNewModal) {
+        saveAsNewModal = new window.bootstrap.Modal(saveAsNewModalEl);
+      }
+      return saveAsNewModal;
+    }
+
+    saveAsNewBtn.addEventListener('click', function () {
+      const batchNameInput = document.getElementById('batchNameInput');
+      const baseName = (batchNameInput && batchNameInput.value ? batchNameInput.value : '').trim();
+      saveAsNewNameInput.value = baseName ? (baseName + ' (copia)') : '';
+      getSaveAsNewModal().show();
+    });
+
+    document.getElementById('saveAsNewVersionsConfirmBtn').addEventListener('click', function () {
+      const nameVal = (saveAsNewNameInput.value || '').trim();
+      if (!nameVal) {
+        window.EducaAppModal.alert('Ingresá un nombre para el nuevo examen.', { title: 'Falta el nombre', variant: 'warning' });
+        return;
+      }
+      getSaveAsNewModal().hide();
+      submitSaveExam(saveAsNewBtn, { batch_name: nameVal, save_as_new: '1' });
+    });
+  }
 })();
 </script>
 {% endblock %}

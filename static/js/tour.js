@@ -45,6 +45,36 @@
     if (group) group.classList.remove('active');
   }
 
+  // Resalte secundario del paso 1: además del elemento principal del paso
+  // (que driver.js recorta del overlay), se destaca a la vez el botón "?"
+  // arriba a la derecha, para que quede claro desde el primer paso que el
+  // recorrido se puede repetir desde ahí (ver .tour-secondary-highlight en
+  // styles.css).
+  function highlightHelpBtn() {
+    const btn = document.getElementById('tourHelpBtn');
+    if (btn) btn.classList.add('tour-secondary-highlight');
+  }
+
+  function unhighlightHelpBtn() {
+    const btn = document.getElementById('tourHelpBtn');
+    if (btn) btn.classList.remove('tour-secondary-highlight');
+  }
+
+  // Último paso: abre de verdad el dropdown "?" (Bootstrap) para poder
+  // resaltar dentro de él la opción "Área de Pruebas".
+  function openTourHelpDropdown() {
+    const btn = document.getElementById('tourHelpBtn');
+    if (!btn || !window.bootstrap) return;
+    window.bootstrap.Dropdown.getOrCreateInstance(btn).show();
+  }
+
+  function closeTourHelpDropdown() {
+    const btn = document.getElementById('tourHelpBtn');
+    if (!btn || !window.bootstrap) return;
+    const dropdown = window.bootstrap.Dropdown.getInstance(btn);
+    if (dropdown) dropdown.hide();
+  }
+
   // Pasos con selector + texto. Si un elemento no está en el DOM de la
   // página actual (ej. "Administración" solo existe para admins) se
   // descarta automáticamente al construir el tour.
@@ -53,10 +83,12 @@
       element: '#tourSidebarBrand',
       popover: {
         title: '¡Bienvenido a EducaApp!',
-        description: 'Este recorrido presenta brevemente la ubicación de las funciones principales. Puede repetirse en cualquier momento desde el botón "?" disponible.',
+        description: 'Este recorrido presenta brevemente la ubicación de las funciones principales. Puede repetirse en cualquier momento desde el botón "?" resaltado arriba a la derecha.',
         side: 'right',
         align: 'start',
       },
+      onHighlightStarted: highlightHelpBtn,
+      onDeselected: unhighlightHelpBtn,
     },
     {
       element: '#tourMenuContenidos',
@@ -154,6 +186,17 @@
         side: 'top',
       },
     },
+    {
+      element: '#tourAreaPruebasItem',
+      popover: {
+        title: 'Área de Pruebas',
+        description: 'En este espacio se pueden hacer pruebas de uso, sin afectar al resto del sistema.',
+        side: 'left',
+        align: 'start',
+      },
+      onHighlightStarted: openTourHelpDropdown,
+      onDeselected: closeTourHelpDropdown,
+    },
   ];
 
   function buildSteps() {
@@ -215,6 +258,8 @@
       onDestroyed: () => {
         try { localStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
         restoreSidebar(openedSidebar);
+        unhighlightHelpBtn();
+        closeTourHelpDropdown();
       },
     });
     tourDriver.drive();

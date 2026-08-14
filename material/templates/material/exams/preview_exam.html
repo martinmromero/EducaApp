@@ -170,6 +170,11 @@ function toggleBloom() {
 <button style="background:#28a745;" onclick="saveExamAndShowModal(this)" id="examSaveBtn">
     <i class="fas fa-save"></i> Guardar Examen
 </button>
+{% if is_editing_exam %}
+<button style="background:#0d6efd;" onclick="openSaveAsNewModal()" id="saveAsNewBtn">
+    <i class="fas fa-copy"></i> Guardar como nuevo examen
+</button>
+{% endif %}
 <button onclick="history.back()" class="secondary">
   <i class="fas fa-edit"></i> Editar
 </button>

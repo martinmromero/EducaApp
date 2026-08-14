@@ -396,6 +396,17 @@ body.modal-open .sidebar-toggle-external {
     }
 }
 
+/* Resalte secundario del tour (driver.js): sube al elemento por encima del
+   overlay oscuro (que tiene z-index 1000) sin llegar al z-index del popover
+   (1000000000), para poder destacar un segundo elemento al mismo tiempo que
+   el elemento principal del paso, que sí queda "recortado" por driver.js. */
+.tour-secondary-highlight {
+    position: relative;
+    z-index: 999999;
+    box-shadow: 0 0 0 4px rgba(13, 110, 253, .55), 0 0 16px 4px rgba(13, 110, 253, .35);
+    border-radius: .375rem;
+}
+
 /* Los headers de las tarjetas de listado (Instituciones, Mis Exámenes,
    Plantillas, Materias, Carreras, Cuestionarios Orales, etc.) meten título +
    varios botones de acción en una sola fila con "d-flex justify-content-between"

@@ -861,6 +861,25 @@
     </div>
 </div>
 
+{% if is_editing_exam and not is_demo %}
+<div class="simple-modal-backdrop no-print" id="saveAsNewBackdrop">
+    <div class="simple-modal-box">
+        <div class="simple-modal-header" style="background:#0d6efd;"><i class="fas fa-copy"></i> Guardar como nuevo examen</div>
+        <div class="simple-modal-body">
+            <p style="margin:0 0 10px;color:#555;">
+                El examen original no se va a modificar: se va a crear un examen nuevo con los cambios actuales.
+            </p>
+            <label for="saveAsNewTitleInput" style="display:block;margin-bottom:6px;font-size:0.9rem;color:#444;">Nombre del nuevo examen</label>
+            <input type="text" id="saveAsNewTitleInput" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:0.95rem;">
+        </div>
+        <div class="simple-modal-footer" style="display:flex;justify-content:flex-end;gap:8px;">
+            <button type="button" id="saveAsNewCancelBtn" style="background:#6c757d;">Cancelar</button>
+            <button type="button" id="saveAsNewConfirmBtn" style="background:#0d6efd;">Guardar como nuevo</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
     <!-- Font Awesome para íconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <script src="{% static 'js/vendor/driver.js.iife.js' %}"></script>
@@ -910,14 +929,19 @@
 
         var postSaveRedirectUrl = "{% url 'material:mis_examenes' %}";
 
-        function saveExamAndShowModal(btn) {
+        function saveExamAndShowModal(btn, extraParams) {
             btn.disabled = true;
+            var formData = new FormData();
+            if (extraParams) {
+                Object.keys(extraParams).forEach(function (key) { formData.append(key, extraParams[key]); });
+            }
             fetch("{% url 'material:save_exam_from_session' %}", {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRFToken': getCsrfCookie(),
                 },
+                body: formData,
             })
             .then(function (response) { return response.json(); })
             .then(function (data) {
@@ -935,6 +959,38 @@
                 window.EducaAppModal.alert('No se pudo guardar el examen. Intenta nuevamente.', { title: 'Error al guardar', variant: 'danger' });
             });
         }
+
+        {% if is_editing_exam and not is_demo %}
+        // ── "Guardar como nuevo examen" (solo disponible editando un examen
+        // existente): pide un nombre y guarda una copia nueva sin tocar el
+        // examen original — ver material:editar_examen / save_as_new en
+        // save_exam_from_session.
+        var saveAsNewBackdrop = document.getElementById('saveAsNewBackdrop');
+        var saveAsNewInput = document.getElementById('saveAsNewTitleInput');
+
+        function openSaveAsNewModal() {
+            if (saveAsNewInput) {
+                var baseTitle = "{{ exam.title|default:''|escapejs }}".trim();
+                saveAsNewInput.value = baseTitle ? (baseTitle + ' (copia)') : '';
+            }
+            saveAsNewBackdrop.classList.add('show');
+            if (saveAsNewInput) { saveAsNewInput.focus(); saveAsNewInput.select(); }
+        }
+
+        document.getElementById('saveAsNewCancelBtn')?.addEventListener('click', function () {
+            saveAsNewBackdrop.classList.remove('show');
+        });
+
+        document.getElementById('saveAsNewConfirmBtn')?.addEventListener('click', function () {
+            var titleVal = (saveAsNewInput.value || '').trim();
+            if (!titleVal) {
+                window.EducaAppModal.alert('Ingresá un nombre para el nuevo examen.', { title: 'Falta el nombre', variant: 'warning' });
+                return;
+            }
+            saveAsNewBackdrop.classList.remove('show');
+            saveExamAndShowModal(document.getElementById('saveAsNewBtn'), { save_as_new: '1', title: titleVal });
+        });
+        {% endif %}
 
         {% if is_demo %}
         // Ejemplo del asistente: "Guardar" no persiste nada real — solo

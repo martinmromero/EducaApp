@@ -280,7 +280,7 @@
                                     <form method="post"
                                           action="{% if in_training_mode %}{% url 'material:salir_area_pruebas' %}{% else %}{% url 'material:entrar_area_pruebas' %}{% endif %}">
                                         {% csrf_token %}
-                                        <button type="submit" class="dropdown-item">
+                                        <button type="submit" class="dropdown-item" id="tourAreaPruebasItem">
                                             <i class="bi bi-mortarboard me-2"></i>
                                             {% if in_training_mode %}Volver a Producción{% else %}Área de Pruebas{% endif %}
                                         </button>

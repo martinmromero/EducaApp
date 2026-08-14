@@ -93,6 +93,10 @@
                                            class="btn btn-sm btn-info" title="Ver lote">
                                             <i class="fas fa-eye"></i>
                                         </a>
+                                        <a href="{% url 'material:editar_lote' item.batch.id %}"
+                                           class="btn btn-sm btn-warning" title="Editar lote">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
                                         <button type="submit" form="deleteRowForm_batch_{{ item.batch.id }}"
                                                 class="btn btn-sm btn-danger" title="Eliminar lote">
                                             <i class="fas fa-trash"></i>

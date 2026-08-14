@@ -1,4 +1,5 @@
 import functools
+import re
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
@@ -263,6 +264,19 @@ def preview_exam(request):
     }
     _TIPO_MODALIDAD_LABELS = {'individual': 'Individual', 'grupal': 'Grupal'}
 
+    # Rúbricas elegidas en el wizard (área 5 de Crear Examen) — antes este
+    # preview ("Validar cuestionarios") no las mostraba pese a que ya
+    # quedaban guardadas en sesión, y recién aparecían al abrir el examen ya
+    # guardado. get_visible_rubrics repite el mismo filtro (propias +
+    # compartidas) que save_exam_from_session usa al persistirlas, así que
+    # lo que se ve acá es exactamente lo que terminará guardado.
+    from .content_visibility import get_visible_rubrics
+    raw_rubric_ids = [int(r) for r in exam.get('rubric_ids', []) if str(r).isdigit()]
+    rubric_grids = [
+        _prepare_rubric_grid(r)
+        for r in get_visible_rubrics(request.user).filter(pk__in=raw_rubric_ids)
+    ] if raw_rubric_ids else []
+
     suggested_batch_name = ''
     if is_multiversion:
         raw_year = exam.get('year')
@@ -295,6 +309,7 @@ def preview_exam(request):
         'instructions': exam.get('instructions', ''),
         'bloom_display': bloom_display,
         'total_exam_questions': total_exam_questions,
+        'rubric_grids': rubric_grids,
         'suggested_batch_name': suggested_batch_name,
         'print_style': get_print_style_context(
             resolve_print_format_for_context(
@@ -310,6 +325,10 @@ def preview_exam(request):
         # simulado, "Ver examen" queda deshabilitado a propósito (no hay una
         # segunda visita con el examen ya "guardado" que mostrar).
         'is_demo': bool(request.session.get('onb2_demo_scheme_active')),
+        # Si venimos de "Editar" (material:editar_examen o material:editar_lote),
+        # habilita el botón "Guardar como nuevo examen" en el preview para no
+        # forzar a elegir entre pisar el original o perder los cambios.
+        'is_editing_exam': bool(request.session.get('editing_exam_id') or request.session.get('editing_batch_id')),
     }
 
     if is_multiversion and not print_preview:
@@ -974,6 +993,15 @@ def _resolve_exam_print_format_safe(examen):
         return None
 
 
+def _strip_batch_version_suffix(title):
+    # Los Exam individuales de un lote se guardan como "<titulo base> -
+    # Version <N>" (ver el armado de exam_kwargs en save_exam_from_session).
+    # Al prefillear "Editar lote" desde uno de esos Exam de referencia, hay
+    # que sacarle el sufijo — si no, cada re-guardado le pega otro "- Version
+    # N" encima (ver material:editar_lote).
+    return re.sub(r'\s*-\s*Version\s+\d+\s*$', '', title or '').strip()
+
+
 def _build_preview_exam_payload_from_exam(examen):
     from .models import InstitutionV2, FacultyV2, Career, CampusV2
 
@@ -1264,6 +1292,7 @@ def create_exam(request):
     if request.GET.get('limpiar') == '1':
         request.session.pop('preview_exam', None)
         request.session.pop('editing_exam_id', None)
+        request.session.pop('editing_batch_id', None)
         request.session.pop('preview_generated_versions_ids', None)
         return redirect('material:create_exam')
 
@@ -1305,7 +1334,30 @@ def create_exam(request):
         if editing_exam is not None:
             prefill_data = _build_preview_exam_payload_from_exam(editing_exam)
             request.session['editing_exam_id'] = editing_exam.pk
+            request.session.pop('editing_batch_id', None)
             request.session.pop('preview_generated_versions_ids', None)
+
+    # edit_batch_id: prefill desde material:editar_lote — mismos parametros
+    # generales que un Exam individual (usa el primer tema como referencia),
+    # pero con num_versions/batch_name propios del lote. Ver editar_lote y
+    # el manejo de editing_batch_id en save_exam_from_session.
+    edit_batch_id = request.GET.get('edit_batch_id', '')
+    if str(edit_batch_id).isdigit():
+        editing_batch = ExamVersionBatch.objects.filter(
+            pk=int(edit_batch_id),
+            created_by=request.user,
+        ).first()
+        if editing_batch is not None:
+            representative_exam = editing_batch.versions.order_by('version_number', 'id').first()
+            if representative_exam is not None:
+                prefill_data = _build_preview_exam_payload_from_exam(representative_exam)
+                prefill_data['title'] = _strip_batch_version_suffix(prefill_data['title'])
+                prefill_data['batch_name'] = editing_batch.name
+                prefill_data['num_versions'] = str(editing_batch.version_count)
+                prefill_data['questions_per_version'] = str(editing_batch.questions_per_version or '')
+                request.session['editing_batch_id'] = editing_batch.pk
+                request.session.pop('editing_exam_id', None)
+                request.session.pop('preview_generated_versions_ids', None)
 
     if not prefill_data:
         editing_exam_id = request.session.get('editing_exam_id')
@@ -1316,6 +1368,21 @@ def create_exam(request):
             ).first()
             if editing_exam is not None:
                 prefill_data = _build_preview_exam_payload_from_exam(editing_exam)
+
+        editing_batch_id = request.session.get('editing_batch_id')
+        if not prefill_data and str(editing_batch_id).isdigit():
+            editing_batch = ExamVersionBatch.objects.filter(
+                pk=int(editing_batch_id),
+                created_by=request.user,
+            ).first()
+            if editing_batch is not None:
+                representative_exam = editing_batch.versions.order_by('version_number', 'id').first()
+                if representative_exam is not None:
+                    prefill_data = _build_preview_exam_payload_from_exam(representative_exam)
+                    prefill_data['title'] = _strip_batch_version_suffix(prefill_data['title'])
+                    prefill_data['batch_name'] = editing_batch.name
+                    prefill_data['num_versions'] = str(editing_batch.version_count)
+                    prefill_data['questions_per_version'] = str(editing_batch.questions_per_version or '')
 
     # ONBOARDING WIZARD V2: si venimos del asistente y todavía no hay ningún
     # borrador de examen en curso, autocompletamos con lo que ya se cargó en
@@ -1418,7 +1485,11 @@ def save_exam_from_session(request):
     }
     tipo = tipo_map.get(exam_data.get('tipo_examen', ''), exam_data.get('tipo_examen') or 'Examen')
     fecha = exam_data.get('fecha', '')
-    title = (exam_data.get('title') or '').strip() or \
+    # "Guardar como nuevo examen" (ver preview_exam.html) manda un titulo
+    # propio en el POST para no pisar el titulo del examen original que se
+    # esta editando.
+    title_override = (request.POST.get('title') or '').strip()
+    title = title_override or (exam_data.get('title') or '').strip() or \
             f"{tipo} - {subject.name}" + (f" ({fecha})" if fecha else "")
 
     duration = 60
@@ -1603,10 +1674,23 @@ def save_exam_from_session(request):
     if not chosen_versions or not chosen_versions[0]:
         return _error('No hay preguntas suficientes para generar el examen.')
 
+    # "Guardar como nuevo examen": aunque haya un examen en edicion en la
+    # sesion, se fuerza a crear uno nuevo en vez de pisar el original.
+    save_as_new = str(request.POST.get('save_as_new', '')).strip() in ('1', 'true', 'True')
+
     editing_exam_id = request.session.get('editing_exam_id')
     editing_exam = None
-    if str(editing_exam_id).isdigit():
+    if not save_as_new and str(editing_exam_id).isdigit():
         editing_exam = _get_compatible_exam_queryset().filter(pk=int(editing_exam_id), created_by=request.user).first()
+
+    # "Editar lote" (material:editar_lote) llega aca con editing_batch_id en
+    # sesion en vez de editing_exam_id: en vez de crear un lote nuevo, se
+    # actualizan el ExamVersionBatch y sus Exam existentes in-place. Ver
+    # editar_lote / manejo de edit_batch_id en create_exam.
+    editing_batch_id = request.session.get('editing_batch_id')
+    editing_batch = None
+    if not save_as_new and editing_exam is None and str(editing_batch_id).isdigit():
+        editing_batch = ExamVersionBatch.objects.filter(pk=int(editing_batch_id), created_by=request.user).first()
 
     try:
         with transaction.atomic():
@@ -1618,7 +1702,18 @@ def save_exam_from_session(request):
                 batch_name = _suggest_batch_name(subject, exam_data, institution_name, versions_count, year)
 
             batch = None
-            if supports_version_batches and editing_exam is None and versions_count > 1:
+            if editing_batch is not None:
+                editing_batch.name = batch_name
+                editing_batch.subject = subject
+                editing_batch.institution_name = institution_name
+                editing_batch.exam_type = exam_type or ''
+                editing_batch.semester = exam_data.get('batch_semester') or ''
+                editing_batch.year = year
+                editing_batch.version_count = versions_count
+                editing_batch.questions_per_version = questions_per_version
+                editing_batch.save()
+                batch = editing_batch
+            elif supports_version_batches and editing_exam is None and versions_count > 1:
                 batch = ExamVersionBatch.objects.create(
                     name=batch_name,
                     created_by=request.user,
@@ -1665,51 +1760,99 @@ def save_exam_from_session(request):
                 _safe_assign_print_format(editing_exam)
                 created_exams.append(editing_exam)
 
-            for idx, version_questions in enumerate(chosen_versions, start=1):
-                if editing_exam is not None:
-                    break
-                exam_kwargs = {
-                    'title': f"{title} - Version {idx}",
-                    'subject': subject,
-                    'created_by': request.user,
-                    'duration_minutes': duration,
-                    'instructions': exam_data.get('instructions') or '',
-                    'institution_name': institution_name,
-                    'faculty_name': faculty_name,
-                    'campus_name': campus_name,
-                    'career_name': career_name,
-                    'professor': professor,
-                    'exam_type': exam_type,
-                    'exam_mode': exam_mode,
-                    'exam_group': exam_group,
-                    'shift': shift,
-                    'year': year,
-                    'date_str': fecha,
-                    'resolution_time': resolution_time or None,
-                    'alumno': exam_data.get('alumno') or '',
-                    'curso': exam_data.get('curso') or '',
-                    'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
-                }
-                if supports_version_batches and batch is not None:
-                    exam_kwargs['version_batch'] = batch
-                    exam_kwargs['version_number'] = idx
-
-                if has_full_exam_write_schema:
-                    exam_obj = ExamModel.objects.create(**exam_kwargs)
+            elif editing_batch is not None:
+                # Se reutilizan los Exam existentes del lote por orden de
+                # version_number; si la cantidad de temas cambio, sobran o
+                # faltan filas se crean/borran para que quede en linea con
+                # versions_count.
+                existing_versions = list(editing_batch.versions.order_by('version_number', 'id'))
+                for idx, version_questions in enumerate(chosen_versions, start=1):
+                    exam_kwargs = {
+                        'title': f"{title} - Version {idx}",
+                        'subject': subject,
+                        'duration_minutes': duration,
+                        'instructions': exam_data.get('instructions') or '',
+                        'institution_name': institution_name,
+                        'faculty_name': faculty_name,
+                        'campus_name': campus_name,
+                        'career_name': career_name,
+                        'professor': professor,
+                        'exam_type': exam_type,
+                        'exam_mode': exam_mode,
+                        'exam_group': exam_group,
+                        'shift': shift,
+                        'year': year,
+                        'date_str': fecha,
+                        'resolution_time': resolution_time or None,
+                        'alumno': exam_data.get('alumno') or '',
+                        'curso': exam_data.get('curso') or '',
+                        'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
+                    }
+                    if idx <= len(existing_versions):
+                        exam_obj = existing_versions[idx - 1]
+                        for field_name, field_value in exam_kwargs.items():
+                            setattr(exam_obj, field_name, field_value)
+                        exam_obj.version_number = idx
+                        exam_obj.save()
+                    else:
+                        exam_kwargs['created_by'] = request.user
+                        exam_kwargs['version_batch'] = editing_batch
+                        exam_kwargs['version_number'] = idx
+                        exam_obj = ExamModel.objects.create(**exam_kwargs)
                     exam_obj.topics.set(selected_topics)
-                    if selected_outcomes.exists():
-                        exam_obj.learning_outcomes.set(selected_outcomes)
+                    exam_obj.learning_outcomes.set(selected_outcomes)
                     exam_obj.questions.set(version_questions)
-                else:
-                    exam_obj = _create_exam_with_compatible_schema(
-                        exam_kwargs,
-                        selected_topics,
-                        selected_outcomes,
-                        version_questions,
-                    )
-                _apply_rubrics_to_exam(exam_obj, selected_rubrics)
-                _safe_assign_print_format(exam_obj)
-                created_exams.append(exam_obj)
+                    _apply_rubrics_to_exam(exam_obj, selected_rubrics)
+                    _safe_assign_print_format(exam_obj)
+                    created_exams.append(exam_obj)
+
+                for stale_exam in existing_versions[len(chosen_versions):]:
+                    stale_exam.delete()
+
+            else:
+                for idx, version_questions in enumerate(chosen_versions, start=1):
+                    exam_kwargs = {
+                        'title': f"{title} - Version {idx}",
+                        'subject': subject,
+                        'created_by': request.user,
+                        'duration_minutes': duration,
+                        'instructions': exam_data.get('instructions') or '',
+                        'institution_name': institution_name,
+                        'faculty_name': faculty_name,
+                        'campus_name': campus_name,
+                        'career_name': career_name,
+                        'professor': professor,
+                        'exam_type': exam_type,
+                        'exam_mode': exam_mode,
+                        'exam_group': exam_group,
+                        'shift': shift,
+                        'year': year,
+                        'date_str': fecha,
+                        'resolution_time': resolution_time or None,
+                        'alumno': exam_data.get('alumno') or '',
+                        'curso': exam_data.get('curso') or '',
+                        'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
+                    }
+                    if supports_version_batches and batch is not None:
+                        exam_kwargs['version_batch'] = batch
+                        exam_kwargs['version_number'] = idx
+
+                    if has_full_exam_write_schema:
+                        exam_obj = ExamModel.objects.create(**exam_kwargs)
+                        exam_obj.topics.set(selected_topics)
+                        if selected_outcomes.exists():
+                            exam_obj.learning_outcomes.set(selected_outcomes)
+                        exam_obj.questions.set(version_questions)
+                    else:
+                        exam_obj = _create_exam_with_compatible_schema(
+                            exam_kwargs,
+                            selected_topics,
+                            selected_outcomes,
+                            version_questions,
+                        )
+                    _apply_rubrics_to_exam(exam_obj, selected_rubrics)
+                    _safe_assign_print_format(exam_obj)
+                    created_exams.append(exam_obj)
     except Exception:
         logger.exception('Error guardando examenes desde /save-exam/.')
         return _error('No se pudo guardar el examen. Intenta nuevamente en unos segundos.')
@@ -1717,8 +1860,12 @@ def save_exam_from_session(request):
     del request.session['preview_exam']
     request.session.pop('preview_generated_versions_ids', None)
     request.session.pop('editing_exam_id', None)
+    request.session.pop('editing_batch_id', None)
 
-    if batch is not None:
+    if editing_batch is not None:
+        success_message = f'Lote "{editing_batch.name}" actualizado correctamente.'
+        success_redirect = ('material:view_exam_batch', {'batch_id': editing_batch.id})
+    elif batch is not None:
         success_message = f'Se guardo el lote "{batch.name}" con {len(created_exams)} versiones.'
         success_redirect = ('material:view_exam_batch', {'batch_id': batch.id})
     elif editing_exam is not None:
@@ -1730,6 +1877,9 @@ def save_exam_from_session(request):
             f'Se guardaron {len(created_exams)} examen(es) individuales. '
             'El agrupado por versiones quedara disponible cuando se apliquen las migraciones pendientes.'
         )
+        success_redirect = ('material:mis_examenes', {})
+    elif save_as_new:
+        success_message = 'Se guardó como un nuevo examen.'
         success_redirect = ('material:mis_examenes', {})
     else:
         success_message = 'Examen guardado correctamente.'
@@ -3172,10 +3322,38 @@ def editar_examen(request, pk):
     examen = _get_compatible_exam_or_404(request.user, pk)
     request.session['preview_exam'] = _build_preview_exam_payload_from_exam(examen)
     request.session['editing_exam_id'] = examen.pk
+    request.session.pop('editing_batch_id', None)
     request.session.pop('preview_generated_versions_ids', None)
 
     messages.info(request, 'Puedes editar el examen y volver a previsualizar/guardar.', extra_tags='examenes')
     return redirect(f"{reverse('material:create_exam')}?edit_exam_id={examen.pk}")
+
+@login_required
+def editar_lote(request, batch_id):
+    # Editar un lote lleva a "Crear examen" para modificar los parametros
+    # generales (materia, institucion, cantidad de temas, etc.) — igual que
+    # editar_examen con un Exam individual. Las preguntas puntuales de cada
+    # tema se siguen editando desde view_exam_batch.html (boton "Cambiar"),
+    # no desde aca.
+    batch = get_object_or_404(ExamVersionBatch, id=batch_id, created_by=request.user)
+    representative_exam = batch.versions.order_by('version_number', 'id').first()
+    if representative_exam is None:
+        messages.error(request, 'El lote no tiene examenes para editar.', extra_tags='examenes')
+        return redirect('material:view_exam_batch', batch_id=batch.id)
+
+    prefill_data = _build_preview_exam_payload_from_exam(representative_exam)
+    prefill_data['title'] = _strip_batch_version_suffix(prefill_data['title'])
+    prefill_data['batch_name'] = batch.name
+    prefill_data['num_versions'] = str(batch.version_count)
+    prefill_data['questions_per_version'] = str(batch.questions_per_version or '')
+
+    request.session['preview_exam'] = prefill_data
+    request.session['editing_batch_id'] = batch.pk
+    request.session.pop('editing_exam_id', None)
+    request.session.pop('preview_generated_versions_ids', None)
+
+    messages.info(request, 'Puedes editar los parametros generales del lote y volver a previsualizar/guardar.', extra_tags='examenes')
+    return redirect(f"{reverse('material:create_exam')}?edit_batch_id={batch.pk}")
 
 @login_required
 def eliminar_examen(request, pk):
@@ -6581,10 +6759,14 @@ def _prepare_rubric_grid(rubric):
 @login_required
 def rubric_list(request):
     from django.db.models import Count
-    rubricas = Rubric.objects.filter(created_by=request.user).annotate(
+    from .content_visibility import get_visible_rubrics
+    # Propias + compartidas por grupo de confianza (ver get_visible_rubrics) —
+    # antes solo listaba las propias, así que una rúbrica compartida por otro
+    # usuario era utilizable en Crear Examen/plantillas pero invisible acá.
+    rubricas = get_visible_rubrics(request.user).select_related('created_by').annotate(
         level_count=Count('levels', distinct=True),
         criterion_count=Count('criteria', distinct=True),
-    )
+    ).order_by('-created_at')
     return render(request, 'material/rubricas/list.html', {'rubricas': rubricas})
 
 

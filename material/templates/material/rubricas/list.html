@@ -25,6 +25,7 @@
                 <thead class="table-secondary">
                     <tr>
                         <th>Título</th>
+                        <th>Origen</th>
                         <th class="text-center">Niveles</th>
                         <th class="text-center">Criterios</th>
                         <th>Modificada</th>
@@ -35,6 +36,15 @@
                     {% for rubrica in rubricas %}
                     <tr>
                         <td class="rt-card-title" data-label="Título"><strong>{{ rubrica.title }}</strong></td>
+                        <td data-label="Origen">
+                            {% if rubrica.created_by_id == request.user.id %}
+                                <span class="badge bg-secondary">Mía</span>
+                            {% else %}
+                                <span class="badge bg-info text-dark" title="Compartida por {{ rubrica.created_by.username }} en un grupo de confianza">
+                                    <i class="bi bi-people-fill me-1"></i>{{ rubrica.created_by.username }}
+                                </span>
+                            {% endif %}
+                        </td>
                         <td class="text-center" data-label="Niveles">
                             {% if rubrica.level_count %}
                                 <span class="badge bg-primary">{{ rubrica.level_count }}</span>
@@ -51,6 +61,7 @@
                         </td>
                         <td class="text-nowrap text-muted small" data-label="Modificada">{{ rubrica.updated_at|date:"d/m/Y H:i" }}</td>
                         <td class="text-end text-nowrap" data-label="Acciones">
+                            {% if rubrica.created_by_id == request.user.id %}
                             <a href="{% url 'material:rubric_edit' rubrica.pk %}" class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-pencil"></i> Editar
                             </a>
@@ -61,6 +72,9 @@
                                     <i class="bi bi-trash"></i> Eliminar
                                 </button>
                             </form>
+                            {% else %}
+                            <span class="text-muted small">Solo lectura</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

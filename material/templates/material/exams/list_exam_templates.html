@@ -102,10 +102,6 @@
                                 <td data-label="Año">{{ template.year }}</td>
                                 <td data-label="Acciones">
                                     <div class="btn-group" role="group">
-                                        <a href="{% url 'material:create_exam' %}?plantilla_id={{ template.id }}"
-                                           class="btn btn-sm btn-success" title="Crear examen con esta plantilla">
-                                            <i class="fas fa-file-circle-plus"></i>
-                                        </a>
                                         <a href="{% url 'material:view_exam_template' template.id %}"
                                            class="btn btn-sm btn-info" title="Ver plantilla" target="_blank">
                                             <i class="fas fa-eye"></i>
@@ -113,6 +109,10 @@
                                         <a href="{% url 'material:edit_exam_template' template.id %}"
                                            class="btn btn-sm btn-warning" title="Editar plantilla">
                                             <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'material:create_exam' %}?plantilla_id={{ template.id }}"
+                                           class="btn btn-sm btn-success" title="Crear examen con esta plantilla">
+                                            <i class="fas fa-plus"></i>
                                         </a>
                                         <button type="submit" form="deleteRowForm_{{ template.id }}"
                                                 class="btn btn-sm btn-danger" title="Eliminar plantilla">

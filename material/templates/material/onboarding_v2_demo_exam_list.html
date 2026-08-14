@@ -79,10 +79,20 @@
                 <a href="{% url 'material:onboarding_v2_page' %}?step=1" class="btn btn-primary btn-lg">
                     <i class="bi bi-pencil-square me-1"></i>Cargar información propia
                 </a>
+                <form method="post" action="{% url 'material:entrar_area_pruebas' %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-mortarboard me-1"></i>Probar el Área de Pruebas
+                    </button>
+                </form>
                 <a href="{% url 'material:onboarding_v2_exit' %}" class="btn btn-outline-secondary btn-lg">
                     Salir y explorar el sistema
                 </a>
             </div>
+            <p class="text-muted small mt-3 mb-0">
+                El Área de Pruebas es un espacio aparte con contenido de ejemplo para practicar crear
+                preguntas, exámenes y más sin tocar la cuenta real — se puede ingresar en cualquier momento desde el menú.
+            </p>
         </div>
     </div>
 </div>
