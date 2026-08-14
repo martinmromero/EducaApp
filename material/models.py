@@ -1018,6 +1018,10 @@ class Profile(models.Model):
         ('slack', 'Slack'),
         ('linear', 'Linear'),
         ('figma', 'Figma'),
+        ('miro', 'Miro'),
+        ('pinterest', 'Pinterest'),
+        ('replicate', 'Replicate'),
+        ('starbucks', 'Starbucks'),
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)

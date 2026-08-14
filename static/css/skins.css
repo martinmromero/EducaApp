@@ -1,7 +1,8 @@
 /*
- * Skins de "tema visual" — inspirados en Slack, Linear y Figma
- * (ver DESIGN-*.md). Se activan poniendo data-visual-theme="slack|
- * linear|figma" en <html> (ver base.html / material:set_visual_theme).
+ * Skins de "tema visual" — inspirados en Slack, Linear, Figma, Miro,
+ * Pinterest, Replicate y Starbucks (ver DESIGN-*.md). Se activan poniendo
+ * data-visual-theme="slack|linear|figma|miro|pinterest|replicate|starbucks"
+ * en <html> (ver base.html / material:set_visual_theme).
  *
  * No tocan --bs-body-bg/--edu-sidebar-bg/--edu-topbar-bg salvo cuando el
  * tinte de canvas es parte central de la marca, y sólo bajo
@@ -154,4 +155,195 @@
   --bs-btn-border-color: #000000;
   --bs-btn-hover-bg: #000000;
   --bs-btn-hover-border-color: #000000;
+}
+
+/* ---------- Miro: negro dominante + pills, amarillo solo en acentos ---------- */
+[data-visual-theme="miro"] {
+  --bs-primary: #1c1c1e;
+  --bs-primary-rgb: 28, 28, 30;
+  --bs-link-color: #4262ff;
+  --bs-link-color-rgb: 66, 98, 255;
+  --bs-link-hover-color: #5b76fe;
+  --bs-border-radius: 1rem;
+  --bs-border-radius-sm: 0.75rem;
+  --bs-border-radius-lg: 1.75rem;
+  --edu-accent-soft-bg: #fff8e0;
+  --edu-accent-soft-border: #fff4c4;
+  --edu-accent-soft-text: #746019;
+  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-weight: 400;
+}
+[data-visual-theme="miro"]:not([data-bs-theme="dark"]) {
+  --edu-sidebar-bg: #fff4c4;
+  --edu-topbar-bg: #fff8e0;
+}
+[data-visual-theme="miro"] h1, [data-visual-theme="miro"] h2,
+[data-visual-theme="miro"] h3, [data-visual-theme="miro"] h4,
+[data-visual-theme="miro"] h5, [data-visual-theme="miro"] h6 {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+[data-visual-theme="miro"] .btn { border-radius: 999px; }
+[data-visual-theme="miro"] .btn-primary {
+  --bs-btn-bg: #1c1c1e;
+  --bs-btn-border-color: #1c1c1e;
+  --bs-btn-hover-bg: #2c2c34;
+  --bs-btn-hover-border-color: #2c2c34;
+  --bs-btn-active-bg: #2c2c34;
+  --bs-btn-active-border-color: #2c2c34;
+  --bs-btn-focus-shadow-rgb: 28, 28, 30;
+}
+[data-visual-theme="miro"] .btn-outline-primary {
+  --bs-btn-color: #1c1c1e;
+  --bs-btn-border-color: #1c1c1e;
+  --bs-btn-hover-bg: #1c1c1e;
+  --bs-btn-hover-border-color: #1c1c1e;
+}
+
+/* ---------- Pinterest: rojo único, chrome cálido, botones NO pill (16px) ---------- */
+[data-visual-theme="pinterest"] {
+  --bs-primary: #e60023;
+  --bs-primary-rgb: 230, 0, 35;
+  --bs-link-color: #211922;
+  --bs-link-color-rgb: 33, 25, 34;
+  --bs-link-hover-color: #000000;
+  --bs-border-radius: 1rem;
+  --bs-border-radius-sm: 0.5rem;
+  --bs-border-radius-lg: 2rem;
+  --edu-accent-soft-bg: #f6f6f3;
+  --edu-accent-soft-border: #dadad3;
+  --edu-accent-soft-text: #33332e;
+  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-weight: 400;
+}
+[data-visual-theme="pinterest"]:not([data-bs-theme="dark"]) {
+  --bs-body-bg: #fbfbf9;
+  --edu-sidebar-bg: #f6f6f3;
+  --edu-topbar-bg: #f8f8f5;
+}
+[data-visual-theme="pinterest"] h1, [data-visual-theme="pinterest"] h2,
+[data-visual-theme="pinterest"] h3, [data-visual-theme="pinterest"] h4,
+[data-visual-theme="pinterest"] h5, [data-visual-theme="pinterest"] h6 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+/* A diferencia de los demás skins, Pinterest NO usa pill en botones — su
+   propio sistema reserva el pill para search bar/chips/avatares, no para
+   button-primary (rounded.md = 16px). Ver DESIGN-pinterest.md. */
+[data-visual-theme="pinterest"] .btn { border-radius: 1rem; }
+[data-visual-theme="pinterest"] .btn-primary {
+  --bs-btn-bg: #e60023;
+  --bs-btn-border-color: #e60023;
+  --bs-btn-hover-bg: #cc001f;
+  --bs-btn-hover-border-color: #cc001f;
+  --bs-btn-active-bg: #cc001f;
+  --bs-btn-active-border-color: #cc001f;
+  --bs-btn-focus-shadow-rgb: 230, 0, 35;
+}
+[data-visual-theme="pinterest"] .btn-outline-primary {
+  --bs-btn-color: #e60023;
+  --bs-btn-border-color: #e60023;
+  --bs-btn-hover-bg: #e60023;
+  --bs-btn-hover-border-color: #e60023;
+}
+
+/* ---------- Replicate: naranja sobre cream, pills, radios chicos en cards ---------- */
+[data-visual-theme="replicate"] {
+  --bs-primary: #ea2804;
+  --bs-primary-rgb: 234, 40, 4;
+  --bs-link-color: #ea2804;
+  --bs-link-color-rgb: 234, 40, 4;
+  --bs-link-hover-color: #c01f00;
+  --bs-border-radius: 0.625rem;
+  --bs-border-radius-sm: 0.375rem;
+  --bs-border-radius-lg: 1rem;
+  --edu-accent-soft-bg: #f9f7f3;
+  --edu-accent-soft-border: #dedcd4;
+  --edu-accent-soft-text: #202020;
+  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-weight: 400;
+}
+[data-visual-theme="replicate"]:not([data-bs-theme="dark"]) {
+  --bs-body-bg: #f9f7f3;
+  --edu-sidebar-bg: #f3f0e8;
+  --edu-topbar-bg: #f6f3ec;
+}
+[data-visual-theme="replicate"] h1, [data-visual-theme="replicate"] h2,
+[data-visual-theme="replicate"] h3, [data-visual-theme="replicate"] h4,
+[data-visual-theme="replicate"] h5, [data-visual-theme="replicate"] h6 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+[data-visual-theme="replicate"] .btn { border-radius: 999px; }
+[data-visual-theme="replicate"] .btn-primary {
+  --bs-btn-bg: #ea2804;
+  --bs-btn-border-color: #ea2804;
+  --bs-btn-hover-bg: #c01f00;
+  --bs-btn-hover-border-color: #c01f00;
+  --bs-btn-active-bg: #c01f00;
+  --bs-btn-active-border-color: #c01f00;
+  --bs-btn-focus-shadow-rgb: 234, 40, 4;
+}
+[data-visual-theme="replicate"] .btn-outline-primary {
+  --bs-btn-color: #ea2804;
+  --bs-btn-border-color: #ea2804;
+  --bs-btn-hover-bg: #ea2804;
+  --bs-btn-hover-border-color: #ea2804;
+}
+
+/* ---------- Starbucks: verde cálido sobre cream, pills, títulos en verde marca ---------- */
+[data-visual-theme="starbucks"] {
+  --bs-primary: #00754a;
+  --bs-primary-rgb: 0, 117, 74;
+  --bs-link-color: #00754a;
+  --bs-link-color-rgb: 0, 117, 74;
+  --bs-link-hover-color: #006241;
+  --bs-border-radius: 0.75rem;
+  --bs-border-radius-sm: 0.5rem;
+  --bs-border-radius-lg: 1rem;
+  --edu-accent-soft-bg: #d4e9e2;
+  --edu-accent-soft-border: #b7dbcd;
+  --edu-accent-soft-text: #1e3932;
+  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
+  --bs-body-font-weight: 400;
+}
+[data-visual-theme="starbucks"]:not([data-bs-theme="dark"]) {
+  --bs-body-bg: #f2f0eb;
+  --edu-sidebar-bg: #edebe9;
+  --edu-topbar-bg: #eeece7;
+}
+/* Toque de marca: los títulos van en Starbucks Green, distinto del verde
+   más claro que usan los botones (Green Accent) — ver DESIGN-starbucks.md,
+   sección de tipografía ("H1 ... Starbucks-Green primary heading"). Solo en
+   modo claro: en modo oscuro un verde tan oscuro sobre fondo oscuro pierde
+   contraste, así que ahí se deja el color de texto default del tema oscuro. */
+[data-visual-theme="starbucks"] h1, [data-visual-theme="starbucks"] h2,
+[data-visual-theme="starbucks"] h3, [data-visual-theme="starbucks"] h4,
+[data-visual-theme="starbucks"] h5, [data-visual-theme="starbucks"] h6 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+[data-visual-theme="starbucks"]:not([data-bs-theme="dark"]) h1,
+[data-visual-theme="starbucks"]:not([data-bs-theme="dark"]) h2,
+[data-visual-theme="starbucks"]:not([data-bs-theme="dark"]) h3,
+[data-visual-theme="starbucks"]:not([data-bs-theme="dark"]) h4,
+[data-visual-theme="starbucks"]:not([data-bs-theme="dark"]) h5,
+[data-visual-theme="starbucks"]:not([data-bs-theme="dark"]) h6 {
+  color: #006241;
+}
+[data-visual-theme="starbucks"] .btn { border-radius: 999px; }
+[data-visual-theme="starbucks"] .btn-primary {
+  --bs-btn-bg: #00754a;
+  --bs-btn-border-color: #00754a;
+  --bs-btn-hover-bg: #006241;
+  --bs-btn-hover-border-color: #006241;
+  --bs-btn-active-bg: #006241;
+  --bs-btn-active-border-color: #006241;
+  --bs-btn-focus-shadow-rgb: 0, 117, 74;
+}
+[data-visual-theme="starbucks"] .btn-outline-primary {
+  --bs-btn-color: #00754a;
+  --bs-btn-border-color: #00754a;
+  --bs-btn-hover-bg: #00754a;
+  --bs-btn-hover-border-color: #00754a;
 }
