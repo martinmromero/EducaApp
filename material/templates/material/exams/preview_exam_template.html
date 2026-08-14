@@ -1,11 +1,18 @@
 {% extends 'material/exams/base_exam_preview.html' %}
 
-{% block title %}Plantilla de Examen{% endblock %}
+{% block title %}{% if template_name %}{{ template_name }} - Plantilla{% else %}Plantilla de Examen{% endif %}{% endblock %}
 
 {% block action_buttons %}
 <button onclick="window.print()">
     <i class="fas fa-print"></i> Imprimir Examen
 </button>
+{% if template_id %}
+<a href="{% url 'material:create_exam' %}?plantilla_id={{ template_id }}">
+    <button class="secondary">
+        <i class="fas fa-file-circle-plus"></i> Crear examen con esta plantilla
+    </button>
+</a>
+{% endif %}
 <a href="{{ back_url }}">
     <button class="secondary">
         <i class="fas fa-arrow-left"></i> Volver

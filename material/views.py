@@ -1220,6 +1220,11 @@ def create_exam(request):
     # además la puerta de entrada al problema de get_exam_template de más
     # arriba, no solo una opción confusa en el desplegable.
     templates = ExamTemplate.objects.filter(created_by=request.user)
+    # ?plantilla_id= viene del botón "Crear examen con esta plantilla" (listado
+    # de plantillas / preview). Se compara contra `templates`, que ya está
+    # acotado a las del usuario, así que un ID ajeno simplemente no matchea
+    # ningún <option> en el template y el desplegable queda en "Examen vacío".
+    preselected_template_id = request.GET.get('plantilla_id')
 
     if request.method == 'POST':
         form = ExamForm(request.POST)
@@ -1352,6 +1357,7 @@ def create_exam(request):
         'materias': materias,
         'profesores': profesores,
         'templates': templates,
+        'preselected_template_id': preselected_template_id,
         'prefill_data_json': prefill_data_json,
         'wizard_active': wizard_active,
         'wizard_prefill_fields_json': _json.dumps(wizard_prefill_fields),
@@ -2054,6 +2060,8 @@ def view_exam_template(request, template_id):
 
     context = {
         'exam': exam_data,
+        'template_id': template.id,
+        'template_name': str(template),
         'institution': template.institution,
         'faculty': template.faculty,
         'career': template.career,
@@ -2095,6 +2103,7 @@ def save_exam_template(request):
             # created_by/year quedan afuera a propósito: son metadata de
             # creación, no algo que "editar" deba tocar.
             content_fields = {
+                'name': request.POST.get('name', '').strip(),
                 'institution_id': request.POST.get('institution'),
                 'faculty_id': request.POST.get('faculty'),
                 'career_id': request.POST.get('career'),

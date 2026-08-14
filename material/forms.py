@@ -247,11 +247,16 @@ class ExamTemplateForm(forms.ModelForm):
     class Meta:
         model = ExamTemplate
         fields = [
+            'name',
             'institution', 'faculty', 'career', 'subject', 'campus', 'professor',
             'print_format',
             'learning_outcomes', 'notes_and_recommendations',
         ]
         widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Parcial 1 - Comisión A (opcional)',
+            }),
             'learning_outcomes': forms.CheckboxSelectMultiple(
                 attrs={'class': 'learning-outcomes-checkbox'}
             ),

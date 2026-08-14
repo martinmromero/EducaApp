@@ -40,10 +40,10 @@
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label for="plantilla">Plantilla</label>
-                    <select class="form-select" name="plantilla" id="plantilla">
+                    <select class="form-select" name="plantilla" id="plantilla" data-preselect-id="{{ preselected_template_id|default:'' }}">
                         <option value="">Examen vacío</option>
                         {% for template in templates %}
-                            <option value="{{ template.id }}">{{ template }}</option>
+                            <option value="{{ template.id }}"{% if preselected_template_id == template.id|stringformat:"s" %} selected{% endif %}>{{ template.name|default:template }}</option>
                         {% endfor %}
                     </select>
                 </div>

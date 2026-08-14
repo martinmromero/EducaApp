@@ -553,6 +553,25 @@ document.addEventListener('DOMContentLoaded', function() {
     updateSuggestedBatchName();
     renderTopicsCheckboxes();
     renderQuestionsCheckboxes();
+
+    // Preselección de plantilla vía ?plantilla_id= (botón "Crear examen con
+    // esta plantilla" del listado/preview de plantillas). El <option> ya
+    // viene marcado "selected" desde el server, pero eso no dispara el
+    // 'change' que autocompleta el resto del form — hay que dispararlo a
+    // mano, y recién acá abajo, porque el listener de 'plantilla' (más
+    // arriba en este mismo archivo) depende de institucionSelect/
+    // facultadSelect/carreraSelect/sedeSelect, que todavía no existían
+    // cuando ese listener se registró.
+    var preselectId = plantillaSelect.dataset.preselectId;
+    if (preselectId) {
+        var preselectExists = Array.from(plantillaSelect.options).some(function(opt) {
+            return opt.value === preselectId;
+        });
+        if (preselectExists) {
+            plantillaSelect.value = preselectId;
+            plantillaSelect.dispatchEvent(new Event('change'));
+        }
+    }
 });
 
 function toggleTextbox(selectId, textboxId) {

@@ -66,6 +66,7 @@
                             <tr>
                                 <th class="bulk-select-col d-none" style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
                                 <th style="width:40px;"></th>
+                                <th>Nombre</th>
                                 <th class="filterable-col">Institución {% include 'material/components/_column_filter_dropdown.html' with field='institution' label='Institución' options=filter_options.institution selected=selected_filters.institution prefix='d' %}</th>
                                 <th class="filterable-col">Facultad {% include 'material/components/_column_filter_dropdown.html' with field='faculty' label='Facultad' options=filter_options.faculty selected=selected_filters.faculty prefix='d' %}</th>
                                 <th class="filterable-col">Carrera {% include 'material/components/_column_filter_dropdown.html' with field='career' label='Carrera' options=filter_options.career selected=selected_filters.career prefix='d' %}</th>
@@ -86,7 +87,8 @@
                                             data-model="examtemplate" data-id="{{ template.id }}"
                                             data-active="{% if template.id in favorite_ids %}1{% else %}0{% endif %}"></button>
                                 </td>
-                                <td class="rt-card-title" data-label="Institución">{% if template.institution_name_snapshot %}{{ template.institution_name_snapshot }}{% else %}{{ template.institution.name|default:"-" }}{% endif %}</td>
+                                <td class="rt-card-title" data-label="Nombre">{{ template.name|default:template }}</td>
+                                <td data-label="Institución">{% if template.institution_name_snapshot %}{{ template.institution_name_snapshot }}{% else %}{{ template.institution.name|default:"-" }}{% endif %}</td>
                                 <td data-label="Facultad">{% if template.faculty_name_snapshot %}{{ template.faculty_name_snapshot }}{% else %}{{ template.faculty.name|default:"-" }}{% endif %}</td>
                                 <td data-label="Carrera">{{ template.career_name_snapshot|default:template.career.name|default:"-" }}</td>
                                 <td data-label="Materia">{% if template.subject_name_snapshot %}{{ template.subject_name_snapshot }}{% else %}{{ template.subject.name|default:"-" }}{% endif %}</td>
@@ -100,6 +102,10 @@
                                 <td data-label="Año">{{ template.year }}</td>
                                 <td data-label="Acciones">
                                     <div class="btn-group" role="group">
+                                        <a href="{% url 'material:create_exam' %}?plantilla_id={{ template.id }}"
+                                           class="btn btn-sm btn-success" title="Crear examen con esta plantilla">
+                                            <i class="fas fa-file-circle-plus"></i>
+                                        </a>
                                         <a href="{% url 'material:view_exam_template' template.id %}"
                                            class="btn btn-sm btn-info" title="Ver plantilla" target="_blank">
                                             <i class="fas fa-eye"></i>
@@ -117,7 +123,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="9" class="text-center py-4">
+                                <td colspan="10" class="text-center py-4">
                                     <div class="alert alert-info mb-0">
                                         No hay plantillas guardadas.
                                         <a href="{% url 'material:create_exam_template' %}" class="alert-link">

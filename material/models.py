@@ -1341,6 +1341,15 @@ class ExamTemplate(models.Model):
         ('noche', 'Noche')
     ]
 
+    # Nombre elegido por el usuario (opcional). Si se deja vacío, __str__
+    # sigue armando uno automático a partir de Materia/Tipo/Año, como antes.
+    name = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        verbose_name="Nombre de la plantilla"
+    )
+
     # Relaciones institucionales
     institution = models.ForeignKey(
         InstitutionV2,
@@ -1500,10 +1509,12 @@ class ExamTemplate(models.Model):
             models.Index(fields=['subject']),
         ]
     
-    def __str__(self):  
-        exam_name = f"{self.get_exam_type_display()}"  
-        if self.exam_type == 'parcial' and self.partial_number:  
-            exam_name += f" {self.get_partial_number_display()}"  
+    def __str__(self):
+        if self.name:
+            return self.name
+        exam_name = f"{self.get_exam_type_display()}"
+        if self.exam_type == 'parcial' and self.partial_number:
+            exam_name += f" {self.get_partial_number_display()}"
         return f"{self.subject} - {exam_name} ({self.year})"
     
     def save(self, *args, **kwargs):
