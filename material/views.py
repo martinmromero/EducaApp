@@ -6867,6 +6867,22 @@ def rubric_edit(request, pk):
 
 
 @login_required
+def rubric_view(request, pk):
+    """Vista de solo lectura — a diferencia de rubric_edit, no exige ser el
+    dueño: alcanza con que la rúbrica sea visible para el usuario (propia o
+    compartida por grupo de confianza). Es lo que abre el botón "Ver" de una
+    rúbrica ajena en /rubricas/, que antes no tenía a dónde llevar."""
+    from .content_visibility import get_visible_rubrics
+    rubrica = get_object_or_404(get_visible_rubrics(request.user), pk=pk)
+    is_owner = rubrica.created_by_id == request.user.id
+    return render(request, 'material/rubricas/view.html', {
+        'rubrica': rubrica,
+        'grid': _prepare_rubric_grid(rubrica),
+        'is_owner': is_owner,
+    })
+
+
+@login_required
 def rubric_delete(request, pk):
     rubrica = get_object_or_404(Rubric, pk=pk, created_by=request.user)
     if request.method == 'POST':

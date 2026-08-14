@@ -1,0 +1,33 @@
+{% extends 'material/base.html' %}
+{% block page_title %}<i class="bi bi-card-checklist me-2"></i>{{ rubrica.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width:1300px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-0">{{ rubrica.title }}</h4>
+            {% if not is_owner %}
+            <p class="text-muted small mb-0">
+                <i class="bi bi-people-fill me-1"></i>Compartida por {{ rubrica.created_by.username }} — solo lectura
+            </p>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-2">
+            {% if is_owner %}
+            <a href="{% url 'material:rubric_edit' rubrica.pk %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-pencil me-1"></i> Editar
+            </a>
+            {% endif %}
+            <a href="{% url 'material:rubric_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver a Rúbricas
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body table-responsive">
+            {% include 'material/rubricas/_grid_table.html' with grid=grid %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -210,6 +210,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     # RÚBRICAS
     path('rubricas/', material_views.rubric_list, name='rubric_list'),
     path('rubricas/nueva/', material_views.rubric_create, name='rubric_create'),
+    path('rubricas/<int:pk>/', material_views.rubric_view, name='rubric_view'),
     path('rubricas/<int:pk>/editar/', material_views.rubric_edit, name='rubric_edit'),
     path('rubricas/<int:pk>/eliminar/', material_views.rubric_delete, name='rubric_delete'),
     path('examenes/<int:exam_pk>/rubricas/', material_views.exam_rubrics, name='exam_rubrics'),

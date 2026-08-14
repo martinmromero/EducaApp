@@ -35,7 +35,9 @@
                 <tbody>
                     {% for rubrica in rubricas %}
                     <tr>
-                        <td class="rt-card-title" data-label="Título"><strong>{{ rubrica.title }}</strong></td>
+                        <td class="rt-card-title" data-label="Título">
+                            <a href="{% url 'material:rubric_view' rubrica.pk %}"><strong>{{ rubrica.title }}</strong></a>
+                        </td>
                         <td data-label="Origen">
                             {% if rubrica.created_by_id == request.user.id %}
                                 <span class="badge bg-secondary">Mía</span>
@@ -73,7 +75,9 @@
                                 </button>
                             </form>
                             {% else %}
-                            <span class="text-muted small">Solo lectura</span>
+                            <a href="{% url 'material:rubric_view' rubrica.pk %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-eye"></i> Ver
+                            </a>
                             {% endif %}
                         </td>
                     </tr>
