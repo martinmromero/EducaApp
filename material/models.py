@@ -2210,7 +2210,13 @@ class GroqMonitorSchedule(models.Model):
 
 class GroqMonitorRun(models.Model):
     """Resultado de una corrida individual del test de carga contra Groq."""
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha")
+    # default=timezone.now (no auto_now_add) a propósito: las corridas
+    # automáticas se guardan primero en un buffer local (ver
+    # groq_monitor.sync_buffer_to_db) y se insertan acá recién en la
+    # sincronización periódica (4 veces/día) — auto_now_add pisaría ese
+    # valor con la hora de la sincronización en vez de la hora real de la
+    # corrida, rompiendo el análisis de cadencia por tiempo.
+    created_at = models.DateTimeField(default=timezone.now, verbose_name="Fecha")
     success = models.BooleanField(default=False, verbose_name="Corrida sin errores")
     target_questions = models.PositiveIntegerField(default=30, verbose_name="Preguntas pedidas")
     total_generated = models.PositiveIntegerField(default=0, verbose_name="Preguntas generadas")
@@ -2268,7 +2274,8 @@ class GroqVisionTestRun(models.Model):
     contra la key ya guardada ahí, sin cambiar cuál es el modelo de texto
     activo para el fallback de demo real.
     """
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha")
+    # Ver comentario en GroqMonitorRun.created_at — mismo motivo.
+    created_at = models.DateTimeField(default=timezone.now, verbose_name="Fecha")
     model_name = models.CharField(max_length=150, verbose_name="Modelo")
     success = models.BooleanField(default=False, verbose_name="Corrida sin errores")
     response_text = models.TextField(blank=True, verbose_name="Respuesta del modelo")

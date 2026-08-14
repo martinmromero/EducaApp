@@ -48,3 +48,8 @@ media/doc_sessions/
 # producción. Estaba trackeada por error, 4MB/173 archivos quedando cada
 # vez más desactualizados en cada commit (auditoría 2026-08-10).
 staticfiles/
+
+# Buffer local (JSON Lines) de corridas automáticas del monitor de Groq/visión
+# antes de sincronizarse a Postgres — ver material/groq_monitor.py. Estado
+# efímero de runtime, se regenera solo, nunca debe versionarse.
+var/

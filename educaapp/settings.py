@@ -31,6 +31,13 @@ CSRF_TRUSTED_ORIGINS = ['https://educaapp.onrender.com', 'https://educaapp.verce
 # que siempre apunten al dominio público en vez del host real de Render.
 PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'https://educaapp.vercel.app')
 
+# API key + project id de Neon (console.neon.tech → Account settings → API
+# keys) usados solo para leer el consumo del proyecto en /herramientas/uso-neon/
+# (material.views.neon_usage_page) — no se usan para conectarse a la DB, esa
+# sigue yendo por DATABASE_URL.
+NEON_API_KEY = os.environ.get('NEON_API_KEY', '')
+NEON_PROJECT_ID = os.environ.get('NEON_PROJECT_ID', '')
+
 # Usuario técnico dueño de todo el contenido semilla/demo del sistema
 # (instituciones, materias y preguntas de ejemplo no borrables). Se crea via
 # la migración de datos material/migrations/0042_seed_content_user.py.

@@ -7263,14 +7263,16 @@ def service_worker(request):
 
 
 def health_check(request):
-    # UptimeRobot pinguea esto seguido para que Render no duerma el free
-    # tier — se aprovecha ese mismo pulso como "reloj" del monitoreo
-    # periódico de Groq (ver material/groq_monitor.py). No bloquea la
-    # respuesta: si corresponde, dispara la corrida en un thread aparte.
+    # UptimeRobot pinguea esto seguido (cada ~5 min) para que Render no
+    # duerma el free tier — se aprovecha ese mismo pulso como "reloj" del
+    # monitoreo periódico de Groq (ver material/groq_monitor.py), pero
+    # throttleado ahí adentro a ~4 veces/día para no pisarle el autosuspend a
+    # Neon en cada ping (y las corridas automáticas se guardan primero en un
+    # buffer local, no en Postgres directo — ver sync_buffer_to_db). No
+    # bloquea la respuesta.
     try:
-        from .groq_monitor import maybe_trigger, maybe_trigger_vision
-        maybe_trigger()
-        maybe_trigger_vision()
+        from .groq_monitor import maybe_trigger_from_health_ping
+        maybe_trigger_from_health_ping()
     except Exception:
         logger.exception('No se pudo chequear el disparador del monitoreo de Groq')
     return HttpResponse("OK", status=200)
@@ -7457,4 +7459,85 @@ def groq_monitor_page(request):
         'vision_quota_cycles': vision_quota_cycles,
     }
     return render(request, 'material/groq_monitor.html', context)
+
+
+@login_required
+def neon_usage_page(request):
+    """
+    Panel staff-only: consulta la API de Neon (console.neon.tech), no la
+    propia base de datos, para mostrar si el autosuspend está funcionando.
+
+    El número que importa acá es "% del período con el compute activo": en
+    uso liviano normal debería ser bajo, porque Neon apaga el compute solo
+    (scale to zero) a los 5 min de inactividad. Si está cerca de 100%, algo
+    le está pisando el autosuspend — exactamente lo que pasaba con cada ping
+    de /health/ antes del fix del 2026-08-14 (ver groq_monitor.py).
+
+    No reconstruye CU-hours exactas: dependen del tamaño del compute (CU) en
+    cada momento, que esta llamada no expone. Para el número oficial de
+    CU-hours consumidas del mes, remite a la consola de Neon.
+    """
+    if not is_admin(request.user):
+        messages.error(request, 'No hay permiso para acceder a esta sección.', extra_tags='general')
+        return redirect('material:index')
+
+    import requests
+    from django.db import connection
+    from django.utils.dateparse import parse_datetime
+
+    # Diagnóstico de la conexión Django→Postgres: no es la causa del consumo
+    # excesivo (una conexión abierta e inactiva NO le impide a Neon
+    # autosuspender — solo importa si hay queries activas), pero
+    # CONN_MAX_AGE>0 combinado con el endpoint "-pooler" (PgBouncer en modo
+    # transacción) puede traer otros problemas — Neon recomienda
+    # CONN_MAX_AGE=0 en ese caso puntual. Se muestra acá en vez de
+    # cambiarlo a ciegas, porque no hay forma de saber desde el repo si
+    # DATABASE_URL en Render apunta al endpoint pooled o al directo.
+    db_host = connection.settings_dict.get('HOST', '') or ''
+    is_pooled = 'pooler' in db_host
+    context = {
+        'configured': bool(settings.NEON_API_KEY and settings.NEON_PROJECT_ID),
+        'db_host': db_host,
+        'db_is_pooled': is_pooled,
+        'db_conn_max_age': connection.settings_dict.get('CONN_MAX_AGE'),
+    }
+
+    if context['configured']:
+        try:
+            resp = requests.get(
+                f'https://console.neon.tech/api/v2/projects/{settings.NEON_PROJECT_ID}',
+                headers={'Authorization': f'Bearer {settings.NEON_API_KEY}', 'Accept': 'application/json'},
+                timeout=8,
+            )
+            resp.raise_for_status()
+            project = resp.json().get('project', {})
+
+            period_start = parse_datetime(project.get('consumption_period_start') or '')
+            period_end = parse_datetime(project.get('consumption_period_end') or '')
+            active_seconds = project.get('active_time_seconds') or 0
+            now = timezone.now()
+
+            elapsed_pct = active_pct_of_elapsed = None
+            if period_start and period_end and period_end > period_start:
+                elapsed = (min(now, period_end) - period_start).total_seconds()
+                total = (period_end - period_start).total_seconds()
+                elapsed_pct = round(100 * elapsed / total, 1)
+                if elapsed > 0:
+                    active_pct_of_elapsed = round(100 * active_seconds / elapsed, 1)
+
+            context.update({
+                'error': None,
+                'active_hours': round(active_seconds / 3600, 2),
+                'compute_hours': round((project.get('compute_time_seconds') or 0) / 3600, 2),
+                'data_transfer_gb': round((project.get('data_transfer_bytes') or 0) / (1024 ** 3), 3),
+                'period_start': period_start,
+                'period_end': period_end,
+                'elapsed_pct': elapsed_pct,
+                'active_pct_of_elapsed': active_pct_of_elapsed,
+            })
+        except Exception as e:
+            logger.exception('Error consultando la API de Neon')
+            context['error'] = str(e)
+
+    return render(request, 'material/neon_usage.html', context)
 

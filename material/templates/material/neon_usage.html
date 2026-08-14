@@ -1,0 +1,113 @@
+{% extends 'material/base.html' %}
+{% load message_tags %}
+{% block page_title %}<i class="bi bi-hdd-stack me-2"></i>Uso de Neon (DB){% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    {% show_messages "general" %}
+
+    {% if not configured %}
+        <div class="alert alert-warning">
+            <p class="mb-2"><strong>Falta configurar el acceso a la API de Neon.</strong></p>
+            <p class="mb-2">Definí estas dos variables de entorno en Render (Environment) y volvé a cargar la página:</p>
+            <ul class="mb-2">
+                <li><code>NEON_API_KEY</code> — Neon Console → cuenta → <em>API keys</em> → crear una nueva.</li>
+                <li><code>NEON_PROJECT_ID</code> — Neon Console → tu proyecto → <em>Settings → General</em> (el id, no el nombre).</li>
+            </ul>
+            <p class="mb-0 text-muted small">Este panel solo hace un GET a la API de Neon, no toca la base de datos.</p>
+        </div>
+    {% elif error %}
+        <div class="alert alert-danger">
+            <strong>No se pudo consultar la API de Neon:</strong> {{ error }}
+        </div>
+    {% else %}
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body text-center">
+                        <p class="text-muted small mb-1">Tiempo activo del compute (período actual)</p>
+                        <h2 class="mb-0">{{ active_hours }} h</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body text-center">
+                        <p class="text-muted small mb-1">Transferencia de red</p>
+                        <h2 class="mb-0">{{ data_transfer_gb }} GB</h2>
+                        <p class="text-muted small mb-0">de 5 GB (free tier)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100 {% if active_pct_of_elapsed >= 60 %}border-danger{% elif active_pct_of_elapsed >= 25 %}border-warning{% else %}border-success{% endif %}">
+                    <div class="card-body text-center">
+                        <p class="text-muted small mb-1">% del período transcurrido con el compute activo</p>
+                        <h2 class="mb-0
+                            {% if active_pct_of_elapsed >= 60 %}text-danger{% elif active_pct_of_elapsed >= 25 %}text-warning{% else %}text-success{% endif %}">
+                            {{ active_pct_of_elapsed|default:"—" }}{% if active_pct_of_elapsed != None %}%{% endif %}
+                        </h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <p class="mb-1"><strong>Período de facturación actual:</strong>
+                    {{ period_start|date:"d/m/Y" }} — {{ period_end|date:"d/m/Y" }}
+                    ({{ elapsed_pct|default:"—" }}% transcurrido)
+                </p>
+                <p class="mb-0 text-muted small">
+                    Este número (CPU-tiempo, no CU-hours) es una referencia rápida — para el número
+                    oficial de CU-hours consumidas del mes, mirá el dashboard de
+                    <a href="https://console.neon.tech" target="_blank" rel="noopener">console.neon.tech</a> directamente.
+                </p>
+            </div>
+        </div>
+
+        <div class="alert alert-secondary">
+            <p class="mb-1"><strong>Cómo leer el "% con el compute activo":</strong></p>
+            <p class="mb-0">
+                Neon apaga el compute solo (scale to zero) a los 5 minutos de inactividad. Con uso liviano
+                normal este porcentaje debería ser bajo — el compute duerme la mayor parte del tiempo y
+                solo se despierta cuando hay tráfico real. Si está cerca de 100%, algo le está pisando el
+                autosuspend (por ejemplo, un ping externo — UptimeRobot, un healthcheck — que toca la base
+                de datos con mucha frecuencia). Así se detectó y corrigió el consumo excesivo del 2026-08-14.
+            </p>
+        </div>
+    {% endif %}
+
+    <div class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h6 class="mb-2"><i class="bi bi-plug me-1"></i>Conexión Django → Postgres</h6>
+            <p class="mb-1"><strong>Host:</strong> <code>{{ db_host|default:"—" }}</code>
+                {% if db_is_pooled %}
+                    <span class="badge bg-info text-dark ms-1">pooled (-pooler / PgBouncer)</span>
+                {% else %}
+                    <span class="badge bg-secondary ms-1">directa</span>
+                {% endif %}
+            </p>
+            <p class="mb-1"><strong>CONN_MAX_AGE:</strong> {{ db_conn_max_age }} segundos</p>
+            {% if db_is_pooled %}
+                <p class="mb-0 text-warning small">
+                    ⚠️ Conexión pooled con CONN_MAX_AGE &gt; 0: Neon recomienda <code>CONN_MAX_AGE=0</code>
+                    en este caso para que PgBouncer maneje el pooling sin que Django mantenga su propia
+                    conexión persistente encima. No es la causa del consumo excesivo de CU-hours (una
+                    conexión inactiva no le impide a Neon autosuspender, solo importa si hay queries
+                    activas) — pero vale ajustarlo. Cambiar <code>conn_max_age=600</code> a
+                    <code>conn_max_age=0</code> en <code>educaapp/settings.py</code>.
+                </p>
+            {% else %}
+                <p class="mb-0 text-muted small">
+                    Conexión directa (no pooled): mantener CONN_MAX_AGE en un valor persistente como 600
+                    es normal y reduce la latencia de reconexión — no hace falta cambiarlo. Tampoco es, en
+                    ningún caso, la causa del consumo excesivo de CU-hours de este mes (ver alerta arriba).
+                </p>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

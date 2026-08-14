@@ -3,9 +3,31 @@ Monitoreo del fallback compartido de Groq — corre adentro de la propia app.
 
 No depende de ningún cron externo ni de que la notebook esté prendida: se
 dispara desde `material.views.health_check` (que UptimeRobot ya pinguea
-regularmente para evitar que Render duerma el free tier). Cada ping revisa si
-pasó `interval_minutes` desde la última corrida y, si corresponde, lanza un
-test en un thread de background sin bloquear la respuesta del health check.
+regularmente para evitar que Render duerma el free tier). El disparo está
+throttleado a 1 vez cada HEALTH_PING_THROTTLE_SECONDS (~4 veces/día) — antes
+de ese throttle, CADA ping (cada ~5 min) consultaba Postgres para ver si
+correspondía correr, lo que le pisaba el autosuspend de 5 min a Neon: el
+compute nunca quedaba inactivo el tiempo suficiente para bajar a cero y se
+consumían ~24h/día de CU-hours aunque los monitoreos estuvieran apagados
+(encontrado 2026-08-14, con la cuota gratis de Neon casi agotada a mitad de
+mes).
+
+Además, las corridas automáticas (a diferencia de los botones manuales
+"Probar ahora"/"Probar visión" del panel, que siguen escribiendo directo a
+Postgres para feedback inmediato) NO escriben en Postgres una por una: cada
+resultado se apila primero en un archivo local (`BUFFER_PATH`, JSON Lines —
+"una tabla en la app", no en la DB) y ese archivo se sincroniza a Postgres
+recién al final del mismo tick (ver `sync_buffer_to_db`). Como el tick ya
+está limitado a ~4 veces/día, en la práctica el buffer casi siempre tiene una
+sola fila pendiente al sincronizar — su valor real es la resiliencia: si el
+bulk_create falla por un problema transitorio de Neon, el archivo NO se
+borra y esas filas se reintentan en el próximo tick en vez de perderse.
+
+Efecto secundario esperado: mientras una ventana de 48h está activa, la
+cadencia real de corridas automáticas queda acotada por HEALTH_PING_THROTTLE_
+SECONDS (~cada 6h) en vez de por `interval_minutes` cuando este es menor a
+eso — para pruebas de ráfaga más finas seguís teniendo los botones manuales
+del panel, que no pasan por este throttle.
 
 El test replica el camino real de generación (mismo backend, mismo chunking,
 mismo tope duro de cantidad) pero llamando directo a las funciones internas
@@ -13,6 +35,7 @@ en vez de pegarle a la app por HTTP — no hace falta login, sesión, ni subir
 un archivo real: usa el mismo texto de prueba fijo.
 """
 import base64
+import json
 import logging
 import threading
 import time
@@ -20,6 +43,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +96,98 @@ FIXTURES = {
 TARGET_QUESTIONS = 30
 
 _run_lock = threading.Lock()
+_vision_run_lock = threading.Lock()
+
+# --- Buffer local ("tabla en la app") para las corridas automáticas --------
+# JSON Lines en vez de un modelo Django/SQLite aparte: no necesita migración
+# ni conexión propia, y alcanza para lo que es (unas pocas filas efímeras
+# entre un tick y el siguiente).
+BUFFER_PATH = Path(settings.BASE_DIR) / 'var' / 'groq_monitor_buffer.jsonl'
+_buffer_lock = threading.Lock()
 
 
-def maybe_trigger():
-    """Llamado en cada request a /health/. No bloquea: si corresponde disparar
-    una corrida, la lanza en un thread aparte y vuelve enseguida."""
+def _buffer_append(kind, fields):
+    """Agrega una fila al buffer local. No toca Postgres."""
+    record = dict(fields)
+    record['kind'] = kind
+    record.setdefault('created_at', timezone.now().isoformat())
+    line = json.dumps(record, default=str)
+    with _buffer_lock:
+        BUFFER_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(BUFFER_PATH, 'a', encoding='utf-8') as f:
+            f.write(line + '\n')
+
+
+def sync_buffer_to_db():
+    """Sube todo lo acumulado en el buffer local a Postgres (bulk_create) y
+    recién ahí lo borra del archivo — si el bulk_create falla, el archivo se
+    conserva tal cual para reintentar en el próximo tick en vez de perder
+    esas filas."""
+    from .models import GroqMonitorRun, GroqVisionTestRun
+
+    with _buffer_lock:
+        if not BUFFER_PATH.exists():
+            return 0
+        raw = BUFFER_PATH.read_text(encoding='utf-8')
+        records = [json.loads(line) for line in raw.splitlines() if line.strip()]
+        if not records:
+            BUFFER_PATH.unlink()
+            return 0
+
+        text_objs, vision_objs = [], []
+        for r in records:
+            r = dict(r)
+            kind = r.pop('kind', 'text')
+            created_at = parse_datetime(r.pop('created_at', '') or '') or timezone.now()
+            if kind == 'vision':
+                vision_objs.append(GroqVisionTestRun(created_at=created_at, **r))
+            else:
+                text_objs.append(GroqMonitorRun(created_at=created_at, **r))
+
+        try:
+            if text_objs:
+                GroqMonitorRun.objects.bulk_create(text_objs)
+            if vision_objs:
+                GroqVisionTestRun.objects.bulk_create(vision_objs)
+        except Exception:
+            logger.exception(
+                'Error sincronizando el buffer local de monitoreo a Postgres — '
+                'se conserva el archivo para reintentar en el próximo tick.'
+            )
+            return 0
+
+        BUFFER_PATH.unlink()
+        return len(records)
+
+
+_last_health_ping_check = 0.0
+_health_ping_lock = threading.Lock()
+# ~4 veces/día (24h / 6h) — ver docstring del módulo para el porqué.
+HEALTH_PING_THROTTLE_SECONDS = 6 * 3600
+
+
+def maybe_trigger_from_health_ping():
+    """Único punto llamado desde material.views.health_check. Throttlea el
+    chequeo en memoria (sin tocar la DB) para no pisarle el autosuspend a
+    Neon en cada ping; cuando corresponde, dispara ambos monitoreos con
+    persist='buffer' (ver docstring del módulo)."""
+    global _last_health_ping_check
+    now = time.monotonic()
+    with _health_ping_lock:
+        if now - _last_health_ping_check < HEALTH_PING_THROTTLE_SECONDS:
+            return
+        _last_health_ping_check = now
+    maybe_trigger(persist='buffer')
+    maybe_trigger_vision(persist='buffer')
+
+
+def maybe_trigger(persist='db'):
+    """Chequea si corresponde disparar una corrida de texto. No bloquea: si
+    corresponde, la lanza en un thread aparte y vuelve enseguida.
+
+    persist: 'db' (default, usado por el botón manual "Probar ahora" —
+    escribe directo en Postgres para feedback inmediato) o 'buffer' (usado
+    por el tick automático de health_check — ver sync_buffer_to_db)."""
     try:
         from .models import GroqMonitorSchedule
         cfg = GroqMonitorSchedule.objects.filter(enabled=True).first()
@@ -100,16 +211,18 @@ def maybe_trigger():
         if not claimed:
             return
 
-        threading.Thread(target=_run_safely, daemon=True).start()
+        threading.Thread(target=_run_safely, kwargs={'persist': persist}, daemon=True).start()
     except Exception:
         logger.exception('Error chequeando si corresponde disparar el monitoreo de Groq')
 
 
-def _run_safely():
+def _run_safely(persist='db'):
     if not _run_lock.acquire(blocking=False):
         return  # ya hay una corrida en curso, no superponer
     try:
-        run_test()
+        run_test(persist=persist)
+        if persist == 'buffer':
+            sync_buffer_to_db()
     except Exception:
         logger.exception('Corrida de monitoreo de Groq terminó con excepción no manejada')
     finally:
@@ -125,12 +238,14 @@ def _pick_fixture():
     return key, FIXTURES[key]
 
 
-def run_test(fixture_key=None):
-    """Ejecuta una corrida y la guarda en GroqMonitorRun. Se puede llamar
-    también manualmente (botón "Probar ahora" en la página de monitoreo).
+def run_test(fixture_key=None, persist='db'):
+    """Ejecuta una corrida. Se puede llamar también manualmente (botón
+    "Probar ahora" en la página de monitoreo, con persist='db' por default).
 
     fixture_key: 'easy' o 'hard' para forzar un documento puntual; si se omite,
-    alterna automáticamente entre ambos (ver `_pick_fixture`)."""
+    alterna automáticamente entre ambos (ver `_pick_fixture`).
+    persist: 'db' escribe directo en GroqMonitorRun; 'buffer' apila en el
+    archivo local (ver sync_buffer_to_db)."""
     from django.contrib.auth.models import User
     from .models import GroqMonitorRun
     from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota
@@ -145,7 +260,11 @@ def run_test(fixture_key=None):
 
     def save(**kwargs):
         elapsed = round(time.time() - t0, 1)
-        GroqMonitorRun.objects.create(elapsed_seconds=elapsed, fixture=fixture_key, **kwargs)
+        payload = dict(elapsed_seconds=elapsed, fixture=fixture_key, **kwargs)
+        if persist == 'buffer':
+            _buffer_append('text', payload)
+        else:
+            GroqMonitorRun.objects.create(**payload)
 
     test_user = User.objects.filter(username=TEST_USERNAME).first()
     if test_user is None:
@@ -229,7 +348,7 @@ def run_test(fixture_key=None):
     )
 
 
-def run_vision_test(model_name, provider=DEFAULT_VISION_PROVIDER):
+def run_vision_test(model_name, provider=DEFAULT_VISION_PROVIDER, persist='db'):
     """
     Prueba puntual de un modelo con la imagen de prueba (gráfico con datos
     reales a leer, ver VISION_TEST_PROMPT). Usa la API key guardada en
@@ -239,6 +358,8 @@ def run_vision_test(model_name, provider=DEFAULT_VISION_PROVIDER):
     la MISMA función que usa la app en producción — así se prueba
     literalmente la misma clase (ej. GeminiBackend nativo para 'gemini',
     no el endpoint OpenAI-compatible), no una aproximación.
+
+    persist: 'db' (default, botones manuales) o 'buffer' (tick automático).
     """
     from .models import GlobalAIConfig, GroqVisionTestRun
     from .ai_router import _build_external_backend
@@ -247,9 +368,11 @@ def run_vision_test(model_name, provider=DEFAULT_VISION_PROVIDER):
 
     def save(**kwargs):
         elapsed = round(time.time() - t0, 1)
-        GroqVisionTestRun.objects.create(
-            model_name=f'[{provider}] {model_name}', elapsed_seconds=elapsed, **kwargs
-        )
+        payload = dict(model_name=f'[{provider}] {model_name}', elapsed_seconds=elapsed, **kwargs)
+        if persist == 'buffer':
+            _buffer_append('vision', payload)
+        else:
+            GroqVisionTestRun.objects.create(**payload)
 
     cfg = GlobalAIConfig.objects.filter(provider=provider).exclude(api_key_encrypted='').order_by('-id').first()
     if cfg is None:
@@ -301,9 +424,11 @@ def run_vision_load_test(count, provider=DEFAULT_VISION_PROVIDER, model=DEFAULT_
     """
     Ráfaga de `count` llamadas de visión seguidas, para encontrar en la
     práctica el límite real de un modelo (RPM/RPD) en vez de asumirlo — cada
-    llamada queda registrada como una GroqVisionTestRun normal, así que
-    después se puede leer con analyze_vision_quota_cycles() cuántas
-    llamadas exitosas hubo antes de cortar y cuánto tardó en recuperarse.
+    llamada queda registrada como una GroqVisionTestRun normal (persist='db',
+    no pasa por el buffer: es una acción manual, se quiere ver el resultado
+    ya), así que después se puede leer con analyze_vision_quota_cycles()
+    cuántas llamadas exitosas hubo antes de cortar y cuánto tardó en
+    recuperarse.
 
     Ojo: cada llamada individual (run_vision_test → backend.generate) ya
     reintenta sola hasta 2 veces ante un 429 antes de darse por vencida (ver
@@ -328,10 +453,9 @@ def run_vision_load_test(count, provider=DEFAULT_VISION_PROVIDER, model=DEFAULT_
     return list(GroqVisionTestRun.objects.filter(id__in=created_ids).order_by('id'))
 
 
-def maybe_trigger_vision():
+def maybe_trigger_vision(persist='db'):
     """Igual que maybe_trigger() pero para la corrida cíclica del modelo de
-    visión ya elegido — mide cupo y cadencia de renovación en el tiempo,
-    llamado desde el mismo pulso de /health/."""
+    visión ya elegido — mide cupo y cadencia de renovación en el tiempo."""
     try:
         from .models import VisionMonitorSchedule
         cfg = VisionMonitorSchedule.objects.filter(enabled=True).first()
@@ -354,20 +478,19 @@ def maybe_trigger_vision():
             return
 
         threading.Thread(
-            target=_run_vision_safely, args=(cfg.provider, cfg.model), daemon=True
+            target=_run_vision_safely, args=(cfg.provider, cfg.model), kwargs={'persist': persist}, daemon=True
         ).start()
     except Exception:
         logger.exception('Error chequeando si corresponde disparar el monitoreo de visión')
 
 
-_vision_run_lock = threading.Lock()
-
-
-def _run_vision_safely(provider, model):
+def _run_vision_safely(provider, model, persist='db'):
     if not _vision_run_lock.acquire(blocking=False):
         return
     try:
-        run_vision_test(model, provider=provider)
+        run_vision_test(model, provider=provider, persist=persist)
+        if persist == 'buffer':
+            sync_buffer_to_db()
     except Exception:
         logger.exception('Corrida cíclica de monitoreo de visión terminó con excepción no manejada')
     finally:
