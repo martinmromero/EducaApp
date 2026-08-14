@@ -9,7 +9,7 @@ una relación permanente que el propio usuario configuró en "Mis grupos").
 from django.conf import settings
 from django.db.models import Q
 
-from .models import Question, Subject, SubjectShare
+from .models import Question, Rubric, RubricShare, Subject, SubjectShare
 
 
 def get_visible_subjects(user):
@@ -56,6 +56,21 @@ def get_visible_questions(user, subject=None, include_seed=False):
     if subject is not None:
         qs = qs.filter(subjects=subject)
     return qs.distinct()
+
+
+def get_visible_rubrics(user):
+    """Rúbricas propias del usuario, más las compartidas con él por otros
+    usuarios a través de un `SharingGroup` del que es miembro aceptado.
+    Mismo criterio que get_visible_subjects.
+    """
+    return Rubric.objects.filter(
+        Q(created_by=user) |
+        Q(
+            group_shares__is_active=True,
+            group_shares__group__memberships__user=user,
+            group_shares__group__memberships__status='accepted',
+        )
+    ).distinct()
 
 
 # "Elegible para armar examen": una pregunta generada por IA necesita haber

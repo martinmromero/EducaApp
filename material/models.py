@@ -1431,6 +1431,15 @@ class ExamTemplate(models.Model):
         blank=True
     )
 
+    # Rubric se define más abajo en este mismo archivo — referencia por
+    # nombre porque ExamTemplate se declara antes en el módulo.
+    rubrics = models.ManyToManyField(
+        'Rubric',
+        verbose_name="Rúbricas",
+        related_name='exam_templates',
+        blank=True
+    )
+
     notes_and_recommendations = models.TextField(
         verbose_name="Notas y recomendaciones",
         blank=True
@@ -2388,6 +2397,34 @@ class SubjectShare(models.Model):
 
     def __str__(self):
         return f"{self.shared_by.username} comparte {self.subject.name} con {self.group.name}"
+
+
+class RubricShare(models.Model):
+    """Igual que SubjectShare pero para Rubric — misma relación de confianza
+    (grupo -> miembros aceptados), ver comentario arriba de SharingGroup."""
+    group = models.ForeignKey(
+        SharingGroup, on_delete=models.CASCADE, related_name='rubric_shares',
+        verbose_name="Grupo",
+    )
+    rubric = models.ForeignKey(
+        Rubric, on_delete=models.CASCADE, related_name='group_shares',
+        verbose_name="Rúbrica",
+    )
+    shared_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='rubric_shares',
+        verbose_name="Compartida por",
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Activa")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('group', 'rubric', 'shared_by')
+        verbose_name = "Rúbrica compartida"
+        verbose_name_plural = "Rúbricas compartidas"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.shared_by.username} comparte {self.rubric.title} con {self.group.name}"
 
 
 class Favorite(models.Model):

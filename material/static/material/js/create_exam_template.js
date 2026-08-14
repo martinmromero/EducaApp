@@ -502,6 +502,8 @@ function setupSaveTemplate() {
         const optionalFields = {
             'exam_mode': document.getElementById('id_exam_mode')?.value || '',
             'learning_outcomes': Array.from(document.querySelectorAll('.outcome-checkbox:checked'))
+                                .map(cb => cb.value).join(','),
+            'rubrics': Array.from(document.querySelectorAll('.rubric-checkbox:checked'))
                                 .map(cb => cb.value).join(',')
         };
 

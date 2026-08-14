@@ -95,6 +95,45 @@
                     {% endif %}
                 </div>
             </div>
+
+            <div class="card shadow-sm mt-4">
+                <div class="card-header">
+                    <strong>Mis rúbricas compartidas con este grupo</strong>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Al activar una rúbrica, queda visible para el resto del grupo — se puede agregar a sus
+                        propios exámenes y plantillas, pero no editarla ni borrarla.
+                    </p>
+                    {% if my_rubrics %}
+                    <ul class="list-group">
+                        {% for rubrica in my_rubrics %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ rubrica.title }}
+                            <form method="post" action="{% url 'material:compartir_rubrica' group.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="rubric_id" value="{{ rubrica.id }}">
+                                {% if rubrica.id in shared_rubric_ids %}
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="bi bi-check-circle me-1"></i>Compartiendo
+                                </button>
+                                {% else %}
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                    Compartir
+                                </button>
+                                {% endif %}
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted mb-0 small">
+                        Todavía no creaste ninguna rúbrica.
+                        <a href="{% url 'material:rubric_create' %}">Crear una</a>
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>

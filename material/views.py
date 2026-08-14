@@ -348,6 +348,7 @@ def get_exam_template(request, template_id):
         'instructions': getattr(template, 'notes_and_recommendations', None),
         'questions': list(template.question_set.values_list('id', flat=True)) if hasattr(template, 'question_set') else [],
         'learning_outcomes': list(template.learning_outcomes.values_list('id', flat=True)),
+        'rubric_ids': list(template.rubrics.values_list('id', flat=True)),
         'institution_id': template.institution.id if template.institution else None,
         'faculty_id': template.faculty.id if template.faculty else None,
         'career_id': template.career.id if template.career else None,
@@ -773,6 +774,7 @@ def _collect_exam_post_data(request, form):
     exam_data['num_versions'] = request.POST.get('num_versions', '1').strip() or '1'
     exam_data['questions_per_version'] = request.POST.get('questions_per_version', '').strip()
     exam_data['balance_by_topic'] = '1' if request.POST.get('balance_by_topic') else '0'
+    exam_data['rubric_ids'] = request.POST.getlist('rubric_ids')
     # Preferencia de sumar contenido semilla, elegida en el wizard (paso 3 o 6,
     # ver onboarding_save_step step='seed_pref'). No se popea acá: si el
     # usuario reenvía el formulario (vuelve atrás y cambia algo), no debe
@@ -1006,6 +1008,7 @@ def _build_preview_exam_payload_from_exam(examen):
         'topics': list(examen.topics.values_list('id', flat=True)),
         'questions': list(examen.questions.values_list('id', flat=True)),
         'learning_outcomes': list(examen.learning_outcomes.values_list('id', flat=True)),
+        'rubric_ids': list(examen.exam_rubrics.values_list('rubric_id', flat=True)),
         'instructions': examen.instructions or '',
         'duration_minutes': examen.duration_minutes,
         'institucion': institucion,
@@ -1159,6 +1162,18 @@ def _safe_assign_print_format(exam_obj):
         )
 
 
+def _apply_rubrics_to_exam(exam_obj, rubrics):
+    """Reemplaza las rúbricas asociadas al examen por la lista dada (mismo
+    criterio 'set' que topics/questions/learning_outcomes: lo que se guarda
+    en el wizard es la selección completa, no un delta)."""
+    exam_obj.exam_rubrics.all().delete()
+    if rubrics:
+        ExamRubric.objects.bulk_create([
+            ExamRubric(exam=exam_obj, rubric=r, position=i)
+            for i, r in enumerate(rubrics)
+        ])
+
+
 @login_required
 def create_exam(request):
     from .models import FacultyV2, Career, CampusV2, Subject, ExamTemplate, InstitutionV2
@@ -1225,6 +1240,9 @@ def create_exam(request):
     # acotado a las del usuario, así que un ID ajeno simplemente no matchea
     # ningún <option> en el template y el desplegable queda en "Examen vacío".
     preselected_template_id = request.GET.get('plantilla_id')
+
+    from .content_visibility import get_visible_rubrics
+    visible_rubrics = get_visible_rubrics(request.user)
 
     if request.method == 'POST':
         form = ExamForm(request.POST)
@@ -1358,6 +1376,7 @@ def create_exam(request):
         'profesores': profesores,
         'templates': templates,
         'preselected_template_id': preselected_template_id,
+        'visible_rubrics': visible_rubrics,
         'prefill_data_json': prefill_data_json,
         'wizard_active': wizard_active,
         'wizard_prefill_fields_json': _json.dumps(wizard_prefill_fields),
@@ -1497,6 +1516,13 @@ def save_exam_from_session(request):
     o_ids = _ids('learning_outcomes')
     selected_outcomes = LearningOutcome.objects.filter(pk__in=o_ids) if o_ids else LearningOutcome.objects.none()
 
+    # Rúbricas elegidas en el wizard: se filtran por get_visible_rubrics
+    # (propias + compartidas por grupo) para que un rubric_id ajeno colado a
+    # mano en el POST no se pueda adjuntar a un examen propio.
+    from .content_visibility import get_visible_rubrics
+    r_ids = _ids('rubric_ids')
+    selected_rubrics = list(get_visible_rubrics(request.user).filter(pk__in=r_ids)) if r_ids else []
+
     versions_count = 1
     try:
         versions_count = max(1, int(exam_data.get('num_versions') or 1))
@@ -1635,6 +1661,7 @@ def save_exam_from_session(request):
                 editing_exam.topics.set(selected_topics)
                 editing_exam.learning_outcomes.set(selected_outcomes)
                 editing_exam.questions.set(chosen_versions[0])
+                _apply_rubrics_to_exam(editing_exam, selected_rubrics)
                 _safe_assign_print_format(editing_exam)
                 created_exams.append(editing_exam)
 
@@ -1680,6 +1707,7 @@ def save_exam_from_session(request):
                         selected_outcomes,
                         version_questions,
                     )
+                _apply_rubrics_to_exam(exam_obj, selected_rubrics)
                 _safe_assign_print_format(exam_obj)
                 created_exams.append(exam_obj)
     except Exception:
@@ -2071,6 +2099,7 @@ def view_exam_template(request, template_id):
         'exam_type': template.get_exam_type_display(),
         'notes_and_recommendations': template.notes_and_recommendations,
         'learning_outcomes': outcomes_to_display,
+        'rubric_grids': [_prepare_rubric_grid(r) for r in template.rubrics.all()],
         'current_date': '',  # Las plantillas no tienen fecha: se muestra en blanco
         'is_preview': False,
         # El formato elegido en la plantilla es más específico que los
@@ -2167,6 +2196,23 @@ def save_exam_template(request):
                 # normal), en un update explícito vaciar la lista es una
                 # elección real del usuario y hay que respetarla.
                 exam_template.learning_outcomes.clear()
+
+            # Manejar rúbricas — mismo patrón que outcomes arriba, filtradas
+            # por get_visible_rubrics para que no se pueda colar por POST el
+            # ID de una rúbrica ajena/no compartida.
+            rubric_ids = []
+            if 'rubrics[]' in request.POST:
+                rubric_ids = request.POST.getlist('rubrics[]')
+            elif 'rubrics' in request.POST:
+                rubrics_str = request.POST.get('rubrics', '')
+                rubric_ids = [x for x in rubrics_str.split(',') if x]
+
+            if rubric_ids:
+                from .content_visibility import get_visible_rubrics
+                rubrics = get_visible_rubrics(request.user).filter(id__in=rubric_ids)
+                exam_template.rubrics.set(rubrics)
+            elif save_mode == 'update':
+                exam_template.rubrics.clear()
 
             return JsonResponse({
                 'success': True,
@@ -6745,16 +6791,18 @@ def formato_impresion_set_default(request, pk):
 
 @login_required
 def exam_rubrics(request, exam_pk):
+    from .content_visibility import get_visible_rubrics
+
     examen = get_object_or_404(Exam, pk=exam_pk, created_by=request.user)
     exam_rubric_qs = ExamRubric.objects.filter(exam=examen).select_related('rubric').order_by('position', 'id')
     associated_ids = exam_rubric_qs.values_list('rubric_id', flat=True)
-    available_rubrics = Rubric.objects.filter(created_by=request.user).exclude(id__in=associated_ids)
+    available_rubrics = get_visible_rubrics(request.user).exclude(id__in=associated_ids)
 
     if request.method == 'POST':
         action = request.POST.get('action')
         if action == 'add':
             rubric_id = request.POST.get('rubric_id')
-            rubrica = get_object_or_404(Rubric, pk=rubric_id, created_by=request.user)
+            rubrica = get_object_or_404(get_visible_rubrics(request.user), pk=rubric_id)
             ExamRubric.objects.get_or_create(exam=examen, rubric=rubrica)
             messages.success(request, f'Rúbrica «{rubrica.title}» agregada.')
         elif action == 'remove':
@@ -7068,12 +7116,22 @@ def grupo_detalle(request, pk):
         ).values_list('subject_id', flat=True)
     )
 
+    from .models import Rubric, RubricShare
+    my_rubrics = Rubric.objects.filter(created_by=request.user).order_by('title')
+    shared_rubric_ids = set(
+        RubricShare.objects.filter(
+            group=group, shared_by=request.user, is_active=True
+        ).values_list('rubric_id', flat=True)
+    )
+
     context = {
         'group': group,
         'memberships': memberships,
         'invitable_users': invitable_users,
         'my_subjects': my_subjects,
         'shared_subject_ids': shared_subject_ids,
+        'my_rubrics': my_rubrics,
+        'shared_rubric_ids': shared_rubric_ids,
     }
     return render(request, 'material/groups/grupo_detalle.html', context)
 
@@ -7155,6 +7213,35 @@ def compartir_materia(request, pk):
                 messages.success(request, f'Compartiendo "{subject.name}" con el grupo.', extra_tags='grupos')
             else:
                 messages.info(request, f'Dejaste de compartir "{subject.name}" con el grupo.', extra_tags='grupos')
+
+    return redirect('material:grupo_detalle', pk=group.pk)
+
+
+@login_required
+@require_POST
+def compartir_rubrica(request, pk):
+    from .models import SharingGroup, GroupMembership, Rubric, RubricShare
+
+    group = get_object_or_404(SharingGroup, pk=pk)
+    if not GroupMembership.objects.filter(group=group, user=request.user, status='accepted').exists():
+        messages.error(request, 'Solo los miembros del grupo pueden compartir rúbricas.', extra_tags='grupos')
+        return redirect('material:grupos_list')
+
+    rubric_id = request.POST.get('rubric_id')
+    if str(rubric_id).isdigit():
+        rubrica = Rubric.objects.filter(pk=int(rubric_id), created_by=request.user).first()
+        if rubrica:
+            share, created = RubricShare.objects.get_or_create(
+                group=group, rubric=rubrica, shared_by=request.user,
+                defaults={'is_active': True},
+            )
+            if not created:
+                share.is_active = not share.is_active
+                share.save(update_fields=['is_active'])
+            if share.is_active:
+                messages.success(request, f'Compartiendo "{rubrica.title}" con el grupo.', extra_tags='grupos')
+            else:
+                messages.info(request, f'Dejaste de compartir "{rubrica.title}" con el grupo.', extra_tags='grupos')
 
     return redirect('material:grupo_detalle', pk=group.pk)
 

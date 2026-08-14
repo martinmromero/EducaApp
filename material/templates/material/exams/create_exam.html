@@ -345,6 +345,34 @@
         </div>
     </div>
 
+    <!-- ÁREA 5: Rúbricas -->
+    <div class="exam-area card mb-3" id="examArea5">
+        <div class="exam-area-header card-header" data-bs-toggle="collapse" data-bs-target="#examArea5Body" role="button" aria-expanded="false" aria-controls="examArea5Body">
+            <span class="exam-area-title"><span class="exam-area-num">5</span>Rúbricas</span>
+            <i class="bi bi-chevron-down exam-area-chevron"></i>
+        </div>
+        <div class="collapse" id="examArea5Body">
+        <div class="card-body">
+            {% if visible_rubrics %}
+            <p class="text-muted small mb-2">Se incluyen al imprimir o exportar el examen. Se pueden crear, editar o compartir con otros docentes desde <a href="{% url 'material:rubric_list' %}" target="_blank" rel="noopener">Rúbricas</a>.</p>
+            <div id="rubrics_checkbox_container" class="border rounded p-2" style="max-height:220px;overflow:auto;">
+                {% for rubrica in visible_rubrics %}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="rubric_ids" value="{{ rubrica.id }}" id="rubric_cb_{{ rubrica.id }}">
+                    <label class="form-check-label" for="rubric_cb_{{ rubrica.id }}">{{ rubrica.title }}</label>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted small mb-0">
+                Todavía no creaste ninguna rúbrica.
+                <a href="{% url 'material:rubric_create' %}" target="_blank" rel="noopener">Crear una</a>
+            </p>
+            {% endif %}
+        </div>
+        </div>
+    </div>
+
     <!-- Campos ocultos: Título, Alumno/a -->
     <div class="mb-3" style="display:none;">
     <label for="id_title">Título</label>
@@ -578,6 +606,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (Array.isArray(data.modalidad_resolucion)) {
         data.modalidad_resolucion.forEach(function(v) {
             var cb = document.querySelector('input[name="modalidad_resolucion"][value="' + v + '"]');
+            if (cb) cb.checked = true;
+        });
+    }
+
+    if (Array.isArray(data.rubric_ids)) {
+        data.rubric_ids.forEach(function(v) {
+            var cb = document.querySelector('input[name="rubric_ids"][value="' + v + '"]');
             if (cb) cb.checked = true;
         });
     }

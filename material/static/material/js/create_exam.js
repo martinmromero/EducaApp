@@ -293,6 +293,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
         }
+        // Rúbricas de la plantilla
+        var rubricsContainer = document.getElementById('rubrics_checkbox_container');
+        if (rubricsContainer) {
+            var templateRubricIds = Array.isArray(data.rubric_ids) ? data.rubric_ids.map(String) : [];
+            Array.from(rubricsContainer.querySelectorAll('input[name="rubric_ids"]')).forEach(function(checkbox) {
+                checkbox.checked = templateRubricIds.includes(checkbox.value);
+            });
+        }
 
         // Institución → espera a que facultad/sede terminen de cargar antes
         // de seleccionar la facultad de la plantilla (si no, el <option>

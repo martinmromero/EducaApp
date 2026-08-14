@@ -203,6 +203,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('grupos/<int:pk>/', material_views.grupo_detalle, name='grupo_detalle'),
     path('grupos/<int:pk>/invitar/', material_views.grupo_invitar, name='grupo_invitar'),
     path('grupos/<int:pk>/compartir-materia/', material_views.compartir_materia, name='compartir_materia'),
+    path('grupos/<int:pk>/compartir-rubrica/', material_views.compartir_rubrica, name='compartir_rubrica'),
     path('grupos/invitaciones/', material_views.invitaciones_pendientes, name='invitaciones_pendientes'),
 
     # RÚBRICAS

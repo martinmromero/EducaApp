@@ -250,7 +250,7 @@ class ExamTemplateForm(forms.ModelForm):
             'name',
             'institution', 'faculty', 'career', 'subject', 'campus', 'professor',
             'print_format',
-            'learning_outcomes', 'notes_and_recommendations',
+            'learning_outcomes', 'rubrics', 'notes_and_recommendations',
         ]
         widgets = {
             'name': forms.TextInput(attrs={
@@ -259,6 +259,9 @@ class ExamTemplateForm(forms.ModelForm):
             }),
             'learning_outcomes': forms.CheckboxSelectMultiple(
                 attrs={'class': 'learning-outcomes-checkbox'}
+            ),
+            'rubrics': forms.CheckboxSelectMultiple(
+                attrs={'class': 'rubrics-checkbox'}
             ),
             'notes_and_recommendations': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
             'print_format': forms.Select(attrs={'class': 'form-select'}),
@@ -281,10 +284,13 @@ class ExamTemplateForm(forms.ModelForm):
             self.fields['subject'].queryset = get_visible_subjects(user)
             from .print_format_utils import get_visible_print_formats
             self.fields['print_format'].queryset = get_visible_print_formats(user)
+            from .content_visibility import get_visible_rubrics
+            self.fields['rubrics'].queryset = get_visible_rubrics(user)
         else:
             self.fields['institution'].queryset = InstitutionV2.objects.none()
             self.fields['subject'].queryset = Subject.objects.none()
             self.fields['print_format'].queryset = FormatoImpresion.objects.none()
+            self.fields['rubrics'].queryset = Rubric.objects.none()
         self.fields['print_format'].required = False
         self.fields['print_format'].empty_label = 'Usar el predeterminado (institución/usuario)'
 

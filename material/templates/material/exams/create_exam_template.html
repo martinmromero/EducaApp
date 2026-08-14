@@ -172,6 +172,36 @@
             </div>
         </div>
 
+        <!-- Rúbricas -->
+        <div class="form-group full-width-fields">
+            <label>Rúbricas</label>
+            <div class="input-group">
+                <div id="rubrics_container" class="learning-outcomes-container">
+                    {% if form.rubrics.field.queryset %}
+                        <div class="outcomes-checkbox-list">
+                            {% for rubrica in form.rubrics.field.queryset %}
+                                <div class="form-check">
+                                    <input class="form-check-input rubric-checkbox"
+                                           type="checkbox"
+                                           value="{{ rubrica.id }}"
+                                           id="rubric_{{ rubrica.id }}"
+                                           {% if rubrica in template.rubrics.all %}checked{% endif %}>
+                                    <label class="form-check-label" for="rubric_{{ rubrica.id }}">
+                                        {{ rubrica.title }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            Todavía no creaste ninguna rúbrica. <a href="{% url 'material:rubric_create' %}" target="_blank" rel="noopener">Crear una</a>
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
         <!-- Notas y Recomendaciones -->
         <div class="form-group">
             <label for="{{ form.notes_and_recommendations.id_for_label }}">{{ form.notes_and_recommendations.label }}</label>
