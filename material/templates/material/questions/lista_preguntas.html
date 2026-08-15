@@ -1,9 +1,16 @@
 {% extends 'material/base.html' %}
 {% load static %}
 {% load message_tags %}
+{% block body_extra_attrs %}data-tour-page="mis_preguntas"{% endblock %}
 {% block page_title %}<i class="bi bi-list-check me-2"></i>Mis Preguntas{% endblock %}
+{% block page_actions %}
+<a href="{% url 'material:upload_questions' %}" class="btn btn-primary" id="questionNewBtn">
+    <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nueva Pregunta</span>
+</a>
+{% endblock %}
 
 {% block content %}
+<script src="{% static 'js/page_tours/mis_preguntas_tour.js' %}"></script>
 <div class="container-fluid">
 
     <!-- Mensajes específicos de preguntas -->
@@ -36,7 +43,7 @@
             font-size: clamp(0.5rem, 0.9vw, 0.7rem);
         }
     </style>
-    <div class="stat-tabs mb-4">
+    <div class="stat-tabs mb-4" id="questionStatsRow">
         <div class="stat-tab">
             <div class="card border-left-primary shadow h-100">
                 <div class="card-body">
@@ -113,34 +120,29 @@
 
     <form method="get" action="{% url 'material:lista_preguntas' %}" id="templateFiltersForm"></form>
 
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <div class="active-filters-summary small text-muted">
-            {% if active_filter_count %}
-                {{ active_filter_count }} filtro{{ active_filter_count|pluralize }} activo{{ active_filter_count|pluralize }}
-                <span class="d-md-none">&middot; <a href="{% url 'material:lista_preguntas' %}">Limpiar filtros</a></span>
-            {% endif %}
-        </div>
-        <button type="button" class="btn btn-outline-secondary btn-sm mobile-filters-trigger" data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
-            <i class="fas fa-filter"></i> Filtros
-        </button>
-    </div>
-
     <!-- Lista de preguntas -->
     <div class="card shadow mb-4">
-        <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h6 class="m-0 font-weight-bold text-primary">Listado de Preguntas</h6>
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm desktop-filters-trigger{% if active_filter_count %} active{% endif %}"
-                        onclick="{% if active_filter_count %}clearAllColumnFilters(){% else %}toggleDesktopColumnFilters(this){% endif %}">
-                    <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
+        <div class="card-header py-2 d-flex justify-content-between align-items-center list-control-row">
+            <span class="list-control-info">{{ preguntas.paginator.count }} pregunta{{ preguntas.paginator.count|pluralize }}</span>
+            <div class="d-flex align-items-center gap-2" id="listControlDefault">
+                <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" title="Filtros"
+                        data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
+                    <i class="fas fa-filter"></i> <span class="d-none d-sm-inline">Filtros</span>
+                    {% if active_filter_count %}<span class="badge rounded-pill bg-primary list-filter-badge">{{ active_filter_count }}</span>{% endif %}
                 </button>
-                <button type="button" id="toggleBulkSelectBtn" class="btn btn-outline-secondary btn-sm" onclick="toggleBulkSelect()"
-                        title="Seleccionar varias preguntas para borrarlas o exportarlas juntas">
-                    <i class="fas fa-check-square"></i> Selección múltiple
+            </div>
+            <div class="d-none align-items-center gap-2 flex-wrap" id="listSelectionBar">
+                <span class="fw-semibold" id="listSelectionCount"></span>
+                <button type="submit" formaction="{% url 'material:exportar_preguntas' %}?formato=csv" form="bulk-delete-form" class="btn btn-success btn-sm">
+                    <i class="fas fa-file-csv"></i> <span class="d-none d-sm-inline">CSV</span>
                 </button>
-                <a href="{% url 'material:upload_questions' %}" class="btn btn-primary btn-sm">
-                    <i class="fas fa-plus"></i> Nueva Pregunta
-                </a>
+                <button type="submit" formaction="{% url 'material:exportar_preguntas' %}?formato=txt" form="bulk-delete-form" class="btn btn-success btn-sm">
+                    <i class="fas fa-file-alt"></i> <span class="d-none d-sm-inline">TXT</span>
+                </button>
+                <button type="button" id="bulk-delete-btn" class="btn btn-danger btn-sm">
+                    <i class="fas fa-trash"></i> Eliminar
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="listSelectionCancelBtn">Cancelar</button>
             </div>
         </div>
         <div class="card-body">
@@ -153,43 +155,27 @@
                 {% for v in selected_filters.ai_status %}<input type="hidden" name="ai_status" value="{{ v }}">{% endfor %}
                 <input type="hidden" name="all_filtered_selected" id="all-filtered-selected" value="0">
 
-                <!-- Barra de acción masiva -->
-                <div id="bulk-action-bar" class="alert alert-warning d-none mb-3 d-flex align-items-center justify-content-between">
-                    <span id="bulk-action-label" class="font-weight-bold"></span>
-                    <span>
-                        <button type="submit" formaction="{% url 'material:exportar_preguntas' %}?formato=csv" class="btn btn-success btn-sm ml-3">
-                            <i class="fas fa-file-csv"></i> Exportar CSV
-                        </button>
-                        <button type="submit" formaction="{% url 'material:exportar_preguntas' %}?formato=txt" class="btn btn-success btn-sm ml-2">
-                            <i class="fas fa-file-alt"></i> Exportar TXT
-                        </button>
-                        <button type="button" id="bulk-delete-btn" class="btn btn-danger btn-sm ml-2">
-                            <i class="fas fa-trash"></i> Eliminar seleccionadas
-                        </button>
-                    </span>
-                </div>
-
             <div class="table-responsive">
-                <table class="table table-striped column-filter-table{% if active_filter_count %} filters-visible{% endif %}">
+                <table class="table table-striped column-filter-table">
                     <thead>
                         <tr>
-                            <th class="bulk-select-col d-none" style="width:40px;">
+                            <th style="width:40px;">
                                 <input type="checkbox" id="select-all" title="Seleccionar todo">
                             </th>
-                            <th class="filterable-col">Materia {% include 'material/components/_column_filter_dropdown.html' with field='subject' label='Materia' options=filter_options.subject selected=selected_filters.subject prefix='d' %}</th>
-                            <th class="filterable-col">Tópico {% include 'material/components/_column_filter_dropdown.html' with field='topic' label='Tópico' options=filter_options.topic selected=selected_filters.topic prefix='d' %}</th>
-                            {% if subtemas_count > 0 %}<th class="filterable-col">Sub-tópico {% include 'material/components/_column_filter_dropdown.html' with field='subtopic' label='Sub-tópico' options=filter_options.subtopic selected=selected_filters.subtopic prefix='d' %}</th>{% endif %}
+                            <th>Materia</th>
+                            <th>Tópico</th>
+                            {% if subtemas_count > 0 %}<th>Sub-tópico</th>{% endif %}
                             <th>Pregunta</th>
-                            <th class="filterable-col">Bloom {% include 'material/components/_column_filter_dropdown.html' with field='bloom_level' label='Bloom' options=filter_options.bloom_level selected=selected_filters.bloom_level prefix='d' %}</th>
-                            <th class="filterable-col">Estado IA {% include 'material/components/_column_filter_dropdown.html' with field='ai_status' label='Estado IA' options=filter_options.ai_status selected=selected_filters.ai_status prefix='d' %}</th>
-                            <th>Origen</th>
+                            <th>Bloom</th>
+                            <th id="questionColEstadoIA">Estado IA</th>
+                            <th id="questionColOrigen">Origen</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for pregunta in preguntas %}
                         <tr>
-                            <td class="bulk-select-col d-none rt-card-select">
+                            <td class="rt-card-select">
                                 <input type="checkbox" name="pregunta_ids" value="{{ pregunta.pk }}" class="pregunta-checkbox">
                             </td>
                             <td data-label="Materia">{% for s in pregunta.subjects.all %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
@@ -294,60 +280,44 @@
 
 {% block javascript %}
 <script>
-// ===== BORRADO MÚLTIPLE: TOGGLE DE COLUMNA DE SELECCIÓN =====
-let bulkSelectActive = false;
-function toggleBulkSelect() {
-    bulkSelectActive = !bulkSelectActive;
-    document.querySelectorAll('.bulk-select-col').forEach(function(el) {
-        el.classList.toggle('d-none', !bulkSelectActive);
-    });
-    const btn = document.getElementById('toggleBulkSelectBtn');
-    if (bulkSelectActive) {
-        btn.innerHTML = '<i class="fas fa-times"></i> Cancelar selección';
-        btn.classList.remove('btn-outline-secondary');
-        btn.classList.add('btn-secondary');
-    } else {
-        btn.innerHTML = '<i class="fas fa-check-square"></i> Selección múltiple';
-        btn.classList.remove('btn-secondary');
-        btn.classList.add('btn-outline-secondary');
-        // Al cancelar, desmarcar todo lo seleccionado
-        document.querySelectorAll('#bulk-delete-form input[type="checkbox"][name="pregunta_ids"]').forEach(cb => cb.checked = false);
-        const selectAll = document.getElementById('select-all');
-        if (selectAll) selectAll.checked = false;
-        document.getElementById('all-filtered-selected').value = '0';
-        updateActionBar();
-    }
-}
-
-// ===== SELECCIÓN MASIVA Y BORRADO EN LOTE =====
-let updateActionBar = function() {};
+// ===== SELECCIÓN MASIVA Y BORRADO/EXPORTACIÓN EN LOTE =====
+// Los casilleros están siempre visibles (no hay modo "selección múltiple"
+// que activar): tocar uno convierte la fila de control de la card en la
+// barra de acciones (ver #listControlDefault / #listSelectionBar,
+// compartidos con el resto de los listados).
 document.addEventListener('DOMContentLoaded', function() {
     const selectAll = document.getElementById('select-all');
     const rowCheckboxes = document.querySelectorAll('.pregunta-checkbox');
     const deleteAllInput = document.getElementById('all-filtered-selected');
-    const actionBar = document.getElementById('bulk-action-bar');
-    const actionLabel = document.getElementById('bulk-action-label');
+    const defaultBar = document.getElementById('listControlDefault');
+    const selectionBar = document.getElementById('listSelectionBar');
+    const countEl = document.getElementById('listSelectionCount');
     const deleteBtn = document.getElementById('bulk-delete-btn');
+    const cancelBtn = document.getElementById('listSelectionCancelBtn');
     const totalFiltered = {{ preguntas.paginator.count }};
 
     function checkedOnPage() {
         return document.querySelectorAll('.pregunta-checkbox:checked').length;
     }
 
-    updateActionBar = function() {
+    function updateActionBar() {
         const isAllFiltered = deleteAllInput.value === '1';
         const count = isAllFiltered ? totalFiltered : checkedOnPage();
         if (count > 0) {
-            actionBar.classList.remove('d-none');
-            if (isAllFiltered) {
-                actionLabel.textContent = 'Todas las ' + totalFiltered + ' preguntas filtradas seleccionadas';
-            } else {
-                actionLabel.textContent = count + ' pregunta' + (count !== 1 ? 's' : '') + ' seleccionada' + (count !== 1 ? 's' : '');
-            }
+            defaultBar.classList.add('d-none');
+            defaultBar.classList.remove('d-flex');
+            selectionBar.classList.remove('d-none');
+            selectionBar.classList.add('d-flex');
+            countEl.textContent = isAllFiltered
+                ? ('Todas las ' + totalFiltered + ' filtradas')
+                : (count + (count === 1 ? ' seleccionada' : ' seleccionadas'));
         } else {
-            actionBar.classList.add('d-none');
+            defaultBar.classList.remove('d-none');
+            defaultBar.classList.add('d-flex');
+            selectionBar.classList.add('d-none');
+            selectionBar.classList.remove('d-flex');
         }
-    };
+    }
 
     // "Seleccionar todo" → marca todas las de esta página Y activa borrado de todas las filtradas
     if (selectAll) {
@@ -368,6 +338,15 @@ document.addEventListener('DOMContentLoaded', function() {
             updateActionBar();
         });
     });
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function () {
+            rowCheckboxes.forEach(cb => cb.checked = false);
+            if (selectAll) selectAll.checked = false;
+            deleteAllInput.value = '0';
+            updateActionBar();
+        });
+    }
 
     // Confirmación antes de borrar
     if (deleteBtn) {

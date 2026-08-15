@@ -1,16 +1,21 @@
 {% extends 'material/base.html' %}
 {% load message_tags %}
 {% block page_title %}<i class="bi bi-people-fill me-2"></i>Usuarios{% endblock %}
+{% block page_actions %}
+<a href="{% url 'material:create_user' %}" class="btn btn-primary" id="userNewBtn">
+    <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nuevo Usuario</span>
+</a>
+{% endblock %}
 
 {% block content %}
 {% include 'material/components/_mobile_card_table.html' %}
-<div class="container">
+<div class="container-fluid">
     {% show_messages "usuarios" %}
-    <div class="d-flex justify-content-end mb-3">
-        <a href="{% url 'material:create_user' %}" class="btn btn-primary">
-            <i class="bi bi-person-plus me-1"></i>Nuevo usuario
-        </a>
-    </div>
+    <div class="card shadow mb-4">
+        <div class="card-header py-2">
+            <span class="list-control-info">{{ users|length }} usuario{{ users|length|pluralize }}</span>
+        </div>
+        <div class="card-body">
     <div class="table-responsive">
     <table class="table table-striped mobile-card-table">
         <thead>
@@ -66,6 +71,8 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
+        </div>
     </div>
 </div>
 {% endblock %}

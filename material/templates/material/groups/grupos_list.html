@@ -1,18 +1,21 @@
 {% extends 'material/base.html' %}
+{% load static %}
 {% load message_tags %}
+{% block body_extra_attrs %}data-tour-page="grupos_list"{% endblock %}
 {% block page_title %}<i class="bi bi-people-fill me-2"></i>Grupos{% endblock %}
 
 {% block content %}
+<script src="{% static 'js/page_tours/grupos_list_tour.js' %}"></script>
 <div class="container-fluid">
     <div class="d-flex justify-content-end align-items-center mb-4">
         <div class="d-flex gap-2">
-            <a href="{% url 'material:invitaciones_pendientes' %}" class="btn btn-outline-primary position-relative">
+            <a href="{% url 'material:invitaciones_pendientes' %}" class="btn btn-outline-primary position-relative" id="groupInvitesBtn">
                 <i class="bi bi-envelope me-1"></i>Invitaciones
                 {% if pending_invites_count %}
                 <span class="badge bg-danger">{{ pending_invites_count }}</span>
                 {% endif %}
             </a>
-            <a href="{% url 'material:grupo_crear' %}" class="btn btn-primary">
+            <a href="{% url 'material:grupo_crear' %}" class="btn btn-primary" id="groupNewBtn">
                 <i class="bi bi-plus-circle me-1"></i>Nuevo grupo
             </a>
         </div>
@@ -20,7 +23,7 @@
 
     {% show_messages "grupos" %}
 
-    <p class="text-muted mb-4">
+    <p class="text-muted mb-4" id="groupIntroText">
         Un grupo de confianza permite compartir el banco de preguntas, por materia, con otros docentes
         elegidos — nadie ve ni usa esas preguntas hasta aceptar compartirlas explícitamente,
         y solo con los grupos de los que se es miembro.

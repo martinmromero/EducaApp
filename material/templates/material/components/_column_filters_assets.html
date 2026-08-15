@@ -44,6 +44,16 @@ Convenciones que debe respetar la página que lo incluye:
     th.filterable-col {
         white-space: nowrap;
     }
+    /* Centrado vertical de todas las celdas — así una fila con badges,
+       botones e íconos de distinta altura no queda con el texto pegado
+       arriba. Vive acá (no en el <style> de cada pantalla) porque
+       column-filter-table es el componente que ya comparten todos los
+       listados con filtros por columna; escala sola a cualquier pantalla
+       nueva que lo use. */
+    .column-filter-table th,
+    .column-filter-table td {
+        vertical-align: middle;
+    }
     .active-filters-summary {
         min-height: 1px;
     }

@@ -1,9 +1,16 @@
 {% extends 'material/base.html' %}
 {% load static %}
 {% load message_tags %}
+{% block body_extra_attrs %}data-tour-page="oral_exam_list"{% endblock %}
 {% block page_title %}<i class="bi bi-mic me-2"></i>Cuestionarios Orales{% endblock %}
+{% block page_actions %}
+<a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary" id="oralNewBtn">
+    <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nuevo Cuestionario</span>
+</a>
+{% endblock %}
 
 {% block content %}
+<script src="{% static 'js/page_tours/oral_exam_list_tour.js' %}"></script>
 <div class="container-fluid">
 
     <!-- Mensajes específicos de cuestionarios orales -->
@@ -13,53 +20,42 @@
 
     <form method="get" action="{% url 'material:list_oral_exams' %}" id="templateFiltersForm"></form>
 
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <div class="active-filters-summary small text-muted">
-            {% if active_filter_count %}
-                {{ active_filter_count }} filtro{{ active_filter_count|pluralize }} activo{{ active_filter_count|pluralize }}
-                <span class="d-md-none">&middot; <a href="{% url 'material:list_oral_exams' %}">Limpiar filtros</a></span>
-            {% endif %}
-        </div>
-        <button type="button" class="btn btn-outline-secondary btn-sm mobile-filters-trigger" data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
-            <i class="fas fa-filter"></i> Filtros
-        </button>
-    </div>
-
     <form method="post" action="{% url 'material:bulk_eliminar_cuestionarios_orales' %}" id="deleteForm">
         {% csrf_token %}
         <div class="card shadow mb-4">
-            <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                <h6 class="m-0 font-weight-bold text-primary">Listado de Cuestionarios Orales</h6>
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                    <button type="button" class="btn btn-outline-secondary btn-sm desktop-filters-trigger{% if active_filter_count %} active{% endif %}"
-                            onclick="{% if active_filter_count %}clearAllColumnFilters(){% else %}toggleDesktopColumnFilters(this){% endif %}">
-                        <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
+            <div class="card-header py-2 d-flex justify-content-between align-items-center list-control-row">
+                <span class="list-control-info">{{ oral_exams|length }} cuestionario{{ oral_exams|length|pluralize }}</span>
+                <div class="d-flex align-items-center gap-2" id="listControlDefault">
+                    <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" title="Filtros"
+                            data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
+                        <i class="fas fa-filter"></i> <span class="d-none d-sm-inline">Filtros</span>
+                        {% if active_filter_count %}<span class="badge rounded-pill bg-primary list-filter-badge">{{ active_filter_count }}</span>{% endif %}
                     </button>
                     <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if favorites_toggle_querystring %}&{{ favorites_toggle_querystring }}{% endif %}"
-                       class="btn btn-sm {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
-                       title="Mostrar solo favoritos">
-                        <i class="fas fa-star"></i> Favoritos
+                       class="btn btn-sm list-toolbar-btn {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
+                       title="Mostrar solo favoritos" id="oralFavoritosBtn">
+                        <i class="fas fa-star"></i> <span class="d-none d-sm-inline">Favoritos</span>
                     </a>
-                    <button type="button" id="toggleBulkSelectBtn" class="btn btn-outline-secondary btn-sm" onclick="toggleBulkSelect()"
-                            title="Seleccionar varios cuestionarios para borrarlos juntos">
-                        <i class="fas fa-check-square"></i> Selección múltiple
+                </div>
+                <div class="d-none align-items-center gap-2" id="listSelectionBar">
+                    <span class="fw-semibold" id="listSelectionCount"></span>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete()">
+                        <i class="fas fa-trash-alt"></i> Eliminar
                     </button>
-                    <a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary btn-sm">
-                        <i class="fas fa-plus"></i> Crear Cuestionario Oral
-                    </a>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="listSelectionCancelBtn">Cancelar</button>
                 </div>
             </div>
             <div class="card-body">
                 {% if oral_exams %}
                     <div class="table-responsive">
-                        <table class="table table-striped column-filter-table{% if active_filter_count %} filters-visible{% endif %}">
+                        <table class="table table-striped column-filter-table">
                             <thead>
                                 <tr>
-                                    <th class="bulk-select-col d-none" style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
+                                    <th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
                                     <th style="width:40px;"></th>
                                     <th>Nombre</th>
-                                    <th class="filterable-col">Materia {% include 'material/components/_column_filter_dropdown.html' with field='subject' label='Materia' options=filter_options.subject selected=selected_filters.subject prefix='d' %}</th>
-                                    <th class="filterable-col">Grupos {% include 'material/components/_column_filter_dropdown.html' with field='num_groups' label='Grupos' options=filter_options.num_groups selected=selected_filters.num_groups prefix='d' %}</th>
+                                    <th>Materia</th>
+                                    <th id="oralColGroups">Grupos</th>
                                     <th>Est. por Grupo</th>
                                     <th>Preg. por Est.</th>
                                     <th>Total Estudiantes</th>
@@ -70,7 +66,7 @@
                             <tbody>
                                 {% for exam in oral_exams %}
                                 <tr>
-                                    <td class="rt-card-select bulk-select-col d-none">
+                                    <td class="rt-card-select">
                                         <input type="checkbox" name="oral_exam_ids" value="{{ exam.id }}">
                                     </td>
                                     <td class="rt-card-badge">
@@ -116,13 +112,6 @@
                         </a>
                     </div>
                 {% endif %}
-
-                <!-- Acciones masivas -->
-                <div class="mt-3 bulk-select-col d-none">
-                    <button type="button" class="btn btn-danger" onclick="confirmDelete()">
-                        <i class="fas fa-trash-alt"></i> Eliminar seleccionados
-                    </button>
-                </div>
             </div>
         </div>
     </form>
@@ -138,34 +127,9 @@
     {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns %}
 </div>
 
+<script src="{% static 'js/list_control_row.js' %}"></script>
 <script>
-    let bulkSelectActive = false;
-    function toggleBulkSelect() {
-        bulkSelectActive = !bulkSelectActive;
-        document.querySelectorAll('.bulk-select-col').forEach(function(el) {
-            el.classList.toggle('d-none', !bulkSelectActive);
-        });
-        const btn = document.getElementById('toggleBulkSelectBtn');
-        if (bulkSelectActive) {
-            btn.innerHTML = '<i class="fas fa-times"></i> Cancelar selección';
-            btn.classList.remove('btn-outline-secondary');
-            btn.classList.add('btn-secondary');
-        } else {
-            btn.innerHTML = '<i class="fas fa-check-square"></i> Selección múltiple';
-            btn.classList.remove('btn-secondary');
-            btn.classList.add('btn-outline-secondary');
-            document.querySelectorAll('#deleteForm input[type="checkbox"][name="oral_exam_ids"]').forEach(cb => cb.checked = false);
-            const selectAll = document.getElementById('selectAll');
-            if (selectAll) selectAll.checked = false;
-        }
-    }
-
-    const selectAllCheckbox = document.getElementById('selectAll');
-    if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-            document.querySelectorAll('#deleteForm input[type="checkbox"][name="oral_exam_ids"]').forEach(cb => cb.checked = this.checked);
-        });
-    }
+    initListControlSelection({ checkboxName: 'oral_exam_ids' });
 
     async function confirmDelete() {
         const selected = document.querySelectorAll('#deleteForm input[name="oral_exam_ids"]:checked');

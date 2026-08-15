@@ -6,8 +6,8 @@
 {% url 'material:favoritos_list' as favoritos_url %}
 <div class="container-fluid">
     <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Mis Favoritos</h6>
+        <div class="card-header py-2">
+            <span class="list-control-info">{{ items|length }} favorito{{ items|length|pluralize }}</span>
         </div>
         <div class="card-body">
             {% if items %}

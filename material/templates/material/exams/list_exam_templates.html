@@ -1,85 +1,72 @@
 {% extends 'material/base.html' %}
+{% load static %}
 {% load message_tags %}
+{% block body_extra_attrs %}data-tour-page="exam_template_list"{% endblock %}
 {% block page_title %}<i class="bi bi-file-earmark-ruled me-2"></i>Plantillas{% endblock %}
+{% block page_actions %}
+<a href="{% url 'material:create_exam_template' %}" class="btn btn-primary" id="templateNewBtn">
+    <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nueva Plantilla</span>
+</a>
+{% endblock %}
 
 {% block content %}
+<script src="{% static 'js/page_tours/exam_template_list_tour.js' %}"></script>
 <div class="container-fluid">
 
     <!-- Mensajes específicos de plantillas -->
     {% show_messages "plantillas" %}
 
-    <div class="row mb-4">
-        <div class="col-md-3 mb-3">
-            <div class="card border-left-primary shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Plantillas</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ exam_templates.paginator.count }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     {% include 'material/components/_column_filters_assets.html' %}
 
     <form method="get" action="{% url 'material:list_exam_templates' %}" id="templateFiltersForm"></form>
 
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <div class="active-filters-summary small text-muted">
-            {% if active_filter_count %}
-                {{ active_filter_count }} filtro{{ active_filter_count|pluralize }} activo{{ active_filter_count|pluralize }}
-                <span class="d-md-none">&middot; <a href="{% url 'material:list_exam_templates' %}">Limpiar filtros</a></span>
-            {% endif %}
-        </div>
-        <button type="button" class="btn btn-outline-secondary btn-sm mobile-filters-trigger" data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
-            <i class="fas fa-filter"></i> Filtros
-        </button>
-    </div>
-
     <form method="post" action="{% url 'material:delete_exam_template' %}" id="deleteForm">
         {% csrf_token %}
         <div class="card shadow mb-4">
-            <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                <h6 class="m-0 font-weight-bold text-primary">Plantillas</h6>
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                    <button type="button" class="btn btn-outline-secondary btn-sm desktop-filters-trigger{% if active_filter_count %} active{% endif %}"
-                            onclick="{% if active_filter_count %}clearAllColumnFilters(){% else %}toggleDesktopColumnFilters(this){% endif %}">
-                        <i class="fas fa-filter"></i> {% if active_filter_count %}Limpiar filtros{% else %}Filtros{% endif %}
+            <div class="card-header py-2 d-flex justify-content-between align-items-center list-control-row">
+                <span class="list-control-info">{{ exam_templates.paginator.count }} plantilla{{ exam_templates.paginator.count|pluralize }}</span>
+                <div class="d-flex align-items-center gap-2" id="listControlDefault">
+                    <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" title="Filtros"
+                            data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
+                        <i class="fas fa-filter"></i> <span class="d-none d-sm-inline">Filtros</span>
+                        {% if active_filter_count %}<span class="badge rounded-pill bg-primary list-filter-badge">{{ active_filter_count }}</span>{% endif %}
                     </button>
                     <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if favorites_toggle_querystring %}&{{ favorites_toggle_querystring }}{% endif %}"
-                       class="btn btn-sm {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
-                       title="Mostrar solo favoritas">
-                        <i class="fas fa-star"></i> Favoritas
+                       class="btn btn-sm list-toolbar-btn {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
+                       title="Mostrar solo favoritas" id="templateFavoritosBtn">
+                        <i class="fas fa-star"></i> <span class="d-none d-sm-inline">Favoritas</span>
                     </a>
-                    <button type="button" id="toggleBulkSelectBtn" class="btn btn-outline-secondary btn-sm" onclick="toggleBulkSelect()">
-                        <i class="fas fa-check-square"></i> Borrado múltiple
+                </div>
+                <div class="d-none align-items-center gap-2" id="listSelectionBar">
+                    <span class="fw-semibold" id="listSelectionCount"></span>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete()">
+                        <i class="fas fa-trash-alt"></i> Eliminar
                     </button>
-                    <a href="{% url 'material:create_exam_template' %}" class="btn btn-primary btn-sm">
-                        <i class="fas fa-plus"></i> Nueva Plantilla
-                    </a>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="listSelectionCancelBtn">Cancelar</button>
                 </div>
             </div>
             <div class="card-body">
                 {% if exam_templates %}
                 <div class="table-responsive">
-                    <table class="table table-striped column-filter-table{% if active_filter_count %} filters-visible{% endif %}">
+                    <table class="table table-striped column-filter-table">
                         <thead>
                             <tr>
-                                <th class="bulk-select-col d-none" style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
+                                <th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
                                 <th style="width:40px;"></th>
                                 <th>Nombre</th>
-                                <th class="filterable-col">Institución {% include 'material/components/_column_filter_dropdown.html' with field='institution' label='Institución' options=filter_options.institution selected=selected_filters.institution prefix='d' %}</th>
-                                <th class="filterable-col">Facultad {% include 'material/components/_column_filter_dropdown.html' with field='faculty' label='Facultad' options=filter_options.faculty selected=selected_filters.faculty prefix='d' %}</th>
-                                <th class="filterable-col">Carrera {% include 'material/components/_column_filter_dropdown.html' with field='career' label='Carrera' options=filter_options.career selected=selected_filters.career prefix='d' %}</th>
-                                <th class="filterable-col">Materia {% include 'material/components/_column_filter_dropdown.html' with field='subject' label='Materia' options=filter_options.subject selected=selected_filters.subject prefix='d' %}</th>
-                                <th class="filterable-col">Profesor {% include 'material/components/_column_filter_dropdown.html' with field='professor' label='Profesor' options=filter_options.professor selected=selected_filters.professor prefix='d' %}</th>
-                                <th class="filterable-col">Año {% include 'material/components/_column_filter_dropdown.html' with field='year' label='Año' options=filter_options.year selected=selected_filters.year prefix='d' %}</th>
-                                <th>Acciones</th>
+                                <th id="templateColInstitution">Institución</th>
+                                <th>Facultad</th>
+                                <th>Carrera</th>
+                                <th>Materia</th>
+                                <th>Profesor</th>
+                                <th>Año</th>
+                                <th id="templateColActions">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for template in exam_templates %}
                             <tr>
-                                <td class="rt-card-select bulk-select-col d-none">
+                                <td class="rt-card-select">
                                     <input type="checkbox" name="template_ids" value="{{ template.id }}">
                                 </td>
                                 <td class="rt-card-badge">
@@ -142,13 +129,6 @@
                     <a href="{% url 'material:create_exam_template' %}">Crear nueva plantilla</a>
                 </p>
                 {% endif %}
-
-                <!-- Acciones masivas -->
-                <div class="mt-3 bulk-select-col d-none">
-                    <button type="button" class="btn btn-danger" onclick="confirmDelete()">
-                        <i class="fas fa-trash-alt"></i> Eliminar seleccionadas
-                    </button>
-                </div>
             </div>
         </div>
     </form>
@@ -191,37 +171,9 @@
 </div>
 
 <!-- Scripts -->
+<script src="{% static 'js/list_control_row.js' %}"></script>
 <script>
-    // Toggle de borrado múltiple: oculta/muestra checkboxes y botón "Eliminar seleccionadas"
-    let bulkSelectActive = false;
-    function toggleBulkSelect() {
-        bulkSelectActive = !bulkSelectActive;
-        document.querySelectorAll('.bulk-select-col').forEach(function(el) {
-            el.classList.toggle('d-none', !bulkSelectActive);
-        });
-        const btn = document.getElementById('toggleBulkSelectBtn');
-        if (bulkSelectActive) {
-            btn.innerHTML = '<i class="fas fa-times"></i> Cancelar selección';
-            btn.classList.remove('btn-outline-secondary');
-            btn.classList.add('btn-secondary');
-        } else {
-            btn.innerHTML = '<i class="fas fa-check-square"></i> Borrado múltiple';
-            btn.classList.remove('btn-secondary');
-            btn.classList.add('btn-outline-secondary');
-            // Al cancelar, desmarcar todo lo seleccionado
-            document.querySelectorAll('#deleteForm input[type="checkbox"][name="template_ids"]').forEach(cb => cb.checked = false);
-            const selectAll = document.getElementById('selectAll');
-            if (selectAll) selectAll.checked = false;
-        }
-    }
-
-    // Selección masiva
-    document.getElementById('selectAll').addEventListener('change', function() {
-        const checkboxes = document.querySelectorAll('#deleteForm input[type="checkbox"][name="template_ids"]');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = this.checked;
-        });
-    });
+    initListControlSelection({ checkboxName: 'template_ids' });
 
     // Confirmación de eliminación masiva
     async function confirmDelete() {
@@ -239,9 +191,6 @@
 </script>
 
 <style>
-    .table th, .table td {
-        vertical-align: middle;
-    }
     .btn-group .btn {
         padding: 0.25rem 0.5rem;
     }
