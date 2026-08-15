@@ -1451,6 +1451,60 @@ def create_exam(request):
     }
     return render(request, 'material/exams/create_exam.html', context)
 
+
+@login_required
+def create_exam_wizard(request):
+    """Asistente paso a paso para armar un examen con contenido propio.
+
+    Página nueva e independiente de create_exam (no la reemplaza ni la
+    modifica): el <form> de acá usa los MISMOS nombres de campo y apunta su
+    action al POST de 'material:create_exam', así que reutiliza sin tocarla
+    toda la lógica de guardado/preview ya existente (_collect_exam_post_data,
+    preview_exam, save_exam_from_session) — esta vista solo arma el contexto
+    para el GET de la pantalla nueva. No soporta (todavía) retomar una
+    edición en curso ni un borrador de sesión previo: es siempre un examen
+    nuevo, a diferencia de create_exam.
+    """
+    from .models import Career, CampusV2, Subject, ExamTemplate, InstitutionV2
+    from django.contrib.auth.models import User
+    from .content_visibility import get_visible_questions, get_visible_rubrics, EXAM_ELIGIBLE_Q
+
+    if request.GET.get('limpiar') == '1':
+        request.session.pop('preview_exam', None)
+        request.session.pop('editing_exam_id', None)
+        request.session.pop('editing_batch_id', None)
+        request.session.pop('preview_generated_versions_ids', None)
+        return redirect('material:create_exam_wizard')
+
+    instituciones = InstitutionV2.objects.filter(is_active=True, is_seed_demo=False)
+    carreras = Career.objects.filter(is_seed_demo=False)
+    sedes = CampusV2.objects.filter(is_active=True)
+    profesores = (
+        User.objects.filter(profile__role='admin') | User.objects.filter(profile__role='user')
+    ).exclude(profile__is_training_account=True)
+    templates = ExamTemplate.objects.filter(created_by=request.user)
+    visible_rubrics = get_visible_rubrics(request.user)
+
+    # Mismo criterio que create_exam: solo materias con al menos una
+    # pregunta elegible visible para este usuario (propia o compartida).
+    visible_subject_ids = get_visible_questions(request.user).filter(
+        EXAM_ELIGIBLE_Q
+    ).values_list('subjects__id', flat=True).distinct()
+    materias = Subject.objects.filter(is_seed_demo=False, id__in=visible_subject_ids)
+
+    context = {
+        'instituciones': instituciones,
+        'carreras': carreras,
+        'sedes': sedes,
+        'materias': materias,
+        'profesores': profesores,
+        'templates': templates,
+        'visible_rubrics': visible_rubrics,
+        'current_user_id': request.user.id,
+    }
+    return render(request, 'material/exams/create_exam_wizard.html', context)
+
+
 @login_required
 def save_exam_from_session(request):
     """Guarda examen/es desde sesión. Soporta lote de versiones para examen escrito."""

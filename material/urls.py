@@ -14,6 +14,7 @@ urlpatterns = [
     path('upload/', material_views.upload_contenido, name='upload_contenido'),
     path('extract-metadata/', material_views.extract_metadata_from_upload, name='extract_metadata_from_upload'),
     path('create-exam/', material_views.create_exam, name='create_exam'),
+    path('create-exam-wizard/', material_views.create_exam_wizard, name='create_exam_wizard'),
     path('save-exam/', material_views.save_exam_from_session, name='save_exam_from_session'),
     path('create-exam-template/', material_views.create_exam_template, name='create_exam_template'),
     path('exam-templates/edit/<int:template_id>/', material_views.edit_exam_template, name='edit_exam_template'),

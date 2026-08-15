@@ -1,0 +1,267 @@
+/* create_exam_wizard.css — Asistente paso a paso para "Crear Examen".
+   Página nueva e independiente de create_exam.html (ver material/views.py,
+   create_exam_wizard). Paleta de colores por tópico: 8 tonos categóricos
+   fijos (mismo orden light/dark que el resto del sitio no define, así que
+   se declara acá), nunca se generan tonos nuevos para un 9° tópico en
+   adelante — ver --wiz-topic-other. */
+
+:root {
+    --wiz-topic-1: #2a78d6; /* azul */
+    --wiz-topic-2: #eb6834; /* naranja */
+    --wiz-topic-3: #1baf7a; /* aqua */
+    --wiz-topic-4: #eda100; /* amarillo */
+    --wiz-topic-5: #e87ba4; /* magenta */
+    --wiz-topic-6: #008300; /* verde */
+    --wiz-topic-7: #4a3aa7; /* violeta */
+    --wiz-topic-8: #e34948; /* rojo */
+    --wiz-topic-other: #898781; /* gris — 9° tópico en adelante */
+}
+[data-bs-theme="dark"] {
+    --wiz-topic-1: #3987e5;
+    --wiz-topic-2: #d95926;
+    --wiz-topic-3: #199e70;
+    --wiz-topic-4: #c98500;
+    --wiz-topic-5: #d55181;
+    --wiz-topic-6: #008300;
+    --wiz-topic-7: #9085e9;
+    --wiz-topic-8: #e66767;
+    --wiz-topic-other: #898781;
+}
+
+.wiz-wrap {
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+/* ── Stepper ─────────────────────────────────────────────────────────── */
+.wiz-stepper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-bottom: 1.5rem;
+}
+.wiz-step-pill {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+    border-radius: 2rem;
+    padding: .35rem .9rem .35rem .4rem;
+    font-size: .85rem;
+    color: var(--bs-secondary-color);
+    cursor: default;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.wiz-step-pill.is-reachable { cursor: pointer; }
+.wiz-step-pill .wiz-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6em;
+    height: 1.6em;
+    border-radius: 50%;
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color);
+    font-size: .8em;
+    flex-shrink: 0;
+}
+.wiz-step-pill .wiz-step-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wiz-step-pill.is-active {
+    border-color: var(--bs-primary);
+    background: var(--edu-accent-soft-bg);
+    color: var(--edu-accent-soft-text);
+    font-weight: 600;
+}
+.wiz-step-pill.is-active .wiz-step-num {
+    background: var(--bs-primary);
+    color: #fff;
+}
+.wiz-step-pill.is-done .wiz-step-num {
+    background: #198754;
+    color: #fff;
+}
+.wiz-step-pill.is-done .wiz-step-num::before {
+    content: "\2713";
+}
+.wiz-step-pill.is-done .wiz-step-num span { display: none; }
+
+@media (max-width: 767px) {
+    .wiz-step-pill .wiz-step-label { display: none; }
+    .wiz-step-pill { flex: 0 0 auto; padding: .35rem; }
+}
+
+/* ── Pasos ───────────────────────────────────────────────────────────── */
+.wiz-step {
+    display: none;
+}
+.wiz-step.is-active {
+    display: block;
+}
+.wiz-step-card {
+    border: 1px solid var(--bs-border-color);
+    border-radius: .75rem;
+    padding: 1.5rem;
+    background: var(--bs-body-bg);
+    margin-bottom: 1.25rem;
+}
+.wiz-step-intro {
+    color: var(--bs-secondary-color);
+    font-size: .92rem;
+    margin-bottom: 1.25rem;
+}
+.wiz-subsection {
+    border-top: 1px dashed var(--bs-border-color);
+    padding-top: 1rem;
+    margin-top: 1.25rem;
+}
+.wiz-subsection-title {
+    font-weight: 600;
+    font-size: .95rem;
+    margin-bottom: .75rem;
+}
+
+/* Campo autocompletado desde la plantilla elegida: mismo lenguaje visual
+   que el resaltado "Del asistente" de create_exam.html (ver
+   onb2-from-wizard en _onb2_banner.html), reutilizado acá para "vino de la
+   plantilla". */
+.wiz-from-template {
+    border-color: #198754 !important;
+    background-color: var(--bs-success-bg-subtle) !important;
+    box-shadow: 0 0 0 .15rem rgba(25, 135, 84, .15);
+}
+.wiz-badge-template {
+    font-size: .65rem;
+    vertical-align: middle;
+}
+
+.wiz-toggle-more {
+    background: none;
+    border: none;
+    color: var(--bs-primary);
+    font-size: .88rem;
+    padding: 0;
+}
+
+/* ── Navegación inferior ─────────────────────────────────────────────── */
+.wiz-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .75rem;
+    margin-top: 1rem;
+}
+
+/* ── Selector de tópicos ─────────────────────────────────────────────── */
+.wiz-topics-list {
+    border: 1px solid var(--bs-border-color);
+    border-radius: .5rem;
+    max-height: 320px;
+    overflow-y: auto;
+}
+.wiz-topic-row {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .55rem .75rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+.wiz-topic-row:last-child { border-bottom: none; }
+.wiz-topic-dot {
+    width: .75rem;
+    height: .75rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.wiz-topic-row label {
+    flex: 1 1 auto;
+    margin: 0;
+    cursor: pointer;
+}
+.wiz-topic-count {
+    font-size: .78rem;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+/* ── Preguntas agrupadas por tópico ──────────────────────────────────── */
+.wiz-question-group {
+    border: 1px solid var(--bs-border-color);
+    border-left-width: 4px;
+    border-radius: .5rem;
+    margin-bottom: .85rem;
+    overflow: hidden;
+}
+.wiz-question-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .5rem .75rem;
+    background: var(--bs-tertiary-bg);
+    flex-wrap: wrap;
+}
+.wiz-question-group-title {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-weight: 600;
+    font-size: .88rem;
+}
+.wiz-question-group-count {
+    font-size: .78rem;
+    color: var(--bs-secondary-color);
+    font-weight: 400;
+}
+.wiz-question-group-actions .btn {
+    font-size: .72rem;
+    padding: .1rem .45rem;
+}
+.wiz-question-row {
+    display: flex;
+    align-items: flex-start;
+    gap: .5rem;
+    padding: .5rem .85rem;
+    border-top: 1px solid var(--bs-border-color);
+}
+.wiz-question-row .form-check-input {
+    margin-top: .25em;
+    flex-shrink: 0;
+}
+.wiz-question-row label {
+    white-space: normal;
+    overflow-wrap: break-word;
+    margin: 0;
+    cursor: pointer;
+}
+.wiz-questions-empty {
+    color: var(--bs-secondary-color);
+    font-size: .9rem;
+    padding: 1rem;
+    text-align: center;
+    border: 1px dashed var(--bs-border-color);
+    border-radius: .5rem;
+}
+
+/* ── Resumen final (revisión antes de vista previa) ─────────────────── */
+.wiz-summary {
+    background: var(--bs-tertiary-bg);
+    border-radius: .5rem;
+    padding: 1rem 1.25rem;
+    margin-top: 1.25rem;
+    font-size: .9rem;
+}
+.wiz-summary dt { color: var(--bs-secondary-color); font-weight: 500; }
+.wiz-summary dd { margin-bottom: .5rem; }
+
+.resolucion-grid-wiz {
+    column-count: 1;
+}
+@media (min-width: 576px) {
+    .resolucion-grid-wiz { column-count: 2; }
+}

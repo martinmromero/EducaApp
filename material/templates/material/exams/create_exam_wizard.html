@@ -1,0 +1,365 @@
+{% extends 'material/base.html' %}
+{% load static %}
+{% block body_extra_attrs %}data-tour-page="create_exam_wizard"{% endblock %}
+{% block page_title %}<i class="bi bi-magic me-2"></i>Asistente: Nuevo examen{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'material/css/create_exam_wizard.css' %}">
+
+<div class="wiz-wrap">
+    <p class="text-muted mb-3">
+        Un paso a la vez para armar un examen con tu propio material. Podés volver atrás cuando quieras;
+        nada se guarda hasta que llegues a "Ver vista previa" al final.
+        <a href="{% url 'material:create_exam' %}" class="ms-1">¿Preferís la pantalla completa de siempre?</a>
+    </p>
+
+    <nav class="wiz-stepper" id="wizStepper" aria-label="Pasos del asistente">
+        <div class="wiz-step-pill is-active" data-step-pill="1"><span class="wiz-step-num"><span>1</span></span><span class="wiz-step-label">Plantilla</span></div>
+        <div class="wiz-step-pill" data-step-pill="2"><span class="wiz-step-num"><span>2</span></span><span class="wiz-step-label">Materia</span></div>
+        <div class="wiz-step-pill" data-step-pill="3"><span class="wiz-step-num"><span>3</span></span><span class="wiz-step-label">Tópicos y preguntas</span></div>
+        <div class="wiz-step-pill" data-step-pill="4"><span class="wiz-step-num"><span>4</span></span><span class="wiz-step-label">Cuándo y detalles</span></div>
+        <div class="wiz-step-pill" data-step-pill="5"><span class="wiz-step-num"><span>5</span></span><span class="wiz-step-label">Uno o varios temas</span></div>
+        <div class="wiz-step-pill" data-step-pill="6"><span class="wiz-step-num"><span>6</span></span><span class="wiz-step-label">Rúbricas</span></div>
+    </nav>
+
+    <div id="alerts-container"></div>
+
+    <form method="post" action="{% url 'material:create_exam' %}" id="examWizardForm">
+        {% csrf_token %}
+        <input type="hidden" name="title" id="id_title">
+        <input type="text" name="alumno" id="alumno" style="display:none" disabled>
+
+        <!-- PASO 1: Plantilla -->
+        <div class="wiz-step is-active" data-step="1">
+            <div class="wiz-step-card">
+                <h4>¿Partís de una plantilla?</h4>
+                <p class="wiz-step-intro">
+                    Elegí una plantilla ya guardada para completar materia, institución, rúbricas y más de una sola vez —
+                    todo lo que traiga se puede seguir editando en los pasos siguientes. Si no, arrancá en blanco.
+                </p>
+                <select class="form-select" name="plantilla" id="plantilla">
+                    <option value="">Empezar en blanco</option>
+                    {% for template in templates %}
+                        <option value="{{ template.id }}">{{ template.name|default:template }}</option>
+                    {% endfor %}
+                </select>
+                {% if not templates %}
+                <p class="text-muted small mt-2 mb-0">
+                    Todavía no creaste ninguna plantilla — no hay drama, podés seguir en blanco.
+                    <a href="{% url 'material:create_exam_template' %}" target="_blank" rel="noopener">Crear una plantilla</a> para la próxima.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- PASO 2: Materia -->
+        <div class="wiz-step" data-step="2">
+            <div class="wiz-step-card">
+                <h4>¿Qué materia vas a evaluar?</h4>
+                <p class="wiz-step-intro">Elegí la materia. Los resultados de aprendizaje (si la materia tiene) aparecen abajo.</p>
+                <select class="form-select" name="subject" id="id_subject" required>
+                    <option value="">Seleccionar materia</option>
+                    {% for materia in materias %}
+                        <option value="{{ materia.id }}">{{ materia.name }}</option>
+                    {% endfor %}
+                </select>
+                {% if not materias %}
+                <p class="text-muted small mt-2 mb-0">
+                    Todavía no tenés preguntas propias (o compartidas) listas para examen en ninguna materia.
+                    <a href="{% url 'material:upload_contenido' %}" target="_blank" rel="noopener">Subí contenido</a> primero.
+                </p>
+                {% endif %}
+                <div class="mb-0 mt-3 d-none" id="learning_outcomes_section">
+                    <label class="form-label">Resultados de aprendizaje</label>
+                    <div id="learning_outcomes_container"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 3: Tópicos y preguntas -->
+        <div class="wiz-step" data-step="3">
+            <div class="wiz-step-card">
+                <h4>¿Qué tópicos vas a tomar?</h4>
+                <p class="wiz-step-intro">
+                    Tildá los tópicos a evaluar. Cada uno tiene un color propio para que abajo se distinga de un
+                    vistazo qué pregunta pertenece a qué tópico.
+                </p>
+                <div id="wizTopicsEmpty" class="wiz-questions-empty">Elegí una materia en el paso anterior primero.</div>
+                <div id="wizTopicsWrap" class="d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label mb-0">Tópicos</label>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-secondary" id="topics_select_all">Todo</button>
+                            <button type="button" class="btn btn-outline-secondary" id="topics_select_none">Ninguno</button>
+                        </div>
+                    </div>
+                    <div id="wizTopicsList" class="wiz-topics-list mb-4"></div>
+                    <select multiple class="d-none" name="topics" id="id_topics"></select>
+
+                    <label class="form-label">Preguntas</label>
+                    <div id="wizQuestionsGroups"></div>
+                    <select multiple class="d-none" name="questions" id="id_questions"></select>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 4: Cuándo y detalles -->
+        <div class="wiz-step" data-step="4">
+            <div class="wiz-step-card">
+                <h4>Vos y cuándo</h4>
+                <p class="wiz-step-intro">Quién lo toma, cuándo y con qué duración.</p>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="profesor_dropdown">Profesor</label>
+                        <select class="form-select" name="profesor_dropdown" id="profesor_dropdown">
+                            <option value="">Seleccionar profesor</option>
+                            {% for profesor in profesores %}
+                                <option value="{{ profesor.id }}" {% if profesor.id == current_user_id %}selected{% endif %}>{{ profesor.get_full_name|default:profesor.username }}</option>
+                            {% endfor %}
+                            <option value="otro">Otro</option>
+                        </select>
+                        <input type="text" class="form-control mt-2 d-none" name="profesor_text" id="profesor_text" placeholder="Ingrese profesor">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="fecha">Fecha del examen</label>
+                        <input type="date" class="form-control" name="fecha" id="fecha">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="id_duration_minutes">Duración</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" name="duration_minutes" id="id_duration_minutes" min="1">
+                            <select class="form-select" id="duration_unit" style="max-width: 8rem;">
+                                <option value="minutos" selected>minutos</option>
+                                <option value="horas">horas</option>
+                                <option value="dias">días</option>
+                                <option value="semanas">semanas</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="year">Año para el encabezado</label>
+                        <input type="number" class="form-control" name="year" id="year" min="1900" max="2100">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="periodo_numero">Período</label>
+                        <div class="input-group">
+                            <input type="number" min="1" class="form-control" id="periodo_numero" placeholder="1">
+                            <select class="form-select" id="periodo_tipo">
+                                <option value="Bimestre">Bimestre</option>
+                                <option value="Trimestre">Trimestre</option>
+                                <option value="Cuatrimestre" selected>Cuatrimestre</option>
+                                <option value="Semestre">Semestre</option>
+                            </select>
+                        </div>
+                        <input type="hidden" id="batch_semester" name="batch_semester">
+                    </div>
+                </div>
+
+                <div class="wiz-subsection">
+                    <div class="wiz-subsection-title">Institución, sede y curso <span class="text-muted fw-normal">(opcional — para el encabezado impreso)</span></div>
+                    <button type="button" class="wiz-toggle-more mb-3" id="wizToggleInstitucion">+ Agregar institución, facultad, carrera y sede</button>
+                    <div class="row g-3 d-none" id="wizInstitucionBlock">
+                        <div class="col-md-4">
+                            <label class="form-label" for="institucion_dropdown">Institución</label>
+                            <select class="form-select" name="institucion_dropdown" id="institucion_dropdown" onchange="toggleTextbox('institucion_dropdown', 'institucion_text')">
+                                <option value="">Seleccionar institución</option>
+                                {% for institucion in instituciones %}
+                                    <option value="{{ institucion.id }}">{{ institucion.name }}</option>
+                                {% endfor %}
+                                <option value="otro">Otro</option>
+                            </select>
+                            <input type="text" class="form-control mt-2 d-none" name="institucion_text" id="institucion_text" placeholder="Ingrese institución">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="facultad_dropdown">Facultad</label>
+                            <select class="form-select" name="facultad_dropdown" id="facultad_dropdown" onchange="toggleTextbox('facultad_dropdown', 'facultad_text')">
+                                <option value="">Seleccionar facultad</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                            <input type="text" class="form-control mt-2 d-none" name="facultad_text" id="facultad_text" placeholder="Ingrese facultad">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="carrera_dropdown">Carrera</label>
+                            <select class="form-select" name="carrera_dropdown" id="carrera_dropdown" onchange="toggleTextbox('carrera_dropdown', 'carrera_text')">
+                                <option value="">Seleccionar carrera</option>
+                                {% for carrera in carreras %}
+                                    <option value="{{ carrera.id }}">{{ carrera.name }}</option>
+                                {% endfor %}
+                                <option value="otro">Otro</option>
+                            </select>
+                            <input type="text" class="form-control mt-2 d-none" name="carrera_text" id="carrera_text" placeholder="Ingrese carrera">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="sede_dropdown">Sede / Localización</label>
+                            <select class="form-select" name="sede_dropdown" id="sede_dropdown" onchange="toggleTextbox('sede_dropdown', 'sede_text')">
+                                <option value="">Seleccionar sede</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                            <input type="text" class="form-control mt-2 d-none" name="sede_text" id="sede_text" placeholder="Ingrese sede">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="curso">Año / Curso / Comisión</label>
+                            <input type="text" class="form-control" name="curso" id="curso">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="turno_dropdown">Turno</label>
+                            <select class="form-select" name="turno_dropdown" id="turno_dropdown" onchange="toggleTextbox('turno_dropdown', 'turno_text')">
+                                <option value="">Seleccionar turno</option>
+                                <option value="Mañana">Mañana</option>
+                                <option value="Tarde">Tarde</option>
+                                <option value="Noche">Noche</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                            <input type="text" class="form-control mt-2 d-none" name="turno_text" id="turno_text" placeholder="Ingrese turno">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wiz-subsection">
+                    <div class="wiz-subsection-title">Tipo y modalidad</div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label" for="tipo_examen_select">Tipo de examen</label>
+                            <select class="form-select" name="tipo_examen" id="tipo_examen_select">
+                                <option value="">Seleccionar...</option>
+                                <option value="1er_parcial">1er. Parcial</option>
+                                <option value="2do_parcial">2do. Parcial</option>
+                                <option value="3er_parcial">3er. Parcial</option>
+                                <option value="final">Final</option>
+                                <option value="recuperatorio">Recuperatorio</option>
+                                <option value="practico">Práctico</option>
+                            </select>
+                            <label class="form-label mt-3">Modalidad</label>
+                            <div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="tipo_modalidad" id="modalidad_individual" value="individual">
+                                    <label class="form-check-label" for="modalidad_individual">Individual</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="tipo_modalidad" id="modalidad_grupal" value="grupal">
+                                    <label class="form-check-label" for="modalidad_grupal">Grupal</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Modalidad de resolución</label>
+                            <div class="resolucion-grid-wiz">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_oral" value="oral">
+                                    <label class="form-check-label" for="resolucion_oral">Oral</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_escrito" value="escrito">
+                                    <label class="form-check-label" for="resolucion_escrito">Escrito</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_presencial" value="presencial">
+                                    <label class="form-check-label" for="resolucion_presencial">Presencial</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_virtual" value="virtual">
+                                    <label class="form-check-label" for="resolucion_virtual">Virtual</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_domiciliario" value="domiciliario">
+                                    <label class="form-check-label" for="resolucion_domiciliario">Domiciliario</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_hibrido" value="hibrido">
+                                    <label class="form-check-label" for="resolucion_hibrido">Híbrido</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label" for="batch_name">Nombre del examen</label>
+                        <input type="text" class="form-control" id="batch_name" name="batch_name" placeholder="Se sugiere automáticamente si se deja vacío">
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label" for="id_instructions">Notas y recomendaciones</label>
+                        <textarea class="form-control" name="instructions" id="id_instructions" rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 5: Uno o varios temas -->
+        <div class="wiz-step" data-step="5">
+            <div class="wiz-step-card">
+                <h4>¿Un solo tema o varios?</h4>
+                <p class="wiz-step-intro">
+                    Se puede armar más de un tema con preguntas distintas para la misma fecha de examen
+                    (por ejemplo, para tomar en simultáneo sin que se copien entre sí), cada uno con su propio encabezado.
+                </p>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="num_versions">Cantidad de temas</label>
+                        <input type="number" min="1" value="1" class="form-control" id="num_versions" name="num_versions">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="questions_per_version">Preguntas por tema</label>
+                        <input type="number" min="1" class="form-control" id="questions_per_version" name="questions_per_version" placeholder="Ej: 10">
+                    </div>
+                </div>
+                <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" id="balance_by_topic" name="balance_by_topic" checked>
+                    <label class="form-check-label" for="balance_by_topic">Distribución equitativa por tópico</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 6: Rúbricas -->
+        <div class="wiz-step" data-step="6">
+            <div class="wiz-step-card">
+                <h4>¿Vas a usar rúbricas?</h4>
+                <p class="wiz-step-intro">Se incluyen al imprimir o exportar el examen. Opcional.</p>
+                {% if visible_rubrics %}
+                <div id="rubrics_checkbox_container" class="border rounded p-2" style="max-height:220px;overflow:auto;">
+                    {% for rubrica in visible_rubrics %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="rubric_ids" value="{{ rubrica.id }}" id="rubric_cb_{{ rubrica.id }}">
+                        <label class="form-check-label" for="rubric_cb_{{ rubrica.id }}">{{ rubrica.title }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted small mb-0">
+                    Todavía no creaste ninguna rúbrica. <a href="{% url 'material:rubric_create' %}" target="_blank" rel="noopener">Crear una</a>
+                </p>
+                {% endif %}
+
+                <div class="wiz-summary" id="wizSummary"></div>
+            </div>
+        </div>
+
+        <div class="wiz-nav">
+            <button type="button" class="btn btn-outline-secondary" id="wizBackBtn">
+                <i class="bi bi-arrow-left me-1"></i>Atrás
+            </button>
+            <a href="{% url 'material:create_exam_wizard' %}?limpiar=1" class="text-muted small">Empezar de nuevo</a>
+            <button type="button" class="btn btn-primary" id="wizNextBtn">
+                Siguiente<i class="bi bi-arrow-right ms-1"></i>
+            </button>
+            <button type="submit" name="preview" value="1" class="btn btn-success d-none" id="wizSubmitBtn">
+                Ver vista previa<i class="bi bi-check2 ms-1"></i>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+window.EducaAppWizardConfig = {
+    currentUserId: {{ current_user_id }},
+    urls: {
+        getTopics: "{% url 'material:get_topics' %}",
+        getQuestionsByTopics: "{% url 'material:get_questions_by_topics' %}",
+        getLearningOutcomes: "{% url 'material:get_learning_outcomes' %}",
+        getExamTemplateBase: "/get-exam-template/",
+        getFacultiesByInstitutionBase: "/get_faculties_by_institution/",
+        getCampusesByInstitutionBase: "/get_campuses_by_institution/",
+        getCareersByFacultyBase: "/get-careers-by-faculty/",
+        getCareerNameBase: "/get-career-name/"
+    }
+};
+</script>
+<script src="{% static 'material/js/create_exam_wizard.js' %}"></script>
+{% endblock %}
