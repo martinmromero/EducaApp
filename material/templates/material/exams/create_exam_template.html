@@ -1,9 +1,11 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% block body_extra_attrs %}data-tour-page="exam_template"{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 <link rel="stylesheet" href="{% static 'material/css/create_exam_template.css' %}">
+<script src="{% static 'js/page_tours/exam_template_tour.js' %}"></script>
 
 <h2>{% if edit_mode %}Editar{% else %}Crear{% endif %} Plantilla de Examen</h2>
 <form method="post" enctype="multipart/form-data" id="examTemplateForm">
