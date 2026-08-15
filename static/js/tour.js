@@ -10,39 +10,23 @@
 (function () {
   const STORAGE_KEY = 'educaapp_tour_done';
 
-  function expandExamenesSubmenu() {
-    const group = document.getElementById('tourMenuExamenes');
+  // El sidebar tiene grupos con submenú (Exámenes, Mi espacio académico) e
+  // ítems simples sin submenú (Generar con IA, Contenidos, Preguntas,
+  // Grupos). expandMenu() sirve para ambos: en un ítem simple la clase
+  // "active" no tiene efecto visible (no hay .submenu que mostrar), pero
+  // igual cierra cualquier otro submenú que haya quedado abierto.
+  function expandMenu(menuId) {
+    document.querySelectorAll('.sidebar .menu-item').forEach((item) => {
+      item.classList.remove('active');
+    });
+    const group = document.getElementById(menuId);
     if (group) group.classList.add('active');
   }
 
-  function collapseExamenesSubmenu() {
-    const group = document.getElementById('tourMenuExamenes');
-    if (group) group.classList.remove('active');
-  }
-
-  function expandAcademicoSubmenu() {
-    const group = document.getElementById('tourMenuAcademico');
-    if (group) group.classList.add('active');
-  }
-
-  function expandContenidosSubmenu() {
-    const group = document.getElementById('tourMenuContenidos');
-    if (group) group.classList.add('active');
-  }
-
-  function collapseContenidosSubmenu() {
-    const group = document.getElementById('tourMenuContenidos');
-    if (group) group.classList.remove('active');
-  }
-
-  function expandPreguntasSubmenu() {
-    const group = document.getElementById('tourMenuPreguntas');
-    if (group) group.classList.add('active');
-  }
-
-  function collapsePreguntasSubmenu() {
-    const group = document.getElementById('tourMenuPreguntas');
-    if (group) group.classList.remove('active');
+  function collapseAllMenus() {
+    document.querySelectorAll('.sidebar .menu-item').forEach((item) => {
+      item.classList.remove('active');
+    });
   }
 
   // Resalte secundario del paso 1: además del elemento principal del paso
@@ -91,13 +75,22 @@
       onDeselected: unhighlightHelpBtn,
     },
     {
+      element: '#tourMenuGenerarIA',
+      popover: {
+        title: 'Generar con IA',
+        description: 'Se sube un apunte, PDF o material de clase y la IA genera preguntas automáticamente a partir de su contenido. Es la función más usada de EducaApp.',
+        side: 'right',
+      },
+      onHighlightStarted: () => expandMenu('tourMenuGenerarIA'),
+    },
+    {
       element: '#tourMenuContenidos',
       popover: {
         title: 'Contenidos',
-        description: 'Aquí se suben los apuntes, PDFs o materiales de clase para que la IA genere preguntas a partir de ellos.',
+        description: 'Biblioteca de todo lo que se subió: apuntes, PDFs y materiales de clase, ya se hayan procesado con IA o no.',
         side: 'right',
       },
-      onHighlightStarted: expandContenidosSubmenu,
+      onHighlightStarted: () => expandMenu('tourMenuContenidos'),
     },
     {
       element: '#tourMenuPreguntas',
@@ -106,19 +99,25 @@
         description: 'Aquí vive el banco de preguntas: si ya hay preguntas armadas con su respuesta, se pueden subir directo tanto individualmente como en lotes. Las que genera la IA se pueden aprobar o rechazar cada una, pero se guardan todas, para que la IA tenga memoria de las preferencias la próxima vez.',
         side: 'right',
       },
-      onHighlightStarted: function () {
-        collapseContenidosSubmenu();
-        expandPreguntasSubmenu();
-      },
+      onHighlightStarted: () => expandMenu('tourMenuPreguntas'),
     },
     {
       element: '#tourMenuExamenes',
       popover: {
         title: 'Exámenes',
-        description: 'Aquí se arman exámenes con el banco de preguntas — al elegir, solo aparecen las que fueron aprobadas. También viven aquí las plantillas, las rúbricas y los cuestionarios orales.',
+        description: 'Aquí se arman exámenes con el banco de preguntas — al elegir, solo aparecen las que fueron aprobadas. También viven aquí los cuestionarios orales.',
         side: 'right',
       },
-      onHighlightStarted: collapsePreguntasSubmenu,
+      onHighlightStarted: () => expandMenu('tourMenuExamenes'),
+    },
+    {
+      element: '#tourMenuAcademico',
+      popover: {
+        title: 'Mi espacio académico',
+        description: 'Institución, carrera y materia, más las plantillas de examen, rúbricas y formatos de impresión — todo lo que se configura una vez y se cambia ocasionalmente.',
+        side: 'right',
+      },
+      onHighlightStarted: () => expandMenu('tourMenuAcademico'),
     },
     {
       element: '#tourMenuPlantillas',
@@ -127,7 +126,7 @@
         description: 'Aquí se pueden crear plantillas de examen reutilizables, para no repetir la misma configuración cada vez.',
         side: 'right',
       },
-      onHighlightStarted: expandExamenesSubmenu,
+      onHighlightStarted: () => expandMenu('tourMenuAcademico'),
     },
     {
       element: '#tourMenuFormatos',
@@ -136,19 +135,7 @@
         description: 'Aquí se define cómo se ve el examen impreso (membrete, colores, tamaño de hoja). Si se trabaja con más de una institución, se pueden guardar varios formatos — uno por cada una — para tener los exámenes listos con el membrete correspondiente.',
         side: 'right',
       },
-      onHighlightStarted: expandExamenesSubmenu,
-    },
-    {
-      element: '#tourMenuAcademico',
-      popover: {
-        title: 'Mi espacio académico',
-        description: 'Institución, carrera y materia — se configuran ocasionalmente.',
-        side: 'right',
-      },
-      onHighlightStarted: function () {
-        collapseExamenesSubmenu();
-        expandAcademicoSubmenu();
-      },
+      onHighlightStarted: () => expandMenu('tourMenuAcademico'),
     },
     {
       element: '#tourMenuGrupos',
@@ -157,10 +144,7 @@
         description: 'Grupos de confianza para compartir preguntas por materia con otros docentes.',
         side: 'right',
       },
-      onHighlightStarted: function () {
-        const group = document.getElementById('tourMenuAcademico');
-        if (group) group.classList.remove('active');
-      },
+      onHighlightStarted: collapseAllMenus,
     },
     {
       element: '#visualThemeDropdown',
