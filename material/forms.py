@@ -723,12 +723,14 @@ class OralExamForm(forms.ModelForm):
             'num_groups': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': '1',
-                'max': '10'
+                'max': '10',
+                'placeholder': 'Ej: 2'
             }),
             'students_per_group': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': '1',
-                'max': '20'
+                'max': '20',
+                'placeholder': 'Ej: 8'
             }),
             'questions_per_student': forms.NumberInput(attrs={
                 'class': 'form-control',

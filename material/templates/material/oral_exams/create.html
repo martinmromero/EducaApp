@@ -1,8 +1,10 @@
 {% extends 'material/base.html' %}
 {% load static %}
 {% load message_tags %}
+{% block body_extra_attrs %}data-tour-page="oral_exam_create"{% endblock %}
 
 {% block content %}
+<script src="{% static 'js/page_tours/oral_exam_create_tour.js' %}"></script>
 <div class="container-fluid">
     <h1 class="h3 mb-4 text-gray-800">Crear Cuestionario Oral</h1>
     
@@ -292,12 +294,48 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedTopics = getSelectedTopics();
         if (selectedTopics.length > 0) {
             enableTotalStudents();
+            fetchTopicsInfo(selectedTopics);
             if (totalStudentsField.value) {
                 onTotalStudentsChanged();
             }
         } else {
             resetFieldsFromStep('totalStudents');
+            hideValidationPanel();
         }
+    }
+
+    // Muestra preguntas disponibles apenas se eligen tópicos, sin esperar
+    // a que se complete el resto de la secuencia (total_students, etc.)
+    function fetchTopicsInfo(selectedTopics) {
+        const subjectId = subjectSelect.value;
+        if (!subjectId || selectedTopics.length === 0) {
+            return;
+        }
+
+        fetch('{% url "material:validate_oral_exam" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                subject_id: subjectId,
+                topic_ids: selectedTopics,
+                total_students: 0,
+                questions_per_student: 0
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showValidationInfo(data.info);
+            } else {
+                hideValidationPanel();
+            }
+        })
+        .catch(error => {
+            console.error('Error al obtener preguntas disponibles:', error);
+        });
     }
     
     function onTotalStudentsChanged() {
@@ -317,9 +355,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const totalStudents = parseInt(totalStudentsField.value) || 0;
         const questionsPerStudent = parseInt(questionsPerStudentField.value) || 0;
         const selectedTopics = getSelectedTopics();
-        
+
         if (totalStudents > 0 && questionsPerStudent > 0 && selectedTopics.length > 0) {
-            calculateOptimalConfiguration();
+            enableGroupFields();
+            promptGroupsInput();
+            numGroupsField.focus();
         } else {
             resetGroupFields();
         }
@@ -354,69 +394,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // FUNCIONES DE CÁLCULO Y VALIDACIÓN
-    function calculateOptimalConfiguration() {
-        const totalStudents = parseInt(totalStudentsField.value) || 0;
-        const questionsPerStudent = parseInt(questionsPerStudentField.value) || 0;
-        const subjectId = subjectSelect.value;
-        const selectedTopics = getSelectedTopics();
-        
-        if (totalStudents > 0 && questionsPerStudent > 0 && subjectId && selectedTopics.length > 0) {
-            // Hacer llamada AJAX para obtener configuración óptima
-            fetch('{% url "material:validate_oral_exam" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify({
-                    subject_id: subjectId,
-                    topic_ids: selectedTopics,
-                    total_students: totalStudents,
-                    questions_per_student: questionsPerStudent
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showValidationInfo(data.info);
-                    calculateAndSetOptimalGroups(totalStudents, data.info.max_students_per_group);
-                    enableGroupFields();
-                    updateValidationDisplay();
-                } else {
-                    showError('Error en la configuración: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error en validación:', error);
-                showError('Error al validar la configuración');
-            });
+
+    // Invita a cargar uno de los dos campos (grupos o estudiantes por grupo)
+    // en vez de completar ambos automáticamente con un valor "óptimo" que el
+    // usuario no eligió (ej: 1 solo grupo con todos los estudiantes).
+    function promptGroupsInput() {
+        ensureValidationPanelExists();
+        const calculationStatus = document.getElementById('calculation-status');
+        if (calculationStatus && !numGroupsField.value && !studentsPerGroupField.value) {
+            calculationStatus.innerHTML = `
+                <div class="alert alert-secondary mt-2">
+                    <i class="fas fa-hand-point-right"></i>
+                    Ingresá la cantidad de <strong>grupos</strong> o de <strong>estudiantes por grupo</strong>;
+                    el otro valor se calcula automáticamente.
+                </div>
+            `;
         }
     }
-    
-    function calculateAndSetOptimalGroups(totalStudents, maxStudentsPerGroup) {
-        // Cálculo de configuración óptima
-        let optimalGroups, optimalStudentsPerGroup;
-        
-        if (maxStudentsPerGroup && maxStudentsPerGroup > 0) {
-            // Usar el máximo recomendado por el sistema
-            optimalGroups = Math.ceil(totalStudents / maxStudentsPerGroup);
-            optimalStudentsPerGroup = Math.ceil(totalStudents / optimalGroups);
-        } else {
-            // Cálculo básico: intentar grupos de 8-12 estudiantes
-            const idealGroupSize = 10;
-            if (totalStudents <= idealGroupSize) {
-                optimalGroups = 1;
-                optimalStudentsPerGroup = totalStudents;
-            } else {
-                optimalGroups = Math.ceil(totalStudents / idealGroupSize);
-                optimalStudentsPerGroup = Math.ceil(totalStudents / optimalGroups);
-            }
-        }
-        
-        numGroupsField.value = optimalGroups;
-        studentsPerGroupField.value = optimalStudentsPerGroup;
-    }
-    
+
     function updateValidationDisplay() {
         const totalStudents = parseInt(totalStudentsField.value) || 0;
         const numGroups = parseInt(numGroupsField.value) || 0;
@@ -487,7 +482,12 @@ document.addEventListener('DOMContentLoaded', function() {
         studentsPerGroupField.value = '';
         numGroupsField.disabled = true;
         studentsPerGroupField.disabled = true;
-        hideValidationPanel();
+        // No ocultamos el panel entero: la info de preguntas disponibles
+        // depende solo de los tópicos, no de este paso, y debe seguir visible.
+        const calculationStatus = document.getElementById('calculation-status');
+        if (calculationStatus) {
+            calculationStatus.innerHTML = '';
+        }
     }
     
     function clearValidationClasses() {

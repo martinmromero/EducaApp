@@ -5628,7 +5628,7 @@ def validate_oral_exam(request):
         total_students = data.get('total_students', 0)
         questions_per_student = data.get('questions_per_student', 3)
         
-        if not all([subject_id, topic_ids, total_students > 0]):
+        if not all([subject_id, topic_ids]):
             return JsonResponse({'success': False, 'error': 'Datos incompletos'})
         
         # Obtener preguntas disponibles
