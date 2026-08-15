@@ -1,7 +1,10 @@
 {% extends 'material/base.html' %}
+{% load static %}
+{% block body_extra_attrs %}data-tour-page="rubric_form"{% endblock %}
 {% block page_title %}<i class="bi bi-card-checklist me-2"></i>{{ action }} Rúbrica{% endblock %}
 
 {% block content %}
+<script src="{% static 'js/page_tours/rubric_form_tour.js' %}"></script>
 <div class="container-fluid mt-4" style="max-width:1300px;">
     <div class="d-flex justify-content-end align-items-center mb-4">
         <a href="{% url 'material:rubric_list' %}" class="btn btn-outline-secondary btn-sm">

@@ -6983,7 +6983,6 @@ def formato_impresion_set_default(request, pk):
         clear_existing_default_for_scope(user=formato.user, institution=formato.institution, exclude_id=formato.pk)
         formato.es_default = True
         formato.save(update_fields=['es_default'])
-    messages.success(request, 'Formato marcado como predeterminado.')
     return redirect('material:formato_impresion_list')
 
 

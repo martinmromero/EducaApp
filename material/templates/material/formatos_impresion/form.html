@@ -1,4 +1,5 @@
 {% extends 'material/base.html' %}
+{% load static %}
 {% block page_title %}<i class="bi bi-printer me-2"></i>{{ action }} formato de impresión{% endblock %}
 
 {% block content %}
@@ -167,67 +168,6 @@
         position: sticky;
         top: 1rem;
     }
-    .print-preview-page {
-        background: #ffffff;
-        color: #000;
-        margin: 0 auto;
-        box-shadow: 0 1px 4px rgba(0,0,0,.2), 0 0 0 1px rgba(0,0,0,.08);
-        overflow: hidden;
-        box-sizing: border-box;
-        cursor: zoom-in;
-    }
-    .print-preview-content {
-        height: 100%;
-        overflow: hidden;
-    }
-    .preview-header-table {
-        width: 100%;
-        border-collapse: collapse;
-        border: 1px solid #444;
-    }
-    .preview-header-table td {
-        border: 1px solid #444;
-        padding: .2em .35em;
-        vertical-align: middle;
-    }
-    .preview-logo-cell {
-        width: 15%;
-        text-align: center;
-        color: #999;
-    }
-    .preview-year-cell {
-        width: 18%;
-        text-align: center;
-    }
-    .preview-meta-row {
-        display: flex;
-        justify-content: space-between;
-        gap: .5em;
-    }
-    .preview-student-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: .5em;
-    }
-    .preview-student-table td {
-        border: 1px solid #444;
-        padding: .2em .35em;
-    }
-    .preview-student-table .preview-label-cell {
-        background: #f6f6f6;
-        font-weight: bold;
-        width: 20%;
-    }
-    .preview-section {
-        margin-top: .6em;
-    }
-    .preview-section h4 {
-        margin: 0 0 .2em;
-        font-size: 1em;
-    }
-    .preview-option {
-        padding-left: 1em;
-    }
 
     /* Paleta de colores: el campo visible muestra el NOMBRE del color (no
        el hex) y al hacer click abre una cuadrícula flotante — no ocupa
@@ -271,17 +211,9 @@
     }
 </style>
 
+<script src="{% static 'js/print_format_preview.js' %}"></script>
 <script>
 (function () {
-    var PAPER_SIZES_CM = { A4: [21.0, 29.7], Carta: [21.6, 27.9], Oficio: [21.6, 33.0] };
-    var FONT_STACKS = {
-        'Arial': 'Arial, Helvetica, sans-serif',
-        'Times New Roman': '"Times New Roman", Times, serif',
-        'Calibri': 'Calibri, "Segoe UI", sans-serif',
-        'Helvetica': 'Helvetica, Arial, sans-serif',
-    };
-    var PX_PER_CM_REAL = 37.8; // ~96dpi, solo para escalar la tipografía de forma proporcional
-
     // 24 colores estándar: grises de blanco a negro + una fila de colores
     // vivos y otra de sus versiones oscuras (más legibles para texto/título
     // de examen que el color vivo puro). El campo visible muestra "name",
@@ -365,32 +297,18 @@
     }
 
     function renderPreview(pageEl, widthPx) {
-        if (!pageEl) return;
-        var paper = PAPER_SIZES_CM[val('id_tamano_hoja')] || PAPER_SIZES_CM.A4;
-        var widthCm = paper[0], heightCm = paper[1];
-        var scale = widthPx / widthCm; // px por cm, en esta instancia del preview
-
-        pageEl.style.width = widthPx + 'px';
-        pageEl.style.height = Math.round(widthPx * (heightCm / widthCm)) + 'px';
-
-        var top = (parseFloat(val('id_margen_superior_cm')) || 0) * scale;
-        var bottom = (parseFloat(val('id_margen_inferior_cm')) || 0) * scale;
-        var left = (parseFloat(val('id_margen_izquierdo_cm')) || 0) * scale;
-        var right = (parseFloat(val('id_margen_derecho_cm')) || 0) * scale;
-        pageEl.style.padding = top + 'px ' + right + 'px ' + bottom + 'px ' + left + 'px';
-
-        var content = pageEl.querySelector('.print-preview-content');
-        if (!content) return;
-        var fontSizePt = parseFloat(val('id_tamano_fuente')) || 11;
-        var miniScale = scale / PX_PER_CM_REAL;
-        content.style.fontFamily = FONT_STACKS[val('id_fuente')] || 'sans-serif';
-        content.style.fontSize = Math.max(6, fontSizePt * 1.333 * miniScale) + 'px';
-        content.style.lineHeight = parseFloat(val('id_interlineado')) || 1.15;
-
-        var titleColor = val('id_color_titulo') || '#111111';
-        var textColor = val('id_color_texto') || '#000000';
-        content.querySelectorAll('.preview-title').forEach(function (el) { el.style.color = titleColor; });
-        content.querySelectorAll('.preview-text').forEach(function (el) { el.style.color = textColor; });
+        window.PrintFormatPreview.render(pageEl, widthPx, {
+            tamanoHoja: val('id_tamano_hoja'),
+            fuente: val('id_fuente'),
+            tamanoFuente: val('id_tamano_fuente'),
+            interlineado: val('id_interlineado'),
+            margenSuperiorCm: val('id_margen_superior_cm'),
+            margenInferiorCm: val('id_margen_inferior_cm'),
+            margenIzquierdoCm: val('id_margen_izquierdo_cm'),
+            margenDerechoCm: val('id_margen_derecho_cm'),
+            colorTitulo: val('id_color_titulo'),
+            colorTexto: val('id_color_texto'),
+        });
     }
 
     // Zoom del modal fullscreen: en vez de CSS transform (que desalinea el

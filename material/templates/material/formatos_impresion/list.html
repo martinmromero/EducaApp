@@ -1,22 +1,32 @@
 {% extends 'material/base.html' %}
+{% load static %}
+{% block body_extra_attrs %}data-tour-page="formato_impresion_list"{% endblock %}
 {% block page_title %}<i class="bi bi-printer me-2"></i>Formatos de Impresión{% endblock %}
+{% block page_actions %}
+<a href="{% url 'material:formato_impresion_create' %}" class="btn btn-primary" id="formatoNewBtn">
+    <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nuevo Formato</span>
+</a>
+{% endblock %}
 
 {% block content %}
+<script src="{% static 'js/page_tours/formato_impresion_list_tour.js' %}"></script>
+<script src="{% static 'js/print_format_preview.js' %}"></script>
 {% include 'material/components/_mobile_card_table.html' %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-end align-items-center mb-3">
-        <a href="{% url 'material:formato_impresion_create' %}" class="btn btn-primary">Nuevo formato</a>
-    </div>
-
+<div class="container-fluid">
+    <div class="card shadow mb-4">
+        <div class="card-header py-2">
+            <span class="list-control-info">{{ formatos|length }} formato{{ formatos|length|pluralize }}</span>
+        </div>
+        <div class="card-body">
     <div class="table-responsive">
         <table class="table table-striped mobile-card-table">
             <thead>
                 <tr>
                     <th>Nombre</th>
-                    <th>Alcance</th>
+                    <th id="formatoColAlcance">Alcance</th>
                     <th>Fuente</th>
                     <th>Tamaño</th>
-                    <th>Predeterminado</th>
+                    <th id="formatoColDefault" class="text-center">Predeterminado</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -31,19 +41,40 @@
                     </td>
                     <td data-label="Fuente">{{ formato.fuente }}</td>
                     <td data-label="Tamaño">{{ formato.tamano_fuente }} pt</td>
-                    <td data-label="Predeterminado">{% if formato.es_default %}Sí{% else %}No{% endif %}</td>
-                    <td data-label="Acciones">
-                        <a href="{% url 'material:formato_impresion_edit' formato.pk %}" class="btn btn-sm btn-warning">Editar</a>
-                        {% if not formato.es_default %}
+                    <td data-label="Predeterminado" class="text-center">
                         <form method="post" action="{% url 'material:formato_impresion_set_default' formato.pk %}" class="d-inline">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-info">Predeterminado</button>
+                            <input type="radio" class="form-check-input" name="es_default"
+                                   {% if formato.es_default %}checked{% endif %}
+                                   onchange="this.form.submit()"
+                                   aria-label="Marcar «{{ formato.nombre|escapejs }}» como predeterminado"
+                                   title="Marcar como predeterminado">
                         </form>
-                        {% endif %}
-                        <form method="post" action="{% url 'material:formato_impresion_delete' formato.pk %}" class="d-inline" onsubmit="return eduConfirmSubmit(event, '¿Eliminar este formato?', {title: 'Eliminar formato', variant: 'danger', okLabel: 'Eliminar'});">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
-                        </form>
+                    </td>
+                    <td data-label="Acciones">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-info" title="Ver vista previa"
+                                    data-bs-toggle="modal" data-bs-target="#printPreviewModal"
+                                    data-nombre="{{ formato.nombre|escapejs }}"
+                                    data-tamano-hoja="{{ formato.tamano_hoja }}"
+                                    data-fuente="{{ formato.fuente }}"
+                                    data-tamano-fuente="{{ formato.tamano_fuente }}"
+                                    data-interlineado="{{ formato.interlineado }}"
+                                    data-margen-superior="{{ formato.margen_superior_cm }}"
+                                    data-margen-inferior="{{ formato.margen_inferior_cm }}"
+                                    data-margen-izquierdo="{{ formato.margen_izquierdo_cm }}"
+                                    data-margen-derecho="{{ formato.margen_derecho_cm }}"
+                                    data-color-titulo="{{ formato.color_titulo }}"
+                                    data-color-texto="{{ formato.color_texto }}">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <a href="{% url 'material:formato_impresion_edit' formato.pk %}" class="btn btn-warning" title="Editar formato">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button type="submit" form="formatoDeleteForm_{{ formato.pk }}" class="btn btn-danger" title="Eliminar formato">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
@@ -52,5 +83,98 @@
             </tbody>
         </table>
     </div>
+        </div>
+    </div>
 </div>
+
+{% for formato in formatos %}
+<form method="post" action="{% url 'material:formato_impresion_delete' formato.pk %}" id="formatoDeleteForm_{{ formato.pk }}"
+      onsubmit="return eduConfirmSubmit(event, '¿Eliminar este formato?', {title: 'Eliminar formato', variant: 'danger', okLabel: 'Eliminar'});">
+    {% csrf_token %}
+</form>
+{% endfor %}
+
+<div class="modal fade" id="printPreviewModal" tabindex="-1" aria-labelledby="printPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title" id="printPreviewModalLabel">Vista previa</h5>
+                <div class="d-flex align-items-center gap-1 ms-auto me-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="previewZoomOut" title="Alejar">
+                        <i class="bi bi-dash-lg"></i>
+                    </button>
+                    <span id="previewZoomLevel" class="small text-muted text-center" style="min-width:3.2rem;">100%</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="previewZoomIn" title="Acercar">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="previewZoomFit" title="Ajustar a pantalla">
+                        <i class="bi bi-arrows-fullscreen"></i>
+                    </button>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body text-center" id="printPreviewModalBody" style="background:#e9ecef; overflow:auto;">
+                <div id="printPreviewPageLarge" class="print-preview-page" style="display:inline-block;">
+                    {% include 'material/formatos_impresion/_preview_content.html' %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var BASE_LARGE_WIDTH_PX = 700;
+    var ZOOM_MIN = 0.25, ZOOM_MAX = 3, ZOOM_STEP = 0.15;
+    var zoomLevel = 1;
+    var currentParams = {};
+
+    function applyZoom() {
+        zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomLevel));
+        window.PrintFormatPreview.render(document.getElementById('printPreviewPageLarge'), BASE_LARGE_WIDTH_PX * zoomLevel, currentParams);
+        var label = document.getElementById('previewZoomLevel');
+        if (label) label.textContent = Math.round(zoomLevel * 100) + '%';
+    }
+
+    function fitZoom() {
+        var body = document.getElementById('printPreviewModalBody');
+        if (!body) return;
+        var available = Math.max(body.clientWidth - 48, 100);
+        zoomLevel = available / BASE_LARGE_WIDTH_PX;
+        applyZoom();
+    }
+
+    var modalEl = document.getElementById('printPreviewModal');
+    if (modalEl) {
+        modalEl.addEventListener('show.bs.modal', function (event) {
+            var btn = event.relatedTarget;
+            if (!btn) return;
+            document.getElementById('printPreviewModalLabel').textContent = 'Vista previa: ' + (btn.dataset.nombre || '');
+            currentParams = {
+                tamanoHoja: btn.dataset.tamanoHoja,
+                fuente: btn.dataset.fuente,
+                tamanoFuente: btn.dataset.tamanoFuente,
+                interlineado: btn.dataset.interlineado,
+                margenSuperiorCm: btn.dataset.margenSuperior,
+                margenInferiorCm: btn.dataset.margenInferior,
+                margenIzquierdoCm: btn.dataset.margenIzquierdo,
+                margenDerechoCm: btn.dataset.margenDerecho,
+                colorTitulo: btn.dataset.colorTitulo,
+                colorTexto: btn.dataset.colorTexto,
+            };
+        });
+        modalEl.addEventListener('shown.bs.modal', fitZoom);
+    }
+
+    document.getElementById('previewZoomIn')?.addEventListener('click', function () {
+        zoomLevel += ZOOM_STEP;
+        applyZoom();
+    });
+    document.getElementById('previewZoomOut')?.addEventListener('click', function () {
+        zoomLevel -= ZOOM_STEP;
+        applyZoom();
+    });
+    document.getElementById('previewZoomFit')?.addEventListener('click', fitZoom);
+})();
+</script>
 {% endblock %}
