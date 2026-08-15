@@ -133,13 +133,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="col-md-4">
                         <div class="form-group mb-3">
-                            <label for="{{ form.bloom_level.id_for_label }}">Nivel Bloom
-                                <small class="text-muted d-block">
-                                    (Anderson &amp; Krathwohl, 2001 —
-                                    <a href="{% url 'material:bloom_taxonomy' %}" target="_blank">ver escala</a>)
-                                </small>
-                            </label>
+                            <label for="{{ form.bloom_level.id_for_label }}">Nivel Bloom</label>
                             {{ form.bloom_level }}
+                            <small class="text-muted d-block mt-1">
+                                (Anderson &amp; Krathwohl, 2001 —
+                                <a href="{% url 'material:bloom_taxonomy' %}" target="_blank">ver escala</a>)
+                            </small>
                         </div>
                     </div>
                 </div>

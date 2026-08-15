@@ -210,7 +210,7 @@
                 element: '#tourMenuContenidos',
                 popover: {
                     title: 'Contenidos',
-                    description: 'Se sube el apunte para que la IA lo procese.',
+                    description: 'El apunte de ejemplo quedó guardado acá.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem2'),
                 },
@@ -219,12 +219,12 @@
             {
                 element: '#tourMenuGenerarIA',
                 popover: {
-                    title: 'Generar preguntas con IA',
+                    title: 'Generar con IA',
                     description: 'Aquí se generaron las preguntas de este ejemplo a partir de ese apunte.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem3'),
                 },
-                onHighlightStarted: highlight('tourMenuContenidos', 'recapItem3'),
+                onHighlightStarted: highlight('tourMenuGenerarIA', 'recapItem3'),
             },
             {
                 element: '#tourMenuPreguntas',
