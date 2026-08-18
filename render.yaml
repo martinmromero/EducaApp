@@ -8,6 +8,7 @@ services:
       python manage.py migrate
       python manage.py clean_seed_subjects
       python manage.py seed_demo_content
+      python manage.py seed_test_checklist
       python manage.py ensure_training_spare_pool
       python manage.py createsuperuser --noinput || true
     startCommand: python manage.py migrate --noinput && gunicorn educaapp.wsgi --workers 1 --threads 4 --timeout 120

@@ -121,22 +121,47 @@ ITEMS = [
 
 
 class Command(BaseCommand):
-    help = 'Semilla (borra y recrea) los ítems del checklist de Modo Testing.'
+    """
+    Idempotente vía update_or_create, clave natural (area_number, text) — NO
+    borra y recrea todo. Un TestResult ya cargado por un tester apunta al PK
+    de un TestChecklistItem; si este comando corriera con delete-all en cada
+    deploy (queda en el buildCommand de Render, se re-ejecuta en cada push
+    durante toda la ronda de UAT) borraría en cascada los resultados ya
+    cargados. Solo se eliminan los ítems cuya (area_number, text) ya no
+    aparece en ITEMS — es decir, los que de verdad salieron de alcance.
+    """
+    help = 'Semilla (crea o actualiza, sin perder resultados ya cargados) los ítems del checklist de Modo Testing.'
 
     @transaction.atomic
     def handle(self, *args, **options):
-        TestChecklistItem.objects.all().delete()
-        objs = [
-            TestChecklistItem(
+        seen_keys = set()
+        created, updated = 0, 0
+        for idx, (area_number, area_name, text, url_name, admin_only, stage) in enumerate(ITEMS, start=1):
+            seen_keys.add((area_number, text))
+            obj, was_created = TestChecklistItem.objects.update_or_create(
                 area_number=area_number,
-                area_name=area_name,
-                order=idx,
                 text=text,
-                target_url_name=url_name,
-                admin_only=admin_only,
-                stage=stage,
+                defaults={
+                    'area_name': area_name,
+                    'order': idx,
+                    'target_url_name': url_name,
+                    'admin_only': admin_only,
+                    'stage': stage,
+                },
             )
-            for idx, (area_number, area_name, text, url_name, admin_only, stage) in enumerate(ITEMS, start=1)
+            created += was_created
+            updated += not was_created
+
+        # No hay lookup directo por tupla (area_number, text) en el ORM — se
+        # filtra en Python, la tabla es chica (unas pocas decenas de filas).
+        stale_ids = [
+            item.id for item in TestChecklistItem.objects.all()
+            if (item.area_number, item.text) not in seen_keys
         ]
-        TestChecklistItem.objects.bulk_create(objs)
-        self.stdout.write(self.style.SUCCESS(f'Checklist de testing: {len(objs)} ítems creados.'))
+        removed = len(stale_ids)
+        if stale_ids:
+            TestChecklistItem.objects.filter(id__in=stale_ids).delete()
+
+        self.stdout.write(self.style.SUCCESS(
+            f'Checklist de testing: {created} creados, {updated} actualizados, {removed} fuera de alcance eliminados.'
+        ))
