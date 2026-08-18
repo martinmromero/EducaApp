@@ -44,6 +44,9 @@ def onboarding_context(request):
         # único que hace falta acá — no una consulta a TrainingAccountLink,
         # ya se revalidó contra esa tabla al entrar/salir.
         'in_training_mode': bool(request.session.get('acting_as_training_for')),
+        # Modo Testing (panel de UAT) — ver testing_panel_views.py.
+        'is_tester': profile.is_tester,
+        'testing_mode_active': profile.is_tester and bool(request.session.get('testing_mode_active')),
     }
 
     is_wizard_page = (

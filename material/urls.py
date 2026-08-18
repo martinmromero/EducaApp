@@ -3,6 +3,7 @@ from . import views as material_views  # Usar el mismo alias para todas las vist
 from . import views_document_processor as doc_views  # Importar vistas del procesador de documentos
 from . import views_export as export_views  # Exportación DOCX / PDF
 from . import training_views  # Área de Pruebas
+from . import testing_panel_views  # Modo Testing (panel de UAT)
 
 app_name = 'material'
 
@@ -226,4 +227,11 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('herramientas/groq-monitor/', material_views.groq_monitor_page, name='groq_monitor_page'),
     path('herramientas/uso-neon/', material_views.neon_usage_page, name='neon_usage_page'),
     path('herramientas/prompt-generacion-ia/', material_views.question_generation_prompt_config, name='question_generation_prompt_config'),
+
+    # Modo Testing (panel de UAT dentro de la app)
+    path('modo-testing/toggle/', testing_panel_views.toggle_testing_mode, name='toggle_testing_mode'),
+    path('modo-testing/estado/', testing_panel_views.testing_panel_state, name='testing_panel_state'),
+    path('modo-testing/navegar/', testing_panel_views.testing_panel_navigate, name='testing_panel_navigate'),
+    path('modo-testing/guardar/', testing_panel_views.testing_panel_save, name='testing_panel_save'),
+    path('herramientas/resultados-testing/', testing_panel_views.testing_admin_results, name='testing_admin_results'),
 ]

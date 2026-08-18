@@ -10,8 +10,24 @@
 
     <div class="card shadow-sm mb-4">
         <div class="card-body">
-            <form method="post">
+            <form method="post" id="invitation-form">
                 {% csrf_token %}
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="is_tester" id="inv-is-tester" onchange="document.getElementById('inv-stage-wrap').classList.toggle('d-none', !this.checked)">
+                    <label class="form-check-label" for="inv-is-tester">
+                        Es invitación de testing (UAT) — la cuenta nace con "Modo Testing" activado
+                    </label>
+                </div>
+                <div id="inv-stage-wrap" class="d-none mb-3" style="max-width: 360px;">
+                    <label for="inv-stage" class="form-label small fw-semibold">Etapa asignada</label>
+                    <select class="form-select form-select-sm" name="test_stage" id="inv-stage">
+                        <option value="">Todas las etapas (checklist completo)</option>
+                        {% for value, label in test_stage_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Repartir a distintos testers en distintas etapas evita mandarle los 74 ítems del checklist a una sola persona.</div>
+                </div>
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-plus-lg me-1"></i>Generar invitación
                 </button>
@@ -30,6 +46,7 @@
                     <thead>
                         <tr>
                             <th>Link</th>
+                            <th>Tipo</th>
                             <th>Creada por</th>
                             <th>Fecha</th>
                             <th>Estado</th>
@@ -46,6 +63,16 @@
                                 </div>
                                 {% else %}
                                 <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.invitation.is_tester %}
+                                <span class="badge bg-info text-dark">
+                                    <i class="bi bi-clipboard2-check"></i>
+                                    Tester{% if item.invitation.test_stage %} · {{ item.invitation.get_test_stage_display }}{% else %} · completo{% endif %}
+                                </span>
+                                {% else %}
+                                <span class="text-muted">Cuenta normal</span>
                                 {% endif %}
                             </td>
                             <td>{{ item.invitation.created_by.username }}</td>

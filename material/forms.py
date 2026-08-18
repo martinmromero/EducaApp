@@ -341,6 +341,12 @@ class UserEditForm(forms.ModelForm):
         help_text="La próxima vez que entre, lo manda al asistente de configuración como si fuera su primer ingreso.",
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
     )
+    is_tester = forms.BooleanField(
+        required=False,
+        label="Es tester (UAT)",
+        help_text="Ve el panel de Modo Testing dentro de la app.",
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
     change_password = forms.BooleanField(
         required=False,
         label="Cambiar contraseña",
@@ -402,6 +408,7 @@ class UserEditForm(forms.ModelForm):
         # Solo setear initial extra en GET (cuando no hay data)
         if not self.data and self.instance and hasattr(self.instance, 'profile'):
             self.initial['role'] = self.instance.profile.role
+            self.initial['is_tester'] = self.instance.profile.is_tester
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -411,6 +418,7 @@ class UserEditForm(forms.ModelForm):
             user.save()
             if hasattr(user, 'profile'):
                 user.profile.role = self.cleaned_data['role']
+                user.profile.is_tester = self.cleaned_data.get('is_tester', False)
                 if self.cleaned_data.get('reset_onboarding'):
                     user.profile.onboarding_completed = False
                 user.profile.save()

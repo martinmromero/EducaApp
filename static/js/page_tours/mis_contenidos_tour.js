@@ -29,7 +29,7 @@
         element: '#contenidoDeleteBtn',
         popover: {
           title: 'Borrado múltiple',
-          description: 'Tildá el casillero de uno o más contenidos vigentes y usá este botón para borrar sus archivos juntos (los metadatos y las preguntas generadas se conservan).',
+          description: 'Al tildar el casillero de uno o más contenidos vigentes, este botón borra sus archivos juntos (los metadatos y las preguntas generadas se conservan).',
           side: 'top',
         },
       },

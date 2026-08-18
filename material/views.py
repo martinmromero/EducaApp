@@ -605,8 +605,12 @@ class CustomLoginView(LoginView):
     template_name = 'registration/login.html'
 
     def form_invalid(self, form):
-        """Maneja intentos fallidos de login"""
-        messages.error(self.request, "Credenciales inválidas. Intente nuevamente.", extra_tags='general')
+        # No usar messages.error acá: login.html no renderiza {% show_messages %},
+        # así que el mensaje quedaba sin consumir en la sesión y aparecía recién
+        # en la página siguiente que sí muestra mensajes (base.html tras un login
+        # exitoso) — pudiendo mostrarle "credenciales inválidas" a otro usuario
+        # que se loguea bien después, en el mismo navegador. El error ya se
+        # muestra vía {% if form.errors %} en el propio template de login.
         return super().form_invalid(form)
     
 
@@ -2610,14 +2614,20 @@ def signup(request):
 def mis_invitaciones(request):
     """Panel de administración: genera links de invitación de un solo uso
     para dar de alta cuentas nuevas (ver invitacion_aceptar)."""
-    from .models import Invitation
+    from .models import TEST_STAGE_CHOICES, Invitation
 
     if not is_admin(request.user):
         messages.error(request, 'No hay permiso para acceder a esta sección.')
         return redirect('material:index')
 
     if request.method == 'POST':
-        Invitation.objects.create(created_by=request.user)
+        is_tester = request.POST.get('is_tester') == 'on'
+        test_stage = request.POST.get('test_stage', '').strip() or None
+        Invitation.objects.create(
+            created_by=request.user,
+            is_tester=is_tester,
+            test_stage=int(test_stage) if (is_tester and test_stage) else None,
+        )
         return redirect('material:mis_invitaciones')
 
     invitations = Invitation.objects.select_related('created_by', 'used_by')
@@ -2630,7 +2640,10 @@ def mis_invitaciones(request):
         }
         for inv in invitations
     ]
-    return render(request, 'material/mis_invitaciones.html', {'items': items})
+    return render(request, 'material/mis_invitaciones.html', {
+        'items': items,
+        'test_stage_choices': TEST_STAGE_CHOICES,
+    })
 
 
 def invitacion_aceptar(request, token):
@@ -2691,7 +2704,12 @@ def invitacion_aceptar(request, token):
             profile = user.profile
             profile.security_question = security_question
             profile.security_answer = security_answer
-            profile.save(update_fields=['security_question', 'security_answer'])
+            update_fields = ['security_question', 'security_answer']
+            if invitation.is_tester:
+                profile.is_tester = True
+                profile.test_stage = invitation.test_stage
+                update_fields += ['is_tester', 'test_stage']
+            profile.save(update_fields=update_fields)
 
             invitation.used_at = timezone.now()
             invitation.used_by = user
@@ -7111,6 +7129,14 @@ def ai_config_view(request):
         pass  # Si falla, simplemente no muestra instituciones con IA
 
     if request.method == 'POST':
+        if request.POST.get('action') == 'clear_api_key':
+            config.api_key = ''
+            if config.source == 'byok':
+                config.source = 'shared_demo'
+            config.save()
+            messages.success(request, 'Se eliminó la API Key guardada. Mientras no cargues una nueva, se usa la IA de prueba gratuita.')
+            return redirect('material:ai_config')
+
         source = request.POST.get('source', 'ollama_local')
         config.source = source
 

@@ -1,4 +1,4 @@
-{% load static %}<!DOCTYPE html>
+{% load static message_tags %}<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -64,6 +64,7 @@
 
         <div class="card login-card shadow-sm">
             <div class="card-body p-4">
+                {% show_messages "general" %}
                 {% if form.errors %}
                 <div class="alert alert-danger">
                     Usuario o contraseña incorrectos. Intentar de nuevo.

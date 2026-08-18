@@ -1007,6 +1007,13 @@ class Exam(models.Model):
             models.Index(fields=["subject"]),
         ]
 
+TEST_STAGE_CHOICES = [
+    (1, 'Etapa 1 — Contenido e IA'),
+    (2, 'Etapa 2 — Exámenes y evaluación'),
+    (3, 'Etapa 3 — Organización y colaboración'),
+]
+
+
 class Profile(models.Model):
     ROLE_CHOICES = [
         ('admin', 'Administrador'),
@@ -1081,6 +1088,15 @@ class Profile(models.Model):
         verbose_name='Es cuenta del Área de Pruebas',
         help_text='Cuenta espejo automática, nunca un docente real — se excluye de selectores de usuario.',
     )
+    is_tester = models.BooleanField(
+        default=False,
+        verbose_name='Es tester (UAT)',
+        help_text='Ve el panel de Modo Testing dentro de la app, para ir marcando el checklist de pruebas.',
+    )
+    test_stage = models.PositiveSmallIntegerField(
+        null=True, blank=True, choices=TEST_STAGE_CHOICES, verbose_name='Etapa de testing asignada',
+        help_text='Vacío = ve el checklist completo. Se completa solo al aceptar una invitación de testing con etapa asignada — no hace falta tocarlo a mano.',
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
@@ -1115,6 +1131,61 @@ class TrainingAccountLink(models.Model):
         return f'{self.real_user.username} ↔ {self.training_user.username}'
 
 
+# ---------------------------------------------------------------------------
+# Modo Testing (panel de UAT dentro de la app)
+# ---------------------------------------------------------------------------
+class TestChecklistItem(models.Model):
+    """
+    Un paso del checklist de testing (ver Plan de Pruebas). Se semillan de una
+    sola vez con el comando `seed_test_checklist` — no se editan a mano vía
+    UI, si el alcance del testing cambia se re-corre el comando.
+    """
+    area_number = models.PositiveSmallIntegerField(verbose_name='Número de área')
+    area_name = models.CharField(max_length=100, verbose_name='Área')
+    order = models.PositiveSmallIntegerField(verbose_name='Orden')
+    text = models.CharField(max_length=300, verbose_name='Qué probar')
+    target_url_name = models.CharField(
+        max_length=100, blank=True, verbose_name='Ruta relacionada',
+        help_text='Nombre de URL (namespace material:) al que apunta el link "Ir a esta pantalla". Vacío si no aplica.',
+    )
+    admin_only = models.BooleanField(default=False, verbose_name='Solo testers admin')
+    stage = models.PositiveSmallIntegerField(
+        null=True, blank=True, choices=TEST_STAGE_CHOICES, verbose_name='Etapa',
+        help_text='Vacío = aparece para cualquier tester sin importar la etapa que tenga asignada (ítems transversales como Alta y primer acceso o Apariencia).',
+    )
+
+    class Meta:
+        ordering = ['order']
+        verbose_name = 'Ítem de checklist de testing'
+        verbose_name_plural = 'Ítems de checklist de testing'
+
+    def __str__(self):
+        return f'{self.area_number:02d} · {self.text[:60]}'
+
+
+class TestResult(models.Model):
+    STATUS_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('ok', 'Funcionó bien'),
+        ('problemas', 'Funcionó con problemas'),
+        ('no_ok', 'No funcionó'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='test_results', verbose_name='Tester')
+    item = models.ForeignKey(TestChecklistItem, on_delete=models.CASCADE, related_name='results', verbose_name='Ítem')
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='pendiente', verbose_name='Resultado')
+    comment = models.TextField(blank=True, verbose_name='Comentario')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [('user', 'item')]
+        verbose_name = 'Resultado de testing'
+        verbose_name_plural = 'Resultados de testing'
+
+    def __str__(self):
+        return f'{self.user.username} → {self.item} → {self.get_status_display()}'
+
+
 class Invitation(models.Model):
     """
     Invitación para dar de alta una cuenta nueva vía link compartible.
@@ -1133,6 +1204,13 @@ class Invitation(models.Model):
     used_by = models.OneToOneField(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='invitacion_aceptada', verbose_name='Aceptada por',
+    )
+    is_tester = models.BooleanField(
+        default=False, verbose_name='Es invitación de testing (UAT)',
+        help_text='La cuenta que se crea con este link nace con profile.is_tester=True — resuelve que no hay usuario a quien marcar como tester antes de que exista.',
+    )
+    test_stage = models.PositiveSmallIntegerField(
+        null=True, blank=True, choices=TEST_STAGE_CHOICES, verbose_name='Etapa de testing asignada',
     )
 
     class Meta:

@@ -7,9 +7,9 @@
 
 <div class="wiz-wrap">
     <p class="text-muted mb-3">
-        Un paso a la vez para armar un examen con tu propio material. Podés volver atrás cuando quieras;
-        nada se guarda hasta que llegues a "Ver vista previa" al final.
-        <a href="{% url 'material:create_exam' %}" class="ms-1">¿Preferís la pantalla completa de siempre?</a>
+        Un paso a la vez para armar un examen con material propio. Se puede volver atrás en cualquier momento;
+        nada se guarda hasta llegar a "Ver vista previa" al final.
+        <a href="{% url 'material:create_exam' %}" class="ms-1">Usar la pantalla completa de siempre</a>
     </p>
 
     <nav class="wiz-stepper" id="wizStepper" aria-label="Pasos del asistente">
@@ -31,10 +31,10 @@
         <!-- PASO 1: Plantilla -->
         <div class="wiz-step is-active" data-step="1">
             <div class="wiz-step-card">
-                <h4>¿Partís de una plantilla?</h4>
+                <h4>¿Se parte de una plantilla?</h4>
                 <p class="wiz-step-intro">
-                    Elegí una plantilla ya guardada para completar materia, institución, rúbricas y más de una sola vez —
-                    todo lo que traiga se puede seguir editando en los pasos siguientes. Si no, arrancá en blanco.
+                    Elegir una plantilla ya guardada completa materia, institución, rúbricas y más de una sola vez —
+                    todo lo que traiga se puede seguir editando en los pasos siguientes. También se puede arrancar en blanco.
                 </p>
                 <select class="form-select" name="plantilla" id="plantilla">
                     <option value="">Empezar en blanco</option>
@@ -44,7 +44,7 @@
                 </select>
                 {% if not templates %}
                 <p class="text-muted small mt-2 mb-0">
-                    Todavía no creaste ninguna plantilla — no hay drama, podés seguir en blanco.
+                    Todavía no hay ninguna plantilla creada — se puede seguir en blanco sin problema.
                     <a href="{% url 'material:create_exam_template' %}" target="_blank" rel="noopener">Crear una plantilla</a> para la próxima.
                 </p>
                 {% endif %}
@@ -54,8 +54,8 @@
         <!-- PASO 2: Materia -->
         <div class="wiz-step" data-step="2">
             <div class="wiz-step-card">
-                <h4>¿Qué materia vas a evaluar?</h4>
-                <p class="wiz-step-intro">Elegí la materia. Los resultados de aprendizaje (si la materia tiene) aparecen abajo.</p>
+                <h4>¿Qué materia se va a evaluar?</h4>
+                <p class="wiz-step-intro">Seleccionar la materia. Los resultados de aprendizaje (si la materia tiene) aparecen abajo.</p>
                 <select class="form-select" name="subject" id="id_subject" required>
                     <option value="">Seleccionar materia</option>
                     {% for materia in materias %}
@@ -64,8 +64,8 @@
                 </select>
                 {% if not materias %}
                 <p class="text-muted small mt-2 mb-0">
-                    Todavía no tenés preguntas propias (o compartidas) listas para examen en ninguna materia.
-                    <a href="{% url 'material:upload_contenido' %}" target="_blank" rel="noopener">Subí contenido</a> primero.
+                    Todavía no hay preguntas propias (ni compartidas) listas para examen en ninguna materia.
+                    <a href="{% url 'material:upload_contenido' %}" target="_blank" rel="noopener">Subir contenido</a> primero.
                 </p>
                 {% endif %}
                 <div class="mb-0 mt-3 d-none" id="learning_outcomes_section">
@@ -78,12 +78,12 @@
         <!-- PASO 3: Tópicos y preguntas -->
         <div class="wiz-step" data-step="3">
             <div class="wiz-step-card">
-                <h4>¿Qué tópicos vas a tomar?</h4>
+                <h4>¿Qué tópicos se van a tomar?</h4>
                 <p class="wiz-step-intro">
-                    Tildá los tópicos a evaluar. Cada uno tiene un color propio para que abajo se distinga de un
+                    Seleccionar los tópicos a evaluar. Cada uno tiene un color propio para distinguir de un
                     vistazo qué pregunta pertenece a qué tópico.
                 </p>
-                <div id="wizTopicsEmpty" class="wiz-questions-empty">Elegí una materia en el paso anterior primero.</div>
+                <div id="wizTopicsEmpty" class="wiz-questions-empty">Elegir una materia en el paso anterior primero.</div>
                 <div id="wizTopicsWrap" class="d-none">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <label class="form-label mb-0">Tópicos</label>
@@ -105,7 +105,7 @@
         <!-- PASO 4: Cuándo y detalles -->
         <div class="wiz-step" data-step="4">
             <div class="wiz-step-card">
-                <h4>Vos y cuándo</h4>
+                <h4>Profesor y fecha</h4>
                 <p class="wiz-step-intro">Quién lo toma, cuándo y con qué duración.</p>
                 <div class="row g-3">
                     <div class="col-md-6">
@@ -310,7 +310,7 @@
         <!-- PASO 6: Rúbricas -->
         <div class="wiz-step" data-step="6">
             <div class="wiz-step-card">
-                <h4>¿Vas a usar rúbricas?</h4>
+                <h4>¿Se van a usar rúbricas?</h4>
                 <p class="wiz-step-intro">Se incluyen al imprimir o exportar el examen. Opcional.</p>
                 {% if visible_rubrics %}
                 <div id="rubrics_checkbox_container" class="border rounded p-2" style="max-height:220px;overflow:auto;">
@@ -323,7 +323,7 @@
                 </div>
                 {% else %}
                 <p class="text-muted small mb-0">
-                    Todavía no creaste ninguna rúbrica. <a href="{% url 'material:rubric_create' %}" target="_blank" rel="noopener">Crear una</a>
+                    Todavía no hay ninguna rúbrica creada. <a href="{% url 'material:rubric_create' %}" target="_blank" rel="noopener">Crear una</a>
                 </p>
                 {% endif %}
 

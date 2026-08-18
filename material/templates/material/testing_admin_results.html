@@ -1,0 +1,55 @@
+{% extends 'material/base.html' %}
+{% block page_title %}<i class="bi bi-clipboard2-check me-2"></i>Resultados de Testing{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow mb-4">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="list-control-info">{{ results|length }} resultado{{ results|length|pluralize }} registrado{{ results|length|pluralize }} (de {{ total_items }} ítems del checklist)</span>
+        </div>
+        <div class="card-body">
+            {% if not results %}
+                <p class="text-muted mb-0">Todavía no hay resultados cargados por ningún tester.</p>
+            {% else %}
+            <div class="table-responsive">
+            <table class="table table-striped mobile-card-table">
+                <thead>
+                    <tr>
+                        <th>Tester</th>
+                        <th>Área</th>
+                        <th>Ítem</th>
+                        <th>Resultado</th>
+                        <th>Comentario</th>
+                        <th>Actualizado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in results %}
+                    <tr>
+                        <td data-label="Tester">
+                            {{ r.user.username }}
+                            <br><small class="text-muted">{{ r.user.profile.get_test_stage_display|default:"todas las etapas" }}</small>
+                        </td>
+                        <td data-label="Área">{{ r.item.area_number|stringformat:"02d" }} · {{ r.item.area_name }}</td>
+                        <td data-label="Ítem">{{ r.item.text }}</td>
+                        <td data-label="Resultado">
+                            {% if r.status == 'ok' %}
+                                <span class="badge bg-success">Funcionó bien</span>
+                            {% elif r.status == 'problemas' %}
+                                <span class="badge bg-warning text-dark">Con problemas</span>
+                            {% elif r.status == 'no_ok' %}
+                                <span class="badge bg-danger">No funcionó</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Comentario">{{ r.comment|default:"—" }}</td>
+                        <td data-label="Actualizado">{{ r.updated_at|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

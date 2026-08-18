@@ -106,6 +106,42 @@
     <!-- Overlay para mobile (cierra sidebar al tocar fuera) -->
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebarMobile()"></div>
 
+    {% if testing_mode_active %}
+    <!-- Modo Testing: panel derecho colapsable con el checklist de UAT paso a
+         paso. Arranca colapsado (el tester lo abre cuando quiere cargar un
+         resultado) — ver testing_panel_views.py para el estado que consume. -->
+    <!-- Arranca abierto en cada carga de página (mismo criterio que el
+         sidebar izquierdo, que también empieza expandido siempre en
+         desktop — esta app no persiste el colapso entre navegaciones).
+         Activar Modo Testing debe mostrar el panel de inmediato, no dejarlo
+         escondido detrás de un segundo click. -->
+    <button type="button" class="test-panel-toggle-tab" id="testPanelTab" aria-label="Colapsar panel de testing" onclick="toggleTestPanel()">
+        <i class="bi bi-clipboard2-check"></i>
+    </button>
+    <div class="test-panel" id="testPanel">
+        <div class="test-panel-header">
+            <div>
+                <div class="fw-semibold">Modo Testing</div>
+                <small class="text-muted" id="testPanelProgress">Cargando…</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exitTestingMode()" aria-label="Salir de Modo Testing" title="Salir de Modo Testing">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="test-panel-body" id="testPanelBody">
+            <p class="text-muted">Cargando checklist…</p>
+        </div>
+        <div class="test-panel-footer">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="testPanelPrev" onclick="testPanelNavigate('prev')">
+                <i class="bi bi-chevron-left"></i> Anterior
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="testPanelNext" onclick="testPanelNavigate('next')">
+                Siguiente <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Botón toggle único para colapsar/expandir el sidebar (desktop) o
          abrir/cerrar (mobile). Fixed top-left siempre a la misma altura
          (top:20px, ver styles.css): solo cambia su posición horizontal
@@ -191,6 +227,7 @@
                     <a href="{% url 'material:neon_usage_page' %}"><i class="bi bi-hdd-stack me-2"></i>Uso de Neon (DB)</a>
                     <a href="{% url 'material:question_generation_prompt_config' %}"><i class="bi bi-chat-square-text me-2"></i>Prompt de generación IA</a>
                     <a href="{% url 'material:institution_ai_config' %}"><i class="bi bi-cpu me-2"></i>IA Institucional</a>
+                    <a href="{% url 'material:testing_admin_results' %}"><i class="bi bi-clipboard2-check me-2"></i>Resultados de Testing</a>
                 </div>
             </div>
         {% endif %}
@@ -240,7 +277,7 @@
     </div>
 
     <!-- Contenido principal -->
-    <div class="main-content" id="mainContent">
+    <div class="main-content{% if testing_mode_active %} test-panel-open{% endif %}" id="mainContent">
         <!-- Barra de navegación superior -->
         <nav class="navbar navbar-expand-lg edu-topbar">
             <div class="container-fluid">
@@ -289,6 +326,18 @@
                                         </button>
                                     </form>
                                 </li>
+                                {% if is_tester %}
+                                <li>
+                                    <form method="post" action="{% url 'material:toggle_testing_mode' %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.path }}">
+                                        <button type="submit" class="dropdown-item">
+                                            <i class="bi bi-clipboard2-check me-2"></i>
+                                            {% if testing_mode_active %}Desactivar Modo Testing{% else %}Modo Testing{% endif %}
+                                        </button>
+                                    </form>
+                                </li>
+                                {% endif %}
                             </ul>
                         </div>
                     {% endif %}
@@ -791,6 +840,114 @@
             });
         }
     </script>
+
+    {% if testing_mode_active %}
+    <!-- Modo Testing: stepper del panel derecho. Ver testing_panel_views.py
+         para los endpoints que consume (estado/navegar/guardar). -->
+    <script>
+    (function () {
+      const STATUS_LABELS = { ok: 'Funcionó bien', problemas: 'Funcionó con problemas', no_ok: 'No funcionó' };
+
+      function csrfToken() {
+        const el = document.querySelector('input[name=csrfmiddlewaretoken]');
+        return el ? el.value : '';
+      }
+
+      function escapeHtml(str) {
+        return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      function toggleTestPanel() {
+        // Colapsar es "esconder mientras sigo en Modo Testing" — al
+        // esconderlo hay que devolverle el margen al contenido principal,
+        // si no queda un espacio en blanco reservado sin uso.
+        document.getElementById('testPanel').classList.toggle('collapsed');
+        document.getElementById('testPanelTab').classList.toggle('collapsed');
+        document.getElementById('mainContent').classList.toggle('test-panel-open');
+      }
+      window.toggleTestPanel = toggleTestPanel;
+
+      function exitTestingMode() {
+        // La X del panel significa "salir de Modo Testing" de verdad, no
+        // solo esconderlo — por eso pega al mismo endpoint que el ítem del
+        // menú "?", en vez de solo togglear clases CSS.
+        fetch('{% url "material:toggle_testing_mode" %}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken() },
+        }).then(function () { window.location.reload(); });
+      }
+      window.exitTestingMode = exitTestingMode;
+
+      function renderState(data) {
+        const progress = document.getElementById('testPanelProgress');
+        const body = document.getElementById('testPanelBody');
+        const prevBtn = document.getElementById('testPanelPrev');
+        const nextBtn = document.getElementById('testPanelNext');
+        if (!data.item) {
+          progress.textContent = '';
+          body.innerHTML = '<p class="text-muted">No hay ítems de checklist cargados.</p>';
+          prevBtn.disabled = true;
+          nextBtn.disabled = true;
+          return;
+        }
+        progress.textContent = 'Paso ' + (data.index + 1) + ' de ' + data.total + ' — ' + data.done + ' marcados';
+        const item = data.item;
+        const radios = ['ok', 'problemas', 'no_ok'].map(function (s) {
+          return '<div class="form-check">' +
+            '<input class="form-check-input" type="radio" name="testStatus" id="testStatus_' + s + '" value="' + s + '"' + (item.status === s ? ' checked' : '') + '>' +
+            '<label class="form-check-label" for="testStatus_' + s + '">' + STATUS_LABELS[s] + '</label></div>';
+        }).join('');
+        body.innerHTML =
+          '<div class="small text-uppercase text-muted mb-1">Área ' + String(item.area_number).padStart(2, '0') + ' · ' + escapeHtml(item.area_name) + '</div>' +
+          '<p class="fw-semibold">' + escapeHtml(item.text) + '</p>' +
+          (item.target_url ? '<a href="' + item.target_url + '" class="btn btn-sm btn-outline-primary mb-3"><i class="bi bi-box-arrow-up-right me-1"></i>Ir a esta pantalla</a>' : '') +
+          '<div class="mb-2">' + radios + '</div>' +
+          '<textarea class="form-control form-control-sm mb-2" id="testComment" rows="3" placeholder="Comentario (qué esperabas vs. qué pasó)">' + escapeHtml(item.comment) + '</textarea>' +
+          '<button type="button" class="btn btn-primary btn-sm w-100" onclick="testPanelSave(' + item.id + ')">Guardar resultado</button>' +
+          '<div class="small text-success mt-1 d-none" id="testSavedMsg">Guardado.</div>';
+        prevBtn.disabled = data.index === 0;
+        nextBtn.disabled = data.index === data.total - 1;
+      }
+
+      function loadState() {
+        fetch('{% url "material:testing_panel_state" %}')
+          .then(function (r) { return r.json(); })
+          .then(function (data) { if (data.active) renderState(data); });
+      }
+
+      function testPanelNavigate(direction) {
+        fetch('{% url "material:testing_panel_navigate" %}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken() },
+          body: 'direction=' + direction,
+        }).then(function (r) { return r.json(); }).then(function (data) { if (data.active) renderState(data); });
+      }
+      window.testPanelNavigate = testPanelNavigate;
+
+      function testPanelSave(itemId) {
+        const statusInput = document.querySelector('input[name="testStatus"]:checked');
+        const status = statusInput ? statusInput.value : 'pendiente';
+        const comment = document.getElementById('testComment').value;
+        const body = new URLSearchParams();
+        body.set('item_id', itemId);
+        body.set('status', status);
+        body.set('comment', comment);
+        fetch('{% url "material:testing_panel_save" %}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken() },
+          body: body.toString(),
+        }).then(function (r) { return r.json(); }).then(function (data) {
+          if (data.success) renderState(data);
+        });
+      }
+      window.testPanelSave = testPanelSave;
+
+      document.addEventListener('DOMContentLoaded', loadState);
+    })();
+    </script>
+    {% endif %}
 
     <!-- Bloque para JavaScript específico de cada página -->
     {% block javascript %}{% endblock %}

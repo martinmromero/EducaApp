@@ -160,7 +160,7 @@
                     <thead>
                         <tr>
                             <th style="width:40px;">
-                                <input type="checkbox" id="select-all" title="Seleccionar todo">
+                                <input type="checkbox" id="select-all" title="Seleccionar todas para exportar o eliminar en conjunto">
                             </th>
                             <th>Materia</th>
                             <th>Tópico</th>
@@ -176,7 +176,7 @@
                         {% for pregunta in preguntas %}
                         <tr>
                             <td class="rt-card-select">
-                                <input type="checkbox" name="pregunta_ids" value="{{ pregunta.pk }}" class="pregunta-checkbox">
+                                <input type="checkbox" name="pregunta_ids" value="{{ pregunta.pk }}" class="pregunta-checkbox" title="Seleccionar para exportar o eliminar en conjunto">
                             </td>
                             <td data-label="Materia">{% for s in pregunta.subjects.all %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
                             <td data-label="Tópico">{{ pregunta.topic.name|default:"-" }}</td>

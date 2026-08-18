@@ -178,9 +178,14 @@
                   </button>
                 </div>
                 {% if has_api_key and config.source == 'byok' %}
-                  <div class="form-text text-success">
-                    <i class="bi bi-shield-lock me-1"></i>Key guardada y cifrada. Dejar el campo vacío para mantenerla.
+                  <div class="form-text text-success d-flex align-items-center flex-wrap gap-2 mt-1">
+                    <span><i class="bi bi-shield-lock me-1"></i>Key guardada y cifrada — solo vos podés verla o eliminarla, nadie más (ni otro usuario, ni un administrador) puede leerla. Dejar el campo vacío para mantenerla.</span>
                   </div>
+                  <button type="submit" name="action" value="clear_api_key"
+                          class="btn btn-sm btn-outline-danger py-0 px-2 mt-1"
+                          onclick="return confirm('¿Eliminar la API Key guardada? No se puede deshacer.');">
+                    <i class="bi bi-trash me-1"></i>Eliminar clave guardada
+                  </button>
                 {% endif %}
               </div>
 

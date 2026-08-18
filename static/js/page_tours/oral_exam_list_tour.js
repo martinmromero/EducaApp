@@ -14,7 +14,7 @@
         element: '#oralNewBtn',
         popover: {
           title: 'Nuevo cuestionario',
-          description: 'Arma un cuestionario oral: elegí materia y tópicos, y el sistema distribuye las preguntas entre los grupos de estudiantes.',
+          description: 'Arma un cuestionario oral: se eligen materia y tópicos, y el sistema distribuye las preguntas entre los grupos de estudiantes.',
           side: 'bottom',
         },
       },

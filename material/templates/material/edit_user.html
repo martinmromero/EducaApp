@@ -28,6 +28,10 @@
             <div class="mb-3">
                 {{ form.role.label_tag }} {{ form.role }}
             </div>
+            <div class="form-check mb-3">
+                {{ form.is_tester }} {{ form.is_tester.label_tag }}
+            </div>
+            <div class="form-text mb-3">{{ form.is_tester.help_text }}</div>
         {% endif %}
 
         <hr>

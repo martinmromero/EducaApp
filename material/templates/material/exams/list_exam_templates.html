@@ -51,7 +51,7 @@
                     <table class="table table-striped column-filter-table">
                         <thead>
                             <tr>
-                                <th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
+                                <th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar plantillas para eliminarlas en conjunto"></th>
                                 <th style="width:40px;"></th>
                                 <th>Nombre</th>
                                 <th id="templateColInstitution">Institución</th>
@@ -67,7 +67,7 @@
                             {% for template in exam_templates %}
                             <tr>
                                 <td class="rt-card-select">
-                                    <input type="checkbox" name="template_ids" value="{{ template.id }}">
+                                    <input type="checkbox" name="template_ids" value="{{ template.id }}" title="Seleccionar para eliminar en conjunto">
                                 </td>
                                 <td class="rt-card-badge">
                                     <button type="button" class="btn btn-sm btn-link p-0 favorite-star"

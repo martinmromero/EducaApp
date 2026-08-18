@@ -28,6 +28,7 @@
 
     <!-- Vigentes -->
     <h2 class="h4 mt-4">Vigentes</h2>
+    <p class="text-muted small mb-2">Seleccionar uno o más contenidos y usar "Borrar seleccionados" para eliminar sus archivos en conjunto (no exporta nada).</p>
     <form method="post" action="{% url 'material:delete_contenido' %}" id="deleteFormVigentes">
         {% csrf_token %}
         <div class="table-responsive">
@@ -46,7 +47,7 @@
                     {% for contenido in vigentes_page %}
                     <tr>
                         <td class="rt-card-select">
-                            <input type="checkbox" name="contenido_ids" value="{{ contenido.id }}">
+                            <input type="checkbox" name="contenido_ids" value="{{ contenido.id }}" title="Seleccionar para borrar el archivo">
                         </td>
                         <td class="rt-card-title" data-label="Título">{{ contenido.title }}</td>
                         <td data-label="Archivo">

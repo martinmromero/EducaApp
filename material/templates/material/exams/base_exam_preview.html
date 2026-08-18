@@ -619,12 +619,12 @@
                 <tr>
                     <td class="header-meta-cell">
                         <div class="header-meta-row">
+                            <span class="header-meta-item"><strong>Facultad:</strong> {{ faculty.name|default:"-" }}</span>
                             <span class="header-meta-item"><strong>Carrera:</strong> {{ career.name|default:"-" }}</span>
-                            <span class="header-meta-item"><strong>Profesor:</strong> {{ professor.get_full_name|default:"-" }}</span>
                         </div>
                         <div class="header-meta-row">
                             <span class="header-meta-item"><strong>Materia:</strong> {{ subject.name|default:"-" }}</span>
-                            <span class="header-meta-item"><strong>{% if exam_type and exam_type != '-' %}{{ exam_type }}{% else %}Examen{% endif %}</strong></span>
+                            <span class="header-meta-item"><strong>Profesor:</strong> {{ professor.get_full_name|default:"-" }}</span>
                         </div>
                     </td>
                 </tr>
@@ -642,7 +642,7 @@
             <tr>
                 <td class="label">Fecha</td>
                 <td class="value">{{ current_date|default:" " }}</td>
-                <td class="exam-theme" colspan="2"></td>
+                <td class="value" colspan="2">{% if exam_type and exam_type != '-' %}{{ exam_type }}{% endif %}</td>
             </tr>
         </table>
 

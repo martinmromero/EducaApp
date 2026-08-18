@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (n === 2) {
             var subject = document.getElementById('id_subject');
             if (subject && !subject.value) {
-                subject.reportValidity ? subject.reportValidity() : alert('Elegí una materia para continuar.');
+                subject.reportValidity ? subject.reportValidity() : alert('Falta seleccionar una materia para continuar.');
                 return false;
             }
         }
@@ -246,7 +246,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         wrap.innerHTML = '';
         if (!selectedTopicIds.length) {
-            wrap.innerHTML = '<div class="wiz-questions-empty">Elegí al menos un tópico arriba para ver sus preguntas acá.</div>';
+            wrap.innerHTML = '<div class="wiz-questions-empty">Seleccionar al menos un tópico arriba para ver sus preguntas acá.</div>';
             syncHiddenSelect(document.getElementById('id_questions'), []);
             return;
         }
@@ -385,9 +385,24 @@ document.addEventListener('DOMContentLoaded', function () {
             assignTopicColors(topics);
             renderTopicsList(topics);
 
-            if (preselectTopics && preselectTopics.length) {
+            // La plantilla (get-exam-template) no expone qué tópicos usaba,
+            // solo qué preguntas — se derivan los tópicos a partir del
+            // topic_id de esas preguntas (ya viene en allQuestionsCache) en
+            // vez de depender de un preselectTopics que nunca llega con
+            // datos. Sin esto, elegir una plantilla dejaba el paso 3 sin
+            // ningún tópico tildado y perdía en silencio las preguntas de
+            // la plantilla.
+            var topicsToCheck = (preselectTopics && preselectTopics.length) ? preselectTopics.map(String) : [];
+            if (!topicsToCheck.length && preselectQuestions && preselectQuestions.length) {
+                var preselectQuestionIdSet = preselectQuestions.map(String);
+                var derivedTopicIds = allQuestionsCache
+                    .filter(function (q) { return preselectQuestionIdSet.includes(String(q.id)); })
+                    .map(function (q) { return String(q.topic_id); });
+                topicsToCheck = Array.from(new Set(derivedTopicIds));
+            }
+            if (topicsToCheck.length) {
                 document.querySelectorAll('#wizTopicsList input[type="checkbox"]').forEach(function (cb) {
-                    cb.checked = preselectTopics.map(String).includes(cb.dataset.topicValue);
+                    cb.checked = topicsToCheck.includes(cb.dataset.topicValue);
                 });
             }
             if (preselectQuestions && preselectQuestions.length) {
