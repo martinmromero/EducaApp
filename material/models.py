@@ -392,19 +392,6 @@ def get_or_create_real_subject(name, user):
     return Subject.objects.create(name=name, is_seed_demo=False, created_by=user), True
 
 
-def get_real_subject_or_none(name):
-    """Busca una Materia YA EXISTENTE y pública en el catálogo (case-
-    insensitive, ignora las semilla) — a diferencia de
-    get_or_create_real_subject, esta NUNCA crea una fila nueva. La carga
-    de preguntas (individual o masiva) exige que la Materia ya esté
-    cargada en el catálogo: si falta, se pide por Solicitar alta, no se
-    crea al vuelo por texto libre en una subida (ver informe de
-    rediseño). También ignora `created_by` a propósito: la Materia es
-    catálogo público desde la Fase 2, no algo privado por usuario."""
-    name = (name or '').strip()
-    if not name:
-        return None
-    return Subject.objects.filter(name__iexact=name, is_seed_demo=False).first()
 
 
 class LearningOutcome(models.Model):
@@ -1429,6 +1416,18 @@ class CatalogRequest(models.Model):
     # corto — puede ser una oración larga.
     nombre_propuesto = models.TextField(verbose_name="Nombre propuesto")
 
+    # Cuando una sola solicitud crea varios niveles nuevos a la vez (ej.
+    # institución+facultad+carrera+materia, todas nuevas), se generan
+    # VARIAS filas de CatalogRequest — una por nivel realmente creado, no
+    # una por solicitud — para que el admin apruebe/rechace cada nivel por
+    # separado. Antes se resolvía en una sola fila y aprobar o rechazar
+    # decidía TODA la cadena junta, lo que dejaba sin forma de rechazar
+    # solo la materia (por ejemplo, un nombre placeholder/de prueba) sin
+    # arrastrar a institución/facultad/carrera igual de válidas. Este
+    # campo agrupa esas filas — mismo valor para todas las que salieron
+    # de un mismo envío — para que la bandeja las muestre juntas.
+    lote_id = models.UUIDField(null=True, blank=True, editable=False, db_index=True, verbose_name="Lote")
+
     # Contexto — solo se completa lo que corresponda según `tipo` (una
     # Institución nueva no tiene contexto; una Materia nueva completa los 3).
     # Cada nivel admite DOS formas, mutuamente excluyentes: elegir una fila
@@ -1437,18 +1436,27 @@ class CatalogRequest(models.Model):
     # puede pedir la cadena completa institución+facultad+carrera+materia
     # de una sola solicitud en vez de una por vez esperando aprobación en
     # el medio.
+    # on_delete=SET_NULL (no CASCADE) en las cuatro FK de acá abajo a
+    # propósito: al rechazar un nivel, _intentar_eliminar_si_vacio puede
+    # borrar la fila real detrás (institución/facultad/carrera/materia)
+    # para no acumular basura en la base — pero la SOLICITUD tiene que
+    # sobrevivir a eso como registro de auditoría (nombre_propuesto ya
+    # guarda el texto). Con CASCADE, borrar la fila real se llevaba puesta
+    # a la CatalogRequest en el mismo golpe, y el resto del código (que
+    # sigue usando `solicitud` después de borrar) rompía con "unsaved
+    # related object".
     institucion = models.ForeignKey(
-        InstitutionV2, on_delete=models.CASCADE, null=True, blank=True,
+        InstitutionV2, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='catalog_requests', verbose_name="Institución",
     )
     institucion_nueva = models.CharField(max_length=255, blank=True, default='', verbose_name="Institución (nueva)")
     facultad = models.ForeignKey(
-        FacultyV2, on_delete=models.CASCADE, null=True, blank=True,
+        FacultyV2, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='catalog_requests', verbose_name="Facultad",
     )
     facultad_nueva = models.CharField(max_length=255, blank=True, default='', verbose_name="Facultad (nueva)")
     carrera = models.ForeignKey(
-        Career, on_delete=models.CASCADE, null=True, blank=True,
+        Career, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='catalog_requests', verbose_name="Carrera",
     )
     carrera_nueva = models.CharField(max_length=255, blank=True, default='', verbose_name="Carrera (nueva)")
@@ -1460,7 +1468,7 @@ class CatalogRequest(models.Model):
     # esa Materia todavía no existe, primero hay que pedirla con
     # tipo='materia' y recién después pedir el resultado.
     materia = models.ForeignKey(
-        Subject, on_delete=models.CASCADE, null=True, blank=True,
+        Subject, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='catalog_requests', verbose_name="Materia",
     )
 

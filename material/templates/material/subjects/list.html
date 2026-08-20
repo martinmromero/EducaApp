@@ -62,7 +62,12 @@
                                         data-model="subject" data-id="{{ subject.pk }}"
                                         data-active="{% if subject.pk in favorite_ids %}1{% else %}0{% endif %}"></button>
                             </td>
-                            <td class="rt-card-title" data-label="Nombre">{{ subject.name }}</td>
+                            <td class="rt-card-title" data-label="Nombre">
+                                {{ subject.name }}
+                                {% if not subject.es_catalogo_institucional %}
+                                    <span class="badge bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
+                                {% endif %}
+                            </td>
                             <td data-label="Resultados de aprendizaje">
                                 {% with outcomes=subject.get_all_outcomes %}
                                     {% if outcomes %}

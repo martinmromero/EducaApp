@@ -2,6 +2,7 @@ import difflib
 import functools
 import re
 import unicodedata
+import uuid
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -3809,7 +3810,24 @@ def upload_questions(request):
             try:
                 file = request.FILES['file']
                 file_extension = os.path.splitext(file.name)[1].lower()
-                
+
+                # Paso 1 del flujo en dos pasos: la materia se elige ANTES
+                # de subir el archivo (ver informe de rediseño) — ya no se
+                # resuelve por fila desde una columna de texto libre. Si
+                # lo que hace falta no está en la lista, se pide en
+                # Solicitar alta y queda usable de inmediato desde el
+                # espacio personal (ver get_visible_subjects).
+                from .content_visibility import get_visible_subjects
+                subject_id = request.POST.get('subject_id')
+                materia = get_visible_subjects(request.user).filter(pk=subject_id).first() if subject_id else None
+                if not materia:
+                    messages.error(
+                        request,
+                        'Falta elegir la materia antes de subir el archivo — si no está en la lista, se puede pedir en Solicitar alta.',
+                        extra_tags='preguntas',
+                    )
+                    return redirect('material:upload_questions')
+
                 # Obtener contenido seleccionado si existe
                 contenido_seleccionado = None
                 contenido_id = request.POST.get('contenido')
@@ -3818,14 +3836,14 @@ def upload_questions(request):
                         contenido_seleccionado = Contenido.objects.get(id=contenido_id, uploaded_by=request.user)
                     except Contenido.DoesNotExist:
                         pass
-                
+
                 # Procesar archivo según extensión
                 if file_extension == '.csv':
-                    questions_created, upload_errors = process_csv_file(file, contenido_seleccionado, request.user)
-                    messages.success(request, f'{questions_created} preguntas creadas desde archivo CSV.', extra_tags='preguntas')
+                    questions_created, upload_errors = process_csv_file(file, contenido_seleccionado, request.user, materia)
+                    messages.success(request, f'{questions_created} preguntas creadas desde archivo CSV, bajo "{materia.name}".', extra_tags='preguntas')
                 elif file_extension == '.txt':
-                    questions_created, upload_errors = process_txt_file(file, contenido_seleccionado, request.user)
-                    messages.success(request, f'{questions_created} preguntas creadas desde archivo TXT.', extra_tags='preguntas')
+                    questions_created, upload_errors = process_txt_file(file, contenido_seleccionado, request.user, materia)
+                    messages.success(request, f'{questions_created} preguntas creadas desde archivo TXT, bajo "{materia.name}".', extra_tags='preguntas')
                 else:
                     messages.error(request, 'Formato de archivo no soportado. Use CSV o TXT.', extra_tags='preguntas')
                     return redirect('material:upload_questions')
@@ -3884,11 +3902,13 @@ def upload_questions(request):
     else:
         form = QuestionForm(current_user=request.user)
     
+    from .content_visibility import get_visible_subjects
     context = {
         'form': form,
-        'current_tab': request.session.get('upload_questions_tab', 'single')
+        'current_tab': request.session.get('upload_questions_tab', 'single'),
+        'visible_subjects': get_visible_subjects(request.user).order_by('name'),
     }
-    
+
     return render(request, 'material/questions/upload_questions.html', context)
 
 # Funciones auxiliares para procesamiento de archivos
@@ -3958,9 +3978,9 @@ def _parse_options_json(raw_options):
     return ''
 
 
-def process_csv_file(file, contenido, user):
-    from .models import Subject, Topic, Subtopic, Question, get_real_subject_or_none
-    
+def process_csv_file(file, contenido, user, subject):
+    from .models import Subject, Topic, Subtopic, Question
+
     # Intentar múltiples codificaciones
     encodings = ['utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
     decoded_file = None
@@ -3989,32 +4009,19 @@ def process_csv_file(file, contenido, user):
     for row in reader:
         row_number += 1
         try:
-            # Validar campos requeridos
+            # Validar campos requeridos — la materia ya no es por fila
+            # (columna "materia" del archivo): se elige una sola vez para
+            # todo el archivo, en el paso 1 (ver upload_questions).
             missing_fields = []
-            if not row.get('materia'):
-                missing_fields.append('materia')
             if not row.get('pregunta'):
                 missing_fields.append('pregunta')
             if not row.get('respuesta'):
                 missing_fields.append('respuesta')
             if not row.get('tema'):
                 missing_fields.append('tema')
-                
+
             if missing_fields:
                 error_msg = f"Fila {row_number}: faltan campos requeridos: {', '.join(missing_fields)}"
-                errors.append(error_msg)
-                logger.warning(error_msg)
-                continue
-
-            # La materia tiene que existir ya en el catálogo — no se crea al
-            # vuelo por texto libre (ver informe de rediseño / Solicitar alta).
-            materia_nombre = (row.get('materia') or '').strip()
-            subject = get_real_subject_or_none(materia_nombre)
-            if not subject:
-                error_msg = (
-                    f'Fila {row_number}: la materia "{materia_nombre}" no está cargada en el catálogo — '
-                    f'hay que pedirla en Solicitar alta antes de subir esta pregunta.'
-                )
                 errors.append(error_msg)
                 logger.warning(error_msg)
                 continue
@@ -4068,11 +4075,11 @@ def process_csv_file(file, contenido, user):
 
     return questions_created, errors
 
-def process_txt_file(file, contenido, user):
+def process_txt_file(file, contenido, user, subject):
     # Intentar múltiples codificaciones
     encodings = ['utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
     lines = None
-    
+
     for encoding in encodings:
         try:
             file.seek(0)  # Volver al inicio del archivo
@@ -4081,7 +4088,7 @@ def process_txt_file(file, contenido, user):
             break
         except UnicodeDecodeError:
             continue
-    
+
     if lines is None:
         raise Exception("No se pudo leer el archivo. Formatos soportados: UTF-8, Latin1, Windows-1252, ISO-8859-1, UTF-16.")
     question_data = {}
@@ -4092,7 +4099,7 @@ def process_txt_file(file, contenido, user):
     def _procesar_bloque(data):
         nonlocal questions_created
         try:
-            create_question_from_dict(data, contenido, user)
+            create_question_from_dict(data, contenido, user, subject)
             questions_created += 1
         except ValueError as e:
             errors.append(f"Bloque {block_number}: {e}")
@@ -4120,17 +4127,11 @@ def process_txt_file(file, contenido, user):
 
     return questions_created, errors
 
-def create_question_from_dict(data, contenido, user):
-    from .models import Subject, Topic, Subtopic, Question, get_real_subject_or_none
-    # La materia tiene que existir ya en el catálogo — no se crea al vuelo
-    # por texto libre (ver informe de rediseño / Solicitar alta).
-    materia_nombre = (data.get('materia') or '').strip()
-    subject = get_real_subject_or_none(materia_nombre)
-    if not subject:
-        raise ValueError(
-            f'la materia "{materia_nombre}" no está cargada en el catálogo — '
-            f'hay que pedirla en Solicitar alta antes de subir esta pregunta.'
-        )
+def create_question_from_dict(data, contenido, user, subject):
+    from .models import Subject, Topic, Subtopic, Question
+    # La materia ya no es por bloque (línea "materia:" del archivo): se
+    # elige una sola vez para todo el archivo, en el paso 1 (ver
+    # upload_questions).
 
     # Obtener o crear Topic
     topic, _ = Topic.objects.get_or_create(
@@ -4173,14 +4174,13 @@ def download_template(request, format):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="template.csv"'
         writer = csv.writer(response)
-        writer.writerow(['materia', 'pregunta', 'respuesta', 'tema', 'subtema', 'pagina', 'tipo', 'opciones', 'dificultad', 'nivel_bloom'])
-        writer.writerow(['Matemáticas', '¿Cuál es la capital de Francia?', 'París', 'Geografía', 'Capitales', 1, 'desarrollo', '', 2, ''])
-        writer.writerow(['Literatura', '¿Quién escribió "Cien años de soledad"?', 'Gabriel García Márquez', 'Literatura', 'Autores', 2, 'opcion_multiple', '["Gabriel García Márquez","Jorge Luis Borges","Julio Cortázar","Mario Vargas Llosa"]', 3, 1])
+        writer.writerow(['pregunta', 'respuesta', 'tema', 'subtema', 'pagina', 'tipo', 'opciones', 'dificultad', 'nivel_bloom'])
+        writer.writerow(['¿Cuál es la capital de Francia?', 'París', 'Geografía', 'Capitales', 1, 'desarrollo', '', 2, ''])
+        writer.writerow(['¿Quién escribió "Cien años de soledad"?', 'Gabriel García Márquez', 'Literatura', 'Autores', 2, 'opcion_multiple', '["Gabriel García Márquez","Jorge Luis Borges","Julio Cortázar","Mario Vargas Llosa"]', 3, 1])
         return response
     elif format == 'json':
         data = [
             {
-                "materia": "Matemáticas",
                 "pregunta": "¿Cuál es la capital de Francia?",
                 "respuesta": "París",
                 "tema": "Geografía",
@@ -4192,7 +4192,6 @@ def download_template(request, format):
                 "nivel_bloom": ""
             },
             {
-                "materia": "Literatura",
                 "pregunta": "¿Quién escribió 'Cien años de soledad'?",
                 "respuesta": "Gabriel García Márquez",
                 "tema": "Literatura",
@@ -4208,8 +4207,7 @@ def download_template(request, format):
         response['Content-Disposition'] = 'attachment; filename="template.json"'
         return response
     elif format == 'txt':
-        content = """materia: Matemáticas
-pregunta: ¿Cuál es la capital de Francia?
+        content = """pregunta: ¿Cuál es la capital de Francia?
 respuesta: París
 tema: Geografía
 subtema: Capitales
@@ -4217,7 +4215,6 @@ pagina: 1
 tipo: desarrollo
 dificultad: 2
 
-materia: Literatura
 pregunta: ¿Quién escribió 'Cien años de soledad'?
 respuesta: Gabriel García Márquez
 tema: Literatura
@@ -7300,10 +7297,8 @@ def catalog_request_create(request):
     if request.method == 'POST':
         form = CatalogRequestForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
-            solicitud = form.save(commit=False)
-            solicitud.solicitado_por = request.user
             try:
-                _materializar_espacio_personal(solicitud, request.user)
+                filas = _materializar_y_generar_solicitudes(form, request.user)
             except ValueError as e:
                 messages.error(
                     request,
@@ -7311,9 +7306,14 @@ def catalog_request_create(request):
                     extra_tags='solicitudes',
                 )
                 return render(request, 'material/catalog_requests/form.html', {'form': form})
-            solicitud.save()
-            if solicitud.tipo == 'resultado_aprendizaje':
+            if form.cleaned_data['tipo'] == 'resultado_aprendizaje':
                 mensaje = 'Solicitud enviada. Se avisará el resultado cuando el administrador la revise.'
+            elif len(filas) > 1:
+                niveles = ', '.join(f.get_tipo_display().lower() for f in filas)
+                mensaje = (
+                    f'Se creó en el espacio personal ({niveles}) — ya se puede usar. '
+                    'Cada nivel queda a la espera de sumarse al catálogo institucional por separado.'
+                )
             else:
                 mensaje = (
                     'Se creó en el espacio personal — ya se puede usar. '
@@ -7439,6 +7439,46 @@ def check_catalog_duplicate(request):
 
 
 @login_required
+@user_passes_test(is_admin, login_url='/')
+def buscar_destino_fusion(request):
+    """Búsqueda admin-only de candidatos para "Fusionar con existente" en
+    la bandeja — mismo motor de similitud que check_catalog_duplicate,
+    pero acá el resultado tiene que ser SIEMPRE una fila YA institucional
+    (nunca otro borrador personal — fusionar un personal con otro
+    personal no resuelve nada, lo que hace falta es engancharlo a lo real)."""
+    nivel = request.GET.get('nivel')
+    q = (request.GET.get('q') or '').strip()
+    if len(q) < 2:
+        return JsonResponse([], safe=False)
+
+    if nivel == 'institucion':
+        qs = InstitutionV2.objects.filter(is_seed_demo=False, es_catalogo_institucional=True)
+    elif nivel == 'facultad':
+        # Una facultad pertenece a una única institución (FK real, no
+        # compartida — ver informe de rediseño) — fusionar contra una
+        # facultad de OTRA institución movería el contenido a un lugar
+        # que no corresponde, así que se acota si se pasó institucion_id.
+        qs = FacultyV2.objects.filter(is_active=True, es_catalogo_institucional=True)
+        institucion_id = request.GET.get('institucion_id', '')
+        if institucion_id.isdigit():
+            qs = qs.filter(institution_id=institucion_id)
+    elif nivel == 'carrera':
+        qs = Career.objects.filter(is_seed_demo=False, es_catalogo_institucional=True)
+    elif nivel == 'materia':
+        qs = Subject.objects.filter(is_seed_demo=False, es_catalogo_institucional=True)
+    else:
+        return JsonResponse([], safe=False)
+
+    q_norm = _normalizar_para_busqueda(q)
+    q_tokens = _tokens(q_norm)
+    candidatos = qs.order_by('name').values('id', 'name')
+    puntuados = [(c, _similitud(q_norm, q_tokens, c['name'])) for c in candidatos]
+    puntuados = [par for par in puntuados if par[1] > 0]
+    puntuados.sort(key=lambda par: -par[1])
+    return JsonResponse([c for c, _score in puntuados[:8]], safe=False)
+
+
+@login_required
 def mis_solicitudes_catalogo(request):
     solicitudes = CatalogRequest.objects.filter(
         solicitado_por=request.user
@@ -7454,34 +7494,193 @@ def mis_solicitudes_catalogo(request):
     })
 
 
+# Nivel → related_name a través del cual se detecta si esa fila tiene
+# contenido real colgando (usado al rechazar, ver _intentar_eliminar_si_vacio).
+_RELACION_CONTENIDO_POR_TIPO = {
+    'institucion': 'facultyv2_set',
+    'facultad': 'career_faculties',
+    'carrera': 'careersubject_set',
+    'materia': 'topic_set',
+}
+
+
+def _intentar_eliminar_si_vacio(tipo, entidad):
+    """Al rechazar un nivel, intenta borrar de verdad la fila recién
+    creada en vez de dejarla dando vueltas en el espacio personal para
+    siempre — así "rechazar" limpia la base en lugar de acumular basura
+    (ver pedido explícito del usuario: dejarla viva "llena de basura la
+    base en minutos"). Si ya tiene algo real colgando (otro nivel
+    vinculado, un tema cargado, etc.) NO se borra — se deja como personal
+    sin promover, para no llevarse puesto trabajo real de un docente ni
+    romper una fila hermana del mismo lote que todavía está pendiente de
+    revisión por separado. Devuelve True si se borró."""
+    relacion = _RELACION_CONTENIDO_POR_TIPO.get(tipo)
+    if not relacion:
+        return False
+    if getattr(entidad, relacion).exists():
+        return False
+    entidad.delete()
+    return True
+
+
+def _fusionar_en_destino(tipo, origen, destino):
+    """Funde un borrador del espacio personal (`origen`) dentro de una
+    fila YA institucional (`destino`) que el admin identificó a mano en
+    la bandeja como la misma cosa — el matcheo automático por similitud
+    (ver check_catalog_duplicate) no es perfecto y puede no atraparla.
+    Re-apunta todo lo que colgaba de `origen` hacia `destino` antes de
+    borrar el borrador, para no perder contenido real que un docente ya
+    haya cargado sobre él, y re-apunta también cualquier otra
+    CatalogRequest (de este mismo lote o de otro) que todavía señalaba a
+    `origen` — así una solicitud hermana pendiente no queda apuntando a
+    una fila que ya no existe. Todo dentro de una transacción — si algo
+    de la mitad falla, no queda a mitad de camino (ver bug real: la
+    primera versión sin atomic() dejó el Topic ya re-apuntado pero el
+    origen sin borrar cuando explotó un NameError en el paso siguiente)."""
+    from .models import ContentShare
+    campo = tipo
+    with transaction.atomic():
+        CatalogRequest.objects.filter(**{campo: origen}).update(**{campo: destino})
+
+        if tipo == 'materia':
+            Topic.objects.filter(subject=origen).update(subject=destino)
+            for q in Question.objects.filter(subjects=origen):
+                q.subjects.remove(origen)
+                q.subjects.add(destino)
+            for cs_origen in CareerSubject.objects.filter(subject=origen):
+                cs_destino, _creado = CareerSubject.objects.get_or_create(
+                    career=cs_origen.career, subject=destino,
+                    defaults={
+                        'numero_materia': cs_origen.numero_materia,
+                        'anio_cursada': cs_origen.anio_cursada,
+                        'cuatrimestre_cursada': cs_origen.cuatrimestre_cursada,
+                    },
+                )
+                LearningOutcome.objects.filter(career_subject=cs_origen).update(career_subject=cs_destino)
+                cs_origen.delete()
+            ContentShare.objects.filter(kind='materia', subject=origen).update(subject=destino)
+        elif tipo == 'carrera':
+            for cs_origen in CareerSubject.objects.filter(career=origen):
+                cs_destino, _creado = CareerSubject.objects.get_or_create(
+                    career=destino, subject=cs_origen.subject,
+                    defaults={
+                        'numero_materia': cs_origen.numero_materia,
+                        'anio_cursada': cs_origen.anio_cursada,
+                        'cuatrimestre_cursada': cs_origen.cuatrimestre_cursada,
+                    },
+                )
+                LearningOutcome.objects.filter(career_subject=cs_origen).update(career_subject=cs_destino)
+                cs_origen.delete()
+            destino.faculties.add(*origen.faculties.all())
+        elif tipo == 'facultad':
+            for career in origen.career_faculties.all():
+                career.faculties.remove(origen)
+                career.faculties.add(destino)
+        elif tipo == 'institucion':
+            FacultyV2.objects.filter(institution=origen).update(institution=destino)
+            for ui in UserInstitution.objects.filter(institution=origen):
+                UserInstitution.objects.get_or_create(
+                    user=ui.user, institution=destino, defaults={'is_favorite': ui.is_favorite},
+                )
+                ui.delete()
+        else:
+            raise ValueError('ese tipo no admite fusión')
+
+        origen.delete()
+
+
+def resolve_catalog_request_fusion(solicitud, *, admin_user, destino_id):
+    """Fusiona el nivel de esta solicitud con una fila YA institucional
+    que el admin eligió a mano (ver _fusionar_en_destino) — tercera
+    acción de la bandeja además de aprobar/rechazar, para cuando un
+    borrador personal resulta ser lo mismo que algo que ya está en el
+    catálogo. No aplica a resultado_aprendizaje (no tiene fila propia que
+    fusionar, ver CatalogRequestForm). Devuelve (ok, mensaje)."""
+    if solicitud.estado != 'pendiente':
+        return False, 'Esa solicitud ya estaba resuelta.'
+    if solicitud.tipo == 'resultado_aprendizaje':
+        return False, 'Un resultado de aprendizaje no se fusiona — no tiene fila propia en el catálogo.'
+
+    origen = getattr(solicitud, solicitud.tipo)
+    if origen is None:
+        return False, 'No se pudo fusionar (falta el nivel a fusionar) — hay que completarlo y reintentar.'
+
+    Modelo = type(origen)
+    try:
+        destino = Modelo.objects.get(pk=destino_id, es_catalogo_institucional=True)
+    except Modelo.DoesNotExist:
+        return False, 'No se pudo fusionar: el destino elegido ya no existe o no es institucional.'
+    if destino.pk == origen.pk:
+        return False, 'El destino elegido es la misma fila que se está por fusionar.'
+
+    nombre_destino = destino.name
+    _fusionar_en_destino(solicitud.tipo, origen, destino)
+
+    solicitud.refresh_from_db()
+    solicitud.estado = 'aprobada'
+    solicitud.resuelto_por = admin_user
+    solicitud.resuelto_en = timezone.now()
+    solicitud.nota_admin = f'Fusionado con "{nombre_destino}", ya existente en el catálogo institucional.'
+    solicitud.visto_por_solicitante = False
+    solicitud.save(update_fields=['estado', 'resuelto_por', 'resuelto_en', 'nota_admin', 'visto_por_solicitante'])
+    return True, f'Solicitud fusionada con "{nombre_destino}" — no se creó una fila duplicada.'
+
+
 def resolve_catalog_request(solicitud, *, admin_user, aprobar, nota_admin=''):
-    """Aplica la decisión de un admin sobre una solicitud pendiente — único
-    punto que usan tanto la bandeja dentro de la app como la acción del
-    admin de Django, para no duplicar la lógica de "qué fila crear según
-    el tipo". Marca visto_por_solicitante=False para que el aviso le
-    aparezca al usuario (ver resultado_mensaje() en el modelo, y el badge
-    de "Mis solicitudes"). Devuelve (ok, mensaje)."""
+    """Aplica la decisión de un admin sobre UN nivel de una solicitud
+    pendiente (institución, facultad, carrera, materia o resultado de
+    aprendizaje quedan cada uno en su propia fila — ver lote_id en el
+    modelo, y _materializar_y_generar_solicitudes) — único punto que usan
+    tanto la bandeja dentro de la app como la acción del admin de Django.
+    Marca visto_por_solicitante=False para que el aviso le aparezca al
+    usuario (ver resultado_mensaje() en el modelo, y el badge de "Mis
+    solicitudes"). Devuelve (ok, mensaje)."""
     if solicitud.estado != 'pendiente':
         return False, 'Esa solicitud ya estaba resuelta.'
 
     if not aprobar:
-        solicitud.estado = 'rechazada'
-        solicitud.resuelto_por = admin_user
-        solicitud.resuelto_en = timezone.now()
-        solicitud.nota_admin = nota_admin
-        solicitud.visto_por_solicitante = False
-        solicitud.save(update_fields=['estado', 'resuelto_por', 'resuelto_en', 'nota_admin', 'visto_por_solicitante'])
-        return True, 'Solicitud rechazada.'
+        # El nivel de ESTA fila (no los demás del mismo lote, que se
+        # deciden cada uno por separado) — ver _intentar_eliminar_si_vacio.
+        # Todo dentro de una transacción para no quedar a mitad de camino
+        # si algo entre el delete y el save llega a fallar.
+        with transaction.atomic():
+            campo_nivel = solicitud.tipo if solicitud.tipo != 'resultado_aprendizaje' else None
+            entidad = getattr(solicitud, campo_nivel) if campo_nivel else None
+            borrada = False
+            if entidad is not None and not entidad.es_catalogo_institucional:
+                borrada = _intentar_eliminar_si_vacio(solicitud.tipo, entidad)
+                if borrada:
+                    # El delete() de arriba ya dejó en NULL la columna en
+                    # la base (on_delete=SET_NULL) — esto solo sincroniza
+                    # el objeto en memoria, que todavía apunta a una
+                    # instancia borrada (pk=None) y haría fallar el save()
+                    # de abajo con "unsaved related object" si no se
+                    # limpia acá.
+                    setattr(solicitud, campo_nivel, None)
 
-    # Institución/facultad/carrera/materia ya existen para este punto —
-    # se crearon en el espacio personal al enviar la solicitud (ver
-    # _materializar_espacio_personal), no acá. Aprobar ahora es solo
-    # promoverlas al catálogo institucional (flip del flag), salvo
-    # resultado_aprendizaje, que sigue creándose recién acá.
-    for entidad in (solicitud.institucion, solicitud.facultad, solicitud.carrera, solicitud.materia):
-        if entidad is not None and not entidad.es_catalogo_institucional:
-            entidad.es_catalogo_institucional = True
-            entidad.save(update_fields=['es_catalogo_institucional'])
+            solicitud.estado = 'rechazada'
+            solicitud.resuelto_por = admin_user
+            solicitud.resuelto_en = timezone.now()
+            solicitud.nota_admin = nota_admin
+            solicitud.visto_por_solicitante = False
+            solicitud.save(update_fields=['estado', 'resuelto_por', 'resuelto_en', 'nota_admin', 'visto_por_solicitante'])
+        if borrada:
+            return True, 'Solicitud rechazada — se borró del espacio personal (no tenía nada más colgando).'
+        return True, 'Solicitud rechazada. Queda en el espacio personal, sin sumarse al catálogo institucional.'
+
+    # El nivel de ESTA fila ya existe — se creó en el espacio personal al
+    # enviar la solicitud (ver _materializar_y_generar_solicitudes), no
+    # acá. Aprobar ahora es solo promoverlo al catálogo institucional
+    # (flip del flag), salvo resultado_aprendizaje, que sigue creándose
+    # recién acá. Los demás niveles del mismo lote (si los hay) se
+    # aprueban o rechazan cada uno por su cuenta, en su propia fila.
+    entidad = {
+        'institucion': solicitud.institucion, 'facultad': solicitud.facultad,
+        'carrera': solicitud.carrera, 'materia': solicitud.materia,
+    }.get(solicitud.tipo)
+    if entidad is not None and not entidad.es_catalogo_institucional:
+        entidad.es_catalogo_institucional = True
+        entidad.save(update_fields=['es_catalogo_institucional'])
 
     if solicitud.tipo == 'resultado_aprendizaje':
         if not solicitud.carrera_id:
@@ -7503,30 +7702,55 @@ def resolve_catalog_request(solicitud, *, admin_user, aprobar, nota_admin=''):
     return True, 'Solicitud aprobada y sumada al catálogo institucional.'
 
 
-def _materializar_espacio_personal(solicitud, user):
-    """Al enviar la solicitud, crea de inmediato lo que falte en el
-    "espacio personal" de quien la pide (es_catalogo_institucional=False)
+def _materializar_y_generar_solicitudes(form, user):
+    """Al enviar el formulario, crea de inmediato lo que falte en el
+    "espacio personal" de quien lo pide (es_catalogo_institucional=False)
     — se puede usar ya mismo, sin esperar a que el administrador lo sume
     al catálogo institucional (ver acuerdo de "personal space" en el
-    informe de rediseño). Deja las FKs de la solicitud
-    (institucion/facultad/carrera/materia) apuntando a lo resuelto, así
-    resolve_catalog_request no tiene que volver a resolver nada al
-    aprobar — solo promover lo que ya existe.
+    informe de rediseño).
 
-    tipo='resultado_aprendizaje' queda afuera a propósito: el form exige
-    niveles YA reales para ese tipo (ver clean()), así que acá no hay nada
-    que crear — el resultado en sí se sigue creando recién al aprobar."""
-    if solicitud.tipo == 'resultado_aprendizaje':
-        return
+    A diferencia de la primera versión, acá NO se arma una sola fila de
+    CatalogRequest para toda la cadena: se genera UNA FILA POR CADA NIVEL
+    REALMENTE CREADO en este envío (institución/facultad/carrera/materia,
+    las que hagan falta), todas con el mismo lote_id — así el admin
+    aprueba o rechaza cada nivel por separado en la bandeja, en vez de
+    que una sola decisión (ej. rechazar la Materia) se lleve puesta a
+    toda la cadena de arriba, que puede ser perfectamente válida. Un
+    nivel que se reutilizó (ya existía, institucional o personal de este
+    mismo usuario) no genera fila nueva — no hay nada que decidir ahí.
+
+    tipo='resultado_aprendizaje' queda afuera de este mecanismo a
+    propósito: el form exige niveles YA reales para ese tipo (ver
+    clean()), así que acá no hay nada que crear — se arma una única fila
+    sin lote, igual que antes, y el resultado en sí se sigue creando
+    recién al aprobar.
+
+    Devuelve la lista de CatalogRequest ya guardadas (puede quedar vacía
+    si tipo='resultado_aprendizaje' y algo falla — no debería pasar,
+    clean() ya lo valida)."""
+    datos = form.cleaned_data
+    tipo = datos['tipo']
+
+    if tipo == 'resultado_aprendizaje':
+        solicitud = CatalogRequest.objects.create(
+            tipo=tipo, nombre_propuesto=datos['nombre_propuesto'],
+            institucion=datos.get('institucion'), facultad=datos.get('facultad'),
+            carrera=datos.get('carrera'), materia=datos.get('materia'),
+            justificacion=datos.get('justificacion', ''), solicitado_por=user,
+        )
+        return [solicitud]
+
+    logo_propuesto = datos.get('logo_propuesto')
+    justificacion = datos.get('justificacion', '')
 
     def _aplicar_logo(institution):
-        if not solicitud.logo_propuesto:
+        if not logo_propuesto:
             return
         import base64
         from django.core.files.base import ContentFile
-        solicitud.logo_propuesto.seek(0)
-        contenido = solicitud.logo_propuesto.read()
-        institution.logo.save(solicitud.logo_propuesto.name, ContentFile(contenido), save=False)
+        logo_propuesto.seek(0)
+        contenido = logo_propuesto.read()
+        institution.logo.save(logo_propuesto.name, ContentFile(contenido), save=False)
         institution.logo_b64 = 'data:image/png;base64,' + base64.b64encode(contenido).decode()
         institution.save(update_fields=['logo', 'logo_b64'])
 
@@ -7535,56 +7759,77 @@ def _materializar_espacio_personal(solicitud, user):
         # antes (evita duplicar al reintentar o tipear el mismo nombre en
         # otra solicitud) — nunca reutiliza el de otro usuario ni una fila
         # ya institucional, para eso está el desplegable de "elegir
-        # existente" en el form.
+        # existente" en el form. Devuelve (obj, creada_ahora).
         filtros = dict(extra, name__iexact=nombre, created_by=user, es_catalogo_institucional=False)
         existente = model.objects.filter(**filtros).first()
         if existente:
-            return existente
+            return existente, False
         crear_kwargs = dict(extra, name=nombre, created_by=user, es_catalogo_institucional=False)
-        return model.objects.create(**crear_kwargs)
+        return model.objects.create(**crear_kwargs), True
 
-    institucion_obj = solicitud.institucion
-    if not institucion_obj and solicitud.institucion_nueva:
-        institucion_obj = _obtener_o_crear_personal(InstitutionV2, solicitud.institucion_nueva)
+    lote_id = uuid.uuid4()
+    filas = []
+
+    def _agregar_fila(nivel_tipo, nombre, **fks):
+        fila = CatalogRequest.objects.create(
+            tipo=nivel_tipo, nombre_propuesto=nombre, lote_id=lote_id,
+            solicitado_por=user, justificacion=justificacion, **fks
+        )
+        filas.append(fila)
+        return fila
+
+    institucion_obj = datos.get('institucion')
+    if not institucion_obj and datos.get('institucion_nueva'):
+        institucion_obj, creada = _obtener_o_crear_personal(InstitutionV2, datos['institucion_nueva'])
         _aplicar_logo(institucion_obj)
         UserInstitution.objects.get_or_create(user=user, institution=institucion_obj)
-        solicitud.institucion = institucion_obj
+        if creada:
+            _agregar_fila('institucion', institucion_obj.name, institucion=institucion_obj)
 
-    facultad_obj = solicitud.facultad
-    if not facultad_obj and solicitud.facultad_nueva:
+    facultad_obj = datos.get('facultad')
+    if not facultad_obj and datos.get('facultad_nueva'):
         if not institucion_obj:
             raise ValueError('falta institución')
-        facultad_obj = _obtener_o_crear_personal(FacultyV2, solicitud.facultad_nueva, institution=institucion_obj)
-        solicitud.facultad = facultad_obj
+        facultad_obj, creada = _obtener_o_crear_personal(FacultyV2, datos['facultad_nueva'], institution=institucion_obj)
+        if creada:
+            _agregar_fila('facultad', facultad_obj.name, institucion=institucion_obj, facultad=facultad_obj)
 
-    carrera_obj = solicitud.carrera
-    if not carrera_obj and solicitud.carrera_nueva:
-        carrera_obj = _obtener_o_crear_personal(Career, solicitud.carrera_nueva)
+    carrera_obj = datos.get('carrera')
+    if not carrera_obj and datos.get('carrera_nueva'):
+        carrera_obj, creada = _obtener_o_crear_personal(Career, datos['carrera_nueva'])
         if facultad_obj:
             carrera_obj.faculties.add(facultad_obj)
-        solicitud.carrera = carrera_obj
+        if creada:
+            _agregar_fila('carrera', carrera_obj.name, institucion=institucion_obj, facultad=facultad_obj, carrera=carrera_obj)
 
-    if solicitud.tipo == 'institucion':
-        nueva_institucion = _obtener_o_crear_personal(InstitutionV2, solicitud.nombre_propuesto)
+    if tipo == 'institucion':
+        nueva_institucion, creada = _obtener_o_crear_personal(InstitutionV2, datos['nombre_propuesto'])
         _aplicar_logo(nueva_institucion)
         UserInstitution.objects.get_or_create(user=user, institution=nueva_institucion)
-        solicitud.institucion = nueva_institucion
-    elif solicitud.tipo == 'facultad':
+        if creada:
+            _agregar_fila('institucion', nueva_institucion.name, institucion=nueva_institucion)
+    elif tipo == 'facultad':
         if not institucion_obj:
             raise ValueError('falta institución')
-        solicitud.facultad = _obtener_o_crear_personal(FacultyV2, solicitud.nombre_propuesto, institution=institucion_obj)
-    elif solicitud.tipo == 'carrera':
+        nueva_facultad, creada = _obtener_o_crear_personal(FacultyV2, datos['nombre_propuesto'], institution=institucion_obj)
+        if creada:
+            _agregar_fila('facultad', nueva_facultad.name, institucion=institucion_obj, facultad=nueva_facultad)
+    elif tipo == 'carrera':
         if not facultad_obj:
             raise ValueError('falta facultad')
-        nueva_carrera = _obtener_o_crear_personal(Career, solicitud.nombre_propuesto)
+        nueva_carrera, creada = _obtener_o_crear_personal(Career, datos['nombre_propuesto'])
         nueva_carrera.faculties.add(facultad_obj)
-        solicitud.carrera = nueva_carrera
-    elif solicitud.tipo == 'materia':
+        if creada:
+            _agregar_fila('carrera', nueva_carrera.name, institucion=institucion_obj, facultad=facultad_obj, carrera=nueva_carrera)
+    elif tipo == 'materia':
         if not carrera_obj:
             raise ValueError('falta carrera')
-        nueva_materia = _obtener_o_crear_personal(Subject, solicitud.nombre_propuesto)
+        nueva_materia, creada = _obtener_o_crear_personal(Subject, datos['nombre_propuesto'])
         CareerSubject.objects.get_or_create(career=carrera_obj, subject=nueva_materia)
-        solicitud.materia = nueva_materia
+        if creada:
+            _agregar_fila('materia', nueva_materia.name, institucion=institucion_obj, facultad=facultad_obj, carrera=carrera_obj, materia=nueva_materia)
+
+    return filas
 
 
 @login_required
@@ -7592,16 +7837,41 @@ def _materializar_espacio_personal(solicitud, user):
 def catalog_requests_bandeja(request):
     if request.method == 'POST':
         solicitud = get_object_or_404(CatalogRequest, pk=request.POST.get('solicitud_id'))
-        aprobar = request.POST.get('accion') == 'aprobar'
+        accion = request.POST.get('accion')
         nota_admin = (request.POST.get('nota_admin') or '').strip()
-        ok, mensaje = resolve_catalog_request(solicitud, admin_user=request.user, aprobar=aprobar, nota_admin=nota_admin)
+        if accion == 'fusionar':
+            destino_id = request.POST.get('destino_id')
+            if not destino_id or not destino_id.isdigit():
+                ok, mensaje = False, 'Elegir con qué fila del catálogo institucional fusionar antes de confirmar.'
+            else:
+                ok, mensaje = resolve_catalog_request_fusion(solicitud, admin_user=request.user, destino_id=int(destino_id))
+        else:
+            aprobar = accion == 'aprobar'
+            ok, mensaje = resolve_catalog_request(solicitud, admin_user=request.user, aprobar=aprobar, nota_admin=nota_admin)
         (messages.success if ok else messages.error)(request, mensaje, extra_tags='solicitudes')
         return redirect('material:catalog_requests_bandeja')
 
-    solicitudes = CatalogRequest.objects.select_related(
-        'institucion', 'facultad', 'carrera', 'solicitado_por', 'resuelto_por'
-    ).order_by('estado', '-created_at')
-    return render(request, 'material/catalog_requests/bandeja.html', {'solicitudes': solicitudes})
+    solicitudes = list(CatalogRequest.objects.select_related(
+        'institucion', 'facultad', 'carrera', 'materia', 'solicitado_por', 'resuelto_por'
+    ).order_by('estado', '-created_at'))
+
+    # Para las filas que vinieron de un mismo envío (lote_id compartido —
+    # ver _materializar_y_generar_solicitudes), arma en cada una la lista
+    # de "con qué otros niveles vino junto" para que la bandeja lo
+    # muestre — así el admin sabe que aprobar/rechazar ESTA fila no
+    # decide sola toda la cadena, hay hermanas que se deciden aparte.
+    lotes_tipos = {}
+    for s in solicitudes:
+        if s.lote_id:
+            lotes_tipos.setdefault(s.lote_id, []).append(s.get_tipo_display())
+    for s in solicitudes:
+        s.hermanos_lote = [
+            t for t in lotes_tipos.get(s.lote_id, []) if t != s.get_tipo_display()
+        ] if s.lote_id else []
+
+    return render(request, 'material/catalog_requests/bandeja.html', {
+        'solicitudes': solicitudes,
+    })
 
 
 # --- GRUPOS DE CONFIANZA (compartir preguntas entre docentes) -----------------

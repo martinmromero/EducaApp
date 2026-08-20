@@ -204,6 +204,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     # SOLICITUDES DE ALTA AL CATÁLOGO
     path('solicitudes-catalogo/nueva/', material_views.catalog_request_create, name='catalog_request_create'),
     path('solicitudes-catalogo/verificar-duplicado/', material_views.check_catalog_duplicate, name='check_catalog_duplicate'),
+    path('solicitudes-catalogo/buscar-destino-fusion/', material_views.buscar_destino_fusion, name='buscar_destino_fusion'),
     path('solicitudes-catalogo/mias/', material_views.mis_solicitudes_catalogo, name='mis_solicitudes_catalogo'),
     path('solicitudes-catalogo/bandeja/', material_views.catalog_requests_bandeja, name='catalog_requests_bandeja'),
 

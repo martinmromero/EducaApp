@@ -26,11 +26,18 @@
                         <tbody>
                             {% for s in solicitudes %}
                             <tr>
-                                <td>{{ s.get_tipo_display }}</td>
+                                <td>
+                                    {{ s.get_tipo_display }}
+                                    {% if s.hermanos_lote %}
+                                        <div class="text-muted small">
+                                            <i class="bi bi-link-45deg"></i> mismo pedido: {{ s.hermanos_lote|join:", " }}
+                                        </div>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {{ s.nombre_propuesto }}
-                                    {% if s.logo_propuesto %}
-                                        <br><img src="{{ s.logo_propuesto.url }}" alt="Logo propuesto" style="max-height:32px;max-width:80px;object-fit:contain" class="mt-1 border rounded p-1">
+                                    {% if s.tipo == 'institucion' and s.institucion.logo_src %}
+                                        <br><img src="{{ s.institucion.logo_src }}" alt="Logo propuesto" style="max-height:32px;max-width:80px;object-fit:contain" class="mt-1 border rounded p-1">
                                     {% endif %}
                                 </td>
                                 <td class="text-muted small">{{ s.contexto_display }}</td>
@@ -55,15 +62,38 @@
                                         <input type="hidden" name="solicitud_id" value="{{ s.id }}">
                                         <input type="text" name="nota_admin" class="form-control form-control-sm"
                                                placeholder="Motivo (opcional, se le muestra al usuario)">
-                                        <div class="d-flex gap-1">
+                                        <div class="d-flex gap-1 flex-wrap">
                                             <button type="submit" name="accion" value="aprobar" class="btn btn-sm btn-success">
                                                 <i class="bi bi-check-lg"></i> Aprobar
                                             </button>
                                             <button type="submit" name="accion" value="rechazar" class="btn btn-sm btn-outline-danger">
                                                 <i class="bi bi-x-lg"></i> Rechazar
                                             </button>
+                                            {% if s.tipo != 'resultado_aprendizaje' %}
+                                            <button type="button" class="btn btn-sm btn-outline-secondary btn-toggle-fusion" data-target="fusion-{{ s.id }}">
+                                                <i class="bi bi-signpost-split"></i> Fusionar
+                                            </button>
+                                            {% endif %}
                                         </div>
                                     </form>
+                                    {% if s.tipo != 'resultado_aprendizaje' %}
+                                    <div class="fusion-panel border rounded p-2 mt-2 d-none" id="fusion-{{ s.id }}" style="min-width:260px">
+                                        <label class="form-label small text-muted mb-1">Fusionar con una fila ya institucional:</label>
+                                        <input type="text" class="form-control form-control-sm fusion-buscar"
+                                               data-nivel="{{ s.tipo }}" data-institucion-id="{{ s.institucion_id|default_if_none:'' }}"
+                                               placeholder="Buscar por nombre...">
+                                        <div class="fusion-sugerencias small mt-1"></div>
+                                        <form method="post" class="fusion-form mt-2">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="solicitud_id" value="{{ s.id }}">
+                                            <input type="hidden" name="accion" value="fusionar">
+                                            <input type="hidden" name="destino_id" class="fusion-destino-id">
+                                            <button type="submit" class="btn btn-sm btn-outline-primary w-100 fusion-confirmar" disabled>
+                                                <i class="bi bi-signpost-split"></i> Confirmar fusión
+                                            </button>
+                                        </form>
+                                    </div>
+                                    {% endif %}
                                     {% else %}
                                         <span class="text-muted small">—</span>
                                     {% endif %}
@@ -79,4 +109,86 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const BUSCAR_DESTINO_URL = "{% url 'material:buscar_destino_fusion' %}";
+
+    function debounce(fn, ms) {
+        let t;
+        return function (...args) {
+            clearTimeout(t);
+            t = setTimeout(() => fn.apply(this, args), ms);
+        };
+    }
+
+    document.querySelectorAll('.btn-toggle-fusion').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const panel = document.getElementById(btn.dataset.target);
+            if (panel) panel.classList.toggle('d-none');
+        });
+    });
+
+    document.querySelectorAll('.fusion-buscar').forEach(function (input) {
+        const panel = input.closest('.fusion-panel');
+        const sugerencias = panel.querySelector('.fusion-sugerencias');
+        const destinoInput = panel.querySelector('.fusion-destino-id');
+        const confirmarBtn = panel.querySelector('.fusion-confirmar');
+        const nivel = input.dataset.nivel;
+
+        input.addEventListener('input', function () {
+            destinoInput.value = '';
+            confirmarBtn.disabled = true;
+        });
+
+        input.addEventListener('input', debounce(function () {
+            const q = input.value.trim();
+            if (q.length < 2) { sugerencias.innerHTML = ''; return; }
+            const paramsObj = { nivel: nivel, q: q };
+            if (nivel === 'facultad' && input.dataset.institucionId) {
+                paramsObj.institucion_id = input.dataset.institucionId;
+            }
+            const params = new URLSearchParams(paramsObj);
+            fetch(BUSCAR_DESTINO_URL + '?' + params.toString())
+                .then(function (r) { return r.ok ? r.json() : []; })
+                .then(function (matches) {
+                    if (!matches.length) {
+                        sugerencias.innerHTML = '<div class="text-muted">Sin coincidencias en el catálogo institucional.</div>';
+                        return;
+                    }
+                    sugerencias.innerHTML = matches.map(function (m) {
+                        return '<button type="button" class="btn btn-outline-secondary btn-sm me-1 mb-1 fusion-opcion" data-id="' + m.id + '" data-name="' + m.name.replace(/"/g, '&quot;') + '">' +
+                            '<i class="bi bi-check2"></i> ' + m.name + '</button>';
+                    }).join('');
+                    sugerencias.querySelectorAll('.fusion-opcion').forEach(function (opt) {
+                        opt.addEventListener('click', function () {
+                            destinoInput.value = opt.dataset.id;
+                            input.value = opt.dataset.name;
+                            confirmarBtn.disabled = false;
+                            sugerencias.innerHTML = '<div class="text-success"><i class="bi bi-check-circle"></i> Se va a fusionar con "' + opt.dataset.name + '".</div>';
+                        });
+                    });
+                })
+                .catch(function () { sugerencias.innerHTML = ''; });
+        }, 350));
+    });
+
+    document.querySelectorAll('.fusion-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            const destino = form.querySelector('.fusion-destino-id').value;
+            if (!destino) {
+                e.preventDefault();
+                return;
+            }
+            e.preventDefault();
+            window.EducaAppModal.confirm(
+                'El borrador personal se borra y todo lo que tenga cargado (temas, preguntas, vínculos) se re-apunta a la fila elegida del catálogo institucional.',
+                { title: 'Fusionar solicitud', variant: 'primary', okLabel: 'Fusionar' }
+            ).then(function (ok) {
+                if (ok) form.submit();
+            });
+        });
+    });
+});
+</script>
 {% endblock %}

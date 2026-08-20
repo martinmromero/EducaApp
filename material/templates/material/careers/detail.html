@@ -4,7 +4,12 @@
 <div class="container mt-4">
     <div class="card">
         <div class="card-header">
-            <h2>{{ career.name }}</h2>
+            <h2>
+                {{ career.name }}
+                {% if not career.es_catalogo_institucional %}
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
+                {% endif %}
+            </h2>
         </div>
         <div class="card-body">
             <div class="row mb-3">
