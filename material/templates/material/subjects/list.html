@@ -3,9 +3,15 @@
 {% load message_tags %}
 {% block page_title %}<i class="bi bi-book me-2"></i>Materias{% endblock %}
 {% block page_actions %}
+{% if is_admin %}
 <a href="{% url 'material:create_subject' %}" class="btn btn-primary" id="subjectNewBtn">
     <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nueva Materia</span>
 </a>
+{% else %}
+<a href="{% url 'material:catalog_request_create' %}?tipo=materia" class="btn btn-outline-primary" id="subjectRequestBtn">
+    <i class="bi bi-send me-1"></i><span class="d-none d-sm-inline">Solicitar materia</span>
+</a>
+{% endif %}
 {% endblock %}
 {% block content %}
 {% include 'material/components/_mobile_card_table.html' %}
@@ -36,7 +42,7 @@
                 <table class="table table-hover mobile-card-table">
                     <thead>
                         <tr>
-                            <th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
+                            {% if is_admin %}<th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>{% endif %}
                             <th style="width:40px;"></th>
                             <th>Nombre</th>
                             <th>Resultados de Aprendizaje</th>
@@ -46,9 +52,11 @@
                     <tbody>
                         {% for subject in subjects %}
                         <tr>
+                            {% if is_admin %}
                             <td class="rt-card-select">
                                 <input type="checkbox" name="subject_ids" value="{{ subject.pk }}">
                             </td>
+                            {% endif %}
                             <td class="rt-card-badge">
                                 <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
                                         data-model="subject" data-id="{{ subject.pk }}"
@@ -73,6 +81,7 @@
                                     <a href="{% url 'material:subject_detail' pk=subject.pk %}" class="btn btn-sm btn-info" title="Ver materia">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    {% if is_admin %}
                                     <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-warning" title="Editar materia">
                                         <i class="fas fa-edit"></i>
                                     </a>
@@ -80,6 +89,7 @@
                                        class="btn btn-sm btn-danger" title="Eliminar materia">
                                         <i class="fas fa-trash"></i>
                                     </a>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>

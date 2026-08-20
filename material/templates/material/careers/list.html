@@ -4,9 +4,15 @@
 {% load message_tags %}
 {% block page_title %}<i class="bi bi-mortarboard-fill me-2"></i>Carreras{% endblock %}
 {% block page_actions %}
+{% if is_admin %}
 <a href="{% url 'material:career_create_simple' %}" class="btn btn-primary" id="careerNewBtn">
     <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nueva Carrera</span>
 </a>
+{% else %}
+<a href="{% url 'material:catalog_request_create' %}?tipo=carrera" class="btn btn-outline-primary" id="careerRequestBtn">
+    <i class="bi bi-send me-1"></i><span class="d-none d-sm-inline">Solicitar carrera</span>
+</a>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -44,7 +50,7 @@
                     <table class="table table-striped column-filter-table">
                         <thead>
                             <tr>
-                                <th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>
+                                {% if is_admin %}<th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>{% endif %}
                                 <th>Nombre</th>
                                 <th>Facultades</th>
                                 <th>Campus</th>
@@ -55,9 +61,11 @@
                         <tbody>
                             {% for career in careers %}
                             <tr>
+                                {% if is_admin %}
                                 <td class="rt-card-select">
                                     <input type="checkbox" name="career_ids" value="{{ career.pk }}">
                                 </td>
+                                {% endif %}
                                 <td class="rt-card-title" data-label="Nombre">{{ career.name }}</td>
                                 <td data-label="Facultades">
                                     {% for faculty in career.faculties.all %}
@@ -86,6 +94,7 @@
                                            class="btn btn-sm btn-info" title="Ver detalles">
                                             <i class="fas fa-eye"></i>
                                         </a>
+                                        {% if is_admin %}
                                         <a href="{% url 'material:career_associations' pk=career.pk %}"
                                            class="btn btn-sm btn-warning" title="Editar carrera">
                                             <i class="fas fa-edit"></i>
@@ -94,6 +103,7 @@
                                            class="btn btn-sm btn-danger" title="Eliminar">
                                             <i class="fas fa-trash"></i>
                                         </a>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>

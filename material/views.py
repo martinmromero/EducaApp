@@ -1,7 +1,10 @@
+import difflib
 import functools
 import re
+import unicodedata
 
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.decorators.http import require_POST
@@ -352,12 +355,13 @@ from .models import ExamTemplate, Subject, Question, LearningOutcome, Topic
 @login_required
 @require_GET
 def get_exam_template(request, template_id):
-    # Las plantillas son privadas de quien las crea (no existe ningún
-    # mecanismo para compartirlas, a diferencia de materias/preguntas) — sin
-    # este filtro, cualquier usuario autenticado podía traerse los datos de
-    # la plantilla de otro con solo adivinar/incrementar el ID.
+    # Plantillas propias o compartidas por grupo (ver informe de rediseño e
+    # informe de compartir unificado) — sin este filtro, cualquier usuario
+    # autenticado podía traerse los datos de la plantilla de otro con solo
+    # adivinar/incrementar el ID.
+    from .content_visibility import get_visible_templates
     try:
-        template = ExamTemplate.objects.get(id=template_id, created_by=request.user)
+        template = get_visible_templates(request.user).get(id=template_id)
     except ExamTemplate.DoesNotExist:
         return JsonResponse({'error': 'Plantilla no encontrada'}, status=404)
 
@@ -441,12 +445,13 @@ from django.core.paginator import Paginator
 from django.db import models, transaction, connection
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404, reverse
-from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic, 
-    Subtopic, LearningOutcome, Career, 
+from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, Topic,
+    Subtopic, LearningOutcome, Career, CareerSubject, Unidad,
     OralExamSet, OralExamGroup, OralExamStudent, OralExamStudentQuestion,
     Rubric, ExamRubric, RubricLevel, RubricCriterion, RubricCell, ExamVersionBatch,
     FormatoImpresion)
 from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer, InstitutionSubject)
+from .models import CatalogRequest
 from .models import Favorite
 from .models import get_or_create_real_subject
 from django.contrib.contenttypes.models import ContentType
@@ -489,15 +494,6 @@ from .delete_preview import get_delete_preview
 # Logger configuration
 logger = logging.getLogger(__name__)
 
-
-LearningOutcomeFormSet = inlineformset_factory(
-    Subject,
-    LearningOutcome,
-    form=LearningOutcomeForm,
-    extra=1,
-    fields=('description',),
-    fk_name='subject'
-)
 
 
 def get_topics(request):
@@ -547,6 +543,22 @@ def get_subtopics(request):
     subtopics = Subtopic.objects.filter(topic_id=topic_id).values('id', 'name')
     return JsonResponse(list(subtopics), safe=False)
 
+
+@login_required
+def get_unidades_by_subject(request):
+    """Unidades del usuario para una materia — agrupan Temas para elegir
+    contenido más rápido al crear examen (ver informe de rediseño). Privadas
+    por usuario, igual que Topic: cada quien ve solo las suyas."""
+    subject_id = request.GET.get('subject_id')
+    unidades = Unidad.objects.filter(
+        subject_id=subject_id, created_by=request.user
+    ).order_by('order', 'name').prefetch_related('topics')
+    data = [
+        {'id': u.id, 'name': u.name, 'topic_ids': list(u.topics.values_list('id', flat=True))}
+        for u in unidades
+    ]
+    return JsonResponse(data, safe=False)
+
 def get_faculties(request):
     institution_id = request.GET.get('institution_id')
     faculties = FacultyV2.objects.filter(
@@ -576,6 +588,21 @@ def is_admin(user):
         return user.profile.role == 'admin'
     except Profile.DoesNotExist:
         return False
+
+
+class AdminRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
+    """Mismo criterio que @user_passes_test(is_admin, login_url='/') pero
+    para CBVs — usado en el ABM del catálogo público (Institución/Facultad/
+    Carrera/Materia), que pasa a ser exclusivo de admin."""
+    login_url = '/'
+
+    def test_func(self):
+        return is_admin(self.request.user)
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        return redirect(self.login_url)
 
 def _is_last_active_admin(user):
     return not Profile.objects.filter(
@@ -1262,11 +1289,9 @@ def create_exam(request):
     profesores = (
         User.objects.filter(profile__role='admin') | User.objects.filter(profile__role='user')
     ).exclude(profile__is_training_account=True)
-    # Las plantillas son privadas de quien las crea (no existe ningún
-    # mecanismo para compartirlas) — mostrar las de otros usuarios era
-    # además la puerta de entrada al problema de get_exam_template de más
-    # arriba, no solo una opción confusa en el desplegable.
-    templates = ExamTemplate.objects.filter(created_by=request.user)
+    # Propias o compartidas por grupo (ver get_visible_templates).
+    from .content_visibility import get_visible_templates
+    templates = get_visible_templates(request.user)
     # ?plantilla_id= viene del botón "Crear examen con esta plantilla" (listado
     # de plantillas / preview). Se compara contra `templates`, que ya está
     # acotado a las del usuario, así que un ID ajeno simplemente no matchea
@@ -1471,7 +1496,7 @@ def create_exam_wizard(request):
     """
     from .models import Career, CampusV2, Subject, ExamTemplate, InstitutionV2
     from django.contrib.auth.models import User
-    from .content_visibility import get_visible_questions, get_visible_rubrics, EXAM_ELIGIBLE_Q
+    from .content_visibility import get_visible_questions, get_visible_rubrics, get_visible_templates, EXAM_ELIGIBLE_Q
 
     if request.GET.get('limpiar') == '1':
         request.session.pop('preview_exam', None)
@@ -1486,7 +1511,7 @@ def create_exam_wizard(request):
     profesores = (
         User.objects.filter(profile__role='admin') | User.objects.filter(profile__role='user')
     ).exclude(profile__is_training_account=True)
-    templates = ExamTemplate.objects.filter(created_by=request.user)
+    templates = get_visible_templates(request.user)
     visible_rubrics = get_visible_rubrics(request.user)
 
     # Mismo criterio que create_exam: solo materias con al menos una
@@ -3796,15 +3821,21 @@ def upload_questions(request):
                 
                 # Procesar archivo según extensión
                 if file_extension == '.csv':
-                    questions_created = process_csv_file(file, contenido_seleccionado, request.user)
+                    questions_created, upload_errors = process_csv_file(file, contenido_seleccionado, request.user)
                     messages.success(request, f'{questions_created} preguntas creadas desde archivo CSV.', extra_tags='preguntas')
                 elif file_extension == '.txt':
-                    questions_created = process_txt_file(file, contenido_seleccionado, request.user)
+                    questions_created, upload_errors = process_txt_file(file, contenido_seleccionado, request.user)
                     messages.success(request, f'{questions_created} preguntas creadas desde archivo TXT.', extra_tags='preguntas')
                 else:
                     messages.error(request, 'Formato de archivo no soportado. Use CSV o TXT.', extra_tags='preguntas')
                     return redirect('material:upload_questions')
-                
+
+                if upload_errors:
+                    detalle = ' | '.join(upload_errors[:5])
+                    if len(upload_errors) > 5:
+                        detalle += f' | (y {len(upload_errors) - 5} más)'
+                    messages.warning(request, f'{len(upload_errors)} preguntas no se pudieron crear: {detalle}', extra_tags='preguntas')
+
                 return redirect('material:lista_preguntas')
                 
             except Exception as e:
@@ -3928,7 +3959,7 @@ def _parse_options_json(raw_options):
 
 
 def process_csv_file(file, contenido, user):
-    from .models import Subject, Topic, Subtopic, Question
+    from .models import Subject, Topic, Subtopic, Question, get_real_subject_or_none
     
     # Intentar múltiples codificaciones
     encodings = ['utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
@@ -3974,9 +4005,19 @@ def process_csv_file(file, contenido, user):
                 errors.append(error_msg)
                 logger.warning(error_msg)
                 continue
-                
-            # Obtener o crear la materia (real, no mezcla con materias semilla)
-            subject, _ = get_or_create_real_subject(row.get('materia', 'General'), user)
+
+            # La materia tiene que existir ya en el catálogo — no se crea al
+            # vuelo por texto libre (ver informe de rediseño / Solicitar alta).
+            materia_nombre = (row.get('materia') or '').strip()
+            subject = get_real_subject_or_none(materia_nombre)
+            if not subject:
+                error_msg = (
+                    f'Fila {row_number}: la materia "{materia_nombre}" no está cargada en el catálogo — '
+                    f'hay que pedirla en Solicitar alta antes de subir esta pregunta.'
+                )
+                errors.append(error_msg)
+                logger.warning(error_msg)
+                continue
 
             # Obtener o crear el tema
             topic, _ = Topic.objects.get_or_create(
@@ -4024,8 +4065,8 @@ def process_csv_file(file, contenido, user):
         raise Exception(f"No se pudo crear ninguna pregunta. Errores encontrados:\n" + "\n".join(errors[:5]))
     elif errors:
         logger.warning(f"Se crearon {questions_created} preguntas con {len(errors)} errores: {errors[:3]}")
-    
-    return questions_created
+
+    return questions_created, errors
 
 def process_txt_file(file, contenido, user):
     # Intentar múltiples codificaciones
@@ -4045,6 +4086,17 @@ def process_txt_file(file, contenido, user):
         raise Exception("No se pudo leer el archivo. Formatos soportados: UTF-8, Latin1, Windows-1252, ISO-8859-1, UTF-16.")
     question_data = {}
     questions_created = 0
+    errors = []
+    block_number = 0
+
+    def _procesar_bloque(data):
+        nonlocal questions_created
+        try:
+            create_question_from_dict(data, contenido, user)
+            questions_created += 1
+        except ValueError as e:
+            errors.append(f"Bloque {block_number}: {e}")
+            logger.warning(f"Error creando pregunta desde TXT - Bloque {block_number}: {e}")
 
     for line in lines:
         if line.strip():
@@ -4053,20 +4105,32 @@ def process_txt_file(file, contenido, user):
                 question_data[key.strip().lower()] = value.strip()
         else:
             if question_data:
-                create_question_from_dict(question_data, contenido, user)
-                questions_created += 1
+                block_number += 1
+                _procesar_bloque(question_data)
                 question_data = {}
 
     if question_data:
-        create_question_from_dict(question_data, contenido, user)
-        questions_created += 1
+        block_number += 1
+        _procesar_bloque(question_data)
 
-    return questions_created
+    if errors and questions_created == 0:
+        raise Exception("No se pudo crear ninguna pregunta. Errores encontrados:\n" + "\n".join(errors[:5]))
+    elif errors:
+        logger.warning(f"Se crearon {questions_created} preguntas con {len(errors)} errores: {errors[:3]}")
+
+    return questions_created, errors
 
 def create_question_from_dict(data, contenido, user):
-    from .models import Subject, Topic, Subtopic, Question, get_or_create_real_subject
-    # Obtener o crear Subject (real, no mezcla con materias semilla)
-    subject, _ = get_or_create_real_subject(data.get('materia', 'General'), user)
+    from .models import Subject, Topic, Subtopic, Question, get_real_subject_or_none
+    # La materia tiene que existir ya en el catálogo — no se crea al vuelo
+    # por texto libre (ver informe de rediseño / Solicitar alta).
+    materia_nombre = (data.get('materia') or '').strip()
+    subject = get_real_subject_or_none(materia_nombre)
+    if not subject:
+        raise ValueError(
+            f'la materia "{materia_nombre}" no está cargada en el catálogo — '
+            f'hay que pedirla en Solicitar alta antes de subir esta pregunta.'
+        )
 
     # Obtener o crear Topic
     topic, _ = Topic.objects.get_or_create(
@@ -4191,9 +4255,17 @@ def get_learning_outcomes(request):
     
     try:
         subject = Subject.objects.get(id=subject_id)
-        outcomes = list(LearningOutcome.objects.filter(subject=subject)
-                      .values('id', 'description'))
-        
+        # LearningOutcome ahora cuelga de CareerSubject (unívoco a materia+
+        # carrera, ver informe de rediseño) — este endpoint todavía no
+        # recibe career_id desde el asistente de Crear Examen, así que por
+        # ahora junta los resultados de TODAS las carreras de la materia.
+        # Pendiente (Fase 3): pasar career_id real una vez que el asistente
+        # lo capture en este paso.
+        outcomes = list(
+            LearningOutcome.objects.filter(career_subject__subject=subject)
+            .values('id', 'description')
+        )
+
         return JsonResponse(outcomes, safe=False)
     
     except Subject.DoesNotExist:
@@ -4202,128 +4274,9 @@ def get_learning_outcomes(request):
         logger.error(f"Error en get_learning_outcomes: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
 
-# CANDIDATO A BORRAR (auditoría 2026-08-03, ver memoria
-# project_institution_v1_cleanup): edit_institution y delete_institution
-# (modelo Institution v1, ya reemplazado por InstitutionV2) son código
-# muerto e inalcanzable — no tienen ninguna ruta registrada en urls.py, ni
-# ningún link en ningún template. Peor: si algo las invocara, romperían
-# igual: usan `InstitutionForm`, una clase que no existe en forms.py (ni
-# está importada acá), y `edit_institution.html`, un template que tampoco
-# existe en el repo. Confirmado con NameError reproducido al analizar el
-# código, no solo inferido.
-@login_required
-def edit_institution(request, pk):
-    institution = get_object_or_404(Institution, pk=pk, owner=request.user)
-    
-    if request.method == 'POST':
-        form = InstitutionForm(request.POST, request.FILES, instance=institution)
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    # Procesar logo
-                    if 'logo-clear' in request.POST:
-                        institution.logo.delete(save=False)
-                    if 'logo' in request.FILES:
-                        institution.logo = request.FILES['logo']
-                    
-                    institution = form.save()
-                    
-                    # Sincronizar sedes
-                    existing_campuses = list(institution.campuses.all())
-                    submitted_campuses = []
-                    
-                    for campus_name in request.POST.getlist('campuses'):
-                        if campus_name.strip():
-                            campus = next((c for c in existing_campuses if c.name == campus_name.strip()), None)
-                            if not campus:
-                                campus = Campus.objects.create(
-                                    name=campus_name.strip(),
-                                    institution=institution
-                                )
-                            submitted_campuses.append(campus.id)
-                    
-                    # Eliminar sedes no enviadas
-                    Campus.objects.filter(
-                        institution=institution
-                    ).exclude(id__in=submitted_campuses).delete()
-                    
-                    # Sincronizar facultades
-                    existing_faculties = list(institution.faculties.all())
-                    submitted_faculties = []
-                    
-                    for name, code in zip(
-                        request.POST.getlist('faculty_names'),
-                        request.POST.getlist('faculty_codes')
-                    ):
-                        if name.strip():
-                            faculty = next((f for f in existing_faculties if f.name == name.strip()), None)
-                            if not faculty:
-                                faculty = Faculty.objects.create(
-                                    name=name.strip(),
-                                    code=code.strip(),
-                                    institution=institution
-                                )
-                            submitted_faculties.append(faculty.id)
-                    
-                    # Eliminar facultades no enviadas
-                    Faculty.objects.filter(
-                        institution=institution
-                    ).exclude(id__in=submitted_faculties).delete()
-                    
-                    return JsonResponse({
-                        'success': True,
-                        'message': 'Cambios guardados correctamente'
-                    })
-            
-            except Exception as e:
-                logger.error(f"Error en edit_institution: {str(e)}", exc_info=True)
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Error al procesar los cambios'
-                }, status=500)
-        
-        return JsonResponse({
-            'success': False,
-            'errors': form.errors
-        }, status=400)
-    
-    # GET request
-    campuses = institution.campuses.all()
-    faculties = institution.faculties.all()
-    
-    return render(request, 'material/edit_institution.html', {
-        'institution': institution,
-        'campuses': campuses,
-        'faculties': faculties,
-        'form': InstitutionForm(instance=institution)
-    })
-
-# CANDIDATO A BORRAR — ver nota arriba de edit_institution (misma auditoría).
-@login_required
-@require_http_methods(["POST"])
-def delete_institution(request, pk):
-    institution = get_object_or_404(Institution, pk=pk, owner=request.user)
-    try:
-        with transaction.atomic():
-            # Eliminar relaciones primero para evitar problemas de integridad
-            institution.campuses.all().delete()
-            institution.faculties.all().delete()
-            institution.delete()
-            
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': True})
-            messages.success(request, 'Institución eliminada correctamente', extra_tags='instituciones')
-            return redirect('material:manage_institutions')
-            
-    except Exception as e:
-        logger.error(f"Error eliminando institución: {str(e)}", exc_info=True)
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': False,
-                'error': 'Error al eliminar la institución'
-            }, status=500)
-        messages.error(request, 'Error al eliminar la institución')
-        return redirect('material:manage_institutions')
+# edit_institution/delete_institution (modelo Institution v1) se eliminaron
+# junto con el stack v1 — ver informe de rediseño del catálogo académico.
+# Eran código muerto e inalcanzable desde siempre (sin URL, sin form real).
 
 # material/views.py - Agregar al final del archivo
 
@@ -4362,18 +4315,27 @@ def institution_v2_list(request):
     try:
         ensure_logo_b64_column()
 
-        # Filtrar solo instituciones activas (is_active=True), sin las
-        # institución(es) semilla (si el usuario pasó por el esquema ya
-        # armado del asistente, queda una UserInstitution apuntando ahí) —
-        # excepto para la cuenta del Área de Pruebas, para la que las
-        # instituciones semilla SÍ son "las suyas" a propósito (ver
-        # training_accounts.py, que la vincula explícitamente a esas).
+        # Institución es catálogo público (ver informe de rediseño): se
+        # muestran TODAS las activas, no solo las que este usuario "sumó a
+        # las suyas" (UserInstitution pasa a ser solo favoritos personales,
+        # ver favorite_only más abajo — ya no es el filtro de visibilidad).
+        # Sin las semilla (si el usuario pasó por el asistente, queda una
+        # UserInstitution apuntando ahí) — excepto para la cuenta del Área
+        # de Pruebas, para la que las instituciones semilla SÍ son "las
+        # suyas" a propósito (ver training_accounts.py).
         institutions = InstitutionV2.objects.filter(
-            userinstitution__user=request.user,
             is_active=True,  # Solo mostrar instituciones activas
         )
         if not getattr(request.user.profile, 'is_training_account', False):
             institutions = institutions.filter(is_seed_demo=False)
+
+        # Catálogo institucional, más el espacio personal del propio
+        # usuario (lo que creó y todavía no fue sumado — ver informe de
+        # rediseño / "personal space"). Nadie ve el espacio personal de
+        # otro usuario acá.
+        institutions = institutions.filter(
+            Q(es_catalogo_institucional=True) | Q(created_by=request.user)
+        )
 
         if name_query:
             institutions = institutions.filter(name__icontains=name_query)
@@ -4445,6 +4407,7 @@ def institution_v2_list(request):
     })
 
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def create_institution_v2(request):
     CampusFormSet = formset_factory(CampusV2Form, extra=1)
     FacultyFormSet = formset_factory(FacultyV2Form, extra=1)
@@ -4497,6 +4460,7 @@ def create_institution_v2(request):
     })
 
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def edit_institution_v2(request, pk):
     from django.db import DatabaseError
 
@@ -4515,7 +4479,9 @@ def edit_institution_v2(request, pk):
 
     try:
         ensure_logo_b64_column()
-        institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
+        # Institución es catálogo público, admin ya está gateado arriba —
+        # no hace falta además que sea "su" institución (UserInstitution).
+        institution = get_object_or_404(InstitutionV2, pk=pk)
     except DatabaseError as e:
         logger.error(f"Error DB en edit_institution_v2 (pk={pk}): {str(e)}", exc_info=True)
         messages.error(request, 'Error de base de datos al abrir la edicion de la institucion.')
@@ -4610,13 +4576,12 @@ def edit_institution_v2(request, pk):
     })
 
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def delete_institution_v2(request, pk):
     """Elimina físicamente la institución y sus relaciones"""
-    institution = get_object_or_404(
-        InstitutionV2, 
-        pk=pk,
-        userinstitution__user=request.user  # Solo el dueño puede eliminar
-    )
+    # Institución es catálogo público, admin ya está gateado arriba — no
+    # hace falta además que sea "su" institución (UserInstitution).
+    institution = get_object_or_404(InstitutionV2, pk=pk)
     
     if request.method == 'POST':
         try:
@@ -4657,6 +4622,7 @@ def delete_institution_v2(request, pk):
 
 
 @login_required
+@user_passes_test(is_admin, login_url='/')
 @require_POST
 def bulk_eliminar_instituciones_v2(request):
     """Borrado multiple de instituciones (mismo criterio que delete_institution_v2:
@@ -4667,7 +4633,7 @@ def bulk_eliminar_instituciones_v2(request):
         messages.error(request, 'No se seleccionó ninguna institución para eliminar.')
         return redirect('material:institution_v2_list')
 
-    institutions = InstitutionV2.objects.filter(pk__in=ids, userinstitution__user=request.user).distinct()
+    institutions = InstitutionV2.objects.filter(pk__in=ids).distinct()
     count = institutions.count()
 
     try:
@@ -4694,7 +4660,10 @@ def bulk_eliminar_instituciones_v2(request):
 
 @login_required
 def toggle_favorite_institution(request, pk):
-    institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
+    # Institución es catálogo público — cualquiera puede favoritear
+    # cualquiera, no solo las que ya tenía vinculadas (antes esto era
+    # circular: exigía UserInstitution para poder crear el UserInstitution).
+    institution = get_object_or_404(InstitutionV2, pk=pk)
     user_institution, created = UserInstitution.objects.get_or_create(user=request.user, institution=institution)
     user_institution.is_favorite = not user_institution.is_favorite
     user_institution.save()
@@ -4702,14 +4671,12 @@ def toggle_favorite_institution(request, pk):
 
 @login_required
 def institution_v2_logs(request, pk):
-    institution = get_object_or_404(
-        InstitutionV2,
-        pk=pk,
-        userinstitution__user=request.user
-    )
-    
+    # Institución es catálogo público — lectura abierta a cualquier usuario
+    # logueado, no solo a quien la tiene vinculada como "suya".
+    institution = get_object_or_404(InstitutionV2, pk=pk)
+
     logs = InstitutionLog.objects.filter(institution=institution).order_by('-created_at')
-    
+
     return render(request, 'material/institutions_v2/logs.html', {
         'institution': institution,
         'logs': logs
@@ -4717,11 +4684,12 @@ def institution_v2_logs(request, pk):
 
 @login_required
 def institution_v2_detail(request, pk):
-    institution = get_object_or_404(
-        InstitutionV2,
-        pk=pk,
-        userinstitution__user=request.user
-    )
+    # Institución es catálogo público — lectura abierta a cualquier usuario
+    # logueado, no solo a quien la tiene vinculada como "suya" (antes esto
+    # bloqueaba el detalle de CUALQUIER institución que el usuario no
+    # hubiera "sumado" explícitamente, incluidas las recién cargadas por
+    # admin vía import — ver informe de rediseño del catálogo).
+    institution = get_object_or_404(InstitutionV2, pk=pk)
     is_favorite = UserInstitution.objects.filter(
         user=request.user,
         institution=institution,
@@ -4747,8 +4715,9 @@ def institution_v2_detail(request, pk):
 # edit_institution_v2. Ningún template las enlaza. Conservadas a propósito
 # (no eliminadas) hasta la próxima auditoría de limpieza de código muerto.
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def create_campus_v2(request, institution_id):
-    institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)
+    institution = get_object_or_404(InstitutionV2, pk=institution_id)
     if request.method == 'POST':
         form = CampusV2Form(request.POST)
         if form.is_valid():
@@ -4763,8 +4732,9 @@ def create_campus_v2(request, institution_id):
 
 # CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def create_faculty_v2(request, institution_id):
-    institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)
+    institution = get_object_or_404(InstitutionV2, pk=institution_id)
     if request.method == 'POST':
         form = FacultyV2Form(request.POST)
         if form.is_valid():
@@ -4792,7 +4762,12 @@ def set_visual_theme(request):
 
 @login_required
 def delete_institution_logo_v2(request, pk):
-    institution = get_object_or_404(InstitutionV2, pk=pk, userinstitution__user=request.user)
+    # Institución es catálogo público — no hace falta ser "dueño" vía
+    # UserInstitution, alcanza con ser admin. JSON 403 (no redirect: es un
+    # endpoint fetch()) — faltaba este gate por completo antes.
+    if not is_admin(request.user):
+        return JsonResponse({'success': False, 'error': 'Solo un administrador puede editar el catálogo.'}, status=403)
+    institution = get_object_or_404(InstitutionV2, pk=pk)
     if request.method == 'POST':
         try:
             institution.logo.delete()
@@ -4804,8 +4779,9 @@ def delete_institution_logo_v2(request, pk):
 
 # CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def edit_campus_v2(request, institution_id, campus_id):
-    institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)
+    institution = get_object_or_404(InstitutionV2, pk=institution_id)
     campus = get_object_or_404(CampusV2, pk=campus_id, institution=institution)
     if request.method == 'POST':
         form = CampusV2Form(request.POST, instance=campus)
@@ -4818,8 +4794,9 @@ def edit_campus_v2(request, institution_id, campus_id):
 
 # CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def delete_campus_v2(request, institution_id, campus_id):
-    institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)
+    institution = get_object_or_404(InstitutionV2, pk=institution_id)
     campus = get_object_or_404(CampusV2, pk=campus_id, institution=institution)
     if request.method == 'POST':
         campus.is_active = False  # Desactivar en lugar de eliminar
@@ -4830,8 +4807,9 @@ def delete_campus_v2(request, institution_id, campus_id):
 
 # CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def edit_faculty_v2(request, institution_id, faculty_id):
-    institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)
+    institution = get_object_or_404(InstitutionV2, pk=institution_id)
     faculty = get_object_or_404(FacultyV2, pk=faculty_id, institution=institution)
     if request.method == 'POST':
         form = FacultyV2Form(request.POST, instance=faculty)
@@ -4844,8 +4822,9 @@ def edit_faculty_v2(request, institution_id, faculty_id):
 
 # CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def delete_faculty_v2(request, institution_id, faculty_id):
-    institution = get_object_or_404(InstitutionV2, pk=institution_id, userinstitution__user=request.user)
+    institution = get_object_or_404(InstitutionV2, pk=institution_id)
     faculty = get_object_or_404(FacultyV2, pk=faculty_id, institution=institution)
     if request.method == 'POST':
         faculty.is_active = False  # Desactivar en lugar de eliminar
@@ -4891,7 +4870,8 @@ def _favoritable_queryset(model_key, user):
     if model_key == 'exam':
         return Exam.objects.filter(created_by=user)
     if model_key == 'examtemplate':
-        return ExamTemplate.objects.filter(created_by=user)
+        from .content_visibility import get_visible_templates
+        return get_visible_templates(user)
     if model_key == 'batch':
         return ExamVersionBatch.objects.filter(created_by=user)
     if model_key == 'oral':
@@ -4989,6 +4969,7 @@ def subject_list(request):
     })
 
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def delete_subject(request, pk):
     # Solo el dueño puede borrar — las compartidas por otros vía grupos de
     # confianza son visibles/usables pero no borrables.
@@ -5008,6 +4989,7 @@ def delete_subject(request, pk):
 
 
 @login_required
+@user_passes_test(is_admin, login_url='/')
 @require_POST
 def bulk_eliminar_subjects(request):
     ids_raw = request.POST.getlist('subject_ids')
@@ -5038,7 +5020,12 @@ class SubjectDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['outcomes'] = self.object.outcome_relations.all()  # Eliminado .order_by('code')
+        # Los resultados de aprendizaje son unívocos a (materia, carrera) —
+        # ver informe de rediseño del catálogo — así que se muestran
+        # agrupados por carrera, no como lista plana de la materia.
+        context['career_subjects'] = CareerSubject.objects.filter(
+            subject=self.object
+        ).select_related('career').prefetch_related('outcome_relations').order_by('career__name')
         context['back_url'] = _safe_next_url(self.request, reverse('material:subject_list'))
         return context
 
@@ -5058,21 +5045,22 @@ CAREER_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in CAREER_FIL
 
 @login_required
 def career_list(request):
-    # Career no tiene dueño propio (a diferencia de Subject, ver
-    # [[project_subject_topic_global_sharing_bug]]) — mismo bug de fondo,
-    # todavía no resuelto de raíz. Fix parcial acá: se acota a las
-    # instituciones a las que pertenece el usuario actual (real o cuenta
-    # del Área de Pruebas), que alcanza para separar una cuenta de otra —
-    # dos usuarios reales que comparten la misma institución pública
-    # todavía se ven las carreras entre sí, igual que pasaba con Subject
-    # antes del fix completo.
-    user_institution_ids = UserInstitution.objects.filter(user=request.user).values_list('institution_id', flat=True)
-    careers = Career.objects.filter(faculties__institution_id__in=user_institution_ids)
+    # Carrera es catálogo público (ver informe de rediseño), igual que
+    # Institución y Materia — se muestran TODAS, ya no solo las de "mis
+    # instituciones" (ese filtro por UserInstitution era, según el propio
+    # comentario viejo acá, un fix parcial para un problema que el catálogo
+    # público resuelve de raíz: antes Career no tenía dueño y se filtraba
+    # por instituciones "propias" para separar cuentas — ya no hace falta,
+    # el catálogo es de todos).
+    careers = Career.objects.all()
     # Igual que institution_v2_list: is_seed_demo=False solo para cuentas
     # reales — la cuenta del Área de Pruebas está vinculada a propósito a
     # instituciones semilla, y sus carreras SÍ deben verse ahí.
     if not getattr(request.user.profile, 'is_training_account', False):
         careers = careers.filter(is_seed_demo=False)
+    # Catálogo institucional, más el espacio personal del propio usuario
+    # (ver informe de rediseño / "personal space").
+    careers = careers.filter(Q(es_catalogo_institucional=True) | Q(created_by=request.user))
     careers = careers.distinct().prefetch_related('faculties', 'campus', 'subjects')
 
     selected_filters = get_selected_filters(request, CAREER_FILTER_FIELDS)
@@ -5093,6 +5081,7 @@ def career_list(request):
 
 
 @login_required
+@user_passes_test(is_admin, login_url='/')
 @require_POST
 def bulk_eliminar_careers(request):
     ids_raw = request.POST.getlist('career_ids')
@@ -5116,6 +5105,7 @@ def bulk_eliminar_careers(request):
     return redirect('material:career_list')
 
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def delete_career(request, pk):
     career = get_object_or_404(Career, pk=pk)
     if request.method == 'POST':
@@ -5138,17 +5128,26 @@ class CareerDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # career.subjects.all() da las Materias sin el detalle de CÓMO se
+        # cursan en ESTA carrera (número/año/cuatrimestre viven en el
+        # through CareerSubject, no en Subject) — para mostrar eso en la
+        # tabla hace falta consultar el through directamente.
+        context['career_subjects'] = CareerSubject.objects.filter(
+            career=self.object
+        ).select_related('subject').order_by('anio_cursada', 'numero_materia')
         context['related_subjects'] = self.object.subjects.all()
         context['related_faculties'] = self.object.faculties.all()
         context['related_campuses'] = self.object.campus.all()
         return context
 
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def career_create_simple(request):
     if request.method == 'POST':
         form = CareerForm(request.POST)
         if form.is_valid():
             career = form.save()
+            career.subjects.set(form.cleaned_data['subjects'])
 
             institution = form.cleaned_data.get('institution')
             if institution:
@@ -5169,6 +5168,7 @@ def career_create_simple(request):
     })
 
 @login_required
+@user_passes_test(is_admin, login_url='/')
 def career_associations(request, pk):
     career = get_object_or_404(Career, pk=pk)
     
@@ -5177,7 +5177,8 @@ def career_associations(request, pk):
         if form.is_valid():
             # Guardar la carrera
             career = form.save()
-            
+            career.subjects.set(form.cleaned_data['subjects'])
+
             # Manejar la asociación con institución
             institution = form.cleaned_data.get('institution')
             if institution:
@@ -5209,7 +5210,19 @@ def create_related_element(request):
     """
     Vista para crear elementos relacionados de forma atómica
     Compatible con: institution, campus, faculty, career, subject
+
+    Institución/Facultad/Carrera/Materia pasan a ser catálogo curado por
+    admin (ver informe de rediseño) — esta vía de alta "sobre la marcha"
+    queda admin-only. Devuelve 403 en JSON (no redirect: la llaman desde
+    fetch(), ver create_exam_template.js) — pendiente que esa pantalla
+    ofrezca "solicitar alta" en vez del quick-add cuando el usuario no es
+    admin (Fase 3, todavía no construido el flujo de solicitudes).
     """
+    if not is_admin(request.user):
+        return JsonResponse({
+            'success': False,
+            'error': 'Solo un administrador puede agregar elementos nuevos al catálogo.',
+        }, status=403)
     try:
         data = json.loads(request.body)
         model_type = data.get('type')
@@ -5257,11 +5270,7 @@ def create_related_element(request):
                         'error': 'Se debe seleccionar una institución primero'
                     }, status=400)
 
-                institution = get_object_or_404(
-                    InstitutionV2, 
-                    pk=institution_id,
-                    userinstitution__user=request.user
-                )
+                institution = get_object_or_404(InstitutionV2, pk=institution_id)
 
                 if CampusV2.objects.filter(
                     institution=institution, 
@@ -5291,11 +5300,7 @@ def create_related_element(request):
                         'error': 'Se debe seleccionar una institución primero'
                     }, status=400)
 
-                institution = get_object_or_404(
-                    InstitutionV2, 
-                    pk=institution_id,
-                    userinstitution__user=request.user
-                )
+                institution = get_object_or_404(InstitutionV2, pk=institution_id)
 
                 if FacultyV2.objects.filter(
                     institution=institution,
@@ -5406,19 +5411,24 @@ def get_campuses_by_institution(request, institution_id):
         print(f"Error in get_campuses_by_institution: {e}")  # DEBUG
         return JsonResponse({'error': str(e)}, status=500)
 
-class LearningOutcomeCreateView(CreateView):
+class LearningOutcomeCreateView(AdminRequiredMixin, CreateView):
+    # LearningOutcome no tiene dueño propio y es visible para cualquiera que
+    # vea la materia — es dato de catálogo (curricula oficial), no contenido
+    # privado, así que queda admin-only igual que el resto del ABM.
     model = LearningOutcome
     form_class = LearningOutcomeForm
     template_name = 'material/learningoutcome_form.html'
-    
-    def get_success_url(self):
-        return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.subject.id})
 
-    def get_initial(self):
-        return {'subject': self.kwargs['subject_id']}
+    def get_success_url(self):
+        return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.career_subject.subject_id})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['career_subject'] = get_object_or_404(CareerSubject, pk=self.kwargs['career_subject_id'])
+        return context
 
     def form_valid(self, form):
-        form.instance.subject_id = self.kwargs['subject_id']
+        form.instance.career_subject_id = self.kwargs['career_subject_id']
         response = super().form_valid(form)
         messages.success(self.request, 'Resultado de aprendizaje creado exitosamente', extra_tags='materias')
         return response
@@ -5427,27 +5437,34 @@ class LearningOutcomeListView(ListView):
     model = LearningOutcome
     template_name = 'material/learningoutcome_list.html'
     context_object_name = 'outcomes'
-    
+
     def get_queryset(self):
         return LearningOutcome.objects.filter(
-            subject_id=self.kwargs['subject_id']
+            career_subject_id=self.kwargs['career_subject_id']
         ).order_by('created_at')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['subject'] = Subject.objects.get(pk=self.kwargs['subject_id'])
+        career_subject = get_object_or_404(CareerSubject, pk=self.kwargs['career_subject_id'])
+        context['career_subject'] = career_subject
+        context['subject'] = career_subject.subject
         return context
 
 
-class LearningOutcomeUpdateView(UpdateView):
+class LearningOutcomeUpdateView(AdminRequiredMixin, UpdateView):
     model = LearningOutcome
     form_class = LearningOutcomeForm
     template_name = 'material/learningoutcome_form.html'
-    
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['career_subject'] = self.object.career_subject
+        return context
+
     def get_success_url(self):
         try:
-            if self.object and self.object.subject and self.object.subject.id:
-                return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.subject.id})
+            if self.object and self.object.career_subject_id:
+                return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.career_subject.subject_id})
         except (AttributeError, ValueError):
             pass
         return reverse_lazy('material:subject_list')
@@ -5458,14 +5475,14 @@ class LearningOutcomeUpdateView(UpdateView):
         return response
 
 
-class LearningOutcomeDeleteView(DeleteView):
+class LearningOutcomeDeleteView(AdminRequiredMixin, DeleteView):
     model = LearningOutcome
     template_name = 'material/learningoutcomes/confirm_delete.html'
-    
+
     def get_success_url(self):
         try:
-            if self.object and self.object.subject and self.object.subject.id:
-                return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.subject.id})
+            if self.object and self.object.career_subject_id:
+                return reverse_lazy('material:subject_detail', kwargs={'pk': self.object.career_subject.subject_id})
         except (AttributeError, ValueError):
             pass
         return reverse_lazy('material:subject_list')
@@ -5476,83 +5493,30 @@ class LearningOutcomeDeleteView(DeleteView):
         return response
     
 
-class SubjectCreateView(CreateView):
+class SubjectCreateView(AdminRequiredMixin, CreateView):
+    # Ya no arma un formset embebido de resultados de aprendizaje: esos pasan
+    # a ser unívocos a (materia, carrera) — ver informe de rediseño — y una
+    # Materia recién creada todavía no tiene ningún CareerSubject donde
+    # colgarlos. Se cargan después desde el detalle de la materia, por
+    # carrera (ver SubjectDetailView / LearningOutcomeCreateView).
     model = Subject
     form_class = SubjectForm
     template_name = 'material/subjects/form.html'
     success_url = reverse_lazy('material:subject_list')
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        if self.request.POST:
-            context['outcome_formset'] = LearningOutcomeFormSet(
-                self.request.POST,
-                prefix='outcomes'
-            )
-        else:
-            context['outcome_formset'] = LearningOutcomeFormSet(
-                prefix='outcomes'
-            )
-        return context
-    
+
     def form_valid(self, form):
-        context = self.get_context_data()
-        outcome_formset = context['outcome_formset']
-        
-        if not outcome_formset.is_valid():
-            return self.form_invalid(form)
-            
-        self.object = form.save()
-        
-        # Procesar outcomes a través del formset directamente
-        outcomes = outcome_formset.save(commit=False)
-        for outcome in outcomes:
-            outcome.subject = self.object
-            outcome.save()
-            
+        form.instance.created_by = self.request.user
         return super().form_valid(form)
 
-class SubjectUpdateView(UpdateView):
+class SubjectUpdateView(AdminRequiredMixin, UpdateView):
     model = Subject
     form_class = SubjectForm
     template_name = 'material/subjects/form.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        subject = self.get_object()
-        
-        if self.request.POST:
-            context['outcome_formset'] = LearningOutcomeFormSet(
-                self.request.POST,
-                instance=subject,
-                prefix='outcomes'
-            )
-        else:
-            context['outcome_formset'] = LearningOutcomeFormSet(
-                instance=subject,
-                prefix='outcomes',
-                queryset=subject.outcome_relations.all()
-            )
-        
-        return context
 
     def form_valid(self, form):
-        context = self.get_context_data()
-        outcome_formset = context['outcome_formset']
-        
-        with transaction.atomic():
-            self.object = form.save()
-            
-            if outcome_formset.is_valid():
-                outcomes = outcome_formset.save(commit=False)
-                for outcome in outcomes:
-                    outcome.subject = self.object  # Asignamos el subject aquí
-                    outcome.save()
-                
-                messages.success(self.request, 'Cambios guardados correctamente')
-                return redirect('material:subject_detail', pk=self.object.pk)
-            
-        return self.render_to_response(self.get_context_data(form=form))
+        self.object = form.save()
+        messages.success(self.request, 'Cambios guardados correctamente')
+        return redirect('material:subject_detail', pk=self.object.pk)
     
 # Agregar estas funciones al final de views.py
 
@@ -6453,15 +6417,17 @@ def onboarding_save_step(request):
                     if new_name and new_name != subj.name:
                         subj.name = new_name
                         subj.save(update_fields=['name'])
-                    # Agregar outcomes nuevos
-                    for od in body.get('add_outcomes', []):
-                        od = od.strip()
-                        if od:
-                            LearningOutcome.objects.get_or_create(subject=subj, description=od)
-                    # Eliminar outcomes
+                    # Agregar/eliminar outcomes: deshabilitado en este paso del
+                    # wizard — LearningOutcome ahora es unívoco a (materia,
+                    # carrera), requisito no opcional (ver informe de
+                    # rediseño del catálogo), y este paso no captura carrera.
+                    # Se cargan desde el detalle de la materia una vez que
+                    # esté asociada a una carrera (ver SubjectDetailView).
                     remove_outcome_ids = [int(x) for x in body.get('remove_outcome_ids', []) if str(x).isdigit()]
                     if remove_outcome_ids:
-                        LearningOutcome.objects.filter(pk__in=remove_outcome_ids, subject=subj).delete()
+                        LearningOutcome.objects.filter(
+                            pk__in=remove_outcome_ids, career_subject__subject=subj
+                        ).delete()
                     # Agregar temas nuevos
                     for tn in body.get('add_topics', []):
                         tn = tn.strip()
@@ -6486,11 +6452,9 @@ def onboarding_save_step(request):
                 subject, _ = get_or_create_real_subject(subject_name, request.user)
                 extra['subject_id'] = subject.id
 
-                # Resultados de aprendizaje opcionales
-                for ra in body.get('learning_outcomes', []):
-                    ra = ra.strip()
-                    if ra:
-                        LearningOutcome.objects.get_or_create(subject=subject, description=ra)
+                # Resultados de aprendizaje: deshabilitado acá por la misma
+                # razón que en el paso de edición (ver comentario arriba) —
+                # este paso del wizard no captura carrera.
 
                 # Temas opcionales
                 for topic_name in body.get('topics', []):
@@ -7324,6 +7288,322 @@ def institution_ai_config_view(request):
     })
 
 
+# --- SOLICITUDES DE ALTA AL CATÁLOGO --------------------------------------
+# Institución/Facultad/Carrera/Materia pasan a ser catálogo curado por admin
+# (ver informe de rediseño) — esta es la vía para que un usuario pida algo
+# que falta, en vez de crearlo él mismo (ABM ahora admin-only).
+
+@login_required
+def catalog_request_create(request):
+    from .forms import CatalogRequestForm
+
+    if request.method == 'POST':
+        form = CatalogRequestForm(request.POST, request.FILES, user=request.user)
+        if form.is_valid():
+            solicitud = form.save(commit=False)
+            solicitud.solicitado_por = request.user
+            try:
+                _materializar_espacio_personal(solicitud, request.user)
+            except ValueError as e:
+                messages.error(
+                    request,
+                    f'No se pudo completar la solicitud (falta contexto: {e}) — hay que revisarlo y reintentar.',
+                    extra_tags='solicitudes',
+                )
+                return render(request, 'material/catalog_requests/form.html', {'form': form})
+            solicitud.save()
+            if solicitud.tipo == 'resultado_aprendizaje':
+                mensaje = 'Solicitud enviada. Se avisará el resultado cuando el administrador la revise.'
+            else:
+                mensaje = (
+                    'Se creó en el espacio personal — ya se puede usar. '
+                    'Queda a la espera de sumarse al catálogo institucional.'
+                )
+            messages.success(request, mensaje, extra_tags='solicitudes')
+            return redirect('material:mis_solicitudes_catalogo')
+    else:
+        initial = {}
+        tipo = request.GET.get('tipo')
+        if tipo in dict(CatalogRequest.TIPO_CHOICES):
+            initial['tipo'] = tipo
+        form = CatalogRequestForm(initial=initial, user=request.user)
+
+    return render(request, 'material/catalog_requests/form.html', {'form': form})
+
+
+def _normalizar_para_busqueda(texto):
+    """Minúsculas y sin acentos — "matema" tiene que encontrar "Matemática".
+    Base para las tres señales de parecido de abajo."""
+    sin_acentos = unicodedata.normalize('NFKD', texto)
+    sin_acentos = ''.join(c for c in sin_acentos if not unicodedata.combining(c))
+    return sin_acentos.lower().strip()
+
+
+def _tokens(texto_normalizado):
+    return set(re.findall(r'\w+', texto_normalizado))
+
+
+def _parecido_por_palabra(q_tokens, n_tokens):
+    """Compara palabra contra palabra en vez de las cadenas completas —
+    si se compara "Ingeneria" (typo) contra la cadena completa "Ingeniería
+    en Sistemas Informáticos", el parecido queda diluido por "en Sistemas
+    Informáticos" y nunca cruza el umbral. Acá cada palabra pedida busca
+    su mejor par dentro del nombre candidato, así una sola palabra con
+    errata sigue matcheando aunque el resto del nombre no se parezca en nada."""
+    if not q_tokens or not n_tokens:
+        return 0.0
+    puntajes = []
+    for qt in q_tokens:
+        mejor = max((difflib.SequenceMatcher(None, qt, nt).ratio() for nt in n_tokens), default=0.0)
+        puntajes.append(mejor)
+    return sum(puntajes) / len(puntajes)
+
+
+# Palabras cortas comparten letras por pura coincidencia y disparan ratios
+# de difflib engañosamente altos (ej. "matema" vs "sistemas" da 0.571) sin
+# ningún parecido real — por eso la señal de tipeo (basada en caracteres)
+# necesita un umbral bastante más estricto que la de palabra compartida
+# (que ya es un match exacto, aunque sea de una sola palabra de varias).
+UMBRAL_SOLAPAMIENTO = 0.25
+UMBRAL_DIFUSO = 0.72
+
+
+def _similitud(q_norm, q_tokens, nombre):
+    """Puntaje 0-1 de "qué tan parecido" es `nombre` a lo que se está
+    tipeando — no alcanza con acento-insensible, el pedido fue "mostrar
+    los parecidos para evitar duplicar", así que contempla:
+    - substring en cualquier sentido (agarra tanto "matema" -> "Licenciatura
+      en Matemática" como "Facultad Ciencias Exactas" -> "Ciencias Exactas");
+    - superposición de palabras sin importar el orden ("Exactas Ciencias"
+      encuentra "Ciencias Exactas");
+    - errores de tipeo palabra por palabra ("Ingeneria" cerca de
+      "Ingeniería" dentro de "Ingeniería en Sistemas Informáticos").
+    Catálogo chico y curado por el admin, así que resolverlo en Python
+    (sin índice de similitud en la base) es suficiente."""
+    n_norm = _normalizar_para_busqueda(nombre)
+    if not n_norm:
+        return 0.0
+    if q_norm in n_norm or n_norm in q_norm:
+        return 1.0
+    n_tokens = _tokens(n_norm)
+    solapamiento = (len(q_tokens & n_tokens) / len(q_tokens | n_tokens)) if (q_tokens and n_tokens) else 0.0
+    if solapamiento >= UMBRAL_SOLAPAMIENTO:
+        return solapamiento
+    parecido_palabras = _parecido_por_palabra(q_tokens, n_tokens)
+    parecido_texto = difflib.SequenceMatcher(None, q_norm, n_norm).ratio()
+    mejor_difuso = max(parecido_palabras, parecido_texto)
+    return mejor_difuso if mejor_difuso >= UMBRAL_DIFUSO else 0.0
+
+
+@login_required
+def check_catalog_duplicate(request):
+    """Coincidencias existentes para lo que se está por proponer — antes de
+    pedir algo nuevo, se ofrece usar lo que ya está en el catálogo en vez
+    de arriesgarse a duplicar (ver informe de rediseño). Hasta 5
+    candidatos por parecido (no solo substring exacto — ver _similitud),
+    ordenados de más a menos parecido."""
+    nivel = request.GET.get('nivel')
+    q = (request.GET.get('q') or '').strip()
+    if len(q) < 2:
+        return JsonResponse([], safe=False)
+
+    # Catálogo institucional, más el espacio personal de quien está
+    # tipeando (así también encuentra sus propios borradores ya creados,
+    # en vez de ofrecer duplicarlos) — nunca el espacio personal de otro
+    # usuario, ese no es elegible para esta solicitud de todos modos.
+    from .content_visibility import (
+        get_visible_institutions, get_visible_faculties,
+        get_visible_careers, get_visible_subjects,
+    )
+    if nivel == 'institucion':
+        qs = get_visible_institutions(request.user)
+    elif nivel == 'facultad':
+        qs = get_visible_faculties(request.user)
+        institucion_id = request.GET.get('institucion_id', '')
+        if institucion_id.isdigit():
+            qs = qs.filter(institution_id=institucion_id)
+    elif nivel == 'carrera':
+        qs = get_visible_careers(request.user)
+    elif nivel == 'materia':
+        qs = get_visible_subjects(request.user)
+    else:
+        return JsonResponse([], safe=False)
+
+    q_norm = _normalizar_para_busqueda(q)
+    q_tokens = _tokens(q_norm)
+    candidatos = qs.order_by('name').values('id', 'name')
+    puntuados = [(c, _similitud(q_norm, q_tokens, c['name'])) for c in candidatos]
+    puntuados = [par for par in puntuados if par[1] > 0]
+    puntuados.sort(key=lambda par: -par[1])
+    return JsonResponse([c for c, _score in puntuados[:5]], safe=False)
+
+
+@login_required
+def mis_solicitudes_catalogo(request):
+    solicitudes = CatalogRequest.objects.filter(
+        solicitado_por=request.user
+    ).select_related('institucion', 'facultad', 'carrera').order_by('-created_at')
+    # El cartel de aviso (arriba de la tabla) solo se arma para las que
+    # todavía no se mostraron — si no, quedaba permanente: se repetía en
+    # cada visita a esta pantalla, no solo la primera vez.
+    sin_avisar = list(solicitudes.exclude(estado='pendiente').filter(visto_por_solicitante=False))
+    solicitudes.exclude(estado='pendiente').filter(visto_por_solicitante=False).update(visto_por_solicitante=True)
+    return render(request, 'material/catalog_requests/list.html', {
+        'solicitudes': solicitudes,
+        'sin_avisar': sin_avisar,
+    })
+
+
+def resolve_catalog_request(solicitud, *, admin_user, aprobar, nota_admin=''):
+    """Aplica la decisión de un admin sobre una solicitud pendiente — único
+    punto que usan tanto la bandeja dentro de la app como la acción del
+    admin de Django, para no duplicar la lógica de "qué fila crear según
+    el tipo". Marca visto_por_solicitante=False para que el aviso le
+    aparezca al usuario (ver resultado_mensaje() en el modelo, y el badge
+    de "Mis solicitudes"). Devuelve (ok, mensaje)."""
+    if solicitud.estado != 'pendiente':
+        return False, 'Esa solicitud ya estaba resuelta.'
+
+    if not aprobar:
+        solicitud.estado = 'rechazada'
+        solicitud.resuelto_por = admin_user
+        solicitud.resuelto_en = timezone.now()
+        solicitud.nota_admin = nota_admin
+        solicitud.visto_por_solicitante = False
+        solicitud.save(update_fields=['estado', 'resuelto_por', 'resuelto_en', 'nota_admin', 'visto_por_solicitante'])
+        return True, 'Solicitud rechazada.'
+
+    # Institución/facultad/carrera/materia ya existen para este punto —
+    # se crearon en el espacio personal al enviar la solicitud (ver
+    # _materializar_espacio_personal), no acá. Aprobar ahora es solo
+    # promoverlas al catálogo institucional (flip del flag), salvo
+    # resultado_aprendizaje, que sigue creándose recién acá.
+    for entidad in (solicitud.institucion, solicitud.facultad, solicitud.carrera, solicitud.materia):
+        if entidad is not None and not entidad.es_catalogo_institucional:
+            entidad.es_catalogo_institucional = True
+            entidad.save(update_fields=['es_catalogo_institucional'])
+
+    if solicitud.tipo == 'resultado_aprendizaje':
+        if not solicitud.carrera_id:
+            return False, 'No se pudo crear (falta carrera) — hay que completarlo y reintentar.'
+        if not solicitud.materia_id:
+            return False, 'No se pudo crear (falta materia) — hay que completarlo y reintentar.'
+        try:
+            career_subject = CareerSubject.objects.get(career_id=solicitud.carrera_id, subject_id=solicitud.materia_id)
+        except CareerSubject.DoesNotExist:
+            return False, 'No se pudo crear (la materia elegida no está vinculada a esa carrera en el catálogo) — hay que completarlo y reintentar.'
+        LearningOutcome.objects.get_or_create(career_subject=career_subject, description=solicitud.nombre_propuesto)
+
+    solicitud.estado = 'aprobada'
+    solicitud.resuelto_por = admin_user
+    solicitud.resuelto_en = timezone.now()
+    solicitud.nota_admin = nota_admin
+    solicitud.visto_por_solicitante = False
+    solicitud.save(update_fields=['estado', 'resuelto_por', 'resuelto_en', 'nota_admin', 'visto_por_solicitante'])
+    return True, 'Solicitud aprobada y sumada al catálogo institucional.'
+
+
+def _materializar_espacio_personal(solicitud, user):
+    """Al enviar la solicitud, crea de inmediato lo que falte en el
+    "espacio personal" de quien la pide (es_catalogo_institucional=False)
+    — se puede usar ya mismo, sin esperar a que el administrador lo sume
+    al catálogo institucional (ver acuerdo de "personal space" en el
+    informe de rediseño). Deja las FKs de la solicitud
+    (institucion/facultad/carrera/materia) apuntando a lo resuelto, así
+    resolve_catalog_request no tiene que volver a resolver nada al
+    aprobar — solo promover lo que ya existe.
+
+    tipo='resultado_aprendizaje' queda afuera a propósito: el form exige
+    niveles YA reales para ese tipo (ver clean()), así que acá no hay nada
+    que crear — el resultado en sí se sigue creando recién al aprobar."""
+    if solicitud.tipo == 'resultado_aprendizaje':
+        return
+
+    def _aplicar_logo(institution):
+        if not solicitud.logo_propuesto:
+            return
+        import base64
+        from django.core.files.base import ContentFile
+        solicitud.logo_propuesto.seek(0)
+        contenido = solicitud.logo_propuesto.read()
+        institution.logo.save(solicitud.logo_propuesto.name, ContentFile(contenido), save=False)
+        institution.logo_b64 = 'data:image/png;base64,' + base64.b64encode(contenido).decode()
+        institution.save(update_fields=['logo', 'logo_b64'])
+
+    def _obtener_o_crear_personal(model, nombre, **extra):
+        # Reusa el borrador personal de este mismo usuario si ya lo creó
+        # antes (evita duplicar al reintentar o tipear el mismo nombre en
+        # otra solicitud) — nunca reutiliza el de otro usuario ni una fila
+        # ya institucional, para eso está el desplegable de "elegir
+        # existente" en el form.
+        filtros = dict(extra, name__iexact=nombre, created_by=user, es_catalogo_institucional=False)
+        existente = model.objects.filter(**filtros).first()
+        if existente:
+            return existente
+        crear_kwargs = dict(extra, name=nombre, created_by=user, es_catalogo_institucional=False)
+        return model.objects.create(**crear_kwargs)
+
+    institucion_obj = solicitud.institucion
+    if not institucion_obj and solicitud.institucion_nueva:
+        institucion_obj = _obtener_o_crear_personal(InstitutionV2, solicitud.institucion_nueva)
+        _aplicar_logo(institucion_obj)
+        UserInstitution.objects.get_or_create(user=user, institution=institucion_obj)
+        solicitud.institucion = institucion_obj
+
+    facultad_obj = solicitud.facultad
+    if not facultad_obj and solicitud.facultad_nueva:
+        if not institucion_obj:
+            raise ValueError('falta institución')
+        facultad_obj = _obtener_o_crear_personal(FacultyV2, solicitud.facultad_nueva, institution=institucion_obj)
+        solicitud.facultad = facultad_obj
+
+    carrera_obj = solicitud.carrera
+    if not carrera_obj and solicitud.carrera_nueva:
+        carrera_obj = _obtener_o_crear_personal(Career, solicitud.carrera_nueva)
+        if facultad_obj:
+            carrera_obj.faculties.add(facultad_obj)
+        solicitud.carrera = carrera_obj
+
+    if solicitud.tipo == 'institucion':
+        nueva_institucion = _obtener_o_crear_personal(InstitutionV2, solicitud.nombre_propuesto)
+        _aplicar_logo(nueva_institucion)
+        UserInstitution.objects.get_or_create(user=user, institution=nueva_institucion)
+        solicitud.institucion = nueva_institucion
+    elif solicitud.tipo == 'facultad':
+        if not institucion_obj:
+            raise ValueError('falta institución')
+        solicitud.facultad = _obtener_o_crear_personal(FacultyV2, solicitud.nombre_propuesto, institution=institucion_obj)
+    elif solicitud.tipo == 'carrera':
+        if not facultad_obj:
+            raise ValueError('falta facultad')
+        nueva_carrera = _obtener_o_crear_personal(Career, solicitud.nombre_propuesto)
+        nueva_carrera.faculties.add(facultad_obj)
+        solicitud.carrera = nueva_carrera
+    elif solicitud.tipo == 'materia':
+        if not carrera_obj:
+            raise ValueError('falta carrera')
+        nueva_materia = _obtener_o_crear_personal(Subject, solicitud.nombre_propuesto)
+        CareerSubject.objects.get_or_create(career=carrera_obj, subject=nueva_materia)
+        solicitud.materia = nueva_materia
+
+
+@login_required
+@user_passes_test(is_admin, login_url='/')
+def catalog_requests_bandeja(request):
+    if request.method == 'POST':
+        solicitud = get_object_or_404(CatalogRequest, pk=request.POST.get('solicitud_id'))
+        aprobar = request.POST.get('accion') == 'aprobar'
+        nota_admin = (request.POST.get('nota_admin') or '').strip()
+        ok, mensaje = resolve_catalog_request(solicitud, admin_user=request.user, aprobar=aprobar, nota_admin=nota_admin)
+        (messages.success if ok else messages.error)(request, mensaje, extra_tags='solicitudes')
+        return redirect('material:catalog_requests_bandeja')
+
+    solicitudes = CatalogRequest.objects.select_related(
+        'institucion', 'facultad', 'carrera', 'solicitado_por', 'resuelto_por'
+    ).order_by('estado', '-created_at')
+    return render(request, 'material/catalog_requests/bandeja.html', {'solicitudes': solicitudes})
+
+
 # --- GRUPOS DE CONFIANZA (compartir preguntas entre docentes) -----------------
 
 @login_required
@@ -7365,7 +7645,7 @@ def grupo_crear(request):
 
 @login_required
 def grupo_detalle(request, pk):
-    from .models import SharingGroup, GroupMembership, SubjectShare
+    from .models import SharingGroup, GroupMembership, ContentShare
     from django.contrib.auth.models import User as UserModel
 
     group = get_object_or_404(SharingGroup, pk=pk)
@@ -7388,17 +7668,35 @@ def grupo_detalle(request, pk):
 
     my_subjects = Subject.objects.filter(questions__user=request.user).distinct().order_by('name')
     shared_subject_ids = set(
-        SubjectShare.objects.filter(
-            group=group, shared_by=request.user, is_active=True
+        ContentShare.objects.filter(
+            group=group, shared_by=request.user, is_active=True, kind='materia',
         ).values_list('subject_id', flat=True)
     )
 
-    from .models import Rubric, RubricShare
+    from .models import Rubric, FormatoImpresion
+    from django.contrib.contenttypes.models import ContentType
     my_rubrics = Rubric.objects.filter(created_by=request.user).order_by('title')
     shared_rubric_ids = set(
-        RubricShare.objects.filter(
-            group=group, shared_by=request.user, is_active=True
-        ).values_list('rubric_id', flat=True)
+        ContentShare.objects.filter(
+            group=group, shared_by=request.user, is_active=True, kind='rubrica',
+            content_type=ContentType.objects.get_for_model(Rubric),
+        ).values_list('object_id', flat=True)
+    )
+
+    my_templates = ExamTemplate.objects.filter(created_by=request.user).order_by('-created_at')
+    shared_template_ids = set(
+        ContentShare.objects.filter(
+            group=group, shared_by=request.user, is_active=True, kind='plantilla',
+            content_type=ContentType.objects.get_for_model(ExamTemplate),
+        ).values_list('object_id', flat=True)
+    )
+
+    my_formats = FormatoImpresion.objects.filter(user=request.user).order_by('nombre')
+    shared_format_ids = set(
+        ContentShare.objects.filter(
+            group=group, shared_by=request.user, is_active=True, kind='formato',
+            content_type=ContentType.objects.get_for_model(FormatoImpresion),
+        ).values_list('object_id', flat=True)
     )
 
     context = {
@@ -7409,6 +7707,10 @@ def grupo_detalle(request, pk):
         'shared_subject_ids': shared_subject_ids,
         'my_rubrics': my_rubrics,
         'shared_rubric_ids': shared_rubric_ids,
+        'my_templates': my_templates,
+        'shared_template_ids': shared_template_ids,
+        'my_formats': my_formats,
+        'shared_format_ids': shared_format_ids,
     }
     return render(request, 'material/groups/grupo_detalle.html', context)
 
@@ -7468,7 +7770,7 @@ def invitaciones_pendientes(request):
 @login_required
 @require_POST
 def compartir_materia(request, pk):
-    from .models import SharingGroup, GroupMembership, SubjectShare
+    from .models import SharingGroup, GroupMembership, ContentShare
 
     group = get_object_or_404(SharingGroup, pk=pk)
     if not GroupMembership.objects.filter(group=group, user=request.user, status='accepted').exists():
@@ -7479,8 +7781,8 @@ def compartir_materia(request, pk):
     if str(subject_id).isdigit():
         subject = Subject.objects.filter(pk=int(subject_id)).first()
         if subject:
-            share, created = SubjectShare.objects.get_or_create(
-                group=group, subject=subject, shared_by=request.user,
+            share, created = ContentShare.objects.get_or_create(
+                group=group, subject=subject, shared_by=request.user, kind='materia',
                 defaults={'is_active': True},
             )
             if not created:
@@ -7489,7 +7791,7 @@ def compartir_materia(request, pk):
             if share.is_active:
                 messages.success(request, f'Compartiendo "{subject.name}" con el grupo.', extra_tags='grupos')
             else:
-                messages.info(request, f'Dejaste de compartir "{subject.name}" con el grupo.', extra_tags='grupos')
+                messages.info(request, f'Se dejó de compartir "{subject.name}" con el grupo.', extra_tags='grupos')
 
     return redirect('material:grupo_detalle', pk=group.pk)
 
@@ -7497,7 +7799,8 @@ def compartir_materia(request, pk):
 @login_required
 @require_POST
 def compartir_rubrica(request, pk):
-    from .models import SharingGroup, GroupMembership, Rubric, RubricShare
+    from .models import SharingGroup, GroupMembership, Rubric, ContentShare
+    from django.contrib.contenttypes.models import ContentType
 
     group = get_object_or_404(SharingGroup, pk=pk)
     if not GroupMembership.objects.filter(group=group, user=request.user, status='accepted').exists():
@@ -7508,8 +7811,9 @@ def compartir_rubrica(request, pk):
     if str(rubric_id).isdigit():
         rubrica = Rubric.objects.filter(pk=int(rubric_id), created_by=request.user).first()
         if rubrica:
-            share, created = RubricShare.objects.get_or_create(
-                group=group, rubric=rubrica, shared_by=request.user,
+            share, created = ContentShare.objects.get_or_create(
+                group=group, shared_by=request.user, kind='rubrica',
+                content_type=ContentType.objects.get_for_model(Rubric), object_id=rubrica.pk,
                 defaults={'is_active': True},
             )
             if not created:
@@ -7518,7 +7822,70 @@ def compartir_rubrica(request, pk):
             if share.is_active:
                 messages.success(request, f'Compartiendo "{rubrica.title}" con el grupo.', extra_tags='grupos')
             else:
-                messages.info(request, f'Dejaste de compartir "{rubrica.title}" con el grupo.', extra_tags='grupos')
+                messages.info(request, f'Se dejó de compartir "{rubrica.title}" con el grupo.', extra_tags='grupos')
+
+    return redirect('material:grupo_detalle', pk=group.pk)
+
+
+@login_required
+@require_POST
+def compartir_plantilla(request, pk):
+    from .models import SharingGroup, GroupMembership, ContentShare
+    from django.contrib.contenttypes.models import ContentType
+
+    group = get_object_or_404(SharingGroup, pk=pk)
+    if not GroupMembership.objects.filter(group=group, user=request.user, status='accepted').exists():
+        messages.error(request, 'Solo los miembros del grupo pueden compartir plantillas.', extra_tags='grupos')
+        return redirect('material:grupos_list')
+
+    template_id = request.POST.get('template_id')
+    if str(template_id).isdigit():
+        plantilla = ExamTemplate.objects.filter(pk=int(template_id), created_by=request.user).first()
+        if plantilla:
+            share, created = ContentShare.objects.get_or_create(
+                group=group, shared_by=request.user, kind='plantilla',
+                content_type=ContentType.objects.get_for_model(ExamTemplate), object_id=plantilla.pk,
+                defaults={'is_active': True},
+            )
+            if not created:
+                share.is_active = not share.is_active
+                share.save(update_fields=['is_active'])
+            nombre = plantilla.name or f'Plantilla #{plantilla.pk}'
+            if share.is_active:
+                messages.success(request, f'Compartiendo "{nombre}" con el grupo.', extra_tags='grupos')
+            else:
+                messages.info(request, f'Se dejó de compartir "{nombre}" con el grupo.', extra_tags='grupos')
+
+    return redirect('material:grupo_detalle', pk=group.pk)
+
+
+@login_required
+@require_POST
+def compartir_formato(request, pk):
+    from .models import SharingGroup, GroupMembership, ContentShare, FormatoImpresion
+    from django.contrib.contenttypes.models import ContentType
+
+    group = get_object_or_404(SharingGroup, pk=pk)
+    if not GroupMembership.objects.filter(group=group, user=request.user, status='accepted').exists():
+        messages.error(request, 'Solo los miembros del grupo pueden compartir formatos.', extra_tags='grupos')
+        return redirect('material:grupos_list')
+
+    formato_id = request.POST.get('formato_id')
+    if str(formato_id).isdigit():
+        formato = FormatoImpresion.objects.filter(pk=int(formato_id), user=request.user).first()
+        if formato:
+            share, created = ContentShare.objects.get_or_create(
+                group=group, shared_by=request.user, kind='formato',
+                content_type=ContentType.objects.get_for_model(FormatoImpresion), object_id=formato.pk,
+                defaults={'is_active': True},
+            )
+            if not created:
+                share.is_active = not share.is_active
+                share.save(update_fields=['is_active'])
+            if share.is_active:
+                messages.success(request, f'Compartiendo "{formato.nombre}" con el grupo.', extra_tags='grupos')
+            else:
+                messages.info(request, f'Se dejó de compartir "{formato.nombre}" con el grupo.', extra_tags='grupos')
 
     return redirect('material:grupo_detalle', pk=group.pk)
 

@@ -7,28 +7,49 @@ el usuario es miembro aceptado (siempre activo, no es opt-in por request: es
 una relación permanente que el propio usuario configuró en "Mis grupos").
 """
 from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 
-from .models import Question, Rubric, RubricShare, Subject, SubjectShare
+from .models import (
+    Career, ContentShare, ExamTemplate, FacultyV2, FormatoImpresion,
+    InstitutionV2, Question, Rubric, Subject,
+)
+
+
+# Institución/Facultad/Carrera/Materia: catálogo institucional (curado por
+# admin, visible para todos) MÁS el "espacio personal" del propio usuario —
+# lo que él mismo creó y todavía no fue sumado al catálogo institucional
+# (ver informe de rediseño / acuerdo de "personal space"). Nadie ve el
+# espacio personal de otro usuario acá; eso es visibilidad, no lo confundir
+# con la bandeja de administración, que sí ve todo para poder revisarlo.
+def get_visible_institutions(user):
+    return InstitutionV2.objects.filter(is_seed_demo=False).filter(
+        Q(es_catalogo_institucional=True) | Q(created_by=user)
+    )
+
+
+def get_visible_faculties(user):
+    return FacultyV2.objects.filter(is_active=True).filter(
+        Q(es_catalogo_institucional=True) | Q(created_by=user)
+    )
+
+
+def get_visible_careers(user):
+    return Career.objects.filter(is_seed_demo=False).filter(
+        Q(es_catalogo_institucional=True) | Q(created_by=user)
+    )
 
 
 def get_visible_subjects(user):
-    """Materias propias del usuario, más las compartidas con él por otros
-    usuarios a través de un `SharingGroup` del que es miembro aceptado.
-
-    Antes /materias/ (y el picker de materia del wizard) mostraban
-    Subject.objects.filter(is_seed_demo=False) a secas: todas las materias
-    reales del sistema, de cualquier docente, a cualquier usuario. Ver
-    [[project_subject_topic_global_sharing_bug]].
+    """Materias del catálogo institucional (curado por admin, visible para
+    todos) más el espacio personal del propio usuario — lo que él mismo
+    creó y todavía no fue sumado al catálogo institucional (ver informe de
+    rediseño). El CONTENIDO de cada materia (Temas/Unidades/Preguntas)
+    sigue siendo privado por separado, con su propio criterio.
     """
     return Subject.objects.filter(is_seed_demo=False).filter(
-        Q(created_by=user) |
-        Q(
-            group_shares__is_active=True,
-            group_shares__group__memberships__user=user,
-            group_shares__group__memberships__status='accepted',
-        )
-    ).distinct()
+        Q(es_catalogo_institucional=True) | Q(created_by=user)
+    )
 
 
 def get_visible_questions(user, subject=None, include_seed=False):
@@ -42,7 +63,8 @@ def get_visible_questions(user, subject=None, include_seed=False):
     if include_seed:
         visibility |= Q(user__username=settings.SEED_CONTENT_USERNAME)
 
-    shared_pairs = SubjectShare.objects.filter(
+    shared_pairs = ContentShare.objects.filter(
+        kind='materia',
         is_active=True,
         group__memberships__user=user,
         group__memberships__status='accepted',
@@ -58,19 +80,39 @@ def get_visible_questions(user, subject=None, include_seed=False):
     return qs.distinct()
 
 
+def _get_visible_via_content_share(model, kind, user, owner_field):
+    """Objetos propios (por `owner_field`) más los compartidos con el usuario
+    vía ContentShare(kind=kind) — mismo criterio para Rubric/ExamTemplate/
+    FormatoImpresion, cada uno apuntado por GenericForeignKey (no hay
+    accessor inverso directo, se resuelve juntando IDs compartidos primero).
+    """
+    shared_ids = ContentShare.objects.filter(
+        kind=kind,
+        is_active=True,
+        content_type=ContentType.objects.get_for_model(model),
+        group__memberships__user=user,
+        group__memberships__status='accepted',
+    ).exclude(shared_by=user).values_list('object_id', flat=True)
+
+    return model.objects.filter(
+        Q(**{owner_field: user}) | Q(id__in=list(shared_ids))
+    ).distinct()
+
+
 def get_visible_rubrics(user):
     """Rúbricas propias del usuario, más las compartidas con él por otros
-    usuarios a través de un `SharingGroup` del que es miembro aceptado.
-    Mismo criterio que get_visible_subjects.
-    """
-    return Rubric.objects.filter(
-        Q(created_by=user) |
-        Q(
-            group_shares__is_active=True,
-            group_shares__group__memberships__user=user,
-            group_shares__group__memberships__status='accepted',
-        )
-    ).distinct()
+    usuarios a través de un `SharingGroup` del que es miembro aceptado."""
+    return _get_visible_via_content_share(Rubric, 'rubrica', user, 'created_by')
+
+
+def get_visible_templates(user):
+    """Plantillas de examen propias, más las compartidas por el grupo."""
+    return _get_visible_via_content_share(ExamTemplate, 'plantilla', user, 'created_by')
+
+
+def get_visible_formats(user):
+    """Formatos de impresión propios, más los compartidos por el grupo."""
+    return _get_visible_via_content_share(FormatoImpresion, 'formato', user, 'user')
 
 
 # "Elegible para armar examen": una pregunta generada por IA necesita haber

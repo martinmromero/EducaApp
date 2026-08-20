@@ -1,0 +1,82 @@
+{% extends 'material/base.html' %}
+{% load message_tags %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800"><i class="bi bi-inbox me-2"></i>Solicitudes de catálogo</h1>
+
+    {% show_messages "solicitudes" %}
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {% if solicitudes %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Nombre propuesto</th>
+                                <th>Contexto</th>
+                                <th>Solicitado por</th>
+                                <th>Fecha</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in solicitudes %}
+                            <tr>
+                                <td>{{ s.get_tipo_display }}</td>
+                                <td>
+                                    {{ s.nombre_propuesto }}
+                                    {% if s.logo_propuesto %}
+                                        <br><img src="{{ s.logo_propuesto.url }}" alt="Logo propuesto" style="max-height:32px;max-width:80px;object-fit:contain" class="mt-1 border rounded p-1">
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted small">{{ s.contexto_display }}</td>
+                                <td>{{ s.solicitado_por.username }}</td>
+                                <td class="text-muted small">{{ s.created_at|date:'d/m/Y H:i' }}</td>
+                                <td>
+                                    {% if s.estado == 'pendiente' %}
+                                        <span class="badge text-bg-warning">Pendiente</span>
+                                    {% elif s.estado == 'aprobada' %}
+                                        <span class="badge text-bg-success">Aprobada</span>
+                                    {% else %}
+                                        <span class="badge text-bg-danger">Rechazada</span>
+                                    {% endif %}
+                                    {% if s.resuelto_por %}
+                                        <div class="text-muted small mt-1">por {{ s.resuelto_por.username }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if s.estado == 'pendiente' %}
+                                    <form method="post" class="d-flex flex-column gap-1" style="min-width:220px">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="solicitud_id" value="{{ s.id }}">
+                                        <input type="text" name="nota_admin" class="form-control form-control-sm"
+                                               placeholder="Motivo (opcional, se le muestra al usuario)">
+                                        <div class="d-flex gap-1">
+                                            <button type="submit" name="accion" value="aprobar" class="btn btn-sm btn-success">
+                                                <i class="bi bi-check-lg"></i> Aprobar
+                                            </button>
+                                            <button type="submit" name="accion" value="rechazar" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-x-lg"></i> Rechazar
+                                            </button>
+                                        </div>
+                                    </form>
+                                    {% else %}
+                                        <span class="text-muted small">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">No hay solicitudes todavía.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

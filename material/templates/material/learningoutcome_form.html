@@ -45,14 +45,14 @@
                         </div>
                         
                         <div class="d-flex justify-content-between">
-                            {% if view.kwargs.subject_id %}
+                            {% if career_subject %}
                                 <!-- Para crear nuevo outcome -->
-                                <a href="{% url 'material:subject_detail' pk=view.kwargs.subject_id %}" class="btn btn-secondary">
+                                <a href="{% url 'material:subject_detail' pk=career_subject.subject_id %}" class="btn btn-secondary">
                                     <i class="fas fa-arrow-left me-1"></i> Cancelar
                                 </a>
-                            {% elif object.subject %}
+                            {% elif object.career_subject %}
                                 <!-- Para editar outcome existente -->
-                                <a href="{% url 'material:subject_detail' pk=object.subject.pk %}" class="btn btn-secondary">
+                                <a href="{% url 'material:subject_detail' pk=object.career_subject.subject_id %}" class="btn btn-secondary">
                                     <i class="fas fa-arrow-left me-1"></i> Cancelar
                                 </a>
                             {% else %}

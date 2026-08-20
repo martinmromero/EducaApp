@@ -1,0 +1,458 @@
+{% extends 'material/base.html' %}
+{% load message_tags %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800"><i class="bi bi-send me-2"></i>Solicitar alta al catálogo</h1>
+
+    {% show_messages "solicitudes" %}
+
+    <div class="card shadow-sm" style="max-width:640px">
+        <div class="card-body">
+            <p class="text-muted">
+                Institución, Facultad, Carrera y Materia son un catálogo curado por el administrador.
+                Si algo no está, puede solicitarse acá. Al elegir qué tipo de elemento falta, el formulario
+                pide el contexto necesario (por ejemplo, una Materia nueva necesita saber en qué Carrera va):
+                cada nivel de contexto se completa eligiendo uno ya existente, o proponiendo uno nuevo si
+                tampoco está — así se puede pedir una cadena completa (institución + facultad + carrera + materia)
+                de una sola vez, sin esperar a que cada nivel se apruebe por separado.
+            </p>
+
+            <div id="resumenSolicitud" class="alert alert-secondary small mb-3"></div>
+
+            <form method="post" id="catalogRequestForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label class="form-label">{{ form.tipo.label }}</label>
+                    {{ form.tipo }}
+                </div>
+
+                <div class="mb-3" id="fieldInstitucion" style="display:none;">
+                    <label class="form-label">Institución</label>
+                    {{ form.institucion }}
+                    {% if form.institucion.errors %}<div class="invalid-feedback d-block">{{ form.institucion.errors }}</div>{% endif %}
+                    <div class="mt-2" id="institucionNuevaWrap">
+                        <label class="form-label small text-muted mb-1">{{ form.institucion_nueva.label }}</label>
+                        {{ form.institucion_nueva }}
+                        {% if form.institucion_nueva.errors %}<div class="invalid-feedback d-block">{{ form.institucion_nueva.errors }}</div>{% endif %}
+                        <div id="sugerenciasInstitucion" class="small mt-1"></div>
+                    </div>
+                </div>
+
+                <div class="mb-3" id="fieldLogo" style="display:none;">
+                    <label class="form-label">{{ form.logo_propuesto.label }}</label>
+                    {{ form.logo_propuesto }}
+                    {% if form.logo_propuesto.errors %}<div class="invalid-feedback d-block">{{ form.logo_propuesto.errors }}</div>{% endif %}
+                </div>
+
+                <div class="mb-3" id="fieldFacultad" style="display:none;">
+                    <label class="form-label">Facultad</label>
+                    <div class="form-text mb-1">
+                        Cada facultad pertenece a una única institución (aunque el nombre se repita en otra,
+                        son entidades distintas) — por eso, si la institución es nueva, todavía no hay
+                        facultades cargadas para elegir.
+                    </div>
+                    <select name="facultad" id="id_facultad" class="form-select">
+                        <option value="">---------</option>
+                        {% for f in form.fields.facultad.queryset %}
+                            <option value="{{ f.pk }}" data-institution="{{ f.institution_id }}"
+                                {% if form.facultad.value|stringformat:"s" == f.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ f.name }} ({{ f.institution.name }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if form.facultad.errors %}<div class="invalid-feedback d-block">{{ form.facultad.errors }}</div>{% endif %}
+                    <div id="avisoFacultadDeshabilitada" class="form-text text-warning" style="display:none;">
+                        La institución propuesta es nueva, así que todavía no puede tener una facultad ya
+                        cargada — completar "proponer una facultad nueva" más abajo.
+                    </div>
+                    <div class="mt-2" id="facultadNuevaWrap">
+                        <label class="form-label small text-muted mb-1">{{ form.facultad_nueva.label }}</label>
+                        {{ form.facultad_nueva }}
+                        {% if form.facultad_nueva.errors %}<div class="invalid-feedback d-block">{{ form.facultad_nueva.errors }}</div>{% endif %}
+                        <div id="sugerenciasFacultad" class="small mt-1"></div>
+                    </div>
+                </div>
+
+                <div class="mb-3" id="fieldCarrera" style="display:none;">
+                    <label class="form-label">Carrera</label>
+                    <div class="form-text mb-1">
+                        A diferencia de la facultad, una carrera puede estar asociada a más de una facultad
+                        (por ejemplo, la misma carrera dictada en dos facultades) — por eso acá se muestran
+                        todas las carreras del catálogo, no solo las de la facultad elegida arriba.
+                    </div>
+                    <select name="carrera" id="id_carrera" class="form-select">
+                        <option value="">---------</option>
+                        {% for c in form.fields.carrera.queryset %}
+                            <option value="{{ c.pk }}" data-faculties="{% for fac in c.faculties.all %}{{ fac.pk }},{% endfor %}"
+                                {% if form.carrera.value|stringformat:"s" == c.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ c.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if form.carrera.errors %}<div class="invalid-feedback d-block">{{ form.carrera.errors }}</div>{% endif %}
+                    <div class="mt-2" id="carreraNuevaWrap">
+                        <label class="form-label small text-muted mb-1">{{ form.carrera_nueva.label }}</label>
+                        {{ form.carrera_nueva }}
+                        {% if form.carrera_nueva.errors %}<div class="invalid-feedback d-block">{{ form.carrera_nueva.errors }}</div>{% endif %}
+                        <div id="sugerenciasCarrera" class="small mt-1"></div>
+                    </div>
+                </div>
+
+                <div class="mb-3" id="fieldMateriaExistente" style="display:none;">
+                    <label class="form-label">{{ form.materia.label }}</label>
+                    <div class="form-text mb-1">
+                        Solo se listan las materias ya vinculadas a la carrera elegida arriba — un resultado de
+                        aprendizaje necesita una materia que ya exista en esa carrera puntual. Si la materia
+                        todavía no está, primero hay que pedirla con "Materia" y recién después pedir el resultado.
+                    </div>
+                    <select name="materia" id="id_materia" class="form-select">
+                        <option value="">---------</option>
+                        {% for m in form.fields.materia.queryset %}
+                            <option value="{{ m.pk }}" data-carreras="{% for cs in m.careersubject_set.all %}{{ cs.career_id }},{% endfor %}"
+                                {% if form.materia.value|stringformat:"s" == m.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ m.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if form.materia.errors %}<div class="invalid-feedback d-block">{{ form.materia.errors }}</div>{% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" id="nombrePropuestoLabel">{{ form.nombre_propuesto.label }}</label>
+                    {{ form.nombre_propuesto }}
+                    {% if form.nombre_propuesto.errors %}<div class="invalid-feedback d-block">{{ form.nombre_propuesto.errors }}</div>{% endif %}
+                    <div id="sugerenciasNombre" class="small mt-1"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">{{ form.justificacion.label }}</label>
+                    {{ form.justificacion }}
+                </div>
+
+                <button type="submit" class="btn btn-primary">Enviar solicitud</button>
+                <a href="{% url 'material:mis_solicitudes_catalogo' %}" class="btn btn-link text-muted">Ver mis solicitudes</a>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const CHECK_DUPLICADO_URL = "{% url 'material:check_catalog_duplicate' %}";
+
+    const tipoSelect = document.getElementById('id_tipo');
+    const fieldInstitucion = document.getElementById('fieldInstitucion');
+    const fieldFacultad = document.getElementById('fieldFacultad');
+    const fieldCarrera = document.getElementById('fieldCarrera');
+    const fieldMateriaExistente = document.getElementById('fieldMateriaExistente');
+    const fieldLogo = document.getElementById('fieldLogo');
+    const institucionSelect = document.getElementById('id_institucion');
+    const facultadSelect = document.getElementById('id_facultad');
+    const carreraSelect = document.getElementById('id_carrera');
+    const materiaSelect = document.getElementById('id_materia');
+    const institucionNueva = document.getElementById('id_institucion_nueva');
+    const facultadNueva = document.getElementById('id_facultad_nueva');
+    const carreraNueva = document.getElementById('id_carrera_nueva');
+    const institucionNuevaWrap = document.getElementById('institucionNuevaWrap');
+    const facultadNuevaWrap = document.getElementById('facultadNuevaWrap');
+    const carreraNuevaWrap = document.getElementById('carreraNuevaWrap');
+    const nombrePropuesto = document.getElementById('id_nombre_propuesto');
+    const nombrePropuestoLabel = document.getElementById('nombrePropuestoLabel');
+    const avisoFacultadDeshabilitada = document.getElementById('avisoFacultadDeshabilitada');
+    const resumenSolicitud = document.getElementById('resumenSolicitud');
+
+    // Qué contexto pedir según el tipo — institución no pide nada, materia
+    // pide los tres niveles, resultado de aprendizaje pide los tres MÁS una
+    // materia ya existente (sin variante "nueva" en ningún nivel: todo
+    // tiene que ser real, no tiene sentido un resultado sobre algo que
+    // todavía no está en el catálogo).
+    const CONTEXT_BY_TIPO = {
+        institucion: [],
+        facultad: ['institucion'],
+        carrera: ['institucion', 'facultad'],
+        materia: ['institucion', 'facultad', 'carrera'],
+        resultado_aprendizaje: ['institucion', 'facultad', 'carrera', 'materia_existente'],
+    };
+    const TIPO_LABELS = {
+        institucion: 'una Institución', facultad: 'una Facultad',
+        carrera: 'una Carrera', materia: 'una Materia',
+        resultado_aprendizaje: 'un Resultado de aprendizaje',
+    };
+    const NOMBRE_PROPUESTO_LABELS = {
+        resultado_aprendizaje: 'Resultado de aprendizaje propuesto *',
+    };
+    const NOMBRE_PROPUESTO_LABEL_DEFAULT = nombrePropuestoLabel.textContent;
+
+    function debounce(fn, ms) {
+        let t;
+        return function (...args) {
+            clearTimeout(t);
+            t = setTimeout(() => fn.apply(this, args), ms);
+        };
+    }
+
+    function updateVisibleFields() {
+        const needed = CONTEXT_BY_TIPO[tipoSelect.value] || [];
+        const esResultadoAprendizaje = tipoSelect.value === 'resultado_aprendizaje';
+        fieldInstitucion.style.display = needed.includes('institucion') ? '' : 'none';
+        fieldFacultad.style.display = needed.includes('facultad') ? '' : 'none';
+        fieldCarrera.style.display = needed.includes('carrera') ? '' : 'none';
+        fieldMateriaExistente.style.display = needed.includes('materia_existente') ? '' : 'none';
+
+        // Un resultado de aprendizaje no admite "proponer nueva" en ningún
+        // nivel — institución/facultad/carrera tienen que ser reales.
+        institucionNuevaWrap.style.display = esResultadoAprendizaje ? 'none' : '';
+        facultadNuevaWrap.style.display = esResultadoAprendizaje ? 'none' : '';
+        carreraNuevaWrap.style.display = esResultadoAprendizaje ? 'none' : '';
+        if (esResultadoAprendizaje) {
+            institucionNueva.value = '';
+            facultadNueva.value = '';
+            carreraNueva.value = '';
+        }
+
+        nombrePropuestoLabel.textContent = NOMBRE_PROPUESTO_LABELS[tipoSelect.value] || NOMBRE_PROPUESTO_LABEL_DEFAULT;
+
+        updateLogoVisibility();
+        refreshFacultadState();
+    }
+
+    // El logo solo importa cuando esta solicitud va a crear una institución
+    // nueva: o bien tipo=institución directamente, o bien se propuso una
+    // institución nueva como contexto de un nivel más profundo.
+    function updateLogoVisibility() {
+        const proponeInstitucionNueva = tipoSelect.value === 'institucion' || !!institucionNueva.value.trim();
+        fieldLogo.style.display = proponeInstitucionNueva ? '' : 'none';
+    }
+
+    // Cada facultad pertenece a una única institución (FK real, no
+    // compartida como carrera/materia) — si la institución todavía no
+    // existe, ninguna fila de facultad puede pertenecerle: se deshabilita
+    // el desplegable en vez de dejarlo con datos de una institución
+    // distinta a la que ahora se está proponiendo.
+    function refreshFacultadState() {
+        const institutionId = institucionSelect.value;
+        const proponeInstitucionNueva = !!institucionNueva.value.trim();
+
+        if (proponeInstitucionNueva) {
+            facultadSelect.value = '';
+            facultadSelect.disabled = true;
+            avisoFacultadDeshabilitada.style.display = '';
+        } else {
+            facultadSelect.disabled = false;
+            avisoFacultadDeshabilitada.style.display = 'none';
+            Array.from(facultadSelect.options).forEach(function (opt) {
+                if (!opt.value) { opt.hidden = false; return; }
+                opt.hidden = institutionId ? opt.dataset.institution !== institutionId : false;
+            });
+            if (facultadSelect.selectedOptions[0] && facultadSelect.selectedOptions[0].hidden) {
+                facultadSelect.value = '';
+            }
+        }
+        refreshCarreraState();
+        actualizarResumen();
+    }
+
+    // Carrera sí puede estar asociada a más de una facultad (M2M) — no se
+    // restringe aunque la facultad sea nueva, una carrera ya existente
+    // puede sumarse a una facultad recién propuesta.
+    function refreshCarreraState() {
+        const facultyId = facultadSelect.value;
+        Array.from(carreraSelect.options).forEach(function (opt) {
+            if (!opt.value) { opt.hidden = false; return; }
+            const faculties = (opt.dataset.faculties || '').split(',').filter(Boolean);
+            opt.hidden = facultyId ? !faculties.includes(facultyId) : false;
+        });
+        if (carreraSelect.selectedOptions[0] && carreraSelect.selectedOptions[0].hidden) {
+            carreraSelect.value = '';
+        }
+        refreshMateriaState();
+    }
+
+    // Solo para "Resultado de aprendizaje" — la Materia tiene que ser una
+    // ya vinculada a la Carrera elegida (fila real de CareerSubject), así
+    // que se filtra por esa carrera en vez de mostrar todo el catálogo.
+    function refreshMateriaState() {
+        if (!materiaSelect) return;
+        const careerId = carreraSelect.value;
+        Array.from(materiaSelect.options).forEach(function (opt) {
+            if (!opt.value) { opt.hidden = false; return; }
+            const carreras = (opt.dataset.carreras || '').split(',').filter(Boolean);
+            opt.hidden = careerId ? !carreras.includes(careerId) : false;
+        });
+        if (materiaSelect.selectedOptions[0] && materiaSelect.selectedOptions[0].hidden) {
+            materiaSelect.value = '';
+        }
+    }
+
+    // --- Exclusión mutua: elegir del desplegable limpia el campo "nueva",
+    // y escribir en "nueva" limpia el desplegable — un nivel se completa
+    // de una sola forma, no de las dos.
+    function wireExclusivity(select, nuevaInput) {
+        select.addEventListener('change', function () {
+            if (select.value) nuevaInput.value = '';
+        });
+        nuevaInput.addEventListener('input', function () {
+            if (nuevaInput.value.trim()) select.value = '';
+        });
+    }
+    wireExclusivity(institucionSelect, institucionNueva);
+    wireExclusivity(facultadSelect, facultadNueva);
+    wireExclusivity(carreraSelect, carreraNueva);
+
+    // --- Vista previa de lo que se va a solicitar, para que el flujo de
+    // niveles encadenados quede claro mientras se completa el formulario.
+    function nombreElegido(select, nuevaInput) {
+        if (select.value) {
+            const opt = select.selectedOptions[0];
+            return opt ? opt.textContent.trim() : '';
+        }
+        if (nuevaInput.value.trim()) return nuevaInput.value.trim() + ' (nueva)';
+        return '';
+    }
+
+    function actualizarResumen() {
+        const needed = CONTEXT_BY_TIPO[tipoSelect.value] || [];
+        const partes = [];
+        if (needed.includes('institucion')) {
+            const n = nombreElegido(institucionSelect, institucionNueva);
+            if (n) partes.push(n);
+        }
+        if (needed.includes('facultad')) {
+            const n = nombreElegido(facultadSelect, facultadNueva);
+            if (n) partes.push(n);
+        }
+        if (needed.includes('carrera')) {
+            const n = nombreElegido(carreraSelect, carreraNueva);
+            if (n) partes.push(n);
+        }
+        if (needed.includes('materia_existente') && materiaSelect && materiaSelect.selectedOptions[0] && materiaSelect.value) {
+            partes.push(materiaSelect.selectedOptions[0].textContent.trim());
+        }
+        let texto = 'Se va a solicitar ' + (TIPO_LABELS[tipoSelect.value] || 'un elemento del catálogo');
+        const nombre = nombrePropuesto.value.trim();
+        if (nombre) texto += ': "' + nombre + '"';
+        if (partes.length) texto += ' — en ' + partes.join(' / ');
+        resumenSolicitud.textContent = texto;
+    }
+
+    // --- Verificación de duplicados: antes de proponer un nombre nuevo,
+    // se busca si ya existe algo parecido en el catálogo y se ofrece
+    // usarlo en vez de arriesgarse a duplicar.
+    function buscarCoincidencias(nivel, q, extraParams) {
+        if (!q || q.trim().length < 2) return Promise.resolve([]);
+        const params = new URLSearchParams(Object.assign({ nivel: nivel, q: q.trim() }, extraParams || {}));
+        return fetch(CHECK_DUPLICADO_URL + '?' + params.toString())
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .catch(function () { return []; });
+    }
+
+    function renderSugerenciasConSeleccion(container, matches, onUsar) {
+        if (!matches.length) { container.innerHTML = ''; return; }
+        const lista = matches.map(function (m) {
+            return '<button type="button" class="btn btn-outline-secondary btn-sm me-1 mb-1 usar-existente" data-id="' + m.id + '">' +
+                '<i class="bi bi-check2"></i> Usar "' + m.name + '"</button>';
+        }).join('');
+        container.innerHTML = '<div class="text-muted mb-1"><i class="bi bi-info-circle"></i> Ya existe algo parecido en el catálogo:</div>' + lista;
+        container.querySelectorAll('.usar-existente').forEach(function (btn) {
+            btn.addEventListener('click', function () { onUsar(btn.dataset.id); });
+        });
+    }
+
+    function renderSugerenciasInformativas(container, matches) {
+        if (!matches.length) { container.innerHTML = ''; return; }
+        const nombres = matches.map(function (m) { return m.name; }).join(', ');
+        container.innerHTML = '<div class="text-muted"><i class="bi bi-info-circle"></i> Ya existe algo parecido en el catálogo: ' + nombres + ' — revisar antes de continuar para no duplicar.</div>';
+    }
+
+    const sugInstitucion = document.getElementById('sugerenciasInstitucion');
+    const sugFacultad = document.getElementById('sugerenciasFacultad');
+    const sugCarrera = document.getElementById('sugerenciasCarrera');
+    const sugNombre = document.getElementById('sugerenciasNombre');
+
+    institucionNueva.addEventListener('input', function () {
+        refreshFacultadState();
+        updateLogoVisibility();
+    });
+    institucionNueva.addEventListener('input', debounce(function () {
+        buscarCoincidencias('institucion', institucionNueva.value).then(function (matches) {
+            renderSugerenciasConSeleccion(sugInstitucion, matches, function (id) {
+                institucionSelect.value = id;
+                institucionNueva.value = '';
+                sugInstitucion.innerHTML = '';
+                refreshFacultadState();
+                updateLogoVisibility();
+            });
+        });
+    }, 350));
+
+    facultadNueva.addEventListener('input', function () {
+        refreshCarreraState();
+        actualizarResumen();
+    });
+    facultadNueva.addEventListener('input', debounce(function () {
+        buscarCoincidencias('facultad', facultadNueva.value, { institucion_id: institucionSelect.value }).then(function (matches) {
+            renderSugerenciasConSeleccion(sugFacultad, matches, function (id) {
+                facultadSelect.value = id;
+                facultadNueva.value = '';
+                sugFacultad.innerHTML = '';
+                refreshCarreraState();
+                actualizarResumen();
+            });
+        });
+    }, 350));
+
+    carreraNueva.addEventListener('input', function () {
+        actualizarResumen();
+    });
+    carreraNueva.addEventListener('input', debounce(function () {
+        buscarCoincidencias('carrera', carreraNueva.value).then(function (matches) {
+            renderSugerenciasConSeleccion(sugCarrera, matches, function (id) {
+                carreraSelect.value = id;
+                carreraNueva.value = '';
+                sugCarrera.innerHTML = '';
+                actualizarResumen();
+            });
+        });
+    }, 350));
+
+    nombrePropuesto.addEventListener('input', function () {
+        actualizarResumen();
+    });
+    nombrePropuesto.addEventListener('input', debounce(function () {
+        const nivel = tipoSelect.value;
+        buscarCoincidencias(nivel, nombrePropuesto.value).then(function (matches) {
+            renderSugerenciasInformativas(sugNombre, matches);
+        });
+    }, 350));
+
+    tipoSelect.addEventListener('change', function () {
+        updateVisibleFields();
+        sugNombre.innerHTML = '';
+        actualizarResumen();
+    });
+    institucionSelect.addEventListener('change', function () {
+        refreshFacultadState();
+        updateLogoVisibility();
+    });
+    facultadSelect.addEventListener('change', function () {
+        refreshCarreraState();
+        actualizarResumen();
+    });
+    carreraSelect.addEventListener('change', function () {
+        refreshMateriaState();
+        actualizarResumen();
+    });
+    if (materiaSelect) {
+        materiaSelect.addEventListener('change', actualizarResumen);
+    }
+
+    updateVisibleFields();
+    actualizarResumen();
+});
+</script>
+{% endblock %}

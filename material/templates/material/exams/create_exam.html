@@ -301,6 +301,11 @@
             </div>
             <div class="row mb-3 exam-topics-questions-row">
                 <div class="col-12 col-lg-4 exam-topics-col">
+                    <!-- Unidades: agrupan Temas propios para tildarlos de una — atajo
+                         sobre los mismos checkboxes de abajo, no reemplaza elegir
+                         temas sueltos (ver informe de rediseño del catálogo). Oculto
+                         si la materia elegida no tiene ninguna Unidad cargada. -->
+                    <div id="unidades_chip_container" class="mb-2 d-none"></div>
                     <div id="topics_checkbox_container" class="border rounded p-2" style="min-height:240px;max-height:260px;overflow:auto;"></div>
                     <select multiple class="form-select d-none" name="topics" id="id_topics"></select>
                 </div>

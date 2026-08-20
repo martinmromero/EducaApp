@@ -31,13 +31,23 @@
                 <table class="table table-striped">
                     <thead>
                         <tr>
+                            <th>N°</th>
                             <th>Nombre</th>
+                            <th>Año</th>
+                            <th>Cuatrimestre</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for subject in career.subjects.all %}
+                        {% for cs in career_subjects %}
                         <tr>
-                            <td>{{ subject.name }}</td>
+                            <td>{{ cs.numero_materia|default:'—' }}</td>
+                            <td><a href="{% url 'material:subject_detail' pk=cs.subject_id %}">{{ cs.subject.name }}</a></td>
+                            <td>{{ cs.anio_cursada|default:'—' }}</td>
+                            <td>{{ cs.cuatrimestre_cursada|default:'—' }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-muted text-center">Esta carrera todavía no tiene materias asociadas.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -45,12 +55,14 @@
             </div>
         </div>
         <div class="card-footer">
+            {% if is_admin %}
             <a href="{% url 'material:career_associations' pk=career.pk %}" class="btn btn-warning">
                 <i class="fas fa-edit"></i> Editar
             </a>
             <a href="{% url 'material:delete_career' pk=career.pk %}" class="btn btn-danger">
                 <i class="fas fa-trash"></i> Eliminar
             </a>
+            {% endif %}
             <a href="{% url 'material:career_list' %}" class="btn btn-secondary">
                 <i class="fas fa-list"></i> Volver a la lista
             </a>

@@ -3,7 +3,7 @@ import json as _json
 from django.conf import settings
 from .models import (
     InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic, Contenido,
-    InstitutionSubject, GroupMembership,
+    InstitutionSubject, GroupMembership, CatalogRequest,
 )
 from .content_visibility import get_visible_subjects
 from .views import is_admin as _is_admin
@@ -32,12 +32,26 @@ def onboarding_context(request):
     pending_invites_count = GroupMembership.objects.filter(
         user=request.user, status='pending'
     ).count()
+    is_admin_user = _is_admin(request.user)
+    # Badge del link "Solicitudes de catálogo" en Administración — solo se
+    # consulta para admins, no tiene sentido para el resto.
+    pending_catalog_requests_count = (
+        CatalogRequest.objects.filter(estado='pendiente').count() if is_admin_user else 0
+    )
+    # Badge de "Mis solicitudes" — aviso al propio solicitante de que una
+    # suya se resolvió y todavía no la vio (se apaga al entrar a esa
+    # pantalla, ver mis_solicitudes_catalogo).
+    pending_catalog_notifications_count = CatalogRequest.objects.filter(
+        solicitado_por=request.user, visto_por_solicitante=False,
+    ).exclude(estado='pendiente').count()
 
     base_ctx = {
         'onboarding_institutions': [],
         'onb_data_json': _json.dumps({'autoShow': not profile.onboarding_completed}),
         'pending_invites_count': pending_invites_count,
-        'is_admin': _is_admin(request.user),
+        'pending_catalog_requests_count': pending_catalog_requests_count,
+        'pending_catalog_notifications_count': pending_catalog_notifications_count,
+        'is_admin': is_admin_user,
         'visual_theme': profile.visual_theme,
         'visual_theme_choices': profile.VISUAL_THEME_CHOICES,
         # Área de Pruebas: la marca de sesión (ver training_views.py) es lo
@@ -90,8 +104,10 @@ def onboarding_context(request):
     visible_subject_ids = list(get_visible_subjects(request.user).values_list('id', flat=True))
 
     outcomes_by_subj = {}
-    for lo in LearningOutcome.objects.filter(subject_id__in=visible_subject_ids).values('id', 'subject_id', 'description'):
-        outcomes_by_subj.setdefault(lo['subject_id'], []).append({'id': lo['id'], 'text': lo['description']})
+    for lo in LearningOutcome.objects.filter(
+        career_subject__subject_id__in=visible_subject_ids
+    ).values('id', 'career_subject__subject_id', 'description'):
+        outcomes_by_subj.setdefault(lo['career_subject__subject_id'], []).append({'id': lo['id'], 'text': lo['description']})
 
     topics_by_subj = {}
     for t in Topic.objects.filter(subject_id__in=visible_subject_ids).values('id', 'subject_id', 'name'):

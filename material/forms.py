@@ -8,7 +8,7 @@ from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
     Subject, Topic, Subtopic, LearningOutcome, User,
     InstitutionV2, CampusV2, FacultyV2, Career, InstitutionCareer, UserInstitution,
-    OralExamSet, Rubric, ExamRubric, FormatoImpresion
+    OralExamSet, Rubric, ExamRubric, FormatoImpresion, CatalogRequest,
 )
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
@@ -227,20 +227,21 @@ class ExamForm(forms.ModelForm):
             try:
                 subject_id = int(self.data.get('subject'))
                 self.fields['topics'].queryset = Topic.objects.filter(subject_id=subject_id)
-                self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(subject_id=subject_id)
+                self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(career_subject__subject_id=subject_id)
             except (ValueError, TypeError):
                 pass
         elif self.instance.pk:
             self.fields['topics'].queryset = self.instance.subject.topic_set.all()
-            self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(subject=self.instance.subject)
+            self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(career_subject__subject=self.instance.subject)
 
 class ProfileForm(forms.ModelForm):
+    # institutions (v1) se sacó del form: el campo Profile.institutions se
+    # eliminó junto con el stack v1 (ver informe de rediseño del catálogo).
     class Meta:
         model = Profile
-        fields = ['role', 'institutions']
+        fields = ['role']
         widgets = {
             'role': forms.Select(attrs={'class': 'form-control'}),
-            'institutions': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
 
 class ExamTemplateForm(forms.ModelForm):
@@ -635,10 +636,23 @@ class CareerForm(forms.ModelForm):
         required=False,
         empty_label="Sin institución"
     )
-    
+    # NO es un campo de Meta.fields a propósito: Career.subjects ahora tiene
+    # through=CareerSubject (numero_materia/año/cuatrimestre, ver informe de
+    # rediseño), y Django no arma un ModelMultipleChoiceField automático
+    # para un M2M con through explícito. Se maneja a mano: el field queda
+    # igual para la UI (checkboxes), pero quien llama tiene que guardar el
+    # resultado con career.subjects.set(form.cleaned_data['subjects']) —
+    # ver career_create_simple/career_associations en views.py.
+    subjects = forms.ModelMultipleChoiceField(
+        queryset=Subject.objects.none(),
+        widget=forms.CheckboxSelectMultiple(),
+        required=False,
+        label='Materias',
+    )
+
     class Meta:
         model = Career
-        fields = ['name', 'faculties', 'campus', 'subjects']
+        fields = ['name', 'faculties', 'campus']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -646,19 +660,17 @@ class CareerForm(forms.ModelForm):
             }),
             'faculties': forms.CheckboxSelectMultiple(),
             'campus': forms.CheckboxSelectMultiple(),
-            'subjects': forms.CheckboxSelectMultiple(),
         }
         labels = {
             'name': 'Nombre de la Carrera *',
             'faculties': 'Facultades',
             'campus': 'Sede',
-            'subjects': 'Materias',
         }
-    
+
     def __init__(self, *args, **kwargs):
         career_pk = kwargs.pop('career_pk', None)
         super().__init__(*args, **kwargs)
-        
+
         # Si hay una carrera, obtener la institución asociada
         if career_pk:
             try:
@@ -666,11 +678,13 @@ class CareerForm(forms.ModelForm):
                 self.fields['institution'].initial = institution_career.institution
             except InstitutionCareer.DoesNotExist:
                 pass
-        
+
         # Inicialmente, vaciar los querysets dependientes
         self.fields['faculties'].queryset = FacultyV2.objects.none()
         self.fields['campus'].queryset = CampusV2.objects.none()
         self.fields['subjects'].queryset = Subject.objects.filter(is_seed_demo=False)
+        if self.instance.pk:
+            self.fields['subjects'].initial = self.instance.subjects.values_list('pk', flat=True)
 
         # Si hay institución seleccionada, filtrar
         if 'institution' in self.data:
@@ -697,6 +711,100 @@ class CareerForm(forms.ModelForm):
                 ).order_by('name')
             except InstitutionCareer.DoesNotExist:
                 pass
+
+
+class CatalogRequestForm(forms.ModelForm):
+    """Formulario de "solicitar alta" al catálogo público — ver informe de
+    rediseño. Cada nivel de contexto (institución/facultad/carrera) admite
+    DOS formas, mutuamente excluyentes: elegir una fila YA EXISTENTE del
+    catálogo (el select) o escribir un nombre NUEVO (el campo "_nueva" de
+    al lado) cuando ese nivel tampoco existe todavía — así se puede pedir
+    institución+facultad+carrera+materia completas en una sola solicitud,
+    sin esperar a que cada nivel se apruebe por separado antes de poder
+    pedir el siguiente."""
+    class Meta:
+        model = CatalogRequest
+        fields = [
+            'tipo', 'institucion', 'institucion_nueva', 'facultad', 'facultad_nueva',
+            'carrera', 'carrera_nueva', 'materia', 'nombre_propuesto', 'logo_propuesto',
+            'justificacion',
+        ]
+        widgets = {
+            'tipo': forms.Select(attrs={'class': 'form-select', 'id': 'id_tipo'}),
+            'institucion': forms.Select(attrs={'class': 'form-select'}),
+            'institucion_nueva': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre de la institución, si tampoco está en el catálogo'}),
+            'facultad': forms.Select(attrs={'class': 'form-select'}),
+            'facultad_nueva': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre de la facultad, si tampoco está en el catálogo'}),
+            'carrera': forms.Select(attrs={'class': 'form-select'}),
+            'carrera_nueva': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre de la carrera, si tampoco está en el catálogo'}),
+            'materia': forms.Select(attrs={'class': 'form-select'}),
+            'nombre_propuesto': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'logo_propuesto': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'justificacion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+        labels = {
+            'nombre_propuesto': 'Nombre propuesto *',
+            'logo_propuesto': 'Logo de la institución (opcional)',
+            'justificacion': 'Justificación (opcional)',
+            'institucion_nueva': 'o proponer una institución nueva',
+            'facultad_nueva': 'o proponer una facultad nueva',
+            'carrera_nueva': 'o proponer una carrera nueva',
+            'materia': 'Materia',
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        # Catálogo institucional, más el espacio personal del propio
+        # usuario — puede encadenar sobre lo que él mismo ya creó y todavía
+        # no fue sumado al catálogo institucional (ver informe de rediseño
+        # / "personal space").
+        from .content_visibility import (
+            get_visible_institutions, get_visible_faculties,
+            get_visible_careers, get_visible_subjects,
+        )
+        if self.user is not None:
+            self.fields['institucion'].queryset = get_visible_institutions(self.user).order_by('name')
+            self.fields['facultad'].queryset = get_visible_faculties(self.user).select_related('institution').order_by('institution__name', 'name')
+            self.fields['carrera'].queryset = get_visible_careers(self.user).order_by('name')
+            self.fields['materia'].queryset = get_visible_subjects(self.user).order_by('name')
+        else:
+            self.fields['institucion'].queryset = InstitutionV2.objects.filter(is_seed_demo=False, es_catalogo_institucional=True).order_by('name')
+            self.fields['facultad'].queryset = FacultyV2.objects.filter(is_active=True, es_catalogo_institucional=True).select_related('institution').order_by('institution__name', 'name')
+            self.fields['carrera'].queryset = Career.objects.filter(is_seed_demo=False, es_catalogo_institucional=True).order_by('name')
+            self.fields['materia'].queryset = Subject.objects.filter(is_seed_demo=False, es_catalogo_institucional=True).order_by('name')
+        for f in ('institucion', 'facultad', 'carrera', 'materia', 'institucion_nueva', 'facultad_nueva', 'carrera_nueva'):
+            self.fields[f].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        tipo = cleaned.get('tipo')
+
+        def nivel(fk_name, nueva_name, requerido, label):
+            fk = cleaned.get(fk_name)
+            nueva = (cleaned.get(nueva_name) or '').strip()
+            if fk and nueva:
+                self.add_error(nueva_name, f'Elegir una {label} existente o proponer una nueva — no las dos cosas.')
+            elif requerido and not fk and not nueva:
+                self.add_error(fk_name, f'Falta elegir la {label}, o proponer una nueva.')
+
+        if tipo == 'resultado_aprendizaje':
+            # Sin variante "_nueva" acá: institución, facultad, carrera y
+            # materia tienen que ser filas reales ya existentes — no tiene
+            # sentido proponer un resultado de aprendizaje sobre algo que
+            # todavía no está en el catálogo.
+            for fk_name, label in (
+                ('institucion', 'institución'), ('facultad', 'facultad'),
+                ('carrera', 'carrera'), ('materia', 'materia'),
+            ):
+                if not cleaned.get(fk_name):
+                    self.add_error(fk_name, f'Falta elegir la {label} — tiene que ser una que ya esté en el catálogo.')
+        else:
+            nivel('institucion', 'institucion_nueva', tipo in ('facultad', 'carrera', 'materia'), 'institución')
+            nivel('facultad', 'facultad_nueva', tipo in ('carrera', 'materia'), 'facultad')
+            nivel('carrera', 'carrera_nueva', tipo == 'materia', 'carrera')
+        return cleaned
+
 
 class OralExamForm(forms.ModelForm):
     topics = forms.ModelMultipleChoiceField(

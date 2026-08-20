@@ -13,15 +13,14 @@ def get_user_institution_ids(user):
 
 
 def get_visible_print_formats(user):
+    from .content_visibility import get_visible_formats
     institution_ids = get_user_institution_ids(user)
     return FormatoImpresion.objects.filter(
-        user=user,
-    ) | FormatoImpresion.objects.filter(
         institution_id__in=institution_ids,
     ) | FormatoImpresion.objects.filter(
         user__isnull=True,
         institution__isnull=True,
-    )
+    ) | get_visible_formats(user)
 
 
 def resolve_print_format_for_context(*, user=None, institution=None, institution_name=''):

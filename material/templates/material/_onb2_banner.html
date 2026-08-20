@@ -12,10 +12,26 @@ Uso: {% include 'material/_onb2_banner.html' with onb2_step=5 onb2_step_label="G
     <span class="fw-semibold">Asistente de configuración</span>
     <span class="text-muted">— Paso {{ onb2_step }} de 6 · {{ onb2_step_label }}</span>
   </div>
-  <a href="{% url 'material:onboarding_v2_exit' %}" class="text-muted small text-decoration-none">
+  <a href="{% url 'material:onboarding_v2_exit' %}" class="text-muted small text-decoration-none onb2-exit-link">
     <i class="bi bi-x-lg me-1"></i>Salir del asistente
   </a>
 </div>
+<script>
+(function () {
+  document.querySelectorAll('.onb2-exit-link').forEach(function (link) {
+    link.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      var href = this.href;
+      window.EducaAppModal.confirm(
+        '¿Desea salir del recorrido inicial? Puede luego ver la ayuda en el menú "?" siempre disponible arriba a la derecha.',
+        { title: 'Salir del asistente', variant: 'warning', okLabel: 'Salir', cancelLabel: 'Seguir con el recorrido' }
+      ).then(function (ok) {
+        if (ok) window.location.href = href;
+      });
+    });
+  });
+})();
+</script>
 <style>
 /* Recuadro que envuelve el contenido real de la página para que se siga
    sintiendo "adentro" del asistente, como en los pasos 1 a 4. */

@@ -1,0 +1,220 @@
+﻿facultad,carrera,numero de materia,materia,año de cursada,cuatrimestre de cursada
+Tecnología Informática,Analista Programador,1,Programación Estructurada,1° Año,1° Cuatrimestre
+Tecnología Informática,Analista Programador,2,Sistemas de Computación I,1° Año,1° Cuatrimestre
+Tecnología Informática,Analista Programador,3,Laboratorio de Cálculo,1° Año,1° Cuatrimestre
+Tecnología Informática,Analista Programador,4,Inglés I,1° Año,1° Cuatrimestre
+Tecnología Informática,Analista Programador,5,Sistemas de Computación II,1° Año,2° Cuatrimestre
+Tecnología Informática,Analista Programador,6,Cálculo Infinitesimal,1° Año,2° Cuatrimestre
+Tecnología Informática,Analista Programador,7,Inglés II,1° Año,2° Cuatrimestre
+Tecnología Informática,Analista Programador,8,Programación I,1° Año,2° Cuatrimestre
+Tecnología Informática,Analista Programador,9,Programación Orientada a Objetos,2° Año,1° Cuatrimestre
+Tecnología Informática,Analista Programador,10,Metodología de Desarrollo de Sistemas I,2° Año,1° Cuatrimestre
+Tecnología Informática,Analista Programador,11,Arquitectura de Sistemas Operativos,2° Año,1° Cuatrimestre
+Tecnología Informática,Analista Programador,12,Problemática del Mundo Actual,2° Año,1° Cuatrimestre
+Tecnología Informática,Analista Programador,13,Tecnología de las Comunicaciones,2° Año,2° Cuatrimestre
+Tecnología Informática,Analista Programador,14,Lenguajes de Última Generación,2° Año,2° Cuatrimestre
+Tecnología Informática,Analista Programador,15,Metodología de Desarrollo de Sistemas II,2° Año,2° Cuatrimestre
+Tecnología Informática,Analista Programador,16,Base de Datos,2° Año,2° Cuatrimestre
+Tecnología Informática,Analista Programador,17,Probabilidad y Estadística,3° Año,1° Cuatrimestre
+Tecnología Informática,Analista Programador,18,Programación II,3° Año,1° Cuatrimestre
+Tecnología Informática,Analista Programador,19,Teleinformática y Comunicaciones,3° Año,1° Cuatrimestre
+Tecnología Informática,Analista Programador,20,Trabajo Final,3° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,1,Introducción a los Algoritmos y la Programación,1° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,2,Arquitectura de Computadoras I,1° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,3,Álgebra y Geometría Analítica,1° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,4,Problemática del Mundo Actual,1° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,5,Inglés I,1° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,6,Arquitectura de Computadoras II,1° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,7,Cálculo Infinitesimal I,1° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,8,Historia de la Ciencia y de la Técnica,1° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,9,Inglés II,1° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,10,Programación y Estructuras de Datos,1° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,11,Programación Orientada a Objetos,2° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,12,Análisis y Diseño de Sistemas I,2° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,13,Cálculo Infinitesimal II,2° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,14,Inglés III,2° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,15,Sistemas Operativos,2° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,16,Análisis de Procesos Administrativos,2° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,17,Análisis y Diseño de Sistemas II,2° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,18,Física I,2° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,19,Probabilidad y Estadística,2° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,20,Inglés IV,2° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,21,Ingeniería de Requerimientos,2° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,22,Desarrollo y Arquitectura de Software,2° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,23,Análisis y Diseño de Sistemas III,3° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,24,Base de Datos,3° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,25,Tecnología de las Comunicaciones I,3° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,26,Física II,3° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,27,Ingeniería de Software,3° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,28,Experiencias Formativas Obligatorias de Carácter Electivo I,3° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,29,Tecnología de las Comunicaciones II,3° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,30,Matemática Discreta y Autómatas,3° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,31,Bases de Datos Aplicada,3° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,32,Trabajo de Diploma,3° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,33,Metodologías Ágiles,4° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,34,Organización y Gestión Empresaria,4° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,35,Bases de Datos Avanzada,4° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,36,Desarrollo y Arquitecturas Web,4° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,37,Experiencias Formativas Obligatorias de Carácter Electivo II,4° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,38,Administración de Proyectos,4° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,39,Planificación Estratégica,4° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,40,Inteligencia Artificial,4° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,41,Metodologías y Desarrollos Web,4° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,42,Electromagnetismo I,4° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,43,Sistema de Hardware,5° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,44,Modelización Numérica,5° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,45,Electromagnetismo II,5° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,46,Práctica Profesional Supervisada,5° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,47,Seminario de Trabajo Final de Ingeniería,5° Año,1° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,48,Auditoría de Sistemas,5° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,49,Redes y Teleprocesamiento,5° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,50,Seguridad Informática,5° Año,2° Cuatrimestre
+Tecnología Informática,Ingeniería en Sistemas Informáticos,51,Trabajo Final de Ingeniería,5° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,1,Programación Estructurada,1° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,2,Lógica,1° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,3,Inglés I,1° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,4,Problemática del Mundo Actual,1° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,5,Análisis de Procesos Administrativos,1° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,6,Sistemas de Computación I,1° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,7,Inglés II,1° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,8,Metodología de Desarrollo de Sistemas I,1° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,9,Programación I,1° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,10,Programación Orientada a Objetos,2° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,11,Administración de Comunidades Virtuales,2° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,12,Metodologías de Desarrollo de Sistemas II,2° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,13,Comercio Electrónico y Marketing Digital,2° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,14,Laboratorio de Cálculo,2° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,15,Base de Datos,2° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,16,Arquitectura de Sistemas Operativos,2° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,17,Lenguajes de Última Generación,2° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,18,Introducción a la Programación Web,2° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,19,Diseño y Arquitectura de Software,3° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,20,Metodología de Desarrollo de Sistemas III,3° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,21,Probabilidad y Estadística,3° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,22,Programación Web Avanzada,3° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,23,Gestión y Costos,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,24,Base de Datos Aplicada I,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,25,Base de Datos Aplicada II,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,26,Matemática Discreta y Autómatas,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,27,Tecnología de las Comunicaciones,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,28,Gestión de Recursos Humanos TI,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,29,Auditoría de Sistemas,4° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,30,Organización y Gestión Empresaria,4° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,31,Bases de Datos para la Administración,4° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,32,Administración de Proyectos,4° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,33,Gestión de la Innovación y la Tecnología,4° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,34,Planificación Estratégica,4° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,35,Optativa,4° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Gestión de Tecnología Informática,36,Trabajo Final,4° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,1,Introducción a los Videojuegos y Game Design,1° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,2,Lógica y Algoritmos para Juegos,1° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,3,Dibujo y Morfología Visual,1° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,4,Inglés I,1° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,5,Programación Orientada a Objetos para Juegos,1° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,6,Arte Digital 2D y Animación,1° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,7,Matemática y Física para Juegos,1° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,8,Inglés II,1° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,9,Motores de Videojuegos I (Game Engines I),2° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,10,Modelado y Texturizado 3D,2° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,11,Diseño de Niveles y Narrativa Interactiva,2° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,12,Estructuras de Datos para Juegos,2° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,13,Motores de Videojuegos II (Game Engines II),2° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,14,Animación 3D y Rigging,2° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,15,Sonido y Música para Videojuegos,2° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,16,Taller de Producción de Videojuegos I,2° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,17,Inteligencia Artificial para Videojuegos,3° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,18,Desarrollo de Videojuegos Multijugador y Redes,3° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,19,Realidad Virtual y Realidad Aumentada,3° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,20,Simuladores y Serious Games,3° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,21,Taller de Producción de Videojuegos II,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,22,Psicología del Jugador y UX,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,23,Investigación de Mercado y Monetización,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,24,Gestión de Proyectos de Software y Juegos,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,25,Comercialización y Publicación de Juegos,4° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,26,"Legislación, Propiedad Intelectual y Ética",4° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,27,Seminario de Innovación Tecnológica,4° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,28,Taller de Trabajo Final,4° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Producción de Simuladores y Videojuegos,29,Trabajo Final de Grado,4° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,1,Álgebra I,1° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,2,Análisis Matemático I,1° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,3,Geometría Analítica,1° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,4,Álgebra II,1° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,5,Análisis Matemático II,1° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,6,Programación y Algoritmos,1° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,7,Álgebra Lineal,2° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,8,Análisis Matemático III,2° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,9,Probabilidad,2° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,10,Ecuaciones Diferenciales,2° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,11,Estadística Matemática,2° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,12,Matemática Discreta,2° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,13,Análisis Real,3° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,14,Análisis Numérico I,3° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,15,Topología,3° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,16,Análisis Complejo,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,17,Análisis Numérico II,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,18,Modelización Matemática,3° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,19,Optativa I,4° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,20,Metodología de la Investigación,4° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,21,Seminario de Matemática Aplicada,4° Año,1° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,22,Optativa II,4° Año,2° Cuatrimestre
+Tecnología Informática,Licenciatura en Matemática,23,Tesis de Licenciatura,4° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Inteligencia Artificial,1,Fundamentos de Inteligencia Artificial y Machine Learning,1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Inteligencia Artificial,2,Matemática y Optimización para IA,1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Inteligencia Artificial,3,Deep Learning y Redes Neuronales,1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Inteligencia Artificial,4,Procesamiento del Lenguaje Natural (NLP) y LLMs,1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Inteligencia Artificial,5,Visión por Computadora,1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Inteligencia Artificial,6,"Ética, Gobernanza y Proyecto Integrador de IA",1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Inteligencia de Datos,1,"Bases de Datos Masivas, Data Lakes y Big Data",1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Inteligencia de Datos,2,Estadística Aplicada y Análisis Exploratorio de Datos,1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Inteligencia de Datos,3,Modelado Predictivo y Minería de Datos,1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Inteligencia de Datos,4,"Data Engineering, ETL y Pipelines",1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Inteligencia de Datos,5,Business Intelligence y Visualización de Datos,1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Inteligencia de Datos,6,Trabajo Final Integrador de Inteligencia de Datos,1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Ingeniería de Software,1,Arquitectura de Software y Patrones de Diseño,1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Ingeniería de Software,2,Ingeniería de Requerimientos y Modelado Avanzado,1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Ingeniería de Software,3,"Calidad, Testing y Verificación de Software",1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Ingeniería de Software,4,"DevOps, CI/CD y Gestión de Configuraciones",1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Ingeniería de Software,5,Gestión y Medición de Proyectos de Software,1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Ingeniería de Software,6,Trabajo Final Integrador,1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Dirección de Proyectos de Tecnología Informática,1,Metodologías Ágiles y Tradicionales en Proyectos de TI,1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Dirección de Proyectos de Tecnología Informática,2,"Gestión de Costos, Riesgos y Finanzas en TI",1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Dirección de Proyectos de Tecnología Informática,3,"Liderazgo, Negociación y Equipos de Alto Rendimiento",1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Dirección de Proyectos de Tecnología Informática,4,Gobierno y Gestión Estratégica de TI,1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Dirección de Proyectos de Tecnología Informática,5,Calidad y Auditoría de Proyectos TI,1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Dirección de Proyectos de Tecnología Informática,6,Trabajo Final Integrador de Dirección de Proyectos,1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Prevención de Delitos Informáticos y Cibercriminología,1,Ciberseguridad y Tecnologías de la Información,1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Prevención de Delitos Informáticos y Cibercriminología,2,Derecho Penal Informático y Marco Legal,1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Prevención de Delitos Informáticos y Cibercriminología,3,Cibercriminología y Análisis de Amenazas,1° Año,1° Cuatrimestre
+Tecnología Informática,Especialización en Prevención de Delitos Informáticos y Cibercriminología,4,Informática Forense y Análisis de Evidencia Digital,1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Prevención de Delitos Informáticos y Cibercriminología,5,Gestión de Incidentes y Respuesta a Ciberataques,1° Año,2° Cuatrimestre
+Tecnología Informática,Especialización en Prevención de Delitos Informáticos y Cibercriminología,6,Trabajo Final Integrador,1° Año,2° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Informática,1,Metodología de la Investigación Científica en TI,1° Año,1° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Informática,2,Arquitecturas Distribuidas y Computación en la Nube,1° Año,1° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Informática,3,Sistemas Inteligentes y Minería de Datos,1° Año,1° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Informática,4,Ingeniería de Software Avanzada,1° Año,2° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Informática,5,Seguridad y Auditoría en Sistemas de Información,1° Año,2° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Informática,6,Taller de Tesis I,1° Año,2° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Informática,7,Tecnologías Emergentes y Computación Ubicua,2° Año,1° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Informática,8,Gestión Estratégica e Innovación en TI,2° Año,1° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Informática,9,Seminario de Investigación Optativo,2° Año,1° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Informática,10,Taller de Tesis II,2° Año,2° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Informática,11,Tesis de Maestría,2° Año,2° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Educativa,1,"Epistemología, Educación y Tecnología",1° Año,1° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Educativa,2,Diseño y Gestión de Entornos Virtuales de Aprendizaje,1° Año,1° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Educativa,3,Metodología de la Investigación Educativa,1° Año,1° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Educativa,4,Inteligencia Artificial y Analíticas del Aprendizaje,1° Año,2° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Educativa,5,Producción de Recursos y Materiales Digitales,1° Año,2° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Educativa,6,Taller de Tesis I,1° Año,2° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Educativa,7,Evaluación de Aprendizajes Mediada por Tecnología,2° Año,1° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Educativa,8,"Políticas, Liderazgo e Innovación Educativa",2° Año,1° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Educativa,9,Seminario de Profundización,2° Año,1° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Educativa,10,Taller de Tesis II,2° Año,2° Cuatrimestre
+Tecnología Informática,Maestría en Tecnología Educativa,11,Tesis de Maestría,2° Año,2° Cuatrimestre
+Tecnología Informática,Doctorado en Informática,1,Lógica y Métodos Formales en la Ingeniería de Software,1° Año,1° Cuatrimestre
+Tecnología Informática,Doctorado en Informática,2,Metodología de la Investigación Científica,1° Año,1° Cuatrimestre
+Tecnología Informática,Doctorado en Informática,3,Seminario Avanzado de Inteligencia Artificial y Sistemas Complejos,1° Año,2° Cuatrimestre
+Tecnología Informática,Doctorado en Informática,4,Seminario Doctoral Optativo I,1° Año,2° Cuatrimestre
+Tecnología Informática,Doctorado en Informática,5,Taller de Tesis Doctoral I,2° Año,1° Cuatrimestre
+Tecnología Informática,Doctorado en Informática,6,Seminario Doctoral Optativo II,2° Año,1° Cuatrimestre
+Tecnología Informática,Doctorado en Informática,7,Taller de Tesis Doctoral II,2° Año,2° Cuatrimestre
+Tecnología Informática,Doctorado en Informática,8,Tesis Doctoral,2° Año,2° Cuatrimestre

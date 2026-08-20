@@ -72,6 +72,7 @@ urlpatterns = [
 #crud preguntas
     path('get-topics/', material_views.get_topics, name='get_topics'),
     path('get-subtopics/', material_views.get_subtopics, name='get_subtopics'),
+    path('get-unidades/', material_views.get_unidades_by_subject, name='get_unidades_by_subject'),
     
 # AJAX endpoints para carreras
     path('get-faculties/', material_views.get_faculties, name='get_faculties'),
@@ -139,8 +140,8 @@ path('subjects/<int:pk>/edit/', material_views.SubjectUpdateView.as_view(), name
 path('subjects/<int:pk>/delete/', material_views.delete_subject, name='delete_subject'),
 path('subjects/eliminar-bulk/', material_views.bulk_eliminar_subjects, name='bulk_eliminar_subjects'),
 path('subjects/<int:pk>/', material_views.SubjectDetailView.as_view(), name='subject_detail'),  
-path('subjects/<int:subject_id>/outcomes/', material_views.LearningOutcomeListView.as_view(), name='learningoutcome_list'),
-path('subjects/<int:subject_id>/outcomes/add/', material_views.LearningOutcomeCreateView.as_view(), name='learningoutcome_add'),
+path('carrera-materia/<int:career_subject_id>/outcomes/', material_views.LearningOutcomeListView.as_view(), name='learningoutcome_list'),
+path('carrera-materia/<int:career_subject_id>/outcomes/add/', material_views.LearningOutcomeCreateView.as_view(), name='learningoutcome_add'),
 path('outcomes/<int:pk>/edit/', material_views.LearningOutcomeUpdateView.as_view(), name='learningoutcome_edit'),
 path('outcomes/<int:pk>/delete/', material_views.LearningOutcomeDeleteView.as_view(), name='learningoutcome_delete'),
 
@@ -200,6 +201,12 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('onboarding/v2/connect-gemini/', material_views.onboarding_v2_connect_gemini, name='onboarding_v2_connect_gemini'),
     path('onboarding/v2/subject-status/', material_views.onboarding_v2_subject_status, name='onboarding_v2_subject_status'),
 
+    # SOLICITUDES DE ALTA AL CATÁLOGO
+    path('solicitudes-catalogo/nueva/', material_views.catalog_request_create, name='catalog_request_create'),
+    path('solicitudes-catalogo/verificar-duplicado/', material_views.check_catalog_duplicate, name='check_catalog_duplicate'),
+    path('solicitudes-catalogo/mias/', material_views.mis_solicitudes_catalogo, name='mis_solicitudes_catalogo'),
+    path('solicitudes-catalogo/bandeja/', material_views.catalog_requests_bandeja, name='catalog_requests_bandeja'),
+
     # GRUPOS DE CONFIANZA (compartir preguntas)
     path('grupos/', material_views.grupos_list, name='grupos_list'),
     path('grupos/nuevo/', material_views.grupo_crear, name='grupo_crear'),
@@ -207,6 +214,8 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('grupos/<int:pk>/invitar/', material_views.grupo_invitar, name='grupo_invitar'),
     path('grupos/<int:pk>/compartir-materia/', material_views.compartir_materia, name='compartir_materia'),
     path('grupos/<int:pk>/compartir-rubrica/', material_views.compartir_rubrica, name='compartir_rubrica'),
+    path('grupos/<int:pk>/compartir-plantilla/', material_views.compartir_plantilla, name='compartir_plantilla'),
+    path('grupos/<int:pk>/compartir-formato/', material_views.compartir_formato, name='compartir_formato'),
     path('grupos/invitaciones/', material_views.invitaciones_pendientes, name='invitaciones_pendientes'),
 
     # RÚBRICAS

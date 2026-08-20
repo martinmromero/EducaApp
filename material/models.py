@@ -6,6 +6,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 import json
 
 # --- MODELOS V2 PRIMERO (para evitar referencias circulares) ---
@@ -42,6 +43,22 @@ class InstitutionV2(models.Model):
     # en los selectores de uso normal (Crear Examen, Formatos de Impresión,
     # etc.). Ver [[project_include_seed_missing_across_endpoints]].
     is_seed_demo = models.BooleanField(default=False)
+    # Espacio personal vs. catálogo institucional (ver "personal space"
+    # acordado con el usuario): una fila creada por un usuario raso nace
+    # con esto en False — usable de inmediato solo para quien la creó (y
+    # quien comparta con ella), invisible en los selectores públicos hasta
+    # que un admin la suma al catálogo institucional (o la fusiona con una
+    # ya existente). Todo lo cargado por el admin, o lo ya migrado antes de
+    # este campo, queda en True.
+    es_catalogo_institucional = models.BooleanField(
+        default=True, verbose_name="En el catálogo institucional",
+    )
+    # Nullable porque las filas cargadas por el admin (o migradas antes de
+    # este campo) no tienen "creador personal" en este sentido.
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='institutions_created', verbose_name="Creado por",
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Fecha de creación"
@@ -56,10 +73,16 @@ class InstitutionV2(models.Model):
         verbose_name_plural = "Instituciones V2"
         ordering = ['name']
         constraints = [
+            # Alcance acotado al catálogo institucional a propósito — dos
+            # usuarios distintos pueden tener cada uno un espacio personal
+            # con el mismo nombre sin chocar entre sí (la desambiguación de
+            # esos casos queda para el admin al momento de fusionar, no
+            # para una restricción de base de datos). Mismo criterio que ya
+            # se usa en Career.name (ver informe de rediseño del catálogo).
             models.UniqueConstraint(
                 fields=['name'],
-                condition=models.Q(is_active=True),
-                name='unique_active_institution_name'
+                condition=models.Q(is_active=True, es_catalogo_institucional=True),
+                name='unique_active_institutional_institution_name'
             )
         ]
 
@@ -172,6 +195,15 @@ class FacultyV2(models.Model):
         verbose_name="Activa",
         help_text="Indica si la facultad está activa"
     )
+    # Ver InstitutionV2.es_catalogo_institucional — mismo mecanismo de
+    # espacio personal vs. catálogo institucional.
+    es_catalogo_institucional = models.BooleanField(
+        default=True, verbose_name="En el catálogo institucional",
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='faculties_created', verbose_name="Creado por",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -182,10 +214,11 @@ class FacultyV2(models.Model):
         constraints = [
             # Igual criterio que CampusV2: una facultad desactivada
             # (delete_faculty_v2 hace soft-delete) no debe bloquear crear
-            # una facultad nueva con el mismo nombre.
+            # una facultad nueva con el mismo nombre. Acotado al catálogo
+            # institucional por el mismo motivo que InstitutionV2 — ver ahí.
             models.UniqueConstraint(
                 fields=['institution', 'name'],
-                condition=models.Q(is_active=True),
+                condition=models.Q(is_active=True, es_catalogo_institucional=True),
                 name='unique_active_faculty_name_per_institution'
             )
         ]
@@ -212,104 +245,31 @@ class InstitutionLog(models.Model):
         verbose_name = "Log de Institución"
         verbose_name_plural = "Logs de Instituciones"
 
-# --- MODELOS ORIGINALES (se mantienen igual) ---
-#
-# CANDIDATO A BORRAR (auditoría 2026-08-03, ver memoria
-# project_institution_v1_cleanup): Institution/Campus/Faculty son el
-# esquema "v1", reemplazado en toda la app por InstitutionV2/CampusV2/
-# FacultyV2 — el sidebar, las vistas activas y seed_demo_content.py usan
-# exclusivamente el v2. Estado real de cada uno:
-#   - Campus/Faculty (v1): sin ninguna conexión viva — el único código que
-#     los toca es edit_institution/delete_institution (ver views.py, ya
-#     marcadas candidato a borrar ahí: son inalcanzables, sin URL, y
-#     tirarían NameError si se invocaran).
-#   - Institution (v1): tenía una conexión "viva" a través de
-#     Profile.institutions (M2M), pero esa conexión estaba rota (tipos
-#     incompatibles con InstitutionV2 al guardar, TypeError reproducido) —
-#     se sacó el campo del form que la usaba (ver UserEditForm en
-#     forms.py). InstitutionAdmin (admin.py) sigue registrado y también
-#     tiene bugs propios (trata related managers como campos planos).
-#   - Exam.institution/faculty/campus (FKs a estos 3 modelos v1) están
-#     declarados pero el código de guardado de examen nunca los puebla
-#     (usa institution_name/faculty_name/campus_name, snapshots de texto).
-#
-# Borrar estos 3 modelos requiere una migración nueva (DeleteModel + quitar
-# los FKs/M2M que los referencian, no solo sacar el código Python) — no se
-# hizo en esta pasada, queda documentado para la próxima limpieza.
-
-class Institution(models.Model):
-    name = models.CharField(max_length=255, unique=True)
-    logo = models.ImageField(upload_to='institution_logos/', null=True, blank=True)
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='institutions'
-    )
-
-    def clean(self):
-        # Validación pre-guardado
-        if not self.name.strip():
-            raise ValidationError("El nombre no puede estar vacío")
-        if Institution.objects.filter(name=self.name).exclude(id=self.id).exists():
-            raise ValidationError("Nombre ya existe")
-
-    def save(self, *args, **kwargs):
-        self.full_clean()  # Ejecuta clean() antes de guardar
-        super().save(*args, **kwargs)
-
-    class Meta:
-        constraints = [
-            # Garantiza que el nombre no sea vacío a nivel de BD
-            models.CheckConstraint(
-                check=models.Q(name__gt=''),
-                name="non_empty_name"
-            ),
-            # Evita duplicados por owner (opcional)
-            models.UniqueConstraint(
-                fields=['name', 'owner'],
-                name='unique_institution_owner'
-            )
-        ]
-
-class Campus(models.Model):
-    name = models.CharField(max_length=100)
-    address = models.TextField(blank=True)
-    institution = models.ForeignKey(
-        'Institution',  # Usar string para referencia
-        on_delete=models.CASCADE,
-        related_name='campuses'
-    )
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['name', 'institution'],
-                name='unique_campus_per_institution'
-            )
-        ]
-        verbose_name_plural = "Campuses"
-
-class Faculty(models.Model):
-    name = models.CharField(max_length=100)
-    code = models.CharField(max_length=10, blank=True)
-    institution = models.ForeignKey(
-        'Institution',  # Usar string para referencia
-        on_delete=models.CASCADE,
-        related_name='faculties'
-    )
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['name', 'institution'],
-                name='unique_faculty_per_institution'
-            )
-        ]
-        verbose_name_plural = "Faculties"
+# Institution/Campus/Faculty (v1) fueron eliminados — ver rediseño del
+# catálogo académico público (informe "Catálogo Académico"). Reemplazados
+# en toda la app por InstitutionV2/CampusV2/FacultyV2 desde hace tiempo;
+# eran código muerto e inalcanzable (sin URL, sin form, NameError si se
+# invocaban) salvo Profile.institutions, que ya estaba desconectado del
+# form real por un bug de tipos. Ver git history si hace falta consultar
+# el modelo viejo.
 
 class Subject(models.Model):
+    # OJO: name NO es unique=True todavía a propósito. get_or_create_real_subject()
+    # (más abajo) matchea materias por (nombre, created_by) y crea una fila
+    # nueva por usuario cuando hace falta — agregar unique=True acá rompería
+    # esa función (IntegrityError) para cualquier docente que tipee un nombre
+    # de materia que ya usó otro. Volverlo único al catálogo público requiere
+    # primero cerrar la creación libre de materias (Fase 3: bloquear
+    # get_or_create_real_subject/"Nueva materia" para usuarios rasos y
+    # ofrecer el flujo de solicitud) — se hace en un paso aparte, no acá.
     name = models.CharField(max_length=100)
-    careers = models.ManyToManyField('Career', related_name='subject_careers')
+    # La M2M real vive del lado de Career (ver Career.subjects, through=
+    # CareerSubject) — acá no se declara una segunda M2M aparte. Antes había
+    # dos M2M independientes entre Subject y Career (Subject.careers y
+    # Career.subjects, cada una con su propia tabla puente, sincronizadas a
+    # mano en seed_demo_content.py) — se consolidó en una sola relación:
+    # `subject.careers` sigue andando igual, ahora como accessor inverso de
+    # Career.subjects.
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     learning_outcomes = models.TextField(
@@ -346,6 +306,15 @@ class Subject(models.Model):
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='owned_subjects', verbose_name="Creada por",
     )
+    # Ver InstitutionV2.es_catalogo_institucional — mismo mecanismo de
+    # espacio personal vs. catálogo institucional. A diferencia de los
+    # otros tres niveles, acá conviven filas viejas de antes de este campo
+    # (get_or_create_real_subject de un docente) con las del catálogo
+    # curado — el backfill de la migración distingue por si están
+    # vinculadas a alguna Carrera (CareerSubject), no asume True a secas.
+    es_catalogo_institucional = models.BooleanField(
+        default=True, verbose_name="En el catálogo institucional",
+    )
 
     class Meta:
         db_table = 'material_subjects'
@@ -355,27 +324,6 @@ class Subject(models.Model):
 
     def __str__(self):
         return self.name
-
-    def save_outcomes(self, outcomes_data):
-        """Guarda outcomes en el nuevo modelo (LearningOutcome)"""
-        current_outcomes = list(self.outcome_relations.all())
-        
-        for outcome_data in outcomes_data:
-            outcome_id = outcome_data.get('id')
-            if outcome_id and not outcome_id.startswith('legacy-'):
-                outcome = next((o for o in current_outcomes if str(o.id) == str(outcome_id)), None)
-                if outcome:
-                    outcome.description = outcome_data['description']
-                    outcome.save()
-                    current_outcomes.remove(outcome)
-            else:
-                LearningOutcome.objects.create(
-                    subject=self,
-                    description=outcome_data['description']
-                )
-        
-        for outcome in current_outcomes:
-            outcome.delete()
 
     @property
     def legacy_outcomes(self):
@@ -398,9 +346,15 @@ class Subject(models.Model):
         return self._legacy_outcomes_cache
 
     def get_all_outcomes(self):
-        """Método completo (confirmado) - no modificar"""
-        outcomes = list(self.outcome_relations.all().values('id', 'description'))
-        
+        """Resultados de aprendizaje de TODAS las carreras que usan esta
+        materia (LearningOutcome ahora cuelga de CareerSubject, no de
+        Subject directo — ver informe de rediseño). Para el detalle por
+        carrera, ver SubjectDetailView."""
+        outcomes = list(
+            LearningOutcome.objects.filter(career_subject__subject=self)
+            .values('id', 'description')
+        )
+
         for i, item in enumerate(self.legacy_outcomes, start=1):
             outcomes.append({
                 'id': f'legacy-{i}',
@@ -438,12 +392,35 @@ def get_or_create_real_subject(name, user):
     return Subject.objects.create(name=name, is_seed_demo=False, created_by=user), True
 
 
+def get_real_subject_or_none(name):
+    """Busca una Materia YA EXISTENTE y pública en el catálogo (case-
+    insensitive, ignora las semilla) — a diferencia de
+    get_or_create_real_subject, esta NUNCA crea una fila nueva. La carga
+    de preguntas (individual o masiva) exige que la Materia ya esté
+    cargada en el catálogo: si falta, se pide por Solicitar alta, no se
+    crea al vuelo por texto libre en una subida (ver informe de
+    rediseño). También ignora `created_by` a propósito: la Materia es
+    catálogo público desde la Fase 2, no algo privado por usuario."""
+    name = (name or '').strip()
+    if not name:
+        return None
+    return Subject.objects.filter(name__iexact=name, is_seed_demo=False).first()
+
+
 class LearningOutcome(models.Model):
-    subject = models.ForeignKey(
-        'Subject',
+    # Unívoco a (materia, carrera), no solo a la materia — confirmado
+    # explícitamente como requisito no opcional (ver informe de rediseño):
+    # la misma Materia puede representar programas distintos en carreras
+    # distintas (confirmado con datos reales: "Inglés I" se repite en 4
+    # carreras de UAI-FTI), así que sus resultados de aprendizaje no pueden
+    # quedar pegados a la Materia en abstracto. Obligatorio desde la Fase 4
+    # (reset de datos, tabla vacía — se verificó que el único call site que
+    # crea filas ya lo pasa siempre, ver seed_demo_content.py).
+    career_subject = models.ForeignKey(
+        'CareerSubject',
         on_delete=models.CASCADE,
-        related_name="outcome_relations",  # Nombre único que evita conflictos
-        verbose_name="Materia"
+        related_name="outcome_relations",
+        verbose_name="Materia en la carrera"
     )
     description = models.TextField(
         verbose_name="Contenido",
@@ -455,8 +432,31 @@ class LearningOutcome(models.Model):
     class Meta:
         verbose_name = "Resultado de Aprendizaje"
         verbose_name_plural = "Resultados de Aprendizaje"
-        ordering = ['subject__name', 'created_at']
-        
+        ordering = ['created_at']
+
+
+class Unidad(models.Model):
+    """
+    Agrupa Temas de una Materia para elegir contenido más rápido al crear
+    examen (por unidad completa, o por tema suelto como hoy — ver informe
+    de rediseño). Privada por usuario, igual que Topic: cada docente arma
+    sus propias unidades sobre sus propios temas, no es catálogo público.
+    """
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='unidades')
+    name = models.CharField(max_length=255, verbose_name="Nombre de la unidad")
+    order = models.PositiveSmallIntegerField(default=0, verbose_name="Orden")
+
+    class Meta:
+        verbose_name = "Unidad"
+        verbose_name_plural = "Unidades"
+        unique_together = ('subject', 'created_by', 'name')
+        ordering = ['order', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.subject.name})"
+
+
 class Topic(models.Model):
     name = models.CharField(max_length=255, verbose_name="Nombre del Tópico")
     subject = models.ForeignKey(
@@ -469,6 +469,22 @@ class Topic(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(5)],
         verbose_name="Importancia (1-5)"
     )
+    # Sigue nullable a propósito, a diferencia de LearningOutcome.career_
+    # subject (que sí se endureció en la Fase 4): hay ~10 call sites que
+    # crean Topic sin pasar created_by (document processor, wizard paso 3,
+    # add_topic, clean_seed_subjects, tests) — volverlo obligatorio ahora
+    # rompería esos flujos en cadena. Requiere una revisión propia de cada
+    # uno, no un cambio de un renglón. unique_together de abajo trata
+    # múltiples NULL como distintos (comportamiento normal de SQL), así que
+    # no bloquea nada mientras tanto.
+    created_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='owned_topics', verbose_name="Creado por",
+    )
+    unidad = models.ForeignKey(
+        Unidad, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='topics', verbose_name="Unidad",
+    )
 
     def __str__(self):
         return f"{self.subject.name} - {self.name}"
@@ -476,7 +492,7 @@ class Topic(models.Model):
     class Meta:
         verbose_name = "Tópico"
         verbose_name_plural = "Tópicos"
-        unique_together = ('name', 'subject')
+        unique_together = ('name', 'subject', 'created_by')
 
 class Subtopic(models.Model):
     name = models.CharField(max_length=255, verbose_name="Nombre del Sub-tópico")
@@ -871,27 +887,9 @@ class Exam(models.Model):
         ('noche', 'Noche'),  
     ]  
 
-    institution = models.ForeignKey(  
-        'Institution',  
-        on_delete=models.SET_NULL,  
-        null=True,  
-        blank=True,  
-        verbose_name="Institución"  
-    )  
-    faculty = models.ForeignKey(  
-        'Faculty',  
-        on_delete=models.SET_NULL,  
-        null=True,  
-        blank=True,  
-        verbose_name="Facultad"  
-    )  
-    campus = models.ForeignKey(  
-        'Campus',  
-        on_delete=models.SET_NULL,  
-        null=True,  
-        blank=True,  
-        verbose_name="Sede"  
-    )  
+    # institution/faculty/campus (FKs a Institution/Faculty/Campus v1) se
+    # quitaron junto con el stack v1 — nunca se poblaban, el guardado de
+    # examen siempre usó institution_name/faculty_name/campus_name (texto).
     career_name = models.CharField(max_length=255, verbose_name="Carrera", blank=True, default='')  
     subject = models.ForeignKey(  
         'Subject',  
@@ -1033,11 +1031,6 @@ class Profile(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
-    institutions = models.ManyToManyField(
-        Institution,
-        blank=True,
-        verbose_name="Instituciones"
-    )
     # ONBOARDING WIZARD — ROLLBACK: eliminar este campo y revertir migración 0020
     onboarding_completed = models.BooleanField(
         default=False,
@@ -1233,10 +1226,16 @@ class Invitation(models.Model):
 
 
 class Career(models.Model):
+    # Ya no es unique=True: con más de una institución cargada (ver informe
+    # de rediseño del catálogo), dos instituciones distintas pueden tener
+    # cada una una carrera con el mismo nombre (ej. "Licenciatura en
+    # Sistemas de Información") — antes esto tiraba IntegrityError apenas
+    # se cargaba la segunda institución. La desambiguación de nombres
+    # "iguales pero distintos" queda en manos de quien carga el catálogo
+    # (ver clean(), más abajo, que ya no bloquea duplicados).
     name = models.CharField(
         max_length=255,
         verbose_name="Nombre de la Carrera",
-        unique=True,
         help_text="Nombre completo de la carrera"
     )
     faculties = models.ManyToManyField(
@@ -1247,9 +1246,10 @@ class Career(models.Model):
     )
     subjects = models.ManyToManyField(
         Subject,
+        through='CareerSubject',
         blank=True,
         verbose_name="Materias",
-        related_name="career_subjects"  # related_name único
+        related_name="careers"
     )
     campus = models.ManyToManyField(
         CampusV2,
@@ -1261,6 +1261,15 @@ class Career(models.Model):
     # que InstitutionV2.is_seed_demo: solo debe verse en el esquema de
     # ejemplo del asistente, nunca en los selectores de uso normal.
     is_seed_demo = models.BooleanField(default=False)
+    # Ver InstitutionV2.es_catalogo_institucional — mismo mecanismo de
+    # espacio personal vs. catálogo institucional.
+    es_catalogo_institucional = models.BooleanField(
+        default=True, verbose_name="En el catálogo institucional",
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='careers_created', verbose_name="Creado por",
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Fecha de creación"
@@ -1285,13 +1294,40 @@ class Career(models.Model):
         """Validación adicional"""
         if not self.name.strip():
             raise ValidationError("El nombre no puede estar vacío")
-        
-        if Career.objects.filter(name__iexact=self.name).exclude(id=self.id).exists():
-            raise ValidationError("Ya existe una carrera con este nombre")
 
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class CareerSubject(models.Model):
+    """
+    Through explícito de Career.subjects — cada fila es "esta Materia, tal
+    como se cursa dentro de esta Carrera puntual". numero_materia/anio_
+    cursada/cuatrimestre_cursada son datos del PLAN DE ESTUDIOS de esa
+    carrera, no de la Materia en sí (la misma "Álgebra I" puede ser 1er año
+    en una carrera y 3er año en otra) — por eso viven acá y no en Subject.
+
+    Los tres campos son blank=True/default='' (no obligatorios) a propósito:
+    así career.subjects.add(subject)/.set(...) sigue funcionando sin pasar
+    valores extra (ver seed_demo_content.py), para altas rápidas donde
+    todavía no se cargó el detalle del plan de estudios.
+    """
+    career = models.ForeignKey(Career, on_delete=models.CASCADE)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    numero_materia = models.CharField(max_length=20, blank=True, default='', verbose_name="N° de materia")
+    anio_cursada = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="Año de cursada")
+    cuatrimestre_cursada = models.CharField(max_length=20, blank=True, default='', verbose_name="Cuatrimestre de cursada")
+
+    class Meta:
+        verbose_name = "Materia de la carrera"
+        verbose_name_plural = "Materias de la carrera"
+        unique_together = ('career', 'subject')
+        ordering = ['anio_cursada', 'numero_materia']
+
+    def __str__(self):
+        return f"{self.subject.name} ({self.career.name})"
+
 
 #nuevas clases para relacionar instituciones con carreras y materias.  falta ajustar carreras, materias e instituciones
 class InstitutionCareer(models.Model):
@@ -1360,6 +1396,181 @@ class InstitutionSubject(models.Model):
 
     def __str__(self):
         return f"{self.institution.name} - {self.subject.name}"
+
+
+class CatalogRequest(models.Model):
+    """
+    Solicitud de un usuario para agregar algo al catálogo público
+    (Institución/Facultad/Carrera/Materia, ver informe de rediseño). El
+    catálogo pasa a ser de alta exclusiva de admin — esta es la vía para
+    que un usuario pida algo que falta, en vez de crearlo él mismo.
+
+    institucion/facultad/carrera son FKs reales al catálogo YA EXISTENTE
+    (no texto libre): el formulario arma el contexto con dropdowns en
+    cascada, así el admin no tiene que interpretar qué quiso decir el
+    usuario. Solo `nombre_propuesto` es texto libre — lo nuevo que falta.
+    """
+    TIPO_CHOICES = [
+        ('institucion', 'Institución'),
+        ('facultad', 'Facultad'),
+        ('carrera', 'Carrera'),
+        ('materia', 'Materia'),
+        ('resultado_aprendizaje', 'Resultado de aprendizaje'),
+    ]
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('aprobada', 'Aprobada'),
+        ('rechazada', 'Rechazada'),
+    ]
+
+    tipo = models.CharField(max_length=25, choices=TIPO_CHOICES, verbose_name="Tipo")
+    # TextField (no CharField) porque para tipo='resultado_aprendizaje' este
+    # campo pasa a ser el texto del resultado propuesto, no solo un nombre
+    # corto — puede ser una oración larga.
+    nombre_propuesto = models.TextField(verbose_name="Nombre propuesto")
+
+    # Contexto — solo se completa lo que corresponda según `tipo` (una
+    # Institución nueva no tiene contexto; una Materia nueva completa los 3).
+    # Cada nivel admite DOS formas, mutuamente excluyentes: elegir una fila
+    # YA EXISTENTE del catálogo (el FK) o proponer un nombre NUEVO (el
+    # "_nueva" de al lado) cuando ese nivel tampoco existe todavía — así se
+    # puede pedir la cadena completa institución+facultad+carrera+materia
+    # de una sola solicitud en vez de una por vez esperando aprobación en
+    # el medio.
+    institucion = models.ForeignKey(
+        InstitutionV2, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='catalog_requests', verbose_name="Institución",
+    )
+    institucion_nueva = models.CharField(max_length=255, blank=True, default='', verbose_name="Institución (nueva)")
+    facultad = models.ForeignKey(
+        FacultyV2, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='catalog_requests', verbose_name="Facultad",
+    )
+    facultad_nueva = models.CharField(max_length=255, blank=True, default='', verbose_name="Facultad (nueva)")
+    carrera = models.ForeignKey(
+        Career, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='catalog_requests', verbose_name="Carrera",
+    )
+    carrera_nueva = models.CharField(max_length=255, blank=True, default='', verbose_name="Carrera (nueva)")
+
+    # Solo para tipo='resultado_aprendizaje' — a diferencia de los otros
+    # niveles, acá NO hay variante "_nueva": un resultado de aprendizaje
+    # solo tiene sentido sobre una Materia que ya está en el catálogo Y ya
+    # vinculada a la Carrera elegida (una fila de CareerSubject real). Si
+    # esa Materia todavía no existe, primero hay que pedirla con
+    # tipo='materia' y recién después pedir el resultado.
+    materia = models.ForeignKey(
+        Subject, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='catalog_requests', verbose_name="Materia",
+    )
+
+    # Solo tiene efecto cuando la solicitud da de alta una institución nueva
+    # (tipo='institucion' o institucion_nueva completado en un nivel más
+    # profundo) — se copia al InstitutionV2 recién creado al aprobar.
+    logo_propuesto = models.ImageField(
+        upload_to='catalog_request_logos/', null=True, blank=True,
+        verbose_name="Logo propuesto",
+        help_text="Solo si se está proponiendo una institución nueva",
+    )
+
+    justificacion = models.TextField(blank=True, default='', verbose_name="Justificación")
+    solicitado_por = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='catalog_requests',
+        verbose_name="Solicitado por",
+    )
+    estado = models.CharField(
+        max_length=10, choices=ESTADO_CHOICES, default='pendiente', verbose_name="Estado",
+    )
+    nota_admin = models.TextField(blank=True, default='', verbose_name="Nota del admin")
+    resuelto_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='resolved_catalog_requests', verbose_name="Resuelto por",
+    )
+    resuelto_en = models.DateTimeField(null=True, blank=True, verbose_name="Resuelto el")
+    created_at = models.DateTimeField(auto_now_add=True)
+    # Aviso al solicitante: distingue "ya resuelta" de "ya se lo mostré" —
+    # sostiene el badge de notificación en el menú (se apaga al visitar
+    # "Mis solicitudes", ver mis_solicitudes_catalogo).
+    visto_por_solicitante = models.BooleanField(default=False, verbose_name="Visto por el solicitante")
+
+    class Meta:
+        verbose_name = "Solicitud de catálogo"
+        verbose_name_plural = "Solicitudes de catálogo"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_tipo_display()}: {self.nombre_propuesto} ({self.get_estado_display()})"
+
+    # "el resultado de aprendizaje" es masculino, el resto de los tipos son
+    # femeninos — usado por resultado_mensaje() para el artículo correcto.
+    _ARTICULO_POR_TIPO = {
+        'institucion': 'la', 'facultad': 'la', 'carrera': 'la', 'materia': 'la',
+        'resultado_aprendizaje': 'el',
+    }
+
+    def contexto_display(self):
+        """Cadena institución / facultad / carrera (/ materia) para mostrar
+        en las tablas de la bandeja y "Mis solicitudes". Desde que
+        _materializar_espacio_personal crea todo de una al enviar la
+        solicitud, el FK de cada nivel queda poblado de entrada — por eso
+        acá NO alcanza con "hay FK, mostrar el nombre y listo": un FK
+        puede apuntar a una fila ya institucional o a un borrador recién
+        creado en el espacio personal de esta misma solicitud, y esa
+        distinción es justamente lo que el admin necesita ver de un
+        vistazo (una solicitud de Materia puede traer colgada una
+        Institución/Facultad/Carrera nuevas, todas sin catalogar
+        todavía)."""
+        partes = []
+        for fk_attr, nueva_attr in (
+            ('institucion', 'institucion_nueva'),
+            ('facultad', 'facultad_nueva'),
+            ('carrera', 'carrera_nueva'),
+        ):
+            fk = getattr(self, fk_attr)
+            nueva = getattr(self, nueva_attr)
+            if fk:
+                etiqueta = fk.name if fk.es_catalogo_institucional else f'{fk.name} (espacio personal)'
+                partes.append(etiqueta)
+            elif nueva:
+                partes.append(f'{nueva} (espacio personal)')
+        if self.materia_id:
+            m = self.materia
+            etiqueta = m.name if m.es_catalogo_institucional else f'{m.name} (espacio personal)'
+            partes.append(etiqueta)
+        return ' / '.join(partes)
+
+    def resultado_mensaje(self):
+        """Texto del aviso para el solicitante, adaptado a los 5 tipos
+        posibles (institución/facultad/carrera/materia/resultado de
+        aprendizaje) y a si fue aprobada o rechazada. Vacío si todavía
+        está pendiente."""
+        if self.estado == 'pendiente':
+            return ''
+        institucion_nombre = self.institucion.name if self.institucion_id else self.institucion_nueva
+        facultad_nombre = self.facultad.name if self.facultad_id else self.facultad_nueva
+        carrera_nombre = self.carrera.name if self.carrera_id else self.carrera_nueva
+        materia_nombre = self.materia.name if self.materia_id else ''
+        contexto_por_tipo = {
+            'institucion': '',
+            'facultad': f' en {institucion_nombre}' if institucion_nombre else '',
+            'carrera': f' en {facultad_nombre}' if facultad_nombre else '',
+            'materia': f' en {carrera_nombre}' if carrera_nombre else '',
+            'resultado_aprendizaje': f' en {materia_nombre} ({carrera_nombre})' if materia_nombre else '',
+        }
+        contexto = contexto_por_tipo.get(self.tipo, '')
+        tipo_label = self.get_tipo_display().lower()
+        articulo = self._ARTICULO_POR_TIPO.get(self.tipo, 'la')
+        if self.estado == 'aprobada':
+            return (
+                f'La solicitud para agregar {articulo} {tipo_label} "{self.nombre_propuesto}"{contexto} '
+                f'fue aprobada — ya está disponible en el catálogo.'
+            )
+        motivo = f' Motivo: {self.nota_admin}' if self.nota_admin else ''
+        return (
+            f'La solicitud para agregar {articulo} {tipo_label} "{self.nombre_propuesto}"{contexto} '
+            f'fue rechazada.{motivo}'
+        )
+
 
 class ExamVersionBatch(models.Model):
     name = models.CharField(max_length=255, verbose_name='Nombre del lote')
@@ -2458,58 +2669,75 @@ class GroupMembership(models.Model):
         return f"{self.user.username} en {self.group.name} ({self.get_status_display()})"
 
 
-class SubjectShare(models.Model):
+class ContentShare(models.Model):
+    """
+    Reemplaza a SubjectShare y RubricShare con un único modelo de "compartir"
+    (ver informe de rediseño del catálogo — elegiste una tabla genérica en
+    vez de una por tipo). No hay migración de datos porque no había nada
+    que preservar (reset de base acordado, ver Fase 4).
+
+    Es un híbrido a propósito, no 100% genérico objeto-por-objeto:
+      - kind='materia': usa `subject` — comparte automáticamente TODOS los
+        Temas/Unidades/Preguntas de `shared_by` etiquetados a esa materia
+        (una regla, no fila por fila — así funciona hoy y es el modelo
+        mental que ya se usa).
+      - kind='rubrica' / 'plantilla' / 'formato': usa `content_type` +
+        `object_id` (GenericForeignKey) — apunta a un objeto puntual
+        (Rubric / ExamTemplate / FormatoImpresion).
+    """
+    KIND_CHOICES = [
+        ('materia', 'Materia (temas y preguntas)'),
+        ('rubrica', 'Rúbrica'),
+        ('plantilla', 'Plantilla de examen'),
+        ('formato', 'Formato de impresión'),
+    ]
+
     group = models.ForeignKey(
-        SharingGroup, on_delete=models.CASCADE, related_name='subject_shares',
+        SharingGroup, on_delete=models.CASCADE, related_name='content_shares',
         verbose_name="Grupo",
     )
+    shared_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='content_shares',
+        verbose_name="Compartido por",
+    )
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, verbose_name="Tipo")
+
+    # kind='materia'
     subject = models.ForeignKey(
-        'Subject', on_delete=models.CASCADE, related_name='group_shares',
-        verbose_name="Materia",
+        'Subject', on_delete=models.CASCADE, null=True, blank=True,
+        related_name='group_shares', verbose_name="Materia",
     )
-    shared_by = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='subject_shares',
-        verbose_name="Compartida por",
+
+    # kind en rubrica/plantilla/formato
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, null=True, blank=True,
     )
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    shared_object = GenericForeignKey('content_type', 'object_id')
+
     is_active = models.BooleanField(default=True, verbose_name="Activa")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('group', 'subject', 'shared_by')
-        verbose_name = "Materia compartida"
-        verbose_name_plural = "Materias compartidas"
+        verbose_name = "Contenido compartido"
+        verbose_name_plural = "Contenidos compartidos"
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['group', 'shared_by', 'subject'],
+                condition=models.Q(kind='materia'),
+                name='unique_materia_share',
+            ),
+            models.UniqueConstraint(
+                fields=['group', 'shared_by', 'content_type', 'object_id'],
+                condition=~models.Q(kind='materia'),
+                name='unique_object_share',
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.shared_by.username} comparte {self.subject.name} con {self.group.name}"
-
-
-class RubricShare(models.Model):
-    """Igual que SubjectShare pero para Rubric — misma relación de confianza
-    (grupo -> miembros aceptados), ver comentario arriba de SharingGroup."""
-    group = models.ForeignKey(
-        SharingGroup, on_delete=models.CASCADE, related_name='rubric_shares',
-        verbose_name="Grupo",
-    )
-    rubric = models.ForeignKey(
-        Rubric, on_delete=models.CASCADE, related_name='group_shares',
-        verbose_name="Rúbrica",
-    )
-    shared_by = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='rubric_shares',
-        verbose_name="Compartida por",
-    )
-    is_active = models.BooleanField(default=True, verbose_name="Activa")
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ('group', 'rubric', 'shared_by')
-        verbose_name = "Rúbrica compartida"
-        verbose_name_plural = "Rúbricas compartidas"
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.shared_by.username} comparte {self.rubric.title} con {self.group.name}"
+        target = self.subject.name if self.kind == 'materia' else str(self.shared_object)
+        return f"{self.shared_by.username} comparte {target} ({self.kind}) con {self.group.name}"
 
 
 class Favorite(models.Model):
