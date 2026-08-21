@@ -27,6 +27,13 @@ class InstitutionV2(models.Model):
         verbose_name="Logo",
         help_text="Subir imagen del logo institucional"
     )
+    # Búsqueda por sigla ("UAI" → "Universidad Abierta Interamericana") —
+    # no alcanza con acento/mayúsculas-insensible sobre el nombre porque la
+    # sigla no es necesariamente una subcadena del nombre completo.
+    sigla = models.CharField(
+        max_length=20, blank=True, default='', verbose_name="Sigla",
+        help_text="Opcional — permite encontrarla al buscar por sigla además de por nombre completo",
+    )
     logo_b64 = models.TextField(
         null=True,
         blank=True,
@@ -1450,6 +1457,9 @@ class CatalogRequest(models.Model):
         related_name='catalog_requests', verbose_name="Institución",
     )
     institucion_nueva = models.CharField(max_length=255, blank=True, default='', verbose_name="Institución (nueva)")
+    institucion_sigla_nueva = models.CharField(
+        max_length=20, blank=True, default='', verbose_name="Sigla de la institución (nueva)",
+    )
     facultad = models.ForeignKey(
         FacultyV2, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='catalog_requests', verbose_name="Facultad",

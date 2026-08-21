@@ -1,0 +1,21 @@
+{% comment %}
+Encabezado de columna clickeable para reordenar la bandeja — recibe
+`campo` (clave de ORDEN_CAMPOS en la vista) y `etiqueta` (texto visible).
+Repetido por columna vía {% include %} en vez de un templatetag porque
+la lógica de "próxima dirección" es simple y así queda visible acá mismo.
+{% endcomment %}
+{% if orden_actual == campo %}
+    {% if dir_actual == 'desc' %}
+        <a href="?orden={{ campo }}&dir=asc" class="text-body text-decoration-none d-inline-flex align-items-center gap-1">
+            {{ etiqueta }} <i class="bi bi-caret-down-fill small"></i>
+        </a>
+    {% else %}
+        <a href="?orden={{ campo }}&dir=desc" class="text-body text-decoration-none d-inline-flex align-items-center gap-1">
+            {{ etiqueta }} <i class="bi bi-caret-up-fill small"></i>
+        </a>
+    {% endif %}
+{% else %}
+    <a href="?orden={{ campo }}&dir={% if campo == 'fecha' %}desc{% else %}asc{% endif %}" class="text-muted text-decoration-none d-inline-flex align-items-center gap-1">
+        {{ etiqueta }} <i class="bi bi-chevron-expand small opacity-50"></i>
+    </a>
+{% endif %}

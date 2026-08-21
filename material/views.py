@@ -7401,7 +7401,13 @@ def check_catalog_duplicate(request):
     pedir algo nuevo, se ofrece usar lo que ya está en el catálogo en vez
     de arriesgarse a duplicar (ver informe de rediseño). Hasta 5
     candidatos por parecido (no solo substring exacto — ver _similitud),
-    ordenados de más a menos parecido."""
+    ordenados de más a menos parecido.
+
+    Para institución, el parecido se calcula contra el nombre Y la sigla
+    por separado (se usa el que dé mejor puntaje) — la sigla ("UAI") en
+    general no es una subcadena del nombre completo ("Universidad Abierta
+    Interamericana"), así que matchear solo contra el nombre la deja
+    afuera aunque sea exactamente lo que se tipeó."""
     nivel = request.GET.get('nivel')
     q = (request.GET.get('q') or '').strip()
     if len(q) < 2:
@@ -7415,8 +7421,10 @@ def check_catalog_duplicate(request):
         get_visible_institutions, get_visible_faculties,
         get_visible_careers, get_visible_subjects,
     )
+    campos = ['id', 'name', 'es_catalogo_institucional']
     if nivel == 'institucion':
         qs = get_visible_institutions(request.user)
+        campos.append('sigla')
     elif nivel == 'facultad':
         qs = get_visible_faculties(request.user)
         institucion_id = request.GET.get('institucion_id', '')
@@ -7431,8 +7439,16 @@ def check_catalog_duplicate(request):
 
     q_norm = _normalizar_para_busqueda(q)
     q_tokens = _tokens(q_norm)
-    candidatos = qs.order_by('name').values('id', 'name')
-    puntuados = [(c, _similitud(q_norm, q_tokens, c['name'])) for c in candidatos]
+
+    def puntaje(c):
+        mejor = _similitud(q_norm, q_tokens, c['name'])
+        sigla = c.get('sigla')
+        if sigla:
+            mejor = max(mejor, _similitud(q_norm, q_tokens, sigla))
+        return mejor
+
+    candidatos = qs.order_by('name').values(*campos)
+    puntuados = [(c, puntaje(c)) for c in candidatos]
     puntuados = [par for par in puntuados if par[1] > 0]
     puntuados.sort(key=lambda par: -par[1])
     return JsonResponse([c for c, _score in puntuados[:5]], safe=False)
@@ -7741,6 +7757,7 @@ def _materializar_y_generar_solicitudes(form, user):
         return [solicitud]
 
     logo_propuesto = datos.get('logo_propuesto')
+    sigla_propuesta = (datos.get('institucion_sigla_nueva') or '').strip()
     justificacion = datos.get('justificacion', '')
 
     def _aplicar_logo(institution):
@@ -7753,6 +7770,16 @@ def _materializar_y_generar_solicitudes(form, user):
         institution.logo.save(logo_propuesto.name, ContentFile(contenido), save=False)
         institution.logo_b64 = 'data:image/png;base64,' + base64.b64encode(contenido).decode()
         institution.save(update_fields=['logo', 'logo_b64'])
+
+    def _aplicar_sigla(institution):
+        # Fuera de los filtros de _obtener_o_crear_personal a propósito
+        # (igual que el logo): si el usuario reintenta con una sigla
+        # distinta sobre la misma institución personal ya creada, no debe
+        # generar una fila nueva — solo actualiza la que ya existe.
+        if not sigla_propuesta or institution.sigla == sigla_propuesta:
+            return
+        institution.sigla = sigla_propuesta
+        institution.save(update_fields=['sigla'])
 
     def _obtener_o_crear_personal(model, nombre, **extra):
         # Reusa el borrador personal de este mismo usuario si ya lo creó
@@ -7782,6 +7809,7 @@ def _materializar_y_generar_solicitudes(form, user):
     if not institucion_obj and datos.get('institucion_nueva'):
         institucion_obj, creada = _obtener_o_crear_personal(InstitutionV2, datos['institucion_nueva'])
         _aplicar_logo(institucion_obj)
+        _aplicar_sigla(institucion_obj)
         UserInstitution.objects.get_or_create(user=user, institution=institucion_obj)
         if creada:
             _agregar_fila('institucion', institucion_obj.name, institucion=institucion_obj)
@@ -7805,6 +7833,7 @@ def _materializar_y_generar_solicitudes(form, user):
     if tipo == 'institucion':
         nueva_institucion, creada = _obtener_o_crear_personal(InstitutionV2, datos['nombre_propuesto'])
         _aplicar_logo(nueva_institucion)
+        _aplicar_sigla(nueva_institucion)
         UserInstitution.objects.get_or_create(user=user, institution=nueva_institucion)
         if creada:
             _agregar_fila('institucion', nueva_institucion.name, institucion=nueva_institucion)
@@ -7851,9 +7880,33 @@ def catalog_requests_bandeja(request):
         (messages.success if ok else messages.error)(request, mensaje, extra_tags='solicitudes')
         return redirect('material:catalog_requests_bandeja')
 
+    # Orden por columna (clic en el encabezado) — "fecha" desc es el
+    # default (más nueva primero), como se pidió; antes venía siempre
+    # agrupada por estado primero, lo que no dejaba ver el orden real de
+    # llegada sin buscarlas una por una en cada grupo.
+    ORDEN_CAMPOS = {
+        'tipo': 'tipo',
+        'nombre': 'nombre_propuesto',
+        'solicitante': 'solicitado_por__username',
+        'fecha': 'created_at',
+        'estado': 'estado',
+    }
+    orden = request.GET.get('orden', 'fecha')
+    if orden not in ORDEN_CAMPOS:
+        orden = 'fecha'
+    direccion = request.GET.get('dir', 'desc' if orden == 'fecha' else 'asc')
+    if direccion not in ('asc', 'desc'):
+        direccion = 'asc'
+    campo = ORDEN_CAMPOS[orden]
+    if direccion == 'desc':
+        campo = '-' + campo
+    # Desempate estable por fecha desc — dos solicitudes con el mismo tipo/
+    # estado no deberían saltar de posición entre pedidos.
+    orden_final = [campo] if orden == 'fecha' else [campo, '-created_at']
+
     solicitudes = list(CatalogRequest.objects.select_related(
         'institucion', 'facultad', 'carrera', 'materia', 'solicitado_por', 'resuelto_por'
-    ).order_by('estado', '-created_at'))
+    ).order_by(*orden_final))
 
     # Para las filas que vinieron de un mismo envío (lote_id compartido —
     # ver _materializar_y_generar_solicitudes), arma en cada una la lista
@@ -7871,6 +7924,8 @@ def catalog_requests_bandeja(request):
 
     return render(request, 'material/catalog_requests/bandeja.html', {
         'solicitudes': solicitudes,
+        'orden_actual': orden,
+        'dir_actual': direccion,
     })
 
 

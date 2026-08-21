@@ -14,12 +14,12 @@
                     <table class="table table-hover mb-0 align-middle">
                         <thead>
                             <tr>
-                                <th>Tipo</th>
-                                <th>Nombre propuesto</th>
+                                <th>{% include 'material/catalog_requests/_bandeja_orden_th.html' with campo='tipo' etiqueta='Tipo' %}</th>
+                                <th>{% include 'material/catalog_requests/_bandeja_orden_th.html' with campo='nombre' etiqueta='Nombre propuesto' %}</th>
                                 <th>Contexto</th>
-                                <th>Solicitado por</th>
-                                <th>Fecha</th>
-                                <th>Estado</th>
+                                <th>{% include 'material/catalog_requests/_bandeja_orden_th.html' with campo='solicitante' etiqueta='Solicitado por' %}</th>
+                                <th>{% include 'material/catalog_requests/_bandeja_orden_th.html' with campo='fecha' etiqueta='Fecha' %}</th>
+                                <th>{% include 'material/catalog_requests/_bandeja_orden_th.html' with campo='estado' etiqueta='Estado' %}</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>

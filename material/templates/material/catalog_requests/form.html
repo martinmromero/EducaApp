@@ -3,22 +3,16 @@
 
 {% block content %}
 <div class="container-fluid">
-    <h1 class="h3 mb-4 text-gray-800"><i class="bi bi-send me-2"></i>Solicitar alta al catálogo</h1>
+    <h1 class="h3 mb-4 text-gray-800"><i class="bi bi-plus-circle me-2"></i>Agregar a mi catálogo</h1>
 
     {% show_messages "solicitudes" %}
 
     <div class="card shadow-sm" style="max-width:640px">
         <div class="card-body">
-            <p class="text-muted">
-                Institución, Facultad, Carrera y Materia son un catálogo curado por el administrador.
-                Si algo no está, puede solicitarse acá. Al elegir qué tipo de elemento falta, el formulario
-                pide el contexto necesario (por ejemplo, una Materia nueva necesita saber en qué Carrera va):
-                cada nivel de contexto se completa eligiendo uno ya existente, o proponiendo uno nuevo si
-                tampoco está — así se puede pedir una cadena completa (institución + facultad + carrera + materia)
-                de una sola vez, sin esperar a que cada nivel se apruebe por separado.
+            <p class="text-muted small mb-4">
+                Lo que se crea acá queda disponible al instante en el espacio personal de quien lo carga;
+                más adelante puede sumarse al catálogo institucional.
             </p>
-
-            <div id="resumenSolicitud" class="alert alert-secondary small mb-3"></div>
 
             <form method="post" id="catalogRequestForm" enctype="multipart/form-data">
                 {% csrf_token %}
@@ -26,151 +20,300 @@
                     <div class="alert alert-danger">{{ form.non_field_errors }}</div>
                 {% endif %}
 
-                <div class="mb-3">
-                    <label class="form-label">{{ form.tipo.label }}</label>
+                <div class="mb-4">
+                    <label class="form-label">¿Qué se quiere agregar al catálogo?</label>
                     {{ form.tipo }}
                 </div>
 
-                <div class="mb-3" id="fieldInstitucion" style="display:none;">
-                    <label class="form-label">Institución</label>
-                    {{ form.institucion }}
-                    {% if form.institucion.errors %}<div class="invalid-feedback d-block">{{ form.institucion.errors }}</div>{% endif %}
-                    <div class="mt-2" id="institucionNuevaWrap">
-                        <label class="form-label small text-muted mb-1">{{ form.institucion_nueva.label }}</label>
+                <div id="catreqChips">
+                    <!-- Chip: Institución -->
+                    <div class="catreq-chip" id="chipInstitucion" data-nivel="institucion">
+                        <div class="catreq-chip-head" data-role="empty">
+                            <div class="catreq-chip-icon">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h1M14 8h1M9 12h1M14 12h1"/><path d="M10 21v-3h4v3"/></svg>
+                            </div>
+                            <div class="catreq-chip-body">
+                                <div class="catreq-chip-placeholder">+ Institución</div>
+                                <div class="catreq-chip-sub"></div>
+                            </div>
+                        </div>
+                        <div class="catreq-chip-head" data-role="filled" style="display:none;">
+                            <div class="catreq-chip-icon">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h1M14 8h1M9 12h1M14 12h1"/><path d="M10 21v-3h4v3"/></svg>
+                            </div>
+                            <div class="catreq-chip-body">
+                                <div class="catreq-chip-title-sm">Institución</div>
+                                <div class="catreq-chip-name"></div>
+                            </div>
+                            <span class="catreq-chip-badge"></span>
+                            <button type="button" class="catreq-chip-edit" aria-label="Editar institución">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16.5 3.5 4 4L8 20H4v-4L16.5 3.5Z"/></svg>
+                            </button>
+                        </div>
+                        <div class="catreq-chip-expand" style="display:none;">
+                            <div class="catreq-chip-question"></div>
+                            <div class="catreq-chip-search">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+                                <input type="text" class="catreq-search-input" placeholder="Buscar por nombre o sigla, o crear una institución nueva...">
+                            </div>
+                            <div class="catreq-chip-suggest"></div>
+                            <div class="catreq-chip-extra" style="display:none;">
+                                <label class="form-label small text-muted mb-1">{{ form.institucion_sigla_nueva.label }}</label>
+                                {{ form.institucion_sigla_nueva }}
+                                <label class="form-label small text-muted mb-1 mt-2">{{ form.logo_propuesto.label }}</label>
+                                {{ form.logo_propuesto }}
+                                {% if form.logo_propuesto.errors %}<div class="invalid-feedback d-block">{{ form.logo_propuesto.errors }}</div>{% endif %}
+                            </div>
+                        </div>
+                        <select name="institucion" id="id_institucion" class="catreq-hidden-field">
+                            <option value="">---------</option>
+                            {% for i in form.fields.institucion.queryset %}
+                                <option value="{{ i.pk }}" data-institucional="{{ i.es_catalogo_institucional|yesno:'1,0' }}"
+                                    {% if form.institucion.value|stringformat:"s" == i.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ i.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
                         {{ form.institucion_nueva }}
+                        {% if form.institucion.errors %}<div class="invalid-feedback d-block">{{ form.institucion.errors }}</div>{% endif %}
                         {% if form.institucion_nueva.errors %}<div class="invalid-feedback d-block">{{ form.institucion_nueva.errors }}</div>{% endif %}
-                        <div id="sugerenciasInstitucion" class="small mt-1"></div>
                     </div>
-                </div>
 
-                <div class="mb-3" id="fieldLogo" style="display:none;">
-                    <label class="form-label">{{ form.logo_propuesto.label }}</label>
-                    {{ form.logo_propuesto }}
-                    {% if form.logo_propuesto.errors %}<div class="invalid-feedback d-block">{{ form.logo_propuesto.errors }}</div>{% endif %}
-                </div>
-
-                <div class="mb-3" id="fieldFacultad" style="display:none;">
-                    <label class="form-label">Facultad</label>
-                    <div class="form-text mb-1">
-                        Cada facultad pertenece a una única institución (aunque el nombre se repita en otra,
-                        son entidades distintas) — por eso, si la institución es nueva, todavía no hay
-                        facultades cargadas para elegir.
-                    </div>
-                    <select name="facultad" id="id_facultad" class="form-select">
-                        <option value="">---------</option>
-                        {% for f in form.fields.facultad.queryset %}
-                            <option value="{{ f.pk }}" data-institution="{{ f.institution_id }}"
-                                {% if form.facultad.value|stringformat:"s" == f.pk|stringformat:"s" %}selected{% endif %}>
-                                {{ f.name }} ({{ f.institution.name }})
-                            </option>
-                        {% endfor %}
-                    </select>
-                    {% if form.facultad.errors %}<div class="invalid-feedback d-block">{{ form.facultad.errors }}</div>{% endif %}
-                    <div id="avisoFacultadDeshabilitada" class="form-text text-warning" style="display:none;">
-                        La institución propuesta es nueva, así que todavía no puede tener una facultad ya
-                        cargada — completar "proponer una facultad nueva" más abajo.
-                    </div>
-                    <div class="mt-2" id="facultadNuevaWrap">
-                        <label class="form-label small text-muted mb-1">{{ form.facultad_nueva.label }}</label>
+                    <!-- Chip: Facultad -->
+                    <div class="catreq-chip" id="chipFacultad" data-nivel="facultad">
+                        <div class="catreq-chip-head" data-role="empty">
+                            <div class="catreq-chip-icon">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2 9l10 5 10-5-10-5Z"/><path d="M6 11.5V17c0 1.5 3 3 6 3s6-1.5 6-3v-5.5"/></svg>
+                            </div>
+                            <div class="catreq-chip-body">
+                                <div class="catreq-chip-placeholder">+ Facultad</div>
+                                <div class="catreq-chip-sub"></div>
+                            </div>
+                        </div>
+                        <div class="catreq-chip-head" data-role="filled" style="display:none;">
+                            <div class="catreq-chip-icon">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2 9l10 5 10-5-10-5Z"/><path d="M6 11.5V17c0 1.5 3 3 6 3s6-1.5 6-3v-5.5"/></svg>
+                            </div>
+                            <div class="catreq-chip-body">
+                                <div class="catreq-chip-title-sm">Facultad</div>
+                                <div class="catreq-chip-name"></div>
+                            </div>
+                            <span class="catreq-chip-badge"></span>
+                            <button type="button" class="catreq-chip-edit" aria-label="Editar facultad">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16.5 3.5 4 4L8 20H4v-4L16.5 3.5Z"/></svg>
+                            </button>
+                        </div>
+                        <div class="catreq-chip-expand" style="display:none;">
+                            <div class="catreq-chip-question"></div>
+                            <div class="catreq-chip-search">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+                                <input type="text" class="catreq-search-input" placeholder="Buscar o crear una facultad...">
+                            </div>
+                            <div class="catreq-chip-suggest"></div>
+                        </div>
+                        <select name="facultad" id="id_facultad" class="catreq-hidden-field">
+                            <option value="">---------</option>
+                            {% for f in form.fields.facultad.queryset %}
+                                <option value="{{ f.pk }}" data-institution="{{ f.institution_id }}" data-institucional="{{ f.es_catalogo_institucional|yesno:'1,0' }}"
+                                    {% if form.facultad.value|stringformat:"s" == f.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ f.name }} ({{ f.institution.name }})
+                                </option>
+                            {% endfor %}
+                        </select>
                         {{ form.facultad_nueva }}
+                        {% if form.facultad.errors %}<div class="invalid-feedback d-block">{{ form.facultad.errors }}</div>{% endif %}
                         {% if form.facultad_nueva.errors %}<div class="invalid-feedback d-block">{{ form.facultad_nueva.errors }}</div>{% endif %}
-                        <div id="sugerenciasFacultad" class="small mt-1"></div>
                     </div>
-                </div>
 
-                <div class="mb-3" id="fieldCarrera" style="display:none;">
-                    <label class="form-label">Carrera</label>
-                    <div class="form-text mb-1">
-                        A diferencia de la facultad, una carrera puede estar asociada a más de una facultad
-                        (por ejemplo, la misma carrera dictada en dos facultades) — por eso acá se muestran
-                        todas las carreras del catálogo, no solo las de la facultad elegida arriba.
-                    </div>
-                    <select name="carrera" id="id_carrera" class="form-select">
-                        <option value="">---------</option>
-                        {% for c in form.fields.carrera.queryset %}
-                            <option value="{{ c.pk }}" data-faculties="{% for fac in c.faculties.all %}{{ fac.pk }},{% endfor %}"
-                                {% if form.carrera.value|stringformat:"s" == c.pk|stringformat:"s" %}selected{% endif %}>
-                                {{ c.name }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                    {% if form.carrera.errors %}<div class="invalid-feedback d-block">{{ form.carrera.errors }}</div>{% endif %}
-                    <div class="mt-2" id="carreraNuevaWrap">
-                        <label class="form-label small text-muted mb-1">{{ form.carrera_nueva.label }}</label>
+                    <!-- Chip: Carrera -->
+                    <div class="catreq-chip" id="chipCarrera" data-nivel="carrera">
+                        <div class="catreq-chip-head" data-role="empty">
+                            <div class="catreq-chip-icon">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16"/><path d="M4 6h9l-2 3 2 3H4"/></svg>
+                            </div>
+                            <div class="catreq-chip-body">
+                                <div class="catreq-chip-placeholder">+ Carrera</div>
+                                <div class="catreq-chip-sub"></div>
+                            </div>
+                        </div>
+                        <div class="catreq-chip-head" data-role="filled" style="display:none;">
+                            <div class="catreq-chip-icon">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16"/><path d="M4 6h9l-2 3 2 3H4"/></svg>
+                            </div>
+                            <div class="catreq-chip-body">
+                                <div class="catreq-chip-title-sm">Carrera</div>
+                                <div class="catreq-chip-name"></div>
+                            </div>
+                            <span class="catreq-chip-badge"></span>
+                            <button type="button" class="catreq-chip-edit" aria-label="Editar carrera">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16.5 3.5 4 4L8 20H4v-4L16.5 3.5Z"/></svg>
+                            </button>
+                        </div>
+                        <div class="catreq-chip-expand" style="display:none;">
+                            <div class="catreq-chip-question"></div>
+                            <div class="catreq-chip-search">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+                                <input type="text" class="catreq-search-input" placeholder="Buscar o crear una carrera...">
+                            </div>
+                            <div class="catreq-chip-suggest"></div>
+                            <div class="catreq-chip-note">Una carrera puede estar en más de una facultad — se muestran todas, no solo las de la facultad elegida arriba.</div>
+                        </div>
+                        <select name="carrera" id="id_carrera" class="catreq-hidden-field">
+                            <option value="">---------</option>
+                            {% for c in form.fields.carrera.queryset %}
+                                <option value="{{ c.pk }}" data-faculties="{% for fac in c.faculties.all %}{{ fac.pk }},{% endfor %}" data-institucional="{{ c.es_catalogo_institucional|yesno:'1,0' }}"
+                                    {% if form.carrera.value|stringformat:"s" == c.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ c.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
                         {{ form.carrera_nueva }}
+                        {% if form.carrera.errors %}<div class="invalid-feedback d-block">{{ form.carrera.errors }}</div>{% endif %}
                         {% if form.carrera_nueva.errors %}<div class="invalid-feedback d-block">{{ form.carrera_nueva.errors }}</div>{% endif %}
-                        <div id="sugerenciasCarrera" class="small mt-1"></div>
+                    </div>
+
+                    <!-- Chip: Materia (solo existente — usado por Resultado de aprendizaje) -->
+                    <div class="catreq-chip" id="chipMateriaExistente" data-nivel="materia_existente">
+                        <div class="catreq-chip-head" data-role="empty">
+                            <div class="catreq-chip-icon">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H12v16H5.5c-.8 0-1.5-.7-1.5-1.5v-13Z"/><path d="M20 5.5c0-.8-.7-1.5-1.5-1.5H12v16h6.5c.8 0 1.5-.7 1.5-1.5v-13Z"/></svg>
+                            </div>
+                            <div class="catreq-chip-body">
+                                <div class="catreq-chip-placeholder">+ Materia</div>
+                                <div class="catreq-chip-sub"></div>
+                            </div>
+                        </div>
+                        <div class="catreq-chip-head" data-role="filled" style="display:none;">
+                            <div class="catreq-chip-icon">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H12v16H5.5c-.8 0-1.5-.7-1.5-1.5v-13Z"/><path d="M20 5.5c0-.8-.7-1.5-1.5-1.5H12v16h6.5c.8 0 1.5-.7 1.5-1.5v-13Z"/></svg>
+                            </div>
+                            <div class="catreq-chip-body">
+                                <div class="catreq-chip-title-sm">Materia</div>
+                                <div class="catreq-chip-name"></div>
+                            </div>
+                            <span class="catreq-chip-badge"></span>
+                            <button type="button" class="catreq-chip-edit" aria-label="Editar materia">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16.5 3.5 4 4L8 20H4v-4L16.5 3.5Z"/></svg>
+                            </button>
+                        </div>
+                        <div class="catreq-chip-expand" style="display:none;">
+                            <div class="catreq-chip-question"></div>
+                            <div class="catreq-chip-search">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+                                <input type="text" class="catreq-search-input" placeholder="Buscar una materia ya cargada en esta carrera...">
+                            </div>
+                            <div class="catreq-chip-suggest"></div>
+                            <div class="catreq-chip-note">Tiene que ser una materia que ya esté vinculada a la carrera elegida arriba — si todavía no está, primero hay que agregarla como "Materia".</div>
+                        </div>
+                        <select name="materia" id="id_materia" class="catreq-hidden-field">
+                            <option value="">---------</option>
+                            {% for m in form.fields.materia.queryset %}
+                                <option value="{{ m.pk }}" data-carreras="{% for cs in m.careersubject_set.all %}{{ cs.career_id }},{% endfor %}" data-institucional="{{ m.es_catalogo_institucional|yesno:'1,0' }}"
+                                    {% if form.materia.value|stringformat:"s" == m.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ m.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if form.materia.errors %}<div class="invalid-feedback d-block">{{ form.materia.errors }}</div>{% endif %}
+                    </div>
+
+                    <!-- Paso final: lo que efectivamente se está pidiendo (nombre_propuesto) -->
+                    <div class="catreq-chip catreq-chip-final" id="chipFinal">
+                        <div class="catreq-chip-final-label" id="finalLabel"></div>
+                        <div class="catreq-chip-search" id="finalSearchWrap">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+                            {{ form.nombre_propuesto }}
+                        </div>
+                        <div id="sugerenciasFinal" class="catreq-chip-suggest"></div>
+                        <div id="finalConfirmado" class="catreq-final-confirmado" style="display:none;">
+                            <div class="catreq-final-confirmado-msg">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-9"/></svg>
+                                <span>Ya existe en el catálogo: <strong id="finalConfirmadoNombre"></strong></span>
+                                <span id="finalConfirmadoBadge" class="catreq-chip-badge"></span>
+                            </div>
+                            <button type="button" class="btn btn-link btn-sm p-0" id="finalConfirmadoDeshacer">No es lo mismo — crear una nueva de todas formas</button>
+                        </div>
+                        {% if form.nombre_propuesto.errors %}<div class="invalid-feedback d-block">{{ form.nombre_propuesto.errors }}</div>{% endif %}
                     </div>
                 </div>
 
-                <div class="mb-3" id="fieldMateriaExistente" style="display:none;">
-                    <label class="form-label">{{ form.materia.label }}</label>
-                    <div class="form-text mb-1">
-                        Solo se listan las materias ya vinculadas a la carrera elegida arriba — un resultado de
-                        aprendizaje necesita una materia que ya exista en esa carrera puntual. Si la materia
-                        todavía no está, primero hay que pedirla con "Materia" y recién después pedir el resultado.
-                    </div>
-                    <select name="materia" id="id_materia" class="form-select">
-                        <option value="">---------</option>
-                        {% for m in form.fields.materia.queryset %}
-                            <option value="{{ m.pk }}" data-carreras="{% for cs in m.careersubject_set.all %}{{ cs.career_id }},{% endfor %}"
-                                {% if form.materia.value|stringformat:"s" == m.pk|stringformat:"s" %}selected{% endif %}>
-                                {{ m.name }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                    {% if form.materia.errors %}<div class="invalid-feedback d-block">{{ form.materia.errors }}</div>{% endif %}
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label" id="nombrePropuestoLabel">{{ form.nombre_propuesto.label }}</label>
-                    {{ form.nombre_propuesto }}
-                    {% if form.nombre_propuesto.errors %}<div class="invalid-feedback d-block">{{ form.nombre_propuesto.errors }}</div>{% endif %}
-                    <div id="sugerenciasNombre" class="small mt-1"></div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">{{ form.justificacion.label }}</label>
-                    {{ form.justificacion }}
-                </div>
-
-                <button type="submit" class="btn btn-primary">Enviar solicitud</button>
+                <button type="submit" class="btn btn-primary mt-2">Crear</button>
                 <a href="{% url 'material:mis_solicitudes_catalogo' %}" class="btn btn-link text-muted">Ver mis solicitudes</a>
             </form>
         </div>
     </div>
 </div>
 
+<style>
+    #catreqChips { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+    .catreq-chip { border: 1.5px solid var(--bs-border-color); border-radius: .5rem; }
+    .catreq-chip.is-locked { border-style: dashed; opacity: .6; }
+    .catreq-chip.is-active { border-color: #86b7fe; box-shadow: 0 0 0 .2rem rgba(13,110,253,.15); }
+    .catreq-chip-head { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; }
+    .catreq-chip.is-locked .catreq-chip-head { cursor: default; }
+    .catreq-chip-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--edu-accent-soft-bg); color: var(--bs-primary); }
+    .catreq-chip.is-locked .catreq-chip-icon { background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
+    .catreq-chip-body { flex: 1; min-width: 0; }
+    .catreq-chip-placeholder { font-size: .88rem; font-weight: 600; color: var(--bs-primary); }
+    .catreq-chip.is-locked .catreq-chip-placeholder { color: var(--bs-secondary-color); }
+    .catreq-chip-sub { font-size: .78rem; color: var(--bs-secondary-color); margin-top: 1px; }
+    .catreq-chip-title-sm { font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; color: var(--bs-secondary-color); }
+    .catreq-chip-name { font-size: .92rem; font-weight: 600; }
+    .catreq-chip-badge { font-size: .68rem; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); flex-shrink: 0; }
+    .catreq-chip-badge.badge-nuevo { background: var(--edu-accent-soft-bg); color: var(--bs-primary); }
+    .catreq-chip-edit { border: none; background: transparent; color: var(--bs-secondary-color); width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .catreq-chip-edit:hover { background: var(--bs-tertiary-bg); }
+    .catreq-chip-expand { border-top: 1px solid var(--bs-border-color); padding: 12px 14px 14px; }
+    .catreq-chip-search { position: relative; margin-bottom: 8px; }
+    .catreq-chip-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--bs-secondary-color); }
+    .catreq-search-input { width: 100%; padding: 10px 12px 10px 36px; border: 1px solid var(--bs-border-color); border-radius: .4rem; font-size: .9rem; }
+    .catreq-search-input:focus { outline: none; border-color: #86b7fe; box-shadow: 0 0 0 .2rem rgba(13,110,253,.15); }
+    .catreq-chip-suggest:not(:empty) { border: 1px solid var(--bs-border-color); border-radius: .4rem; overflow: hidden; margin-bottom: 4px; }
+    .catreq-suggest-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--bs-border-color); background: var(--bs-body-bg); cursor: pointer; }
+    .catreq-suggest-item:last-child { border-bottom: none; }
+    .catreq-suggest-item:hover { background: var(--bs-tertiary-bg); }
+    .catreq-suggest-icon { width: 26px; height: 26px; border-radius: 50%; background: var(--edu-accent-soft-bg); color: var(--bs-primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .catreq-suggest-name { font-size: .85rem; font-weight: 600; }
+    .catreq-suggest-tag { font-size: .65rem; font-weight: 700; color: var(--bs-primary); background: var(--edu-accent-soft-bg); border-radius: 4px; padding: 1px 6px; margin-left: 6px; }
+    .catreq-suggest-badge { font-size: .65rem; font-weight: 600; color: var(--bs-secondary-color); margin-left: auto; flex-shrink: 0; }
+    .catreq-suggest-create { display: flex; align-items: center; gap: 9px; padding: 10px 12px; background: var(--bs-tertiary-bg); border-top: 1px dashed var(--bs-border-color); color: var(--bs-primary); font-size: .85rem; font-weight: 600; cursor: pointer; }
+    .catreq-chip-note { font-size: .78rem; color: var(--bs-secondary-color); margin-top: 4px; }
+    .catreq-chip-question { font-size: .95rem; font-weight: 600; margin-bottom: 8px; }
+    .catreq-chip-extra { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--bs-border-color); }
+    .catreq-hidden-field { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .catreq-chip-final { border: none; padding: 4px 2px 0; }
+    .catreq-chip-final.is-locked { opacity: .5; }
+    .catreq-chip-final-label { font-size: .85rem; font-weight: 600; margin-bottom: 6px; }
+    .catreq-chip-final .catreq-chip-search .form-control { padding-left: 36px; }
+    .catreq-final-confirmado { border: 1px solid var(--bs-border-color); border-radius: .4rem; padding: 10px 12px; margin-top: 4px; background: var(--bs-tertiary-bg); }
+    .catreq-final-confirmado-msg { display: flex; align-items: center; gap: 8px; font-size: .88rem; margin-bottom: 6px; }
+    .catreq-final-confirmado-msg svg { color: #198754; flex-shrink: 0; }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const CHECK_DUPLICADO_URL = "{% url 'material:check_catalog_duplicate' %}";
 
     const tipoSelect = document.getElementById('id_tipo');
-    const fieldInstitucion = document.getElementById('fieldInstitucion');
-    const fieldFacultad = document.getElementById('fieldFacultad');
-    const fieldCarrera = document.getElementById('fieldCarrera');
-    const fieldMateriaExistente = document.getElementById('fieldMateriaExistente');
-    const fieldLogo = document.getElementById('fieldLogo');
     const institucionSelect = document.getElementById('id_institucion');
-    const facultadSelect = document.getElementById('id_facultad');
-    const carreraSelect = document.getElementById('id_carrera');
-    const materiaSelect = document.getElementById('id_materia');
     const institucionNueva = document.getElementById('id_institucion_nueva');
+    const institucionSiglaNueva = document.getElementById('id_institucion_sigla_nueva');
+    const facultadSelect = document.getElementById('id_facultad');
     const facultadNueva = document.getElementById('id_facultad_nueva');
+    const carreraSelect = document.getElementById('id_carrera');
     const carreraNueva = document.getElementById('id_carrera_nueva');
-    const institucionNuevaWrap = document.getElementById('institucionNuevaWrap');
-    const facultadNuevaWrap = document.getElementById('facultadNuevaWrap');
-    const carreraNuevaWrap = document.getElementById('carreraNuevaWrap');
+    const materiaSelect = document.getElementById('id_materia');
     const nombrePropuesto = document.getElementById('id_nombre_propuesto');
-    const nombrePropuestoLabel = document.getElementById('nombrePropuestoLabel');
-    const avisoFacultadDeshabilitada = document.getElementById('avisoFacultadDeshabilitada');
-    const resumenSolicitud = document.getElementById('resumenSolicitud');
+    const finalLabel = document.getElementById('finalLabel');
+    const sugerenciasFinal = document.getElementById('sugerenciasFinal');
+    const chipFinal = document.getElementById('chipFinal');
+    const finalSearchWrap = document.getElementById('finalSearchWrap');
+    const finalConfirmado = document.getElementById('finalConfirmado');
+    const finalConfirmadoNombre = document.getElementById('finalConfirmadoNombre');
+    const finalConfirmadoBadge = document.getElementById('finalConfirmadoBadge');
+    const finalConfirmadoDeshacer = document.getElementById('finalConfirmadoDeshacer');
+    const submitBtn = document.querySelector('#catalogRequestForm button[type="submit"]');
 
-    // Qué contexto pedir según el tipo — institución no pide nada, materia
-    // pide los tres niveles, resultado de aprendizaje pide los tres MÁS una
-    // materia ya existente (sin variante "nueva" en ningún nivel: todo
-    // tiene que ser real, no tiene sentido un resultado sobre algo que
-    // todavía no está en el catálogo).
     const CONTEXT_BY_TIPO = {
         institucion: [],
         facultad: ['institucion'],
@@ -179,170 +322,202 @@ document.addEventListener('DOMContentLoaded', function () {
         resultado_aprendizaje: ['institucion', 'facultad', 'carrera', 'materia_existente'],
     };
     const TIPO_LABELS = {
-        institucion: 'una Institución', facultad: 'una Facultad',
-        carrera: 'una Carrera', materia: 'una Materia',
-        resultado_aprendizaje: 'un Resultado de aprendizaje',
+        institucion: 'Institución', facultad: 'Facultad',
+        carrera: 'Carrera', materia: 'Materia',
+        resultado_aprendizaje: 'Resultado de aprendizaje propuesto',
     };
-    const NOMBRE_PROPUESTO_LABELS = {
-        resultado_aprendizaje: 'Resultado de aprendizaje propuesto *',
+    const FINAL_QUESTIONS = {
+        institucion: '¿Cómo se llama la institución?',
+        facultad: '¿Cómo se llama la facultad?',
+        carrera: '¿Cómo se llama la carrera?',
+        materia: '¿Cómo se llama la materia?',
+        resultado_aprendizaje: '¿Cuál es el resultado de aprendizaje propuesto?',
     };
-    const NOMBRE_PROPUESTO_LABEL_DEFAULT = nombrePropuestoLabel.textContent;
+    const CHIP_HINTS = {
+        institucion: 'Buscar por nombre o sigla, o crear una nueva.',
+        facultad: 'Buscar o crear una facultad.',
+        carrera: 'Buscar o crear una carrera.',
+        materia_existente: 'Buscar una materia ya cargada en esta carrera.',
+    };
+    const CHIP_HINTS_SOLO_EXISTENTE = {
+        institucion: 'Buscar por nombre o sigla.',
+        facultad: 'Buscar una facultad ya cargada.',
+        carrera: 'Buscar una carrera ya cargada.',
+    };
+    // Pregunta arriba de cada paso — se ve solo mientras ese paso está
+    // activo, así nunca hay más de una pregunta a la vez en pantalla.
+    const CHIP_QUESTIONS = {
+        institucion: '¿A qué institución pertenece?',
+        facultad: '¿A qué facultad pertenece?',
+        carrera: '¿A qué carrera pertenece?',
+        materia_existente: '¿Sobre qué materia es este resultado de aprendizaje?',
+    };
+    const NOMBRE_PROPUESTO_PLACEHOLDER = {
+        institucion: 'Nombre de la institución',
+        facultad: 'Nombre de la facultad',
+        carrera: 'Nombre de la carrera',
+        materia: 'Nombre de la materia',
+        resultado_aprendizaje: 'Describir el resultado de aprendizaje propuesto',
+    };
 
     function debounce(fn, ms) {
         let t;
-        return function (...args) {
-            clearTimeout(t);
-            t = setTimeout(() => fn.apply(this, args), ms);
-        };
+        return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); };
     }
 
-    function updateVisibleFields() {
-        const needed = CONTEXT_BY_TIPO[tipoSelect.value] || [];
-        const esResultadoAprendizaje = tipoSelect.value === 'resultado_aprendizaje';
-        fieldInstitucion.style.display = needed.includes('institucion') ? '' : 'none';
-        fieldFacultad.style.display = needed.includes('facultad') ? '' : 'none';
-        fieldCarrera.style.display = needed.includes('carrera') ? '' : 'none';
-        fieldMateriaExistente.style.display = needed.includes('materia_existente') ? '' : 'none';
+    // --- Definición de cada chip "combo" (existente-o-nueva), parametrizada
+    // para no repetir la misma lógica 3 veces (institución/facultad/carrera)
+    // más una 4ta variante solo-existente (materia, para resultado_aprendizaje).
+    function buildChip(nivel, opts) {
+        const el = document.getElementById(opts.chipId);
+        return Object.assign({
+            nivel: nivel,
+            el: el,
+            headEmpty: el.querySelector('[data-role="empty"]'),
+            headFilled: el.querySelector('[data-role="filled"]'),
+            expand: el.querySelector('.catreq-chip-expand'),
+            question: el.querySelector('.catreq-chip-question'),
+            searchInput: el.querySelector('.catreq-search-input'),
+            suggestBox: el.querySelector('.catreq-chip-suggest'),
+            extraBox: el.querySelector('.catreq-chip-extra'),
+            editBtn: el.querySelector('.catreq-chip-edit'),
+        }, opts);
+    }
 
-        // Un resultado de aprendizaje no admite "proponer nueva" en ningún
-        // nivel — institución/facultad/carrera tienen que ser reales.
-        institucionNuevaWrap.style.display = esResultadoAprendizaje ? 'none' : '';
-        facultadNuevaWrap.style.display = esResultadoAprendizaje ? 'none' : '';
-        carreraNuevaWrap.style.display = esResultadoAprendizaje ? 'none' : '';
-        if (esResultadoAprendizaje) {
-            institucionNueva.value = '';
-            facultadNueva.value = '';
-            carreraNueva.value = '';
+    const chips = {
+        institucion: buildChip('institucion', {
+            chipId: 'chipInstitucion', select: institucionSelect, nueva: institucionNueva,
+            soloExistente: false, extraFields: [institucionSiglaNueva],
+        }),
+        facultad: buildChip('facultad', {
+            chipId: 'chipFacultad', select: facultadSelect, nueva: facultadNueva, soloExistente: false,
+        }),
+        carrera: buildChip('carrera', {
+            chipId: 'chipCarrera', select: carreraSelect, nueva: carreraNueva, soloExistente: false,
+        }),
+        materia_existente: buildChip('materia', {
+            chipId: 'chipMateriaExistente', select: materiaSelect, nueva: null, soloExistente: true,
+        }),
+    };
+
+    let expandido = null; // nivel del chip actualmente expandido (o null)
+
+    function nombreResuelto(chip) {
+        if (chip.select.value) {
+            const opt = chip.select.selectedOptions[0];
+            return opt ? opt.textContent.replace(/\s*\([^)]*\)\s*$/, '').trim() : '';
         }
-
-        nombrePropuestoLabel.textContent = NOMBRE_PROPUESTO_LABELS[tipoSelect.value] || NOMBRE_PROPUESTO_LABEL_DEFAULT;
-
-        updateLogoVisibility();
-        refreshFacultadState();
-    }
-
-    // El logo solo importa cuando esta solicitud va a crear una institución
-    // nueva: o bien tipo=institución directamente, o bien se propuso una
-    // institución nueva como contexto de un nivel más profundo.
-    function updateLogoVisibility() {
-        const proponeInstitucionNueva = tipoSelect.value === 'institucion' || !!institucionNueva.value.trim();
-        fieldLogo.style.display = proponeInstitucionNueva ? '' : 'none';
-    }
-
-    // Cada facultad pertenece a una única institución (FK real, no
-    // compartida como carrera/materia) — si la institución todavía no
-    // existe, ninguna fila de facultad puede pertenecerle: se deshabilita
-    // el desplegable en vez de dejarlo con datos de una institución
-    // distinta a la que ahora se está proponiendo.
-    function refreshFacultadState() {
-        const institutionId = institucionSelect.value;
-        const proponeInstitucionNueva = !!institucionNueva.value.trim();
-
-        if (proponeInstitucionNueva) {
-            facultadSelect.value = '';
-            facultadSelect.disabled = true;
-            avisoFacultadDeshabilitada.style.display = '';
-        } else {
-            facultadSelect.disabled = false;
-            avisoFacultadDeshabilitada.style.display = 'none';
-            Array.from(facultadSelect.options).forEach(function (opt) {
-                if (!opt.value) { opt.hidden = false; return; }
-                opt.hidden = institutionId ? opt.dataset.institution !== institutionId : false;
-            });
-            if (facultadSelect.selectedOptions[0] && facultadSelect.selectedOptions[0].hidden) {
-                facultadSelect.value = '';
-            }
-        }
-        refreshCarreraState();
-        actualizarResumen();
-    }
-
-    // Carrera sí puede estar asociada a más de una facultad (M2M) — no se
-    // restringe aunque la facultad sea nueva, una carrera ya existente
-    // puede sumarse a una facultad recién propuesta.
-    function refreshCarreraState() {
-        const facultyId = facultadSelect.value;
-        Array.from(carreraSelect.options).forEach(function (opt) {
-            if (!opt.value) { opt.hidden = false; return; }
-            const faculties = (opt.dataset.faculties || '').split(',').filter(Boolean);
-            opt.hidden = facultyId ? !faculties.includes(facultyId) : false;
-        });
-        if (carreraSelect.selectedOptions[0] && carreraSelect.selectedOptions[0].hidden) {
-            carreraSelect.value = '';
-        }
-        refreshMateriaState();
-    }
-
-    // Solo para "Resultado de aprendizaje" — la Materia tiene que ser una
-    // ya vinculada a la Carrera elegida (fila real de CareerSubject), así
-    // que se filtra por esa carrera en vez de mostrar todo el catálogo.
-    function refreshMateriaState() {
-        if (!materiaSelect) return;
-        const careerId = carreraSelect.value;
-        Array.from(materiaSelect.options).forEach(function (opt) {
-            if (!opt.value) { opt.hidden = false; return; }
-            const carreras = (opt.dataset.carreras || '').split(',').filter(Boolean);
-            opt.hidden = careerId ? !carreras.includes(careerId) : false;
-        });
-        if (materiaSelect.selectedOptions[0] && materiaSelect.selectedOptions[0].hidden) {
-            materiaSelect.value = '';
-        }
-    }
-
-    // --- Exclusión mutua: elegir del desplegable limpia el campo "nueva",
-    // y escribir en "nueva" limpia el desplegable — un nivel se completa
-    // de una sola forma, no de las dos.
-    function wireExclusivity(select, nuevaInput) {
-        select.addEventListener('change', function () {
-            if (select.value) nuevaInput.value = '';
-        });
-        nuevaInput.addEventListener('input', function () {
-            if (nuevaInput.value.trim()) select.value = '';
-        });
-    }
-    wireExclusivity(institucionSelect, institucionNueva);
-    wireExclusivity(facultadSelect, facultadNueva);
-    wireExclusivity(carreraSelect, carreraNueva);
-
-    // --- Vista previa de lo que se va a solicitar, para que el flujo de
-    // niveles encadenados quede claro mientras se completa el formulario.
-    function nombreElegido(select, nuevaInput) {
-        if (select.value) {
-            const opt = select.selectedOptions[0];
-            return opt ? opt.textContent.trim() : '';
-        }
-        if (nuevaInput.value.trim()) return nuevaInput.value.trim() + ' (nueva)';
+        if (chip.nueva && chip.nueva.value.trim()) return chip.nueva.value.trim();
         return '';
     }
 
-    function actualizarResumen() {
-        const needed = CONTEXT_BY_TIPO[tipoSelect.value] || [];
-        const partes = [];
-        if (needed.includes('institucion')) {
-            const n = nombreElegido(institucionSelect, institucionNueva);
-            if (n) partes.push(n);
-        }
-        if (needed.includes('facultad')) {
-            const n = nombreElegido(facultadSelect, facultadNueva);
-            if (n) partes.push(n);
-        }
-        if (needed.includes('carrera')) {
-            const n = nombreElegido(carreraSelect, carreraNueva);
-            if (n) partes.push(n);
-        }
-        if (needed.includes('materia_existente') && materiaSelect && materiaSelect.selectedOptions[0] && materiaSelect.value) {
-            partes.push(materiaSelect.selectedOptions[0].textContent.trim());
-        }
-        let texto = 'Se va a solicitar ' + (TIPO_LABELS[tipoSelect.value] || 'un elemento del catálogo');
-        const nombre = nombrePropuesto.value.trim();
-        if (nombre) texto += ': "' + nombre + '"';
-        if (partes.length) texto += ' — en ' + partes.join(' / ');
-        resumenSolicitud.textContent = texto;
+    function chipResuelto(chip) {
+        return !!(chip.select.value || (chip.nueva && chip.nueva.value.trim()));
     }
 
-    // --- Verificación de duplicados: antes de proponer un nombre nuevo,
-    // se busca si ya existe algo parecido en el catálogo y se ofrece
-    // usarlo en vez de arriesgarse a duplicar.
+    function chipEsNueva(chip) {
+        return !chip.select.value && !!(chip.nueva && chip.nueva.value.trim());
+    }
+
+    function limpiarChip(chip) {
+        chip.select.value = '';
+        if (chip.nueva) chip.nueva.value = '';
+        (chip.extraFields || []).forEach(function (f) { if (f) f.value = ''; });
+    }
+
+    function cerrarExpand(chip) {
+        chip.expand.style.display = 'none';
+        chip.suggestBox.innerHTML = '';
+        if (expandido === chip.nivel) expandido = null;
+    }
+
+    function abrirExpand(chip) {
+        if (expandido && chips[expandido] && expandido !== chip.nivel) {
+            cerrarExpand(chips[expandido]);
+        }
+        expandido = chip.nivel;
+        chip.expand.style.display = '';
+        if (chip.question) chip.question.textContent = CHIP_QUESTIONS[chip.nivel] || '';
+        chip.searchInput.value = nombreResuelto(chip);
+        // Limpia resultados de una búsqueda anterior — si no, tipear "uc",
+        // cambiar de nivel/tipo y volver dejaba las sugerencias viejas
+        // pegadas debajo aunque la caja de texto ya estuviera vacía.
+        chip.suggestBox.innerHTML = '';
+        if (chip.extraBox) chip.extraBox.style.display = chipEsNueva(chip) ? '' : 'none';
+        chip.searchInput.focus();
+    }
+
+    function renderChip(chip, bloqueado) {
+        // Un paso que todavía no corresponde (falta resolver el anterior)
+        // no se muestra en absoluto — antes quedaba visible pero atenuado,
+        // así que la pantalla mostraba de entrada los 4 niveles juntos en
+        // vez de una pregunta a la vez.
+        if (bloqueado) {
+            chip.el.style.display = 'none';
+            cerrarExpand(chip);
+            return;
+        }
+        chip.el.style.display = '';
+        chip.el.classList.toggle('is-active', expandido === chip.nivel);
+        const resuelto = chipResuelto(chip);
+        if (!resuelto || expandido === chip.nivel) {
+            chip.headEmpty.style.display = expandido === chip.nivel ? 'none' : '';
+            chip.headFilled.style.display = 'none';
+            const hints = chip.soloExistente ? CHIP_HINTS_SOLO_EXISTENTE : CHIP_HINTS;
+            chip.headEmpty.querySelector('.catreq-chip-sub').textContent = hints[chip.nivel] || '';
+        } else {
+            chip.headEmpty.style.display = 'none';
+            chip.headFilled.style.display = '';
+            chip.headFilled.querySelector('.catreq-chip-name').textContent = nombreResuelto(chip);
+            const badge = chip.headFilled.querySelector('.catreq-chip-badge');
+            if (chipEsNueva(chip)) {
+                badge.textContent = 'Nuevo';
+                badge.classList.add('badge-nuevo');
+            } else {
+                const opt = chip.select.selectedOptions[0];
+                const institucional = opt && opt.dataset.institucional === '1';
+                badge.textContent = institucional ? 'Institucional' : 'Espacio personal';
+                badge.classList.remove('badge-nuevo');
+            }
+        }
+    }
+
+    function renderSuggest(chip, matches, q) {
+        let html = '';
+        matches.forEach(function (m) {
+            const tag = chip.nivel === 'institucion' && m.sigla ? '<span class="catreq-suggest-tag">' + m.sigla + '</span>' : '';
+            const badgeTxt = m.es_catalogo_institucional ? 'Institucional' : 'Espacio personal';
+            html += '<div class="catreq-suggest-item" data-id="' + m.id + '" data-name="' + m.name.replace(/"/g, '&quot;') + '">' +
+                '<div class="catreq-suggest-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-9"/></svg></div>' +
+                '<div><span class="catreq-suggest-name">' + m.name + '</span>' + tag + '</div>' +
+                '<span class="catreq-suggest-badge">' + badgeTxt + '</span></div>';
+        });
+        if (!chip.soloExistente && q && q.trim().length >= 2) {
+            html += '<div class="catreq-suggest-create" data-crear="1">' +
+                '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>' +
+                '<span>Crear "' + q.trim() + '" como ' + (TIPO_LABELS[chip.nivel] || chip.nivel).toLowerCase() + ' nueva</span></div>';
+        }
+        chip.suggestBox.innerHTML = html;
+
+        chip.suggestBox.querySelectorAll('.catreq-suggest-item').forEach(function (row) {
+            row.addEventListener('click', function () {
+                chip.select.value = row.dataset.id;
+                if (chip.nueva) chip.nueva.value = '';
+                cerrarExpand(chip);
+                onChipResolved(chip.nivel);
+            });
+        });
+        const crearRow = chip.suggestBox.querySelector('[data-crear]');
+        if (crearRow) {
+            crearRow.addEventListener('click', function () {
+                chip.select.value = '';
+                if (chip.nueva) chip.nueva.value = chip.searchInput.value.trim();
+                cerrarExpand(chip);
+                onChipResolved(chip.nivel);
+            });
+        }
+    }
+
     function buscarCoincidencias(nivel, q, extraParams) {
         if (!q || q.trim().length < 2) return Promise.resolve([]);
         const params = new URLSearchParams(Object.assign({ nivel: nivel, q: q.trim() }, extraParams || {}));
@@ -351,108 +526,166 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(function () { return []; });
     }
 
-    function renderSugerenciasConSeleccion(container, matches, onUsar) {
-        if (!matches.length) { container.innerHTML = ''; return; }
-        const lista = matches.map(function (m) {
-            return '<button type="button" class="btn btn-outline-secondary btn-sm me-1 mb-1 usar-existente" data-id="' + m.id + '">' +
-                '<i class="bi bi-check2"></i> Usar "' + m.name + '"</button>';
-        }).join('');
-        container.innerHTML = '<div class="text-muted mb-1"><i class="bi bi-info-circle"></i> Ya existe algo parecido en el catálogo:</div>' + lista;
-        container.querySelectorAll('.usar-existente').forEach(function (btn) {
-            btn.addEventListener('click', function () { onUsar(btn.dataset.id); });
+    function wireChip(chip) {
+        chip.headEmpty.addEventListener('click', function () {
+            if (chip.el.classList.contains('is-locked')) return;
+            abrirExpand(chip);
+            renderAll();
         });
+        chip.editBtn.addEventListener('click', function () {
+            abrirExpand(chip);
+            renderAll();
+        });
+
+        const onInput = debounce(function () {
+            const q = chip.searchInput.value.trim();
+            if (chip.extraBox) chip.extraBox.style.display = (q && !chip.soloExistente) ? '' : 'none';
+            const extra = {};
+            if (chip.nivel === 'facultad') extra.institucion_id = institucionSelect.value;
+            if (chipEsNueva(chips.institucion) && chip.nivel === 'facultad') {
+                // La institución todavía no existe: ninguna facultad cargada
+                // puede pertenecerle — no tiene sentido buscar coincidencias.
+                renderSuggest(chip, [], q);
+                return;
+            }
+            buscarCoincidencias(chip.nivel, q, extra).then(function (matches) {
+                renderSuggest(chip, matches, q);
+            });
+        }, 300);
+        chip.searchInput.addEventListener('input', onInput);
     }
 
-    function renderSugerenciasInformativas(container, matches) {
-        if (!matches.length) { container.innerHTML = ''; return; }
-        const nombres = matches.map(function (m) { return m.name; }).join(', ');
-        container.innerHTML = '<div class="text-muted"><i class="bi bi-info-circle"></i> Ya existe algo parecido en el catálogo: ' + nombres + ' — revisar antes de continuar para no duplicar.</div>';
+    Object.keys(chips).forEach(function (k) { wireChip(chips[k]); });
+
+    function onChipResolved(nivel) {
+        if (nivel === 'institucion') { limpiarChip(chips.facultad); }
+        if (nivel === 'institucion' || nivel === 'facultad') { limpiarChip(chips.carrera); }
+        if (nivel !== 'materia_existente') { limpiarChip(chips.materia_existente); }
+        renderAll();
+        const proximo = siguienteChipVacio();
+        if (proximo) abrirExpand(proximo);
+        renderAll();
     }
 
-    const sugInstitucion = document.getElementById('sugerenciasInstitucion');
-    const sugFacultad = document.getElementById('sugerenciasFacultad');
-    const sugCarrera = document.getElementById('sugerenciasCarrera');
-    const sugNombre = document.getElementById('sugerenciasNombre');
+    function nivelesNecesarios() {
+        return CONTEXT_BY_TIPO[tipoSelect.value] || [];
+    }
 
-    institucionNueva.addEventListener('input', function () {
-        refreshFacultadState();
-        updateLogoVisibility();
-    });
-    institucionNueva.addEventListener('input', debounce(function () {
-        buscarCoincidencias('institucion', institucionNueva.value).then(function (matches) {
-            renderSugerenciasConSeleccion(sugInstitucion, matches, function (id) {
-                institucionSelect.value = id;
-                institucionNueva.value = '';
-                sugInstitucion.innerHTML = '';
-                refreshFacultadState();
-                updateLogoVisibility();
-            });
-        });
-    }, 350));
+    function siguienteChipVacio() {
+        const orden = ['institucion', 'facultad', 'carrera', 'materia_existente'];
+        for (const nivel of orden) {
+            if (!nivelesNecesarios().includes(nivel)) continue;
+            const key = nivel === 'materia_existente' ? 'materia_existente' : nivel;
+            if (!chipResuelto(chips[key])) return chips[key];
+        }
+        return null;
+    }
 
-    facultadNueva.addEventListener('input', function () {
-        refreshCarreraState();
-        actualizarResumen();
-    });
-    facultadNueva.addEventListener('input', debounce(function () {
-        buscarCoincidencias('facultad', facultadNueva.value, { institucion_id: institucionSelect.value }).then(function (matches) {
-            renderSugerenciasConSeleccion(sugFacultad, matches, function (id) {
-                facultadSelect.value = id;
-                facultadNueva.value = '';
-                sugFacultad.innerHTML = '';
-                refreshCarreraState();
-                actualizarResumen();
-            });
-        });
-    }, 350));
+    function renderAll() {
+        const necesarios = nivelesNecesarios();
+        const esResultadoAprendizaje = tipoSelect.value === 'resultado_aprendizaje';
 
-    carreraNueva.addEventListener('input', function () {
-        actualizarResumen();
-    });
-    carreraNueva.addEventListener('input', debounce(function () {
-        buscarCoincidencias('carrera', carreraNueva.value).then(function (matches) {
-            renderSugerenciasConSeleccion(sugCarrera, matches, function (id) {
-                carreraSelect.value = id;
-                carreraNueva.value = '';
-                sugCarrera.innerHTML = '';
-                actualizarResumen();
-            });
-        });
-    }, 350));
+        chips.institucion.soloExistente = esResultadoAprendizaje;
+        chips.facultad.soloExistente = esResultadoAprendizaje;
+        chips.carrera.soloExistente = esResultadoAprendizaje;
 
-    nombrePropuesto.addEventListener('input', function () {
-        actualizarResumen();
-    });
-    nombrePropuesto.addEventListener('input', debounce(function () {
-        const nivel = tipoSelect.value;
-        buscarCoincidencias(nivel, nombrePropuesto.value).then(function (matches) {
-            renderSugerenciasInformativas(sugNombre, matches);
+        Object.keys(chips).forEach(function (k) {
+            const chip = chips[k];
+            const requerido = necesarios.includes(k === 'materia_existente' ? 'materia_existente' : k);
+            chip.el.style.display = requerido ? '' : 'none';
+            if (!requerido) return;
         });
-    }, 350));
+
+        let bloqInstitucion = false;
+        let bloqFacultad = !chipResuelto(chips.institucion);
+        let bloqCarrera = bloqFacultad || !chipResuelto(chips.facultad);
+        let bloqMateria = bloqCarrera || !chipResuelto(chips.carrera);
+
+        if (necesarios.includes('institucion')) renderChip(chips.institucion, bloqInstitucion);
+        if (necesarios.includes('facultad')) renderChip(chips.facultad, bloqFacultad);
+        if (necesarios.includes('carrera')) renderChip(chips.carrera, bloqCarrera);
+        if (necesarios.includes('materia_existente')) renderChip(chips.materia_existente, bloqMateria);
+
+        // Paso final
+        const todosResueltos = necesarios.every(function (n) {
+            return chipResuelto(chips[n === 'materia_existente' ? 'materia_existente' : n]);
+        });
+        chipFinal.classList.toggle('is-locked', !todosResueltos);
+        nombrePropuesto.disabled = !todosResueltos;
+        finalLabel.textContent = FINAL_QUESTIONS[tipoSelect.value] || 'Nombre propuesto';
+        nombrePropuesto.placeholder = NOMBRE_PROPUESTO_PLACEHOLDER[tipoSelect.value] || '';
+        nombrePropuesto.rows = esResultadoAprendizaje ? 3 : 1;
+    }
 
     tipoSelect.addEventListener('change', function () {
-        updateVisibleFields();
-        sugNombre.innerHTML = '';
-        actualizarResumen();
+        expandido = null;
+        limpiarChip(chips.institucion);
+        limpiarChip(chips.facultad);
+        limpiarChip(chips.carrera);
+        limpiarChip(chips.materia_existente);
+        nombrePropuesto.value = '';
+        sugerenciasFinal.innerHTML = '';
+        ocultarFinalConfirmado();
+        renderAll();
+        const proximo = siguienteChipVacio();
+        if (proximo) abrirExpand(proximo);
+        renderAll();
     });
-    institucionSelect.addEventListener('change', function () {
-        refreshFacultadState();
-        updateLogoVisibility();
-    });
-    facultadSelect.addEventListener('change', function () {
-        refreshCarreraState();
-        actualizarResumen();
-    });
-    carreraSelect.addEventListener('change', function () {
-        refreshMateriaState();
-        actualizarResumen();
-    });
-    if (materiaSelect) {
-        materiaSelect.addEventListener('change', actualizarResumen);
+
+    // El paso final (lo que efectivamente se está pidiendo) usa la misma
+    // lista clickeable que los demás chips en vez de un texto informativo
+    // — no debería hacer falta leer un aviso y volver a tipear a mano
+    // cuando ya hay una opción lista para elegir con un clic. A diferencia
+    // de los chips de contexto, acá no hay un FK propio: elegir una
+    // coincidencia significa "esto ya existe, no hace falta crear nada" —
+    // deja el botón de Crear deshabilitado en vez de "usarla" como si
+    // fuera a enviarse una solicitud nueva sobre algo que ya está.
+    function mostrarFinalConfirmado(nombre, institucional) {
+        finalSearchWrap.style.display = 'none';
+        sugerenciasFinal.innerHTML = '';
+        finalConfirmadoNombre.textContent = nombre;
+        finalConfirmadoBadge.textContent = institucional ? 'Institucional' : 'Espacio personal';
+        finalConfirmado.style.display = '';
+        if (submitBtn) submitBtn.disabled = true;
     }
 
-    updateVisibleFields();
-    actualizarResumen();
+    function ocultarFinalConfirmado() {
+        finalConfirmado.style.display = 'none';
+        finalSearchWrap.style.display = '';
+        if (submitBtn) submitBtn.disabled = false;
+        nombrePropuesto.focus();
+    }
+
+    finalConfirmadoDeshacer.addEventListener('click', ocultarFinalConfirmado);
+
+    function renderSuggestFinal(matches) {
+        if (!matches.length) { sugerenciasFinal.innerHTML = ''; return; }
+        const html = matches.map(function (m) {
+            const tag = tipoSelect.value === 'institucion' && m.sigla ? '<span class="catreq-suggest-tag">' + m.sigla + '</span>' : '';
+            const badgeTxt = m.es_catalogo_institucional ? 'Institucional' : 'Espacio personal';
+            return '<div class="catreq-suggest-item" data-name="' + m.name.replace(/"/g, '&quot;') + '" data-institucional="' + (m.es_catalogo_institucional ? '1' : '0') + '">' +
+                '<div class="catreq-suggest-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-9"/></svg></div>' +
+                '<div><span class="catreq-suggest-name">' + m.name + '</span>' + tag + '</div>' +
+                '<span class="catreq-suggest-badge">' + badgeTxt + '</span></div>';
+        }).join('');
+        sugerenciasFinal.innerHTML = html;
+        sugerenciasFinal.querySelectorAll('.catreq-suggest-item').forEach(function (row) {
+            row.addEventListener('click', function () {
+                nombrePropuesto.value = row.dataset.name;
+                mostrarFinalConfirmado(row.dataset.name, row.dataset.institucional === '1');
+            });
+        });
+    }
+
+    nombrePropuesto.addEventListener('input', debounce(function () {
+        const nivel = tipoSelect.value;
+        buscarCoincidencias(nivel, nombrePropuesto.value).then(renderSuggestFinal);
+    }, 300));
+
+    renderAll();
+    const primerVacio = siguienteChipVacio();
+    if (primerVacio) abrirExpand(primerVacio);
+    renderAll();
 });
 </script>
 {% endblock %}

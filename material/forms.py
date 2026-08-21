@@ -507,12 +507,16 @@ class UserSelfEditForm(forms.ModelForm):
 class InstitutionV2Form(forms.ModelForm):
     class Meta:
         model = InstitutionV2
-        fields = ['name', 'logo']
+        fields = ['name', 'sigla', 'logo']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'required': 'required',
                 'minlength': '2'
+            }),
+            'sigla': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: UBA, UAI',
             }),
             'logo': forms.FileInput(attrs={
                 'class': 'form-control',
@@ -523,6 +527,7 @@ class InstitutionV2Form(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['logo'].required = False
+        self.fields['sigla'].required = False
 
     def clean_name(self):
         name = self.cleaned_data.get('name')
@@ -725,28 +730,34 @@ class CatalogRequestForm(forms.ModelForm):
     class Meta:
         model = CatalogRequest
         fields = [
-            'tipo', 'institucion', 'institucion_nueva', 'facultad', 'facultad_nueva',
+            'tipo', 'institucion', 'institucion_nueva', 'institucion_sigla_nueva', 'facultad', 'facultad_nueva',
             'carrera', 'carrera_nueva', 'materia', 'nombre_propuesto', 'logo_propuesto',
-            'justificacion',
         ]
         widgets = {
             'tipo': forms.Select(attrs={'class': 'form-select', 'id': 'id_tipo'}),
-            'institucion': forms.Select(attrs={'class': 'form-select'}),
-            'institucion_nueva': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre de la institución, si tampoco está en el catálogo'}),
-            'facultad': forms.Select(attrs={'class': 'form-select'}),
-            'facultad_nueva': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre de la facultad, si tampoco está en el catálogo'}),
-            'carrera': forms.Select(attrs={'class': 'form-select'}),
-            'carrera_nueva': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre de la carrera, si tampoco está en el catálogo'}),
-            'materia': forms.Select(attrs={'class': 'form-select'}),
+            # institucion/facultad/carrera/materia y los "_nueva" de acá abajo
+            # nunca se muestran tal cual — la plantilla los maneja por completo
+            # a través de la caja de búsqueda unificada de cada "chip" (ver
+            # catalog_requests/form.html); catreq-hidden-field los saca de la
+            # vista sin usar type="hidden" (los <select> siguen necesitando
+            # ser <select> reales para que .value / .selectedOptions ande).
+            'institucion': forms.Select(attrs={'class': 'catreq-hidden-field'}),
+            'institucion_nueva': forms.TextInput(attrs={'class': 'catreq-hidden-field'}),
+            'institucion_sigla_nueva': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: UBA, UAI (opcional)'}),
+            'facultad': forms.Select(attrs={'class': 'catreq-hidden-field'}),
+            'facultad_nueva': forms.TextInput(attrs={'class': 'catreq-hidden-field'}),
+            'carrera': forms.Select(attrs={'class': 'catreq-hidden-field'}),
+            'carrera_nueva': forms.TextInput(attrs={'class': 'catreq-hidden-field'}),
+            'materia': forms.Select(attrs={'class': 'catreq-hidden-field'}),
             'nombre_propuesto': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'logo_propuesto': forms.ClearableFileInput(attrs={'class': 'form-control'}),
-            'justificacion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
         labels = {
             'nombre_propuesto': 'Nombre propuesto *',
             'logo_propuesto': 'Logo de la institución (opcional)',
             'justificacion': 'Justificación (opcional)',
             'institucion_nueva': 'o proponer una institución nueva',
+            'institucion_sigla_nueva': 'Sigla (opcional)',
             'facultad_nueva': 'o proponer una facultad nueva',
             'carrera_nueva': 'o proponer una carrera nueva',
             'materia': 'Materia',
@@ -773,7 +784,7 @@ class CatalogRequestForm(forms.ModelForm):
             self.fields['facultad'].queryset = FacultyV2.objects.filter(is_active=True, es_catalogo_institucional=True).select_related('institution').order_by('institution__name', 'name')
             self.fields['carrera'].queryset = Career.objects.filter(is_seed_demo=False, es_catalogo_institucional=True).order_by('name')
             self.fields['materia'].queryset = Subject.objects.filter(is_seed_demo=False, es_catalogo_institucional=True).order_by('name')
-        for f in ('institucion', 'facultad', 'carrera', 'materia', 'institucion_nueva', 'facultad_nueva', 'carrera_nueva'):
+        for f in ('institucion', 'facultad', 'carrera', 'materia', 'institucion_nueva', 'institucion_sigla_nueva', 'facultad_nueva', 'carrera_nueva'):
             self.fields[f].required = False
 
     def clean(self):
