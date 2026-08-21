@@ -32,6 +32,14 @@
           side: 'bottom',
         },
       },
+      {
+        element: 'button[data-bs-target="#printPreviewModal"]',
+        popover: {
+          title: 'Vista previa',
+          description: 'Muestra cómo queda el examen impreso con ese formato, con zoom y ajuste al ancho — la forma más rápida de chequearlo antes de usarlo.',
+          side: 'left',
+        },
+      },
     ];
     return steps.filter(function (s) { return document.querySelector(s.element); });
   }

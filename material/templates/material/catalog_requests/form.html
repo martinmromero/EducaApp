@@ -1,7 +1,10 @@
 {% extends 'material/base.html' %}
 {% load message_tags %}
+{% load static %}
+{% block body_extra_attrs %}data-tour-page="catalog_request_form"{% endblock %}
 
 {% block content %}
+<script src="{% static 'js/page_tours/catalog_request_form_tour.js' %}"></script>
 <div class="container-fluid">
     <h1 class="h3 mb-4 text-gray-800"><i class="bi bi-plus-circle me-2"></i>Agregar a mi catálogo</h1>
 

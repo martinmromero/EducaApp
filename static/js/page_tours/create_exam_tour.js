@@ -122,7 +122,7 @@
         area: 3,
         popover: {
           title: 'Tópicos',
-          description: 'Aquí se eligen los tópicos a evaluar — uno de los datos más importantes del examen.',
+          description: 'Aquí se eligen los tópicos a evaluar — uno de los datos más importantes del examen. Si la materia tiene Unidades cargadas, arriba aparecen como chips clickeables para tildar de una todos los tópicos de esa Unidad.',
           side: 'right',
         },
       },
