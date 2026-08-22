@@ -1030,7 +1030,7 @@ def _build_generation_prompt(context):
         return DEFAULT_PROMPT_TEMPLATE.format(**context), DEFAULT_TEMPERATURE
 
 
-def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None, existing_questions=None, images=None, output_tokens_ceiling=None):
+def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None, existing_questions=None, images=None, output_tokens_ceiling=None, generate_kwargs=None):
     """Genera preguntas para un fragmento de capítulo usando la IA configurada.
 
     Args:
@@ -1048,6 +1048,10 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
             llama no pasar `images` salvo que el usuario lo haya pedido explícitamente.
         output_tokens_ceiling: tope de tokens de salida a pedirle al modelo (ver
             _chunking_budget) — None usa el default histórico (4096).
+        generate_kwargs: dict opcional de kwargs extra para backend.generate() —
+            ej. reasoning_effort para modelos de razonamiento (gpt-oss, qwen3.x
+            en Groq). Los backends que no reconocen el kwarg lo ignoran (todos
+            aceptan **kwargs), así que es seguro pasarlo sin importar el backend.
     """
     import json as json_module
 
@@ -1127,12 +1131,30 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
     # "413 Payload Too Large" — el proveedor rechaza la request directamente en
     # vez de truncar. 4096 es más conservador; si se pide más de ~12 preguntas
     # en un mismo chunk, igual puede no alcanzar y quedar corto, pero no falla.
-    gen_max_tokens = min(output_tokens_ceiling or _DEFAULT_OUTPUT_TOKENS_CEILING, 300 * max(num_questions, 1) + 500)
+    #
+    # Modelos de razonamiento (gpt-oss, qwen3.x en Groq, vía reasoning_effort en
+    # generate_kwargs) gastan tokens del mismo presupuesto en pensar antes de
+    # escribir el JSON — la estimación de arriba no deja margen para eso, así
+    # que se le suma un colchón fijo cuando el razonamiento está activo
+    # (reasoning_effort distinto de None/"none"). No se suma si no hay
+    # razonamiento (evita pedir de más sin necesidad).
+    reasoning_effort = (generate_kwargs or {}).get('reasoning_effort')
+    reasoning_budget = 2000 if reasoning_effort and reasoning_effort != 'none' else 0
+    gen_max_tokens = min(
+        output_tokens_ceiling or _DEFAULT_OUTPUT_TOKENS_CEILING,
+        300 * max(num_questions, 1) + 500 + reasoning_budget,
+    )
 
     # Ollama (local_ai/OllamaBackend) no tiene parámetro `images` — solo se lo
     # pasamos al backend externo, y solo cuando hay imágenes de verdad, para
     # no romper la firma de generate() de ningún backend que no lo espere.
     extra_kwargs = {'images': [img['data_uri'] for img in images]} if images else {}
+    # Pedir JSON estructurado a nivel API (no solo por instrucción de prompt) en
+    # los backends que lo soportan (OpenAICompatibleBackend — ver ai_router.py);
+    # los demás lo ignoran vía **kwargs.
+    extra_kwargs['json_mode'] = True
+    if generate_kwargs:
+        extra_kwargs.update(generate_kwargs)
     if backend is not None:
         result = backend.generate(prompt=prompt, temperature=temperature, max_tokens=gen_max_tokens, **extra_kwargs)
     else:
@@ -1168,8 +1190,9 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
         return questions
     except Exception as e:
         logger.warning(f"No se pudo parsear JSON del chunk {chunk_idx + 1}: {e}")
+        truncation_note = ' (truncado por límite de tokens)' if result.get('truncated') else ''
         raise RuntimeError(
-            f'La IA respondió, pero el contenido no tenía el formato esperado (fragmento {chunk_idx + 1} de {total_chunks} de "{chapter_title}").'
+            f'La IA respondió, pero el contenido no tenía el formato esperado (fragmento {chunk_idx + 1} de {total_chunks} de "{chapter_title}"){truncation_note}.'
         ) from e
 
 

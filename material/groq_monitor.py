@@ -95,6 +95,53 @@ FIXTURES = {
 }
 TARGET_QUESTIONS = 30
 
+# Candidatos a modelo de TEXTO para el monitoreo de carga — deliberadamente
+# fijos acá, NO tomados de GlobalAIConfig.model: el objetivo de esta corrida es
+# comparar candidatos entre sí con datos reales, no probar "el modelo activo
+# de producción" (ese sigue siendo GlobalAIConfig.model, editable desde Django
+# Admin — ver ai_router.py, que ya no tiene ningún modelo hardcodeado como
+# fallback). Sí se usa la API key ya cargada en GlobalAIConfig(provider='groq')
+# — no hace falta una key separada para probar.
+#
+# Contexto (2026-08-22): Groq deprecó llama-3.1-8b-instant y
+# llama-3.3-70b-versatile el 16/08/2026 para cuentas free/dev — los dos
+# modelos que este proyecto usaba. Su propia guía de migración:
+#   llama-3.1-8b-instant   → openai/gpt-oss-20b
+#   llama-3.3-70b-versatile → openai/gpt-oss-120b  (o qwen/qwen3.6-27b)
+# Los tres reemplazos son modelos de razonamiento (chain-of-thought) — a
+# diferencia de los Llama que reemplazan, los tokens de "pensar" salen del
+# mismo presupuesto que la respuesta final, así que cada candidato lleva acá
+# el fix que le corresponde (generate_kwargs → ver OpenAICompatibleBackend.
+# generate() en ai_router.py y el colchón de tokens en
+# views_document_processor._generate_questions_for_chunk):
+#   - gpt-oss-20b/120b: reasoning_effort="low" (Groq: valores low/medium/high,
+#     default medium) para no gastar de más en razonamiento que no hace falta
+#     para esta tarea.
+#   - qwen3.6-27b: reasoning_effort="none" — este modelo soporta desactivar el
+#     razonamiento por completo (a diferencia de gpt-oss, que siempre razona
+#     algo), lo que de raíz evita el problema de truncamiento.
+# response_format=json_object (json_mode) se pide siempre, para los tres —
+# ver _generate_questions_for_chunk.
+TEXT_TEST_MODELS = [
+    {
+        'model': 'openai/gpt-oss-20b',
+        'generate_kwargs': {'reasoning_effort': 'low'},
+    },
+    {
+        'model': 'openai/gpt-oss-120b',
+        'generate_kwargs': {'reasoning_effort': 'low'},
+    },
+    {
+        'model': 'qwen/qwen3.6-27b',
+        'generate_kwargs': {'reasoning_effort': 'none'},
+    },
+]
+# Techo externo de tokens de salida para este test — más alto que el default
+# de producción (4096) para darle aire al colchón de razonamiento de arriba;
+# ver el min() en _generate_questions_for_chunk, que igual no deja pedir más
+# de lo que hace falta para la cantidad de preguntas pedidas.
+TEXT_TEST_OUTPUT_CEILING = 6144
+
 _run_lock = threading.Lock()
 _vision_run_lock = threading.Lock()
 
@@ -238,6 +285,16 @@ def _pick_fixture():
     return key, FIXTURES[key]
 
 
+def _pick_text_model():
+    """Rota entre TEXT_TEST_MODELS según la cantidad de corridas ya guardadas
+    — con un módulo distinto al de _pick_fixture (2), así documento y modelo
+    no quedan pegados siempre a la misma combinación (con 3 candidatos, el
+    ciclo completo doc×modelo se cubre cada 6 corridas)."""
+    from .models import GroqMonitorRun
+    count = GroqMonitorRun.objects.count()
+    return TEXT_TEST_MODELS[count % len(TEXT_TEST_MODELS)]
+
+
 def run_test(fixture_key=None, persist='db'):
     """Ejecuta una corrida. Se puede llamar también manualmente (botón
     "Probar ahora" en la página de monitoreo, con persist='db' por default).
@@ -245,10 +302,16 @@ def run_test(fixture_key=None, persist='db'):
     fixture_key: 'easy' o 'hard' para forzar un documento puntual; si se omite,
     alterna automáticamente entre ambos (ver `_pick_fixture`).
     persist: 'db' escribe directo en GroqMonitorRun; 'buffer' apila en el
-    archivo local (ver sync_buffer_to_db)."""
+    archivo local (ver sync_buffer_to_db).
+
+    El modelo de texto NO se lee de GlobalAIConfig.model — rota automáticamente
+    entre TEXT_TEST_MODELS (ver comentario ahí) usando solo la API key ya
+    cargada en GlobalAIConfig(provider='groq'). Así se compara a los tres
+    candidatos con datos reales sin tocar cuál es el modelo activo en
+    producción."""
     from django.contrib.auth.models import User
-    from .models import GroqMonitorRun
-    from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota
+    from .models import GroqMonitorRun, GlobalAIConfig
+    from .ai_router import _build_external_backend
     from .views_document_processor import _generate_questions_for_chunk, _split_into_chunks
 
     t0 = time.time()
@@ -258,9 +321,13 @@ def run_test(fixture_key=None, persist='db'):
     else:
         fixture_key, fixture = _pick_fixture()
 
+    candidate = _pick_text_model()
+    model_name = candidate['model']
+    generate_kwargs = candidate.get('generate_kwargs') or {}
+
     def save(**kwargs):
         elapsed = round(time.time() - t0, 1)
-        payload = dict(elapsed_seconds=elapsed, fixture=fixture_key, **kwargs)
+        payload = dict(elapsed_seconds=elapsed, fixture=fixture_key, model_name=model_name, **kwargs)
         if persist == 'buffer':
             _buffer_append('text', payload)
         else:
@@ -276,8 +343,13 @@ def run_test(fixture_key=None, persist='db'):
         save(success=False, reason='missing_fixture', detail=str(fixture_path))
         return
 
+    cfg = GlobalAIConfig.objects.filter(provider='groq').exclude(api_key_encrypted='').order_by('-id').first()
+    if cfg is None:
+        save(success=False, reason='missing_api_key', detail="No hay ninguna GlobalAIConfig con proveedor 'groq' y API key cargada.")
+        return
+
     try:
-        backend = get_backend_for_user(test_user)
+        backend = _build_external_backend(provider='groq', api_key=cfg.api_key, model=model_name, base_url=None)
         status = backend.get_status()
     except Exception as e:
         save(success=False, reason='backend_error', detail=str(e))
@@ -311,12 +383,13 @@ def run_test(fixture_key=None, persist='db'):
         try:
             raw = _generate_questions_for_chunk(
                 chunk, chapter_title, per_chunk, i, total_chunks,
-                backend=backend,
+                backend=backend, output_tokens_ceiling=TEXT_TEST_OUTPUT_CEILING,
+                generate_kwargs=generate_kwargs,
             )
         except Exception as e:
             failed_chunks += 1
             last_chunk_error = f'{type(e).__name__}: {e}'
-            logger.warning(f'Monitor Groq: fragmento {i + 1}/{total_chunks} falló: {last_chunk_error}')
+            logger.warning(f'Monitor Groq: fragmento {i + 1}/{total_chunks} falló ({model_name}): {last_chunk_error}')
             continue
         remaining = max(0, TARGET_QUESTIONS - len(questions))
         questions.extend((raw or [])[:remaining])
@@ -326,11 +399,16 @@ def run_test(fixture_key=None, persist='db'):
     non_empty = [t for t in texts if t]
     duplicate_count = len(non_empty) - len(set(non_empty))
 
+    # Cupo del candidato puntual que se acaba de probar (no el de
+    # GlobalAIConfig — cada modelo de Groq tiene su propio bucket de RPD/TPM,
+    # así que el cupo "global" no representaría a este candidato). Llamada
+    # mínima (1 token de salida) solo para leer los headers de la respuesta.
+    quota = {}
     try:
-        ensure_fresh_demo_quota()
-        quota = get_global_demo_quota() or {}
-    except Exception:
-        quota = {}
+        quota_result = backend.generate(prompt='.', max_tokens=1, temperature=0)
+        quota = quota_result.get('rate_limit') or {}
+    except Exception as e:
+        logger.warning(f'No se pudo leer cupo de {model_name} al final de la corrida: {e}')
 
     save(
         success=True,
