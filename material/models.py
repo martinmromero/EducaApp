@@ -2295,6 +2295,7 @@ class GroqMonitorRun(models.Model):
     # valor con la hora de la sincronización en vez de la hora real de la
     # corrida, rompiendo el análisis de cadencia por tiempo.
     created_at = models.DateTimeField(default=timezone.now, verbose_name="Fecha")
+    model_name = models.CharField(max_length=150, blank=True, verbose_name="Modelo")
     success = models.BooleanField(default=False, verbose_name="Corrida sin errores")
     target_questions = models.PositiveIntegerField(default=30, verbose_name="Preguntas pedidas")
     total_generated = models.PositiveIntegerField(default=0, verbose_name="Preguntas generadas")

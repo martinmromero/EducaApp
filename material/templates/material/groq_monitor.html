@@ -91,11 +91,58 @@
                             {% if latest_quota %}
                                 <div>Diario: <strong>{{ latest_quota.quota_remaining_requests }} de {{ latest_quota.quota_limit_requests }}</strong> tandas</div>
                                 <div>Por minuto: <strong>{{ latest_quota.quota_remaining_tokens }} de {{ latest_quota.quota_limit_tokens }}</strong> tokens</div>
-                                <div class="text-muted small">al {{ latest_quota.created_at|date:"d/m H:i" }} UTC</div>
+                                <div class="text-muted small">al {{ latest_quota.created_at|date:"d/m H:i" }} UTC ({{ latest_quota.model_name }})</div>
                             {% else %}
                                 <div class="text-muted">Todavía no hay ninguna corrida con dato de cupo.</div>
                             {% endif %}
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <i class="bi bi-bar-chart-line me-1"></i>Comparación por modelo (histórico completo)
+                </div>
+                <div class="card-body p-0">
+                    <p class="text-muted small px-3 pt-3 mb-2">
+                        El modelo NO se toma de la config global de IA — rota automáticamente entre estos
+                        candidatos en cada corrida, usando la misma API key de Groq. Cada uno lleva su propio
+                        fix de razonamiento (reasoning_effort) y pide JSON estructurado a la API.
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th>Modelo</th>
+                                    <th>Corridas</th>
+                                    <th>Cumplieron objetivo</th>
+                                    <th>Con error</th>
+                                    <th>Fragmentos fallidos (total)</th>
+                                    <th>Duración promedio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in model_summary %}
+                                <tr>
+                                    <td class="small"><code>{{ m.model }}</code></td>
+                                    <td>{{ m.total }}</td>
+                                    {% if m.total %}
+                                        <td>
+                                            <span class="badge {% if m.met_target == m.total %}bg-success{% elif m.met_target > 0 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                                                {{ m.met_target }} / {{ m.total }}
+                                            </span>
+                                        </td>
+                                        <td>{{ m.errored }}</td>
+                                        <td>{{ m.total_failed_chunks }}</td>
+                                        <td>{% if m.avg_elapsed %}{{ m.avg_elapsed }}s{% else %}—{% endif %}</td>
+                                    {% else %}
+                                        <td colspan="4" class="text-muted">Todavía sin corridas</td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -107,6 +154,7 @@
                             <thead class="table-secondary">
                                 <tr>
                                     <th>Fecha (UTC)</th>
+                                    <th>Modelo</th>
                                     <th>Doc.</th>
                                     <th>Resultado</th>
                                     <th>Preguntas</th>
@@ -121,6 +169,7 @@
                                 {% for run in runs %}
                                 <tr>
                                     <td>{{ run.created_at|date:"d/m H:i:s" }}</td>
+                                    <td class="small">{{ run.model_name|default:"—" }}</td>
                                     <td>
                                         {% if run.fixture == 'hard' %}
                                             <span class="badge bg-dark" title="Documento difícil">Difícil</span>
@@ -149,7 +198,7 @@
                                     <td class="small text-muted">{{ run.reason }}{% if run.detail %} — {{ run.detail|truncatechars:120 }}{% endif %}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="9" class="text-center text-muted py-4">Todavía no hay corridas.</td></tr>
+                                <tr><td colspan="10" class="text-center text-muted py-4">Todavía no hay corridas.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>

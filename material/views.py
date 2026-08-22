@@ -7719,6 +7719,29 @@ def groq_monitor_page(request):
     }
     latest_quota = next((r for r in runs if r.quota_remaining_requests is not None), None)
 
+    # Comparación por modelo candidato (ver TEXT_TEST_MODELS en groq_monitor.py)
+    # — sobre TODO el historial, no solo 12h, para que la decisión de fin de
+    # semana no dependa de la ventana corta de arriba.
+    from .groq_monitor import TEXT_TEST_MODELS
+    model_summary = []
+    for candidate in TEXT_TEST_MODELS:
+        name = candidate['model']
+        model_runs = [r for r in runs if r.model_name == name]
+        total = len(model_runs)
+        if not total:
+            model_summary.append({'model': name, 'total': 0})
+            continue
+        ok = [r for r in model_runs if r.success]
+        durations = [r.elapsed_seconds for r in ok if r.elapsed_seconds is not None]
+        model_summary.append({
+            'model': name,
+            'total': total,
+            'met_target': sum(1 for r in model_runs if r.met_target),
+            'errored': total - len(ok),
+            'total_failed_chunks': sum(r.failed_chunks for r in model_runs),
+            'avg_elapsed': round(sum(durations) / len(durations), 1) if durations else None,
+        })
+
     from .groq_monitor import analyze_vision_quota_cycles
     vision_runs = list(GroqVisionTestRun.objects.all()[:50])
     latest_vision_quota = next((r for r in vision_runs if r.quota_remaining_requests is not None), None)
@@ -7729,6 +7752,7 @@ def groq_monitor_page(request):
         'runs': runs,
         'summary_12h': summary_12h,
         'latest_quota': latest_quota,
+        'model_summary': model_summary,
         'vision_cfg': vision_cfg,
         'vision_test_models': VISION_TEST_MODELS,
         'vision_runs': vision_runs,
