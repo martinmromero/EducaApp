@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('material', '0080_careersubject_catalogrequest_contentshare_unidad_and_more'),
+        ('material', '0080_1_delete_orphaned_learningoutcomes'),
     ]
 
     operations = [
