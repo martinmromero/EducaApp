@@ -6,7 +6,8 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('material', '0090_groqmonitorrun_model_name'),
+        ('material', '0089_catalogrequest_institucion_sigla_nueva_and_more'),
+        ('material', '0080_groqmonitorrun_model_name'),
     ]
 
     operations = [
