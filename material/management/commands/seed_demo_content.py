@@ -22,6 +22,7 @@ from django.utils import timezone
 from material.models import (
     CampusV2,
     Career,
+    CareerSubject,
     Contenido,
     Exam,
     ExamRubric,
@@ -946,15 +947,21 @@ class Command(BaseCommand):
             defaults={'is_core': True, 'is_active': True},
         )
 
+        career_subject = None
         if career is not None:
             career.subjects.add(subject)
-            subject.careers.add(career)
+            career_subject, _ = CareerSubject.objects.get_or_create(career=career, subject=subject)
 
-        for description in outcomes:
-            LearningOutcome.objects.get_or_create(
-                subject=subject,
-                description=description,
-            )
+        # Los resultados de aprendizaje son unívocos a (materia, carrera) —
+        # ver informe de rediseño del catálogo. Sin carrera no hay dónde
+        # colgarlos, se saltean (no debería pasar en la práctica: todo el
+        # contenido semilla real trae career).
+        if career_subject is not None:
+            for description in outcomes:
+                LearningOutcome.objects.get_or_create(
+                    career_subject=career_subject,
+                    description=description,
+                )
 
         topic_objs = {}
         for name, importance in topics:
@@ -1045,7 +1052,7 @@ class Command(BaseCommand):
 
     def _exam_common_kwargs(self, subject, seed_user, institution_name, faculty_name, campus_name, career_name):
         topics_snapshot = list(Topic.objects.filter(subject=subject).values_list('name', flat=True))
-        outcomes_snapshot = list(LearningOutcome.objects.filter(subject=subject).values_list('description', flat=True))
+        outcomes_snapshot = list(LearningOutcome.objects.filter(career_subject__subject=subject).values_list('description', flat=True))
         return dict(
             # Único campo de texto libre de Exam (instructions, etiquetado
             # "Notas y recomendaciones") — el campo separado
@@ -1188,7 +1195,7 @@ class Command(BaseCommand):
         if existing:
             return existing
 
-        outcomes_snapshot = list(LearningOutcome.objects.filter(subject=subject).values_list('description', flat=True))
+        outcomes_snapshot = list(LearningOutcome.objects.filter(career_subject__subject=subject).values_list('description', flat=True))
 
         template = ExamTemplate.objects.create(
             institution=institution,
@@ -1213,7 +1220,7 @@ class Command(BaseCommand):
             subject_name_snapshot=subject.name,
             outcomes_snapshot=outcomes_snapshot,
         )
-        template.learning_outcomes.set(LearningOutcome.objects.filter(subject=subject))
+        template.learning_outcomes.set(LearningOutcome.objects.filter(career_subject__subject=subject))
         return template
 
     @staticmethod

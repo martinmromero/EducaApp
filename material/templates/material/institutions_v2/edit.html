@@ -37,6 +37,9 @@
 
                 {{ form.name|as_crispy_field }}
 
+                {{ form.sigla|as_crispy_field }}
+
+                {% if puede_gestionar_sedes_facultades %}
                 <!-- Sección de Sedes -->
                 <div id="campuses-container" class="mb-4">
                     <h5><i class="bi bi-geo-alt me-2"></i>Sedes (opcional)</h5>
@@ -50,7 +53,7 @@
                                 </div>
                                 <div class="col-2 text-end">
                                     {% if campus_form.instance.pk %}
-                                    <button type="button" class="btn btn-outline-danger delete-campus" 
+                                    <button type="button" class="btn btn-outline-danger delete-campus"
                                             data-target="#{{ campus_form.DELETE.id_for_label }}">
                                         <i class="bi bi-trash"></i> Eliminar
                                     </button>
@@ -82,7 +85,7 @@
                                 </div>
                                 <div class="col-2 text-end">
                                     {% if faculty_form.instance.pk %}
-                                    <button type="button" class="btn btn-outline-danger delete-faculty" 
+                                    <button type="button" class="btn btn-outline-danger delete-faculty"
                                             data-target="#{{ faculty_form.DELETE.id_for_label }}">
                                         <i class="bi bi-trash"></i> Eliminar
                                     </button>
@@ -100,6 +103,7 @@
                         <i class="bi bi-plus-circle me-1"></i>Agregar Facultad
                     </button>
                 </div>
+                {% endif %}
 
                 <div class="d-flex justify-content-between mt-4">
                     <a href="{% url 'material:institution_v2_detail' institution.pk %}" class="btn btn-secondary">
@@ -283,8 +287,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Inicializar
     setupLogoValidation();
+    {% if puede_gestionar_sedes_facultades %}
     setupFormset('campus', 'campuses-container', 'add-campus');
     setupFormset('faculty', 'faculties-container', 'add-faculty');
+    {% endif %}
 });
 </script>
 {% endblock %}

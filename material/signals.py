@@ -27,17 +27,28 @@ def create_user_profile(sender, instance, created, raw=False, **kwargs):
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, raw=False, **kwargs):
     """
-    Garantiza que el perfil se guarde correctamente tras actualizar el usuario.
+    Garantiza que todo User tenga un Profile asociado (red de seguridad para
+    cuentas viejas o casos donde el Profile se haya borrado por separado) —
+    NO lo vuelve a guardar si ya existe. Antes hacía `instance.profile.save()`
+    a ciegas en cada save() de User, incluido uno disparado por algo tan
+    ajeno como actualizar `last_login` en un login: si esa instancia de User
+    ya tenía `.profile` cacheado en memoria con datos viejos (ej. el `role`
+    de antes de un cambio hecho por otro camino, como `Profile.objects.
+    filter(...).update(role=...)`), ese resave pisaba el cambio nuevo con el
+    valor viejo cacheado — bug real, encontrado 2026-08-22 probando permisos
+    de edición con `Client.force_login()` (reutiliza la instancia de User tal
+    cual se le pasa). Quien necesita persistir un cambio de Profile ya lo
+    hace explícito con su propio profile.save() (ver UserEditForm,
+    UserCreateForm, _apply_real_user_preferences en training_accounts.py) —
+    ninguno de esos depende de este signal para guardar.
     raw=True durante loaddata — se omite para no duplicar perfiles del fixture.
     """
     if raw:
         return
     try:
         Profile.objects.get_or_create(user=instance)
-        instance.profile.save()
-        logger.debug(f"Perfil actualizado para {instance.username}")
     except Exception as e:
-        logger.error(f"Error actualizando perfil de {instance.username}: {str(e)}")
+        logger.error(f"Error asegurando perfil de {instance.username}: {str(e)}")
 
 
 @receiver(user_logged_out)

@@ -235,8 +235,8 @@
 
           <!-- Paso 5: handoff al procesador de IA real (navegación real, sin iframe) -->
           <div class="onb2-panel d-none" id="onb2Panel5">
-            <h4 class="fw-semibold mb-1"><i class="bi bi-cpu me-2 text-primary"></i>Generá y aprobá preguntas</h4>
-            <p class="text-muted mb-3">Te llevamos al procesador de IA real para que generes preguntas, las revises y elijas cuáles guardar.</p>
+            <h4 class="fw-semibold mb-1"><i class="bi bi-cpu me-2 text-primary"></i>Generar y aprobar preguntas</h4>
+            <p class="text-muted mb-3">Se abre el procesador de IA real para generar preguntas, revisarlas y elegir cuáles guardar.</p>
 
             <div id="onb2AiChecking" class="text-center py-4">
               <div class="spinner-border text-primary" role="status"></div>
@@ -622,6 +622,11 @@
   });
 
   document.getElementById('onb2SkipBtn').addEventListener('click', async function () {
+    const ok = await window.EducaAppModal.confirm(
+      '¿Desea salir del recorrido inicial? Puede luego ver la ayuda en el menú "?" siempre disponible arriba a la derecha.',
+      { title: 'Salir del asistente', variant: 'warning', okLabel: 'Salir', cancelLabel: 'Seguir con el recorrido' }
+    );
+    if (!ok) return;
     this.disabled = true;
     await saveStep('done', { done: true });
     window.location.href = '{% url "material:index" %}';
@@ -806,6 +811,11 @@
 
   document.getElementById('onb2GatewaySkipLink').addEventListener('click', async function (ev) {
     ev.preventDefault();
+    const ok = await window.EducaAppModal.confirm(
+      '¿Desea salir del recorrido inicial? Puede luego ver la ayuda en el menú "?" siempre disponible arriba a la derecha.',
+      { title: 'Salir del asistente', variant: 'warning', okLabel: 'Salir', cancelLabel: 'Seguir con el recorrido' }
+    );
+    if (!ok) return;
     this.textContent = 'Saliendo…';
     await saveStep('done', { done: true });
     window.location.href = '{% url "material:index" %}';

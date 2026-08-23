@@ -198,10 +198,14 @@
         <!-- Mi espacio académico: estructura (institución/carrera/materia) + plantillas de examen, todo de baja frecuencia -->
         <div class="menu-item" id="tourMenuAcademico" onclick="toggleSubmenu(this)">
             <i class="bi bi-diagram-3-fill me-2"></i> Mi espacio académico
+            {% if pending_catalog_notifications_count %}<span class="badge bg-danger ms-1">{{ pending_catalog_notifications_count }}</span>{% endif %}
             <div class="submenu">
                 <a href="{% url 'material:institution_v2_list' %}"><i class="bi bi-buildings me-2"></i>Instituciones</a>
                 <a href="{% url 'material:career_list' %}"><i class="bi bi-mortarboard-fill me-2"></i>Carreras</a>
                 <a href="{% url 'material:subject_list' %}"><i class="bi bi-book me-2"></i>Materias</a>
+                <a href="{% url 'material:mis_solicitudes_catalogo' %}"><i class="bi bi-list-check me-2"></i>Mis agregados
+                    {% if pending_catalog_notifications_count %}<span class="badge bg-danger ms-1">{{ pending_catalog_notifications_count }}</span>{% endif %}
+                </a>
                 <div class="submenu-divider"></div>
                 <a href="{% url 'material:list_exam_templates' %}" id="tourMenuPlantillas"><i class="bi bi-file-earmark-ruled me-2"></i>Plantillas</a>
                 <a href="{% url 'material:rubric_list' %}"><i class="bi bi-card-checklist me-2"></i>Rúbricas</a>
@@ -220,9 +224,14 @@
         {% if is_admin %}
             <div class="menu-item" onclick="toggleSubmenu(this)">
                 <i class="bi bi-shield-lock-fill me-2"></i> Administración
+                {% if pending_catalog_requests_count %}<span class="badge bg-danger ms-1">{{ pending_catalog_requests_count }}</span>{% endif %}
                 <div class="submenu">
                     <a href="{% url 'material:user_list' %}"><i class="bi bi-people-fill me-2"></i>Usuarios</a>
                     <a href="{% url 'material:mis_invitaciones' %}"><i class="bi bi-send-plus me-2"></i>Invitaciones</a>
+                    <a href="{% url 'material:catalog_requests_bandeja' %}"><i class="bi bi-inbox me-2"></i>Solicitudes de catálogo
+                        {% if pending_catalog_requests_count %}<span class="badge bg-danger ms-1">{{ pending_catalog_requests_count }}</span>{% endif %}
+                    </a>
+                    <a href="{% url 'material:admin_bulk_catalog_upload' %}"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Carga masiva de catálogo</a>
                     <a href="{% url 'material:groq_monitor_page' %}"><i class="bi bi-activity me-2"></i>Monitoreo Groq</a>
                     <a href="{% url 'material:neon_usage_page' %}"><i class="bi bi-hdd-stack me-2"></i>Uso de Neon (DB)</a>
                     <a href="{% url 'material:question_generation_prompt_config' %}"><i class="bi bi-chat-square-text me-2"></i>Prompt de generación IA</a>

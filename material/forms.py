@@ -8,7 +8,7 @@ from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
     Subject, Topic, Subtopic, LearningOutcome, User,
     InstitutionV2, CampusV2, FacultyV2, Career, InstitutionCareer, UserInstitution,
-    OralExamSet, Rubric, ExamRubric, FormatoImpresion
+    OralExamSet, Rubric, ExamRubric, FormatoImpresion, CatalogRequest,
 )
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
@@ -43,6 +43,17 @@ class ContenidoForm(forms.ModelForm):
         required=False,
         label="Materias"
     )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Acotado a lo visible del usuario (catálogo institucional + su
+        # propio espacio personal, ver content_visibility.get_visible_subjects)
+        # — sin esto el selector de /upload/ listaba TODAS las materias de
+        # TODOS los usuarios, propias y ajenas, cada vez más largo a medida
+        # que crece el catálogo.
+        if user is not None:
+            from .content_visibility import get_visible_subjects
+            self.fields['subjects'].queryset = get_visible_subjects(user).order_by('name')
 
     class Meta:
         model = Contenido
@@ -227,20 +238,21 @@ class ExamForm(forms.ModelForm):
             try:
                 subject_id = int(self.data.get('subject'))
                 self.fields['topics'].queryset = Topic.objects.filter(subject_id=subject_id)
-                self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(subject_id=subject_id)
+                self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(career_subject__subject_id=subject_id)
             except (ValueError, TypeError):
                 pass
         elif self.instance.pk:
             self.fields['topics'].queryset = self.instance.subject.topic_set.all()
-            self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(subject=self.instance.subject)
+            self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(career_subject__subject=self.instance.subject)
 
 class ProfileForm(forms.ModelForm):
+    # institutions (v1) se sacó del form: el campo Profile.institutions se
+    # eliminó junto con el stack v1 (ver informe de rediseño del catálogo).
     class Meta:
         model = Profile
-        fields = ['role', 'institutions']
+        fields = ['role']
         widgets = {
             'role': forms.Select(attrs={'class': 'form-control'}),
-            'institutions': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
 
 class ExamTemplateForm(forms.ModelForm):
@@ -303,18 +315,19 @@ class ExamTemplateForm(forms.ModelForm):
         ).exclude(profile__is_training_account=True)
         self.fields['professor'].label_from_instance = lambda obj: f"{obj.first_name} {obj.last_name} ({obj.username})"
         
-        # Configurar outcomes basado en la materia seleccionada
+        # Configurar outcomes basado en la materia seleccionada — cuelgan de
+        # CareerSubject, no de Subject directo (ver informe de rediseño).
         if 'subject' in self.data:
             try:
                 subject_id = int(self.data.get('subject'))
                 self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(
-                    subject_id=subject_id
+                    career_subject__subject_id=subject_id
                 )
             except (ValueError, TypeError):
                 pass
         elif self.instance.pk and self.instance.subject:
             self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(
-                subject=self.instance.subject
+                career_subject__subject=self.instance.subject
             )
 
 class CustomLoginForm(AuthenticationForm):
@@ -506,12 +519,16 @@ class UserSelfEditForm(forms.ModelForm):
 class InstitutionV2Form(forms.ModelForm):
     class Meta:
         model = InstitutionV2
-        fields = ['name', 'logo']
+        fields = ['name', 'sigla', 'logo']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'required': 'required',
                 'minlength': '2'
+            }),
+            'sigla': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: UBA, UAI',
             }),
             'logo': forms.FileInput(attrs={
                 'class': 'form-control',
@@ -522,6 +539,7 @@ class InstitutionV2Form(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['logo'].required = False
+        self.fields['sigla'].required = False
 
     def clean_name(self):
         name = self.cleaned_data.get('name')
@@ -627,18 +645,32 @@ class SubjectForm(forms.ModelForm):
 
 class CareerForm(forms.ModelForm):
     institution = forms.ModelChoiceField(
-        # Institución semilla (ver seed_demo_content) excluida: solo debe
-        # verse en el esquema de ejemplo del asistente de onboarding.
+        # Acotado a lo visible del usuario en __init__ (catálogo institucional
+        # + su propio espacio personal) — este queryset de acá es solo el
+        # fallback previo a bindear el form con un `user`; ver __init__.
         queryset=InstitutionV2.objects.filter(is_seed_demo=False),
         widget=forms.Select(attrs={'class': 'form-select'}),
         label="Institución",
         required=False,
         empty_label="Sin institución"
     )
-    
+    # NO es un campo de Meta.fields a propósito: Career.subjects ahora tiene
+    # through=CareerSubject (numero_materia/año/cuatrimestre, ver informe de
+    # rediseño), y Django no arma un ModelMultipleChoiceField automático
+    # para un M2M con through explícito. Se maneja a mano: el field queda
+    # igual para la UI (checkboxes), pero quien llama tiene que guardar el
+    # resultado con career.subjects.set(form.cleaned_data['subjects']) —
+    # ver career_create_simple/career_associations en views.py.
+    subjects = forms.ModelMultipleChoiceField(
+        queryset=Subject.objects.none(),
+        widget=forms.CheckboxSelectMultiple(),
+        required=False,
+        label='Materias',
+    )
+
     class Meta:
         model = Career
-        fields = ['name', 'faculties', 'campus', 'subjects']
+        fields = ['name', 'faculties', 'campus']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -646,19 +678,30 @@ class CareerForm(forms.ModelForm):
             }),
             'faculties': forms.CheckboxSelectMultiple(),
             'campus': forms.CheckboxSelectMultiple(),
-            'subjects': forms.CheckboxSelectMultiple(),
         }
         labels = {
             'name': 'Nombre de la Carrera *',
             'faculties': 'Facultades',
             'campus': 'Sede',
-            'subjects': 'Materias',
         }
-    
+
     def __init__(self, *args, **kwargs):
         career_pk = kwargs.pop('career_pk', None)
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        
+
+        # Acotado a catálogo institucional + espacio personal del propio
+        # usuario (ver content_visibility.get_visible_*) — antes mostraba
+        # TODO el sistema: cualquier institución, cualquier materia de
+        # cualquier docente, sin importar quién editaba. Al extender esta
+        # pantalla al dueño de una carrera personal (no solo admin), ese
+        # alcance sin acotar dejaba de ser "el admin puede ver todo" para
+        # pasar a ser "cualquier dueño de un borrador ve/toca todo".
+        if self.user is not None:
+            from .content_visibility import get_visible_institutions, get_visible_subjects
+            self.fields['institution'].queryset = get_visible_institutions(self.user).order_by('name')
+            self.fields['subjects'].queryset = get_visible_subjects(self.user).order_by('name')
+
         # Si hay una carrera, obtener la institución asociada
         if career_pk:
             try:
@@ -666,19 +709,27 @@ class CareerForm(forms.ModelForm):
                 self.fields['institution'].initial = institution_career.institution
             except InstitutionCareer.DoesNotExist:
                 pass
-        
+
         # Inicialmente, vaciar los querysets dependientes
         self.fields['faculties'].queryset = FacultyV2.objects.none()
         self.fields['campus'].queryset = CampusV2.objects.none()
-        self.fields['subjects'].queryset = Subject.objects.filter(is_seed_demo=False)
+        if self.user is None:
+            self.fields['subjects'].queryset = Subject.objects.filter(is_seed_demo=False)
+        if self.instance.pk:
+            self.fields['subjects'].initial = self.instance.subjects.values_list('pk', flat=True)
+
+        def _faculties_queryset(institution_id):
+            qs = FacultyV2.objects.filter(institution_id=institution_id, is_active=True)
+            if self.user is not None:
+                from .content_visibility import get_visible_faculties
+                qs = get_visible_faculties(self.user).filter(pk__in=qs.values('pk'))
+            return qs.order_by('name')
 
         # Si hay institución seleccionada, filtrar
         if 'institution' in self.data:
             try:
                 institution_id = int(self.data.get('institution'))
-                self.fields['faculties'].queryset = FacultyV2.objects.filter(
-                    institution_id=institution_id, is_active=True
-                ).order_by('name')
+                self.fields['faculties'].queryset = _faculties_queryset(institution_id)
                 self.fields['campus'].queryset = CampusV2.objects.filter(
                     institution_id=institution_id
                 ).order_by('name')
@@ -689,14 +740,136 @@ class CareerForm(forms.ModelForm):
             try:
                 institution_career = InstitutionCareer.objects.get(career=self.instance)
                 institution_id = institution_career.institution.id
-                self.fields['faculties'].queryset = FacultyV2.objects.filter(
-                    institution_id=institution_id, is_active=True
-                ).order_by('name')
+                self.fields['faculties'].queryset = _faculties_queryset(institution_id)
                 self.fields['campus'].queryset = CampusV2.objects.filter(
                     institution_id=institution_id
                 ).order_by('name')
             except InstitutionCareer.DoesNotExist:
                 pass
+
+
+class CatalogRequestForm(forms.ModelForm):
+    """Formulario de "solicitar alta" al catálogo público — ver informe de
+    rediseño. Cada nivel de contexto (institución/facultad/carrera) admite
+    DOS formas, mutuamente excluyentes: elegir una fila YA EXISTENTE del
+    catálogo (el select) o escribir un nombre NUEVO (el campo "_nueva" de
+    al lado) cuando ese nivel tampoco existe todavía — así se puede pedir
+    institución+facultad+carrera+materia completas en una sola solicitud,
+    sin esperar a que cada nivel se apruebe por separado antes de poder
+    pedir el siguiente."""
+    class Meta:
+        model = CatalogRequest
+        fields = [
+            'tipo', 'institucion', 'institucion_nueva', 'institucion_sigla_nueva', 'facultad', 'facultad_nueva',
+            'carrera', 'carrera_nueva', 'materia', 'nombre_propuesto', 'logo_propuesto',
+        ]
+        widgets = {
+            'tipo': forms.Select(attrs={'class': 'form-select', 'id': 'id_tipo'}),
+            # institucion/facultad/carrera/materia y los "_nueva" de acá abajo
+            # nunca se muestran tal cual — la plantilla los maneja por completo
+            # a través de la caja de búsqueda unificada de cada "chip" (ver
+            # catalog_requests/form.html); catreq-hidden-field los saca de la
+            # vista sin usar type="hidden" (los <select> siguen necesitando
+            # ser <select> reales para que .value / .selectedOptions ande).
+            'institucion': forms.Select(attrs={'class': 'catreq-hidden-field'}),
+            'institucion_nueva': forms.TextInput(attrs={'class': 'catreq-hidden-field'}),
+            'institucion_sigla_nueva': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: UBA, UAI (opcional)'}),
+            'facultad': forms.Select(attrs={'class': 'catreq-hidden-field'}),
+            'facultad_nueva': forms.TextInput(attrs={'class': 'catreq-hidden-field'}),
+            'carrera': forms.Select(attrs={'class': 'catreq-hidden-field'}),
+            'carrera_nueva': forms.TextInput(attrs={'class': 'catreq-hidden-field'}),
+            'materia': forms.Select(attrs={'class': 'catreq-hidden-field'}),
+            'nombre_propuesto': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'logo_propuesto': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'nombre_propuesto': 'Nombre propuesto *',
+            'logo_propuesto': 'Logo de la institución (opcional)',
+            'justificacion': 'Justificación (opcional)',
+            'institucion_nueva': 'o proponer una institución nueva',
+            'institucion_sigla_nueva': 'Sigla (opcional)',
+            'facultad_nueva': 'o proponer una facultad nueva',
+            'carrera_nueva': 'o proponer una carrera nueva',
+            'materia': 'Materia',
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        # Catálogo institucional, más el espacio personal del propio
+        # usuario — puede encadenar sobre lo que él mismo ya creó y todavía
+        # no fue sumado al catálogo institucional (ver informe de rediseño
+        # / "personal space").
+        from .content_visibility import (
+            get_visible_institutions, get_visible_faculties,
+            get_visible_careers, get_visible_subjects,
+        )
+        if self.user is not None:
+            self.fields['institucion'].queryset = get_visible_institutions(self.user).order_by('name')
+            self.fields['facultad'].queryset = get_visible_faculties(self.user).select_related('institution').order_by('institution__name', 'name')
+            self.fields['carrera'].queryset = get_visible_careers(self.user).order_by('name')
+            self.fields['materia'].queryset = get_visible_subjects(self.user).order_by('name')
+        else:
+            self.fields['institucion'].queryset = InstitutionV2.objects.filter(is_seed_demo=False, es_catalogo_institucional=True).order_by('name')
+            self.fields['facultad'].queryset = FacultyV2.objects.filter(is_active=True, es_catalogo_institucional=True).select_related('institution').order_by('institution__name', 'name')
+            self.fields['carrera'].queryset = Career.objects.filter(is_seed_demo=False, es_catalogo_institucional=True).order_by('name')
+            self.fields['materia'].queryset = Subject.objects.filter(is_seed_demo=False, es_catalogo_institucional=True).order_by('name')
+        for f in ('institucion', 'facultad', 'carrera', 'materia', 'institucion_nueva', 'institucion_sigla_nueva', 'facultad_nueva', 'carrera_nueva'):
+            self.fields[f].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        tipo = cleaned.get('tipo')
+
+        def nivel(fk_name, nueva_name, requerido, label):
+            fk = cleaned.get(fk_name)
+            nueva = (cleaned.get(nueva_name) or '').strip()
+            if fk and nueva:
+                self.add_error(nueva_name, f'Elegir una {label} existente o proponer una nueva — no las dos cosas.')
+            elif requerido and not fk and not nueva:
+                self.add_error(fk_name, f'Falta elegir la {label}, o proponer una nueva.')
+
+        if tipo == 'resultado_aprendizaje':
+            # Sin variante "_nueva" acá: institución, facultad, carrera y
+            # materia tienen que ser filas reales ya existentes — no tiene
+            # sentido proponer un resultado de aprendizaje sobre algo que
+            # todavía no está en el catálogo.
+            for fk_name, label in (
+                ('institucion', 'institución'), ('facultad', 'facultad'),
+                ('carrera', 'carrera'), ('materia', 'materia'),
+            ):
+                if not cleaned.get(fk_name):
+                    self.add_error(fk_name, f'Falta elegir la {label} — tiene que ser una que ya esté en el catálogo.')
+        else:
+            nivel('institucion', 'institucion_nueva', tipo in ('facultad', 'carrera', 'materia'), 'institución')
+            nivel('facultad', 'facultad_nueva', tipo in ('carrera', 'materia'), 'facultad')
+            nivel('carrera', 'carrera_nueva', tipo == 'materia', 'carrera')
+        return cleaned
+
+
+class BulkCatalogUploadForm(forms.Form):
+    """Carga masiva de facultad→carrera→materia (plan de estudios completo)
+    al catálogo institucional desde un CSV — ver admin_bulk_catalog_upload.
+    Solo institución se elige acá: facultad/carrera/materia vienen del
+    archivo, una fila por materia."""
+    institucion = forms.ModelChoiceField(
+        queryset=InstitutionV2.objects.filter(es_catalogo_institucional=True).order_by('name'),
+        label='Institución',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        help_text='Todo lo que se cree o reutilice del archivo queda vinculado a esta institución.',
+    )
+    archivo = forms.FileField(
+        label='Archivo CSV',
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.csv'}),
+        help_text='Columnas esperadas: facultad, carrera, numero de materia, materia, año de cursada, cuatrimestre de cursada.',
+    )
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data['archivo']
+        if not archivo.name.lower().endswith('.csv'):
+            raise ValidationError('El archivo tiene que ser un .csv.')
+        return archivo
+
 
 class OralExamForm(forms.ModelForm):
     topics = forms.ModelMultipleChoiceField(

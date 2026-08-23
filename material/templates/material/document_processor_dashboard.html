@@ -326,7 +326,7 @@
                 <div class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="includeImagesToggle">
                     <label class="form-check-label" for="includeImagesToggle">
-                        <strong>Incluir imágenes del documento</strong> <span class="badge bg-secondary">Beta</span>
+                        <strong>Incluir imágenes del documento</strong>
                         <i class="fas fa-circle-question text-muted ms-1"
                            title="Manda diagramas/fotos del PDF a la IA para que también genere preguntas sobre ellos. Solo funciona con PDF y un modelo con soporte de imágenes (hoy: Gemini) — más lento y consume más cupo. Si el modelo configurado no soporta imágenes, esos fragmentos van a fallar y se van a marcar como error."
                            style="cursor:help"></i>
@@ -399,19 +399,24 @@
 
                 <!-- ── Paso 1: Materias ───────────────────────────────── -->
                 <h6 class="fw-bold mb-1"><i class="fas fa-book-open text-primary"></i> Materia(s)</h6>
-                <p class="text-muted small mb-2">Seleccionar una o más materias a las que asignar las preguntas:</p>
-                <div id="subjectPickerList">
-                    {% for subject in subjects %}
-                    <div class="form-check mb-2">
-                        <input class="form-check-input subject-picker-cb" type="checkbox"
-                               value="{{ subject.id }}" id="spSubject{{ subject.id }}"
-                               {% if subject.id|stringformat:'s' == preselected_subject_id %}checked{% endif %}>
-                        <label class="form-check-label" for="spSubject{{ subject.id }}">{{ subject.name }}</label>
-                    </div>
-                    {% empty %}
-                    <p class="text-warning">No hay materias cargadas en el sistema.</p>
-                    {% endfor %}
+                <p class="text-muted small mb-2">Buscar por nombre una o más materias a las que asignar las preguntas:</p>
+
+                <div id="spSubjectChips" class="d-flex flex-wrap gap-2 mb-2"></div>
+
+                <div class="position-relative">
+                    <input type="text" class="form-control" id="spSubjectSearchInput"
+                           placeholder="Escribir el nombre de una materia...">
+                    <div id="spSubjectSuggest" class="list-group position-absolute w-100 shadow-sm" style="z-index:2000; display:none;"></div>
                 </div>
+                <div id="spSubjectNoMatch" class="form-text" style="display:none;">
+                    No aparece ninguna materia con ese nombre entre las tuyas o el catálogo institucional.
+                </div>
+
+                <!-- Checkboxes ocultos: fuente de verdad para el resto del picker
+                     (tópico/subtópico/confirmar), que se maneja por clase
+                     .subject-picker-cb. Se crean/borran dinámicamente al
+                     buscar/quitar una materia, nunca se togglean a mano. -->
+                <div id="subjectPickerList" class="d-none"></div>
 
                 <!-- Advertencia múltiples materias -->
                 <div id="multiSubjectWarning" class="alert alert-warning py-2 mt-2 small" style="display:none">
@@ -835,6 +840,11 @@ document.getElementById('contenidoTitle').addEventListener('input', function() {
 document.getElementById('documentFile').addEventListener('change', function() {
     const file = this.files[0];
     if (!file) return;
+    // Un aviso previo (ej. "archivo demasiado grande") queda obsoleto en
+    // cuanto se elige otro archivo — si no se limpia acá, persiste aunque
+    // el nuevo archivo se procese bien.
+    const banner = document.getElementById('aiNoticeBanner');
+    if (banner) banner.innerHTML = '';
     const titleInput = document.getElementById('contenidoTitle');
     if (!titleInput.value || titleWasAutoFilled) {
         titleInput.value = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-]+/g, ' ');
@@ -2194,6 +2204,129 @@ function saveEditedQuestion() {
     bootstrap.Modal.getInstance(document.getElementById('editQuestionModal')).hide();
 }
 
+// ─── Subject picker: buscador por nombre (typeahead) ────────────────────────
+// Reemplaza la vieja grilla con TODAS las materias del sistema (además de
+// mostrar cualquier materia sin importar de quién era, algo que ya se había
+// corregido en otras pantallas — ver get_visible_subjects) por un buscador,
+// igual en espíritu al de "Subir Contenido". Los checkboxes .subject-picker-cb
+// dentro de #subjectPickerList siguen siendo la fuente de verdad que lee el
+// resto del picker (tópico/subtópico/confirmar): acá solo se crean/borran
+// dinámicamente, nunca quedan sin marcar.
+function _spContainer() { return document.getElementById('subjectPickerList'); }
+
+function _spRenderChips() {
+    const chips = document.getElementById('spSubjectChips');
+    chips.innerHTML = '';
+    _spContainer().querySelectorAll('.subject-picker-cb').forEach(cb => {
+        const chip = document.createElement('span');
+        chip.className = 'badge bg-primary-subtle text-primary-emphasis border d-inline-flex align-items-center gap-1 py-2 px-3';
+        chip.textContent = cb.dataset.name || '(materia)';
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn-close btn-close-sm ms-1';
+        remove.style.fontSize = '.6rem';
+        remove.setAttribute('aria-label', 'Quitar');
+        remove.addEventListener('click', function () {
+            cb.remove();
+            _spRenderChips();
+            _onSubjectPickerChange();
+        });
+        chip.appendChild(remove);
+        chips.appendChild(chip);
+    });
+}
+
+// Reconstruye el contenedor desde cero (usado al abrir el modal), sin
+// disparar carga de tópicos todavía — eso lo hace _initSubjectPicker justo
+// después, una sola vez.
+function _spRebuildContainer(entries) {
+    const container = _spContainer();
+    container.innerHTML = '';
+    entries.forEach(function (entry) {
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'subject-picker-cb';
+        cb.value = entry.id;
+        cb.checked = true;
+        cb.dataset.name = entry.name;
+        container.appendChild(cb);
+    });
+    _spRenderChips();
+}
+
+// Agregado en vivo desde el buscador: sí dispara _onSubjectPickerChange
+// (carga de tópicos, aviso de múltiples materias) para feedback inmediato.
+function _spAddSubject(id, name) {
+    const container = _spContainer();
+    if (container.querySelector('.subject-picker-cb[value="' + id + '"]')) return;
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'subject-picker-cb';
+    cb.value = id;
+    cb.checked = true;
+    cb.dataset.name = name;
+    container.appendChild(cb);
+    _spRenderChips();
+    _onSubjectPickerChange();
+}
+
+function _spCerrarSuggest() {
+    const suggest = document.getElementById('spSubjectSuggest');
+    suggest.style.display = 'none';
+    suggest.innerHTML = '';
+}
+
+function _spBuscarSubjects(q) {
+    const seleccionados = new Set(
+        Array.from(_spContainer().querySelectorAll('.subject-picker-cb')).map(function (cb) { return cb.value; })
+    );
+    const noMatch = document.getElementById('spSubjectNoMatch');
+    const suggest = document.getElementById('spSubjectSuggest');
+    fetch('{% url "material:check_catalog_duplicate" %}?' + new URLSearchParams({ nivel: 'materia', q: q }).toString())
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .catch(function () { return []; })
+        .then(function (matches) {
+            matches = matches.filter(function (m) { return !seleccionados.has(String(m.id)); });
+            noMatch.style.display = matches.length ? 'none' : '';
+            if (!matches.length) { _spCerrarSuggest(); return; }
+            suggest.innerHTML = '';
+            matches.forEach(function (m) {
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                row.innerHTML = '<span>' + m.name + '</span><span class="badge bg-secondary-subtle text-secondary-emphasis border">' +
+                    (m.es_catalogo_institucional ? 'Institucional' : 'Espacio personal') + '</span>';
+                row.addEventListener('click', function () {
+                    _spAddSubject(m.id, m.name);
+                    document.getElementById('spSubjectSearchInput').value = '';
+                    _spCerrarSuggest();
+                    document.getElementById('spSubjectSearchInput').focus();
+                });
+                suggest.appendChild(row);
+            });
+            suggest.style.display = '';
+        });
+}
+
+(function () {
+    function debounce(fn, ms) {
+        let t;
+        return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); };
+    }
+    const input = document.getElementById('spSubjectSearchInput');
+    const onInput = debounce(function () {
+        const q = input.value.trim();
+        const noMatch = document.getElementById('spSubjectNoMatch');
+        if (q.length < 2) { _spCerrarSuggest(); noMatch.style.display = 'none'; return; }
+        _spBuscarSubjects(q);
+    }, 300);
+    input.addEventListener('input', onInput);
+    document.addEventListener('click', function (e) {
+        const suggest = document.getElementById('spSubjectSuggest');
+        if (!suggest.contains(e.target) && e.target !== input) _spCerrarSuggest();
+    });
+})();
+
 // ─── Subject / Topic / Subtopic picker logic ────────────────────────────────
 
 function _initSubjectPicker() {
@@ -2207,12 +2340,6 @@ function _initSubjectPicker() {
     document.getElementById('subtopicSection').style.display = 'none';
     document.getElementById('newTopicInput').value = '';
     document.getElementById('newSubtopicInput').value = '';
-
-    // Escuchar cambios en los checkboxes de materia
-    document.querySelectorAll('.subject-picker-cb').forEach(cb => {
-        cb.removeEventListener('change', _onSubjectPickerChange);
-        cb.addEventListener('change', _onSubjectPickerChange);
-    });
 
     // Escuchar cambio en el select de tema
     topicSel.removeEventListener('change', _onTopicSelectChange);
@@ -2350,11 +2477,16 @@ async function saveGeneratedQuestions() {
         }
     }
 
-    // Resetear checkboxes del picker y re-aplicar preselección del wizard si existe
+    // Reconstruir el buscador de materias y re-aplicar preselección del wizard si existe
     const _preselectedSubjectId = '{{ preselected_subject_id }}';
-    document.querySelectorAll('.subject-picker-cb').forEach(cb => {
-        cb.checked = _preselectedSubjectId && cb.value === _preselectedSubjectId;
-    });
+    const _preselectedSubjectName = '{{ preselected_subject_name|escapejs }}';
+    _spRebuildContainer(
+        (_preselectedSubjectId && _preselectedSubjectName)
+            ? [{ id: _preselectedSubjectId, name: _preselectedSubjectName }]
+            : []
+    );
+    document.getElementById('spSubjectSearchInput').value = '';
+    _spCerrarSuggest();
 
     // Cerrar questionsModal primero para evitar stacking de modales Bootstrap
     const questionsModalEl = document.getElementById('questionsModal');
@@ -2778,6 +2910,12 @@ function _renderPptx(slides, allowedPages) {
     const n = slide.slide_number;
     if (allowedPages && !allowedPages.has(n)) return;
     const previewText = slide.text.length > 300 ? slide.text.slice(0, 300) + '…' : slide.text;
+    // Slide sin texto: si tiene una imagen embebida, mostrarla en vez del
+    // hueco vacío — así se ve que hay contenido y se puede decidir tildar
+    // "Incluir imágenes del documento" para procesarla con IA.
+    const bodyHtml = slide.image
+      ? `<img src="${slide.image}" alt="Slide ${n}" style="max-width:100%;max-height:160px;display:block;margin:0 auto;object-fit:contain">`
+      : `<div style="font-size:0.78rem;white-space:pre-wrap;overflow:hidden;max-height:160px">${_escapeHtml(previewText)}</div>`;
     const col = document.createElement('div');
     col.className = 'col-md-4 col-lg-3';
     col.innerHTML = `
@@ -2788,7 +2926,7 @@ function _renderPptx(slides, allowedPages) {
           <small class="fw-bold text-purple">Slide ${n}</small>
           <small class="text-muted ms-auto">${slide.char_count} chars</small>
         </div>
-        <div class="card-body p-2" style="font-size:0.78rem;white-space:pre-wrap;overflow:hidden;max-height:160px">${_escapeHtml(previewText)}</div>
+        <div class="card-body p-2">${bodyHtml}</div>
       </div>`;
     grid.appendChild(col);
   });

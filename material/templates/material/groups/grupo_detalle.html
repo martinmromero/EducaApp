@@ -134,6 +134,78 @@
                     {% endif %}
                 </div>
             </div>
+
+            <div class="card shadow-sm mt-4">
+                <div class="card-header">
+                    <strong>Mis plantillas compartidas con este grupo</strong>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Al activar una plantilla, queda visible para el resto del grupo, para usar como base de sus
+                        propios exámenes — no pueden editarla ni borrarla.
+                    </p>
+                    {% if my_templates %}
+                    <ul class="list-group">
+                        {% for plantilla in my_templates %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ plantilla.name|default:plantilla.subject.name }}
+                            <form method="post" action="{% url 'material:compartir_plantilla' group.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="template_id" value="{{ plantilla.id }}">
+                                {% if plantilla.id in shared_template_ids %}
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="bi bi-check-circle me-1"></i>Compartiendo
+                                </button>
+                                {% else %}
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                    Compartir
+                                </button>
+                                {% endif %}
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted mb-0 small">Todavía no creaste ninguna plantilla de examen.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm mt-4">
+                <div class="card-header">
+                    <strong>Mis formatos de impresión compartidos con este grupo</strong>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Al activar un formato, queda visible para el resto del grupo, para usar en sus propios
+                        exámenes — no pueden editarlo ni borrarlo.
+                    </p>
+                    {% if my_formats %}
+                    <ul class="list-group">
+                        {% for formato in my_formats %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ formato.nombre }}
+                            <form method="post" action="{% url 'material:compartir_formato' group.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="formato_id" value="{{ formato.id }}">
+                                {% if formato.id in shared_format_ids %}
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="bi bi-check-circle me-1"></i>Compartiendo
+                                </button>
+                                {% else %}
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                    Compartir
+                                </button>
+                                {% endif %}
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted mb-0 small">Todavía no creaste ningún formato de impresión propio.</p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>

@@ -8,6 +8,7 @@
 <div class="card shadow">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Detalle de Materia</h5>
+        {% if is_admin %}
         <div class="btn-group">
             <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-warning">
                 <i class="bi bi-pencil"></i> Editar
@@ -16,62 +17,78 @@
                 <i class="bi bi-trash"></i> Eliminar
             </a>
         </div>
+        {% elif subject.created_by_id == user.id and not subject.es_catalogo_institucional %}
+        <div class="btn-group">
+            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-outline-warning">
+                <i class="bi bi-pencil"></i> Editar
+            </a>
+            <a href="{% url 'material:eliminar_espacio_personal' 'materia' subject.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-outline-danger">
+                <i class="bi bi-trash"></i> Borrar del espacio personal
+            </a>
+        </div>
+        {% endif %}
     </div>
     <div class="card-body">
         <div class="row mb-4">
             <div class="col-md-6">
-                <h5>{{ subject.name }}</h5>
+                <h5>
+                    {{ subject.name }}
+                    {% if not subject.es_catalogo_institucional %}
+                        <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
+                    {% endif %}
+                </h5>
                 <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm mt-2">
                     <i class="bi bi-arrow-left"></i> Volver al listado
                 </a>
             </div>
         </div>
 
-        <!-- Sección de Outcomes (modelo) -->
+        <!-- Sección de Outcomes (modelo) — unívocos a materia+carrera, se
+             muestran agrupados por carrera (ver informe de rediseño). -->
         <div class="row mb-4">
             <div class="col-md-12">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6>Resultados de Aprendizaje (Nuevos)</h6>
-                    <a href="{% url 'material:learningoutcome_add' subject_id=subject.pk %}" 
-                       class="btn btn-primary btn-sm">
-                        <i class="bi bi-plus-circle"></i> Agregar
-                    </a>
-                </div>
-                {% if subject.outcome_relations.all %}
-                    <div class="list-group">
-                        {% for outcome in subject.outcome_relations.all %}
-                            <div class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    {{ outcome.description }}  <!-- Eliminada la referencia a outcome.code -->
-                                </div>
-                                <div class="btn-group">
-                                    <a href="{% url 'material:learningoutcome_edit' pk=outcome.pk %}" class="btn btn-sm btn-outline-warning">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                    <a href="{% url 'material:learningoutcome_delete' pk=outcome.pk %}" class="btn btn-sm btn-outline-danger">
-                                        <i class="bi bi-trash"></i>
-                                    </a>
-                                </div>
+                <h6 class="mb-3">Resultados de Aprendizaje</h6>
+                {% if career_subjects %}
+                    {% for cs in career_subjects %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <strong>{{ cs.career.name }}</strong>
+                                {% if is_admin %}
+                                <a href="{% url 'material:learningoutcome_add' career_subject_id=cs.pk %}"
+                                   class="btn btn-primary btn-sm">
+                                    <i class="bi bi-plus-circle"></i> Agregar
+                                </a>
+                                {% endif %}
                             </div>
-                        {% endfor %}
-                    </div>
+                            {% if cs.outcome_relations.all %}
+                                <div class="list-group">
+                                    {% for outcome in cs.outcome_relations.all %}
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>{{ outcome.description }}</div>
+                                            {% if is_admin %}
+                                            <div class="btn-group">
+                                                <a href="{% url 'material:learningoutcome_edit' pk=outcome.pk %}" class="btn btn-sm btn-outline-warning">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                                <a href="{% url 'material:learningoutcome_delete' pk=outcome.pk %}" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash"></i>
+                                                </a>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info mb-0">No hay resultados registrados para esta carrera.</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
                 {% else %}
-                    <div class="alert alert-info">No hay resultados registrados.</div>
+                    <div class="alert alert-info">Esta materia todavía no está asociada a ninguna carrera — los resultados de aprendizaje se cargan por carrera.</div>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Sección de Outcomes (legacy) -->
-        {% if subject.learning_outcomes %}
-            <div class="row">
-                <div class="col-md-12">
-                    <h6>Resultados de Aprendizaje (Legacy):</h6>
-                    <div class="border p-3 rounded bg-body-tertiary">
-                        {{ subject.learning_outcomes|linebreaks }}
-                    </div>
-                </div>
-            </div>
-        {% endif %}
     </div>
 </div>
 {% endblock %}

@@ -153,6 +153,7 @@ def testing_panel_save(request):
     return JsonResponse({'success': True, **_state_payload(request)})
 
 
+@login_required
 @user_passes_test(is_admin, login_url='/')
 def testing_admin_results(request):
     results = (

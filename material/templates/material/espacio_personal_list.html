@@ -1,0 +1,68 @@
+{% extends 'material/base.html' %}
+{% block page_title %}<i class="bi bi-person-badge me-2"></i>Espacio personal{% endblock %}
+
+{% block content %}
+{% url 'material:espacio_personal_list' as espacio_personal_url %}
+<div class="container-fluid">
+    <div class="card shadow mb-4">
+        <div class="card-header py-2">
+            <span class="list-control-info">{{ items|length }} elemento{{ items|length|pluralize }} en el espacio personal</span>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small">
+                Instituciones, facultades, carreras y materias que se crearon desde "Agregar a mi catálogo" y
+                todavía no se sumaron al catálogo institucional — solo vos las ves, y ya se pueden usar
+                normalmente mientras tanto.
+            </p>
+            {% if items %}
+            <div class="table-responsive">
+                <table class="table table-striped mobile-card-table">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Nombre</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td data-label="Tipo">
+                                {% if item.kind == 'institucion' %}
+                                    <span class="badge bg-primary">Institución</span>
+                                {% elif item.kind == 'facultad' %}
+                                    <span class="badge bg-info text-white">Facultad</span>
+                                {% elif item.kind == 'carrera' %}
+                                    <span class="badge bg-success">Carrera</span>
+                                {% elif item.kind == 'materia' %}
+                                    <span class="badge bg-warning text-dark">Materia</span>
+                                {% endif %}
+                            </td>
+                            <td class="rt-card-title" data-label="Nombre">{{ item.object.name }}</td>
+                            <td data-label="Acciones">
+                                <div class="btn-group" role="group">
+                                    <a href="{{ item.url_ver }}?next={{ espacio_personal_url|urlencode }}" class="btn btn-sm btn-info" title="Ver"><i class="fas fa-eye"></i></a>
+                                    <a href="{% url 'material:eliminar_espacio_personal' item.kind item.object.pk %}?next={{ espacio_personal_url|urlencode }}"
+                                       class="btn btn-sm btn-outline-danger" title="Borrar del espacio personal"><i class="fas fa-trash"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-person-badge fa-3x text-muted mb-3" style="font-size:2.5rem;"></i>
+                <h5>Todavía no hay nada en el espacio personal</h5>
+                <p class="text-muted">
+                    Se crea automáticamente al usar
+                    <a href="{% url 'material:catalog_request_create' %}">"Agregar a mi catálogo"</a>
+                    para una institución, facultad, carrera o materia que todavía no está en el catálogo institucional.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

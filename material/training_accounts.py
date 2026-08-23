@@ -231,11 +231,15 @@ def clone_seed_content_into(training_user):
         for topic in Topic.objects.filter(subject=seed_subject):
             topic_map[topic.id] = Topic.objects.create(
                 subject=subject, name=topic.name, importance=topic.importance,
+                created_by=training_user,
             )
         topics_list = list(topic_map.values())
 
-        for outcome in LearningOutcome.objects.filter(subject=seed_subject):
-            LearningOutcome.objects.create(subject=subject, description=outcome.description)
+        # Resultados de aprendizaje NO se clonan acá: son unívocos a
+        # (materia, carrera) desde el rediseño del catálogo, y esta materia
+        # clonada no queda asociada a ninguna carrera (las carreras/
+        # instituciones semilla son públicas y no se clonan, ver comentario
+        # arriba de clone_seed_content_into).
 
         question_map = {}
         for question in Question.objects.filter(subjects=seed_subject, user=seed_user):
@@ -396,7 +400,14 @@ def _clone_exam_template(seed_subject, subject, training_user):
     if not faculty or not career:
         return
 
-    outcomes_snapshot = list(LearningOutcome.objects.filter(subject=subject).values_list('description', flat=True))
+    # outcomes_snapshot es solo texto (no FK) — se toma de los resultados de
+    # aprendizaje reales de la materia semilla en esa carrera (la materia
+    # clonada no tiene CareerSubject propio, ver clone_seed_content_into).
+    outcomes_snapshot = list(
+        LearningOutcome.objects.filter(
+            career_subject__subject=seed_subject, career_subject__career=career,
+        ).values_list('description', flat=True)
+    )
 
     template = ExamTemplate.objects.create(
         institution=institution,
@@ -418,7 +429,9 @@ def _clone_exam_template(seed_subject, subject, training_user):
         subject_name_snapshot=subject.name,
         outcomes_snapshot=outcomes_snapshot,
     )
-    template.learning_outcomes.set(LearningOutcome.objects.filter(subject=subject))
+    template.learning_outcomes.set(
+        LearningOutcome.objects.filter(career_subject__subject=seed_subject, career_subject__career=career)
+    )
 
 
 def delete_all_content_for_training_user(training_user):

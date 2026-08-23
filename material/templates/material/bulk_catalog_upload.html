@@ -1,0 +1,160 @@
+{% extends 'material/base.html' %}
+{% load message_tags %}
+{% block page_title %}<i class="bi bi-file-earmark-spreadsheet me-2"></i>Carga masiva de catálogo{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:900px;">
+
+    {% show_messages "carga_catalogo" %}
+
+    {% if not preview and not resultado %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                Sube el plan de estudios completo de una institución de una sola vez: una fila por materia,
+                agrupadas por facultad y carrera. Todo lo que se cree o reutilice queda directo en el
+                <strong>catálogo institucional</strong> (visible para todos) — no pasa por espacio personal
+                ni por la bandeja de aprobación.
+            </p>
+            <p class="text-muted small mb-4">
+                Columnas esperadas en el CSV (con ese encabezado exacto, sin distinguir mayúsculas/acentos):
+                <code>facultad, carrera, numero de materia, materia, año de cursada, cuatrimestre de cursada</code>.
+                Antes de guardar nada se muestra una vista previa de lo que se va a crear o reutilizar.
+            </p>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">{{ form.institucion.label }}</label>
+                    {{ form.institucion }}
+                    {% if form.institucion.errors %}<div class="text-danger small mt-1">{{ form.institucion.errors }}</div>{% endif %}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ form.archivo.label }}</label>
+                    {{ form.archivo }}
+                    <small class="text-muted d-block mt-1">{{ form.archivo.help_text }}</small>
+                    {% if form.archivo.errors %}<div class="text-danger small mt-1">{{ form.archivo.errors }}</div>{% endif %}
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-eye me-1"></i>Ver vista previa
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if preview %}
+    <div class="card shadow-sm mb-4 border-primary">
+        <div class="card-header bg-primary-subtle fw-bold">
+            <i class="bi bi-eye me-1"></i>Vista previa — todavía no se guardó nada
+        </div>
+        <div class="card-body">
+            <p class="mb-2">
+                Institución: <strong>{{ preview.institucion.name }}</strong> ·
+                <span class="badge bg-success">{{ preview.filas_ok }} fila{{ preview.filas_ok|pluralize }} lista{{ preview.filas_ok|pluralize }} para guardar</span>
+                {% if preview.errores %}
+                <span class="badge bg-danger ms-1">{{ preview.errores|length }} con error — no se van a guardar</span>
+                {% endif %}
+            </p>
+
+            {% if preview.errores %}
+            <div class="table-responsive mb-3">
+                <table class="table table-sm table-striped mb-0">
+                    <thead><tr><th>Filas que no se van a guardar</th></tr></thead>
+                    <tbody>
+                        {% for error in preview.errores %}
+                        <tr><td class="text-danger small">{{ error }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <p class="text-muted small mb-2">
+                Revisar que los nombres se leyeron bien (acentos, ñ, etc.) antes de confirmar — un problema
+                de codificación que no se haya reconocido automáticamente se ve acá como letras raras.
+            </p>
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <div class="fw-bold small text-uppercase text-muted mb-1">Facultades</div>
+                    {% if preview.facultades_nuevas %}
+                    <div class="small text-success fw-semibold">Nuevas ({{ preview.facultades_nuevas|length }})</div>
+                    <ul class="small">{% for nombre in preview.facultades_nuevas %}<li>{{ nombre }}</li>{% endfor %}</ul>
+                    {% endif %}
+                    {% if preview.facultades_existentes %}
+                    <div class="small text-muted fw-semibold">Ya existían ({{ preview.facultades_existentes|length }})</div>
+                    <ul class="small text-muted">{% for nombre in preview.facultades_existentes %}<li>{{ nombre }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+                <div class="col-md-4">
+                    <div class="fw-bold small text-uppercase text-muted mb-1">Carreras</div>
+                    {% if preview.carreras_nuevas %}
+                    <div class="small text-success fw-semibold">Nuevas ({{ preview.carreras_nuevas|length }})</div>
+                    <ul class="small">{% for nombre in preview.carreras_nuevas %}<li>{{ nombre }}</li>{% endfor %}</ul>
+                    {% endif %}
+                    {% if preview.carreras_existentes %}
+                    <div class="small text-muted fw-semibold">Ya existían ({{ preview.carreras_existentes|length }})</div>
+                    <ul class="small text-muted">{% for nombre in preview.carreras_existentes %}<li>{{ nombre }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+                <div class="col-md-4">
+                    <div class="fw-bold small text-uppercase text-muted mb-1">Materias</div>
+                    <div class="small" style="max-height:320px; overflow-y:auto;">
+                        {% if preview.materias_nuevas %}
+                        <div class="small text-success fw-semibold">Nuevas ({{ preview.materias_nuevas|length }})</div>
+                        <ul class="small">{% for nombre in preview.materias_nuevas %}<li>{{ nombre }}</li>{% endfor %}</ul>
+                        {% endif %}
+                        {% if preview.materias_existentes %}
+                        <div class="small text-muted fw-semibold">Ya existían ({{ preview.materias_existentes|length }})</div>
+                        <ul class="small text-muted">{% for nombre in preview.materias_existentes %}<li>{{ nombre }}</li>{% endfor %}</ul>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <form method="post" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="confirmar" value="1">
+                <input type="hidden" name="institucion_id" value="{{ preview.institucion.pk }}">
+                <textarea name="csv_text" hidden>{{ preview.csv_text }}</textarea>
+                <button type="submit" class="btn btn-success" {% if not preview.filas_ok %}disabled{% endif %}>
+                    <i class="bi bi-check-lg me-1"></i>Confirmar y guardar
+                </button>
+            </form>
+            <a href="{% url 'material:admin_bulk_catalog_upload' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-lg me-1"></i>Cancelar / subir otro archivo
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if resultado %}
+    <div class="card shadow-sm">
+        <div class="card-header fw-bold">Guardado</div>
+        <div class="card-body">
+            <p class="mb-2">
+                <span class="badge bg-success">{{ resultado.filas_ok }} fila{{ resultado.filas_ok|pluralize }} guardada{{ resultado.filas_ok|pluralize }}</span>
+                {% if resultado.errores %}
+                <span class="badge bg-danger ms-1">{{ resultado.errores|length }} con error</span>
+                {% endif %}
+            </p>
+            {% if resultado.errores %}
+            <div class="table-responsive mb-3">
+                <table class="table table-sm table-striped mb-0">
+                    <thead><tr><th>Detalle</th></tr></thead>
+                    <tbody>
+                        {% for error in resultado.errores %}
+                        <tr><td class="text-danger small">{{ error }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+            <a href="{% url 'material:admin_bulk_catalog_upload' %}" class="btn btn-primary">
+                <i class="bi bi-cloud-upload me-1"></i>Subir otro archivo
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

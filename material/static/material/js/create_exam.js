@@ -163,12 +163,72 @@ document.addEventListener('DOMContentLoaded', function() {
             cb.addEventListener('change', function() {
                 syncTopicsSelectFromCheckboxes();
                 loadQuestionsBySelectedTopics();
+                updateUnidadChipsState();
             });
 
             row.appendChild(cb);
             row.appendChild(label);
             container.appendChild(row);
         });
+    }
+
+    // ── Unidades: atajo para tildar de una todos los Temas de una unidad ──
+    // No reemplaza elegir temas sueltos (los checkboxes de arriba siguen
+    // funcionando igual) — ver informe de rediseño del catálogo.
+    var unidadesCache = [];
+
+    function updateUnidadChipsState() {
+        var container = document.getElementById('unidades_chip_container');
+        if (!container) return;
+        Array.from(container.querySelectorAll('[data-unidad-id]')).forEach(function(chip) {
+            var unidad = unidadesCache.find(function(u) { return String(u.id) === chip.dataset.unidadId; });
+            if (!unidad) return;
+            var allChecked = unidad.topic_ids.length > 0 && unidad.topic_ids.every(function(topicId) {
+                var cb = document.getElementById('topic_cb_' + topicId);
+                return cb && cb.checked;
+            });
+            chip.classList.toggle('btn-primary', allChecked);
+            chip.classList.toggle('btn-outline-primary', !allChecked);
+        });
+    }
+
+    function renderUnidadesChips(unidades) {
+        unidadesCache = unidades || [];
+        var container = document.getElementById('unidades_chip_container');
+        if (!container) return;
+        container.innerHTML = '';
+        if (!unidadesCache.length) {
+            container.classList.add('d-none');
+            return;
+        }
+        container.classList.remove('d-none');
+
+        var label = document.createElement('div');
+        label.className = 'small text-muted mb-1';
+        label.textContent = 'Elegir por unidad:';
+        container.appendChild(label);
+
+        var chipsWrap = document.createElement('div');
+        chipsWrap.className = 'd-flex flex-wrap gap-1';
+        unidadesCache.forEach(function(unidad) {
+            var chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'btn btn-sm btn-outline-primary';
+            chip.dataset.unidadId = unidad.id;
+            chip.textContent = unidad.name;
+            chip.addEventListener('click', function() {
+                var willActivate = !chip.classList.contains('btn-primary');
+                unidad.topic_ids.forEach(function(topicId) {
+                    var cb = document.getElementById('topic_cb_' + topicId);
+                    if (cb) cb.checked = willActivate;
+                });
+                syncTopicsSelectFromCheckboxes();
+                loadQuestionsBySelectedTopics();
+                updateUnidadChipsState();
+            });
+            chipsWrap.appendChild(chip);
+        });
+        container.appendChild(chipsWrap);
     }
 
     function renderQuestionsCheckboxes() {
@@ -284,6 +344,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             renderTopicsCheckboxes();
             loadQuestionsBySelectedTopics();
+            updateUnidadChipsState();
         }
         if (data.learning_outcomes && Array.isArray(data.learning_outcomes)) {
             var outcomesContainer = document.getElementById('learning_outcomes_container');
@@ -439,13 +500,27 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(function(err) {
                 console.error('No se pudieron cargar los resultados de aprendizaje:', err);
             });
-        subjectDependentsPromise = Promise.all([topicsPromise, outcomesPromise]);
+        // Unidades propias de la materia (atajo para tildar temas de una).
+        var unidadesPromise = fetch('/get-unidades/?subject_id=' + subjectId)
+            .then(function(response) {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
+            .then(function(data) {
+                renderUnidadesChips(data);
+            })
+            .catch(function(err) {
+                console.error('No se pudieron cargar las unidades:', err);
+            });
+        subjectDependentsPromise = Promise.all([topicsPromise, outcomesPromise, unidadesPromise])
+            .then(function() { updateUnidadChipsState(); });
     });
 
     // Compatibilidad: si alguien cambia el select oculto manualmente
     topicsSelect.addEventListener('change', function() {
         renderTopicsCheckboxes();
         loadQuestionsBySelectedTopics();
+        updateUnidadChipsState();
     });
 
     document.getElementById('topics_select_all')?.addEventListener('click', function() {
@@ -454,6 +529,7 @@ document.addEventListener('DOMContentLoaded', function() {
         container.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = true; });
         syncTopicsSelectFromCheckboxes();
         loadQuestionsBySelectedTopics();
+        updateUnidadChipsState();
     });
 
     document.getElementById('topics_select_none')?.addEventListener('click', function() {
@@ -462,6 +538,7 @@ document.addEventListener('DOMContentLoaded', function() {
         container.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = false; });
         syncTopicsSelectFromCheckboxes();
         loadQuestionsBySelectedTopics();
+        updateUnidadChipsState();
     });
 
     document.getElementById('questions_select_all')?.addEventListener('click', function() {
@@ -561,6 +638,19 @@ document.addEventListener('DOMContentLoaded', function() {
     updateSuggestedBatchName();
     renderTopicsCheckboxes();
     renderQuestionsCheckboxes();
+
+    // Editar examen: la materia ya viene preseleccionada desde el server y
+    // el 'change' de arriba no se dispara solo — sin esto, las Unidades
+    // quedarían vacías hasta que el usuario tocara el select a mano.
+    if (subjectSelect.value) {
+        fetch('/get-unidades/?subject_id=' + subjectSelect.value)
+            .then(function(response) { return response.ok ? response.json() : []; })
+            .then(function(data) {
+                renderUnidadesChips(data);
+                updateUnidadChipsState();
+            })
+            .catch(function() {});
+    }
 
     // Preselección de plantilla vía ?plantilla_id= (botón "Crear examen con
     // esta plantilla" del listado/preview de plantillas). El <option> ya

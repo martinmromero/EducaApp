@@ -320,7 +320,7 @@ def document_processor_dashboard(request):
     """
     Vista HTML para el dashboard de procesamiento de documentos.
     """
-    from material.models import Subject
+    from material.content_visibility import get_visible_subjects
     # Obtener backend configurado para este usuario (no la instancia global)
     from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota, SharedDemoBackend
     backend = get_backend_for_user(request.user)
@@ -349,6 +349,16 @@ def document_processor_dashboard(request):
         request.session.pop('onb2_wizard_active', None)
     wizard_active = request.session.get('onb2_wizard_active', False)
 
+    preselected_subject_id = request.GET.get('subject_id', '')
+    preselected_subject_name = ''
+    if preselected_subject_id.isdigit():
+        preselected_subject_name = (
+            get_visible_subjects(request.user)
+            .filter(id=preselected_subject_id)
+            .values_list('name', flat=True)
+            .first() or ''
+        )
+
     context = {
         'page_title': 'Procesador de Documentos',
         'supported_formats': ['.pdf', '.docx', '.pptx', '.txt'],
@@ -360,9 +370,9 @@ def document_processor_dashboard(request):
         'selected_model': ai_status.get('selected_model', ai_status.get('model', 'N/A')),
         'default_model': ai_status.get('default_model', ai_status.get('model', 'N/A')),
         'backend_type': ai_status.get('backend', 'ollama_local'),
-        'subjects': Subject.objects.filter(is_seed_demo=False).order_by('name'),
         'preselected_contenido_id': request.GET.get('contenido_id', ''),
-        'preselected_subject_id': request.GET.get('subject_id', ''),
+        'preselected_subject_id': preselected_subject_id,
+        'preselected_subject_name': preselected_subject_name,
         'wizard_active': wizard_active,
         'using_shared_fallback': using_shared_fallback,
         'demo_quota': demo_quota,
@@ -1556,6 +1566,8 @@ def document_page_preview(request):
 
         elif ext == '.pptx':
             from pptx import Presentation as _Prs
+            from pptx.enum.shapes import MSO_SHAPE_TYPE
+            import base64
             prs = _Prs(file_path)
             slides = []
             for i, slide in enumerate(prs.slides, 1):
@@ -1563,10 +1575,28 @@ def document_page_preview(request):
                 for shape in slide.shapes:
                     if hasattr(shape, 'text') and shape.text.strip():
                         texts.append(shape.text.strip())
+                text = '\n'.join(texts)
+                # Sin texto: buscar la imagen embebida más grande del slide
+                # (puede haber varias, ej. íconos sueltos) para mostrar algo
+                # visual en el preview en vez del hueco vacío. No cubre
+                # diagramas/formas nativas (SmartArt, autoshapes) — eso
+                # requeriría renderizar el slide completo, que no tenemos
+                # forma de hacer sin instalar LibreOffice en Render.
+                image_data_uri = None
+                if not text:
+                    try:
+                        pictures = [s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+                        if pictures:
+                            largest = max(pictures, key=lambda s: (s.width or 0) * (s.height or 0))
+                            image = largest.image
+                            image_data_uri = f'data:{image.content_type};base64,{base64.b64encode(image.blob).decode("ascii")}'
+                    except Exception:
+                        image_data_uri = None
                 slides.append({
                     'slide_number': i,
-                    'text': '\n'.join(texts) or f'(Slide {i} sin texto)',
+                    'text': text or (f'(Slide {i} sin texto)' if not image_data_uri else ''),
                     'char_count': sum(len(t) for t in texts),
+                    'image': image_data_uri,
                 })
             return JsonResponse({
                 'success': True,

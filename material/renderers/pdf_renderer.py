@@ -273,11 +273,16 @@ def _build_logo_flowable(block):
 
 def _build_letterhead_table(block, style_text, style_h2, content_width_cm=16.2):
     institution = (block.get('institucion') or '-').upper()
-    faculty = block.get('facultad') or '-'
-    career = block.get('carrera') or '-'
-    subject = block.get('materia') or '-'
-    professor = block.get('profesor') or '-'
+    faculty = block.get('facultad') or ''
+    career = block.get('carrera') or ''
+    subject = block.get('materia') or ''
+    professor = block.get('profesor') or ''
     year = block.get('anio') or '-'
+
+    def _meta_label_value(label, value):
+        # Un campo vacío (ej. profesor no cargado) se omite entero en vez de
+        # mostrar "Profesor: -" — antes siempre se imprimía el placeholder.
+        return f"<b>{label}:</b> {value}" if value else ''
 
     center_style = ParagraphStyle('LetterCenter', parent=style_h2, alignment=1, spaceBefore=0, spaceAfter=0)
     right_style = ParagraphStyle('LetterYear', parent=style_text, alignment=1, spaceBefore=0, spaceAfter=0)
@@ -296,8 +301,8 @@ def _build_letterhead_table(block, style_text, style_h2, content_width_cm=16.2):
 
     meta_table = Table(
         [
-            [Paragraph(f"<b>Facultad:</b> {faculty}", meta_left_style), Paragraph(f"<b>Carrera:</b> {career}", meta_right_style)],
-            [Paragraph(f"<b>Materia:</b> {subject}", meta_left_style), Paragraph(f"<b>Profesor:</b> {professor}", meta_right_style)],
+            [Paragraph(_meta_label_value('Facultad', faculty), meta_left_style), Paragraph(_meta_label_value('Carrera', career), meta_right_style)],
+            [Paragraph(_meta_label_value('Materia', subject), meta_left_style), Paragraph(_meta_label_value('Profesor', professor), meta_right_style)],
         ],
         colWidths=[half_pt, half_pt],
         hAlign='LEFT',
@@ -336,6 +341,7 @@ def _build_student_data_table(block, style_text, style_h2, content_width_cm=16.2
     exam_type = block.get('tipo_examen') or ''
     label_style = ParagraphStyle('StudentLabel', parent=style_text, alignment=0)
     value_style = ParagraphStyle('StudentValue', parent=style_text, alignment=0)
+    exam_type_style = ParagraphStyle('StudentExamType', parent=style_text, alignment=1)
 
     # Mismo ancho total que la tabla del encabezado (content_width_cm), para
     # que ambas tablas queden alineadas en vez de que esta quede mas angosta
@@ -346,7 +352,7 @@ def _build_student_data_table(block, style_text, style_h2, content_width_cm=16.2
 
     data = [
         [Paragraph('<b>Nombre</b>', label_style), Paragraph('', value_style), Paragraph('<b>Apellido</b>', label_style), Paragraph('', value_style)],
-        [Paragraph('<b>Fecha</b>', label_style), Paragraph(fecha, value_style), Paragraph(exam_type, value_style), ''],
+        [Paragraph('<b>Fecha</b>', label_style), Paragraph(fecha, value_style), Paragraph(f'<b>{exam_type}</b>' if exam_type else '', exam_type_style), ''],
     ]
     table = Table(data, colWidths=[NOMBRE_LABEL_CM * cm, value_col_cm * cm, APELLIDO_LABEL_CM * cm, value_col_cm * cm], hAlign='LEFT')
     table.setStyle(TableStyle([

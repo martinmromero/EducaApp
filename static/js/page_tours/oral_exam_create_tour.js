@@ -26,7 +26,7 @@
         element: '#topics-container',
         popover: {
           title: 'Tópicos a evaluar',
-          description: 'Se pueden tildar de a uno o todos juntos con los botones "Todo" / "Ninguno". Elegir al menos uno habilita "Total de estudiantes".',
+          description: 'Se pueden tildar de a uno o todos juntos con los botones "Todo" / "Ninguno". Elegir al menos uno habilita "Total de estudiantes" y muestra un panel con las preguntas y sub-tópicos disponibles para esa selección.',
           side: 'top',
         },
       },

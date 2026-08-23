@@ -28,8 +28,7 @@
                 <div class="d-flex align-items-center gap-2" id="listControlDefault">
                     <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" title="Filtros"
                             data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
-                        <i class="fas fa-filter"></i> <span class="d-none d-sm-inline">Filtros</span>
-                        {% if active_filter_count %}<span class="badge rounded-pill bg-primary list-filter-badge">{{ active_filter_count }}</span>{% endif %}
+                        <i class="fas fa-filter{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
                     </button>
                     <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if favorites_toggle_querystring %}&{{ favorites_toggle_querystring }}{% endif %}"
                        class="btn btn-sm list-toolbar-btn {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"

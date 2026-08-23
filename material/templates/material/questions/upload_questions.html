@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 {% if form.errors %}
                 <div class="alert alert-danger">
-                    <strong>Corregí estos campos:</strong>
+                    <strong>Hay que corregir estos campos:</strong>
                     <ul class="mb-0 mt-1">
                         {% for field in form %}
                             {% for error in field.errors %}
@@ -217,31 +217,47 @@ document.addEventListener('DOMContentLoaded', function() {
             <form method="post" enctype="multipart/form-data" id="batchForm">
                 {% csrf_token %}
 
+                <div class="form-group mb-3">
+                    <label for="batchSubject">Paso 1 — Materia</label>
+                    <select name="subject_id" id="batchSubject" class="form-control">
+                        <option value="">Elegir materia...</option>
+                        {% for s in visible_subjects %}
+                            <option value="{{ s.pk }}">{{ s.name }}{% if not s.es_catalogo_institucional %} (espacio personal){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="invalid-feedback d-none" id="batchSubjectError">
+                        Falta elegir la materia antes de subir el archivo.
+                    </div>
+                    <small class="form-text text-muted">
+                        Todas las preguntas del archivo se cargan bajo esta materia. Si la que hace falta no está en la lista, se puede
+                        <a href="{% url 'material:catalog_request_create' %}?tipo=materia" target="_blank">agregarla al catálogo</a> — queda disponible de inmediato en el espacio personal, sin esperar a nadie.
+                    </small>
+                </div>
+
                 <div class="form-group">
-                    <label for="batchFile">Subir Archivo</label>
+                    <label for="batchFile">Paso 2 — Subir archivo</label>
                     <input type="file" class="form-control-file" id="batchFile" name="file" accept=".csv,.txt">
                     <small class="form-text text-muted">Formatos soportados: CSV o TXT</small>
                 </div>
 
                 <div class="alert alert-info mt-3">
-                    <em>Las columnas <code>tema</code> y <code>subtema</code> del archivo corresponden a "Tópico" y "Sub-tópico" en el resto de la pantalla — el nombre de columna no cambia, solo cómo se llaman en la interfaz.</em><br><br>
+                    <em>Las columnas <code>tema</code> y <code>subtema</code> del archivo corresponden a "Tópico" y "Sub-tópico" en el resto de la pantalla — el nombre de columna no cambia, solo cómo se llaman en la interfaz. El archivo ya no lleva columna de materia: todas las preguntas quedan bajo la elegida en el Paso 1.</em><br><br>
                     <strong>Formato esperado para CSV:</strong><br>
-                    <code>materia,pregunta,respuesta,tema,subtema,pagina,tipo,opciones,dificultad,nivel_bloom</code><br>
-                    <em>Campos requeridos: materia, pregunta, respuesta, tema</em><br>
+                    <code>pregunta,respuesta,tema,subtema,pagina,tipo,opciones,dificultad,nivel_bloom</code><br>
+                    <em>Campos requeridos: pregunta, respuesta, tema</em><br>
                     <em>Campos opcionales: subtema, pagina, tipo, opciones, dificultad, nivel_bloom</em><br>
                     <em>tipo: desarrollo | opcion_multiple | completar_blank | verdadero_falso</em><br>
                     <em>opciones: solo para opcion_multiple (JSON o "A|B|C|D")</em><br>
                     <em>dificultad: 1 a 5 (default 1)</em><br>
                     <em>nivel_bloom: 1 a 6 (1=Recordar … 6=Crear)</em><br>
                     Ejemplo:<br>
-                    <code>Matemáticas,¿Cuánto es 2+2?,4,Álgebra,,12,opcion_multiple,"[""1"",""2"",""3"",""4""]",2,1</code><br>
-                    <code>Historia,¿San Martín cruzó los Andes?,Verdadero,Independencia,Argentina,34,verdadero_falso,,1,2</code>
+                    <code>¿Cuánto es 2+2?,4,Álgebra,,12,opcion_multiple,"[""1"",""2"",""3"",""4""]",2,1</code><br>
+                    <code>¿San Martín cruzó los Andes?,Verdadero,Independencia,Argentina,34,verdadero_falso,,1,2</code>
                     <br><br>
                     <strong>Formato esperado para TXT:</strong><br>
-                    <em>Campos requeridos: materia, pregunta, respuesta, tema</em><br>
+                    <em>Campos requeridos: pregunta, respuesta, tema</em><br>
                     <em>Campos opcionales: subtema, pagina, tipo, opciones, dificultad, nivel_bloom</em><br>
                     <pre style="white-space: pre-line;">
-materia: Matemáticas
 pregunta: ¿Cuánto es 2+2?
 respuesta: 4
 tema: Álgebra
@@ -251,7 +267,6 @@ opciones: 1|2|3|4
 dificultad: 2
 nivel_bloom: 1
 
-materia: Historia
 pregunta: ¿San Martín cruzó los Andes?
 respuesta: Verdadero
 tema: Independencia
@@ -532,6 +547,30 @@ document.addEventListener('DOMContentLoaded', function() {
     if (lastTab && document.getElementById(lastTab + '-tab')) {
         var tab = new bootstrap.Tab(document.getElementById(lastTab + '-tab'));
         tab.show();
+    }
+
+    // Validación de "Paso 1 — Materia" con el estilo propio de la app
+    // (invalid-feedback) en vez del popup nativo del navegador — antes
+    // tenía el atributo required, que bloqueaba el envío sin mostrar
+    // ningún aviso visible (el usuario lo reportó como "no pasa nada").
+    var batchForm = document.getElementById('batchForm');
+    var batchSubject = document.getElementById('batchSubject');
+    var batchSubjectError = document.getElementById('batchSubjectError');
+    if (batchForm && batchSubject && batchSubjectError) {
+        batchForm.addEventListener('submit', function (e) {
+            if (!batchSubject.value) {
+                e.preventDefault();
+                batchSubject.classList.add('is-invalid');
+                batchSubjectError.classList.remove('d-none');
+                batchSubject.focus();
+            }
+        });
+        batchSubject.addEventListener('change', function () {
+            if (batchSubject.value) {
+                batchSubject.classList.remove('is-invalid');
+                batchSubjectError.classList.add('d-none');
+            }
+        });
     }
 });
 </script>

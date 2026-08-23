@@ -64,6 +64,19 @@
                 </div>
             </a>
         </div>
+        <div class="col-6 col-md-3 index-stat-tab">
+            <a href="{% url 'material:espacio_personal_list' %}" class="card border-left-secondary shadow text-decoration-none h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-person-badge text-secondary me-2"></i>
+                        <div>
+                            <div class="text-uppercase text-secondary fw-bold mb-0 stat-label">Espacio personal</div>
+                            <div class="mb-0 fw-bold text-gray-800 stat-value">{{ espacio_personal_count }}</div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
     </div>
 
     <!-- El "Asistente guiado" no es un dato (no tiene número como los otros

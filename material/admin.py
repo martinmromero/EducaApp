@@ -3,9 +3,9 @@ from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
     Subject, Contenido, Question, Exam, ExamTemplate, Profile,
-    Topic, Subtopic, Institution, InstitutionV2, LearningOutcome, Career,
+    Topic, Subtopic, Unidad, InstitutionV2, LearningOutcome, Career, CareerSubject,
     InstitutionAIConfig, UserAIConfig, GlobalAIConfig, encrypt_api_key,
-    SharingGroup, GroupMembership, SubjectShare,
+    SharingGroup, GroupMembership, ContentShare, CatalogRequest,
 )
 from .forms import SubjectForm
 from django.contrib.auth.admin import UserAdmin
@@ -44,59 +44,6 @@ class OwnerScopedAdminMixin:
         return qs.filter(**{self.owner_field: request.user})
 
 
-# --- Institution Admin ---
-# CANDIDATO A BORRAR (auditoría 2026-08-03, ver memoria
-# project_institution_v1_cleanup): Institution v1 fue reemplazado por
-# InstitutionV2 (ver InstitutionV2Admin más abajo, que es el que se usa de
-# verdad). Este admin además está roto: `fields`/`search_fields` incluyen
-# 'campuses'/'faculties', que no son campos del modelo sino managers de
-# relación inversa (FieldError al abrir el form de alta/edición), y
-# `campuses_short()` hace `obj.campuses.split(',')` tratando ese manager
-# como si fuera un string (AttributeError en la lista del admin).
-@admin.register(Institution)
-class InstitutionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'owner', 'logo_preview', 'campuses_short')
-    search_fields = ('name', 'campuses', 'owner__username')
-    list_filter = ('owner',)
-    fields = ('name', 'logo', 'logo_preview', 'campuses', 'faculties', 'owner')
-    readonly_fields = ('logo_preview',)
-    raw_id_fields = ('owner',)  # Para mejor rendimiento con muchos usuarios
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            return qs
-        return qs.filter(owner=request.user)
-
-    def get_form(self, request, obj=None, **kwargs):
-        form = super().get_form(request, obj, **kwargs)
-        if not request.user.is_superuser:
-            # Para usuarios normales, establecer el owner automáticamente
-            form.base_fields['owner'].disabled = True
-            form.base_fields['owner'].initial = request.user
-        return form
-
-    def logo_preview(self, obj):
-        if obj.logo:
-            return format_html('<img src="{}" style="max-height: 100px; max-width: 100px;" />', obj.logo.url)
-        return "No logo disponible"
-    logo_preview.short_description = 'Vista previa'
-
-    def campuses_short(self, obj):
-        if obj.campuses:
-            campuses = [c.strip() for c in obj.campuses.split(',') if c.strip()]
-            if len(campuses) > 3:
-                return f"{', '.join(campuses[:3])}... (+{len(campuses)-3})"
-            return ', '.join(campuses)
-        return "No especificado"
-    campuses_short.short_description = 'Sedes'
-
-    def save_model(self, request, obj, form, change):
-        if not obj.owner_id:  # Si es nueva institución
-            obj.owner = request.user
-        super().save_model(request, obj, form, change)
-# --- End Institution Admin ---
-
 # --- InstitutionV2 Admin ---
 @admin.register(InstitutionV2)
 class InstitutionV2Admin(admin.ModelAdmin):
@@ -109,11 +56,21 @@ class InstitutionV2Admin(admin.ModelAdmin):
     )
 # --- End InstitutionV2 Admin ---
 
+class CareerSubjectInline(admin.TabularInline):
+    # Career.subjects tiene through=CareerSubject (numero_materia/anio_
+    # cursada/cuatrimestre_cursada) — un M2M con through no admite
+    # filter_horizontal, se edita con un inline como este.
+    model = CareerSubject
+    extra = 0
+    autocomplete_fields = ('subject',)
+
+
 @admin.register(Career)
 class CareerAdmin(admin.ModelAdmin):
     list_display = ('name', 'faculties_list', 'subjects_list')
     search_fields = ('name',)
-    filter_horizontal = ('faculties', 'subjects', 'campus')
+    filter_horizontal = ('faculties', 'campus')
+    inlines = [CareerSubjectInline]
 
     def faculties_list(self, obj):
         return ", ".join([f.name for f in obj.faculties.all()])
@@ -126,33 +83,16 @@ class CareerAdmin(admin.ModelAdmin):
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
     form = SubjectForm  # Usando el form mejorado que definimos antes
-    list_display = ('name', 'learning_outcomes_short', 'careers_list')
+    list_display = ('name', 'careers_list')
     search_fields = ('name',)
     list_filter = ('careers',)  # Añadido para mejor filtrado
     filter_horizontal = ('careers',)  # Para selección más fácil de carreras
-    
+
     fieldsets = (
         (None, {
             'fields': ('name', 'careers')
         }),
-        ('Resultados de Aprendizaje', {
-            'fields': ('learning_outcomes',),
-            'description': '''<div class="help">
-                <p>Formato recomendado: <code>CÓDIGO: Descripción - Nivel X</code></p>
-                <p>Ejemplo: <code>MATH-101: Resolver ecuaciones - Nivel 2</code></p>
-            </div>'''
-        }),
     )
-
-    def learning_outcomes_short(self, obj):
-        if not obj.learning_outcomes:
-            return ""
-        # Versión mejorada que muestra el primer código encontrado
-        first_line = obj.learning_outcomes.split('\n')[0].strip()
-        if ':' in first_line:
-            return f"{first_line.split(':')[0].strip()}..."
-        return f"{first_line[:50]}..." if first_line else ""
-    learning_outcomes_short.short_description = 'Resultados'
 
     def careers_list(self, obj):
         return ", ".join([c.name for c in obj.careers.all()[:3]]) + ("..." if obj.careers.count() > 3 else "")
@@ -216,13 +156,8 @@ class ProfileAdmin(admin.ModelAdmin):
     # saltandose las protecciones de auto-degradación y "último admin" que
     # tiene la vista material:edit_user. Se restringe a superusers para que
     # ese único camino siga siendo el punto de control real.
-    list_display = ('user', 'role', 'institutions_list', 'security_question', 'security_answer')
+    list_display = ('user', 'role', 'security_question', 'security_answer')
     list_filter = ('role',)
-    filter_horizontal = ('institutions',)
-
-    def institutions_list(self, obj):
-        return ", ".join([i.name for i in obj.institutions.all()])
-    institutions_list.short_description = 'Instituciones'
 
     def has_add_permission(self, request):
         return request.user.is_superuser
@@ -235,9 +170,19 @@ class ProfileAdmin(admin.ModelAdmin):
 
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
-    list_display = ('name', 'subject', 'importance')
+    list_display = ('name', 'subject', 'importance', 'created_by', 'unidad')
     list_filter = ('subject', 'importance')
     search_fields = ('name', 'subject__name')
+    raw_id_fields = ('created_by', 'unidad')
+
+
+@admin.register(Unidad)
+class UnidadAdmin(admin.ModelAdmin):
+    list_display = ('name', 'subject', 'created_by', 'order')
+    list_filter = ('subject',)
+    search_fields = ('name', 'subject__name')
+    raw_id_fields = ('created_by',)
+
 
 @admin.register(Subtopic)
 class SubtopicAdmin(admin.ModelAdmin):
@@ -251,22 +196,28 @@ class SubtopicAdmin(admin.ModelAdmin):
 
 @admin.register(LearningOutcome)
 class LearningOutcomeAdmin(admin.ModelAdmin):
-    list_display = ('id', 'short_description', 'subject_name', 'created_at')
-    list_select_related = ('subject',)
-    search_fields = ('description', 'subject__name')
-    list_filter = ('subject__name', 'created_at')
+    list_display = ('id', 'short_description', 'subject_name', 'career_name', 'created_at')
+    list_select_related = ('career_subject', 'career_subject__subject', 'career_subject__career')
+    search_fields = ('description', 'career_subject__subject__name', 'career_subject__career__name')
+    list_filter = ('career_subject__career', 'created_at')
     readonly_fields = ('created_at', 'updated_at')
-    fields = ('subject', 'description', 'created_at', 'updated_at')
+    fields = ('career_subject', 'description', 'created_at', 'updated_at')
     ordering = ('-created_at',)
+    raw_id_fields = ('career_subject',)
 
     def short_description(self, obj):
         return obj.description[:80] + ('...' if len(obj.description) > 80 else '')
     short_description.short_description = 'Descripción'
 
     def subject_name(self, obj):
-        return obj.subject.name
+        return obj.career_subject.subject.name if obj.career_subject else '—'
     subject_name.short_description = 'Materia'
-    subject_name.admin_order_field = 'subject__name'
+    subject_name.admin_order_field = 'career_subject__subject__name'
+
+    def career_name(self, obj):
+        return obj.career_subject.career.name if obj.career_subject else '—'
+    career_name.short_description = 'Carrera'
+    career_name.admin_order_field = 'career_subject__career__name'
 
 
 # ---------------------------------------------------------------------------
@@ -385,10 +336,10 @@ class GroupMembershipInline(admin.TabularInline):
     readonly_fields = ('created_at',)
 
 
-class SubjectShareInline(admin.TabularInline):
-    model = SubjectShare
+class ContentShareInline(admin.TabularInline):
+    model = ContentShare
     extra = 0
-    fields = ('subject', 'shared_by', 'is_active', 'created_at')
+    fields = ('kind', 'subject', 'content_type', 'object_id', 'shared_by', 'is_active', 'created_at')
     readonly_fields = ('created_at',)
 
 
@@ -396,7 +347,7 @@ class SubjectShareInline(admin.TabularInline):
 class SharingGroupAdmin(admin.ModelAdmin):
     list_display = ('name', 'created_by', 'created_at', 'members_count')
     search_fields = ('name', 'created_by__username')
-    inlines = [GroupMembershipInline, SubjectShareInline]
+    inlines = [GroupMembershipInline, ContentShareInline]
 
     def members_count(self, obj):
         return obj.memberships.filter(status='accepted').count()
@@ -410,8 +361,50 @@ class GroupMembershipAdmin(admin.ModelAdmin):
     search_fields = ('group__name', 'user__username')
 
 
-@admin.register(SubjectShare)
-class SubjectShareAdmin(admin.ModelAdmin):
-    list_display = ('group', 'subject', 'shared_by', 'is_active', 'created_at')
-    list_filter = ('is_active',)
+@admin.register(ContentShare)
+class ContentShareAdmin(admin.ModelAdmin):
+    list_display = ('group', 'kind', 'subject', 'shared_object', 'shared_by', 'is_active', 'created_at')
+    list_filter = ('kind', 'is_active')
     search_fields = ('group__name', 'subject__name', 'shared_by__username')
+
+
+@admin.register(CatalogRequest)
+class CatalogRequestAdmin(admin.ModelAdmin):
+    list_display = ('tipo', 'nombre_propuesto', 'estado', 'solicitado_por', 'created_at')
+    list_filter = ('tipo', 'estado')
+    search_fields = ('nombre_propuesto', 'solicitado_por__username')
+    raw_id_fields = ('institucion', 'facultad', 'carrera', 'solicitado_por', 'resuelto_por')
+    actions = ['aprobar_y_crear', 'rechazar']
+
+    @admin.action(description='Aprobar y crear en el catálogo')
+    def aprobar_y_crear(self, request, queryset):
+        from .views import resolve_catalog_request
+        creadas, saltadas = 0, 0
+        for solicitud in queryset.filter(estado='pendiente'):
+            ok, _ = resolve_catalog_request(solicitud, admin_user=request.user, aprobar=True)
+            creadas += ok
+            saltadas += (not ok)
+        if creadas:
+            self.message_user(request, f'{creadas} solicitud(es) aprobadas y creadas en el catálogo.')
+        if saltadas:
+            self.message_user(
+                request,
+                f'{saltadas} solicitud(es) salteadas por falta de contexto (institución/facultad/carrera) — hay que completarlas y reintentar.',
+                level='WARNING',
+            )
+
+    @admin.action(description='Rechazar')
+    def rechazar(self, request, queryset):
+        from .views import resolve_catalog_request
+        count = 0
+        for solicitud in queryset.filter(estado='pendiente'):
+            ok, _ = resolve_catalog_request(solicitud, admin_user=request.user, aprobar=False)
+            count += ok
+        self.message_user(request, f'{count} solicitud(es) rechazadas.')
+
+
+@admin.register(CareerSubject)
+class CareerSubjectAdmin(admin.ModelAdmin):
+    list_display = ('career', 'subject', 'numero_materia', 'anio_cursada', 'cuatrimestre_cursada')
+    list_filter = ('career', 'anio_cursada')
+    search_fields = ('career__name', 'subject__name')
