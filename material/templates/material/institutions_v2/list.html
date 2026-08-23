@@ -9,7 +9,7 @@
 </a>
 {% else %}
 <a href="{% url 'material:catalog_request_create' %}?tipo=institucion" class="btn btn-outline-primary" id="institutionRequestBtn">
-    <i class="bi bi-send me-1"></i><span class="d-none d-sm-inline">Solicitar institución</span>
+    <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Agregar institución</span>
 </a>
 {% endif %}
 {% endblock %}
@@ -30,9 +30,13 @@
                 <div class="d-flex align-items-center gap-2" id="listControlDefault">
                     <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" title="Filtros"
                             data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
-                        <i class="fas fa-filter"></i> <span class="d-none d-sm-inline">Filtros</span>
-                        {% if active_filter_count %}<span class="badge rounded-pill bg-primary list-filter-badge">{{ active_filter_count }}</span>{% endif %}
+                        <i class="fas fa-filter{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
                     </button>
+                    <a href="?personal={% if only_personal %}0{% else %}1{% endif %}{% if personal_toggle_querystring %}&{{ personal_toggle_querystring }}{% endif %}"
+                       class="btn btn-sm list-toolbar-btn {% if only_personal %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
+                       title="Mostrar solo lo que está en el espacio personal propio, todavía no sumado al catálogo institucional">
+                        <i class="bi bi-person-badge"></i> <span class="d-none d-sm-inline">Personal</span>
+                    </a>
                 </div>
                 <div class="d-none align-items-center gap-2" id="listSelectionBar">
                     <span class="fw-semibold" id="listSelectionCount"></span>
@@ -121,6 +125,13 @@
                                             <a href="{% url 'material:delete_institution_v2' institution.pk %}" class="btn btn-sm btn-danger" title="Eliminar institución">
                                                 <i class="fas fa-trash"></i>
                                             </a>
+                                            {% elif institution.created_by_id == user.id and not institution.es_catalogo_institucional %}
+                                            <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-sm btn-warning" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'material:eliminar_espacio_personal' 'institucion' institution.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-danger" title="Borrar del espacio personal">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
                                             {% endif %}
                                         </div>
                                     </td>
@@ -148,6 +159,13 @@
                                                         <i class="fas fa-edit"></i>
                                                     </a>
                                                     <a href="{% url 'material:delete_institution_v2' institution.pk %}" class="btn btn-sm btn-danger" title="Eliminar institución">
+                                                        <i class="fas fa-trash"></i>
+                                                    </a>
+                                                    {% elif institution.created_by_id == user.id and not institution.es_catalogo_institucional %}
+                                                    <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-sm btn-warning" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    <a href="{% url 'material:eliminar_espacio_personal' 'institucion' institution.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-danger" title="Borrar del espacio personal">
                                                         <i class="fas fa-trash"></i>
                                                     </a>
                                                     {% endif %}
@@ -264,6 +282,7 @@
        "Espacio perso...". */
     .badge-espacio-personal {
         max-width: none;
+        vertical-align: middle;
     }
     .gap-1 {
         gap: 0.35rem;

@@ -130,6 +130,7 @@ urlpatterns = [
 path('subjects/', material_views.subject_list, name='subject_list'),
     path('favoritos/toggle/', material_views.toggle_favorite, name='toggle_favorite'),
     path('favoritos/', material_views.favoritos_list, name='favoritos_list'),
+    path('espacio-personal/', material_views.espacio_personal_list, name='espacio_personal_list'),
 # linea siguiente obsoleta. si funciona dos renglones abajo, borrar 1 renglon abajo de subject create
 #path('subjects/create/', material_views.create_subject, name='create_subject'),
 path('subjects/create/', material_views.SubjectCreateView.as_view(), name='create_subject'),
@@ -157,6 +158,7 @@ path('careers/<int:pk>/', material_views.CareerDetailView.as_view(), name='caree
 
 path('get_faculties_by_institution/<int:institution_id>/', material_views.get_faculties_by_institution, name='get_faculties_by_institution'),
 path('get_campuses_by_institution/<int:institution_id>/', material_views.get_campuses_by_institution, name='get_campuses_by_institution'),
+path('get_catalog_tree_for_subject/<int:subject_id>/', material_views.get_catalog_tree_for_subject, name='get_catalog_tree_for_subject'),
 path('exam-templates/view/<int:template_id>/', material_views.view_exam_template, name='view_exam_template'),
 
 
@@ -206,6 +208,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('solicitudes-catalogo/verificar-duplicado/', material_views.check_catalog_duplicate, name='check_catalog_duplicate'),
     path('solicitudes-catalogo/buscar-destino-fusion/', material_views.buscar_destino_fusion, name='buscar_destino_fusion'),
     path('solicitudes-catalogo/mias/', material_views.mis_solicitudes_catalogo, name='mis_solicitudes_catalogo'),
+    path('solicitudes-catalogo/espacio-personal/<str:nivel>/<int:pk>/eliminar/', material_views.eliminar_espacio_personal, name='eliminar_espacio_personal'),
     path('solicitudes-catalogo/bandeja/', material_views.catalog_requests_bandeja, name='catalog_requests_bandeja'),
 
     # GRUPOS DE CONFIANZA (compartir preguntas)
@@ -236,6 +239,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     # Monitoreo del fallback de Groq (staff-only)
     path('herramientas/groq-monitor/', material_views.groq_monitor_page, name='groq_monitor_page'),
     path('herramientas/uso-neon/', material_views.neon_usage_page, name='neon_usage_page'),
+    path('herramientas/carga-catalogo/', material_views.admin_bulk_catalog_upload, name='admin_bulk_catalog_upload'),
     path('herramientas/prompt-generacion-ia/', material_views.question_generation_prompt_config, name='question_generation_prompt_config'),
 
     # Modo Testing (panel de UAT dentro de la app)

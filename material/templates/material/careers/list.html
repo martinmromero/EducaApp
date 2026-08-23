@@ -10,7 +10,7 @@
 </a>
 {% else %}
 <a href="{% url 'material:catalog_request_create' %}?tipo=carrera" class="btn btn-outline-primary" id="careerRequestBtn">
-    <i class="bi bi-send me-1"></i><span class="d-none d-sm-inline">Solicitar carrera</span>
+    <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Agregar carrera</span>
 </a>
 {% endif %}
 {% endblock %}
@@ -32,9 +32,13 @@
                 <div class="d-flex align-items-center gap-2" id="listControlDefault">
                     <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" title="Filtros"
                             data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
-                        <i class="fas fa-filter"></i> <span class="d-none d-sm-inline">Filtros</span>
-                        {% if active_filter_count %}<span class="badge rounded-pill bg-primary list-filter-badge">{{ active_filter_count }}</span>{% endif %}
+                        <i class="fas fa-filter{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
                     </button>
+                    <a href="?personal={% if only_personal %}0{% else %}1{% endif %}{% if personal_toggle_querystring %}&{{ personal_toggle_querystring }}{% endif %}"
+                       class="btn btn-sm list-toolbar-btn {% if only_personal %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
+                       title="Mostrar solo lo que está en el espacio personal propio, todavía no sumado al catálogo institucional">
+                        <i class="bi bi-person-badge"></i> <span class="d-none d-sm-inline">Personal</span>
+                    </a>
                 </div>
                 <div class="d-none align-items-center gap-2" id="listSelectionBar">
                     <span class="fw-semibold" id="listSelectionCount"></span>
@@ -69,7 +73,7 @@
                                 <td class="rt-card-title" data-label="Nombre">
                                     {{ career.name }}
                                     {% if not career.es_catalogo_institucional %}
-                                        <span class="badge bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
+                                        <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
                                     {% endif %}
                                 </td>
                                 <td data-label="Facultades">
@@ -87,11 +91,15 @@
                                     {% endfor %}
                                 </td>
                                 <td data-label="Materias">
-                                    {% for subject in career.subjects.all %}
-                                    <span class="badge bg-success">{{ subject.name }}</span>
-                                    {% empty %}
+                                    {% with cantidad=career.subjects.all|length %}
+                                    {% if cantidad %}
+                                    <a href="{% url 'material:career_detail' pk=career.pk %}" class="badge bg-success text-decoration-none">
+                                        {{ cantidad }} materia{{ cantidad|pluralize }}
+                                    </a>
+                                    {% else %}
                                     <span class="text-muted">Sin asignar</span>
-                                    {% endfor %}
+                                    {% endif %}
+                                    {% endwith %}
                                 </td>
                                 <td data-label="Acciones">
                                     <div class="btn-group" role="group">
@@ -106,6 +114,15 @@
                                         </a>
                                         <a href="{% url 'material:delete_career' pk=career.pk %}"
                                            class="btn btn-sm btn-danger" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                        {% elif career.created_by_id == user.id and not career.es_catalogo_institucional %}
+                                        <a href="{% url 'material:career_associations' pk=career.pk %}"
+                                           class="btn btn-sm btn-outline-warning" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'material:eliminar_espacio_personal' 'carrera' career.pk %}?next={{ request.get_full_path|urlencode }}"
+                                           class="btn btn-sm btn-outline-danger" title="Borrar del espacio personal">
                                             <i class="fas fa-trash"></i>
                                         </a>
                                         {% endif %}

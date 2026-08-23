@@ -374,9 +374,13 @@ def get_exam_template(request, template_id):
         'learning_outcomes': list(template.learning_outcomes.values_list('id', flat=True)),
         'rubric_ids': list(template.rubrics.values_list('id', flat=True)),
         'institution_id': template.institution.id if template.institution else None,
+        'institution_name': template.institution.name if template.institution else None,
         'faculty_id': template.faculty.id if template.faculty else None,
+        'faculty_name': template.faculty.name if template.faculty else None,
         'career_id': template.career.id if template.career else None,
+        'career_name': template.career.name if template.career else None,
         'campus_id': template.campus.id if template.campus else None,
+        'campus_name': template.campus.name if template.campus else None,
         'professor_id': template.professor.id if template.professor else None,
         'exam_type': template.exam_type,
         'exam_mode': template.exam_mode,
@@ -415,10 +419,14 @@ def get_questions_by_topics(request):
     return JsonResponse(data, safe=False)
 
 # AJAX: obtener carreras por facultad seleccionada
+@login_required
 @require_GET
 def get_careers_by_faculty(request, faculty_id):
-    from .models import Career, FacultyV2
-    careers = Career.objects.filter(faculties__id=faculty_id, is_seed_demo=False).distinct()
+    # Catálogo institucional + espacio personal propio (ver
+    # content_visibility.get_visible_careers) — antes mostraba carreras de
+    # CUALQUIER usuario para cualquiera que supiera el ID de facultad.
+    from .content_visibility import get_visible_careers
+    careers = get_visible_careers(request.user).filter(faculties__id=faculty_id).distinct()
     data = [{'id': c.id, 'name': c.name} for c in careers]
     return JsonResponse({'careers': data})
 # Standard library imports
@@ -560,16 +568,26 @@ def get_unidades_by_subject(request):
     ]
     return JsonResponse(data, safe=False)
 
+@login_required
 def get_faculties(request):
+    # Usado por careers/associations.html al elegir institución — acotado a
+    # lo visible del usuario (catálogo + su espacio personal, ver
+    # content_visibility) para que el checkbox no ofrezca facultades del
+    # espacio personal de otro docente. El server ya vuelve a validar esto
+    # mismo en CareerForm; esto es solo para que el listado que se ve
+    # coincida con lo que en verdad se puede guardar.
+    from .content_visibility import get_visible_faculties
     institution_id = request.GET.get('institution_id')
-    faculties = FacultyV2.objects.filter(
-        institution_id=institution_id,
-        is_active=True,
-        institution__is_seed_demo=False,
+    faculties = get_visible_faculties(request.user).filter(
+        institution_id=institution_id, is_active=True,
     ).values('id', 'name').order_by('name')
     return JsonResponse(list(faculties), safe=False)
 
+@login_required
 def get_campus_by_institution(request):
+    # Campus/Sede no tiene concepto de espacio personal (ver CampusV2) —
+    # alcanza con que la institución elegida ya sea visible, algo que
+    # CareerForm/get_visible_institutions ya garantiza del lado servidor.
     institution_id = request.GET.get('institution_id')
     campus = CampusV2.objects.filter(
         institution_id=institution_id,
@@ -589,6 +607,15 @@ def is_admin(user):
         return user.profile.role == 'admin'
     except Profile.DoesNotExist:
         return False
+
+
+def _puede_editar_catalogo(user, entidad):
+    """Admin, o el dueño de un borrador de espacio personal todavía no
+    sumado al catálogo institucional — mismo criterio que ya usa
+    eliminar_espacio_personal para el borrado autoservicio (ver más abajo),
+    extendido acá a la edición: el dueño de su propio borrador puede
+    corregirlo (typo en el nombre, etc.) sin depender de un admin."""
+    return is_admin(user) or (entidad.created_by_id == user.id and not entidad.es_catalogo_institucional)
 
 
 class AdminRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
@@ -624,7 +651,7 @@ def _protected_error_message(exc):
     detalle = ', '.join(f'{cantidad} {etiqueta}' for etiqueta, cantidad in conteo.items())
     return (
         f'No se puede eliminar: está siendo usado por {detalle}. '
-        'Eliminá o reasigná esos elementos primero.'
+        'Hay que eliminar o reasignar esos elementos primero.'
     )
 
 
@@ -668,6 +695,16 @@ def index(request):
         favoritos_count = Favorite.objects.filter(user=request.user).count()
     except Exception:
         favoritos_count = 0
+    try:
+        propios = Q(created_by=request.user, es_catalogo_institucional=False)
+        espacio_personal_count = (
+            InstitutionV2.objects.filter(propios).count()
+            + FacultyV2.objects.filter(propios).count()
+            + Career.objects.filter(propios).count()
+            + Subject.objects.filter(propios).count()
+        )
+    except Exception:
+        espacio_personal_count = 0
 
     context = {
         'is_admin': is_admin(request.user),
@@ -675,6 +712,7 @@ def index(request):
         'preguntas_count': preguntas_count,
         'examenes_count': examenes_count,
         'favoritos_count': favoritos_count,
+        'espacio_personal_count': espacio_personal_count,
         'ultimos_examenes': ultimos_examenes,
     }
     return render(request, 'material/index.html', context)
@@ -682,7 +720,7 @@ def index(request):
 @login_required
 def upload_contenido(request):  # Antes upload_material
     if request.method == 'POST':
-        form = ContenidoForm(request.POST, request.FILES)
+        form = ContenidoForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             from .cleanup import compute_file_hash
 
@@ -732,10 +770,11 @@ def upload_contenido(request):  # Antes upload_material
             messages.success(request, 'Los archivos se subieron correctamente.', extra_tags='contenidos')
             return redirect('material:mis_contenidos')
     else:
-        form = ContenidoForm()
+        form = ContenidoForm(user=request.user)
     return render(request, 'material/questions/upload.html', {
         'form': form,
         'max_upload_mb': settings.CONTENIDO_MAX_UPLOAD_MB,
+        'check_duplicate_url': reverse('material:check_catalog_duplicate'),
     })
 
 @login_required
@@ -1495,7 +1534,7 @@ def create_exam_wizard(request):
     edición en curso ni un borrador de sesión previo: es siempre un examen
     nuevo, a diferencia de create_exam.
     """
-    from .models import Career, CampusV2, Subject, ExamTemplate, InstitutionV2
+    from .models import Subject, ExamTemplate
     from django.contrib.auth.models import User
     from .content_visibility import get_visible_questions, get_visible_rubrics, get_visible_templates, EXAM_ELIGIBLE_Q
 
@@ -1506,9 +1545,11 @@ def create_exam_wizard(request):
         request.session.pop('preview_generated_versions_ids', None)
         return redirect('material:create_exam_wizard')
 
-    instituciones = InstitutionV2.objects.filter(is_active=True, is_seed_demo=False)
-    carreras = Career.objects.filter(is_seed_demo=False)
-    sedes = CampusV2.objects.filter(is_active=True)
+    # Institución/facultad/carrera ya NO se pre-cargan acá: el paso las busca
+    # en vivo contra check_catalog_duplicate (catálogo institucional +
+    # espacio personal propio, mismo motor que usa Solicitar Alta) — ver
+    # create_exam_wizard.js. Sede sigue con su propio dropdown en cascada
+    # (CampusV2 nunca se sumó al modelo de espacio personal).
     profesores = (
         User.objects.filter(profile__role='admin') | User.objects.filter(profile__role='user')
     ).exclude(profile__is_training_account=True)
@@ -1523,9 +1564,6 @@ def create_exam_wizard(request):
     materias = Subject.objects.filter(is_seed_demo=False, id__in=visible_subject_ids)
 
     context = {
-        'instituciones': instituciones,
-        'carreras': carreras,
-        'sedes': sedes,
         'materias': materias,
         'profesores': profesores,
         'templates': templates,
@@ -2061,8 +2099,8 @@ def create_exam_template(request):
         'form': form,
         'subjects': subjects,
         'learning_outcomes': LearningOutcome.objects.filter(
-            subject__in=subjects
-        ).select_related('subject'),
+            career_subject__subject__in=subjects
+        ).select_related('career_subject__subject'),
         'current_institution': request.GET.get('institution_id'),
         'exam_modes': ExamTemplate.EXAM_MODE_CHOICES,
         'time_units': [
@@ -2071,22 +2109,6 @@ def create_exam_template(request):
             {'value': 'days', 'label': 'Días'}
         ]
     }
-    
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        institution_id = request.GET.get('institution_id')
-        if institution_id:
-            # Se filtra dentro de las materias visibles del usuario, no de
-            # todas las de la institución — antes esto devolvía outcomes de
-            # cualquier institución con solo pasar su ID por querystring,
-            # sin chequear que el usuario perteneciera a ella.
-            institution_subjects = subjects.filter(
-                subject_institutions__institution_id=institution_id
-            )
-            outcomes = LearningOutcome.objects.filter(
-                subject__in=institution_subjects
-            ).values('id', 'name', 'subject__name')
-            return JsonResponse(list(outcomes), safe=False)
-        return JsonResponse([], safe=False)
     
     return render(
         request,
@@ -2270,8 +2292,8 @@ def edit_exam_template(request, template_id):
         'form': form,
         'subjects': subjects,
         'learning_outcomes': LearningOutcome.objects.filter(
-            subject__in=subjects
-        ).select_related('subject'),
+            career_subject__subject__in=subjects
+        ).select_related('career_subject__subject'),
         'current_institution': template.institution.id if template.institution else None,
         'exam_modes': ExamTemplate.EXAM_MODE_CHOICES,
         'time_units': [
@@ -3814,8 +3836,8 @@ def upload_questions(request):
                 # Paso 1 del flujo en dos pasos: la materia se elige ANTES
                 # de subir el archivo (ver informe de rediseño) — ya no se
                 # resuelve por fila desde una columna de texto libre. Si
-                # lo que hace falta no está en la lista, se pide en
-                # Solicitar alta y queda usable de inmediato desde el
+                # lo que hace falta no está en la lista, se agrega al
+                # catálogo y queda usable de inmediato desde el
                 # espacio personal (ver get_visible_subjects).
                 from .content_visibility import get_visible_subjects
                 subject_id = request.POST.get('subject_id')
@@ -3823,7 +3845,7 @@ def upload_questions(request):
                 if not materia:
                     messages.error(
                         request,
-                        'Falta elegir la materia antes de subir el archivo — si no está en la lista, se puede pedir en Solicitar alta.',
+                        'Falta elegir la materia antes de subir el archivo — si no está en la lista, se puede agregar al catálogo.',
                         extra_tags='preguntas',
                     )
                     return redirect('material:upload_questions')
@@ -4343,6 +4365,12 @@ def institution_v2_list(request):
                 userinstitution__is_favorite=True
             )
 
+        # Filtro "Personal" — acota a lo que el usuario tiene en su espacio
+        # personal, mezclado hoy en el mismo listado que lo institucional.
+        only_personal = request.GET.get('personal') == '1'
+        if only_personal:
+            institutions = institutions.filter(es_catalogo_institucional=False)
+
         institutions = institutions.annotate(
             has_campus_flag=Exists(CampusV2.objects.filter(institution=OuterRef('pk'))),
             has_faculty_flag=Exists(FacultyV2.objects.filter(institution=OuterRef('pk'))),
@@ -4376,6 +4404,9 @@ def institution_v2_list(request):
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
+        # "Personal" tiene su propio botón siempre visible, separado del
+        # panel de Filtros — no suma acá: si sumara, el badge de Filtros
+        # mostraría "1" con el panel vacío por dentro, confuso.
         active_filter_count = (
             get_active_filter_count(selected_filters)
             + (1 if name_query else 0)
@@ -4390,6 +4421,7 @@ def institution_v2_list(request):
         selected_filters = get_selected_filters(request, INSTITUTION_V2_FILTER_FIELDS)
         filter_options = {f.name: [] for f in INSTITUTION_V2_FILTER_FIELDS}
         active_filter_count = 0
+        only_personal = False
 
     return render(request, 'material/institutions_v2/list.html', {
         'institutions': page_obj,
@@ -4401,6 +4433,8 @@ def institution_v2_list(request):
         'active_filter_count': active_filter_count,
         'filter_querystring': get_filter_querystring(request),
         'filter_columns': INSTITUTION_V2_FILTER_COLUMNS,
+        'only_personal': only_personal,
+        'personal_toggle_querystring': get_filter_querystring_excluding(request, 'personal'),
     })
 
 @login_required
@@ -4457,7 +4491,6 @@ def create_institution_v2(request):
     })
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
 def edit_institution_v2(request, pk):
     from django.db import DatabaseError
 
@@ -4476,14 +4509,24 @@ def edit_institution_v2(request, pk):
 
     try:
         ensure_logo_b64_column()
-        # Institución es catálogo público, admin ya está gateado arriba —
-        # no hace falta además que sea "su" institución (UserInstitution).
         institution = get_object_or_404(InstitutionV2, pk=pk)
     except DatabaseError as e:
         logger.error(f"Error DB en edit_institution_v2 (pk={pk}): {str(e)}", exc_info=True)
         messages.error(request, 'Error de base de datos al abrir la edicion de la institucion.')
         return redirect('material:institution_v2_list')
-    
+
+    if not _puede_editar_catalogo(request.user, institution):
+        messages.error(request, 'No se puede editar esta institución.', extra_tags='instituciones')
+        return redirect('material:institution_v2_detail', pk=institution.pk)
+
+    # Gestionar sedes/facultades desde acá (alta, baja, renombrar) sigue
+    # siendo admin-only: el dueño de una institución personal edita SU
+    # institución (nombre/sigla/logo) acá, pero renombrar una facultad
+    # propia es edit_faculty_v2 (ver ahí) — separado a propósito, para no
+    # darle vía libre sobre TODAS las facultades/sedes de la institución
+    # con un solo formset bulk como el de abajo.
+    puede_gestionar_sedes_facultades = is_admin(request.user)
+
     CampusFormSet = modelformset_factory(
         CampusV2,
         form=CampusV2Form,
@@ -4492,7 +4535,7 @@ def edit_institution_v2(request, pk):
         min_num=0,  # Hacer completamente opcional
         validate_min=False
     )
-    
+
     FacultyFormSet = modelformset_factory(
         FacultyV2,
         form=FacultyV2Form,
@@ -4504,18 +4547,20 @@ def edit_institution_v2(request, pk):
 
     if request.method == 'POST':
         form = InstitutionV2Form(request.POST, request.FILES, instance=institution)
-        campus_formset = CampusFormSet(
-            request.POST,
-            queryset=institution.campusv2_set.all(),
-            prefix='campus'
-        )
-        faculty_formset = FacultyFormSet(
-            request.POST,
-            queryset=institution.facultyv2_set.all(),
-            prefix='faculty'
-        )
+        if puede_gestionar_sedes_facultades:
+            campus_formset = CampusFormSet(
+                request.POST, queryset=institution.campusv2_set.all(), prefix='campus',
+            )
+            faculty_formset = FacultyFormSet(
+                request.POST, queryset=institution.facultyv2_set.all(), prefix='faculty',
+            )
+            formsets_validos = campus_formset.is_valid() and faculty_formset.is_valid()
+        else:
+            campus_formset = None
+            faculty_formset = None
+            formsets_validos = True
 
-        if all([form.is_valid(), campus_formset.is_valid(), faculty_formset.is_valid()]):
+        if form.is_valid() and formsets_validos:
             try:
                 with transaction.atomic():
                     # Guardar institución (maneja logo automáticamente)
@@ -4528,23 +4573,24 @@ def edit_institution_v2(request, pk):
                         institution.logo_b64 = 'data:image/png;base64,' + base64.b64encode(institution.logo.read()).decode()
                         institution.save(update_fields=['logo_b64'])
 
-                    # Procesar campus
-                    for campus_form in campus_formset:
-                        if campus_form.cleaned_data and not campus_form.cleaned_data.get('DELETE', False):
-                            campus = campus_form.save(commit=False)
-                            campus.institution = institution
-                            campus.save()
-                        elif campus_form.cleaned_data.get('DELETE', False) and campus_form.instance.pk:
-                            campus_form.instance.delete()
+                    if puede_gestionar_sedes_facultades:
+                        # Procesar campus
+                        for campus_form in campus_formset:
+                            if campus_form.cleaned_data and not campus_form.cleaned_data.get('DELETE', False):
+                                campus = campus_form.save(commit=False)
+                                campus.institution = institution
+                                campus.save()
+                            elif campus_form.cleaned_data.get('DELETE', False) and campus_form.instance.pk:
+                                campus_form.instance.delete()
 
-                    # Procesar facultades
-                    for faculty_form in faculty_formset:
-                        if faculty_form.cleaned_data and not faculty_form.cleaned_data.get('DELETE', False):
-                            faculty = faculty_form.save(commit=False)
-                            faculty.institution = institution
-                            faculty.save()
-                        elif faculty_form.cleaned_data.get('DELETE', False) and faculty_form.instance.pk:
-                            faculty_form.instance.delete()
+                        # Procesar facultades
+                        for faculty_form in faculty_formset:
+                            if faculty_form.cleaned_data and not faculty_form.cleaned_data.get('DELETE', False):
+                                faculty = faculty_form.save(commit=False)
+                                faculty.institution = institution
+                                faculty.save()
+                            elif faculty_form.cleaned_data.get('DELETE', False) and faculty_form.instance.pk:
+                                faculty_form.instance.delete()
 
                     messages.success(request, 'Institución actualizada correctamente', extra_tags='instituciones')
                     return redirect('material:institution_v2_detail', pk=institution.pk)
@@ -4556,20 +4602,23 @@ def edit_institution_v2(request, pk):
 
     else:
         form = InstitutionV2Form(instance=institution)
-        campus_formset = CampusFormSet(
-            queryset=institution.campusv2_set.all(),
-            prefix='campus'
-        )
-        faculty_formset = FacultyFormSet(
-            queryset=institution.facultyv2_set.all(),
-            prefix='faculty'
-        )
+        if puede_gestionar_sedes_facultades:
+            campus_formset = CampusFormSet(
+                queryset=institution.campusv2_set.all(), prefix='campus',
+            )
+            faculty_formset = FacultyFormSet(
+                queryset=institution.facultyv2_set.all(), prefix='faculty',
+            )
+        else:
+            campus_formset = None
+            faculty_formset = None
 
     return render(request, 'material/institutions_v2/edit.html', {
         'form': form,
         'institution': institution,
         'campus_formset': campus_formset,
         'faculty_formset': faculty_formset,
+        'puede_gestionar_sedes_facultades': puede_gestionar_sedes_facultades,
     })
 
 @login_required
@@ -4802,20 +4851,30 @@ def delete_campus_v2(request, institution_id, campus_id):
         return redirect('material:institution_v2_detail', pk=institution.pk)
     return render(request, 'material/campuses_v2/confirm_delete.html', {'campus': campus, 'institution': institution})
 
-# CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
 @login_required
-@user_passes_test(is_admin, login_url='/')
 def edit_faculty_v2(request, institution_id, faculty_id):
+    """Edición mínima (solo nombre) de UNA facultad — separada a propósito
+    del formset bulk de edit_institution_v2 (ver ahí), para poder abrirla
+    también al dueño de una facultad de su propio espacio personal sin
+    darle vía libre sobre todas las facultades/sedes de la institución.
+    Era código muerto (nunca enlazado desde ninguna pantalla, sin
+    template) hasta que el pedido de "todo item de espacio personal se
+    puede editar" lo necesitó de verdad — ver [[project_catalogo_academico_migration_status]]."""
     institution = get_object_or_404(InstitutionV2, pk=institution_id)
     faculty = get_object_or_404(FacultyV2, pk=faculty_id, institution=institution)
+    if not _puede_editar_catalogo(request.user, faculty):
+        messages.error(request, 'No se puede editar esta facultad.', extra_tags='instituciones')
+        return redirect('material:institution_v2_detail', pk=institution.pk)
+
     if request.method == 'POST':
         form = FacultyV2Form(request.POST, instance=faculty)
         if form.is_valid():
             form.save()
+            messages.success(request, 'Facultad actualizada correctamente.', extra_tags='instituciones')
             return redirect('material:institution_v2_detail', pk=institution.pk)
     else:
         form = FacultyV2Form(instance=faculty)
-    return render(request, 'material/faculties_v2/edit.html', {'form': form, 'institution': institution})
+    return render(request, 'material/faculties_v2/edit.html', {'form': form, 'institution': institution, 'faculty': faculty})
 
 # CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
 @login_required
@@ -4949,6 +5008,42 @@ def favoritos_list(request):
 
     return render(request, 'material/favoritos_list.html', {'items': items})
 
+
+@login_required
+def espacio_personal_list(request):
+    """Todo lo que este usuario tiene en su espacio personal (institución,
+    facultad, carrera, materia) — lo que él mismo creó y todavía no se sumó
+    al catálogo institucional — en una sola pantalla, igual en espíritu a
+    Favoritos. Antes de esto, ver "lo mío sin aprobar todavía" implicaba
+    revisar Instituciones/Carreras/Materias una por una con el filtro
+    "Personal" prendido en cada una."""
+    propios = Q(created_by=request.user, es_catalogo_institucional=False)
+    items = []
+    for kind, qs in (
+        ('institucion', InstitutionV2.objects.filter(propios)),
+        # FacultyV2 no tiene pantalla de detalle propia — se ve/edita dentro
+        # del detalle de su institución (ver institutions_v2/detail.html).
+        ('facultad', FacultyV2.objects.filter(propios)),
+        ('carrera', Career.objects.filter(propios)),
+        ('materia', Subject.objects.filter(propios)),
+    ):
+        for obj in qs.order_by('name'):
+            if kind == 'facultad':
+                url_ver = reverse('material:institution_v2_detail', args=[obj.institution_id])
+            elif kind == 'carrera':
+                url_ver = reverse('material:career_detail', args=[obj.pk])
+            elif kind == 'materia':
+                url_ver = reverse('material:subject_detail', args=[obj.pk])
+            else:
+                url_ver = reverse('material:institution_v2_detail', args=[obj.pk])
+            items.append({
+                'kind': kind,
+                'object': obj,
+                'url_ver': url_ver,
+            })
+    return render(request, 'material/espacio_personal_list.html', {'items': items})
+
+
 # Subjects CRUD
 @login_required
 def subject_list(request):
@@ -4959,10 +5054,18 @@ def subject_list(request):
     ).values_list('object_id', flat=True))
     if request.GET.get('favoritos') == '1':
         subjects = subjects.filter(pk__in=favorite_ids)
+    # Filtro "Personal" — acota a lo que el usuario tiene en su espacio
+    # personal (todavía no sumado al catálogo institucional), mezclado hoy
+    # en el mismo listado que lo institucional. Compone con Favoritos, no
+    # es excluyente (los dos pueden estar activos a la vez).
+    only_personal = request.GET.get('personal') == '1'
+    if only_personal:
+        subjects = subjects.filter(es_catalogo_institucional=False)
     return render(request, 'material/subjects/list.html', {
         'subjects': subjects,
         'favorite_ids': favorite_ids,
         'only_favorites': request.GET.get('favoritos') == '1',
+        'only_personal': only_personal,
     })
 
 @login_required
@@ -5058,6 +5161,11 @@ def career_list(request):
     # Catálogo institucional, más el espacio personal del propio usuario
     # (ver informe de rediseño / "personal space").
     careers = careers.filter(Q(es_catalogo_institucional=True) | Q(created_by=request.user))
+    # Filtro "Personal" — acota a lo que el usuario tiene en su espacio
+    # personal, mezclado hoy en el mismo listado que lo institucional.
+    only_personal = request.GET.get('personal') == '1'
+    if only_personal:
+        careers = careers.filter(es_catalogo_institucional=False)
     careers = careers.distinct().prefetch_related('faculties', 'campus', 'subjects')
 
     selected_filters = get_selected_filters(request, CAREER_FILTER_FIELDS)
@@ -5074,6 +5182,8 @@ def career_list(request):
         'active_filter_count': get_active_filter_count(selected_filters),
         'filter_querystring': get_filter_querystring(request),
         'filter_columns': CAREER_FILTER_COLUMNS,
+        'only_personal': only_personal,
+        'personal_toggle_querystring': get_filter_querystring_excluding(request, 'personal'),
     })
 
 
@@ -5141,7 +5251,7 @@ class CareerDetailView(DetailView):
 @user_passes_test(is_admin, login_url='/')
 def career_create_simple(request):
     if request.method == 'POST':
-        form = CareerForm(request.POST)
+        form = CareerForm(request.POST, user=request.user)
         if form.is_valid():
             career = form.save()
             career.subjects.set(form.cleaned_data['subjects'])
@@ -5156,7 +5266,7 @@ def career_create_simple(request):
             messages.success(request, 'Carrera creada exitosamente', extra_tags='carreras')
             return redirect('material:career_detail', pk=career.pk)
     else:
-        form = CareerForm()
+        form = CareerForm(user=request.user)
 
     return render(request, 'material/careers/associations.html', {
         'form': form,
@@ -5165,12 +5275,14 @@ def career_create_simple(request):
     })
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
 def career_associations(request, pk):
     career = get_object_or_404(Career, pk=pk)
-    
+    if not _puede_editar_catalogo(request.user, career):
+        messages.error(request, 'No se puede editar esta carrera.', extra_tags='carreras')
+        return redirect('material:career_detail', pk=pk)
+
     if request.method == 'POST':
-        form = CareerForm(request.POST, instance=career, career_pk=pk)
+        form = CareerForm(request.POST, instance=career, career_pk=pk, user=request.user)
         if form.is_valid():
             # Guardar la carrera
             career = form.save()
@@ -5184,13 +5296,13 @@ def career_associations(request, pk):
                     career=career,
                     defaults={'institution': institution, 'is_active': True}
                 )
-            
+
             messages.success(request, 'Asociaciones actualizadas correctamente', extra_tags='examenes')
             return redirect('material:career_detail', pk=pk)
         else:
             messages.error(request, 'Por favor corrige los errores en el formulario', extra_tags='examenes')
     else:
-        form = CareerForm(instance=career, career_pk=pk)
+        form = CareerForm(instance=career, career_pk=pk, user=request.user)
     
     return render(request, 'material/careers/associations.html', {
         'form': form,
@@ -5373,23 +5485,27 @@ def create_related_element(request):
         }, status=500)
 
 
+@login_required
 def get_faculties_by_institution(request, institution_id):
     """
     Devuelve las facultades asociadas a una institución en formato JSON.
     """
-    print(f"get_faculties_by_institution called with institution_id: {institution_id}")  # DEBUG
     try:
-        faculties = FacultyV2.objects.filter(institution_id=institution_id)
+        # Catálogo institucional + espacio personal propio (ver
+        # content_visibility.get_visible_faculties) — antes mostraba
+        # facultades de CUALQUIER usuario para cualquiera que supiera el ID
+        # de institución.
+        from .content_visibility import get_visible_faculties
+        faculties = get_visible_faculties(request.user).filter(institution_id=institution_id)
         # Facultad semilla excluida salvo en el vistazo de solo lectura del
         # asistente (?demo_peek=1), donde la institución elegida es
         # justamente la semilla y necesita mostrar su facultad de ejemplo.
         if not request.session.get('onb2_demo_scheme_active'):
             faculties = faculties.filter(institution__is_seed_demo=False)
         faculties = faculties.values('id', 'name')
-        print(f"Faculties found: {faculties}")  # DEBUG
         return JsonResponse({'faculties': list(faculties)})
     except Exception as e:
-        print(f"Error in get_faculties_by_institution: {e}")  # DEBUG
+        logger.error(f"Error in get_faculties_by_institution: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
 def get_campuses_by_institution(request, institution_id):
@@ -5407,6 +5523,59 @@ def get_campuses_by_institution(request, institution_id):
     except Exception as e:
         print(f"Error in get_campuses_by_institution: {e}")  # DEBUG
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def get_catalog_tree_for_subject(request, subject_id):
+    """
+    Árbol institución → facultad → carrera donde la materia elegida ya
+    aparece (vía sus carreras) — para poblar los 3 dropdowns "sugeridos"
+    del paso "Institución, sede y curso" del asistente de examen en una
+    sola consulta, en vez de arrancar de 3 buscadores en blanco (ver
+    propuesta de UX del asistente). Puede devolver un árbol vacío (materia
+    personal sin carrera asociada todavía) o varias instituciones (materia
+    compartida entre carreras de distintas instituciones); en ambos casos
+    el buscador libre existente por nivel sigue disponible como respaldo
+    (el frontend cae a él cuando no hay sugerencias).
+    """
+    try:
+        from .content_visibility import get_visible_institutions, get_visible_faculties, get_visible_careers
+        subject = Subject.objects.get(pk=subject_id)
+        career_ids = subject.careers.values_list('id', flat=True)
+        careers = get_visible_careers(request.user).filter(id__in=career_ids).prefetch_related('faculties__institution')
+        visible_institution_ids = set(get_visible_institutions(request.user).values_list('id', flat=True))
+        visible_faculty_ids = set(get_visible_faculties(request.user).values_list('id', flat=True))
+        exclude_seed = not request.session.get('onb2_demo_scheme_active')
+
+        tree = {}
+        for career in careers:
+            for faculty in career.faculties.all():
+                if faculty.id not in visible_faculty_ids:
+                    continue
+                institution = faculty.institution
+                if institution.id not in visible_institution_ids:
+                    continue
+                if exclude_seed and institution.is_seed_demo:
+                    continue
+                inst_entry = tree.setdefault(institution.id, {'id': institution.id, 'name': institution.name, 'faculties': {}})
+                fac_entry = inst_entry['faculties'].setdefault(faculty.id, {'id': faculty.id, 'name': faculty.name, 'careers': {}})
+                fac_entry['careers'][career.id] = {'id': career.id, 'name': career.name}
+
+        institutions = []
+        for inst in sorted(tree.values(), key=lambda x: x['name']):
+            faculties = []
+            for fac in sorted(inst['faculties'].values(), key=lambda x: x['name']):
+                careers_list = sorted(fac['careers'].values(), key=lambda c: c['name'])
+                faculties.append({'id': fac['id'], 'name': fac['name'], 'careers': careers_list})
+            institutions.append({'id': inst['id'], 'name': inst['name'], 'faculties': faculties})
+
+        return JsonResponse({'institutions': institutions})
+    except Subject.DoesNotExist:
+        return JsonResponse({'institutions': []})
+    except Exception as e:
+        logger.error(f"Error in get_catalog_tree_for_subject: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
 
 class LearningOutcomeCreateView(AdminRequiredMixin, CreateView):
     # LearningOutcome no tiene dueño propio y es visible para cualquiera que
@@ -5509,6 +5678,15 @@ class SubjectUpdateView(AdminRequiredMixin, UpdateView):
     model = Subject
     form_class = SubjectForm
     template_name = 'material/subjects/form.html'
+
+    def test_func(self):
+        # Admin, o el dueño de un borrador de espacio personal todavía no
+        # sumado al catálogo institucional — mismo criterio que el resto
+        # del ABM (ver _puede_editar_catalogo). Sobrescribe el test_func
+        # admin-only de AdminRequiredMixin solo acá, sin tocar el mixin
+        # compartido (SubjectCreateView y los CRUD de LearningOutcome
+        # siguen admin-only sin cambios).
+        return _puede_editar_catalogo(self.request.user, self.get_object())
 
     def form_valid(self, form):
         self.object = form.save()
@@ -6755,7 +6933,18 @@ def onboarding_v2_connect_gemini(request):
     config.source = 'byok'
     config.provider = 'gemini'
     config.api_key = api_key
-    config.model = config.model if config.model and config.model.startswith('gemini-') else 'gemini-2.5-flash-lite'
+    if not (config.model and config.model.startswith('gemini-')):
+        # Sin modelo hardcodeado acá (ver ai_router.py): este paso del
+        # onboarding no le pide un modelo al usuario, así que se reusa el
+        # que el admin ya dejó configurado como fallback de demo para Gemini
+        # (GlobalAIConfig) — si no hay ninguno cargado, queda vacío a
+        # propósito y la generación va a fallar hasta que un admin configure
+        # uno en Django Admin, en vez de disimularlo con un valor fijo.
+        from .models import GlobalAIConfig
+        demo_cfg = GlobalAIConfig.objects.filter(
+            provider='gemini', is_active=True,
+        ).exclude(model='').order_by('-id').first()
+        config.model = demo_cfg.model if demo_cfg else ''
     config.save()
 
     return JsonResponse({'ok': True, 'status': backend.get_status()})
@@ -7106,23 +7295,19 @@ def ai_config_view(request):
             config.ollama_url = raw_ollama_url or None
 
         elif source == 'byok':
-            config.provider = request.POST.get('provider', 'openai')
-            provider = config.provider or 'openai'
-            provider_defaults = {
-                'openai': 'gpt-4o-mini',
-                'gemini': 'gemini-2.5-flash-lite',
-                'anthropic': 'claude-3-haiku-20240307',
-                'groq': 'llama-3.1-8b-instant',
-                'mistral': 'mistral-small-latest',
-                'openrouter': 'openai/gpt-4o-mini',
-                'openai_compatible': 'gpt-4o-mini',
-            }
+            # Sin default de modelo por proveedor a propósito (ver
+            # ai_router.py) — el nombre del modelo lo tiene que traer el
+            # usuario, sea escrito a mano o elegido con "Buscar modelos"
+            # (que consulta la lista real y vigente del proveedor).
             model = request.POST.get('model', '').strip()
-            default_model = provider_defaults.get(provider, 'gpt-4o-mini')
-            if not model or model == 'gpt-4o-mini':
-                model = default_model
-            if provider == 'gemini' and not model.startswith('gemini-'):
-                model = 'gemini-2.5-flash-lite'
+            if not model:
+                messages.error(
+                    request,
+                    'Falta indicar el modelo — usar "Buscar modelos" para ver los vigentes del proveedor, '
+                    'o escribirlo a mano. No se guardó ningún cambio.',
+                )
+                return redirect('material:ai_config')
+            config.provider = request.POST.get('provider', 'openai')
             config.model = model
             config.base_url = request.POST.get('base_url', '').strip() or None
             raw_key = request.POST.get('api_key', '').strip()
@@ -7233,10 +7418,17 @@ def institution_ai_config_view(request):
         config_id = request.POST.get('config_id', '').strip()
         institution_id = request.POST.get('institution_id', '').strip()
         provider = request.POST.get('provider', 'openai').strip()
-        model = request.POST.get('model', '').strip() or 'gpt-4o-mini'
+        model = request.POST.get('model', '').strip()
         base_url = request.POST.get('base_url', '').strip() or None
         raw_key = request.POST.get('api_key', '').strip()
         is_active = bool(request.POST.get('is_active'))
+
+        if not model:
+            # Sin default hardcodeado a propósito (ver ai_router.py) — el
+            # nombre del modelo lo tiene que escribir el admin a mano, tal
+            # como lo indica el proveedor.
+            messages.error(request, 'Falta indicar el modelo. No se guardó ningún cambio.')
+            return redirect('material:institution_ai_config')
 
         if config_id:
             try:
@@ -7302,7 +7494,7 @@ def catalog_request_create(request):
             except ValueError as e:
                 messages.error(
                     request,
-                    f'No se pudo completar la solicitud (falta contexto: {e}) — hay que revisarlo y reintentar.',
+                    f'No se pudo completar (falta contexto: {e}) — hay que revisarlo y reintentar.',
                     extra_tags='solicitudes',
                 )
                 return render(request, 'material/catalog_requests/form.html', {'form': form})
@@ -7432,6 +7624,14 @@ def check_catalog_duplicate(request):
             qs = qs.filter(institution_id=institucion_id)
     elif nivel == 'carrera':
         qs = get_visible_careers(request.user)
+        # Acotado a la facultad ya elegida arriba en el chip — sin esto se
+        # sugerían carreras de CUALQUIER institución/facultad, y elegir una
+        # por error dejaba la materia (y sus futuros Resultados de
+        # Aprendizaje) colgando de la carrera equivocada (ver
+        # _validar_cadena_catalogo, que además lo bloquea del lado servidor).
+        facultad_id = request.GET.get('facultad_id', '')
+        if facultad_id.isdigit():
+            qs = qs.filter(faculties__id=facultad_id)
     elif nivel == 'materia':
         qs = get_visible_subjects(request.user)
     else:
@@ -7498,7 +7698,7 @@ def buscar_destino_fusion(request):
 def mis_solicitudes_catalogo(request):
     solicitudes = CatalogRequest.objects.filter(
         solicitado_por=request.user
-    ).select_related('institucion', 'facultad', 'carrera').order_by('-created_at')
+    ).select_related('institucion', 'facultad', 'carrera', 'materia').order_by('-created_at')
     # El cartel de aviso (arriba de la tabla) solo se arma para las que
     # todavía no se mostraron — si no, quedaba permanente: se repetía en
     # cada visita a esta pantalla, no solo la primera vez.
@@ -7507,6 +7707,71 @@ def mis_solicitudes_catalogo(request):
     return render(request, 'material/catalog_requests/list.html', {
         'solicitudes': solicitudes,
         'sin_avisar': sin_avisar,
+    })
+
+
+# nivel (mismo vocabulario que CatalogRequest.tipo) → modelo real, para el
+# borrado autoservicio de "Mis solicitudes" de acá abajo.
+_NIVEL_MODELO_ESPACIO_PERSONAL = {
+    'institucion': InstitutionV2,
+    'facultad': FacultyV2,
+    'carrera': Career,
+    'materia': Subject,
+}
+
+
+@login_required
+def eliminar_espacio_personal(request, nivel, pk):
+    """Borrado autoservicio de lo que un usuario tiene en su propio
+    espacio personal (es_catalogo_institucional=False) — nunca de algo ya
+    sumado al catálogo institucional, aunque él mismo lo haya creado
+    originalmente (una vez institucional es de todos, no se borra desde
+    acá; ver aclaración del usuario). Reusa get_delete_preview, el mismo
+    mecanismo que ya usa el admin para borrar del catálogo (institution_v2,
+    subject, career) — así el preview de "qué se arrastra" siempre
+    coincide con lo que Django realmente va a hacer, sin reimplementar la
+    cascada a mano acá."""
+    from django.http import HttpResponseForbidden
+
+    modelo = _NIVEL_MODELO_ESPACIO_PERSONAL.get(nivel)
+    if modelo is None:
+        raise Http404
+    entidad = get_object_or_404(modelo, pk=pk)
+    if entidad.created_by_id != request.user.id or entidad.es_catalogo_institucional:
+        return HttpResponseForbidden('No se puede borrar esto.')
+
+    preview = get_delete_preview(entidad)
+
+    # Se llega hasta acá desde varias pantallas (Instituciones, Carreras,
+    # Materias, Mis solicitudes), no solo una — ?next= vuelve adonde
+    # estaba, en vez de mandar siempre a Mis solicitudes. Sin extra_tags
+    # a propósito: cada listado usa su propia categoría de show_messages
+    # ("instituciones", "materias", etc.) que acá no se puede adivinar de
+    # antemano, así que se deja "general" (el default de este helper) que
+    # base.html siempre muestra, sea cual sea la página de vuelta.
+    from django.utils.http import url_has_allowed_host_and_scheme
+    next_url = request.POST.get('next') or request.GET.get('next')
+    if next_url and not url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        next_url = None
+    destino = next_url or reverse('material:mis_solicitudes_catalogo')
+
+    if request.method == 'POST':
+        if not preview['can_delete']:
+            messages.error(request, 'No se pudo borrar — algo lo sigue usando. Revisar el detalle e intentar de nuevo.')
+            return redirect(destino)
+        nombre = entidad.name
+        entidad.delete()
+        messages.success(request, f'Se borró "{nombre}" del espacio personal.')
+        return redirect(destino)
+
+    return render(request, 'material/catalog_requests/confirm_delete_personal.html', {
+        'entidad': entidad,
+        'nivel': nivel,
+        'nivel_label': dict(CatalogRequest.TIPO_CHOICES).get(nivel, nivel),
+        'preview': preview,
+        'next_url': next_url,
     })
 
 
@@ -7718,6 +7983,33 @@ def resolve_catalog_request(solicitud, *, admin_user, aprobar, nota_admin=''):
     return True, 'Solicitud aprobada y sumada al catálogo institucional.'
 
 
+def _validar_cadena_catalogo(*, institucion=None, facultad=None, carrera=None, materia=None):
+    """Los Resultados de Aprendizaje cuelgan de CareerSubject, único por
+    (carrera, materia) — ver LearningOutcome.career_subject — así que nunca
+    se mezclan entre carreras distintas. Pero nada impedía elegir, en el
+    mismo envío de "Solicitar Alta", una facultad/carrera EXISTENTE que en
+    realidad pertenece a otra institución/facultad: el buscador de cada
+    chip no filtraba por el contexto ya elegido arriba, así que una materia
+    nueva podía terminar con su CareerSubject (y sus RA futuros) colgando
+    de una carrera de otra institución por completo. Este chequeo hace
+    obligatoria la cadena real institución→facultad→carrera antes de
+    dejar seguir — se usa tanto al resolver el contexto de una solicitud
+    de facultad/carrera/materia como al pedir un resultado_aprendizaje
+    (los 4 niveles ya existentes ahí, ver clean() de CatalogRequestForm)."""
+    if facultad is not None and institucion is not None and facultad.institution_id != institucion.id:
+        raise ValueError(
+            f'la facultad "{facultad.name}" no pertenece a la institución "{institucion.name}"'
+        )
+    if carrera is not None and facultad is not None and not carrera.faculties.filter(pk=facultad.pk).exists():
+        raise ValueError(
+            f'la carrera "{carrera.name}" no pertenece a la facultad "{facultad.name}"'
+        )
+    if materia is not None and carrera is not None and not CareerSubject.objects.filter(career=carrera, subject=materia).exists():
+        raise ValueError(
+            f'la materia "{materia.name}" no está vinculada a la carrera "{carrera.name}"'
+        )
+
+
 def _materializar_y_generar_solicitudes(form, user):
     """Al enviar el formulario, crea de inmediato lo que falte en el
     "espacio personal" de quien lo pide (es_catalogo_institucional=False)
@@ -7746,6 +8038,11 @@ def _materializar_y_generar_solicitudes(form, user):
     clean() ya lo valida)."""
     datos = form.cleaned_data
     tipo = datos['tipo']
+
+    _validar_cadena_catalogo(
+        institucion=datos.get('institucion'), facultad=datos.get('facultad'),
+        carrera=datos.get('carrera'), materia=datos.get('materia'),
+    )
 
     if tipo == 'resultado_aprendizaje':
         solicitud = CatalogRequest.objects.create(
@@ -7815,7 +8112,14 @@ def _materializar_y_generar_solicitudes(form, user):
             _agregar_fila('institucion', institucion_obj.name, institucion=institucion_obj)
 
     facultad_obj = datos.get('facultad')
-    if not facultad_obj and datos.get('facultad_nueva'):
+    if facultad_obj:
+        # Elegida existente — puede no coincidir con la institución recién
+        # resuelta arriba (ej. institución "_nueva" con una facultad ya
+        # existente de otra institución elegida por error/manipulación del
+        # POST; la UI ya lo bloquea, esto es la garantía dura del lado
+        # servidor — ver _validar_cadena_catalogo).
+        _validar_cadena_catalogo(institucion=institucion_obj, facultad=facultad_obj)
+    elif datos.get('facultad_nueva'):
         if not institucion_obj:
             raise ValueError('falta institución')
         facultad_obj, creada = _obtener_o_crear_personal(FacultyV2, datos['facultad_nueva'], institution=institucion_obj)
@@ -7823,6 +8127,8 @@ def _materializar_y_generar_solicitudes(form, user):
             _agregar_fila('facultad', facultad_obj.name, institucion=institucion_obj, facultad=facultad_obj)
 
     carrera_obj = datos.get('carrera')
+    if carrera_obj:
+        _validar_cadena_catalogo(facultad=facultad_obj, carrera=carrera_obj)
     if not carrera_obj and datos.get('carrera_nueva'):
         carrera_obj, creada = _obtener_o_crear_personal(Career, datos['carrera_nueva'])
         if facultad_obj:
@@ -7859,6 +8165,259 @@ def _materializar_y_generar_solicitudes(form, user):
             _agregar_fila('materia', nueva_materia.name, institucion=institucion_obj, facultad=facultad_obj, carrera=carrera_obj, materia=nueva_materia)
 
     return filas
+
+
+_MOJIBAKE_MARKER = 'Ã'
+
+
+def _reparar_mojibake(texto):
+    """Corrige un patrón real de doble-codificación que aparece en export
+    de planillas de plan de estudios: bytes UTF-8 correctos que en algún
+    paso se decodificaron como Latin-1 y se volvieron a guardar como
+    UTF-8 — "año" queda "aÃ±o". Encoding/decoding de vuelta por Latin-1
+    deshace exactamente ese doble paso. Solo se aplica si de verdad reduce
+    la cantidad de "Ã" sueltas, así un archivo que ya viene bien no se
+    toca (ni se rompe uno que por casualidad tenga esa letra)."""
+    if _MOJIBAKE_MARKER not in texto:
+        return texto
+    try:
+        reparado = texto.encode('latin1').decode('utf-8')
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return texto
+    return reparado if reparado.count(_MOJIBAKE_MARKER) < texto.count(_MOJIBAKE_MARKER) else texto
+
+
+def _leer_texto_csv(archivo):
+    # Mismo orden de intento que process_csv_file (carga de preguntas) —
+    # la mayoría de estos archivos vienen de un export de Excel/Sheets en
+    # Windows, casi nunca UTF-8 limpio.
+    for encoding in ('utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16'):
+        archivo.seek(0)
+        try:
+            return _reparar_mojibake(archivo.read().decode(encoding))
+        except UnicodeDecodeError:
+            continue
+    raise ValueError('No se pudo leer el archivo. Formatos soportados: UTF-8, Latin1, Windows-1252, ISO-8859-1, UTF-16.')
+
+
+def _normalizar_encabezado(nombre):
+    import unicodedata
+    return unicodedata.normalize('NFKD', (nombre or '').strip().lower()).encode('ascii', 'ignore').decode('ascii')
+
+
+def _normalizar_fila_csv(row):
+    return {_normalizar_encabezado(k): (v or '').strip() for k, v in row.items()}
+
+
+def _parsear_anio_cursada(valor):
+    match = re.search(r'\d+', valor or '')
+    return int(match.group()) if match else None
+
+
+def _importar_fila_catalogo(fila, *, institucion, admin_user, cache):
+    """Crea o reutiliza facultad→carrera→materia para UNA fila del CSV
+    (una materia) y deja su CareerSubject al día. `cache` evita repetir la
+    misma búsqueda fila por fila cuando el archivo repite la misma
+    facultad/carrera en decenas de filas seguidas (el caso normal: una
+    carrera de ~30 materias son ~30 filas con la misma facultad/carrera) —
+    cada entrada guarda (objeto, creada_ahora) para poder armar la vista
+    previa de "esto es nuevo" vs. "esto ya existía" antes de confirmar.
+    Lanza ValueError con el motivo si la fila no se puede procesar —
+    nunca deja a medio crear: quien llama envuelve esto en su propio
+    transaction.atomic() por fila."""
+    facultad_nombre = fila.get('facultad', '')
+    carrera_nombre = fila.get('carrera', '')
+    materia_nombre = fila.get('materia', '')
+    if not facultad_nombre or not carrera_nombre or not materia_nombre:
+        raise ValueError('faltan facultad, carrera o materia')
+    if len(materia_nombre) > 100:
+        raise ValueError(f'el nombre de la materia supera 100 caracteres: "{materia_nombre[:40]}..."')
+
+    clave_facultad = facultad_nombre.lower()
+    entrada = cache['facultades'].get(clave_facultad)
+    if entrada is None:
+        facultad = FacultyV2.objects.filter(
+            institution=institucion, name__iexact=facultad_nombre, es_catalogo_institucional=True,
+        ).first()
+        creada = facultad is None
+        if creada:
+            facultad = FacultyV2.objects.create(
+                institution=institucion, name=facultad_nombre, created_by=admin_user,
+            )
+        cache['facultades'][clave_facultad] = (facultad, creada)
+    else:
+        facultad, _ = entrada
+
+    clave_carrera = (facultad.pk, carrera_nombre.lower())
+    entrada = cache['carreras'].get(clave_carrera)
+    if entrada is None:
+        # Reusa una carrera ya vinculada a ESTA facultad puntual — nunca
+        # una de otra institución/facultad por casualidad de nombre (mismo
+        # criterio que _validar_cadena_catalogo, para no repetir ahí el
+        # hueco que se cerró en Solicitar Alta).
+        carrera = Career.objects.filter(
+            faculties=facultad, name__iexact=carrera_nombre, es_catalogo_institucional=True,
+        ).first()
+        creada = carrera is None
+        if creada:
+            carrera = Career.objects.create(name=carrera_nombre, created_by=admin_user)
+            carrera.faculties.add(facultad)
+        cache['carreras'][clave_carrera] = (carrera, creada)
+    else:
+        carrera, _ = entrada
+
+    clave_materia = materia_nombre.lower()
+    entrada = cache['materias'].get(clave_materia)
+    if entrada is None:
+        # A diferencia de facultad/carrera, la materia SÍ se busca global
+        # (no acotada a esta carrera): es intencional que una materia como
+        # "Inglés I" se reutilice entre carreras distintas — cada una
+        # cuelga su propio CareerSubject/RA de la misma fila Subject.
+        materia = Subject.objects.filter(name__iexact=materia_nombre, es_catalogo_institucional=True).first()
+        creada = materia is None
+        if creada:
+            materia = Subject.objects.create(name=materia_nombre, created_by=admin_user)
+        cache['materias'][clave_materia] = (materia, creada)
+    else:
+        materia, _ = entrada
+
+    CareerSubject.objects.update_or_create(
+        career=carrera, subject=materia,
+        defaults={
+            'numero_materia': fila.get('numero de materia', '')[:20],
+            'anio_cursada': _parsear_anio_cursada(fila.get('ano de cursada')),
+            'cuatrimestre_cursada': fila.get('cuatrimestre de cursada', '')[:20],
+        },
+    )
+
+
+def _procesar_carga_catalogo(texto, *, institucion, admin_user, dry_run):
+    """Corre el archivo entero fila por fila. Con dry_run=True arma
+    exactamente el mismo resultado que una corrida real (mismo código,
+    misma detección de "ya existe" contra la base real) pero deshace todo
+    al final — así la vista previa nunca puede mostrar algo distinto de
+    lo que la confirmación después va a guardar de verdad."""
+    reader = csv.DictReader(texto.splitlines())
+    cache = {'facultades': {}, 'carreras': {}, 'materias': {}}
+    errores = []
+    filas_ok = 0
+    with transaction.atomic():
+        for numero_fila, row in enumerate(reader, start=2):
+            fila = _normalizar_fila_csv(row)
+            if not any(fila.get(k) for k in ('facultad', 'carrera', 'materia')):
+                continue  # fila en blanco (común al final del archivo)
+            try:
+                with transaction.atomic():
+                    _importar_fila_catalogo(fila, institucion=institucion, admin_user=admin_user, cache=cache)
+                filas_ok += 1
+            except Exception as e:
+                logger.warning(f'Carga masiva de catálogo — fila {numero_fila}: {e}')
+                errores.append(f'Fila {numero_fila}: {e}')
+        if dry_run:
+            transaction.set_rollback(True)
+    return filas_ok, errores, cache
+
+
+@login_required
+@user_passes_test(is_admin, login_url='/')
+def admin_bulk_catalog_upload(request):
+    """Carga masiva de facultad→carrera→materia al catálogo institucional
+    desde un CSV — para cargar de una sola vez el plan de estudios
+    completo de una institución en vez de tipear cada nivel a mano con
+    "Agregar a mi catálogo". A diferencia de ese formulario, todo lo
+    creado acá entra DIRECTO al catálogo (es_catalogo_institucional=True,
+    el default del modelo): no pasa por espacio personal ni por la
+    bandeja de aprobación — lo corre un admin a propósito, sobre datos que
+    ya se dan por confiables.
+
+    Flujo en dos pasos, a pedido explícito: subir el archivo NO guarda
+    nada — arma una vista previa (vía _procesar_carga_catalogo con
+    dry_run=True) de qué se va a crear y qué ya existía, y recién un
+    segundo POST ("confirmar") la persiste de verdad. El archivo no se
+    puede volver a mandar en ese segundo POST (un <input type=file> no
+    sobrevive a otro submit), así que el texto ya leído/reparado viaja en
+    un campo oculto del formulario de confirmación."""
+    from .forms import BulkCatalogUploadForm
+
+    preview = None
+    resultado = None
+
+    if request.method == 'POST' and request.POST.get('confirmar') == '1':
+        institucion = InstitutionV2.objects.filter(
+            pk=request.POST.get('institucion_id'), es_catalogo_institucional=True,
+        ).first()
+        texto = request.POST.get('csv_text', '')
+        if not institucion or not texto:
+            messages.error(
+                request, 'La vista previa venció o es inválida — subir el archivo de nuevo.',
+                extra_tags='carga_catalogo',
+            )
+            form = BulkCatalogUploadForm()
+        else:
+            filas_ok, errores, cache = _procesar_carga_catalogo(
+                texto, institucion=institucion, admin_user=request.user, dry_run=False,
+            )
+            resultado = {
+                'filas_ok': filas_ok,
+                'errores': errores,
+                'facultades': sorted(obj.name for obj, _ in cache['facultades'].values()),
+                'carreras': sorted(obj.name for obj, _ in cache['carreras'].values()),
+                'materias': sorted(obj.name for obj, _ in cache['materias'].values()),
+            }
+            if filas_ok:
+                messages.success(
+                    request,
+                    f'Se guardaron {filas_ok} fila(s) sobre "{institucion.name}": '
+                    f'{len(cache["facultades"])} facultad(es), {len(cache["carreras"])} carrera(s), '
+                    f'{len(cache["materias"])} materia(s) (reutilizadas o creadas).',
+                    extra_tags='carga_catalogo',
+                )
+            if errores:
+                messages.warning(
+                    request, f'{len(errores)} fila(s) no se pudieron procesar — ver detalle abajo.',
+                    extra_tags='carga_catalogo',
+                )
+            form = BulkCatalogUploadForm()
+
+    elif request.method == 'POST':
+        form = BulkCatalogUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            institucion = form.cleaned_data['institucion']
+            try:
+                texto = _leer_texto_csv(form.cleaned_data['archivo'])
+            except ValueError as e:
+                messages.error(request, str(e), extra_tags='carga_catalogo')
+                return render(request, 'material/bulk_catalog_upload.html', {'form': form})
+
+            filas_ok, errores, cache = _procesar_carga_catalogo(
+                texto, institucion=institucion, admin_user=request.user, dry_run=True,
+            )
+            preview = {
+                'institucion': institucion,
+                'csv_text': texto,
+                'filas_ok': filas_ok,
+                'errores': errores,
+                'facultades_nuevas': sorted(obj.name for obj, creada in cache['facultades'].values() if creada),
+                'facultades_existentes': sorted(obj.name for obj, creada in cache['facultades'].values() if not creada),
+                'carreras_nuevas': sorted(obj.name for obj, creada in cache['carreras'].values() if creada),
+                'carreras_existentes': sorted(obj.name for obj, creada in cache['carreras'].values() if not creada),
+                'materias_nuevas': sorted(obj.name for obj, creada in cache['materias'].values() if creada),
+                'materias_existentes': sorted(obj.name for obj, creada in cache['materias'].values() if not creada),
+            }
+            # Con la vista previa arriba, el formulario de subida vuelve a
+            # blanco — ya cumplió su función (leer el archivo); lo que se
+            # confirma o cancela ahora es el `preview`, no un form nuevo.
+            form = BulkCatalogUploadForm()
+        # si el form no era válido, se re-renderiza tal cual con sus errores
+
+    else:
+        form = BulkCatalogUploadForm()
+
+    return render(request, 'material/bulk_catalog_upload.html', {
+        'form': form,
+        'preview': preview,
+        'resultado': resultado,
+    })
 
 
 @login_required
@@ -8411,6 +8970,29 @@ def groq_monitor_page(request):
     }
     latest_quota = next((r for r in runs if r.quota_remaining_requests is not None), None)
 
+    # Comparación por modelo candidato (ver TEXT_TEST_MODELS en groq_monitor.py)
+    # — sobre TODO el historial, no solo 12h, para que la decisión de fin de
+    # semana no dependa de la ventana corta de arriba.
+    from .groq_monitor import TEXT_TEST_MODELS
+    model_summary = []
+    for candidate in TEXT_TEST_MODELS:
+        name = candidate['model']
+        model_runs = [r for r in runs if r.model_name == name]
+        total = len(model_runs)
+        if not total:
+            model_summary.append({'model': name, 'total': 0})
+            continue
+        ok = [r for r in model_runs if r.success]
+        durations = [r.elapsed_seconds for r in ok if r.elapsed_seconds is not None]
+        model_summary.append({
+            'model': name,
+            'total': total,
+            'met_target': sum(1 for r in model_runs if r.met_target),
+            'errored': total - len(ok),
+            'total_failed_chunks': sum(r.failed_chunks for r in model_runs),
+            'avg_elapsed': round(sum(durations) / len(durations), 1) if durations else None,
+        })
+
     from .groq_monitor import analyze_vision_quota_cycles
     vision_runs = list(GroqVisionTestRun.objects.all()[:50])
     latest_vision_quota = next((r for r in vision_runs if r.quota_remaining_requests is not None), None)
@@ -8421,6 +9003,7 @@ def groq_monitor_page(request):
         'runs': runs,
         'summary_12h': summary_12h,
         'latest_quota': latest_quota,
+        'model_summary': model_summary,
         'vision_cfg': vision_cfg,
         'vision_test_models': VISION_TEST_MODELS,
         'vision_runs': vision_runs,

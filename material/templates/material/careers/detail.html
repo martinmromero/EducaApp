@@ -7,7 +7,7 @@
             <h2>
                 {{ career.name }}
                 {% if not career.es_catalogo_institucional %}
-                    <span class="badge bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
+                    <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
                 {% endif %}
             </h2>
         </div>
@@ -66,6 +66,13 @@
             </a>
             <a href="{% url 'material:delete_career' pk=career.pk %}" class="btn btn-danger">
                 <i class="fas fa-trash"></i> Eliminar
+            </a>
+            {% elif career.created_by_id == user.id and not career.es_catalogo_institucional %}
+            <a href="{% url 'material:career_associations' pk=career.pk %}" class="btn btn-outline-warning">
+                <i class="fas fa-edit"></i> Editar
+            </a>
+            <a href="{% url 'material:eliminar_espacio_personal' 'carrera' career.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-outline-danger">
+                <i class="fas fa-trash"></i> Borrar del espacio personal
             </a>
             {% endif %}
             <a href="{% url 'material:career_list' %}" class="btn btn-secondary">

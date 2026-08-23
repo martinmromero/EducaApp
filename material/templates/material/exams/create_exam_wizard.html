@@ -159,34 +159,44 @@
                     <button type="button" class="wiz-toggle-more mb-3" id="wizToggleInstitucion">+ Agregar institución, facultad, carrera y sede</button>
                     <div class="row g-3 d-none" id="wizInstitucionBlock">
                         <div class="col-md-4">
-                            <label class="form-label" for="institucion_dropdown">Institución</label>
-                            <select class="form-select" name="institucion_dropdown" id="institucion_dropdown" onchange="toggleTextbox('institucion_dropdown', 'institucion_text')">
+                            <label class="form-label" for="institucion_select">Institución</label>
+                            <select class="form-select mb-2 d-none" id="institucion_select">
                                 <option value="">Seleccionar institución</option>
-                                {% for institucion in instituciones %}
-                                    <option value="{{ institucion.id }}">{{ institucion.name }}</option>
-                                {% endfor %}
-                                <option value="otro">Otro</option>
+                                <option value="__otro__">Otro (buscar o escribir)</option>
                             </select>
-                            <input type="text" class="form-control mt-2 d-none" name="institucion_text" id="institucion_text" placeholder="Ingrese institución">
+                            <div class="wiz-catalog-search" id="institucion_search_wrap">
+                                <input type="text" class="form-control" id="institucion_search" autocomplete="off"
+                                       placeholder="Buscar por nombre o sigla...">
+                                <div class="wiz-catalog-suggest d-none" id="institucion_suggest"></div>
+                            </div>
+                            <input type="hidden" name="institucion_dropdown" id="institucion_dropdown">
+                            <div class="form-text">Catálogo institucional y tu espacio personal. Si no aparece, se usa el texto tal cual para el encabezado.</div>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label" for="facultad_dropdown">Facultad</label>
-                            <select class="form-select" name="facultad_dropdown" id="facultad_dropdown" onchange="toggleTextbox('facultad_dropdown', 'facultad_text')">
+                            <label class="form-label" for="facultad_select">Facultad</label>
+                            <select class="form-select mb-2 d-none" id="facultad_select">
                                 <option value="">Seleccionar facultad</option>
-                                <option value="otro">Otro</option>
+                                <option value="__otro__">Otro (buscar o escribir)</option>
                             </select>
-                            <input type="text" class="form-control mt-2 d-none" name="facultad_text" id="facultad_text" placeholder="Ingrese facultad">
+                            <div class="wiz-catalog-search" id="facultad_search_wrap">
+                                <input type="text" class="form-control" id="facultad_search" autocomplete="off"
+                                       placeholder="Buscar facultad...">
+                                <div class="wiz-catalog-suggest d-none" id="facultad_suggest"></div>
+                            </div>
+                            <input type="hidden" name="facultad_dropdown" id="facultad_dropdown">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label" for="carrera_dropdown">Carrera</label>
-                            <select class="form-select" name="carrera_dropdown" id="carrera_dropdown" onchange="toggleTextbox('carrera_dropdown', 'carrera_text')">
+                            <label class="form-label" for="carrera_select">Carrera</label>
+                            <select class="form-select mb-2 d-none" id="carrera_select">
                                 <option value="">Seleccionar carrera</option>
-                                {% for carrera in carreras %}
-                                    <option value="{{ carrera.id }}">{{ carrera.name }}</option>
-                                {% endfor %}
-                                <option value="otro">Otro</option>
+                                <option value="__otro__">Otro (buscar o escribir)</option>
                             </select>
-                            <input type="text" class="form-control mt-2 d-none" name="carrera_text" id="carrera_text" placeholder="Ingrese carrera">
+                            <div class="wiz-catalog-search" id="carrera_search_wrap">
+                                <input type="text" class="form-control" id="carrera_search" autocomplete="off"
+                                       placeholder="Buscar carrera...">
+                                <div class="wiz-catalog-suggest d-none" id="carrera_suggest"></div>
+                            </div>
+                            <input type="hidden" name="carrera_dropdown" id="carrera_dropdown">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label" for="sede_dropdown">Sede / Localización</label>
@@ -354,10 +364,10 @@ window.EducaAppWizardConfig = {
         getQuestionsByTopics: "{% url 'material:get_questions_by_topics' %}",
         getLearningOutcomes: "{% url 'material:get_learning_outcomes' %}",
         getExamTemplateBase: "/get-exam-template/",
-        getFacultiesByInstitutionBase: "/get_faculties_by_institution/",
         getCampusesByInstitutionBase: "/get_campuses_by_institution/",
-        getCareersByFacultyBase: "/get-careers-by-faculty/",
-        getCareerNameBase: "/get-career-name/"
+        checkCatalogDuplicate: "{% url 'material:check_catalog_duplicate' %}",
+        catalogRequestCreateBase: "{% url 'material:catalog_request_create' %}",
+        getCatalogTreeForSubjectBase: "/get_catalog_tree_for_subject/"
     }
 };
 </script>

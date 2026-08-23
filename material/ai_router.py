@@ -73,17 +73,7 @@ class OpenAICompatibleBackend:
         self.base_url = (base_url or preset or 'https://api.openai.com/v1').rstrip('/')
         self.provider = provider
         # Gemini OpenAI-compatible endpoint usa el nombre del modelo SIN prefijo "models/"
-        default_model = {
-            'gemini': 'gemini-2.5-flash-lite',
-            'anthropic': 'claude-3-haiku-20240307',
-            'groq': 'llama-3.1-8b-instant',
-            'mistral': 'mistral-small-latest',
-            'openrouter': 'openai/gpt-4o-mini',
-            'openai': 'gpt-4o-mini',
-            'together': 'meta-llama/Llama-3.1-8B-Instruct-Turbo',
-            'openai_compatible': 'gpt-4o-mini',
-        }.get(provider, 'gpt-4o-mini')
-        raw_model = model or default_model
+        raw_model = model or ''
         # Si el usuario ingresó el prefijo "models/" por error, quitarlo
         if provider == 'gemini' and raw_model and raw_model.startswith('models/'):
             raw_model = raw_model[len('models/'):]
@@ -103,13 +93,22 @@ class OpenAICompatibleBackend:
             return False
 
     def generate(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
-                 images: Optional[list] = None, **kwargs) -> Dict[str, Any]:
+                 images: Optional[list] = None, reasoning_effort: Optional[str] = None,
+                 json_mode: bool = False, **kwargs) -> Dict[str, Any]:
         """
         images: lista opcional de data-URIs ("data:image/png;base64,...") para
         modelos con visión (formato "image_url" de la API de Chat Completions,
         que Groq y OpenAI comparten). Si el modelo no soporta imágenes, el
         proveedor devuelve error — no lo validamos acá, es responsabilidad de
         quien llama pasar un modelo con visión cuando manda `images`.
+
+        reasoning_effort: para modelos de razonamiento (ej. gpt-oss, qwen3.x en
+        Groq) — "none"/"low"/"medium"/"high" según el modelo. No se manda si es
+        None, así los proveedores/modelos que no lo soportan no reciben un
+        campo inesperado.
+        json_mode: si True, pide response_format={"type": "json_object"} —
+        enforcement real de JSON por la API en vez de depender solo de la
+        instrucción en el prompt.
         """
         if images:
             content = [{'type': 'text', 'text': prompt}]
@@ -123,6 +122,10 @@ class OpenAICompatibleBackend:
             'max_tokens': max_tokens,
             'temperature': temperature,
         }
+        if reasoning_effort:
+            payload['reasoning_effort'] = reasoning_effort
+        if json_mode:
+            payload['response_format'] = {'type': 'json_object'}
         max_retries = 2
         for attempt in range(max_retries + 1):
             try:
@@ -154,7 +157,8 @@ class OpenAICompatibleBackend:
                         'rate_limit': rate_limit,
                     }
                 data = r.json()
-                text = data['choices'][0]['message']['content'].strip()
+                choice = data['choices'][0]
+                text = choice['message']['content'].strip()
                 usage = data.get('usage', {})
                 return {
                     'success': True,
@@ -162,6 +166,7 @@ class OpenAICompatibleBackend:
                     'tokens': usage.get('total_tokens', 0),
                     'model': self.model,
                     'rate_limit': rate_limit,
+                    'truncated': choice.get('finish_reason') == 'length',
                 }
             except Exception as e:
                 logger.error(f'OpenAI-compatible backend error: {e}')
@@ -221,14 +226,12 @@ class GeminiBackend:
 
     BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 
-    def __init__(self, api_key: str, model: str = 'gemini-2.5-flash-lite'):
+    def __init__(self, api_key: str, model: str = ''):
         self.api_key = api_key
-        self.model = (model or 'gemini-2.5-flash-lite').strip()
+        self.model = (model or '').strip()
         self._last_error = ''
         if self.model.startswith('models/'):
             self.model = self.model[len('models/'):]
-        if not self.model.startswith('gemini-'):
-            self.model = 'gemini-2.5-flash-lite'
 
     def _params(self):
         return {'key': self.api_key}
@@ -422,9 +425,9 @@ class AnthropicBackend:
     BASE_URL = 'https://api.anthropic.com/v1'
     API_VERSION = '2023-06-01'
 
-    def __init__(self, api_key: str, model: str = 'claude-3-haiku-20240307'):
+    def __init__(self, api_key: str, model: str = ''):
         self.api_key = api_key
-        self.model = model or 'claude-3-haiku-20240307'
+        self.model = model or ''
 
     def _headers(self):
         return {
@@ -664,12 +667,11 @@ def _build_demo_fallback(cfg):
     ya resuelta, o None si no hay fila o no tiene key cargada."""
     if cfg is None or not cfg.api_key_encrypted:
         return None
-    model = cfg.model or ('gemini-2.5-flash-lite' if cfg.provider == 'gemini' else 'gpt-4o-mini')
     try:
         backend = _build_external_backend(
             provider=cfg.provider or 'gemini',
             api_key=cfg.api_key,
-            model=model,
+            model=cfg.model,
             base_url=None,
         )
         return GlobalFallbackBackend(backend, cfg.id)
@@ -937,22 +939,10 @@ def _resolve_backend_for_user(user):
         if not config.api_key_encrypted:
             logger.warning('BYOK seleccionado pero sin API key. Usando Ollama.')
             return OllamaBackend()
-        provider_defaults = {
-            'gemini': 'gemini-2.5-flash-lite',
-            'anthropic': 'claude-3-haiku-20240307',
-            'groq': 'llama-3.1-8b-instant',
-            'mistral': 'mistral-small-latest',
-            'openrouter': 'openai/gpt-4o-mini',
-            'openai': 'gpt-4o-mini',
-            'openai_compatible': 'gpt-4o-mini',
-        }
-        model = config.model or provider_defaults.get(config.provider or 'openai', 'gpt-4o-mini')
-        if config.provider == 'gemini' and not model.startswith('gemini-'):
-            model = 'gemini-2.5-flash-lite'
         return _build_external_backend(
             provider=config.provider or 'openai',
             api_key=config.api_key,
-            model=model,
+            model=config.model,
             base_url=config.base_url or None,
         )
 
@@ -969,15 +959,10 @@ def _resolve_backend_for_user(user):
         if not inst_cfg.is_active or not inst_cfg.api_key_encrypted:
             logger.warning(f'Configuración institucional de {institution.name} inactiva o sin key.')
             return OllamaBackend()
-        inst_model = inst_cfg.model or {
-            'openai': 'gpt-4o-mini',
-            'anthropic': 'claude-3-haiku-20240307',
-            'openai_compatible': 'gpt-4o-mini',
-        }.get(inst_cfg.provider, 'gpt-4o-mini')
         return _build_external_backend(
             provider=inst_cfg.provider,
             api_key=inst_cfg.api_key,
-            model=inst_model,
+            model=inst_cfg.model,
             base_url=inst_cfg.base_url or None,
         )
 

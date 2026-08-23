@@ -1,8 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from django.core.validators import MinValueValidator, MaxValueValidator  
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -279,11 +277,6 @@ class Subject(models.Model):
     # Career.subjects.
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    learning_outcomes = models.TextField(
-        blank=True,
-        null=True,
-        help_text="Legacy field - almacena outcomes en texto o JSON"
-    )
     # Materia de ejemplo sembrada por seed_demo_content (ver
     # SEED_CONTENT_USERNAME) — usada SOLO por el flujo del asistente de
     # configuración (wizard) para mostrar un examen de ejemplo. No es un
@@ -332,42 +325,15 @@ class Subject(models.Model):
     def __str__(self):
         return self.name
 
-    @property
-    def legacy_outcomes(self):
-        """Método ya completo - no modificar"""
-        if hasattr(self, '_legacy_outcomes_cache'):
-            return self._legacy_outcomes_cache
-            
-        if not self.learning_outcomes:
-            self._legacy_outcomes_cache = []
-            return self._legacy_outcomes_cache
-            
-        try:
-            data = json.loads(self.learning_outcomes)
-            self._legacy_outcomes_cache = data if isinstance(data, list) else [data]
-        except json.JSONDecodeError:
-            self._legacy_outcomes_cache = [
-                line.strip() for line in self.learning_outcomes.splitlines() 
-                if line.strip()
-            ]
-        return self._legacy_outcomes_cache
-
     def get_all_outcomes(self):
         """Resultados de aprendizaje de TODAS las carreras que usan esta
-        materia (LearningOutcome ahora cuelga de CareerSubject, no de
-        Subject directo — ver informe de rediseño). Para el detalle por
-        carrera, ver SubjectDetailView."""
-        outcomes = list(
+        materia (LearningOutcome cuelga de CareerSubject, no de Subject
+        directo — ver informe de rediseño). Para el detalle por carrera, ver
+        SubjectDetailView."""
+        return list(
             LearningOutcome.objects.filter(career_subject__subject=self)
             .values('id', 'description')
         )
-
-        for i, item in enumerate(self.legacy_outcomes, start=1):
-            outcomes.append({
-                'id': f'legacy-{i}',
-                'description': item.get('description', str(item)) if isinstance(item, dict) else str(item)
-            })
-        return outcomes
 
     def clean(self):
         if not self.name.strip():
@@ -1526,6 +1492,20 @@ class CatalogRequest(models.Model):
         'resultado_aprendizaje': 'el',
     }
 
+    def entidad_propia(self):
+        """La fila real (InstitutionV2/FacultyV2/Career/Subject) que este
+        `tipo` representa — la que se creó/eligió para ESTE nivel puntual,
+        no el contexto de arriba. None para resultado_aprendizaje (no crea
+        nada propio, ver clean() en CatalogRequestForm) o si esa fila ya
+        no existe (fusionada o borrada). Usado para decidir si mostrar
+        "Borrar" en Mis solicitudes — ver eliminar_espacio_personal."""
+        return {
+            'institucion': self.institucion,
+            'facultad': self.facultad,
+            'carrera': self.carrera,
+            'materia': self.materia,
+        }.get(self.tipo)
+
     def contexto_display(self):
         """Cadena institución / facultad / carrera (/ materia) para mostrar
         en las tablas de la bandeja y "Mis solicitudes". Desde que
@@ -1558,10 +1538,13 @@ class CatalogRequest(models.Model):
         return ' / '.join(partes)
 
     def resultado_mensaje(self):
-        """Texto del aviso para el solicitante, adaptado a los 5 tipos
+        """Texto del aviso para quien lo agregó, adaptado a los 5 tipos
         posibles (institución/facultad/carrera/materia/resultado de
-        aprendizaje) y a si fue aprobada o rechazada. Vacío si todavía
-        está pendiente."""
+        aprendizaje) y a si se sumó o no al catálogo institucional. Vacío
+        si todavía está pendiente. Tono "agregar", no "solicitar": lo que
+        se agrega ya es usable de inmediato en el espacio personal — esto
+        avisa si además pasó a ser del catálogo institucional (compartido)
+        o no, no si "se permitió" hacerlo."""
         if self.estado == 'pendiente':
             return ''
         institucion_nombre = self.institucion.name if self.institucion_id else self.institucion_nueva
@@ -1577,16 +1560,14 @@ class CatalogRequest(models.Model):
         }
         contexto = contexto_por_tipo.get(self.tipo, '')
         tipo_label = self.get_tipo_display().lower()
-        articulo = self._ARTICULO_POR_TIPO.get(self.tipo, 'la')
+        articulo = self._ARTICULO_POR_TIPO.get(self.tipo, 'la').capitalize()
         if self.estado == 'aprobada':
             return (
-                f'La solicitud para agregar {articulo} {tipo_label} "{self.nombre_propuesto}"{contexto} '
-                f'fue aprobada — ya está disponible en el catálogo.'
+                f'{articulo} {tipo_label} "{self.nombre_propuesto}"{contexto} ya se sumó al catálogo institucional.'
             )
         motivo = f' Motivo: {self.nota_admin}' if self.nota_admin else ''
         return (
-            f'La solicitud para agregar {articulo} {tipo_label} "{self.nombre_propuesto}"{contexto} '
-            f'fue rechazada.{motivo}'
+            f'{articulo} {tipo_label} "{self.nombre_propuesto}"{contexto} no se sumó al catálogo institucional.{motivo}'
         )
 
 
@@ -2265,19 +2246,6 @@ class RubricCell(models.Model):
         return f"{self.criterion} × {self.level.label}"
 
 
-@receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
-    if created:
-        Profile.objects.create(user=instance)
-
-@receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
-    if hasattr(instance, 'profile'):
-        instance.profile.save()
-    else:
-        Profile.objects.create(user=instance)
-
-
 # ---------------------------------------------------------------------------
 # Helpers de cifrado para API keys
 # ---------------------------------------------------------------------------
@@ -2332,7 +2300,10 @@ class InstitutionAIConfig(models.Model):
     )
     model = models.CharField(
         max_length=100,
-        default='gpt-4o-mini',
+        # Sin default hardcodeado a propósito (ver ai_router.py: ya no rellena
+        # ningún modelo de fallback) — el admin tiene que escribir el nombre
+        # exacto y vigente que indica el proveedor. blank=False (default de
+        # CharField) hace que Django Admin lo exija al guardar.
         verbose_name="Modelo",
     )
     base_url = models.URLField(
@@ -2403,8 +2374,9 @@ class UserAIConfig(models.Model):
     api_key_encrypted = models.TextField(blank=True, verbose_name="API Key (cifrada)")
     model = models.CharField(
         max_length=100,
-        blank=True,
-        default='gpt-4o-mini',
+        blank=True,  # opcional a nivel de base: solo aplica cuando source='byok'
+        # Sin default hardcodeado a propósito (ver ai_router.py) — cuando
+        # source='byok' se exige explícitamente en clean() más abajo.
         verbose_name="Modelo",
     )
     base_url = models.URLField(
@@ -2436,6 +2408,20 @@ class UserAIConfig(models.Model):
     def __str__(self):
         return f"{self.user.username} → {self.get_source_display()}"
 
+    def clean(self):
+        super().clean()
+        # 'model' es blank=True a nivel de base porque no aplica a
+        # shared_demo/ollama_local/institutional — pero si el usuario eligió
+        # traer su propia key (byok), hace falta sí o sí (sin esto, ai_router.py
+        # manda un modelo vacío a la API). Corre vía full_clean() — Django
+        # Admin lo llama solo; la vista propia (ai_config_view) valida lo
+        # mismo a mano antes de guardar, ver ahí.
+        if self.source == 'byok':
+            if not self.provider:
+                raise ValidationError({'provider': 'Falta elegir un proveedor para "Mi propia API Key".'})
+            if not self.model:
+                raise ValidationError({'model': 'Falta indicar el modelo — no hay uno por defecto, hay que escribirlo o buscarlo.'})
+
     @property
     def api_key(self):
         return decrypt_api_key(self.api_key_encrypted)
@@ -2457,7 +2443,10 @@ class GlobalAIConfig(models.Model):
     ninguna pantalla de la aplicación.
     """
     provider = models.CharField(max_length=30, default='gemini', verbose_name="Proveedor")
-    model = models.CharField(max_length=100, blank=True, verbose_name="Modelo")
+    # blank=False (default de CharField) a propósito: es el único fallback
+    # automático que le queda al sistema (ver ai_router.py, que ya no rellena
+    # ningún modelo por su cuenta) — Django Admin lo exige al guardar.
+    model = models.CharField(max_length=100, verbose_name="Modelo")
     api_key_encrypted = models.TextField(blank=True, verbose_name="API Key (cifrada)")
     is_active = models.BooleanField(default=True, verbose_name="Activa")
     updated_at = models.DateTimeField(auto_now=True)
@@ -2524,6 +2513,7 @@ class GroqMonitorRun(models.Model):
     # valor con la hora de la sincronización en vez de la hora real de la
     # corrida, rompiendo el análisis de cadencia por tiempo.
     created_at = models.DateTimeField(default=timezone.now, verbose_name="Fecha")
+    model_name = models.CharField(max_length=150, blank=True, verbose_name="Modelo")
     success = models.BooleanField(default=False, verbose_name="Corrida sin errores")
     target_questions = models.PositiveIntegerField(default=30, verbose_name="Preguntas pedidas")
     total_generated = models.PositiveIntegerField(default=0, verbose_name="Preguntas generadas")

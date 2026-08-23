@@ -148,6 +148,51 @@
     padding: 0;
 }
 
+/* Buscador de institución/facultad/carrera (mismo motor que Solicitar Alta:
+   check_catalog_duplicate) — ver create_exam_wizard.js wireCatalogSearch(). */
+.wiz-catalog-search {
+    position: relative;
+}
+.wiz-catalog-suggest {
+    position: absolute;
+    z-index: 20;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: .2rem;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: .375rem;
+    box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .12);
+    max-height: 220px;
+    overflow-y: auto;
+}
+.wiz-catalog-suggest-item {
+    padding: .45rem .75rem;
+    cursor: pointer;
+    font-size: .9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+}
+.wiz-catalog-suggest-item:hover,
+.wiz-catalog-suggest-item.is-active {
+    background: var(--bs-tertiary-bg);
+}
+.wiz-catalog-suggest-badge {
+    font-size: .68rem;
+}
+.wiz-catalog-suggest-empty {
+    padding: .5rem .75rem;
+    font-size: .85rem;
+    color: var(--bs-secondary-color);
+}
+.wiz-catalog-suggest-empty a {
+    display: block;
+    margin-top: .25rem;
+}
+
 /* ── Navegación inferior ─────────────────────────────────────────────── */
 .wiz-nav {
     display: flex;

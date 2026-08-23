@@ -87,25 +87,26 @@
         <div class="card mb-4">
             <div class="card-header fw-bold"><i class="bi bi-bookmark me-2"></i>Materias asociadas</div>
             <div class="card-body">
-                {% if form.subjects.field.queryset.exists %}
-                    <p class="text-muted small mb-2">Seleccionar una o más materias. Se puede dejar vacío y asignarlo después.</p>
-                    <div class="row row-cols-2 row-cols-md-3 g-2">
-                        {% for subject in form.subjects.field.queryset %}
-                        <div class="col">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox"
-                                       name="subjects" value="{{ subject.id }}"
-                                       id="sub_{{ subject.id }}"
-                                       {% if subject in form.subjects.initial %}checked{% endif %}>
-                                <label class="form-check-label" for="sub_{{ subject.id }}">{{ subject.name }}</label>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% if form.subjects.errors %}<div class="text-danger small mt-2">{{ form.subjects.errors }}</div>{% endif %}
-                {% else %}
-                    <p class="text-warning mb-0"><i class="bi bi-exclamation-triangle me-1"></i>No hay materias cargadas en el sistema. Se pueden agregar desde el panel de administración.</p>
-                {% endif %}
+                <p class="text-muted small mb-2">Buscar una o más materias por nombre. Se puede dejar vacío y asignarlo después.</p>
+
+                <div id="subjectChips" class="d-flex flex-wrap gap-2 mb-2"></div>
+
+                <div class="position-relative">
+                    <input type="text" class="form-control" id="subjectSearchInput"
+                           placeholder="Escribir el nombre de una materia...">
+                    <div id="subjectSuggest" class="list-group position-absolute w-100 shadow-sm" style="z-index:1050; display:none;"></div>
+                </div>
+                <div id="subjectNoMatch" class="form-text" style="display:none;">
+                    No aparece ninguna materia con ese nombre entre las tuyas o el catálogo institucional.
+                    <a href="{% url 'material:catalog_request_create' %}" target="_blank" rel="noopener">Agregarla al catálogo</a> primero.
+                </div>
+
+                <select name="subjects" id="id_subjects" multiple class="d-none">
+                    {% for subject in form.subjects.field.queryset %}
+                        <option value="{{ subject.id }}" {% if subject in form.subjects.initial %}selected{% endif %}>{{ subject.name }}</option>
+                    {% endfor %}
+                </select>
+                {% if form.subjects.errors %}<div class="text-danger small mt-2">{{ form.subjects.errors }}</div>{% endif %}
             </div>
         </div>
 
@@ -171,6 +172,114 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(() => document.getElementById('loadingSpinner').classList.add('d-none'));
         });
+    }
+
+    // --- Buscador de materias (typeahead) ---
+    // Reemplaza la vieja grilla de checkboxes con TODAS las materias del
+    // sistema (improductiva a medida que crece el catálogo) por un buscador
+    // por nombre, igual en espíritu al de "Agregar a mi catálogo" — pero acá
+    // solo elige entre materias existentes visibles para este usuario
+    // (id_subjects ya viene acotado desde el form), nunca crea una nueva:
+    // si no aparece, se manda a "Agregar a mi catálogo" en vez de tipearla acá.
+    const subjectSelect = document.getElementById('id_subjects');
+    const subjectChips = document.getElementById('subjectChips');
+    const subjectSearchInput = document.getElementById('subjectSearchInput');
+    const subjectSuggest = document.getElementById('subjectSuggest');
+    const subjectNoMatch = document.getElementById('subjectNoMatch');
+    const CHECK_DUPLICADO_URL = "{{ check_duplicate_url }}";
+
+    if (subjectSelect && subjectSearchInput) {
+        // Nombre de cada opción del <select> real, indexado por id — evita
+        // pegarle un fetch a check_catalog_duplicate solo para mostrar los
+        // chips ya seleccionados al cargar la pantalla.
+        const nombrePorId = {};
+        Array.from(subjectSelect.options).forEach(function (opt) {
+            nombrePorId[opt.value] = opt.textContent.trim();
+        });
+
+        function idsSeleccionados() {
+            return Array.from(subjectSelect.selectedOptions).map(function (o) { return o.value; });
+        }
+
+        function renderChips() {
+            subjectChips.innerHTML = '';
+            idsSeleccionados().forEach(function (id) {
+                const chip = document.createElement('span');
+                chip.className = 'badge bg-primary-subtle text-primary-emphasis border d-inline-flex align-items-center gap-1 py-2 px-3';
+                chip.textContent = nombrePorId[id] || '(materia)';
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'btn-close btn-close-sm ms-1';
+                remove.style.fontSize = '.6rem';
+                remove.setAttribute('aria-label', 'Quitar');
+                remove.addEventListener('click', function () {
+                    const opt = subjectSelect.querySelector('option[value="' + id + '"]');
+                    if (opt) opt.selected = false;
+                    renderChips();
+                });
+                chip.appendChild(remove);
+                subjectChips.appendChild(chip);
+            });
+        }
+
+        function debounce(fn, ms) {
+            let t;
+            return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); };
+        }
+
+        function cerrarSuggest() {
+            subjectSuggest.style.display = 'none';
+            subjectSuggest.innerHTML = '';
+        }
+
+        function buscar(q) {
+            const seleccionados = new Set(idsSeleccionados());
+            fetch(CHECK_DUPLICADO_URL + '?' + new URLSearchParams({ nivel: 'materia', q: q }).toString())
+                .then(function (r) { return r.ok ? r.json() : []; })
+                .catch(function () { return []; })
+                .then(function (matches) {
+                    matches = matches.filter(function (m) { return !seleccionados.has(String(m.id)); });
+                    subjectNoMatch.style.display = matches.length ? 'none' : '';
+                    if (!matches.length) { cerrarSuggest(); return; }
+                    subjectSuggest.innerHTML = '';
+                    matches.forEach(function (m) {
+                        const row = document.createElement('button');
+                        row.type = 'button';
+                        row.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                        row.innerHTML = '<span>' + m.name + '</span><span class="badge bg-secondary-subtle text-secondary-emphasis border">' +
+                            (m.es_catalogo_institucional ? 'Institucional' : 'Espacio personal') + '</span>';
+                        row.addEventListener('click', function () {
+                            let opt = subjectSelect.querySelector('option[value="' + m.id + '"]');
+                            if (!opt) {
+                                opt = document.createElement('option');
+                                opt.value = m.id;
+                                subjectSelect.appendChild(opt);
+                            }
+                            opt.textContent = m.name;
+                            opt.selected = true;
+                            nombrePorId[m.id] = m.name;
+                            renderChips();
+                            subjectSearchInput.value = '';
+                            cerrarSuggest();
+                            subjectSearchInput.focus();
+                        });
+                        subjectSuggest.appendChild(row);
+                    });
+                    subjectSuggest.style.display = '';
+                });
+        }
+
+        const onInput = debounce(function () {
+            const q = subjectSearchInput.value.trim();
+            if (q.length < 2) { cerrarSuggest(); subjectNoMatch.style.display = 'none'; return; }
+            buscar(q);
+        }, 300);
+        subjectSearchInput.addEventListener('input', onInput);
+        document.addEventListener('click', function (e) {
+            if (!subjectSuggest.contains(e.target) && e.target !== subjectSearchInput) cerrarSuggest();
+        });
+
+        renderChips();
     }
 });
 </script>

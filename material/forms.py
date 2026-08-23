@@ -44,6 +44,17 @@ class ContenidoForm(forms.ModelForm):
         label="Materias"
     )
 
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Acotado a lo visible del usuario (catálogo institucional + su
+        # propio espacio personal, ver content_visibility.get_visible_subjects)
+        # — sin esto el selector de /upload/ listaba TODAS las materias de
+        # TODOS los usuarios, propias y ajenas, cada vez más largo a medida
+        # que crece el catálogo.
+        if user is not None:
+            from .content_visibility import get_visible_subjects
+            self.fields['subjects'].queryset = get_visible_subjects(user).order_by('name')
+
     class Meta:
         model = Contenido
         fields = ['subjects', 'title', 'file', 'author', 'isbn', 'edition', 'pages', 'publisher', 'year']
@@ -304,18 +315,19 @@ class ExamTemplateForm(forms.ModelForm):
         ).exclude(profile__is_training_account=True)
         self.fields['professor'].label_from_instance = lambda obj: f"{obj.first_name} {obj.last_name} ({obj.username})"
         
-        # Configurar outcomes basado en la materia seleccionada
+        # Configurar outcomes basado en la materia seleccionada — cuelgan de
+        # CareerSubject, no de Subject directo (ver informe de rediseño).
         if 'subject' in self.data:
             try:
                 subject_id = int(self.data.get('subject'))
                 self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(
-                    subject_id=subject_id
+                    career_subject__subject_id=subject_id
                 )
             except (ValueError, TypeError):
                 pass
         elif self.instance.pk and self.instance.subject:
             self.fields['learning_outcomes'].queryset = LearningOutcome.objects.filter(
-                subject=self.instance.subject
+                career_subject__subject=self.instance.subject
             )
 
 class CustomLoginForm(AuthenticationForm):
@@ -633,8 +645,9 @@ class SubjectForm(forms.ModelForm):
 
 class CareerForm(forms.ModelForm):
     institution = forms.ModelChoiceField(
-        # Institución semilla (ver seed_demo_content) excluida: solo debe
-        # verse en el esquema de ejemplo del asistente de onboarding.
+        # Acotado a lo visible del usuario en __init__ (catálogo institucional
+        # + su propio espacio personal) — este queryset de acá es solo el
+        # fallback previo a bindear el form con un `user`; ver __init__.
         queryset=InstitutionV2.objects.filter(is_seed_demo=False),
         widget=forms.Select(attrs={'class': 'form-select'}),
         label="Institución",
@@ -674,7 +687,20 @@ class CareerForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         career_pk = kwargs.pop('career_pk', None)
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+
+        # Acotado a catálogo institucional + espacio personal del propio
+        # usuario (ver content_visibility.get_visible_*) — antes mostraba
+        # TODO el sistema: cualquier institución, cualquier materia de
+        # cualquier docente, sin importar quién editaba. Al extender esta
+        # pantalla al dueño de una carrera personal (no solo admin), ese
+        # alcance sin acotar dejaba de ser "el admin puede ver todo" para
+        # pasar a ser "cualquier dueño de un borrador ve/toca todo".
+        if self.user is not None:
+            from .content_visibility import get_visible_institutions, get_visible_subjects
+            self.fields['institution'].queryset = get_visible_institutions(self.user).order_by('name')
+            self.fields['subjects'].queryset = get_visible_subjects(self.user).order_by('name')
 
         # Si hay una carrera, obtener la institución asociada
         if career_pk:
@@ -687,17 +713,23 @@ class CareerForm(forms.ModelForm):
         # Inicialmente, vaciar los querysets dependientes
         self.fields['faculties'].queryset = FacultyV2.objects.none()
         self.fields['campus'].queryset = CampusV2.objects.none()
-        self.fields['subjects'].queryset = Subject.objects.filter(is_seed_demo=False)
+        if self.user is None:
+            self.fields['subjects'].queryset = Subject.objects.filter(is_seed_demo=False)
         if self.instance.pk:
             self.fields['subjects'].initial = self.instance.subjects.values_list('pk', flat=True)
+
+        def _faculties_queryset(institution_id):
+            qs = FacultyV2.objects.filter(institution_id=institution_id, is_active=True)
+            if self.user is not None:
+                from .content_visibility import get_visible_faculties
+                qs = get_visible_faculties(self.user).filter(pk__in=qs.values('pk'))
+            return qs.order_by('name')
 
         # Si hay institución seleccionada, filtrar
         if 'institution' in self.data:
             try:
                 institution_id = int(self.data.get('institution'))
-                self.fields['faculties'].queryset = FacultyV2.objects.filter(
-                    institution_id=institution_id, is_active=True
-                ).order_by('name')
+                self.fields['faculties'].queryset = _faculties_queryset(institution_id)
                 self.fields['campus'].queryset = CampusV2.objects.filter(
                     institution_id=institution_id
                 ).order_by('name')
@@ -708,9 +740,7 @@ class CareerForm(forms.ModelForm):
             try:
                 institution_career = InstitutionCareer.objects.get(career=self.instance)
                 institution_id = institution_career.institution.id
-                self.fields['faculties'].queryset = FacultyV2.objects.filter(
-                    institution_id=institution_id, is_active=True
-                ).order_by('name')
+                self.fields['faculties'].queryset = _faculties_queryset(institution_id)
                 self.fields['campus'].queryset = CampusV2.objects.filter(
                     institution_id=institution_id
                 ).order_by('name')
@@ -815,6 +845,30 @@ class CatalogRequestForm(forms.ModelForm):
             nivel('facultad', 'facultad_nueva', tipo in ('carrera', 'materia'), 'facultad')
             nivel('carrera', 'carrera_nueva', tipo == 'materia', 'carrera')
         return cleaned
+
+
+class BulkCatalogUploadForm(forms.Form):
+    """Carga masiva de facultad→carrera→materia (plan de estudios completo)
+    al catálogo institucional desde un CSV — ver admin_bulk_catalog_upload.
+    Solo institución se elige acá: facultad/carrera/materia vienen del
+    archivo, una fila por materia."""
+    institucion = forms.ModelChoiceField(
+        queryset=InstitutionV2.objects.filter(es_catalogo_institucional=True).order_by('name'),
+        label='Institución',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        help_text='Todo lo que se cree o reutilice del archivo queda vinculado a esta institución.',
+    )
+    archivo = forms.FileField(
+        label='Archivo CSV',
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.csv'}),
+        help_text='Columnas esperadas: facultad, carrera, numero de materia, materia, año de cursada, cuatrimestre de cursada.',
+    )
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data['archivo']
+        if not archivo.name.lower().endswith('.csv'):
+            raise ValidationError('El archivo tiene que ser un .csv.')
+        return archivo
 
 
 class OralExamForm(forms.ModelForm):

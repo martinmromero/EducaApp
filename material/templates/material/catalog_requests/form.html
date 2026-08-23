@@ -240,8 +240,8 @@
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary mt-2">Crear</button>
-                <a href="{% url 'material:mis_solicitudes_catalogo' %}" class="btn btn-link text-muted">Ver mis solicitudes</a>
+                <button type="submit" class="btn btn-primary mt-2">Agregar</button>
+                <a href="{% url 'material:mis_solicitudes_catalogo' %}" class="btn btn-link text-muted">Ver mis agregados</a>
             </form>
         </div>
     </div>
@@ -545,9 +545,19 @@ document.addEventListener('DOMContentLoaded', function () {
             if (chip.extraBox) chip.extraBox.style.display = (q && !chip.soloExistente) ? '' : 'none';
             const extra = {};
             if (chip.nivel === 'facultad') extra.institucion_id = institucionSelect.value;
+            if (chip.nivel === 'carrera') extra.facultad_id = facultadSelect.value;
             if (chipEsNueva(chips.institucion) && chip.nivel === 'facultad') {
                 // La institución todavía no existe: ninguna facultad cargada
                 // puede pertenecerle — no tiene sentido buscar coincidencias.
+                renderSuggest(chip, [], q);
+                return;
+            }
+            if (chipEsNueva(chips.facultad) && chip.nivel === 'carrera') {
+                // Misma idea: la facultad todavía no existe, ninguna carrera
+                // cargada puede pertenecerle — sin esto se podía sugerir (y
+                // elegir por error) una carrera de otra institución/facultad
+                // por completo, dejando la materia colgada del lugar
+                // equivocado (ver _validar_cadena_catalogo en el server).
                 renderSuggest(chip, [], q);
                 return;
             }

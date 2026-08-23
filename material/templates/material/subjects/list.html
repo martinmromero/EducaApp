@@ -9,7 +9,7 @@
 </a>
 {% else %}
 <a href="{% url 'material:catalog_request_create' %}?tipo=materia" class="btn btn-outline-primary" id="subjectRequestBtn">
-    <i class="bi bi-send me-1"></i><span class="d-none d-sm-inline">Solicitar materia</span>
+    <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Agregar materia</span>
 </a>
 {% endif %}
 {% endblock %}
@@ -23,10 +23,15 @@
         <div class="card-header py-2 d-flex justify-content-between align-items-center list-control-row">
             <span class="list-control-info">{{ subjects|length }} materia{{ subjects|length|pluralize }}</span>
             <div class="d-flex align-items-center gap-2" id="listControlDefault">
-                <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}"
+                <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if only_personal %}&personal=1{% endif %}"
                    class="btn btn-sm list-toolbar-btn {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
                    title="Mostrar solo favoritas">
                     <i class="fas fa-star"></i> <span class="d-none d-sm-inline">Favoritas</span>
+                </a>
+                <a href="?personal={% if only_personal %}0{% else %}1{% endif %}{% if only_favorites %}&favoritos=1{% endif %}"
+                   class="btn btn-sm list-toolbar-btn {% if only_personal %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
+                   title="Mostrar solo lo que está en el espacio personal propio, todavía no sumado al catálogo institucional">
+                    <i class="bi bi-person-badge"></i> <span class="d-none d-sm-inline">Personal</span>
                 </a>
             </div>
             <div class="d-none align-items-center gap-2" id="listSelectionBar">
@@ -65,7 +70,7 @@
                             <td class="rt-card-title" data-label="Nombre">
                                 {{ subject.name }}
                                 {% if not subject.es_catalogo_institucional %}
-                                    <span class="badge bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
+                                    <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
                                 {% endif %}
                             </td>
                             <td data-label="Resultados de aprendizaje">
@@ -92,6 +97,14 @@
                                     </a>
                                     <a href="{% url 'material:delete_subject' pk=subject.pk %}"
                                        class="btn btn-sm btn-danger" title="Eliminar materia">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                    {% elif subject.created_by_id == user.id and not subject.es_catalogo_institucional %}
+                                    <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-outline-warning" title="Editar materia">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'material:eliminar_espacio_personal' 'materia' subject.pk %}?next={{ request.get_full_path|urlencode }}"
+                                       class="btn btn-sm btn-outline-danger" title="Borrar del espacio personal">
                                         <i class="fas fa-trash"></i>
                                     </a>
                                     {% endif %}

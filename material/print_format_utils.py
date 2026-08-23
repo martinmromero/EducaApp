@@ -1,6 +1,7 @@
 import logging
 
 from django.db import transaction
+from django.db.models import Q
 from django.db.utils import DatabaseError, OperationalError, ProgrammingError
 
 from .models import FormatoImpresion, FormatoImpresionAsignado, UserInstitution
@@ -13,14 +14,21 @@ def get_user_institution_ids(user):
 
 
 def get_visible_print_formats(user):
+    # OJO: get_visible_formats(user) termina en .distinct() (ver
+    # _get_visible_via_content_share) — combinarla directo por "|" con estos
+    # otros dos querysets (que no lo tienen) tira "Cannot combine a unique
+    # query with a non-unique query" (Django exige que .distinct() coincida
+    # en ambos lados de un "|" entre QuerySets). Se resuelve el conjunto
+    # entero en una sola .filter(Q()|Q()|Q()) en vez de combinar querysets
+    # por separado — mismo resultado, sin el choque.
     from .content_visibility import get_visible_formats
     institution_ids = get_user_institution_ids(user)
+    compartidos_o_propios_ids = list(get_visible_formats(user).values_list('id', flat=True))
     return FormatoImpresion.objects.filter(
-        institution_id__in=institution_ids,
-    ) | FormatoImpresion.objects.filter(
-        user__isnull=True,
-        institution__isnull=True,
-    ) | get_visible_formats(user)
+        Q(institution_id__in=institution_ids)
+        | Q(user__isnull=True, institution__isnull=True)
+        | Q(id__in=compartidos_o_propios_ids)
+    )
 
 
 def resolve_print_format_for_context(*, user=None, institution=None, institution_name=''):

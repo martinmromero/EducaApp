@@ -387,10 +387,10 @@ def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_na
     _apply_table_borders(table)
 
     institution = (block.get('institucion') or '-').upper()
-    faculty = block.get('facultad') or '-'
-    career = block.get('carrera') or '-'
-    subject = block.get('materia') or '-'
-    professor = block.get('profesor') or '-'
+    faculty = block.get('facultad') or ''
+    career = block.get('carrera') or ''
+    subject = block.get('materia') or ''
+    professor = block.get('profesor') or ''
     year = str(block.get('anio') or '-')
 
     logo_cell = table.rows[0].cells[0].merge(table.rows[1].cells[0])
@@ -447,24 +447,31 @@ def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_na
     # Ancho util de la celda meta (descontando el padding interno de la tabla).
     meta_tab_cm = max(middle_cm - 0.3, 1.0)
 
+    def _append_meta_field(paragraph, label, value):
+        # Un campo vacío (ej. profesor no cargado) se omite entero en vez de
+        # mostrar "Profesor: -" — antes siempre se imprimía el placeholder.
+        if not value:
+            return False
+        _append_run(paragraph, f'{label}: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
+        _append_run(paragraph, value, font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
+        return True
+
     meta_cell = table.rows[1].cells[1]
     p_meta = _clear_cell(meta_cell)
     p_meta.alignment = 0
     _add_right_tab_stop(p_meta, meta_tab_cm)
-    _append_run(p_meta, 'Facultad: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
-    _append_run(p_meta, faculty, font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
-    p_meta.add_run('\t')
-    _append_run(p_meta, 'Carrera: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
-    _append_run(p_meta, career, font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
+    left_written = _append_meta_field(p_meta, 'Facultad', faculty)
+    if left_written and career:
+        p_meta.add_run('\t')
+    _append_meta_field(p_meta, 'Carrera', career)
 
     p_meta = meta_cell.add_paragraph()
     _zero_paragraph_spacing(p_meta)
     _add_right_tab_stop(p_meta, meta_tab_cm)
-    _append_run(p_meta, 'Materia: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
-    _append_run(p_meta, subject, font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
-    p_meta.add_run('\t')
-    _append_run(p_meta, 'Profesor: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
-    _append_run(p_meta, professor, font_name=font_name, size_pt=base_size, color_rgb=text_rgb)
+    left_written = _append_meta_field(p_meta, 'Materia', subject)
+    if left_written and professor:
+        p_meta.add_run('\t')
+    _append_meta_field(p_meta, 'Profesor', professor)
 
 
 def _append_student_data_table(doc, block, base_size, title_rgb, text_rgb, font_name):
@@ -496,8 +503,8 @@ def _append_student_data_table(doc, block, base_size, title_rgb, text_rgb, font_
         font_name=font_name,
         size_pt=base_size,
         color_rgb=text_rgb,
-        bold=False,
-        alignment=0,
+        bold=True,
+        alignment=1,
     )
 
 

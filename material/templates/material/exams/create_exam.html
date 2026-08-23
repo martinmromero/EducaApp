@@ -132,7 +132,7 @@
                     <select class="form-select" name="profesor_dropdown" id="profesor_dropdown" onchange="toggleTextbox('profesor_dropdown', 'profesor_text')">
                         <option value="">Seleccionar profesor</option>
                         {% for profesor in profesores %}
-                            <option value="{{ profesor.id }}">{{ profesor.get_full_name }}</option>
+                            <option value="{{ profesor.id }}">{{ profesor.get_full_name|default:profesor.username }}</option>
                         {% endfor %}
                         <option value="otro">Otro</option>
                     </select>

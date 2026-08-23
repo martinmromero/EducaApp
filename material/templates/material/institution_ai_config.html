@@ -103,9 +103,9 @@
         <div class="mb-3">
           <label class="form-label fw-semibold">Modelo</label>
           <input type="text" class="form-control" name="model" id="inst-model"
-                 value="{{ editing.model|default:'gpt-4o-mini' }}"
-                 placeholder="ej. gpt-4o-mini" required>
-          <div class="form-text">Nombre exacto del modelo tal como lo indica el proveedor.</div>
+                 value="{{ editing.model|default_if_none:'' }}"
+                 placeholder="nombre exacto del modelo" required>
+          <div class="form-text">Sin valor por defecto: escribir el nombre tal como lo indica la documentación vigente del proveedor elegido — los nombres cambian con el tiempo.</div>
         </div>
 
         <div class="mb-3" id="inst-base-url-field"
@@ -157,26 +157,13 @@
 </div>
 
 <script>
-const INST_DEFAULT_MODELS = {
-  openai: 'gpt-4o-mini',
-  gemini: 'gemini-2.5-flash-lite',
-  anthropic: 'claude-3-haiku-20240307',
-  groq: 'llama-3.1-8b-instant',
-  mistral: 'mistral-small-latest',
-  openrouter: 'openai/gpt-4o-mini',
-  openai_compatible: '',
-};
-
+// Sin modelo por defecto por proveedor a propósito (ver ai_router.py y
+// material/models.py) — cambiar de proveedor solo ajusta qué campos se ven;
+// el nombre del modelo lo escribe el admin siempre a mano, nunca se autocompleta.
 function onInstProviderChange() {
   const p = document.getElementById('inst-provider').value;
   document.getElementById('inst-base-url-field').style.display =
     (p === 'openai_compatible') ? '' : 'none';
-  const modelInput = document.getElementById('inst-model');
-  const current = modelInput.value.trim();
-  const defaults = Object.values(INST_DEFAULT_MODELS);
-  if (!current || defaults.includes(current)) {
-    modelInput.value = INST_DEFAULT_MODELS[p] || '';
-  }
 }
 
 function toggleInstKey() {

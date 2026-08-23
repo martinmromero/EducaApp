@@ -9,7 +9,7 @@
             <h2>
                 <i class="bi bi-building me-2"></i>{{ institution.name }}
                 {% if not institution.es_catalogo_institucional %}
-                    <span class="badge bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
+                    <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
                 {% endif %}
             </h2>
         </div>
@@ -23,6 +23,13 @@
                     <i class="bi bi-trash me-1"></i>Eliminar
                 </a>
             </div>
+            {% elif institution.created_by_id == user.id and not institution.es_catalogo_institucional %}
+            <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-outline-primary">
+                <i class="bi bi-pencil me-1"></i>Editar
+            </a>
+            <a href="{% url 'material:eliminar_espacio_personal' 'institucion' institution.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-outline-danger">
+                <i class="bi bi-trash me-1"></i>Borrar del espacio personal
+            </a>
             {% endif %}
         </div>
     </div>
@@ -35,6 +42,7 @@
                 </div>
                 <div class="card-body">
                     <p><strong>Nombre:</strong> {{ institution.name }}</p>
+                    <p><strong>Sigla:</strong> {{ institution.sigla|default:"—" }}</p>
                     {% if institution.logo_src %}
                     <img src="{{ institution.logo_src }}" alt="Logo" class="img-fluid mb-3 rounded" style="max-height: 150px;">
                     {% endif %}
@@ -81,9 +89,26 @@
                     <ul class="list-group list-group-flush">
                         {% for faculty in institution.facultyv2_set.all %}
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            {{ faculty.name }}
-                            <span class="badge bg-{% if faculty.is_active %}success{% else %}secondary{% endif %}">
-                                {% if faculty.is_active %}Activa{% else %}Inactiva{% endif %}
+                            <span>
+                                {{ faculty.name }}
+                                {% if not faculty.es_catalogo_institucional %}
+                                    <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
+                                {% endif %}
+                            </span>
+                            <span class="d-flex align-items-center gap-2">
+                                <span class="badge bg-{% if faculty.is_active %}success{% else %}secondary{% endif %}">
+                                    {% if faculty.is_active %}Activa{% else %}Inactiva{% endif %}
+                                </span>
+                                {% if is_admin or faculty.created_by_id == user.id and not faculty.es_catalogo_institucional %}
+                                <a href="{% url 'material:edit_faculty_v2' institution.pk faculty.pk %}" class="btn btn-sm btn-outline-warning" title="Editar facultad">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% endif %}
+                                {% if not is_admin and faculty.created_by_id == user.id and not faculty.es_catalogo_institucional %}
+                                <a href="{% url 'material:eliminar_espacio_personal' 'facultad' faculty.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-danger" title="Borrar del espacio personal">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                                {% endif %}
                             </span>
                         </li>
                         {% endfor %}

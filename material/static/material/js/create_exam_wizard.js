@@ -114,10 +114,12 @@ document.addEventListener('DOMContentLoaded', function () {
         institucionToggleBtn.textContent = willShow
             ? '– Ocultar institución, facultad, carrera y sede'
             : '+ Agregar institución, facultad, carrera y sede';
+        if (willShow) loadCatalogTree();
     });
     function openInstitucionBlock() {
         institucionBlock.classList.remove('d-none');
         institucionToggleBtn.textContent = '– Ocultar institución, facultad, carrera y sede';
+        loadCatalogTree();
     }
 
     // ── Nombre sugerido del examen ───────────────────────────────────────
@@ -134,8 +136,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var tipo = tipoMap[document.getElementById('tipo_examen_select').value] || 'examen';
         var subject = document.getElementById('id_subject');
         var subjectLabel = subject && subject.selectedOptions[0] ? subject.selectedOptions[0].textContent : 'sin materia';
-        var institution = document.getElementById('institucion_dropdown');
-        var institutionLabel = institution && institution.selectedOptions[0] ? institution.selectedOptions[0].textContent : 'sin institucion';
+        var institutionSearchInput = document.getElementById('institucion_search');
+        var institutionLabel = (institutionSearchInput && institutionSearchInput.value.trim()) || 'sin institucion';
         var semester = batchSemesterHidden.value || 'sin periodo';
         var curso = document.getElementById('curso').value.trim();
         var versions = document.getElementById('num_versions').value || '1';
@@ -439,66 +441,334 @@ document.addEventListener('DOMContentLoaded', function () {
         topicsToPreselect = [];
         questionsToPreselect = [];
         updateSuggestedBatchName();
+        loadCatalogTree();
     });
 
-    // ── Cascada institución → facultad/sede, facultad → carrera ──────────
-    var institucionSelect = document.getElementById('institucion_dropdown');
-    var facultadSelect = document.getElementById('facultad_dropdown');
-    var carreraSelect = document.getElementById('carrera_dropdown');
+    // ── Institución/facultad/carrera: buscador contra el catálogo ────────
+    // Mismo motor que Solicitar Alta y el buscador de materias de /upload/
+    // (check_catalog_duplicate — catálogo institucional + espacio personal
+    // propio, nunca el de otro usuario). Si lo tipeado no matchea nada, se
+    // usa tal cual como texto libre para el encabezado impreso — acá no se
+    // crea ninguna fila nueva de catálogo, a diferencia de Solicitar Alta.
     var sedeSelect = document.getElementById('sede_dropdown');
-    var institucionDependentsPromise = Promise.resolve();
-    var facultadDependentsPromise = Promise.resolve();
+    var institucionHidden = document.getElementById('institucion_dropdown');
+    var facultadHidden = document.getElementById('facultad_dropdown');
+    var carreraHidden = document.getElementById('carrera_dropdown');
+
+    function debounce(fn, wait) {
+        var t;
+        return function () {
+            var args = arguments;
+            clearTimeout(t);
+            t = setTimeout(function () { fn.apply(null, args); }, wait);
+        };
+    }
+
+    function badgeFor(item) {
+        return item.es_catalogo_institucional === false ? 'Personal' : 'Catálogo';
+    }
+
+    /**
+     * Cablea un buscador de catálogo. Devuelve un objeto con setValue(id, name)
+     * para prefill programático (ver markFromTemplate más abajo).
+     * opts: { searchInput, suggestBox, hiddenInput, nivel, getScopeParams, onClear }
+     */
+    function wireCatalogSearch(opts) {
+        var lastPickedName = '';
+
+        function hideSuggest() {
+            opts.suggestBox.classList.add('d-none');
+            opts.suggestBox.innerHTML = '';
+        }
+
+        function pick(item) {
+            opts.hiddenInput.value = String(item.id);
+            opts.searchInput.value = item.name;
+            lastPickedName = item.name;
+            hideSuggest();
+            opts.hiddenInput.dispatchEvent(new Event('change'));
+        }
+
+        function renderResults(items) {
+            opts.suggestBox.innerHTML = '';
+            if (!items.length) {
+                var empty = document.createElement('div');
+                empty.className = 'wiz-catalog-suggest-empty';
+                empty.textContent = 'Sin coincidencias — se usa el texto tipeado tal cual. ';
+                // No se crea catálogo desde acá (eso queda para Solicitar
+                // Alta, con su flujo de aprobación) — solo se enlaza. Abre
+                // en pestaña nueva para no perder el examen a medio armar.
+                if (opts.nivel && CFG.urls.catalogRequestCreateBase) {
+                    var link = document.createElement('a');
+                    link.href = CFG.urls.catalogRequestCreateBase + '?tipo=' + encodeURIComponent(opts.nivel);
+                    link.target = '_blank';
+                    link.rel = 'noopener';
+                    link.textContent = 'Solicitar alta al catálogo';
+                    empty.appendChild(link);
+                }
+                opts.suggestBox.appendChild(empty);
+            } else {
+                items.forEach(function (item) {
+                    var row = document.createElement('div');
+                    row.className = 'wiz-catalog-suggest-item';
+                    var name = document.createElement('span');
+                    name.textContent = item.name;
+                    var badge = document.createElement('span');
+                    badge.className = 'badge bg-secondary-subtle text-secondary-emphasis wiz-catalog-suggest-badge';
+                    badge.textContent = badgeFor(item);
+                    row.appendChild(name);
+                    row.appendChild(badge);
+                    row.addEventListener('mousedown', function (e) {
+                        e.preventDefault(); // evita perder el foco antes del click
+                        pick(item);
+                    });
+                    opts.suggestBox.appendChild(row);
+                });
+            }
+            opts.suggestBox.classList.remove('d-none');
+        }
+
+        var search = debounce(function (q) {
+            var scope = (opts.getScopeParams && opts.getScopeParams()) || {};
+            if (opts.requiresScope && Object.keys(scope).length === 0) {
+                hideSuggest();
+                return;
+            }
+            var params = new URLSearchParams(Object.assign({ nivel: opts.nivel, q: q }, scope));
+            fetch(CFG.urls.checkCatalogDuplicate + '?' + params.toString())
+                .then(function (r) { return r.json(); })
+                .then(renderResults)
+                .catch(function () { hideSuggest(); });
+        }, 250);
+
+        opts.searchInput.addEventListener('input', function () {
+            var q = this.value.trim();
+            // Cualquier tipeo invalida la elección previa hasta que se
+            // confirme una nueva (con click o dejando el texto libre al salir).
+            if (opts.hiddenInput.value && this.value !== lastPickedName) {
+                opts.hiddenInput.value = '';
+                if (opts.onClear) opts.onClear();
+            }
+            if (q.length < 2) { hideSuggest(); return; }
+            search(q);
+        });
+
+        opts.searchInput.addEventListener('blur', function () {
+            // Un pequeño delay para que el mousedown de una sugerencia
+            // llegue a dispararse antes de que el blur la oculte.
+            setTimeout(function () {
+                hideSuggest();
+                var typed = opts.searchInput.value.trim();
+                if (!opts.hiddenInput.value && typed) {
+                    // No se eligió ninguna sugerencia: se usa el texto tal
+                    // cual (ver _resolve_name en views.py, que ya acepta
+                    // cualquier string que no sea un ID numérico).
+                    opts.hiddenInput.value = typed;
+                    opts.hiddenInput.dispatchEvent(new Event('change'));
+                }
+            }, 150);
+        });
+
+        return {
+            setValue: function (id, name) {
+                opts.hiddenInput.value = String(id);
+                opts.searchInput.value = name;
+                lastPickedName = name;
+            },
+        };
+    }
+
+    var institucionSearch = wireCatalogSearch({
+        searchInput: document.getElementById('institucion_search'),
+        suggestBox: document.getElementById('institucion_suggest'),
+        hiddenInput: institucionHidden,
+        nivel: 'institucion',
+    });
+    var facultadSearch = wireCatalogSearch({
+        searchInput: document.getElementById('facultad_search'),
+        suggestBox: document.getElementById('facultad_suggest'),
+        hiddenInput: facultadHidden,
+        nivel: 'facultad',
+        getScopeParams: function () {
+            return /^\d+$/.test(institucionHidden.value) ? { institucion_id: institucionHidden.value } : {};
+        },
+    });
+    var carreraSearch = wireCatalogSearch({
+        searchInput: document.getElementById('carrera_search'),
+        suggestBox: document.getElementById('carrera_suggest'),
+        hiddenInput: carreraHidden,
+        nivel: 'carrera',
+        getScopeParams: function () {
+            return /^\d+$/.test(facultadHidden.value) ? { facultad_id: facultadHidden.value } : {};
+        },
+    });
+
+    function clearCatalogField(searchInput, hiddenInput) {
+        searchInput.value = '';
+        hiddenInput.value = '';
+    }
+
+    // ── Institución/facultad/carrera sugeridas a partir de la materia ────
+    // La materia ya se eligió en el paso 2 — en vez de arrancar los 3
+    // buscadores en blanco acá en el paso 4, se ofrece un <select> por
+    // nivel con las instituciones/facultades/carreras donde esa materia ya
+    // aparece (vía sus carreras), en cascada (facultad según la institución
+    // elegida, carrera según la facultad elegida). Sin sugerencias en un
+    // nivel (materia personal sin carrera asociada, o "Otro" elegido) ese
+    // nivel cae directo al buscador libre de catálogo de siempre.
+    var institucionSelect = document.getElementById('institucion_select');
+    var facultadSelect = document.getElementById('facultad_select');
+    var carreraSelect = document.getElementById('carrera_select');
+    var institucionSearchWrap = document.getElementById('institucion_search_wrap');
+    var facultadSearchWrap = document.getElementById('facultad_search_wrap');
+    var carreraSearchWrap = document.getElementById('carrera_search_wrap');
+    var catalogTree = [];
+
+    function findInTree(institucionId) {
+        return catalogTree.find(function (i) { return String(i.id) === String(institucionId); });
+    }
+
+    // Puebla un <select> de sugeridos; si no hay ninguna, lo oculta entero y
+    // deja visible directo el buscador libre (mismo comportamiento que
+    // siempre hubo cuando no había sugerencias).
+    function populateSuggestSelect(selectEl, wrapEl, items, placeholder) {
+        selectEl.innerHTML = '';
+        var opt0 = document.createElement('option');
+        opt0.value = '';
+        opt0.textContent = placeholder;
+        selectEl.appendChild(opt0);
+        items.forEach(function (item) {
+            var opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.name;
+            selectEl.appendChild(opt);
+        });
+        var optOtro = document.createElement('option');
+        optOtro.value = '__otro__';
+        optOtro.textContent = 'Otro (buscar o escribir)';
+        selectEl.appendChild(optOtro);
+
+        if (items.length) {
+            selectEl.classList.remove('d-none');
+            wrapEl.classList.add('d-none');
+        } else {
+            selectEl.classList.add('d-none');
+            wrapEl.classList.remove('d-none');
+        }
+    }
+
+    function loadCatalogTree() {
+        var subjectId = document.getElementById('id_subject').value;
+        if (!subjectId || !/^\d+$/.test(subjectId) || !CFG.urls.getCatalogTreeForSubjectBase) {
+            catalogTree = [];
+            populateSuggestSelect(institucionSelect, institucionSearchWrap, [], 'Seleccionar institución');
+            populateSuggestSelect(facultadSelect, facultadSearchWrap, [], 'Seleccionar facultad');
+            populateSuggestSelect(carreraSelect, carreraSearchWrap, [], 'Seleccionar carrera');
+            return Promise.resolve();
+        }
+        return fetch(CFG.urls.getCatalogTreeForSubjectBase + subjectId + '/')
+            .then(function (r) { return r.json(); })
+            .catch(function () { return { institutions: [] }; })
+            .then(function (data) {
+                catalogTree = data.institutions || [];
+                populateSuggestSelect(institucionSelect, institucionSearchWrap, catalogTree, 'Seleccionar institución');
+                populateSuggestSelect(facultadSelect, facultadSearchWrap, [], 'Seleccionar facultad');
+                populateSuggestSelect(carreraSelect, carreraSearchWrap, [], 'Seleccionar carrera');
+            });
+    }
 
     institucionSelect.addEventListener('change', function () {
-        var institucionId = this.value;
-        facultadSelect.innerHTML = '<option value="">Seleccionar facultad</option><option value="otro">Otro</option>';
-        carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
-        sedeSelect.innerHTML = '<option value="">Seleccionar sede</option><option value="otro">Otro</option>';
-        if (!institucionId || !/^\d+$/.test(institucionId)) {
-            institucionDependentsPromise = Promise.resolve();
+        var val = this.value;
+        if (val === '__otro__') {
+            institucionSearchWrap.classList.remove('d-none');
+            document.getElementById('institucion_search').value = '';
+            document.getElementById('institucion_search').focus();
+            institucionHidden.value = '';
+            institucionHidden.dispatchEvent(new Event('change'));
             return;
         }
-        var facultiesPromise = fetch(CFG.urls.getFacultiesByInstitutionBase + institucionId + '/')
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                facultadSelect.innerHTML = '<option value="">Seleccionar facultad</option><option value="otro">Otro</option>';
-                (data.faculties || []).forEach(function (f) {
-                    var opt = document.createElement('option');
-                    opt.value = f.id; opt.textContent = f.name;
-                    facultadSelect.appendChild(opt);
-                });
-            });
-        var campusesPromise = fetch(CFG.urls.getCampusesByInstitutionBase + institucionId + '/')
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                sedeSelect.innerHTML = '<option value="">Seleccionar sede</option><option value="otro">Otro</option>';
-                (data.campuses || []).forEach(function (c) {
-                    var opt = document.createElement('option');
-                    opt.value = c.id; opt.textContent = c.name;
-                    sedeSelect.appendChild(opt);
-                });
-            });
-        institucionDependentsPromise = Promise.all([facultiesPromise, campusesPromise]);
-        updateSuggestedBatchName();
+        institucionSearchWrap.classList.add('d-none');
+        if (val) {
+            var entry = findInTree(val);
+            institucionSearch.setValue(val, entry ? entry.name : this.options[this.selectedIndex].textContent);
+        }
+        institucionHidden.value = val;
+        institucionHidden.dispatchEvent(new Event('change'));
     });
 
     facultadSelect.addEventListener('change', function () {
-        var facultadId = this.value;
-        if (!facultadId || !/^\d+$/.test(facultadId)) {
-            carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
-            facultadDependentsPromise = Promise.resolve();
+        var val = this.value;
+        if (val === '__otro__') {
+            facultadSearchWrap.classList.remove('d-none');
+            document.getElementById('facultad_search').value = '';
+            document.getElementById('facultad_search').focus();
+            facultadHidden.value = '';
+            facultadHidden.dispatchEvent(new Event('change'));
             return;
         }
-        facultadDependentsPromise = fetch(CFG.urls.getCareersByFacultyBase + facultadId + '/')
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
-                (data.careers || []).forEach(function (c) {
-                    var opt = document.createElement('option');
-                    opt.value = c.id; opt.textContent = c.name;
-                    carreraSelect.appendChild(opt);
+        facultadSearchWrap.classList.add('d-none');
+        if (val) {
+            var instEntry = findInTree(institucionHidden.value);
+            var facEntry = instEntry && instEntry.faculties.find(function (f) { return String(f.id) === String(val); });
+            facultadSearch.setValue(val, facEntry ? facEntry.name : this.options[this.selectedIndex].textContent);
+        }
+        facultadHidden.value = val;
+        facultadHidden.dispatchEvent(new Event('change'));
+    });
+
+    carreraSelect.addEventListener('change', function () {
+        var val = this.value;
+        if (val === '__otro__') {
+            carreraSearchWrap.classList.remove('d-none');
+            document.getElementById('carrera_search').value = '';
+            document.getElementById('carrera_search').focus();
+            carreraHidden.value = '';
+            carreraHidden.dispatchEvent(new Event('change'));
+            return;
+        }
+        carreraSearchWrap.classList.add('d-none');
+        if (val) {
+            var instEntry = findInTree(institucionHidden.value);
+            var facEntry = instEntry && instEntry.faculties.find(function (f) { return String(f.id) === String(facultadHidden.value); });
+            var carEntry = facEntry && facEntry.careers.find(function (c) { return String(c.id) === String(val); });
+            carreraSearch.setValue(val, carEntry ? carEntry.name : this.options[this.selectedIndex].textContent);
+        }
+        carreraHidden.value = val;
+        carreraHidden.dispatchEvent(new Event('change'));
+    });
+
+    // Cambiar la institución invalida facultad/carrera elegidas (dependen del
+    // contexto de arriba), repuebla el dropdown de facultad sugerida acorde
+    // y recarga las sedes disponibles, igual que antes.
+    institucionHidden.addEventListener('change', function () {
+        clearCatalogField(document.getElementById('facultad_search'), facultadHidden);
+        clearCatalogField(document.getElementById('carrera_search'), carreraHidden);
+        var institucionId = this.value;
+        var instEntry = findInTree(institucionId);
+        populateSuggestSelect(facultadSelect, facultadSearchWrap, (instEntry && instEntry.faculties) || [], 'Seleccionar facultad');
+        populateSuggestSelect(carreraSelect, carreraSearchWrap, [], 'Seleccionar carrera');
+        sedeSelect.innerHTML = '<option value="">Seleccionar sede</option><option value="otro">Otro</option>';
+        if (/^\d+$/.test(institucionId)) {
+            fetch(CFG.urls.getCampusesByInstitutionBase + institucionId + '/')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    sedeSelect.innerHTML = '<option value="">Seleccionar sede</option><option value="otro">Otro</option>';
+                    (data.campuses || []).forEach(function (c) {
+                        var opt = document.createElement('option');
+                        opt.value = c.id; opt.textContent = c.name;
+                        sedeSelect.appendChild(opt);
+                    });
                 });
-            });
+        }
+        updateSuggestedBatchName();
+    });
+
+    facultadHidden.addEventListener('change', function () {
+        clearCatalogField(document.getElementById('carrera_search'), carreraHidden);
+        var facultadId = this.value;
+        var instEntry = findInTree(institucionHidden.value);
+        var facEntry = instEntry && instEntry.faculties.find(function (f) { return String(f.id) === String(facultadId); });
+        populateSuggestSelect(carreraSelect, carreraSearchWrap, (facEntry && facEntry.careers) || [], 'Seleccionar carrera');
     });
 
     // ── Autocompletar desde plantilla elegida ────────────────────────────
@@ -555,35 +825,56 @@ document.addEventListener('DOMContentLoaded', function () {
             markFromTemplate('rubrics_checkbox_container');
         }
 
+        // Refleja la materia recién aplicada (si la hubo) antes de decidir
+        // si institución/facultad/carrera de la plantilla están entre las
+        // sugeridas por esa materia o si caen al buscador libre ("Otro").
+        await loadCatalogTree();
+
         if (data.institution_id) {
-            institucionSelect.value = data.institution_id;
-            institucionSelect.dispatchEvent(new Event('change'));
-            markFromTemplate('institucion_dropdown');
+            var instEntryTpl = findInTree(data.institution_id);
+            if (instEntryTpl) {
+                institucionSelect.value = String(data.institution_id);
+                institucionSearchWrap.classList.add('d-none');
+            } else {
+                institucionSelect.value = '__otro__';
+                institucionSearchWrap.classList.remove('d-none');
+            }
+            institucionSearch.setValue(data.institution_id, data.institution_name || (instEntryTpl && instEntryTpl.name) || '');
+            institucionHidden.dispatchEvent(new Event('change'));
+            markFromTemplate('institucion_select');
             openInstitucionBlock();
-            await institucionDependentsPromise;
         }
         if (data.faculty_id) {
-            facultadSelect.value = data.faculty_id;
-            facultadSelect.dispatchEvent(new Event('change'));
-            markFromTemplate('facultad_dropdown');
-            await facultadDependentsPromise;
+            var instEntryForFacTpl = findInTree(institucionHidden.value);
+            var facEntryTpl = instEntryForFacTpl && instEntryForFacTpl.faculties.find(function (f) { return String(f.id) === String(data.faculty_id); });
+            if (facEntryTpl) {
+                facultadSelect.value = String(data.faculty_id);
+                facultadSearchWrap.classList.add('d-none');
+            } else {
+                facultadSelect.value = '__otro__';
+                facultadSearchWrap.classList.remove('d-none');
+            }
+            facultadSearch.setValue(data.faculty_id, data.faculty_name || (facEntryTpl && facEntryTpl.name) || '');
+            facultadHidden.dispatchEvent(new Event('change'));
+            markFromTemplate('facultad_select');
         }
         if (data.career_id) {
-            var found = Array.from(carreraSelect.options).some(function (o) { return o.value == data.career_id; });
-            if (found) {
-                carreraSelect.value = data.career_id;
+            // A diferencia de institución/facultad, una carrera puede no
+            // estar asociada a la facultad de la plantilla (ver comentario
+            // histórico de esta pantalla) — no hace falta resolverlo acá:
+            // el nombre ya viene en la respuesta de get_exam_template.
+            var instEntryForCarTpl = findInTree(institucionHidden.value);
+            var facEntryForCarTpl = instEntryForCarTpl && instEntryForCarTpl.faculties.find(function (f) { return String(f.id) === String(facultadHidden.value); });
+            var carEntryTpl = facEntryForCarTpl && facEntryForCarTpl.careers.find(function (c) { return String(c.id) === String(data.career_id); });
+            if (carEntryTpl) {
+                carreraSelect.value = String(data.career_id);
+                carreraSearchWrap.classList.add('d-none');
             } else {
-                try {
-                    var careerResp = await fetch(CFG.urls.getCareerNameBase + data.career_id + '/');
-                    var careerData = await careerResp.json();
-                    var opt = document.createElement('option');
-                    opt.value = data.career_id;
-                    opt.textContent = careerData.name + ' (no asociada)';
-                    opt.selected = true;
-                    carreraSelect.appendChild(opt);
-                } catch (e) { /* no-op: la carrera queda sin preseleccionar */ }
+                carreraSelect.value = '__otro__';
+                carreraSearchWrap.classList.remove('d-none');
             }
-            markFromTemplate('carrera_dropdown');
+            carreraSearch.setValue(data.career_id, data.career_name || (carEntryTpl && carEntryTpl.name) || '');
+            markFromTemplate('carrera_select');
         }
         if (data.campus_id) {
             sedeSelect.value = data.campus_id;

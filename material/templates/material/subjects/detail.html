@@ -17,6 +17,15 @@
                 <i class="bi bi-trash"></i> Eliminar
             </a>
         </div>
+        {% elif subject.created_by_id == user.id and not subject.es_catalogo_institucional %}
+        <div class="btn-group">
+            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-outline-warning">
+                <i class="bi bi-pencil"></i> Editar
+            </a>
+            <a href="{% url 'material:eliminar_espacio_personal' 'materia' subject.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-outline-danger">
+                <i class="bi bi-trash"></i> Borrar del espacio personal
+            </a>
+        </div>
         {% endif %}
     </div>
     <div class="card-body">
@@ -25,7 +34,7 @@
                 <h5>
                     {{ subject.name }}
                     {% if not subject.es_catalogo_institucional %}
-                        <span class="badge bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
+                        <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
                     {% endif %}
                 </h5>
                 <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm mt-2">
@@ -80,17 +89,6 @@
             </div>
         </div>
 
-        <!-- Sección de Outcomes (legacy) -->
-        {% if subject.learning_outcomes %}
-            <div class="row">
-                <div class="col-md-12">
-                    <h6>Resultados de Aprendizaje (Legacy):</h6>
-                    <div class="border p-3 rounded bg-body-tertiary">
-                        {{ subject.learning_outcomes|linebreaks }}
-                    </div>
-                </div>
-            </div>
-        {% endif %}
     </div>
 </div>
 {% endblock %}
