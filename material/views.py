@@ -2601,12 +2601,26 @@ def _build_question_subject_options(qs):
     return options
 
 
+def _exam_template_base_queryset(request):
+    return ExamTemplate.objects.filter(created_by=request.user)
+
+
+@login_required
+def list_exam_templates_filtros(request):
+    """Endpoint AJAX: recalcula en cascada las opciones del offcanvas de
+    filtros de Plantillas de examen a medida que se tildan checkboxes, sin
+    esperar al submit de "Aplicar filtros" (ver mismo patron en
+    lista_preguntas_filtros)."""
+    base_templates = _exam_template_base_queryset(request)
+    selected_filters = get_selected_filters(request, EXAM_TEMPLATE_FILTER_FIELDS)
+    filter_options = get_filter_options(base_templates, EXAM_TEMPLATE_FILTER_FIELDS, selected_filters)
+    return JsonResponse(filter_options)
+
+
 @login_required
 def list_exam_templates(request):
     # Consulta optimizada con select_related y prefetch_related
-    base_templates = ExamTemplate.objects.filter(
-        created_by=request.user
-    ).select_related(
+    base_templates = _exam_template_base_queryset(request).select_related(
         'institution',
         'faculty',
         'career',
@@ -2996,8 +3010,11 @@ MIS_EXAMENES_FILTER_COLUMNS = [
 ]
 
 
-@login_required
-def mis_examenes(request):
+def _mis_examenes_base_querysets(request):
+    """Devuelve (examenes_qs, batches_qs), el universo de examenes/lotes del
+    usuario antes de filtros por columna, con el mismo chequeo de esquema en
+    produccion que la vista principal. Usado tanto por mis_examenes (render
+    de pagina completa) como por mis_examenes_filtros (AJAX)."""
     has_exam_version_fields, has_batch_table = _get_exam_version_schema_state()
 
     try:
@@ -3018,6 +3035,10 @@ def mis_examenes(request):
         examenes_qs = Exam.objects.filter(created_by=request.user).select_related('subject').defer('version_batch', 'version_number')
         batches_qs = ExamVersionBatch.objects.none()
 
+    return examenes_qs, batches_qs
+
+
+def _compute_mis_examenes_filter_options(request, examenes_qs, batches_qs):
     selected_filters = get_selected_filters(request, MIS_EXAMENES_FILTER_FIELDS)
     selected_kind = set(request.GET.getlist('kind'))
     selected_filters['kind'] = selected_kind
@@ -3035,6 +3056,22 @@ def mis_examenes(request):
 
     filter_options = get_filter_options(option_querysets, MIS_EXAMENES_FILTER_FIELDS, selected_filters)
     filter_options['kind'] = MIS_EXAMENES_KIND_OPTIONS
+    return selected_filters, filter_options, include_exams, include_batches
+
+
+@login_required
+def mis_examenes_filtros(request):
+    """Endpoint AJAX equivalente a lista_preguntas_filtros pero para "Mis
+    examenes" (ver _compute_mis_examenes_filter_options)."""
+    examenes_qs, batches_qs = _mis_examenes_base_querysets(request)
+    _, filter_options, _, _ = _compute_mis_examenes_filter_options(request, examenes_qs, batches_qs)
+    return JsonResponse(filter_options)
+
+
+@login_required
+def mis_examenes(request):
+    examenes_qs, batches_qs = _mis_examenes_base_querysets(request)
+    selected_filters, filter_options, include_exams, include_batches = _compute_mis_examenes_filter_options(request, examenes_qs, batches_qs)
 
     examenes_qs = apply_column_filters(request, examenes_qs, MIS_EXAMENES_FILTER_FIELDS) if include_exams else examenes_qs.none()
     batches_qs = apply_column_filters(request, batches_qs, MIS_EXAMENES_FILTER_FIELDS) if include_batches else batches_qs.none()
@@ -3496,11 +3533,12 @@ def _aplicar_filtros_preguntas(preguntas, params):
     return preguntas
 
 
-@login_required
-def lista_preguntas(request):
-    from .content_visibility import get_visible_questions
-    base_preguntas = get_visible_questions(request.user).prefetch_related('subjects').select_related('topic', 'subtopic', 'contenido', 'user')
-
+def _compute_question_filter_options(request, base_preguntas):
+    """Calcula selected_filters/filter_options en cascada (materia/tema/
+    subtema/bloom/estado IA) a partir de request.GET. La usan tanto
+    lista_preguntas (render de pagina completa) como lista_preguntas_filtros
+    (endpoint AJAX que recalcula las opciones al tildar un checkbox en el
+    offcanvas, sin esperar al submit de "Aplicar filtros")."""
     selected_filters = get_selected_filters(request, QUESTION_FILTER_FIELDS)
     subject_selected = set(request.GET.getlist('subject'))
     ai_status_selected = set(request.GET.getlist('ai_status'))
@@ -3518,6 +3556,30 @@ def lista_preguntas(request):
     scoped_subject = _apply_ai_status_filter(scoped_subject, ai_status_selected)
     filter_options['subject'] = _build_question_subject_options(scoped_subject)
     filter_options['ai_status'] = QUESTION_AI_STATUS_OPTIONS
+
+    return selected_filters, filter_options
+
+
+@login_required
+def lista_preguntas_filtros(request):
+    """Endpoint AJAX: recalcula en cascada las opciones de cada columna del
+    offcanvas de filtros a medida que el usuario tilda checkboxes, sin
+    esperar al submit de "Aplicar filtros" (que recien ahi trae los
+    resultados). Recibe los mismos parametros que lista_preguntas (?subject=
+    &topic=&subtopic=&bloom_level=&ai_status=) con la seleccion vigente en
+    el momento, incluida la todavia sin aplicar."""
+    from .content_visibility import get_visible_questions
+    base_preguntas = get_visible_questions(request.user)
+    _, filter_options = _compute_question_filter_options(request, base_preguntas)
+    return JsonResponse(filter_options)
+
+
+@login_required
+def lista_preguntas(request):
+    from .content_visibility import get_visible_questions
+    base_preguntas = get_visible_questions(request.user).prefetch_related('subjects').select_related('topic', 'subtopic', 'contenido', 'user')
+
+    selected_filters, filter_options = _compute_question_filter_options(request, base_preguntas)
 
     preguntas = _aplicar_filtros_preguntas(base_preguntas, request.GET)
 
@@ -4312,78 +4374,106 @@ INSTITUTION_V2_FILTER_FIELDS = [
 INSTITUTION_V2_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in INSTITUTION_V2_FILTER_FIELDS]
 
 
+def _ensure_institution_v2_logo_b64_column():
+    from django.db import connection
+    table_name = 'material_institutionv2'
+    column_name = 'logo_b64'
+    with connection.cursor() as cursor:
+        columns = [col.name for col in connection.introspection.get_table_description(cursor, table_name)]
+        if column_name in columns:
+            return
+        if connection.vendor == 'postgresql':
+            cursor.execute(f'ALTER TABLE "{table_name}" ADD COLUMN IF NOT EXISTS "{column_name}" TEXT NULL')
+        else:
+            cursor.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{column_name}" TEXT')
+
+
+def _institution_v2_base_queryset(request):
+    """Universo de instituciones visibles (catalogo + espacio personal, con
+    nombre/favoritos/personal ya aplicados) antes de los filtros por
+    columna. Usado tanto por institution_v2_list como por su AJAX
+    institution_v2_list_filtros."""
+    name_query = request.GET.get('name', '')
+    favorite_only = request.GET.get('favorites') == 'on'
+    only_personal = request.GET.get('personal') == '1'
+
+    # Institución es catálogo público (ver informe de rediseño): se
+    # muestran TODAS las activas, no solo las que este usuario "sumó a
+    # las suyas" (UserInstitution pasa a ser solo favoritos personales,
+    # ver favorite_only más abajo — ya no es el filtro de visibilidad).
+    # Sin las semilla (si el usuario pasó por el asistente, queda una
+    # UserInstitution apuntando ahí) — excepto para la cuenta del Área
+    # de Pruebas, para la que las instituciones semilla SÍ son "las
+    # suyas" a propósito (ver training_accounts.py).
+    institutions = InstitutionV2.objects.filter(
+        is_active=True,  # Solo mostrar instituciones activas
+    )
+    if not getattr(request.user.profile, 'is_training_account', False):
+        institutions = institutions.filter(is_seed_demo=False)
+
+    # Catálogo institucional, más el espacio personal del propio
+    # usuario (lo que creó y todavía no fue sumado — ver informe de
+    # rediseño / "personal space"). Nadie ve el espacio personal de
+    # otro usuario acá.
+    institutions = institutions.filter(
+        Q(es_catalogo_institucional=True) | Q(created_by=request.user)
+    )
+
+    if name_query:
+        institutions = institutions.filter(name__icontains=name_query)
+
+    if favorite_only:
+        institutions = institutions.filter(
+            userinstitution__user=request.user,
+            userinstitution__is_favorite=True
+        )
+
+    if only_personal:
+        institutions = institutions.filter(es_catalogo_institucional=False)
+
+    institutions = institutions.annotate(
+        has_campus_flag=Exists(CampusV2.objects.filter(institution=OuterRef('pk'))),
+        has_faculty_flag=Exists(FacultyV2.objects.filter(institution=OuterRef('pk'))),
+    ).annotate(
+        has_logo=Case(
+            When(Q(logo_b64__isnull=False) & ~Q(logo_b64=''), then=Value('yes')),
+            When(Q(logo__isnull=False) & ~Q(logo=''), then=Value('yes')),
+            default=Value('no'),
+            output_field=CharField(),
+        ),
+        has_campus=Case(When(has_campus_flag=True, then=Value('yes')), default=Value('no'), output_field=CharField()),
+        has_faculty=Case(When(has_faculty_flag=True, then=Value('yes')), default=Value('no'), output_field=CharField()),
+    )
+    return institutions
+
+
+@login_required
+def institution_v2_list_filtros(request):
+    """Endpoint AJAX equivalente a lista_preguntas_filtros pero para
+    Instituciones (Logo/Sedes/Facultades)."""
+    from django.db import DatabaseError
+    try:
+        _ensure_institution_v2_logo_b64_column()
+        institutions = _institution_v2_base_queryset(request)
+        selected_filters = get_selected_filters(request, INSTITUTION_V2_FILTER_FIELDS)
+        filter_options = get_filter_options(institutions, INSTITUTION_V2_FILTER_FIELDS, selected_filters)
+    except DatabaseError as e:
+        logger.error(f"Error DB en institution_v2_list_filtros: {str(e)}", exc_info=True)
+        filter_options = {f.name: [] for f in INSTITUTION_V2_FILTER_FIELDS}
+    return JsonResponse(filter_options)
+
+
 @login_required
 def institution_v2_list(request):
     name_query = request.GET.get('name', '')
     favorite_only = request.GET.get('favorites') == 'on'
     from django.db import DatabaseError
 
-    def ensure_logo_b64_column():
-        from django.db import connection
-        table_name = 'material_institutionv2'
-        column_name = 'logo_b64'
-        with connection.cursor() as cursor:
-            columns = [col.name for col in connection.introspection.get_table_description(cursor, table_name)]
-            if column_name in columns:
-                return
-            if connection.vendor == 'postgresql':
-                cursor.execute(f'ALTER TABLE "{table_name}" ADD COLUMN IF NOT EXISTS "{column_name}" TEXT NULL')
-            else:
-                cursor.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{column_name}" TEXT')
-
     try:
-        ensure_logo_b64_column()
+        _ensure_institution_v2_logo_b64_column()
 
-        # Institución es catálogo público (ver informe de rediseño): se
-        # muestran TODAS las activas, no solo las que este usuario "sumó a
-        # las suyas" (UserInstitution pasa a ser solo favoritos personales,
-        # ver favorite_only más abajo — ya no es el filtro de visibilidad).
-        # Sin las semilla (si el usuario pasó por el asistente, queda una
-        # UserInstitution apuntando ahí) — excepto para la cuenta del Área
-        # de Pruebas, para la que las instituciones semilla SÍ son "las
-        # suyas" a propósito (ver training_accounts.py).
-        institutions = InstitutionV2.objects.filter(
-            is_active=True,  # Solo mostrar instituciones activas
-        )
-        if not getattr(request.user.profile, 'is_training_account', False):
-            institutions = institutions.filter(is_seed_demo=False)
-
-        # Catálogo institucional, más el espacio personal del propio
-        # usuario (lo que creó y todavía no fue sumado — ver informe de
-        # rediseño / "personal space"). Nadie ve el espacio personal de
-        # otro usuario acá.
-        institutions = institutions.filter(
-            Q(es_catalogo_institucional=True) | Q(created_by=request.user)
-        )
-
-        if name_query:
-            institutions = institutions.filter(name__icontains=name_query)
-
-        if favorite_only:
-            institutions = institutions.filter(
-                userinstitution__user=request.user,
-                userinstitution__is_favorite=True
-            )
-
-        # Filtro "Personal" — acota a lo que el usuario tiene en su espacio
-        # personal, mezclado hoy en el mismo listado que lo institucional.
+        institutions = _institution_v2_base_queryset(request)
         only_personal = request.GET.get('personal') == '1'
-        if only_personal:
-            institutions = institutions.filter(es_catalogo_institucional=False)
-
-        institutions = institutions.annotate(
-            has_campus_flag=Exists(CampusV2.objects.filter(institution=OuterRef('pk'))),
-            has_faculty_flag=Exists(FacultyV2.objects.filter(institution=OuterRef('pk'))),
-        ).annotate(
-            has_logo=Case(
-                When(Q(logo_b64__isnull=False) & ~Q(logo_b64=''), then=Value('yes')),
-                When(Q(logo__isnull=False) & ~Q(logo=''), then=Value('yes')),
-                default=Value('no'),
-                output_field=CharField(),
-            ),
-            has_campus=Case(When(has_campus_flag=True, then=Value('yes')), default=Value('no'), output_field=CharField()),
-            has_faculty=Case(When(has_faculty_flag=True, then=Value('yes')), default=Value('no'), output_field=CharField()),
-        )
 
         selected_filters = get_selected_filters(request, INSTITUTION_V2_FILTER_FIELDS)
         filter_options = get_filter_options(institutions, INSTITUTION_V2_FILTER_FIELDS, selected_filters)
@@ -5143,8 +5233,10 @@ CAREER_FILTER_FIELDS = [
 CAREER_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in CAREER_FILTER_FIELDS]
 
 
-@login_required
-def career_list(request):
+def _career_base_queryset(request):
+    """Universo de carreras visibles (catalogo + espacio personal, con
+    "personal" ya aplicado) antes de los filtros por columna. Usado tanto
+    por career_list como por su AJAX career_list_filtros."""
     # Carrera es catálogo público (ver informe de rediseño), igual que
     # Institución y Materia — se muestran TODAS, ya no solo las de "mis
     # instituciones" (ese filtro por UserInstitution era, según el propio
@@ -5166,7 +5258,23 @@ def career_list(request):
     only_personal = request.GET.get('personal') == '1'
     if only_personal:
         careers = careers.filter(es_catalogo_institucional=False)
-    careers = careers.distinct().prefetch_related('faculties', 'campus', 'subjects')
+    return careers.distinct()
+
+
+@login_required
+def career_list_filtros(request):
+    """Endpoint AJAX equivalente a lista_preguntas_filtros pero para
+    Carreras (Facultades/Campus/Materias)."""
+    careers = _career_base_queryset(request)
+    selected_filters = get_selected_filters(request, CAREER_FILTER_FIELDS)
+    filter_options = get_filter_options(careers, CAREER_FILTER_FIELDS, selected_filters)
+    return JsonResponse(filter_options)
+
+
+@login_required
+def career_list(request):
+    careers = _career_base_queryset(request).prefetch_related('faculties', 'campus', 'subjects')
+    only_personal = request.GET.get('personal') == '1'
 
     selected_filters = get_selected_filters(request, CAREER_FILTER_FIELDS)
     filter_options = get_filter_options(careers, CAREER_FILTER_FIELDS, selected_filters)

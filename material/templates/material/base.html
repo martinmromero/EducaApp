@@ -74,7 +74,8 @@
         #sidebarOverlay {
           transition: opacity 0.25s ease;
         }
-        body.modal-open #externalToggle {
+        body.modal-open #externalToggle,
+        body.offcanvas-open #externalToggle {
           display: none !important;
         }
       }
@@ -628,6 +629,18 @@
         if (document.activeElement && event.target.contains(document.activeElement)) {
           document.activeElement.blur();
         }
+      });
+
+      // Bootstrap marca el <body> con .modal-open mientras hay un modal
+      // abierto (así se esconde #externalToggle, ver styles.css), pero NO
+      // hace lo mismo para .offcanvas (ej. el panel de "Filtros" de los
+      // listados) — sin esto, el botón de colapsar sidebar queda flotando
+      // por encima del backdrop del offcanvas, tapando el header.
+      document.addEventListener('show.bs.offcanvas', function () {
+        document.body.classList.add('offcanvas-open');
+      });
+      document.addEventListener('hidden.bs.offcanvas', function () {
+        document.body.classList.remove('offcanvas-open');
       });
 
       function toggleSidebarHard(event) {

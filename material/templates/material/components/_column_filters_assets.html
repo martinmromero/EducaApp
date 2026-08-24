@@ -83,6 +83,18 @@ Convenciones que debe respetar la página que lo incluye:
         height: 94vh !important;
         height: 94dvh !important;
     }
+    /* En desktop, a todo el ancho de pantalla el panel de filtros se ve
+       desproporcionado (mucho espacio vacio a los costados de cada columna
+       de checkboxes). .offcanvas-bottom de Bootstrap se posiciona con
+       left/right (no width/transform, que se usan para la animacion de
+       entrada/salida vertical) -- angostarlo y centrarlo via esos mismos
+       left/right no pisa esa animacion. */
+    @media (min-width: 768px) {
+        .offcanvas.column-filters-offcanvas {
+            left: 16.6667% !important;
+            right: 16.6667% !important;
+        }
+    }
     .column-filters-offcanvas .offcanvas-body {
         padding-bottom: 0;
     }
@@ -324,4 +336,97 @@ Convenciones que debe respetar la página que lo incluye:
             }
         });
     })();
+
+    // ===== FILTROS DINÁMICOS EN CASCADA =====
+    // Al tildar un checkbox del offcanvas, en vez de esperar al submit de
+    // "Aplicar filtros" se recalculan al toque las opciones de las DEMÁS
+    // columnas contra el endpoint declarado en data-filters-ajax-url (ver
+    // convención en _column_filters_offcanvas.html) — así, si elegís una
+    // materia, tópico ya muestra solo los tópicos de esa materia, y así con
+    // cualquier combinación de filtros. Cada página pasa su propio
+    // ajax_url al incluir el offcanvas; sin ese atributo, esta función no
+    // hace nada y el offcanvas sigue funcionando solo por submit completo.
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.column-filters-offcanvas[data-filters-ajax-url]').forEach(function (offcanvas) {
+            const ajaxUrl = offcanvas.getAttribute('data-filters-ajax-url');
+
+            function escapeHtml(str) {
+                return String(str).replace(/[&<>"']/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                });
+            }
+
+            function currentParams() {
+                const params = new URLSearchParams();
+                offcanvas.querySelectorAll('input[type="checkbox"][form="templateFiltersForm"]:checked').forEach(function (cb) {
+                    params.append(cb.name, cb.value);
+                });
+                return params;
+            }
+
+            function selectedMap() {
+                const map = {};
+                offcanvas.querySelectorAll('input[type="checkbox"][form="templateFiltersForm"]:checked').forEach(function (cb) {
+                    (map[cb.name] = map[cb.name] || []).push(cb.value);
+                });
+                return map;
+            }
+
+            function renderFieldOptions(field, options, selectedValues) {
+                const collapseEl = document.getElementById('mobFilterCollapse_' + field);
+                if (!collapseEl) return;
+                const container = collapseEl.querySelector('.column-filter-options');
+                if (!container) return;
+                container.innerHTML = options.length ? options.map(function (opt, idx) {
+                    const id = 'mob_' + field + '_' + (idx + 1);
+                    const checked = selectedValues.indexOf(opt.value) !== -1;
+                    return '<div class="form-check">' +
+                        '<input class="form-check-input" type="checkbox" form="templateFiltersForm" name="' + escapeHtml(field) + '" value="' + escapeHtml(opt.value) + '" id="' + id + '"' + (checked ? ' checked' : '') + '>' +
+                        '<label class="form-check-label small" for="' + id + '">' + escapeHtml(opt.label) + '</label>' +
+                        '</div>';
+                }).join('') : '<div class="text-muted small">Sin opciones</div>';
+
+                const btn = document.querySelector('button[data-bs-target="#mobFilterCollapse_' + field + '"]');
+                if (btn) {
+                    let badge = btn.querySelector('.badge');
+                    if (selectedValues.length > 0) {
+                        if (!badge) {
+                            badge = document.createElement('span');
+                            badge.className = 'badge bg-primary ms-2';
+                            btn.appendChild(badge);
+                        }
+                        badge.textContent = selectedValues.length;
+                    } else if (badge) {
+                        badge.remove();
+                    }
+                }
+            }
+
+            let requestSeq = 0;
+            async function refreshFilterOptions() {
+                const seq = ++requestSeq;
+                let data;
+                try {
+                    const resp = await fetch(ajaxUrl + '?' + currentParams().toString(), {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    if (!resp.ok) return;
+                    data = await resp.json();
+                } catch (e) {
+                    return;
+                }
+                if (seq !== requestSeq) return; // llegó una respuesta más nueva mientras tanto
+                const selected = selectedMap();
+                Object.keys(data).forEach(function (field) {
+                    renderFieldOptions(field, data[field], selected[field] || []);
+                });
+            }
+
+            offcanvas.addEventListener('change', function (e) {
+                if (e.target.matches('input[type="checkbox"][form="templateFiltersForm"]')) {
+                    refreshFilterOptions();
+                }
+            });
+        });
+    });
 </script>

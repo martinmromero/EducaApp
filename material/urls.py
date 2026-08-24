@@ -21,6 +21,7 @@ urlpatterns = [
     path('exam-templates/edit/<int:template_id>/', material_views.edit_exam_template, name='edit_exam_template'),
     path('exam-templates/preview/', material_views.preview_exam_template, name='preview_exam_template'),
     path('exam-templates/', material_views.list_exam_templates, name='list_exam_templates'),
+    path('exam-templates/filtros/', material_views.list_exam_templates_filtros, name='list_exam_templates_filtros'),
     path('exam-templates/delete/', material_views.delete_exam_template, name='delete_exam_template'),
     path('exam-templates/save/', material_views.save_exam_template, name='save_exam_template'),
     path('signup/', material_views.signup, name='signup'),
@@ -43,6 +44,7 @@ urlpatterns = [
     path('formatos-impresion/<int:pk>/eliminar/', material_views.formato_impresion_delete, name='formato_impresion_delete'),
     path('formatos-impresion/<int:pk>/predeterminado/', material_views.formato_impresion_set_default, name='formato_impresion_set_default'),
     path('mis-examenes/', material_views.mis_examenes, name='mis_examenes'),
+    path('mis-examenes/filtros/', material_views.mis_examenes_filtros, name='mis_examenes_filtros'),
     path('mis-examenes/eliminar-bulk/', material_views.bulk_eliminar_examenes, name='bulk_eliminar_examenes'),
     path('examenes/lotes/<int:batch_id>/', material_views.view_exam_batch, name='view_exam_batch'),
     path('examenes/lotes/<int:batch_id>/rename/', material_views.update_exam_batch_name, name='update_exam_batch_name'),
@@ -60,6 +62,7 @@ urlpatterns = [
     path('preview-exam/available-questions/', material_views.preview_exam_available_questions, name='preview_exam_available_questions'),
     path('preview-exam/replace-question/', material_views.preview_exam_replace_question, name='preview_exam_replace_question'),
     path('lista-preguntas/', material_views.lista_preguntas, name='lista_preguntas'),
+    path('lista-preguntas/filtros/', material_views.lista_preguntas_filtros, name='lista_preguntas_filtros'),
     path('mis-contenidos/', material_views.mis_contenidos, name='mis_contenidos'),
     path('delete-contenido/', material_views.delete_contenido, name='delete_contenido'),
     path('upload-questions/', material_views.upload_questions, name='upload_questions'),
@@ -102,6 +105,7 @@ urlpatterns = [
 
 # instituciones v2
     path('instituciones-v2/', material_views.institution_v2_list, name='institution_v2_list'),
+    path('instituciones-v2/filtros/', material_views.institution_v2_list_filtros, name='institution_v2_list_filtros'),
     path('instituciones-v2/crear/', material_views.create_institution_v2, name='create_institution_v2'),
     path('instituciones-v2/editar/<int:pk>/', material_views.edit_institution_v2, name='edit_institution_v2'),
     path('instituciones-v2/eliminar/<int:pk>/', material_views.delete_institution_v2, name='delete_institution_v2'),
@@ -150,6 +154,7 @@ path('outcomes/<int:pk>/delete/', material_views.LearningOutcomeDeleteView.as_vi
 # Careers CRUD
 # urls.py
 path('careers/', material_views.career_list, name='career_list'),
+path('careers/filtros/', material_views.career_list_filtros, name='career_list_filtros'),
 path('careers/create/', material_views.career_create_simple, name='career_create_simple'),
 path('careers/<int:pk>/associations/', material_views.career_associations, name='career_associations'),
 path('careers/<int:pk>/delete/', material_views.delete_career, name='delete_career'),

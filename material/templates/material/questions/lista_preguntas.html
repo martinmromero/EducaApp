@@ -272,7 +272,8 @@
         </div>
     </div>
 
-    {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns %}
+    {% url 'material:lista_preguntas_filtros' as lista_preguntas_filtros_url %}
+    {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns ajax_url=lista_preguntas_filtros_url %}
 </div>
 
 {% endblock %}

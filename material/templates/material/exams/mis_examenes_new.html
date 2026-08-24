@@ -149,7 +149,8 @@
     {% endif %}
     {% endfor %}
 
-    {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns %}
+    {% url 'material:mis_examenes_filtros' as mis_examenes_filtros_url %}
+    {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns ajax_url=mis_examenes_filtros_url %}
 </div>
 
 <script src="{% static 'js/list_control_row.js' %}"></script>

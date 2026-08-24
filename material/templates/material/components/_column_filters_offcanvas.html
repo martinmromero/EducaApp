@@ -5,8 +5,13 @@ pero agrupados en un acordeón único, para no depender de menús anclados a hea
 que son difíciles de tocar en pantallas chicas con scroll horizontal. Componente generico,
 reutilizable en cualquier listado que use material/column_filters.py.
 Variables esperadas: columns (lista de {field,label}), filter_options, selected_filters.
+Opcional: ajax_url (URL de un endpoint que devuelva JSON {field: [{value,label},...]}
+recalculando las opciones en cascada) — si se pasa, _column_filters_assets.html activa
+el filtrado dinámico (tildar un checkbox actualiza al toque las opciones de las demás
+columnas, sin esperar al submit de "Aplicar filtros"). Sin ajax_url, el offcanvas
+funciona igual pero solo en cascada al hacer submit completo de la página.
 {% endcomment %}
-<div class="offcanvas offcanvas-bottom column-filters-offcanvas" tabindex="-1" id="templateFiltersOffcanvas" aria-labelledby="templateFiltersOffcanvasLabel">
+<div class="offcanvas offcanvas-bottom column-filters-offcanvas" tabindex="-1" id="templateFiltersOffcanvas" aria-labelledby="templateFiltersOffcanvasLabel"{% if ajax_url %} data-filters-ajax-url="{{ ajax_url }}"{% endif %}>
     <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="templateFiltersOffcanvasLabel">Filtros</h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>

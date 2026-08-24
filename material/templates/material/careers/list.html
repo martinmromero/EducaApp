@@ -177,7 +177,8 @@
     </div>
     {% endif %}
 
-    {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns %}
+    {% url 'material:career_list_filtros' as career_list_filtros_url %}
+    {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns ajax_url=career_list_filtros_url %}
 </div>
 
 <!-- Scripts -->
