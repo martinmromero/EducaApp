@@ -54,6 +54,31 @@ class OllamaBackend:
 # ---------------------------------------------------------------------------
 # Backend: OpenAI y compatibles (Groq, Mistral, OpenRouter, vLLM, LM Studio…)
 # ---------------------------------------------------------------------------
+
+# Modelos de razonamiento (chain-of-thought) conocidos en Groq — gastan
+# tokens de "pensar" del mismo presupuesto que la respuesta visible, ANTES
+# de escribirla. Sin pedir reasoning_effort explícito, Groq corre estos
+# modelos en su default ("medium") — nada acota cuánto piensan, y con un
+# fragmento chico (pocos tokens de salida pedidos) pueden gastar TODO el
+# presupuesto pensando y no dejar nada para la respuesta, lo que Groq
+# reporta como error json_validate_failed con failed_generation vacío (no
+# truncado a mitad — vacío del todo; ver GroqMonitorRun del 2026-08-27).
+#
+# Esto se completa acá (el único lugar por el que pasan TODAS las llamadas a
+# Groq — directas, fallback compartido de demo, o el monitoreo de
+# groq_monitor.py) en vez de en cada call site: _generate_questions_for_chunk
+# (views_document_processor.py) nunca pasaba generate_kwargs con
+# reasoning_effort salvo desde el monitoreo — la generación real de
+# preguntas corría con el default de Groq sin que nadie lo pidiera así.
+# Solo rellena si quien llama no mandó nada explícito (groq_monitor.py sigue
+# pudiendo probar otros valores a propósito).
+GROQ_REASONING_MODEL_DEFAULTS = {
+    'openai/gpt-oss-20b': 'low',
+    'openai/gpt-oss-120b': 'low',
+    'qwen/qwen3.6-27b': 'none',
+}
+
+
 class OpenAICompatibleBackend:
     """Cualquier endpoint que siga la API de Chat Completions de OpenAI."""
 
@@ -122,6 +147,8 @@ class OpenAICompatibleBackend:
             'max_tokens': max_tokens,
             'temperature': temperature,
         }
+        if reasoning_effort is None:
+            reasoning_effort = GROQ_REASONING_MODEL_DEFAULTS.get(self.model)
         if reasoning_effort:
             payload['reasoning_effort'] = reasoning_effort
         if json_mode:
@@ -162,8 +189,17 @@ class OpenAICompatibleBackend:
                         api_error = None
                         failed_generation = None
                     error_text = api_error or f'HTTP {r.status_code}: {r.text[:300]}'
-                    if failed_generation:
-                        error_text += f' | Generó: {failed_generation[:500]}'
+                    # 'is not None' (no solo truthy): un failed_generation vacío
+                    # ("") es en sí mismo el dato clave — el modelo no llegó a
+                    # escribir nada de la respuesta visible (gastó todo el
+                    # presupuesto de tokens en el razonamiento interno, ver
+                    # reasoning_budget en _generate_questions_for_chunk) — muy
+                    # distinto de un JSON a medio truncar, y si lo tratábamos
+                    # como falsy quedaba indistinguible de "no vino el campo".
+                    if failed_generation is not None:
+                        shown = failed_generation[:500] if failed_generation else \
+                            '(vacío — el modelo no escribió nada de la respuesta, probablemente gastó todo el presupuesto de tokens pensando)'
+                        error_text += f' | Generó: {shown}'
                     return {
                         'success': False,
                         'error': error_text,

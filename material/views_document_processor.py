@@ -1142,14 +1142,22 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
     # vez de truncar. 4096 es más conservador; si se pide más de ~12 preguntas
     # en un mismo chunk, igual puede no alcanzar y quedar corto, pero no falla.
     #
-    # Modelos de razonamiento (gpt-oss, qwen3.x en Groq, vía reasoning_effort en
-    # generate_kwargs) gastan tokens del mismo presupuesto en pensar antes de
-    # escribir el JSON — la estimación de arriba no deja margen para eso, así
-    # que se le suma un colchón fijo cuando el razonamiento está activo
-    # (reasoning_effort distinto de None/"none"). No se suma si no hay
-    # razonamiento (evita pedir de más sin necesidad).
+    # Modelos de razonamiento (gpt-oss, qwen3.x en Groq) gastan tokens del
+    # mismo presupuesto en pensar antes de escribir el JSON — la estimación
+    # de arriba no deja margen para eso, así que se le suma un colchón fijo.
+    # Default a RESERVARLO (no a 0 salvo que se pida explícito): este call
+    # site casi nunca sabe de antemano qué modelo va a atender la llamada
+    # (ai_router.GROQ_REASONING_MODEL_DEFAULTS ya completa reasoning_effort
+    # solo al construir el payload, y DemoRoutingBackend recién decide
+    # Groq/Gemini adentro de generate()) — antes, al no pasar generate_kwargs
+    # acá, este colchón quedaba en 0 pese a que el modelo sí razonaba con el
+    # esfuerzo default de Groq, dejando a veces la respuesta completamente
+    # vacía (json_validate_failed con failed_generation="", ver GroqMonitorRun
+    # 2026-08-27). Pedir de más no cuesta nada: se factura y corta por uso
+    # real, no por el techo pedido — por eso solo se saca el colchón cuando
+    # quien llama sabe con certeza que no hace falta (reasoning_effort="none").
     reasoning_effort = (generate_kwargs or {}).get('reasoning_effort')
-    reasoning_budget = 2000 if reasoning_effort and reasoning_effort != 'none' else 0
+    reasoning_budget = 0 if reasoning_effort == 'none' else 2000
     gen_max_tokens = min(
         output_tokens_ceiling or _DEFAULT_OUTPUT_TOKENS_CEILING,
         300 * max(num_questions, 1) + 500 + reasoning_budget,
