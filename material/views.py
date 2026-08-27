@@ -9036,11 +9036,15 @@ def groq_monitor_page(request):
             vision_cfg.ends_at = now + timezone.timedelta(hours=hours)
             vision_cfg.last_run_at = None
             vision_cfg.save()
+            from .groq_monitor import ensure_scheduler_running
+            ensure_scheduler_running('vision')
             messages.success(request, f'Monitoreo de visión activado por {hours} horas ({vision_cfg.provider}/{vision_cfg.model}).', extra_tags='general')
             return redirect('material:groq_monitor_page')
         if action == 'stop_vision':
             vision_cfg.enabled = False
             vision_cfg.save(update_fields=['enabled'])
+            from .groq_monitor import stop_scheduler
+            stop_scheduler('vision')
             messages.success(request, 'Monitoreo de visión desactivado.', extra_tags='general')
             return redirect('material:groq_monitor_page')
         if action == 'start':
@@ -9055,10 +9059,14 @@ def groq_monitor_page(request):
             cfg.ends_at = now + timezone.timedelta(hours=hours)
             cfg.last_run_at = None
             cfg.save()
+            from .groq_monitor import ensure_scheduler_running
+            ensure_scheduler_running('text')
             messages.success(request, f'Monitoreo activado por {hours} horas.', extra_tags='general')
         elif action == 'stop':
             cfg.enabled = False
             cfg.save(update_fields=['enabled'])
+            from .groq_monitor import stop_scheduler
+            stop_scheduler('text')
             messages.success(request, 'Monitoreo desactivado.', extra_tags='general')
         elif action == 'run_now':
             from .groq_monitor import run_test

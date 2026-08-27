@@ -1,33 +1,34 @@
 """
 Monitoreo del fallback compartido de Groq — corre adentro de la propia app.
 
-No depende de ningún cron externo ni de que la notebook esté prendida: se
-dispara desde `material.views.health_check` (que UptimeRobot ya pinguea
-regularmente para evitar que Render duerma el free tier). El disparo está
-throttleado a 1 vez cada HEALTH_PING_THROTTLE_SECONDS (~4 veces/día) — antes
-de ese throttle, CADA ping (cada ~5 min) consultaba Postgres para ver si
-correspondía correr, lo que le pisaba el autosuspend de 5 min a Neon: el
-compute nunca quedaba inactivo el tiempo suficiente para bajar a cero y se
-consumían ~24h/día de CU-hours aunque los monitoreos estuvieran apagados
-(encontrado 2026-08-14, con la cuota gratis de Neon casi agotada a mitad de
-mes).
+No depende de ningún cron externo ni de que la notebook esté prendida. Al
+apretar "Activar" en el panel, arranca un thread propio de background
+(`ensure_scheduler_running`/`_scheduler_loop`) que corre una prueba cada
+`interval_minutes` de verdad, mientras la ventana esté activa. La conexión
+con `material.views.health_check` (que UptimeRobot ya pinguea regularmente
+para evitar que Render duerma el free tier) es solo una red de resguardo por
+si el proceso se reinicia (deploy, crash) con una ventana todavía activa: ese
+chequeo de resurrección está throttleado a 1 vez cada
+HEALTH_PING_THROTTLE_SECONDS (~4 veces/día) — antes de ese throttle, CADA
+ping (cada ~5 min) consultaba Postgres para ver si correspondía correr, lo
+que le pisaba el autosuspend de 5 min a Neon: el compute nunca quedaba
+inactivo el tiempo suficiente para bajar a cero y se consumían ~24h/día de
+CU-hours aunque los monitoreos estuvieran apagados (encontrado 2026-08-14,
+con la cuota gratis de Neon casi agotada a mitad de mes). El thread de
+`_scheduler_loop`, en cambio, solo toca Postgres una vez por intervalo (para
+leer la config vigente y sincronizar el buffer) — muy por debajo de la
+frecuencia de esos pings, así que subir `interval_minutes` (más corridas/día)
+no reintroduce ese problema.
 
 Además, las corridas automáticas (a diferencia de los botones manuales
 "Probar ahora"/"Probar visión" del panel, que siguen escribiendo directo a
 Postgres para feedback inmediato) NO escriben en Postgres una por una: cada
 resultado se apila primero en un archivo local (`BUFFER_PATH`, JSON Lines —
 "una tabla en la app", no en la DB) y ese archivo se sincroniza a Postgres
-recién al final del mismo tick (ver `sync_buffer_to_db`). Como el tick ya
-está limitado a ~4 veces/día, en la práctica el buffer casi siempre tiene una
-sola fila pendiente al sincronizar — su valor real es la resiliencia: si el
-bulk_create falla por un problema transitorio de Neon, el archivo NO se
-borra y esas filas se reintentan en el próximo tick en vez de perderse.
-
-Efecto secundario esperado: mientras una ventana de 48h está activa, la
-cadencia real de corridas automáticas queda acotada por HEALTH_PING_THROTTLE_
-SECONDS (~cada 6h) en vez de por `interval_minutes` cuando este es menor a
-eso — para pruebas de ráfaga más finas seguís teniendo los botones manuales
-del panel, que no pasan por este throttle.
+al final de cada corrida (ver `sync_buffer_to_db`) — su valor es la
+resiliencia: si el bulk_create falla por un problema transitorio de Neon, el
+archivo NO se borra y esas filas se reintentan en la próxima corrida en vez
+de perderse.
 
 El test replica el camino real de generación (mismo backend, mismo chunking,
 mismo tope duro de cantidad) pero llamando directo a las funciones internas
@@ -209,58 +210,95 @@ def sync_buffer_to_db():
 
 _last_health_ping_check = 0.0
 _health_ping_lock = threading.Lock()
-# ~4 veces/día (24h / 6h) — ver docstring del módulo para el porqué.
+# ~4 veces/día (24h / 6h). Ya NO marca la cadencia real de las corridas —
+# eso lo hace el thread propio de _scheduler_loop, despierto a intervalo real
+# de `interval_minutes`. Esto solo limita cada cuánto se chequea, vía el ping
+# de UptimeRobot a /health/ (~cada 5 min), si hace falta RESUCITAR ese thread
+# (ej. si el proceso de Render se reinició con una ventana todavía activa) —
+# ver ensure_scheduler_running(). En el camino normal (el thread arrancó al
+# instante desde el botón "Activar") este chequeo no hace nada.
 HEALTH_PING_THROTTLE_SECONDS = 6 * 3600
+
+_scheduler_lock = threading.Lock()
+_scheduler_state = {'text': None, 'vision': None}  # kind -> {'thread', 'stop_event'}
 
 
 def maybe_trigger_from_health_ping():
-    """Único punto llamado desde material.views.health_check. Throttlea el
-    chequeo en memoria (sin tocar la DB) para no pisarle el autosuspend a
-    Neon en cada ping; cuando corresponde, dispara ambos monitoreos con
-    persist='buffer' (ver docstring del módulo)."""
+    """Único punto llamado desde material.views.health_check."""
     global _last_health_ping_check
     now = time.monotonic()
     with _health_ping_lock:
         if now - _last_health_ping_check < HEALTH_PING_THROTTLE_SECONDS:
             return
         _last_health_ping_check = now
-    maybe_trigger(persist='buffer')
-    maybe_trigger_vision(persist='buffer')
+    ensure_scheduler_running('text')
+    ensure_scheduler_running('vision')
 
 
-def maybe_trigger(persist='db'):
-    """Chequea si corresponde disparar una corrida de texto. No bloquea: si
-    corresponde, la lanza en un thread aparte y vuelve enseguida.
+def _scheduler_alive(kind):
+    state = _scheduler_state.get(kind)
+    return bool(state) and state['thread'].is_alive()
 
-    persist: 'db' (default, usado por el botón manual "Probar ahora" —
-    escribe directo en Postgres para feedback inmediato) o 'buffer' (usado
-    por el tick automático de health_check — ver sync_buffer_to_db)."""
-    try:
-        from .models import GroqMonitorSchedule
-        cfg = GroqMonitorSchedule.objects.filter(enabled=True).first()
-        if cfg is None:
+
+def ensure_scheduler_running(kind):
+    """Arranca (si no está corriendo ya) el thread de background que corre
+    las pruebas de `kind` ('text'/'vision') al ritmo real de
+    `interval_minutes`, en vez de quedar atado al throttle de ~6h pensado
+    solo para no pisarle el autosuspend a Neon (ver HEALTH_PING_THROTTLE_
+    SECONDS). El thread solo toca Postgres una vez por intervalo — para leer
+    la config vigente y sincronizar el buffer — muy por debajo de la
+    frecuencia de los pings de UptimeRobot que la generación anterior de
+    este monitoreo usaba como reloj.
+
+    Llamarla de más es gratis: no hace nada si ya hay un thread vivo para
+    ese `kind`, y el thread mismo corta solo si el monitoreo no está
+    activo."""
+    with _scheduler_lock:
+        if _scheduler_alive(kind):
             return
+        stop_event = threading.Event()
+        thread = threading.Thread(target=_scheduler_loop, args=(kind, stop_event), daemon=True)
+        _scheduler_state[kind] = {'thread': thread, 'stop_event': stop_event}
+        thread.start()
+
+
+def stop_scheduler(kind):
+    """Señala al thread de `kind` que corte apenas termine la corrida en
+    curso (si hay una en curso), en vez de esperar dormido hasta el próximo
+    intervalo. Llamada desde el botón "Detener" del panel."""
+    state = _scheduler_state.get(kind)
+    if state:
+        state['stop_event'].set()
+
+
+def _scheduler_loop(kind, stop_event):
+    """Bucle real del monitoreo automático: una corrida por
+    `interval_minutes`, releyendo la config de la DB en cada vuelta (así
+    toma en caliente un cambio de intervalo o un "Detener" hecho desde el
+    panel) hasta que la ventana venza o se pida frenar."""
+    from .models import GroqMonitorSchedule, VisionMonitorSchedule
+    model = GroqMonitorSchedule if kind == 'text' else VisionMonitorSchedule
+
+    while not stop_event.is_set():
+        cfg = model.objects.filter(enabled=True).first()
+        if cfg is None:
+            break
 
         now = timezone.now()
         if cfg.ends_at and now >= cfg.ends_at:
-            GroqMonitorSchedule.objects.filter(pk=cfg.pk).update(enabled=False)
-            logger.info('Monitoreo de Groq: ventana de 48h vencida, se desactiva.')
-            return
+            model.objects.filter(pk=cfg.pk).update(enabled=False)
+            logger.info(f'Monitoreo de {kind}: ventana vencida, se desactiva.')
+            break
 
-        if cfg.last_run_at and (now - cfg.last_run_at).total_seconds() < cfg.interval_minutes * 60:
-            return
+        if kind == 'text':
+            _run_safely(persist='buffer')
+        else:
+            _run_vision_safely(cfg.provider, cfg.model, persist='buffer')
+        model.objects.filter(pk=cfg.pk).update(last_run_at=timezone.now())
 
-        # Reclamo atómico: solo un thread gana la carrera si dos requests caen
-        # casi al mismo tiempo (poco probable con 1 worker, pero es gratis).
-        claimed = GroqMonitorSchedule.objects.filter(
-            pk=cfg.pk, last_run_at=cfg.last_run_at
-        ).update(last_run_at=now)
-        if not claimed:
-            return
-
-        threading.Thread(target=_run_safely, kwargs={'persist': persist}, daemon=True).start()
-    except Exception:
-        logger.exception('Error chequeando si corresponde disparar el monitoreo de Groq')
+        interval_seconds = max(60, cfg.interval_minutes * 60)
+        if stop_event.wait(timeout=interval_seconds):
+            break
 
 
 def _run_safely(persist='db'):
@@ -529,37 +567,6 @@ def run_vision_load_test(count, provider=DEFAULT_VISION_PROVIDER, model=DEFAULT_
         if new_run:
             created_ids.append(new_run.id)
     return list(GroqVisionTestRun.objects.filter(id__in=created_ids).order_by('id'))
-
-
-def maybe_trigger_vision(persist='db'):
-    """Igual que maybe_trigger() pero para la corrida cíclica del modelo de
-    visión ya elegido — mide cupo y cadencia de renovación en el tiempo."""
-    try:
-        from .models import VisionMonitorSchedule
-        cfg = VisionMonitorSchedule.objects.filter(enabled=True).first()
-        if cfg is None:
-            return
-
-        now = timezone.now()
-        if cfg.ends_at and now >= cfg.ends_at:
-            VisionMonitorSchedule.objects.filter(pk=cfg.pk).update(enabled=False)
-            logger.info('Monitoreo de visión: ventana vencida, se desactiva.')
-            return
-
-        if cfg.last_run_at and (now - cfg.last_run_at).total_seconds() < cfg.interval_minutes * 60:
-            return
-
-        claimed = VisionMonitorSchedule.objects.filter(
-            pk=cfg.pk, last_run_at=cfg.last_run_at
-        ).update(last_run_at=now)
-        if not claimed:
-            return
-
-        threading.Thread(
-            target=_run_vision_safely, args=(cfg.provider, cfg.model), kwargs={'persist': persist}, daemon=True
-        ).start()
-    except Exception:
-        logger.exception('Error chequeando si corresponde disparar el monitoreo de visión')
 
 
 def _run_vision_safely(provider, model, persist='db'):
