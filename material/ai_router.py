@@ -146,13 +146,27 @@ class OpenAICompatibleBackend:
                     time.sleep(wait)
                     continue
                 if not r.ok:
+                    # json_validate_failed (Groq, response_format=json_object en
+                    # modelos de razonamiento): la API rechaza la generación ANTES
+                    # de devolverla si no valida como JSON — el texto real que el
+                    # modelo llegó a producir viaja en 'failed_generation' y decía
+                    # si fue truncamiento (JSON cortado a mitad) o el modelo
+                    # mezclando razonamiento con la respuesta. Sin esto solo se veía
+                    # el mensaje genérico "Failed to generate JSON..." sin poder
+                    # saber cuál de las dos causas era.
                     try:
-                        api_error = r.json().get('error', {}).get('message')
+                        err_body = r.json().get('error', {}) or {}
+                        api_error = err_body.get('message')
+                        failed_generation = err_body.get('failed_generation')
                     except Exception:
                         api_error = None
+                        failed_generation = None
+                    error_text = api_error or f'HTTP {r.status_code}: {r.text[:300]}'
+                    if failed_generation:
+                        error_text += f' | Generó: {failed_generation[:500]}'
                     return {
                         'success': False,
-                        'error': api_error or f'HTTP {r.status_code}: {r.text[:300]}',
+                        'error': error_text,
                         'text': None,
                         'rate_limit': rate_limit,
                     }

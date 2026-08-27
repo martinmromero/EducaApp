@@ -1825,11 +1825,25 @@ async function generateStreaming() {
             if (failed.length > 0) {
                 const warn = document.createElement('div');
                 warn.className = 'alert alert-warning mt-2 mb-0';
-                const detail = failed.map(f => `«${f.chapter}» (fragmento ${f.chunk}/${f.total_chunks})`).join(', ');
+                // Agrupar por el mensaje real (msg.message del SSE chunk_error,
+                // ya lo manda el backend pero antes se perdía — solo quedaba
+                // en console.warn): con varios fragmentos fallando por la misma
+                // causa (ej. 429 de cupo), listarlos aparte es ruido; mejor
+                // mostrar la causa real una vez por grupo para poder
+                // diagnosticar sin tener que ir a buscar los logs de Render.
+                const groups = new Map();
+                failed.forEach(f => {
+                    const key = f.message || 'La IA no devolvió un resultado utilizable para esa parte.';
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key).push(`«${f.chapter}» (fragmento ${f.chunk}/${f.total_chunks})`);
+                });
+                const detailHtml = Array.from(groups.entries()).map(([message, items]) => `
+                    <div class="mt-1"><strong>${items.join(', ')}:</strong> ${_escapeHtml(message)}</div>
+                `).join('');
                 warn.innerHTML = `
                     <i class="fas fa-exclamation-triangle"></i>
                     <strong>${failed.length} fragmento${failed.length !== 1 ? 's' : ''} no se ${failed.length !== 1 ? 'pudieron' : 'pudo'} procesar:</strong>
-                    ${detail}. La IA no devolvió un resultado utilizable para esa parte.
+                    ${detailHtml}
                     <div class="mt-2">
                         <button class="btn btn-sm btn-outline-warning" onclick="retryFailedGeneration()">
                             <i class="fas fa-redo"></i> Reintentar generación
