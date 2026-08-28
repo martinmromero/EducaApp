@@ -1,0 +1,61 @@
+{% for subject in subjects %}
+<tr>
+    {% if is_admin %}
+    <td class="rt-card-select">
+        <input type="checkbox" name="subject_ids" value="{{ subject.pk }}">
+    </td>
+    {% endif %}
+    <td class="rt-card-badge">
+        <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
+                data-model="subject" data-id="{{ subject.pk }}"
+                data-active="{% if subject.pk in favorite_ids %}1{% else %}0{% endif %}"></button>
+    </td>
+    <td class="rt-card-title" data-label="Nombre">
+        {{ subject.name }}
+        {% if not subject.es_catalogo_institucional %}
+            <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
+        {% endif %}
+    </td>
+    <td data-label="Resultados de aprendizaje">
+        {% with outcomes=subject.get_all_outcomes %}
+            {% if outcomes %}
+                <ul class="mb-0 ps-3">
+                    {% for outcome in outcomes %}
+                        <li>{{ outcome.description }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <span class="text-muted">No hay resultados registrados.</span>
+            {% endif %}
+        {% endwith %}
+    </td>
+    <td data-label="Acciones">
+        <div class="btn-group">
+            <a href="{% url 'material:subject_detail' pk=subject.pk %}" class="btn btn-sm btn-info" title="Ver materia">
+                <i class="fas fa-eye"></i>
+            </a>
+            {% if is_admin %}
+            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-warning" title="Editar materia">
+                <i class="fas fa-edit"></i>
+            </a>
+            <a href="{% url 'material:delete_subject' pk=subject.pk %}"
+               class="btn btn-sm btn-danger" title="Eliminar materia">
+                <i class="fas fa-trash"></i>
+            </a>
+            {% elif subject.created_by_id == user.id and not subject.es_catalogo_institucional %}
+            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-outline-warning" title="Editar materia">
+                <i class="fas fa-edit"></i>
+            </a>
+            <a href="{% url 'material:eliminar_espacio_personal' 'materia' subject.pk %}?next={{ request.get_full_path|urlencode }}"
+               class="btn btn-sm btn-outline-danger" title="Borrar del espacio personal">
+                <i class="fas fa-trash"></i>
+            </a>
+            {% endif %}
+        </div>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="5" class="text-center">No hay materias que coincidan con la búsqueda/filtros.</td>
+</tr>
+{% endfor %}

@@ -49,5 +49,9 @@
     });
   }
 
+  // Expuesto para volver a inicializar botones agregados dinámicamente
+  // después de la carga inicial (ver subjects/list.html, filtro en vivo).
+  window.EducaAppFavorites = { init: init };
+
   document.addEventListener('DOMContentLoaded', init);
 })();

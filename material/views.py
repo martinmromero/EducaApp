@@ -5135,28 +5135,104 @@ def espacio_personal_list(request):
 
 
 # Subjects CRUD
-@login_required
-def subject_list(request):
+# Columnas filtrables de Materias — mismo motor generico que Carreras
+# (material/column_filters.py). Subject no tiene FK directa a
+# facultad/institucion: se llega por el M2M inverso subject.careers (ver
+# Career.subjects, related_name="careers").
+SUBJECT_FILTER_FIELDS = [
+    ColumnFilterField('institution', 'Institución', value_field='careers__faculties__institution__id', label_field='careers__faculties__institution__name'),
+    ColumnFilterField('faculties', 'Facultades', value_field='careers__faculties__id', label_field='careers__faculties__name'),
+    ColumnFilterField('careers', 'Carreras', value_field='careers__id', label_field='careers__name'),
+]
+SUBJECT_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in SUBJECT_FILTER_FIELDS]
+
+
+def _subject_base_queryset(request):
+    """Universo de materias visibles (catalogo + espacio personal, con
+    favoritos/personal ya aplicados) antes de los filtros por columna y de
+    la busqueda por texto. Usado tanto por subject_list como por su AJAX
+    subject_list_filtros."""
     from .content_visibility import get_visible_subjects
     subjects = get_visible_subjects(request.user)
-    favorite_ids = set(Favorite.objects.filter(
-        user=request.user, content_type=ContentType.objects.get_for_model(Subject)
-    ).values_list('object_id', flat=True))
     if request.GET.get('favoritos') == '1':
+        favorite_ids = Favorite.objects.filter(
+            user=request.user, content_type=ContentType.objects.get_for_model(Subject)
+        ).values_list('object_id', flat=True)
         subjects = subjects.filter(pk__in=favorite_ids)
     # Filtro "Personal" — acota a lo que el usuario tiene en su espacio
     # personal (todavía no sumado al catálogo institucional), mezclado hoy
     # en el mismo listado que lo institucional. Compone con Favoritos, no
     # es excluyente (los dos pueden estar activos a la vez).
-    only_personal = request.GET.get('personal') == '1'
-    if only_personal:
+    if request.GET.get('personal') == '1':
         subjects = subjects.filter(es_catalogo_institucional=False)
-    return render(request, 'material/subjects/list.html', {
-        'subjects': subjects,
+    return subjects
+
+
+@login_required
+def subject_list_filtros(request):
+    """Endpoint AJAX equivalente a career_list_filtros pero para Materias
+    (Institución/Facultades/Carreras)."""
+    subjects = _subject_base_queryset(request)
+    selected_filters = get_selected_filters(request, SUBJECT_FILTER_FIELDS)
+    filter_options = get_filter_options(subjects, SUBJECT_FILTER_FIELDS, selected_filters)
+    return JsonResponse(filter_options)
+
+
+@login_required
+def subject_list(request):
+    favorite_ids = set(Favorite.objects.filter(
+        user=request.user, content_type=ContentType.objects.get_for_model(Subject)
+    ).values_list('object_id', flat=True))
+
+    subjects = _subject_base_queryset(request)
+    selected_filters = get_selected_filters(request, SUBJECT_FILTER_FIELDS)
+    filter_options = get_filter_options(subjects, SUBJECT_FILTER_FIELDS, selected_filters)
+    subjects = apply_column_filters(request, subjects, SUBJECT_FILTER_FIELDS).distinct()
+
+    # Búsqueda por tipeo — mismo motor de parecido que check_catalog_duplicate
+    # (ver _similitud), pero sin el tope de 20: acá se pagina el resultado
+    # completo en vez de mostrar un dropdown de sugerencias.
+    q = (request.GET.get('q') or '').strip()
+    if q:
+        q_norm = _normalizar_para_busqueda(q)
+        q_tokens = _tokens(q_norm)
+        puntuados = [(s, _similitud(q_norm, q_tokens, s.name)) for s in subjects]
+        puntuados = [par for par in puntuados if par[1] > 0]
+        puntuados.sort(key=lambda par: -par[1])
+        subjects = [s for s, _score in puntuados]
+    else:
+        subjects = subjects.order_by('name')
+
+    paginator = Paginator(subjects, 25)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    only_personal = request.GET.get('personal') == '1'
+    context = {
+        'subjects': page_obj,
         'favorite_ids': favorite_ids,
         'only_favorites': request.GET.get('favoritos') == '1',
         'only_personal': only_personal,
-    })
+        'search_query': q,
+        'filter_options': filter_options,
+        'selected_filters': selected_filters,
+        'active_filter_count': get_active_filter_count(selected_filters),
+        'filter_querystring': get_filter_querystring(request),
+        'filter_columns': SUBJECT_FILTER_COLUMNS,
+        'personal_toggle_querystring': get_filter_querystring_excluding(request, 'personal'),
+        'favorites_toggle_querystring': get_filter_querystring_excluding(request, 'favoritos'),
+    }
+
+    # Filtrado dinámico: el buscador de texto reemplaza el listado en vivo
+    # (ver subjectSearchQ en el template) sin recargar la página completa —
+    # solo se devuelven los fragmentos de filas/paginación, no el layout.
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'count': page_obj.paginator.count,
+            'rows_html': render_to_string('material/subjects/_rows.html', context, request=request),
+            'pagination_html': render_to_string('material/subjects/_pagination.html', context, request=request),
+        })
+
+    return render(request, 'material/subjects/list.html', context)
 
 @login_required
 @user_passes_test(is_admin, login_url='/')
@@ -7699,7 +7775,7 @@ def _similitud(q_norm, q_tokens, nombre):
 def check_catalog_duplicate(request):
     """Coincidencias existentes para lo que se está por proponer — antes de
     pedir algo nuevo, se ofrece usar lo que ya está en el catálogo en vez
-    de arriesgarse a duplicar (ver informe de rediseño). Hasta 5
+    de arriesgarse a duplicar (ver informe de rediseño). Hasta 20
     candidatos por parecido (no solo substring exacto — ver _similitud),
     ordenados de más a menos parecido.
 
@@ -7759,7 +7835,7 @@ def check_catalog_duplicate(request):
     puntuados = [(c, puntaje(c)) for c in candidatos]
     puntuados = [par for par in puntuados if par[1] > 0]
     puntuados.sort(key=lambda par: -par[1])
-    return JsonResponse([c for c, _score in puntuados[:5]], safe=False)
+    return JsonResponse([c for c, _score in puntuados[:20]], safe=False)
 
 
 @login_required
@@ -7799,7 +7875,7 @@ def buscar_destino_fusion(request):
     puntuados = [(c, _similitud(q_norm, q_tokens, c['name'])) for c in candidatos]
     puntuados = [par for par in puntuados if par[1] > 0]
     puntuados.sort(key=lambda par: -par[1])
-    return JsonResponse([c for c, _score in puntuados[:8]], safe=False)
+    return JsonResponse([c for c, _score in puntuados[:20]], safe=False)
 
 
 @login_required

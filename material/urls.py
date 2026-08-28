@@ -132,6 +132,7 @@ urlpatterns = [
 
 # Subjects CRUD
 path('subjects/', material_views.subject_list, name='subject_list'),
+path('subjects/filtros/', material_views.subject_list_filtros, name='subject_list_filtros'),
     path('favoritos/toggle/', material_views.toggle_favorite, name='toggle_favorite'),
     path('favoritos/', material_views.favoritos_list, name='favoritos_list'),
     path('espacio-personal/', material_views.espacio_personal_list, name='espacio_personal_list'),

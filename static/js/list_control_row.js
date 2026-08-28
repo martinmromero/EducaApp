@@ -44,8 +44,11 @@ function initListControlSelection(options) {
         }
     }
 
-    form.querySelectorAll(checkboxSelector).forEach(function (cb) {
-        cb.addEventListener('change', update);
+    // Delegado en el form (no en cada checkbox): así sigue funcionando si
+    // las filas se reemplazan dinámicamente (ver subjects/list.html, filtro
+    // de texto en vivo) sin tener que volver a llamar a esta función.
+    form.addEventListener('change', function (e) {
+        if (e.target.matches(checkboxSelector)) update();
     });
 
     const selectAll = document.getElementById('selectAll');

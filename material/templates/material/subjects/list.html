@@ -17,22 +17,42 @@
 {% include 'material/components/_mobile_card_table.html' %}
 <div class="container-fluid">
 {% show_messages "materias" %}
+
+{% include 'material/components/_column_filters_assets.html' %}
+
+<form method="get" action="{% url 'material:subject_list' %}" id="templateFiltersForm"></form>
+
 <form method="post" action="{% url 'material:bulk_eliminar_subjects' %}" id="deleteForm">
     {% csrf_token %}
-    <div class="card shadow">
-        <div class="card-header py-2 d-flex justify-content-between align-items-center list-control-row">
-            <span class="list-control-info">{{ subjects|length }} materia{{ subjects|length|pluralize }}</span>
-            <div class="d-flex align-items-center gap-2" id="listControlDefault">
-                <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if only_personal %}&personal=1{% endif %}"
-                   class="btn btn-sm list-toolbar-btn {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
-                   title="Mostrar solo favoritas">
-                    <i class="fas fa-star"></i> <span class="d-none d-sm-inline">Favoritas</span>
-                </a>
-                <a href="?personal={% if only_personal %}0{% else %}1{% endif %}{% if only_favorites %}&favoritos=1{% endif %}"
-                   class="btn btn-sm list-toolbar-btn {% if only_personal %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
-                   title="Mostrar solo lo que está en el espacio personal propio, todavía no sumado al catálogo institucional">
-                    <i class="bi bi-person-badge"></i> <span class="d-none d-sm-inline">Personal</span>
-                </a>
+    <div class="card shadow mb-4">
+        <div class="card-header py-2 list-control-row">
+            <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                <span class="list-control-info" id="subjectsCountText">{{ subjects.paginator.count }} materia{{ subjects.paginator.count|pluralize }}</span>
+                <div class="d-flex flex-wrap align-items-center gap-2 flex-grow-1 justify-content-end" id="listControlDefault">
+                    <div class="input-group input-group-sm" style="max-width: 280px;">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" name="q" value="{{ search_query }}" autocomplete="off"
+                               placeholder="Buscar materia por nombre..." form="templateFiltersForm" id="subjectSearchQ">
+                        <button type="button" class="btn btn-outline-secondary" title="Limpiar búsqueda" id="subjectSearchClear"
+                                style="{% if not search_query %}display:none;{% endif %}">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" title="Filtros"
+                            data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
+                        <i class="fas fa-filter{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
+                    </button>
+                    <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if favorites_toggle_querystring %}&{{ favorites_toggle_querystring }}{% endif %}"
+                       class="btn btn-sm list-toolbar-btn {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
+                       title="Mostrar solo favoritas">
+                        <i class="fas fa-star"></i> <span class="d-none d-sm-inline">Favoritas</span>
+                    </a>
+                    <a href="?personal={% if only_personal %}0{% else %}1{% endif %}{% if personal_toggle_querystring %}&{{ personal_toggle_querystring }}{% endif %}"
+                       class="btn btn-sm list-toolbar-btn {% if only_personal %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
+                       title="Mostrar solo lo que está en el espacio personal propio, todavía no sumado al catálogo institucional">
+                        <i class="bi bi-person-badge"></i> <span class="d-none d-sm-inline">Personal</span>
+                    </a>
+                </div>
             </div>
             <div class="d-none align-items-center gap-2" id="listSelectionBar">
                 <span class="fw-semibold" id="listSelectionCount"></span>
@@ -44,7 +64,7 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover mobile-card-table">
+                <table class="table table-hover mobile-card-table column-filter-table">
                     <thead>
                         <tr>
                             {% if is_admin %}<th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>{% endif %}
@@ -54,79 +74,89 @@
                             <th>Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for subject in subjects %}
-                        <tr>
-                            {% if is_admin %}
-                            <td class="rt-card-select">
-                                <input type="checkbox" name="subject_ids" value="{{ subject.pk }}">
-                            </td>
-                            {% endif %}
-                            <td class="rt-card-badge">
-                                <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
-                                        data-model="subject" data-id="{{ subject.pk }}"
-                                        data-active="{% if subject.pk in favorite_ids %}1{% else %}0{% endif %}"></button>
-                            </td>
-                            <td class="rt-card-title" data-label="Nombre">
-                                {{ subject.name }}
-                                {% if not subject.es_catalogo_institucional %}
-                                    <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
-                                {% endif %}
-                            </td>
-                            <td data-label="Resultados de aprendizaje">
-                                {% with outcomes=subject.get_all_outcomes %}
-                                    {% if outcomes %}
-                                        <ul class="mb-0 ps-3">
-                                            {% for outcome in outcomes %}
-                                                <li>{{ outcome.description }}</li>
-                                            {% endfor %}
-                                        </ul>
-                                    {% else %}
-                                        <span class="text-muted">No hay resultados registrados.</span>
-                                    {% endif %}
-                                {% endwith %}
-                            </td>
-                            <td data-label="Acciones">
-                                <div class="btn-group">
-                                    <a href="{% url 'material:subject_detail' pk=subject.pk %}" class="btn btn-sm btn-info" title="Ver materia">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    {% if is_admin %}
-                                    <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-warning" title="Editar materia">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="{% url 'material:delete_subject' pk=subject.pk %}"
-                                       class="btn btn-sm btn-danger" title="Eliminar materia">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
-                                    {% elif subject.created_by_id == user.id and not subject.es_catalogo_institucional %}
-                                    <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-outline-warning" title="Editar materia">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="{% url 'material:eliminar_espacio_personal' 'materia' subject.pk %}?next={{ request.get_full_path|urlencode }}"
-                                       class="btn btn-sm btn-outline-danger" title="Borrar del espacio personal">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center">No hay materias registradas</td>
-                        </tr>
-                        {% endfor %}
+                    <tbody id="subjectsTableBody">
+                        {% include 'material/subjects/_rows.html' %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </form>
+
+<!-- Paginación -->
+<div id="subjectsPagination">
+    {% include 'material/subjects/_pagination.html' %}
+</div>
+
+{% url 'material:subject_list_filtros' as subject_list_filtros_url %}
+{% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns ajax_url=subject_list_filtros_url %}
 </div>
 
 <script src="{% static 'js/list_control_row.js' %}"></script>
 <script>
-    initListControlSelection({ checkboxName: 'subject_ids' });
+    const subjectsUpdateSelection = initListControlSelection({ checkboxName: 'subject_ids' });
+
+    // Filtrado dinámico: en vez de esperar el submit del form, cada tipeo
+    // (con debounce) pide solo las filas/paginación por fetch y las
+    // reemplaza en el DOM — el listado de abajo se actualiza sin recargar
+    // la página. Enter dispara la búsqueda al toque, sin esperar el debounce.
+    (function () {
+        const input = document.getElementById('subjectSearchQ');
+        const clearBtn = document.getElementById('subjectSearchClear');
+        const tbody = document.getElementById('subjectsTableBody');
+        const pagination = document.getElementById('subjectsPagination');
+        const countText = document.getElementById('subjectsCountText');
+        const listUrl = '{% url "material:subject_list" %}';
+        let timer = null;
+        let requestSeq = 0;
+
+        function applySearch(q) {
+            const params = new URLSearchParams(window.location.search);
+            if (q) { params.set('q', q); } else { params.delete('q'); }
+            params.delete('page');
+            const qs = params.toString();
+            const url = listUrl + (qs ? '?' + qs : '');
+            const seq = ++requestSeq;
+
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (seq !== requestSeq) return; // llegó una respuesta más nueva mientras tanto
+                    tbody.innerHTML = data.rows_html;
+                    pagination.innerHTML = data.pagination_html;
+                    countText.textContent = data.count + (data.count === 1 ? ' materia' : ' materias');
+                    history.replaceState(null, '', url);
+                    if (window.EducaAppFavorites) window.EducaAppFavorites.init();
+                    if (subjectsUpdateSelection) subjectsUpdateSelection();
+                })
+                .catch(function () {
+                    // Si falla el fetch, se puede seguir buscando con Enter
+                    // (submit normal del form, recarga completa).
+                });
+        }
+
+        input.addEventListener('input', function () {
+            clearBtn.style.display = input.value ? '' : 'none';
+            clearTimeout(timer);
+            timer = setTimeout(function () { applySearch(input.value.trim()); }, 350);
+        });
+
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(timer);
+                applySearch(input.value.trim());
+            }
+        });
+
+        clearBtn.addEventListener('click', function () {
+            input.value = '';
+            clearBtn.style.display = 'none';
+            clearTimeout(timer);
+            applySearch('');
+            input.focus();
+        });
+    })();
 
     async function confirmDelete() {
         const selected = document.querySelectorAll('#deleteForm input[name="subject_ids"]:checked');

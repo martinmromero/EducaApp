@@ -1,0 +1,23 @@
+{% if subjects.has_other_pages %}
+<div class="pagination justify-content-center">
+    <ul class="pagination">
+        {% if subjects.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page=1{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">&laquo; Primera</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ subjects.previous_page_number }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">Anterior</a></li>
+        {% endif %}
+
+        {% for num in subjects.paginator.page_range %}
+            {% if subjects.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > subjects.number|add:'-3' and num < subjects.number|add:'3' %}
+                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">{{ num }}</a></li>
+            {% endif %}
+        {% endfor %}
+
+        {% if subjects.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ subjects.next_page_number }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">Siguiente</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ subjects.paginator.num_pages }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">Última &raquo;</a></li>
+        {% endif %}
+    </ul>
+</div>
+{% endif %}
