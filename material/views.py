@@ -252,6 +252,35 @@ def preview_exam(request):
         )
         return redirect('material:create_exam')
 
+    # A diferencia del caso "cero preguntas" de arriba, acá SÍ hay preguntas
+    # — pero puede haber menos de las pedidas por versión (banco de
+    # preguntas insuficiente para esos tópicos). Antes esto pasaba
+    # totalmente en silencio: el examen se armaba "exitosamente" con menos
+    # preguntas de las solicitadas y nadie lo notaba salvo contando a mano.
+    # No se bloquea (el examen parcial puede seguir siendo usable), pero se
+    # avisa siempre en el preview. NO se usa messages.warning acá: esta
+    # pantalla (base_exam_preview.html) es un documento standalone que no
+    # extiende material/base.html, así que no renderiza {% show_messages %}
+    # — el aviso tiene que viajar en el contexto del template, no en la cola
+    # de mensajes de Django.
+    questions_shortfall_warning = ''
+    if questions_per_version > 0:
+        short_versions = [
+            (idx, len(ids)) for idx, ids in enumerate(preview_ids, start=1)
+            if len(ids) < questions_per_version
+        ]
+        if short_versions:
+            if len(short_versions) == 1 and len(preview_ids) == 1:
+                questions_shortfall_warning = (
+                    f'Se pidieron {questions_per_version} preguntas pero solo se encontraron '
+                    f'{short_versions[0][1]} disponibles para los tópicos/preguntas seleccionados.'
+                )
+            else:
+                detalle = ', '.join(f'versión {n}: {c}/{questions_per_version}' for n, c in short_versions)
+                questions_shortfall_warning = (
+                    f'Algunas versiones quedaron con menos preguntas de las pedidas ({questions_per_version} c/u): {detalle}.'
+                )
+
     is_multiversion = len(versions_preview) > 1
     print_preview = request.GET.get('print') == '1'
     questions_texts = [] if is_multiversion else (versions_preview[0]['questions_texts'] if versions_preview else [])
@@ -296,6 +325,7 @@ def preview_exam(request):
 
     context = {
         'exam': exam,
+        'questions_shortfall_warning': questions_shortfall_warning,
         'questions_texts': questions_texts,
         'versions_preview': versions_preview,
         'outcomes_texts': outcomes_texts,
@@ -4539,36 +4569,55 @@ def create_institution_v2(request):
         faculty_formset = FacultyFormSet(request.POST, prefix='faculty')
 
         if all([form.is_valid(), campus_formset.is_valid(), faculty_formset.is_valid()]):
-            with transaction.atomic():
-                institution = form.save()
+            # campus_formset/faculty_formset son formsets planos (no
+            # modelformset_factory): is_valid() valida cada fila contra la
+            # DB por separado, así que dos filas con el MISMO nombre en el
+            # mismo envío (ej. "Sede Central" dos veces) pasan is_valid()
+            # limpio — recién explotan acá abajo, cuando la segunda ya
+            # encuentra a la primera guardada en esta misma transacción
+            # (ValidationError de CampusV2.full_clean(), o IntegrityError
+            # del UniqueConstraint de FacultyV2, que no tiene clean()
+            # propio). Sin este try/except era un 500 crudo que además
+            # perdía TODO el submit (institución + logo + el resto de
+            # sedes/facultades ya tipeadas) por el rollback del atomic().
+            try:
+                with transaction.atomic():
+                    institution = form.save()
 
-                # Guardar logo en Base64 para producción (filesystem efímero)
-                if institution.logo:
-                    import base64
-                    institution.logo.seek(0)
-                    institution.logo_b64 = 'data:image/png;base64,' + base64.b64encode(institution.logo.read()).decode()
-                    institution.save(update_fields=['logo_b64'])
+                    # Guardar logo en Base64 para producción (filesystem efímero)
+                    if institution.logo:
+                        import base64
+                        institution.logo.seek(0)
+                        institution.logo_b64 = 'data:image/png;base64,' + base64.b64encode(institution.logo.read()).decode()
+                        institution.save(update_fields=['logo_b64'])
 
-                UserInstitution.objects.create(user=request.user, institution=institution)
+                    UserInstitution.objects.create(user=request.user, institution=institution)
 
-                # Procesar sedes
-                for campus_form in campus_formset:
-                    if campus_form.cleaned_data.get('name'):
-                        CampusV2.objects.create(
-                            institution=institution,
-                            name=campus_form.cleaned_data['name']
-                        )
+                    # Procesar sedes
+                    for campus_form in campus_formset:
+                        if campus_form.cleaned_data.get('name'):
+                            CampusV2.objects.create(
+                                institution=institution,
+                                name=campus_form.cleaned_data['name']
+                            )
 
-                # Procesar facultades
-                for faculty_form in faculty_formset:
-                    if faculty_form.cleaned_data.get('name'):
-                        FacultyV2.objects.create(
-                            institution=institution,
-                            name=faculty_form.cleaned_data['name']
-                        )
+                    # Procesar facultades
+                    for faculty_form in faculty_formset:
+                        if faculty_form.cleaned_data.get('name'):
+                            FacultyV2.objects.create(
+                                institution=institution,
+                                name=faculty_form.cleaned_data['name']
+                            )
 
-                messages.success(request, 'Institución creada con éxito.', extra_tags='instituciones')
-                return redirect('material:institution_v2_detail', pk=institution.pk)
+                    messages.success(request, 'Institución creada con éxito.', extra_tags='instituciones')
+                    return redirect('material:institution_v2_detail', pk=institution.pk)
+            except (ValidationError, IntegrityError):
+                messages.error(
+                    request,
+                    'No se pudo crear la institución: hay un nombre de sede o facultad repetido en el formulario. '
+                    'Revisá que no haya dos filas con el mismo nombre.',
+                    extra_tags='instituciones',
+                )
     else:
         form = InstitutionV2Form()
         campus_formset = CampusFormSet(prefix='campus')
@@ -6153,20 +6202,24 @@ def generate_oral_exam_questions(oral_exam):
     
     # Crear los grupos
     for group_num in range(1, oral_exam.num_groups + 1):
-        group = OralExamGroup.objects.create(
-            exam_set=oral_exam,
-            group_number=group_num
-        )
-        
+        # Evitar crear grupos vacíos o exceder el total — chequeado ANTES de
+        # crear el OralExamGroup (con num_groups <= total_students ya
+        # garantizado por OralExamForm.clean(), este break no debería
+        # dispararse nunca en la práctica, pero si algún otro caller llega
+        # acá con una combinación rara, que no deje un grupo vacío creado).
+        if students_assigned >= total_students:
+            break
+
         # Determinar cuántos estudiantes van en este grupo
         students_in_this_group = base_students_per_group
         if group_num <= extra_students:  # Los primeros grupos tienen un estudiante extra
             students_in_this_group += 1
-            
-        # Evitar crear grupos vacíos o exceder el total
-        if students_assigned >= total_students:
-            break
-            
+
+        group = OralExamGroup.objects.create(
+            exam_set=oral_exam,
+            group_number=group_num
+        )
+
         actual_students_in_group = min(students_in_this_group, total_students - students_assigned)
         
         # *** ALGORITMO HÍBRIDO CORREGIDO ***

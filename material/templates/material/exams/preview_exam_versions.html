@@ -53,6 +53,11 @@
   {% if wizard_active %}
   {% include 'material/_onb2_banner.html' with onb2_step=6 onb2_step_label="Armar el examen" %}
   {% endif %}
+  {% if questions_shortfall_warning %}
+  <div class="alert alert-warning d-print-none" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ questions_shortfall_warning }}
+  </div>
+  {% endif %}
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">Ver los exámenes</h1>
     <button type="button" class="btn btn-secondary btn-sm" onclick="history.back()">Volver</button>

@@ -1110,6 +1110,8 @@ function displayDocumentResult(data) {
     document.getElementById('resultContent').innerHTML = html;
     updateChapterViewButtons(chapterView);
     updateGenerateButton();
+
+    offerRestoreGeneratedQuestionsBackup();
 }
 
 // Actualiza el botón de generar, la barra de tokens y bloquea capítulos
@@ -1439,6 +1441,118 @@ window._preflightIndices = [];
 window._preflightChapters = [];
 window._activeEventSource = null;
 
+function _resetGenerationButton() {
+    const startBtn = document.getElementById('startGenerationBtn');
+    if (!startBtn) return;
+    startBtn.disabled = false;
+    startBtn.innerHTML = '<i class="fas fa-play"></i> Comenzar';
+}
+
+// ─── Backup de revisión en sessionStorage ──────────────────────────────────
+// Si la sesión vence justo al guardar (ver doSaveQuestions), el fetch sigue
+// el redirect al login y el JSON.parse revienta con un error críptico —
+// hasta ahora, sin ningún respaldo, eso se llevaba puesto todo el trabajo de
+// revisión (aprobar/editar/descartar) de la tanda generada. La clave incluye
+// el contenido/documento actual para no mezclar backups de documentos
+// distintos ni ofrecer uno viejo al entrar a otro documento.
+function _genBackupKey() {
+    const cid = window.currentDocumentData && window.currentDocumentData.contenido_id;
+    const filename = window.currentDocumentData && window.currentDocumentData.filename;
+    return 'educaapp_ai_review_backup_' + (cid || filename || 'sin_id');
+}
+
+function backupGeneratedQuestions() {
+    if (!window.generatedQuestions || window.generatedQuestions.length === 0) return;
+    try {
+        const approvedIndices = Array.from(document.querySelectorAll('.question-approve-checkbox:checked'))
+            .map(cb => parseInt(cb.value, 10));
+        sessionStorage.setItem(_genBackupKey(), JSON.stringify({
+            questions: window.generatedQuestions,
+            approvedIndices,
+            savedAt: Date.now()
+        }));
+    } catch (e) {
+        // sessionStorage lleno o bloqueado (ej. navegación privada) — degradar
+        // sin romper el flujo, el backup es una red de contención, no algo
+        // de lo que dependa la generación en sí.
+        console.warn('No se pudo guardar el backup de preguntas generadas:', e);
+    }
+}
+
+function clearGeneratedQuestionsBackup() {
+    try { sessionStorage.removeItem(_genBackupKey()); } catch (e) { /* ver backupGeneratedQuestions */ }
+}
+
+async function offerRestoreGeneratedQuestionsBackup() {
+    let raw;
+    try {
+        raw = sessionStorage.getItem(_genBackupKey());
+    } catch (e) {
+        return;
+    }
+    if (!raw) return;
+
+    let backup;
+    try {
+        backup = JSON.parse(raw);
+    } catch (e) {
+        clearGeneratedQuestionsBackup();
+        return;
+    }
+    if (!backup || !Array.isArray(backup.questions) || backup.questions.length === 0) {
+        clearGeneratedQuestionsBackup();
+        return;
+    }
+
+    const quiere = await window.EducaAppModal.confirm(
+        `Encontramos ${backup.questions.length} pregunta(s) sin guardar de tu sesión anterior con este documento. ¿Querés recuperarlas?`,
+        { title: 'Trabajo sin guardar', variant: 'info', okLabel: 'Recuperar', cancelLabel: 'Descartar' }
+    );
+    if (!quiere) {
+        clearGeneratedQuestionsBackup();
+        return;
+    }
+
+    window.generatedQuestions = [];
+    document.getElementById('questionsLoadingIndicator').style.display = 'none';
+    document.getElementById('questionsContent').innerHTML = `
+        <div id="streamHeader" class="alert alert-success mb-3">
+            <i class="fas fa-check-circle"></i> <strong>${backup.questions.length} pregunta(s) recuperada(s)</strong>
+            <div class="mt-2">
+                <button class="btn btn-sm btn-outline-primary" onclick="selectAllQuestions(true)">
+                    <i class="fas fa-check-square"></i> Seleccionar todas
+                </button>
+                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="selectAllQuestions(false)">
+                    <i class="fas fa-square"></i> Deseleccionar todas
+                </button>
+            </div>
+        </div>
+        <div id="streamQuestionsList"></div>`;
+    // Se parte de un array vacío y se usa appendGeneratedQuestions (en vez de
+    // asignar backup.questions directamente) para no pushear ese mismo array
+    // sobre sí mismo — ver su definición más abajo.
+    appendGeneratedQuestions(backup.questions);
+
+    if (Array.isArray(backup.approvedIndices)) {
+        const approvedSet = new Set(backup.approvedIndices);
+        document.querySelectorAll('.question-approve-checkbox').forEach(cb => {
+            cb.checked = approvedSet.has(parseInt(cb.value, 10));
+        });
+    }
+
+    new bootstrap.Modal(document.getElementById('questionsModal')).show();
+}
+
+function isSessionExpiredResponse(response) {
+    return response.redirected || /\/accounts\/login|\/login/.test(response.url || '');
+}
+
+document.addEventListener('change', function (e) {
+    if (e.target && e.target.matches && e.target.matches('.question-approve-checkbox')) {
+        backupGeneratedQuestions();
+    }
+});
+
 // Banner no bloqueante para avisos críticos de IA (reemplaza a alert() nativo)
 function showAiNoticeBanner(message, { title = 'Atención', variant = 'warning' } = {}) {
     const container = document.getElementById('aiNoticeBanner');
@@ -1561,6 +1675,17 @@ async function startGeneration() {
     }
     window._selectedQuestionTypes = checkedTypes;
 
+    // Deshabilitar de forma síncrona, antes de cualquier operación async: un
+    // doble clic en "Comenzar" alcanzaba a lanzar dos jobs de generación en
+    // paralelo, cada uno gastando su propia tanda de cupo de IA compartida.
+    // Se rehabilita en cada punto donde termina el stream (ver
+    // _resetGenerationButton más abajo).
+    const startBtn = document.getElementById('startGenerationBtn');
+    if (startBtn) {
+        startBtn.disabled = true;
+        startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+    }
+
     // Cantidad de preguntas
     window._totalQuestions = Math.max(1, Math.min(200, parseInt(document.getElementById('totalQuestionsInput').value) || 20));
 
@@ -1623,6 +1748,18 @@ async function generateStreaming() {
                 contenido_id: window.currentDocumentData.contenido_id || null
             })
         });
+        if (isSessionExpiredResponse(resp)) {
+            document.getElementById('questionsLoadingIndicator').style.display = 'none';
+            _resetGenerationButton();
+            const irALogin = await window.EducaAppModal.confirm(
+                'Tu sesión venció. Iniciá sesión de nuevo para generar preguntas.',
+                { title: 'Sesión vencida', variant: 'warning', okLabel: 'Iniciar sesión', cancelLabel: 'Cerrar' }
+            );
+            if (irALogin) {
+                window.location.href = '{% url "login" %}?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+            }
+            return;
+        }
         const jobData = await resp.json();
         if (!jobData.success) throw new Error(jobData.error || 'Error al iniciar job');
         jobId = jobData.job_id;
@@ -1630,6 +1767,7 @@ async function generateStreaming() {
         document.getElementById('questionsLoadingIndicator').style.display = 'none';
         document.getElementById('questionsContent').innerHTML = `
             <div class="alert alert-danger"><i class="fas fa-times-circle"></i> ${err.message}</div>`;
+        _resetGenerationButton();
         return;
     }
 
@@ -1789,6 +1927,8 @@ async function generateStreaming() {
                     </button>
                 </div>`;
         }
+        backupGeneratedQuestions();
+        _resetGenerationButton();
     };
 
     // ── Fin del stream ──────────────────────────────────────────────────────
@@ -1852,6 +1992,8 @@ async function generateStreaming() {
                 header.after(warn);
             }
         }
+        backupGeneratedQuestions();
+        _resetGenerationButton();
     }
 
     function retryFailedGeneration() {
@@ -1934,6 +2076,8 @@ async function generateStreaming() {
             window._activeEventSource = null;
             document.getElementById('questionsContent').innerHTML =
                 `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> ${msg.message}</div>`;
+            backupGeneratedQuestions();
+            _resetGenerationButton();
 
         } else if (msg.type === 'chunk_error') {
             console.warn('SSE chunk_error:', msg.message);
@@ -1974,6 +2118,8 @@ async function generateStreaming() {
             document.getElementById('questionsContent').innerHTML =
                 `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> Error en la conexión con el servidor.</div>`;
         }
+        backupGeneratedQuestions();
+        _resetGenerationButton();
     };
 }
 
@@ -2215,6 +2361,7 @@ function saveEditedQuestion() {
     const bodyEl = document.getElementById(`questionBody${index}`);
     if (bodyEl) bodyEl.innerHTML = questionBodyHTML(q);
 
+    backupGeneratedQuestions();
     bootstrap.Modal.getInstance(document.getElementById('editQuestionModal')).hide();
 }
 
@@ -2633,10 +2780,27 @@ async function doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, ne
                 contenido_id: window.currentDocumentData.contenido_id || null
             })
         });
-        
+
+        // Si la sesión venció, el fetch siguió el redirect a login y trajo el
+        // HTML de esa página con status 200 — response.json() rompería con un
+        // SyntaxError críptico y, sin el backup de sessionStorage (ver
+        // backupGeneratedQuestions), se perdía toda la revisión hecha.
+        if (isSessionExpiredResponse(response)) {
+            backupGeneratedQuestions();
+            const irALogin = await window.EducaAppModal.confirm(
+                'Tu sesión venció. Tu trabajo de revisión quedó guardado en este navegador — iniciá sesión de nuevo y volvé a esta pantalla para recuperarlo.',
+                { title: 'Sesión vencida', variant: 'warning', okLabel: 'Iniciar sesión', cancelLabel: 'Cerrar' }
+            );
+            if (irALogin) {
+                window.location.href = '{% url "login" %}?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+            }
+            return;
+        }
+
         const data = await response.json();
-        
+
         if (data.success) {
+            clearGeneratedQuestionsBackup();
             {% if wizard_active %}
             // En modo asistente no dejamos el botón de "continuar" perdido acá:
             // avisamos brevemente y devolvemos el foco al wizard (paso 6), que

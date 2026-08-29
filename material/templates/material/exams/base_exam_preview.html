@@ -606,6 +606,11 @@
         <button type="button" id="examTourBtn" title="Recorrido guiado de esta pantalla"><i class="fas fa-question-circle"></i></button>
         {% endif %}
     </div>
+    {% if questions_shortfall_warning %}
+    <div class="no-print" role="alert" style="margin: 0.75rem 1rem 0; padding: 0.65rem 1rem; background: #fff3cd; border: 1px solid #ffe69c; color: #664d03; border-radius: 6px; font-size: 0.9rem;">
+        <i class="fas fa-exclamation-triangle"></i> {{ questions_shortfall_warning }}
+    </div>
+    {% endif %}
     <div class="exam-scroll-outer" id="examScrollOuter">
     <div class="exam-zoom-sizer" id="examZoomSizer">
     <div class="exam-container" id="examContainer">

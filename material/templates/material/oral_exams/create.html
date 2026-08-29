@@ -156,6 +156,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const numGroupsField = document.getElementById('id_num_groups');
     const studentsPerGroupField = document.getElementById('id_students_per_group');
     
+    // Evitar doble clic en "Crear": el submit nativo no se cancela (el
+    // form ya viaja con este mismo evento), solo se bloquea un segundo
+    // click mientras el primero está en vuelo — si el server devuelve
+    // errores de validación, la página recarga y el botón vuelve a
+    // habilitarse solo. Mismo criterio que el flujo de Crear Examen.
+    const oralExamForm = document.getElementById('oral-exam-form');
+    if (oralExamForm) {
+        oralExamForm.addEventListener('submit', function() {
+            const submitBtn = oralExamForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creando...';
+            }
+        });
+    }
+
     // Inicialmente deshabilitar campos que dependen de la secuencia
     disableFieldsAfterSubject();
     

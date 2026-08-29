@@ -1992,9 +1992,29 @@ def save_generated_questions(request):
                 name=new_subtopic_name,
                 topic=default_topic
             )
-        
+
+        # Idempotencia: un reintento de red o un doble envío (ver Fix B en el
+        # frontend, botón de generar) puede mandar este POST más de una vez
+        # con las mismas preguntas — Question no tiene unique_together, así
+        # que sin esto se duplicaban filas. Se compara texto normalizado
+        # dentro del mismo Contenido de origen (o la(s) materia(s) elegidas,
+        # si no hay Contenido), no de forma global.
+        existing_questions_qs = Question.objects.filter(user=request.user, generated_by_ai=True)
+        if contenido_origen:
+            existing_questions_qs = existing_questions_qs.filter(contenido=contenido_origen)
+        else:
+            existing_questions_qs = existing_questions_qs.filter(contenido__isnull=True, subjects__in=selected_subjects)
+        existing_question_texts = set(
+            t.strip() for t in existing_questions_qs.values_list('question_text', flat=True)
+        )
+        skipped_duplicates = 0
+
         # Guardar preguntas aprobadas
         for q_data in approved:
+            question_text = (q_data.get('pregunta') or '').strip()
+            if question_text and question_text in existing_question_texts:
+                skipped_duplicates += 1
+                continue
             question = Question(
                 topic=default_topic,
                 subtopic=default_subtopic,
@@ -2008,11 +2028,11 @@ def save_generated_questions(request):
                 ai_approved=True,
                 contenido=contenido_origen
             )
-            
+
             # Guardar opciones si existen
             if 'opciones' in q_data:
                 question.options = q_data['opciones']
-            
+
             # Guardar información de capítulos fuente
             if 'source_chapters' in q_data:
                 question.source_chapters = q_data['source_chapters']
@@ -2021,9 +2041,15 @@ def save_generated_questions(request):
             question.save()
             question.subjects.set(selected_subjects)
             saved_count += 1
-        
+            if question_text:
+                existing_question_texts.add(question_text)
+
         # Guardar preguntas rechazadas (para registro)
         for q_data in rejected:
+            question_text = (q_data.get('pregunta') or '').strip()
+            if question_text and question_text in existing_question_texts:
+                skipped_duplicates += 1
+                continue
             question = Question(
                 topic=default_topic,
                 subtopic=default_subtopic,
@@ -2037,23 +2063,26 @@ def save_generated_questions(request):
                 ai_approved=False,
                 contenido=contenido_origen
             )
-            
+
             if 'opciones' in q_data:
                 question.options = q_data['opciones']
-            
+
             if 'source_chapters' in q_data:
                 question.source_chapters = q_data['source_chapters']
                 question.source_page = _first_source_page(q_data['source_chapters'])
 
             question.save()
             question.subjects.set(selected_subjects)
-        
+            if question_text:
+                existing_question_texts.add(question_text)
+
         return JsonResponse({
             'success': True,
             'saved_count': saved_count,
             'approved_count': len(approved),
             'rejected_count': len(rejected),
-            'total_count': len(approved) + len(rejected)
+            'total_count': len(approved) + len(rejected),
+            'skipped_duplicates': skipped_duplicates
         })
         
     except Exception as e:

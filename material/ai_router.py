@@ -205,6 +205,7 @@ class OpenAICompatibleBackend:
                         'error': error_text,
                         'text': None,
                         'rate_limit': rate_limit,
+                        'status_code': r.status_code,
                     }
                 data = r.json()
                 choice = data['choices'][0]
@@ -220,7 +221,11 @@ class OpenAICompatibleBackend:
                 }
             except Exception as e:
                 logger.error(f'OpenAI-compatible backend error: {e}')
-                return {'success': False, 'error': str(e), 'text': None}
+                # Distinguido del resto de errores para que DemoRoutingBackend pueda
+                # decidir si vale la pena reintentar con otro proveedor (outage de
+                # red vs. un error de la propia solicitud).
+                is_connection_error = isinstance(e, (requests.exceptions.ConnectionError, requests.exceptions.Timeout))
+                return {'success': False, 'error': str(e), 'text': None, 'connection_error': is_connection_error}
         return {'success': False, 'error': f'Límite de solicitudes de {self.provider} alcanzado (429) tras reintentar.', 'text': None}
 
     @staticmethod
@@ -793,6 +798,18 @@ class DemoRoutingBackend(SharedDemoBackend):
         error = (result.get('error') or '').lower()
         return '429' in error or 'límite' in error or 'limit' in error or 'quota' in error
 
+    @staticmethod
+    def _looks_like_transient_error(result):
+        """Outage genérico de Groq (caído, timeout, 5xx) — no es un error de
+        cupo, pero amerita el mismo reintento con Gemini en vez de fallar la
+        generación entera teniendo un proveedor de respaldo disponible."""
+        if not isinstance(result, dict) or result.get('success'):
+            return False
+        if result.get('connection_error'):
+            return True
+        status_code = result.get('status_code')
+        return isinstance(status_code, int) and 500 <= status_code < 600
+
     def generate(self, *args, images=None, **kwargs):
         # Imágenes: Groq no tiene modelos con visión — van directo a Gemini,
         # y (por diseño) nada que no sea una llamada con imágenes usa Gemini.
@@ -808,9 +825,14 @@ class DemoRoutingBackend(SharedDemoBackend):
         # Texto: Groq primero, siempre que se pueda.
         if self._groq and not self._groq_quota_exhausted():
             result = self._groq.generate(*args, **kwargs)
-            if result.get('success') or not self._looks_like_quota_error(result):
+            if result.get('success'):
                 return result
-            logger.info('Groq sin cupo pese al chequeo previo (error de cupo en caliente) — reintentando con Gemini.')
+            if self._looks_like_quota_error(result):
+                logger.info('Groq sin cupo pese al chequeo previo (error de cupo en caliente) — reintentando con Gemini.')
+            elif self._looks_like_transient_error(result):
+                logger.info('Error transitorio de Groq (conexión/timeout/5xx) — reintentando con Gemini.')
+            else:
+                return result
 
         if self._gemini:
             return self._gemini.generate(*args, **kwargs)

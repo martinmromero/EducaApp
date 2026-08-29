@@ -960,6 +960,16 @@ class OralExamForm(forms.ModelForm):
         if not all([total_students, questions_per_student, topics, subject]):
             return cleaned_data
         
+        # No puede haber más grupos que estudiantes — cada grupo necesita al
+        # menos 1 estudiante. Sin este chequeo, generate_oral_exam_questions
+        # (views.py) termina creando grupos vacíos y menos grupos de los
+        # pedidos (rompe el loop apenas se asignó a todos los estudiantes).
+        if num_groups and total_students and num_groups > total_students:
+            raise ValidationError(
+                f'No puede haber más grupos ({num_groups}) que estudiantes ({total_students}) '
+                f'— cada grupo necesita al menos un estudiante.'
+            )
+
         # Validar que el total de estudiantes sea lógico con la configuración de grupos
         if num_groups and students_per_group:
             calculated_total = num_groups * students_per_group
@@ -1004,18 +1014,35 @@ class OralExamForm(forms.ModelForm):
         total_subtopics = len(subtopics_count)
         total_questions = available_questions.count()
         
-        # Calcular grupos óptimos
-        if students_per_group and questions_per_student:
-            # Para evitar repeticiones, necesitamos al menos tantos subtemas como estudiantes por grupo
+        # Calcular grupos óptimos. OJO: el `students_per_group` que tipeó el
+        # usuario es solo orientativo — create_oral_exam (views.py) lo
+        # recalcula desde cero como ceil(total_students / num_groups) antes
+        # de guardar, ignorando lo que se haya tipeado acá. Validar contra
+        # el crudo podría aprobar una combinación que en los hechos termina
+        # siendo otra — se recalcula el mismo valor "efectivo" acá para
+        # validar lo que realmente se va a usar.
+        effective_students_per_group = (
+            math.ceil(total_students / num_groups) if num_groups else students_per_group
+        )
+        if effective_students_per_group and questions_per_student:
+            # Para evitar repeticiones, necesitamos al menos tantos subtemas
+            # como (estudiantes por grupo × preguntas por estudiante) — cada
+            # estudiante necesita `questions_per_student` subtemas distintos
+            # dentro de su grupo (ver generate_oral_exam_questions, views.py).
             max_students_per_group_by_subtopics = total_subtopics
-            
-            if students_per_group > max_students_per_group_by_subtopics:
-                suggested_groups = math.ceil(total_students / max_students_per_group_by_subtopics)
+            subtopics_needed = effective_students_per_group * questions_per_student
+
+            if subtopics_needed > total_subtopics:
+                suggested_groups = math.ceil(
+                    total_students / max(1, total_subtopics // questions_per_student)
+                )
                 suggested_students_per_group = math.ceil(total_students / suggested_groups)
-                
+
                 raise ValidationError(
-                    f'Con {total_subtopics} sub-tópicos disponibles, el máximo recomendado por grupo es {max_students_per_group_by_subtopics} estudiantes '
-                    f'para evitar repeticiones de tópicos. Sugerencia: {suggested_groups} grupos de {suggested_students_per_group} estudiantes cada uno.'
+                    f'Con {total_subtopics} sub-tópicos disponibles se necesitan {subtopics_needed} '
+                    f'({effective_students_per_group} estudiantes/grupo × {questions_per_student} preguntas/estudiante) '
+                    f'para evitar repeticiones. Sugerencia: {suggested_groups} grupos de {suggested_students_per_group} '
+                    f'estudiantes cada uno, o reducir preguntas por estudiante.'
                 )
         
         # Agregar información útil a los cleaned_data para mostrar en el template

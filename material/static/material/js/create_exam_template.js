@@ -15,6 +15,23 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Todo el guardado real de esta pantalla pasa por el botón "Guardar
+    // Plantilla" (type="button", fetch() propio, más abajo) — el <form>
+    // nativo nunca debería sumitirse solo. Sin este guard, tipear en
+    // cualquier campo de texto y apretar Enter (comportamiento estándar
+    // del navegador en un form sin botón submit real) dispara un submit
+    // nativo que SIEMPRE falla: institution_v2Form fuerza los querysets de
+    // faculty/campus a .none() incondicionalmente (son requeridos vía
+    // cascada AJAX, no por <select> plano), así que ese submit nunca puede
+    // validar. En creación fallaba en silencio total (sin rama else en la
+    // vista); acá se corta antes de que llegue a pasar.
+    const examTemplateFormEl = document.getElementById('examTemplateForm');
+    if (examTemplateFormEl) {
+        examTemplateFormEl.addEventListener('submit', function(e) {
+            e.preventDefault();
+        });
+    }
+
     // =============================================
     // SECCIÓN 1: CONFIGURACIÓN INICIAL Y SELECTORES
     // =============================================
