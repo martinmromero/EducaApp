@@ -6,6 +6,9 @@
 <a href="{% url 'material:create_exam' %}" class="btn btn-primary" id="examNewBtn">
     <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nuevo Examen</span>
 </a>
+<a href="{% url 'material:create_exam_wizard' %}" class="btn btn-outline-primary" id="examWizardBtn">
+    <i class="bi bi-magic me-1"></i><span class="d-none d-sm-inline">Asistente de Examen</span>
+</a>
 {% endblock %}
 
 {% block content %}

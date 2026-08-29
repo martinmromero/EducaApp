@@ -53,3 +53,4 @@ staticfiles/
 # antes de sincronizarse a Postgres — ver material/groq_monitor.py. Estado
 # efímero de runtime, se regenera solo, nunca debe versionarse.
 var/
+media/answers/images/uai.png

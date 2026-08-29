@@ -152,9 +152,9 @@ class CampusV2(models.Model):
         verbose_name = "Sede V2"
         verbose_name_plural = "Sedes V2"
         constraints = [
-            # Condicionado a is_active=True: delete_campus_v2 hace soft-delete
-            # (is_active=False), así que una sede desactivada no debe bloquear
-            # la creación de una sede nueva con el mismo nombre.
+            # Condicionado a is_active=True: una sede desactivada (soft-delete
+            # vía is_active=False) no debe bloquear la creación de una sede
+            # nueva con el mismo nombre.
             models.UniqueConstraint(
                 fields=['institution', 'name'],
                 condition=models.Q(is_active=True),
@@ -217,10 +217,10 @@ class FacultyV2(models.Model):
         verbose_name_plural = "Facultades"
         ordering = ['name']
         constraints = [
-            # Igual criterio que CampusV2: una facultad desactivada
-            # (delete_faculty_v2 hace soft-delete) no debe bloquear crear
-            # una facultad nueva con el mismo nombre. Acotado al catálogo
-            # institucional por el mismo motivo que InstitutionV2 — ver ahí.
+            # Igual criterio que CampusV2: una facultad desactivada (soft-
+            # delete vía is_active=False) no debe bloquear crear una facultad
+            # nueva con el mismo nombre. Acotado al catálogo institucional
+            # por el mismo motivo que InstitutionV2 — ver ahí.
             models.UniqueConstraint(
                 fields=['institution', 'name'],
                 condition=models.Q(is_active=True, es_catalogo_institucional=True),

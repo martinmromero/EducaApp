@@ -4841,48 +4841,6 @@ def institution_v2_detail(request, pk):
     }
     return render(request, 'material/institutions_v2/detail.html', context)
 
-# CANDIDATO A BORRAR (auditoría de navegación 2026-08-03, ver memoria
-# project_sidebar_navigation_redesign): create_campus_v2, create_faculty_v2,
-# edit_campus_v2, delete_campus_v2, edit_faculty_v2 y delete_faculty_v2 (las
-# 6 vistas siguientes con sufijo _v2 sobre Campus/Faculty) apuntan a templates
-# que no existen en el proyecto (material/campuses_v2/*, material/faculties_v2/*)
-# — confirmado que tiran 500 (TemplateDoesNotExist) si se las visita. La
-# gestión real de sedes/facultades ya ocurre vía el formset embebido en
-# edit_institution_v2. Ningún template las enlaza. Conservadas a propósito
-# (no eliminadas) hasta la próxima auditoría de limpieza de código muerto.
-@login_required
-@user_passes_test(is_admin, login_url='/')
-def create_campus_v2(request, institution_id):
-    institution = get_object_or_404(InstitutionV2, pk=institution_id)
-    if request.method == 'POST':
-        form = CampusV2Form(request.POST)
-        if form.is_valid():
-            campus = form.save(commit=False)
-            campus.institution = institution
-            campus.save()
-            messages.success(request, 'Sede creada con éxito.')
-            return redirect('material:institution_v2_detail', pk=institution_id)
-    else:
-        form = CampusV2Form()
-    return render(request, 'material/campuses_v2/create.html', {'form': form, 'institution': institution})
-
-# CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
-@login_required
-@user_passes_test(is_admin, login_url='/')
-def create_faculty_v2(request, institution_id):
-    institution = get_object_or_404(InstitutionV2, pk=institution_id)
-    if request.method == 'POST':
-        form = FacultyV2Form(request.POST)
-        if form.is_valid():
-            faculty = form.save(commit=False)
-            faculty.institution = institution
-            faculty.save()
-            messages.success(request, 'Facultad creada con éxito.')
-            return redirect('material:institution_v2_detail', pk=institution_id)
-    else:
-        form = FacultyV2Form()
-    return render(request, 'material/faculties_v2/create.html', {'form': form, 'institution': institution})
-
 @login_required
 def set_visual_theme(request):
     if request.method != 'POST':
@@ -4913,34 +4871,6 @@ def delete_institution_logo_v2(request, pk):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
 
-# CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
-@login_required
-@user_passes_test(is_admin, login_url='/')
-def edit_campus_v2(request, institution_id, campus_id):
-    institution = get_object_or_404(InstitutionV2, pk=institution_id)
-    campus = get_object_or_404(CampusV2, pk=campus_id, institution=institution)
-    if request.method == 'POST':
-        form = CampusV2Form(request.POST, instance=campus)
-        if form.is_valid():
-            form.save()
-            return redirect('material:institution_v2_detail', pk=institution.pk)
-    else:
-        form = CampusV2Form(instance=campus)
-    return render(request, 'material/campuses_v2/edit.html', {'form': form, 'institution': institution})
-
-# CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
-@login_required
-@user_passes_test(is_admin, login_url='/')
-def delete_campus_v2(request, institution_id, campus_id):
-    institution = get_object_or_404(InstitutionV2, pk=institution_id)
-    campus = get_object_or_404(CampusV2, pk=campus_id, institution=institution)
-    if request.method == 'POST':
-        campus.is_active = False  # Desactivar en lugar de eliminar
-        campus.save()
-        messages.success(request, 'Sede desactivada con éxito.')
-        return redirect('material:institution_v2_detail', pk=institution.pk)
-    return render(request, 'material/campuses_v2/confirm_delete.html', {'campus': campus, 'institution': institution})
-
 @login_required
 def edit_faculty_v2(request, institution_id, faculty_id):
     """Edición mínima (solo nombre) de UNA facultad — separada a propósito
@@ -4965,19 +4895,6 @@ def edit_faculty_v2(request, institution_id, faculty_id):
     else:
         form = FacultyV2Form(instance=faculty)
     return render(request, 'material/faculties_v2/edit.html', {'form': form, 'institution': institution, 'faculty': faculty})
-
-# CANDIDATO A BORRAR — ver nota arriba de create_campus_v2.
-@login_required
-@user_passes_test(is_admin, login_url='/')
-def delete_faculty_v2(request, institution_id, faculty_id):
-    institution = get_object_or_404(InstitutionV2, pk=institution_id)
-    faculty = get_object_or_404(FacultyV2, pk=faculty_id, institution=institution)
-    if request.method == 'POST':
-        faculty.is_active = False  # Desactivar en lugar de eliminar
-        faculty.save()
-        messages.success(request, 'Facultad desactivada con éxito.')
-        return redirect('material:institution_v2_detail', pk=institution.pk)
-    return render(request, 'material/faculties_v2/confirm_delete.html', {'faculty': faculty, 'institution': institution})
 
 def _safe_next_url(request, default):
     """Resuelve a dónde debe volver un botón "Volver" — ?next=... si vino de
@@ -5279,10 +5196,15 @@ def bulk_eliminar_subjects(request):
         messages.success(request, f'Se eliminaron {count} materias exitosamente.', extra_tags='materias')
     return redirect('material:subject_list')
 
-class SubjectDetailView(DetailView):
+class SubjectDetailView(LoginRequiredMixin, DetailView):
     model = Subject
     template_name = 'material/subjects/detail.html'
     context_object_name = 'subject'
+    login_url = '/'
+
+    def get_queryset(self):
+        from .content_visibility import get_visible_subjects
+        return get_visible_subjects(self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -5412,10 +5334,15 @@ def delete_career(request, pk):
         'preview': get_delete_preview(career),
     })
 
-class CareerDetailView(DetailView):
+class CareerDetailView(LoginRequiredMixin, DetailView):
     model = Career
     template_name = 'material/careers/detail.html'
     context_object_name = 'career'
+    login_url = '/'
+
+    def get_queryset(self):
+        from .content_visibility import get_visible_careers
+        return get_visible_careers(self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -5900,14 +5827,15 @@ def add_topic(request):
                 'error': 'Debe seleccionar una materia'
             }, status=400)
             
+        from .content_visibility import get_visible_subjects
         try:
-            subject = Subject.objects.get(id=subject_id)
+            subject = get_visible_subjects(request.user).get(id=subject_id)
         except Subject.DoesNotExist:
             return JsonResponse({
                 'success': False,
                 'error': 'Materia no encontrada'
             }, status=404)
-            
+
         # Verificar duplicados (case insensitive)
         if Topic.objects.filter(name__iexact=name, subject=subject).exists():
             return JsonResponse({
@@ -5960,14 +5888,15 @@ def add_subtopic(request):
                 'error': 'Debe seleccionar un tópico principal'
             }, status=400)
             
+        from .content_visibility import get_visible_subjects
         try:
-            topic = Topic.objects.get(id=topic_id)
+            topic = Topic.objects.get(id=topic_id, subject__in=get_visible_subjects(request.user))
         except Topic.DoesNotExist:
             return JsonResponse({
                 'success': False,
                 'error': 'Tópico no encontrado'
             }, status=404)
-            
+
         # Verificar duplicados
         if Subtopic.objects.filter(name__iexact=name, topic=topic).exists():
             return JsonResponse({
@@ -6688,9 +6617,9 @@ def onboarding_save_step(request):
             if institution_id and body.get('edit_institution'):
                 # Editar institución existente — solo si el usuario YA era
                 # miembro antes de este request (mismo criterio que
-                # edit_institution_v2/delete_campus_v2/etc: no alcanza con
-                # mandar un ID por POST y "unirse" recién acá para poder
-                # editar/borrar sedes y facultades de otra institución).
+                # edit_institution_v2: no alcanza con mandar un ID por POST y
+                # "unirse" recién acá para poder editar sedes y facultades de
+                # otra institución).
                 try:
                     inst = InstitutionV2.objects.get(pk=institution_id, is_active=True)
                     ya_era_miembro = UserInstitution.objects.filter(
@@ -7298,12 +7227,16 @@ def rubric_delete(request, pk):
 
 
 def _can_manage_print_format(user, formato):
+    # Institution-based access se sacó a propósito: favoritear una
+    # institución crea un UserInstitution self-service, sin aprobación (ver
+    # toggle_favorite_institution) — usarlo acá dejaba editar/borrar/marcar
+    # default el formato de CUALQUIER institución con solo favoritearla.
+    # Compartir un formato de verdad ya tiene su propio mecanismo
+    # (compartir_formato, vía Grupos de Confianza), que da visibilidad
+    # (get_visible_print_formats) sin dar permiso de edición.
     if is_admin(user):
         return True
-    if formato.user_id == user.id:
-        return True
-    institution_ids = UserInstitution.objects.filter(user=user).values_list('institution_id', flat=True)
-    return formato.institution_id in institution_ids
+    return formato.user_id == user.id
 
 
 @login_required
@@ -8847,7 +8780,8 @@ def compartir_materia(request, pk):
 
     subject_id = request.POST.get('subject_id')
     if str(subject_id).isdigit():
-        subject = Subject.objects.filter(pk=int(subject_id)).first()
+        from .content_visibility import get_visible_subjects
+        subject = get_visible_subjects(request.user).filter(pk=int(subject_id)).first()
         if subject:
             share, created = ContentShare.objects.get_or_create(
                 group=group, subject=subject, shared_by=request.user, kind='materia',

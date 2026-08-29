@@ -148,15 +148,3 @@ class URLSmokeCrawlTests(TestCase):
         resp = self.as_user.get(reverse('material:create_exam_wizard'))
         self.assertEqual(resp.status_code, 200)
 
-    def test_campus_faculty_v2_dead_code_sigue_muriendo_como_se_espera(self):
-        """Documentado en views.py como CANDIDATO A BORRAR: create/delete de
-        faculty_v2 y los 3 de campus_v2 no tienen template — TemplateDoesNotExist
-        esperado (el test Client de Django re-lanza la excepcion en vez de
-        devolver una response 500). Si esto empieza a andar (200 o ninguna
-        excepcion), alguien agrego los templates sin actualizar el
-        comentario/memoria — no es un bug, es una senal de que el comentario
-        quedo desactualizado."""
-        from django.template.exceptions import TemplateDoesNotExist
-        url = reverse('material:create_faculty_v2', kwargs={'institution_id': self.institucion.pk})
-        with self.assertRaises(TemplateDoesNotExist):
-            self.as_admin.get(url)
