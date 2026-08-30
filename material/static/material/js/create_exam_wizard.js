@@ -5,29 +5,10 @@
 
 document.addEventListener('DOMContentLoaded', function () {
     var CFG = window.EducaAppWizardConfig || { urls: {} };
-    var TOTAL_STEPS = 6;
-    var currentStep = 1;
-    var maxStepReached = 1;
+    var wireCatalogSearch = window.EducaAppWizardCatalogSearch.wireCatalogSearch;
+    var clearCatalogField = window.EducaAppWizardCatalogSearch.clearCatalogField;
 
-    // ── Navegación entre pasos ─────────────────────────────────────────
-    function showStep(n) {
-        document.querySelectorAll('.wiz-step').forEach(function (el) {
-            el.classList.toggle('is-active', parseInt(el.dataset.step, 10) === n);
-        });
-        document.querySelectorAll('.wiz-step-pill').forEach(function (pill) {
-            var pn = parseInt(pill.dataset.stepPill, 10);
-            pill.classList.toggle('is-active', pn === n);
-            pill.classList.toggle('is-done', pn < maxStepReached);
-            pill.classList.toggle('is-reachable', pn <= maxStepReached && pn !== n);
-        });
-        document.getElementById('wizBackBtn').classList.toggle('d-none', n === 1);
-        document.getElementById('wizNextBtn').classList.toggle('d-none', n === TOTAL_STEPS);
-        document.getElementById('wizSubmitBtn').classList.toggle('d-none', n !== TOTAL_STEPS);
-        currentStep = n;
-        if (n === TOTAL_STEPS) renderSummary();
-        window.scrollTo({ top: document.getElementById('wizStepper').offsetTop - 20, behavior: 'smooth' });
-    }
-
+    // ── Navegación entre pasos: motor genérico, ver wizard_engine.js ────
     function validateStep(n) {
         if (n === 2) {
             var subject = document.getElementById('id_subject');
@@ -39,20 +20,10 @@ document.addEventListener('DOMContentLoaded', function () {
         return true;
     }
 
-    document.getElementById('wizNextBtn').addEventListener('click', function () {
-        if (!validateStep(currentStep)) return;
-        var next = Math.min(currentStep + 1, TOTAL_STEPS);
-        maxStepReached = Math.max(maxStepReached, next);
-        showStep(next);
-    });
-    document.getElementById('wizBackBtn').addEventListener('click', function () {
-        showStep(Math.max(currentStep - 1, 1));
-    });
-    document.querySelectorAll('.wiz-step-pill').forEach(function (pill) {
-        pill.addEventListener('click', function () {
-            var n = parseInt(pill.dataset.stepPill, 10);
-            if (n <= maxStepReached) showStep(n);
-        });
+    var wizardCtrl = window.EducaAppWizard.init({
+        totalSteps: 6,
+        onValidateStep: validateStep,
+        onEnterFinalStep: function () { renderSummary(); },
     });
 
     function renderSummary() {
@@ -455,129 +426,6 @@ document.addEventListener('DOMContentLoaded', function () {
     var facultadHidden = document.getElementById('facultad_dropdown');
     var carreraHidden = document.getElementById('carrera_dropdown');
 
-    function debounce(fn, wait) {
-        var t;
-        return function () {
-            var args = arguments;
-            clearTimeout(t);
-            t = setTimeout(function () { fn.apply(null, args); }, wait);
-        };
-    }
-
-    function badgeFor(item) {
-        return item.es_catalogo_institucional === false ? 'Personal' : 'Catálogo';
-    }
-
-    /**
-     * Cablea un buscador de catálogo. Devuelve un objeto con setValue(id, name)
-     * para prefill programático (ver markFromTemplate más abajo).
-     * opts: { searchInput, suggestBox, hiddenInput, nivel, getScopeParams, onClear }
-     */
-    function wireCatalogSearch(opts) {
-        var lastPickedName = '';
-
-        function hideSuggest() {
-            opts.suggestBox.classList.add('d-none');
-            opts.suggestBox.innerHTML = '';
-        }
-
-        function pick(item) {
-            opts.hiddenInput.value = String(item.id);
-            opts.searchInput.value = item.name;
-            lastPickedName = item.name;
-            hideSuggest();
-            opts.hiddenInput.dispatchEvent(new Event('change'));
-        }
-
-        function renderResults(items) {
-            opts.suggestBox.innerHTML = '';
-            if (!items.length) {
-                var empty = document.createElement('div');
-                empty.className = 'wiz-catalog-suggest-empty';
-                empty.textContent = 'Sin coincidencias — se usa el texto tipeado tal cual. ';
-                // No se crea catálogo desde acá (eso queda para Solicitar
-                // Alta, con su flujo de aprobación) — solo se enlaza. Abre
-                // en pestaña nueva para no perder el examen a medio armar.
-                if (opts.nivel && CFG.urls.catalogRequestCreateBase) {
-                    var link = document.createElement('a');
-                    link.href = CFG.urls.catalogRequestCreateBase + '?tipo=' + encodeURIComponent(opts.nivel);
-                    link.target = '_blank';
-                    link.rel = 'noopener';
-                    link.textContent = 'Solicitar alta al catálogo';
-                    empty.appendChild(link);
-                }
-                opts.suggestBox.appendChild(empty);
-            } else {
-                items.forEach(function (item) {
-                    var row = document.createElement('div');
-                    row.className = 'wiz-catalog-suggest-item';
-                    var name = document.createElement('span');
-                    name.textContent = item.name;
-                    var badge = document.createElement('span');
-                    badge.className = 'badge bg-secondary-subtle text-secondary-emphasis wiz-catalog-suggest-badge';
-                    badge.textContent = badgeFor(item);
-                    row.appendChild(name);
-                    row.appendChild(badge);
-                    row.addEventListener('mousedown', function (e) {
-                        e.preventDefault(); // evita perder el foco antes del click
-                        pick(item);
-                    });
-                    opts.suggestBox.appendChild(row);
-                });
-            }
-            opts.suggestBox.classList.remove('d-none');
-        }
-
-        var search = debounce(function (q) {
-            var scope = (opts.getScopeParams && opts.getScopeParams()) || {};
-            if (opts.requiresScope && Object.keys(scope).length === 0) {
-                hideSuggest();
-                return;
-            }
-            var params = new URLSearchParams(Object.assign({ nivel: opts.nivel, q: q }, scope));
-            fetch(CFG.urls.checkCatalogDuplicate + '?' + params.toString())
-                .then(function (r) { return r.json(); })
-                .then(renderResults)
-                .catch(function () { hideSuggest(); });
-        }, 250);
-
-        opts.searchInput.addEventListener('input', function () {
-            var q = this.value.trim();
-            // Cualquier tipeo invalida la elección previa hasta que se
-            // confirme una nueva (con click o dejando el texto libre al salir).
-            if (opts.hiddenInput.value && this.value !== lastPickedName) {
-                opts.hiddenInput.value = '';
-                if (opts.onClear) opts.onClear();
-            }
-            if (q.length < 2) { hideSuggest(); return; }
-            search(q);
-        });
-
-        opts.searchInput.addEventListener('blur', function () {
-            // Un pequeño delay para que el mousedown de una sugerencia
-            // llegue a dispararse antes de que el blur la oculte.
-            setTimeout(function () {
-                hideSuggest();
-                var typed = opts.searchInput.value.trim();
-                if (!opts.hiddenInput.value && typed) {
-                    // No se eligió ninguna sugerencia: se usa el texto tal
-                    // cual (ver _resolve_name en views.py, que ya acepta
-                    // cualquier string que no sea un ID numérico).
-                    opts.hiddenInput.value = typed;
-                    opts.hiddenInput.dispatchEvent(new Event('change'));
-                }
-            }, 150);
-        });
-
-        return {
-            setValue: function (id, name) {
-                opts.hiddenInput.value = String(id);
-                opts.searchInput.value = name;
-                lastPickedName = name;
-            },
-        };
-    }
-
     var institucionSearch = wireCatalogSearch({
         searchInput: document.getElementById('institucion_search'),
         suggestBox: document.getElementById('institucion_suggest'),
@@ -602,11 +450,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return /^\d+$/.test(facultadHidden.value) ? { facultad_id: facultadHidden.value } : {};
         },
     });
-
-    function clearCatalogField(searchInput, hiddenInput) {
-        searchInput.value = '';
-        hiddenInput.value = '';
-    }
 
     // ── Institución/facultad/carrera sugeridas a partir de la materia ────
     // La materia ya se eligió en el paso 2 — en vez de arrancar los 3
@@ -906,5 +749,5 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     window.toggleTextbox = toggleTextboxGlobal;
 
-    showStep(1);
+    wizardCtrl.goToStep(1);
 });

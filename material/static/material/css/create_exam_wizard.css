@@ -1,8 +1,10 @@
-/* create_exam_wizard.css — Asistente paso a paso para "Crear Examen".
-   Página nueva e independiente de create_exam.html (ver material/views.py,
-   create_exam_wizard). Paleta de colores por tópico: 8 tonos categóricos
-   fijos (mismo orden light/dark que el resto del sitio no define, así que
-   se declara acá), nunca se generan tonos nuevos para un 9° tópico en
+/* create_exam_wizard.css — Solo lo específico de "Crear Examen" dentro del
+   asistente paso a paso (ver material/views.py, create_exam_wizard). El
+   chrome genérico del wizard (stepper, tarjetas de paso, nav, buscador de
+   catálogo, resumen) vive en wizard_common.css — se carga junto con este,
+   no lo duplica. Paleta de colores por tópico: 8 tonos categóricos fijos
+   (mismo orden light/dark que el resto del sitio no define, así que se
+   declara acá), nunca se generan tonos nuevos para un 9° tópico en
    adelante — ver --wiz-topic-other. */
 
 :root {
@@ -28,104 +30,6 @@
     --wiz-topic-other: #898781;
 }
 
-.wiz-wrap {
-    max-width: 960px;
-    margin: 0 auto;
-}
-
-/* ── Stepper ─────────────────────────────────────────────────────────── */
-.wiz-stepper {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
-    margin-bottom: 1.5rem;
-}
-.wiz-step-pill {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    border: 1px solid var(--bs-border-color);
-    background: var(--bs-body-bg);
-    border-radius: 2rem;
-    padding: .35rem .9rem .35rem .4rem;
-    font-size: .85rem;
-    color: var(--bs-secondary-color);
-    cursor: default;
-    flex: 1 1 auto;
-    min-width: 0;
-}
-.wiz-step-pill.is-reachable { cursor: pointer; }
-.wiz-step-pill .wiz-step-num {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.6em;
-    height: 1.6em;
-    border-radius: 50%;
-    background: var(--bs-tertiary-bg);
-    color: var(--bs-secondary-color);
-    font-size: .8em;
-    flex-shrink: 0;
-}
-.wiz-step-pill .wiz-step-label {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.wiz-step-pill.is-active {
-    border-color: var(--bs-primary);
-    background: var(--edu-accent-soft-bg);
-    color: var(--edu-accent-soft-text);
-    font-weight: 600;
-}
-.wiz-step-pill.is-active .wiz-step-num {
-    background: var(--bs-primary);
-    color: #fff;
-}
-.wiz-step-pill.is-done .wiz-step-num {
-    background: #198754;
-    color: #fff;
-}
-.wiz-step-pill.is-done .wiz-step-num::before {
-    content: "\2713";
-}
-.wiz-step-pill.is-done .wiz-step-num span { display: none; }
-
-@media (max-width: 767px) {
-    .wiz-step-pill .wiz-step-label { display: none; }
-    .wiz-step-pill { flex: 0 0 auto; padding: .35rem; }
-}
-
-/* ── Pasos ───────────────────────────────────────────────────────────── */
-.wiz-step {
-    display: none;
-}
-.wiz-step.is-active {
-    display: block;
-}
-.wiz-step-card {
-    border: 1px solid var(--bs-border-color);
-    border-radius: .75rem;
-    padding: 1.5rem;
-    background: var(--bs-body-bg);
-    margin-bottom: 1.25rem;
-}
-.wiz-step-intro {
-    color: var(--bs-secondary-color);
-    font-size: .92rem;
-    margin-bottom: 1.25rem;
-}
-.wiz-subsection {
-    border-top: 1px dashed var(--bs-border-color);
-    padding-top: 1rem;
-    margin-top: 1.25rem;
-}
-.wiz-subsection-title {
-    font-weight: 600;
-    font-size: .95rem;
-    margin-bottom: .75rem;
-}
-
 /* Campo autocompletado desde la plantilla elegida: mismo lenguaje visual
    que el resaltado "Del asistente" de create_exam.html (ver
    onb2-from-wizard en _onb2_banner.html), reutilizado acá para "vino de la
@@ -138,68 +42,6 @@
 .wiz-badge-template {
     font-size: .65rem;
     vertical-align: middle;
-}
-
-.wiz-toggle-more {
-    background: none;
-    border: none;
-    color: var(--bs-primary);
-    font-size: .88rem;
-    padding: 0;
-}
-
-/* Buscador de institución/facultad/carrera (mismo motor que Solicitar Alta:
-   check_catalog_duplicate) — ver create_exam_wizard.js wireCatalogSearch(). */
-.wiz-catalog-search {
-    position: relative;
-}
-.wiz-catalog-suggest {
-    position: absolute;
-    z-index: 20;
-    top: 100%;
-    left: 0;
-    right: 0;
-    margin-top: .2rem;
-    background: var(--bs-body-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: .375rem;
-    box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .12);
-    max-height: 220px;
-    overflow-y: auto;
-}
-.wiz-catalog-suggest-item {
-    padding: .45rem .75rem;
-    cursor: pointer;
-    font-size: .9rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .5rem;
-}
-.wiz-catalog-suggest-item:hover,
-.wiz-catalog-suggest-item.is-active {
-    background: var(--bs-tertiary-bg);
-}
-.wiz-catalog-suggest-badge {
-    font-size: .68rem;
-}
-.wiz-catalog-suggest-empty {
-    padding: .5rem .75rem;
-    font-size: .85rem;
-    color: var(--bs-secondary-color);
-}
-.wiz-catalog-suggest-empty a {
-    display: block;
-    margin-top: .25rem;
-}
-
-/* ── Navegación inferior ─────────────────────────────────────────────── */
-.wiz-nav {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: .75rem;
-    margin-top: 1rem;
 }
 
 /* ── Selector de tópicos ─────────────────────────────────────────────── */
@@ -292,17 +134,6 @@
     border: 1px dashed var(--bs-border-color);
     border-radius: .5rem;
 }
-
-/* ── Resumen final (revisión antes de vista previa) ─────────────────── */
-.wiz-summary {
-    background: var(--bs-tertiary-bg);
-    border-radius: .5rem;
-    padding: 1rem 1.25rem;
-    margin-top: 1.25rem;
-    font-size: .9rem;
-}
-.wiz-summary dt { color: var(--bs-secondary-color); font-weight: 500; }
-.wiz-summary dd { margin-bottom: .5rem; }
 
 .resolucion-grid-wiz {
     column-count: 1;

@@ -1,0 +1,179 @@
+{% extends 'material/base.html' %}
+{% load static %}
+{% block body_extra_attrs %}data-tour-page="create_exam_template_wizard"{% endblock %}
+{% block page_title %}<i class="bi bi-magic me-2"></i>Asistente: Plantilla de examen{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'material/css/wizard_common.css' %}">
+
+<div class="wiz-wrap">
+    <p class="text-muted mb-3">
+        Un paso a la vez para armar una plantilla de examen. Se puede volver atrás en cualquier momento;
+        nada se guarda hasta el último paso.
+        <a href="{% url 'material:create_exam_template' %}" class="ms-1">Usar la pantalla completa de siempre</a>
+    </p>
+
+    <nav class="wiz-stepper" id="wizStepper" aria-label="Pasos del asistente">
+        <div class="wiz-step-pill is-active" data-step-pill="1"><span class="wiz-step-num"><span>1</span></span><span class="wiz-step-label">Institución</span></div>
+        <div class="wiz-step-pill" data-step-pill="2"><span class="wiz-step-num"><span>2</span></span><span class="wiz-step-label">Materia y profesor</span></div>
+        <div class="wiz-step-pill" data-step-pill="3"><span class="wiz-step-num"><span>3</span></span><span class="wiz-step-label">Resultados y rúbricas</span></div>
+        <div class="wiz-step-pill" data-step-pill="4"><span class="wiz-step-num"><span>4</span></span><span class="wiz-step-label">Nombre y revisión</span></div>
+    </nav>
+
+    <form id="templateWizardForm">
+        {% csrf_token %}
+
+        <!-- PASO 1: Institución / Facultad / Carrera / Sede -->
+        <div class="wiz-step is-active" data-step="1">
+            <div class="wiz-step-card">
+                <h4>¿En qué institución se va a usar?</h4>
+                <p class="wiz-step-intro">
+                    Institución, facultad y carrera van en el encabezado impreso y son obligatorias.
+                    La sede es opcional.
+                </p>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_institution">Institución</label>
+                        <select class="form-select" name="institution" id="id_institution" required>
+                            <option value="">Seleccionar institución</option>
+                            {% for institucion in institutions %}
+                                <option value="{{ institucion.id }}">{{ institucion.name }}</option>
+                            {% endfor %}
+                        </select>
+                        {% if not institutions %}
+                        <p class="text-muted small mt-2 mb-0">
+                            Todavía no tenés ninguna institución propia.
+                            <a href="{% url 'material:create_institution_v2' %}" target="_blank" rel="noopener">Crear una</a> primero.
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_faculty">Facultad</label>
+                        <select class="form-select" name="faculty" id="id_faculty" required disabled>
+                            <option value="">Elegir institución primero</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_career">Carrera</label>
+                        <select class="form-select" name="career" id="id_career" required disabled>
+                            <option value="">Elegir facultad primero</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_campus">Sede <span class="text-muted fw-normal">(opcional)</span></label>
+                        <select class="form-select" name="campus" id="id_campus" disabled>
+                            <option value="">Sin sede específica</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 2: Materia, profesor, formato -->
+        <div class="wiz-step" data-step="2">
+            <div class="wiz-step-card">
+                <h4>¿Qué materia se va a evaluar?</h4>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_subject">Materia</label>
+                        <select class="form-select" name="subject" id="id_subject" required>
+                            <option value="">Seleccionar materia</option>
+                            {% for materia in subjects %}
+                                <option value="{{ materia.id }}">{{ materia.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_professor">Profesor <span class="text-muted fw-normal">(opcional)</span></label>
+                        <select class="form-select" name="professor" id="id_professor">
+                            <option value="">Sin especificar</option>
+                            {% for profesor in professors %}
+                                <option value="{{ profesor.id }}">{{ profesor.get_full_name|default:profesor.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_print_format">Formato de impresión <span class="text-muted fw-normal">(opcional)</span></label>
+                        <select class="form-select" name="print_format" id="id_print_format">
+                            <option value="">Usar el predeterminado (institución/usuario)</option>
+                            {% for formato in print_formats %}
+                                <option value="{{ formato.id }}">{{ formato.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 3: Resultados de aprendizaje y rúbricas -->
+        <div class="wiz-step" data-step="3">
+            <div class="wiz-step-card">
+                <h4>Resultados de aprendizaje y rúbricas</h4>
+                <p class="wiz-step-intro">Ambos son opcionales — se pueden agregar después editando la plantilla.</p>
+                <label class="form-label">Resultados de aprendizaje</label>
+                <div id="wizOutcomesEmpty" class="text-muted small border rounded p-3 text-center mb-3">
+                    Esta materia todavía no tiene resultados de aprendizaje cargados.
+                </div>
+                <div id="wizOutcomesList" class="d-none border rounded p-2 mb-3" style="max-height: 200px; overflow-y: auto;"></div>
+
+                {% if rubrics %}
+                <label class="form-label">Rúbricas</label>
+                <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                    {% for rubrica in rubrics %}
+                    <div class="form-check">
+                        <input class="form-check-input rubric-checkbox" type="checkbox" value="{{ rubrica.id }}" id="rubric_cb_{{ rubrica.id }}">
+                        <label class="form-check-label" for="rubric_cb_{{ rubrica.id }}">{{ rubrica.title }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted small mb-0">
+                    Todavía no hay ninguna rúbrica creada. <a href="{% url 'material:rubric_create' %}" target="_blank" rel="noopener">Crear una</a>
+                </p>
+                {% endif %}
+
+                <div class="mt-3">
+                    <label class="form-label" for="id_notes">Notas y recomendaciones <span class="text-muted fw-normal">(opcional)</span></label>
+                    <textarea class="form-control" name="notes_and_recommendations" id="id_notes" rows="3"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 4: Nombre y revisión -->
+        <div class="wiz-step" data-step="4">
+            <div class="wiz-step-card">
+                <h4>Nombre de la plantilla</h4>
+                <input type="text" class="form-control" name="name" id="id_name" placeholder="Ej: Parcial 1 - Comisión A (opcional)">
+                <div class="wiz-summary" id="wizSummary"></div>
+            </div>
+        </div>
+
+        <div class="wiz-nav">
+            <button type="button" class="btn btn-outline-secondary" id="wizBackBtn">
+                <i class="bi bi-arrow-left me-1"></i>Atrás
+            </button>
+            <a href="{% url 'material:create_exam_template_wizard' %}" class="text-muted small">Empezar de nuevo</a>
+            <button type="button" class="btn btn-primary" id="wizNextBtn">
+                Siguiente<i class="bi bi-arrow-right ms-1"></i>
+            </button>
+            <button type="button" class="btn btn-success d-none" id="wizSubmitBtn">
+                Crear plantilla<i class="bi bi-check2 ms-1"></i>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+window.EducaAppTemplateWizardConfig = {
+    urls: {
+        getFacultiesByInstitutionBase: "/get_faculties_by_institution/",
+        getCareersByFacultyBase: "/get-careers-by-faculty/",
+        getCampusesByInstitutionBase: "/get_campuses_by_institution/",
+        getLearningOutcomes: "{% url 'material:get_learning_outcomes' %}",
+        saveExamTemplate: "{% url 'material:save_exam_template' %}",
+        listExamTemplates: "{% url 'material:list_exam_templates' %}"
+    }
+};
+</script>
+<script src="{% static 'material/js/wizard_engine.js' %}"></script>
+<script src="{% static 'material/js/create_exam_template_wizard.js' %}"></script>
+{% endblock %}

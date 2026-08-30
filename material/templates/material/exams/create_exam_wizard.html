@@ -3,6 +3,7 @@
 {% block body_extra_attrs %}data-tour-page="create_exam_wizard"{% endblock %}
 {% block page_title %}<i class="bi bi-magic me-2"></i>Asistente: Nuevo examen{% endblock %}
 {% block content %}
+<link rel="stylesheet" href="{% static 'material/css/wizard_common.css' %}">
 <link rel="stylesheet" href="{% static 'material/css/create_exam_wizard.css' %}">
 
 <div class="wiz-wrap">
@@ -371,5 +372,7 @@ window.EducaAppWizardConfig = {
     }
 };
 </script>
+<script src="{% static 'material/js/wizard_engine.js' %}"></script>
+<script src="{% static 'material/js/wizard_catalog_search.js' %}"></script>
 <script src="{% static 'material/js/create_exam_wizard.js' %}"></script>
 {% endblock %}

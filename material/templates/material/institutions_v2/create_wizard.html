@@ -1,0 +1,125 @@
+{% extends 'material/base.html' %}
+{% load static %}
+{% block body_extra_attrs %}data-tour-page="create_institution_v2_wizard"{% endblock %}
+{% block page_title %}<i class="bi bi-magic me-2"></i>Asistente: Nueva institución{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'material/css/wizard_common.css' %}">
+
+<div class="wiz-wrap">
+    <p class="text-muted mb-3">
+        Un paso a la vez para dar de alta una institución completa, con sus sedes y facultades.
+        Se puede volver atrás en cualquier momento; nada se guarda hasta el último paso.
+        <a href="{% url 'material:create_institution_v2' %}" class="ms-1">Usar la pantalla completa de siempre</a>
+    </p>
+
+    <nav class="wiz-stepper" id="wizStepper" aria-label="Pasos del asistente">
+        <div class="wiz-step-pill is-active" data-step-pill="1"><span class="wiz-step-num"><span>1</span></span><span class="wiz-step-label">Institución</span></div>
+        <div class="wiz-step-pill" data-step-pill="2"><span class="wiz-step-num"><span>2</span></span><span class="wiz-step-label">Sedes</span></div>
+        <div class="wiz-step-pill" data-step-pill="3"><span class="wiz-step-num"><span>3</span></span><span class="wiz-step-label">Facultades</span></div>
+        <div class="wiz-step-pill" data-step-pill="4"><span class="wiz-step-num"><span>4</span></span><span class="wiz-step-label">Revisión</span></div>
+    </nav>
+
+    <form method="post" action="{% url 'material:create_institution_v2' %}" enctype="multipart/form-data" id="institutionWizardForm">
+        {% csrf_token %}
+
+        <!-- PASO 1: Nombre, sigla, logo -->
+        <div class="wiz-step is-active" data-step="1">
+            <div class="wiz-step-card">
+                <h4>¿Cómo se llama la institución?</h4>
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label" for="id_name">Nombre</label>
+                        <input type="text" class="form-control" name="name" id="id_name" minlength="2" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="id_sigla">Sigla <span class="text-muted fw-normal">(opcional)</span></label>
+                        <input type="text" class="form-control" name="sigla" id="id_sigla" placeholder="Ej: UBA, UAI">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label" for="id_logo">Logo <span class="text-muted fw-normal">(opcional)</span></label>
+                        <input type="file" class="form-control" name="logo" id="id_logo" accept=".jpg,.jpeg,.png,.svg">
+                        <div class="form-text">JPG, PNG o SVG. Máximo 2MB.</div>
+                        <div id="wizLogoError"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 2: Sedes -->
+        <div class="wiz-step" data-step="2">
+            <div class="wiz-step-card">
+                <h4>¿Tiene más de una sede?</h4>
+                <p class="wiz-step-intro">Opcional — se puede dejar en blanco y agregar sedes después.</p>
+                <div id="wizCampusContainer">
+                    {{ campus_formset.management_form }}
+                    {% for campus_form in campus_formset.forms %}
+                        <div class="wiz-formset-row campus-entry mb-2 p-3 border rounded">
+                            <div class="row align-items-center g-2">
+                                <div class="col-10">
+                                    <input type="text" class="form-control" name="{{ campus_form.name.html_name }}" id="{{ campus_form.name.id_for_label }}" placeholder="Nombre de la sede">
+                                </div>
+                                <div class="col-2 text-end">
+                                    <button type="button" class="btn btn-outline-danger btn-sm wiz-remove-campus"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="wizAddCampus">
+                    <i class="bi bi-plus-circle me-1"></i>Agregar sede
+                </button>
+            </div>
+        </div>
+
+        <!-- PASO 3: Facultades -->
+        <div class="wiz-step" data-step="3">
+            <div class="wiz-step-card">
+                <h4>¿Qué facultades tiene?</h4>
+                <p class="wiz-step-intro">Opcional — se puede dejar en blanco y agregar facultades después.</p>
+                <div id="wizFacultyContainer">
+                    {{ faculty_formset.management_form }}
+                    {% for faculty_form in faculty_formset.forms %}
+                        <div class="wiz-formset-row faculty-entry mb-2 p-3 border rounded">
+                            <div class="row align-items-center g-2">
+                                <div class="col-10">
+                                    <input type="text" class="form-control" name="{{ faculty_form.name.html_name }}" id="{{ faculty_form.name.id_for_label }}" placeholder="Nombre de la facultad">
+                                </div>
+                                <div class="col-2 text-end">
+                                    <button type="button" class="btn btn-outline-danger btn-sm wiz-remove-faculty"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="wizAddFaculty">
+                    <i class="bi bi-plus-circle me-1"></i>Agregar facultad
+                </button>
+            </div>
+        </div>
+
+        <!-- PASO 4: Revisión -->
+        <div class="wiz-step" data-step="4">
+            <div class="wiz-step-card">
+                <h4>Revisar antes de crear</h4>
+                <div class="wiz-summary" id="wizSummary"></div>
+            </div>
+        </div>
+
+        <div class="wiz-nav">
+            <button type="button" class="btn btn-outline-secondary" id="wizBackBtn">
+                <i class="bi bi-arrow-left me-1"></i>Atrás
+            </button>
+            <a href="{% url 'material:create_institution_v2_wizard' %}" class="text-muted small">Empezar de nuevo</a>
+            <button type="button" class="btn btn-primary" id="wizNextBtn">
+                Siguiente<i class="bi bi-arrow-right ms-1"></i>
+            </button>
+            <button type="submit" class="btn btn-success d-none" id="wizSubmitBtn">
+                Crear institución<i class="bi bi-check2 ms-1"></i>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script src="{% static 'material/js/wizard_engine.js' %}"></script>
+<script src="{% static 'material/js/create_institution_v2_wizard.js' %}"></script>
+{% endblock %}

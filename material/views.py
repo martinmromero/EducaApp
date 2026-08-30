@@ -2056,6 +2056,46 @@ def save_exam_from_session(request):
     return redirect(success_redirect[0], **success_redirect[1])
 
 @login_required
+def create_exam_template_wizard(request):
+    """Asistente paso a paso para armar una Plantilla de Examen.
+
+    Mismo criterio que create_exam_wizard/create_oral_exam_wizard: página
+    nueva e independiente de create_exam_template (no la reemplaza), el
+    <form> de acá postea directo a 'material:create_exam_template' con los
+    mismos nombres de campo, así que reutiliza sin tocarla toda la
+    validación de ExamTemplateForm. Esta vista solo arma el contexto para
+    el GET.
+
+    A diferencia de create_exam_wizard (que busca institución/facultad/
+    carrera en TODO el catálogo con texto libre, porque ahí son solo texto
+    de encabezado), acá institution/faculty/career/subject son FK reales y
+    obligatorias en el modelo (ExamTemplate, on_delete=PROTECT) — el
+    asistente usa selects en cascada acotados a las instituciones del
+    usuario, igual que el formulario clásico, no el buscador de catálogo
+    libre del wizard de examen.
+    """
+    from .content_visibility import get_visible_subjects, get_visible_rubrics
+    from .print_format_utils import get_visible_print_formats
+
+    institutions = InstitutionV2.objects.filter(
+        userinstitution__user=request.user, is_active=True
+    )
+    subjects = get_visible_subjects(request.user)
+    print_formats = get_visible_print_formats(request.user)
+    rubrics = get_visible_rubrics(request.user)
+    professors = User.objects.filter(is_active=True).exclude(profile__is_training_account=True)
+
+    context = {
+        'institutions': institutions,
+        'subjects': subjects,
+        'print_formats': print_formats,
+        'rubrics': rubrics,
+        'professors': professors,
+    }
+    return render(request, 'material/exams/create_exam_template_wizard.html', context)
+
+
+@login_required
 def create_exam_template(request):
     from .content_visibility import get_visible_subjects
 
@@ -4559,6 +4599,27 @@ def institution_v2_list(request):
 
 @login_required
 @user_passes_test(is_admin, login_url='/')
+def create_institution_v2_wizard(request):
+    """Asistente paso a paso para crear una Institución (con sedes/facultades
+    opcionales). Mismo criterio que los otros wizards: página nueva e
+    independiente de create_institution_v2, GET-only acá — el <form> postea
+    directo a 'material:create_institution_v2' con los mismos nombres de
+    campo (incluidos los formsets de sedes/facultades, mismo prefix/manejo
+    de índices que institutions_v2/create.html), así que reutiliza sin
+    tocarla toda la validación real de esa vista (incluido el fix de
+    duplicados de hoy)."""
+    CampusFormSet = formset_factory(CampusV2Form, extra=1)
+    FacultyFormSet = formset_factory(FacultyV2Form, extra=1)
+    context = {
+        'form': InstitutionV2Form(),
+        'campus_formset': CampusFormSet(prefix='campus'),
+        'faculty_formset': FacultyFormSet(prefix='faculty'),
+    }
+    return render(request, 'material/institutions_v2/create_wizard.html', context)
+
+
+@login_required
+@user_passes_test(is_admin, login_url='/')
 def create_institution_v2(request):
     CampusFormSet = formset_factory(CampusV2Form, extra=1)
     FacultyFormSet = formset_factory(FacultyV2Form, extra=1)
@@ -6025,8 +6086,17 @@ def validate_oral_exam(request):
         
         total_subtopics = len(subtopics_count)
         total_questions = available_questions.count()
-        max_students_per_group = total_subtopics  # Máximo para evitar repeticiones
-        
+        # Mismo criterio que OralExamForm.clean() (forms.py): cada estudiante
+        # necesita `questions_per_student` subtemas DISTINTOS dentro de su
+        # grupo para evitar repeticiones — el máximo de estudiantes por
+        # grupo no es "un subtema por estudiante" sin más, hay que dividir
+        # por cuántos subtemas consume cada uno.
+        try:
+            questions_per_student_int = int(questions_per_student) or 1
+        except (TypeError, ValueError):
+            questions_per_student_int = 1
+        max_students_per_group = total_subtopics // questions_per_student_int
+
         return JsonResponse({
             'success': True,
             'info': {
@@ -6041,6 +6111,33 @@ def validate_oral_exam(request):
         return JsonResponse({'success': False, 'error': 'Formato JSON inválido'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def create_oral_exam_wizard(request):
+    """Asistente paso a paso para armar un cuestionario oral.
+
+    Mismo criterio que create_exam_wizard: página nueva e independiente de
+    create_oral_exam (no la reemplaza), el <form> de acá apunta su action al
+    POST de 'material:create_oral_exam' con los mismos nombres de campo, así
+    que reutiliza sin tocarla toda la validación ya existente en
+    OralExamForm (incluida la de hoy: num_groups <= total_students y
+    subtemas suficientes para estudiantes_por_grupo × preguntas_por_estudiante).
+    Esta vista solo arma el contexto para el GET.
+    """
+    from .models import Subject
+
+    # Mismo criterio que OralExamForm.__init__ (forms.py): materias con al
+    # menos una pregunta propia — no se reutiliza get_visible_questions acá
+    # a propósito, para no ofrecer una materia en el asistente que el form
+    # clásico (al que este asistente postea) después rechazaría por no estar
+    # en su queryset.
+    materias = Subject.objects.filter(questions__user=request.user).distinct()
+
+    context = {
+        'materias': materias,
+    }
+    return render(request, 'material/oral_exams/create_oral_exam_wizard.html', context)
+
 
 @login_required
 def create_oral_exam(request):

@@ -1,0 +1,121 @@
+{% extends 'material/base.html' %}
+{% load static %}
+{% block body_extra_attrs %}data-tour-page="create_oral_exam_wizard"{% endblock %}
+{% block page_title %}<i class="bi bi-magic me-2"></i>Asistente: Cuestionario oral{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'material/css/wizard_common.css' %}">
+
+<div class="wiz-wrap">
+    <p class="text-muted mb-3">
+        Un paso a la vez para armar un cuestionario oral. Se puede volver atrás en cualquier momento;
+        nada se guarda hasta el último paso.
+        <a href="{% url 'material:create_oral_exam' %}" class="ms-1">Usar la pantalla completa de siempre</a>
+    </p>
+
+    <nav class="wiz-stepper" id="wizStepper" aria-label="Pasos del asistente">
+        <div class="wiz-step-pill is-active" data-step-pill="1"><span class="wiz-step-num"><span>1</span></span><span class="wiz-step-label">Materia y tópicos</span></div>
+        <div class="wiz-step-pill" data-step-pill="2"><span class="wiz-step-num"><span>2</span></span><span class="wiz-step-label">Alumnos y grupos</span></div>
+        <div class="wiz-step-pill" data-step-pill="3"><span class="wiz-step-num"><span>3</span></span><span class="wiz-step-label">Nombre y revisión</span></div>
+    </nav>
+
+    <form method="post" action="{% url 'material:create_oral_exam' %}" id="oralWizardForm">
+        {% csrf_token %}
+        <input type="hidden" name="students_per_group" id="id_students_per_group">
+
+        <!-- PASO 1: Materia y tópicos -->
+        <div class="wiz-step is-active" data-step="1">
+            <div class="wiz-step-card">
+                <h4>¿Qué materia se va a tomar?</h4>
+                <p class="wiz-step-intro">Seleccionar la materia y los tópicos a evaluar.</p>
+                <select class="form-select mb-3" name="subject" id="id_subject" required>
+                    <option value="">Seleccionar materia</option>
+                    {% for materia in materias %}
+                        <option value="{{ materia.id }}">{{ materia.name }}</option>
+                    {% endfor %}
+                </select>
+                {% if not materias %}
+                <p class="text-muted small mt-2 mb-3">
+                    Todavía no hay preguntas propias en ninguna materia.
+                    <a href="{% url 'material:upload_contenido' %}" target="_blank" rel="noopener">Subir contenido</a> primero.
+                </p>
+                {% endif %}
+
+                <div id="wizOralTopicsEmpty" class="text-muted small border rounded p-3 text-center">
+                    Elegir una materia primero.
+                </div>
+                <div id="wizOralTopicsWrap" class="d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label mb-0">Tópicos</label>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-secondary" id="oralTopicsSelectAll">Todo</button>
+                            <button type="button" class="btn btn-outline-secondary" id="oralTopicsSelectNone">Ninguno</button>
+                        </div>
+                    </div>
+                    <div id="wizOralTopicsList" class="border rounded p-2" style="max-height: 260px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 2: Alumnos, grupos y preguntas -->
+        <div class="wiz-step" data-step="2">
+            <div class="wiz-step-card">
+                <h4>¿Cuántos alumnos, grupos y preguntas?</h4>
+                <p class="wiz-step-intro">
+                    Los grupos rinden por separado, en simultáneo — cada grupo necesita al menos un alumno.
+                    Cada alumno responde la cantidad de preguntas que se indique acá, cada una de un sub-tema distinto
+                    dentro de su grupo para que no se repitan.
+                </p>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label" for="id_total_students">Total de alumnos</label>
+                        <input type="number" min="1" max="100" class="form-control" name="total_students" id="id_total_students" placeholder="Ej: 24">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="id_num_groups">Cantidad de grupos</label>
+                        <input type="number" min="1" max="10" class="form-control" name="num_groups" id="id_num_groups" placeholder="Ej: 2">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="id_questions_per_student">Preguntas por alumno</label>
+                        <input type="number" min="1" max="10" value="3" class="form-control" name="questions_per_student" id="id_questions_per_student">
+                    </div>
+                </div>
+
+                <div id="wizOralValidation" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- PASO 3: Nombre y revisión -->
+        <div class="wiz-step" data-step="3">
+            <div class="wiz-step-card">
+                <h4>Nombre del cuestionario</h4>
+                <input type="text" class="form-control" name="name" id="id_name" placeholder="Ej: Examen Oral Final - Matemáticas">
+                <div class="wiz-summary" id="wizSummary"></div>
+            </div>
+        </div>
+
+        <div class="wiz-nav">
+            <button type="button" class="btn btn-outline-secondary" id="wizBackBtn">
+                <i class="bi bi-arrow-left me-1"></i>Atrás
+            </button>
+            <a href="{% url 'material:create_oral_exam_wizard' %}" class="text-muted small">Empezar de nuevo</a>
+            <button type="button" class="btn btn-primary" id="wizNextBtn">
+                Siguiente<i class="bi bi-arrow-right ms-1"></i>
+            </button>
+            <button type="submit" class="btn btn-success d-none" id="wizSubmitBtn">
+                Crear cuestionario<i class="bi bi-check2 ms-1"></i>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+window.EducaAppOralWizardConfig = {
+    urls: {
+        getTopics: "{% url 'material:get_topics' %}",
+        validateOralExam: "{% url 'material:validate_oral_exam' %}"
+    }
+};
+</script>
+<script src="{% static 'material/js/wizard_engine.js' %}"></script>
+<script src="{% static 'material/js/create_oral_exam_wizard.js' %}"></script>
+{% endblock %}

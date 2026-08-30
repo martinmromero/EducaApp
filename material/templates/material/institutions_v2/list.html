@@ -7,6 +7,9 @@
 <a href="{% url 'material:create_institution_v2' %}" class="btn btn-primary" id="institutionNewBtn">
     <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nueva Institución</span>
 </a>
+<a href="{% url 'material:create_institution_v2_wizard' %}" class="btn btn-outline-primary" id="institutionWizardBtn">
+    <i class="bi bi-magic me-1"></i><span class="d-none d-sm-inline">Asistente</span>
+</a>
 {% else %}
 <a href="{% url 'material:catalog_request_create' %}?tipo=institucion" class="btn btn-outline-primary" id="institutionRequestBtn">
     <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Agregar institución</span>
