@@ -51,7 +51,14 @@
                             <form method="post" class="d-inline-flex gap-2 flex-wrap justify-content-md-end">
                                 {% csrf_token %}
                                 {% if not cfg.enabled %}
-                                    <input type="number" name="hours" value="48" min="1" max="168" class="form-control form-control-sm" style="width:80px" title="Horas">
+                                    <span class="input-group input-group-sm" style="width:auto">
+                                        <span class="input-group-text">Ventana (hs)</span>
+                                        <input type="number" name="hours" value="48" min="1" max="168" class="form-control" style="width:65px">
+                                    </span>
+                                    <span class="input-group input-group-sm" style="width:auto">
+                                        <span class="input-group-text">Intervalo (min)</span>
+                                        <input type="number" name="interval_minutes" value="{{ cfg.interval_minutes }}" min="5" max="1440" class="form-control" style="width:70px" title="Los modelos candidatos comparten el mismo cupo por minuto de Groq — no conviene bajarlo de 15-20 min">
+                                    </span>
                                     <button type="submit" name="action" value="start" class="btn btn-success btn-sm">
                                         <i class="bi bi-play-fill me-1"></i>Activar
                                     </button>

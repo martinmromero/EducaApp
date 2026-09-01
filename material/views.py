@@ -9116,15 +9116,21 @@ def groq_monitor_page(request):
                 hours = max(1, min(168, int(request.POST.get('hours', 48))))
             except (TypeError, ValueError):
                 pass
+            interval_minutes = cfg.interval_minutes
+            try:
+                interval_minutes = max(5, min(1440, int(request.POST.get('interval_minutes', cfg.interval_minutes))))
+            except (TypeError, ValueError):
+                pass
             now = timezone.now()
             cfg.enabled = True
             cfg.started_at = now
             cfg.ends_at = now + timezone.timedelta(hours=hours)
+            cfg.interval_minutes = interval_minutes
             cfg.last_run_at = None
             cfg.save()
             from .groq_monitor import ensure_scheduler_running
             ensure_scheduler_running('text')
-            messages.success(request, f'Monitoreo activado por {hours} horas.', extra_tags='general')
+            messages.success(request, f'Monitoreo activado por {hours} horas, cada {interval_minutes} minutos.', extra_tags='general')
         elif action == 'stop':
             cfg.enabled = False
             cfg.save(update_fields=['enabled'])
