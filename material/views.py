@@ -1372,9 +1372,10 @@ def create_exam(request):
         instituciones = instituciones.filter(is_seed_demo=False)
         carreras = carreras.filter(is_seed_demo=False)
     materias = Subject.objects.filter(is_seed_demo=False)
-    profesores = (
-        User.objects.filter(profile__role='admin') | User.objects.filter(profile__role='user')
-    ).exclude(profile__is_training_account=True)
+    # Uno mismo más los compañeros de grupo de confianza, no todas las
+    # cuentas del sistema (ver content_visibility.get_visible_professors).
+    from .content_visibility import get_visible_professors
+    profesores = get_visible_professors(request.user)
     # Propias o compartidas por grupo (ver get_visible_templates).
     from .content_visibility import get_visible_templates
     templates = get_visible_templates(request.user)
@@ -1596,9 +1597,8 @@ def create_exam_wizard(request):
     # espacio personal propio, mismo motor que usa Solicitar Alta) — ver
     # create_exam_wizard.js. Sede sigue con su propio dropdown en cascada
     # (CampusV2 nunca se sumó al modelo de espacio personal).
-    profesores = (
-        User.objects.filter(profile__role='admin') | User.objects.filter(profile__role='user')
-    ).exclude(profile__is_training_account=True)
+    from .content_visibility import get_visible_professors
+    profesores = get_visible_professors(request.user)
     templates = get_visible_templates(request.user)
     visible_rubrics = get_visible_rubrics(request.user)
 
@@ -1695,11 +1695,15 @@ def save_exam_from_session(request):
     else:
         career_name = str(carrera_raw) if carrera_raw else carrera_text
 
-    # professor FK
+    # professor FK — validado contra get_visible_professors, nunca contra
+    # User.objects a secas: un usuario común solo puede figurar como
+    # profesor de sí mismo, un ID de otra cuenta puesto a mano en el POST
+    # no alcanza (ver bug de Profesor mostrando todas las cuentas del sistema).
+    from .content_visibility import get_visible_professors
     professor = None
     prof_raw = exam_data.get('profesor', '')
     if str(prof_raw).isdigit():
-        professor = User.objects.filter(pk=int(prof_raw)).first()
+        professor = get_visible_professors(request.user).filter(pk=int(prof_raw)).first()
 
     # turno / shift
     shift_raw = exam_data.get('turno', '') or exam_data.get('turno_text', '')
@@ -2480,6 +2484,17 @@ def save_exam_template(request):
             if print_format_id_raw and print_format_id_raw.isdigit():
                 print_format_obj = get_visible_print_formats(request.user).filter(pk=print_format_id_raw).first()
 
+            # Profesor: mismo criterio que print_format_obj arriba — solo uno
+            # visible para este usuario (get_visible_professors: uno mismo,
+            # salvo admin que puede elegir cualquier cuenta), nunca confiando
+            # en el ID crudo del POST. Si lo elegido no es válido, cae al
+            # propio usuario en vez de guardar un professor_id ajeno sin validar.
+            from .content_visibility import get_visible_professors
+            professor_id_raw = request.POST.get('professor')
+            professor_obj = None
+            if professor_id_raw and str(professor_id_raw).isdigit():
+                professor_obj = get_visible_professors(request.user).filter(pk=professor_id_raw).first()
+
             # Campos de contenido — se aplican tanto al crear una plantilla
             # nueva como al actualizar una existente (save_mode='update').
             # created_by/year quedan afuera a propósito: son metadata de
@@ -2494,7 +2509,7 @@ def save_exam_template(request):
                 'exam_mode': request.POST.get('exam_mode'),
                 'exam_type': request.POST.get('exam_type'),
                 'campus_id': request.POST.get('campus'),
-                'professor_id': request.POST.get('professor', request.user.id),
+                'professor_id': professor_obj.id if professor_obj else request.user.id,
                 'notes_and_recommendations': request.POST.get('notes_and_recommendations', ''),
                 'print_format': print_format_obj,
             }

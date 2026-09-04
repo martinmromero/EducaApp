@@ -7,12 +7,13 @@ el usuario es miembro aceptado (siempre activo, no es opt-in por request: es
 una relación permanente que el propio usuario configuró en "Mis grupos").
 """
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 
 from .models import (
     Career, ContentShare, ExamTemplate, FacultyV2, FormatoImpresion,
-    InstitutionV2, Question, Rubric, Subject,
+    InstitutionV2, Profile, Question, Rubric, Subject,
 )
 
 
@@ -113,6 +114,32 @@ def get_visible_templates(user):
 def get_visible_formats(user):
     """Formatos de impresión propios, más los compartidos por el grupo."""
     return _get_visible_via_content_share(FormatoImpresion, 'formato', user, 'user')
+
+
+def get_visible_professors(user):
+    """Candidatos a "Profesor" de un examen/plantilla.
+
+    Un admin (o superuser) arma exámenes/plantillas en nombre de cualquier
+    docente real del sistema — mismo criterio de "admin" que
+    `views.is_admin` (is_superuser OR Profile.role == 'admin'; no se puede
+    importar esa función acá por el import circular views→content_visibility,
+    así que se repite la condición). Un usuario común solo puede quedar
+    como su propio profesor: antes esto era
+    `User.objects.filter(profile__role__in=[...])` sin distinción de rol, que
+    en los hechos listaba TODAS las cuentas del sistema (incluidas las de
+    prueba/QA de otros usuarios) para cualquiera que abriera el formulario.
+    """
+    is_admin_user = user.is_superuser
+    if not is_admin_user:
+        try:
+            is_admin_user = user.profile.role == 'admin'
+        except Profile.DoesNotExist:
+            is_admin_user = False
+
+    base = User.objects.filter(is_active=True).exclude(profile__is_training_account=True)
+    if is_admin_user:
+        return base
+    return base.filter(id=user.id)
 
 
 # "Elegible para armar examen": una pregunta generada por IA necesita haber

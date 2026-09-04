@@ -100,9 +100,14 @@ _onDomReady(function () {
         if (willShow) loadCatalogTree();
     });
     function openInstitucionBlock() {
+        // No recarga el árbol de catálogo acá: quien llama a esta función
+        // (aplicar plantilla, restaurar borrador) ya lo hizo justo antes y
+        // recién aplicó institución/facultad/carrera sobre ese árbol — si
+        // volviéramos a pedirlo acá, la respuesta llega después (fetch async
+        // sin esperar) y repuebla el <select> de institución sin selección,
+        // pisando lo que applyInstitucionSelection acababa de dejar puesto.
         institucionBlock.classList.remove('d-none');
         institucionToggleBtn.textContent = '– Ocultar institución, facultad, carrera y sede';
-        loadCatalogTree();
     }
 
     // ── Nombre sugerido del examen ───────────────────────────────────────

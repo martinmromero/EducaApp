@@ -313,11 +313,13 @@ class ExamTemplateForm(forms.ModelForm):
 
         self.fields['faculty'].queryset = FacultyV2.objects.none()
         self.fields['campus'].queryset = CampusV2.objects.none()
-        # Excluye las cuentas espejo del Área de Pruebas — nunca son un
-        # profesor real elegible.
-        self.fields['professor'].queryset = User.objects.filter(
-            is_active=True
-        ).exclude(profile__is_training_account=True)
+        # Uno mismo más los compañeros de grupo de confianza — no todas las
+        # cuentas del sistema (ver content_visibility.get_visible_professors).
+        if user:
+            from .content_visibility import get_visible_professors
+            self.fields['professor'].queryset = get_visible_professors(user)
+        else:
+            self.fields['professor'].queryset = User.objects.none()
         self.fields['professor'].label_from_instance = lambda obj: f"{obj.first_name} {obj.last_name} ({obj.username})"
         
         # Configurar outcomes basado en la materia seleccionada — cuelgan de
