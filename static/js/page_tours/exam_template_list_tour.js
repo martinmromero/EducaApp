@@ -19,6 +19,14 @@
         },
       },
       {
+        element: '#templateWizardBtn',
+        popover: {
+          title: 'Asistente',
+          description: 'La misma información, pero pedida un paso a la vez — útil para armar la primera plantilla o cuando conviene ir de a poco.',
+          side: 'bottom',
+        },
+      },
+      {
         element: '#templateFavoritosBtn',
         popover: {
           title: 'Favoritas',

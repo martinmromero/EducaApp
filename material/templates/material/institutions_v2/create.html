@@ -1,6 +1,8 @@
 {% extends "material/base.html" %}
+{% load static %}
 {% load crispy_forms_tags %}
 
+{% block body_extra_attrs %}data-tour-page="create_institution_v2"{% endblock %}
 {% block content %}
 <div class="container mt-4">
     <div class="card">
@@ -201,4 +203,5 @@ document.addEventListener('DOMContentLoaded', function() {
     setupFormset('faculty', 'faculties-container', 'add-faculty');
 });
 </script>
+<script src="{% static 'js/page_tours/create_institution_v2_tour.js' %}"></script>
 {% endblock %}

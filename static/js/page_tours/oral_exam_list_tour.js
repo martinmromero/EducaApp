@@ -19,6 +19,14 @@
         },
       },
       {
+        element: '#oralWizardBtn',
+        popover: {
+          title: 'Asistente',
+          description: 'La misma información, pero pedida un paso a la vez — útil para armar el primer cuestionario o cuando conviene ir de a poco.',
+          side: 'bottom',
+        },
+      },
+      {
         element: '#oralFavoritosBtn',
         popover: {
           title: 'Favoritos',

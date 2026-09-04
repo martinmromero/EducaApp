@@ -113,7 +113,7 @@
         area: 1,
         popover: {
           title: 'Resto de las opciones',
-          description: 'Sede, curso/comisión, turno, profesor, fecha, duración y período académico: todas estas opciones son opcionales.',
+          description: 'Sede, curso/comisión, cátedra, turno, profesor, fecha, duración y período académico: todas estas opciones son opcionales.',
           side: 'top',
         },
       },
