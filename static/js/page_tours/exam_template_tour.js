@@ -24,7 +24,7 @@
         element: '.two-column-form',
         popover: {
           title: 'Institución, carrera y materia',
-          description: 'Estos datos se pre-completan en cualquier examen que use esta plantilla. El botón "Nuevo" junto a cada campo permite cargar uno sin salir de esta pantalla.',
+          description: 'Estos datos (más profesor y cátedra, opcionales) se pre-completan en cualquier examen que use esta plantilla. El botón "Nuevo" junto a cada campo permite cargar uno sin salir de esta pantalla.',
           side: 'top',
         },
       },
