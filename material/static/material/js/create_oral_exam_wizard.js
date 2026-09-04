@@ -52,9 +52,9 @@ _onDomReady(function () {
             topicsWrap.classList.add('d-none');
             topicsEmpty.classList.remove('d-none');
             topicsList.innerHTML = '';
-            return;
+            return Promise.resolve();
         }
-        fetch(CFG.urls.getTopics + '?subject_id=' + subjectId + '&for_exam=1')
+        return fetch(CFG.urls.getTopics + '?subject_id=' + subjectId + '&for_exam=1')
             .then(function (r) { return r.json(); })
             .then(function (topics) {
                 topicsList.innerHTML = '';
@@ -231,11 +231,59 @@ _onDomReady(function () {
         onEnterFinalStep: renderSummary,
     });
 
+    // ── Backup a sessionStorage (mismo motor que Plantilla de Examen y
+    // Generar con IA, ver wizard_draft.js) — antes un F5 a mitad de elegir
+    // tópicos/alumnos perdía todo, sin ningún respaldo. ──────────────────
+    var draft = window.EducaAppWizardDraft.init('educaapp_oral_wizard_draft');
+    var oralForm = document.getElementById('oralWizardForm');
+
+    function saveDraft() {
+        draft.save({
+            subject: subjectSelect.value,
+            topicIds: getSelectedTopicIds(),
+            totalStudents: totalStudentsInput.value,
+            numGroups: numGroupsInput.value,
+            questionsPerStudent: questionsPerStudentInput.value,
+            name: nameInput.value,
+        });
+    }
+    oralForm.addEventListener('change', saveDraft);
+    oralForm.addEventListener('input', saveDraft);
+
+    function restoreDraft() {
+        var saved = draft.load();
+        if (!saved || !saved.subject) return;
+
+        draft.confirmRestore('Encontramos un cuestionario oral sin terminar de una sesión anterior. ¿Querés recuperarlo?').then(function (quiere) {
+            if (!quiere) { draft.clear(); return; }
+
+            subjectSelect.value = saved.subject;
+            loadTopicsForSubject(saved.subject).then(function () {
+                (saved.topicIds || []).forEach(function (id) {
+                    var cb = topicsList.querySelector('input[value="' + id + '"]');
+                    if (cb) cb.checked = true;
+                });
+                totalStudentsInput.value = saved.totalStudents || '';
+                numGroupsInput.value = saved.numGroups || '';
+                questionsPerStudentInput.value = saved.questionsPerStudent || '';
+                nameInput.value = saved.name || '';
+                refreshValidation();
+                // goToStep(3) no alcanza: el motor solo deja saltar a un paso
+                // <= maxStepReached, que sigue en 1 sin haber pasado por
+                // goNext() en esta carga (ver wizard_draft.js).
+                wizardCtrl.goNext();
+                wizardCtrl.goNext();
+            });
+        });
+    }
+
     document.getElementById('oralWizardForm').addEventListener('submit', function () {
         if (!nameInput.value.trim()) {
             nameInput.value = 'Examen Oral - ' + (subjectSelect.selectedOptions[0] ? subjectSelect.selectedOptions[0].textContent : '');
         }
+        draft.clear();
     });
 
     wizardCtrl.goToStep(1);
+    restoreDraft();
 });

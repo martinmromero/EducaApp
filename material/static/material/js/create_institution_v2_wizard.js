@@ -127,5 +127,67 @@ _onDomReady(function () {
         onEnterFinalStep: renderSummary,
     });
 
+    // ── Backup a sessionStorage (mismo motor que los otros 3 wizards, ver
+    // wizard_draft.js). El logo (input type="file") NO se puede guardar en
+    // sessionStorage — se pierde si hay que recuperar un borrador, el resto
+    // de los campos sí. ───────────────────────────────────────────────────
+    var draft = window.EducaAppWizardDraft.init('educaapp_institution_wizard_draft');
+    var institutionForm = document.getElementById('institutionWizardForm');
+
+    function saveDraft() {
+        draft.save({
+            name: nameInput.value,
+            sigla: siglaInput.value,
+            campuses: nonEmptyValues('wizCampusContainer'),
+            faculties: nonEmptyValues('wizFacultyContainer'),
+        });
+    }
+    institutionForm.addEventListener('change', saveDraft);
+    institutionForm.addEventListener('input', saveDraft);
+
+    // Agrega filas hasta tener `count` en el formset (usa el botón "Agregar"
+    // real para que TOTAL_FORMS y el reindexado queden consistentes) y
+    // devuelve las filas ya presentes, en orden.
+    function ensureFormsetRows(containerId, addButtonId, rowClass, count) {
+        var container = document.getElementById(containerId);
+        var addButton = document.getElementById(addButtonId);
+        while (container.querySelectorAll('.' + rowClass).length < count) {
+            addButton.click();
+        }
+        return Array.from(container.querySelectorAll('.' + rowClass));
+    }
+
+    function restoreDraft() {
+        var saved = draft.load();
+        if (!saved || !saved.name) return;
+
+        draft.confirmRestore('Encontramos una institución sin terminar de una sesión anterior. ¿Querés recuperarla? (El logo, si habías elegido uno, se pierde igual — hay que volver a elegirlo.)').then(function (quiere) {
+            if (!quiere) { draft.clear(); return; }
+
+            nameInput.value = saved.name || '';
+            siglaInput.value = saved.sigla || '';
+
+            var campusRows = ensureFormsetRows('wizCampusContainer', 'wizAddCampus', 'campus-entry', (saved.campuses || []).length || 1);
+            (saved.campuses || []).forEach(function (name, i) {
+                if (campusRows[i]) campusRows[i].querySelector('input[type="text"]').value = name;
+            });
+
+            var facultyRows = ensureFormsetRows('wizFacultyContainer', 'wizAddFaculty', 'faculty-entry', (saved.faculties || []).length || 1);
+            (saved.faculties || []).forEach(function (name, i) {
+                if (facultyRows[i]) facultyRows[i].querySelector('input[type="text"]').value = name;
+            });
+
+            // goToStep(4) no alcanza: el motor solo deja saltar a un paso
+            // <= maxStepReached, que sigue en 1 sin haber pasado por
+            // goNext() en esta carga (ver wizard_draft.js).
+            wizardCtrl.goNext();
+            wizardCtrl.goNext();
+            wizardCtrl.goNext();
+        });
+    }
+
+    institutionForm.addEventListener('submit', function () { draft.clear(); });
+
     wizardCtrl.goToStep(1);
+    restoreDraft();
 });

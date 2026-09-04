@@ -920,6 +920,12 @@ class Exam(models.Model):
     date_str = models.CharField(max_length=50, blank=True, default='', verbose_name="Fecha (texto)")
     alumno = models.CharField(max_length=255, blank=True, default='', verbose_name="Alumno/a")
     curso = models.CharField(max_length=100, blank=True, default='', verbose_name="Curso")
+    # Texto libre a propósito, mismo criterio que curso/turno_text: distintas
+    # cátedras de la misma materia (misma carrera, mismo plan de estudios)
+    # pueden diferir en profesor, bibliografía y hasta contenido — no hay
+    # catálogo de cátedras (ver parking lot de modelado estructural), esto
+    # solo imprime en el encabezado del examen.
+    catedra = models.CharField(max_length=255, blank=True, default='', verbose_name="Cátedra")
 
     @property
     def turno(self):
@@ -1679,7 +1685,11 @@ class ExamTemplate(models.Model):
         null=True,
         blank=True
     )
-    
+
+    # Texto libre a propósito, mismo criterio que Exam.catedra — ver ese
+    # comentario para el contexto completo.
+    catedra = models.CharField(max_length=255, blank=True, default='', verbose_name="Cátedra")
+
     # Configuración del examen
     year = models.PositiveIntegerField(
         verbose_name="Año académico",

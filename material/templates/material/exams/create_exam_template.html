@@ -111,6 +111,16 @@
                 </div>
             </div>
 
+            <!-- Cátedra: texto libre, distintas cátedras de la misma materia
+                 pueden diferir en profesor/contenido — solo imprime en el
+                 encabezado, no hay catálogo propio (ver Exam.catedra). -->
+            <div class="form-group">
+                <div class="form-row">
+                    <label for="{{ form.catedra.id_for_label }}">{{ form.catedra.label }} <small class="text-muted">(opcional)</small></label>
+                    {{ form.catedra }}
+                </div>
+            </div>
+
             <!-- Formato de impresión: es parte de la plantilla, no solo un
                  dato de contenido — dos plantillas de la misma institución
                  pueden querer imprimirse distinto. Sin elegir nada acá sigue

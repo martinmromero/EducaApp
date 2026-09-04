@@ -634,6 +634,7 @@
                         </div>
                         <div class="header-meta-row">
                             {% if subject.name %}<span class="header-meta-item"><strong>Materia:</strong> {{ subject.name }}</span>{% endif %}
+                            {% if exam.catedra %}<span class="header-meta-item"><strong>Cátedra:</strong> {{ exam.catedra }}</span>{% endif %}
                             {% if professor.get_full_name %}<span class="header-meta-item"><strong>Profesor:</strong> {{ professor.get_full_name }}</span>{% endif %}
                         </div>
                     </td>

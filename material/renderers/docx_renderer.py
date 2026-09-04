@@ -390,6 +390,7 @@ def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_na
     faculty = block.get('facultad') or ''
     career = block.get('carrera') or ''
     subject = block.get('materia') or ''
+    catedra = block.get('catedra') or ''
     professor = block.get('profesor') or ''
     year = str(block.get('anio') or '-')
 
@@ -472,6 +473,12 @@ def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_na
     if left_written and professor:
         p_meta.add_run('\t')
     _append_meta_field(p_meta, 'Profesor', professor)
+
+    if catedra:
+        # Fila extra, solo si se cargó — mismo criterio que el renderer PDF.
+        p_meta = meta_cell.add_paragraph()
+        _zero_paragraph_spacing(p_meta)
+        _append_meta_field(p_meta, 'Cátedra', catedra)
 
 
 def _append_student_data_table(doc, block, base_size, title_rgb, text_rgb, font_name):

@@ -212,6 +212,10 @@
                             <input type="text" class="form-control" name="curso" id="curso">
                         </div>
                         <div class="col-md-4">
+                            <label class="form-label" for="catedra">Cátedra <span class="text-muted fw-normal">(opcional)</span></label>
+                            <input type="text" class="form-control" name="catedra" id="catedra" placeholder="Ej: Cátedra A - Prof. Pérez">
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label" for="turno_dropdown">Turno</label>
                             <select class="form-select" name="turno_dropdown" id="turno_dropdown" onchange="toggleTextbox('turno_dropdown', 'turno_text')">
                                 <option value="">Seleccionar turno</option>
@@ -374,5 +378,6 @@ window.EducaAppWizardConfig = {
 </script>
 <script src="{% static 'material/js/wizard_engine.js' %}"></script>
 <script src="{% static 'material/js/wizard_catalog_search.js' %}"></script>
+<script src="{% static 'material/js/wizard_draft.js' %}"></script>
 <script src="{% static 'material/js/create_exam_wizard.js' %}"></script>
 {% endblock %}

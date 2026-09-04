@@ -276,6 +276,7 @@ def _build_letterhead_table(block, style_text, style_h2, content_width_cm=16.2):
     faculty = block.get('facultad') or ''
     career = block.get('carrera') or ''
     subject = block.get('materia') or ''
+    catedra = block.get('catedra') or ''
     professor = block.get('profesor') or ''
     year = block.get('anio') or '-'
 
@@ -299,11 +300,18 @@ def _build_letterhead_table(block, style_text, style_h2, content_width_cm=16.2):
     # ("Profesor:", tipo de examen) se sale del borde de la tabla.
     half_pt = (middle_cm * cm - 2 * CELL_PAD_PT) / 2
 
+    meta_rows = [
+        [Paragraph(_meta_label_value('Facultad', faculty), meta_left_style), Paragraph(_meta_label_value('Carrera', career), meta_right_style)],
+        [Paragraph(_meta_label_value('Materia', subject), meta_left_style), Paragraph(_meta_label_value('Profesor', professor), meta_right_style)],
+    ]
+    if catedra:
+        # Fila extra, solo si se cargó — la mayoría de los examenes no la
+        # usan (ver Exam.catedra) y una fila siempre vacía se veía como un
+        # hueco sin sentido en el encabezado.
+        meta_rows.append([Paragraph(_meta_label_value('Cátedra', catedra), meta_left_style), Paragraph('', meta_right_style)])
+
     meta_table = Table(
-        [
-            [Paragraph(_meta_label_value('Facultad', faculty), meta_left_style), Paragraph(_meta_label_value('Carrera', career), meta_right_style)],
-            [Paragraph(_meta_label_value('Materia', subject), meta_left_style), Paragraph(_meta_label_value('Profesor', professor), meta_right_style)],
-        ],
+        meta_rows,
         colWidths=[half_pt, half_pt],
         hAlign='LEFT',
     )

@@ -29,7 +29,9 @@ _onDomReady(function () {
     var subjectSelect = document.getElementById('id_subject');
     var outcomesEmpty = document.getElementById('wizOutcomesEmpty');
     var outcomesList = document.getElementById('wizOutcomesList');
+    var outcomesCreateLink = document.getElementById('wizOutcomesCreateLink');
     var nameInput = document.getElementById('id_name');
+    var addCampusToggle = document.getElementById('wizAddCampusToggle');
 
     function resetSelect(select, placeholder) {
         select.innerHTML = '<option value="">' + placeholder + '</option>';
@@ -47,43 +49,121 @@ _onDomReady(function () {
         select.disabled = false;
     }
 
-    institutionSelect.addEventListener('change', function () {
+    // Nombradas (no solo listeners inline) para que restoreDraft() más abajo
+    // pueda encadenarlas con await en vez de adivinar cuándo terminó el fetch.
+    function loadFacultiesAndCampuses(institutionId) {
         resetSelect(facultySelect, 'Elegir facultad primero');
         resetSelect(careerSelect, 'Elegir facultad primero');
         resetSelect(campusSelect, 'Sin sede específica');
-        var institutionId = this.value;
-        if (!institutionId) return;
+        addCampusToggle.classList.add('d-none');
+        if (!institutionId) return Promise.resolve();
 
-        fetch(CFG.urls.getFacultiesByInstitutionBase + institutionId + '/')
+        var p1 = fetch(CFG.urls.getFacultiesByInstitutionBase + institutionId + '/')
             .then(function (r) { return r.json(); })
             .then(function (data) { fillSelect(facultySelect, data.faculties || [], 'Seleccionar facultad'); })
             .catch(function () { resetSelect(facultySelect, 'Error al cargar facultades'); });
 
-        fetch(CFG.urls.getCampusesByInstitutionBase + institutionId + '/')
+        var p2 = fetch(CFG.urls.getCampusesByInstitutionBase + institutionId + '/')
             .then(function (r) { return r.json(); })
             .then(function (data) { fillSelect(campusSelect, data.campuses || [], 'Sin sede específica'); })
             .catch(function () { resetSelect(campusSelect, 'Sin sede específica'); });
-    });
 
-    facultySelect.addEventListener('change', function () {
+        // Recién con institución elegida tiene sentido "+ Agregar sede" (la
+        // crea directo ahí, sin mandar al usuario a otra pantalla y perder
+        // el asistente — ver wireCampusQuickAdd más abajo).
+        addCampusToggle.classList.remove('d-none');
+        return Promise.all([p1, p2]);
+    }
+    institutionSelect.addEventListener('change', function () { loadFacultiesAndCampuses(this.value); });
+
+    function loadCareers(facultyId) {
         resetSelect(careerSelect, 'Elegir carrera primero');
-        var facultyId = this.value;
-        if (!facultyId) return;
-        fetch(CFG.urls.getCareersByFacultyBase + facultyId + '/')
+        if (!facultyId) return Promise.resolve();
+        return fetch(CFG.urls.getCareersByFacultyBase + facultyId + '/')
             .then(function (r) { return r.json(); })
             .then(function (data) { fillSelect(careerSelect, data.careers || [], 'Seleccionar carrera'); })
             .catch(function () { resetSelect(careerSelect, 'Error al cargar carreras'); });
-    });
+    }
+    facultySelect.addEventListener('change', function () { loadCareers(this.value); });
 
-    subjectSelect.addEventListener('change', function () {
-        var subjectId = this.value;
+    // ── "+ Agregar sede" sin salir del asistente ─────────────────────────
+    // Mismo endpoint que ya usa el formulario clásico (create_exam_template.js)
+    // para altas rápidas de institución/facultad/carrera/materia/sede — acá
+    // solo se cablea para sede, que es el único de los 4 selects del paso 1
+    // que puede quedar vacío con la institución ya bien elegida (facultad y
+    // carrera, si están vacías, es la institución la que no tiene catálogo
+    // cargado — caso distinto, no resuelto acá).
+    (function wireCampusQuickAdd() {
+        var toggle = document.getElementById('wizAddCampusToggle');
+        var row = document.getElementById('wizAddCampusRow');
+        var input = document.getElementById('wizAddCampusInput');
+        var saveBtn = document.getElementById('wizAddCampusSave');
+        var cancelBtn = document.getElementById('wizAddCampusCancel');
+
+        toggle.addEventListener('click', function () {
+            row.classList.remove('d-none');
+            input.focus();
+        });
+        cancelBtn.addEventListener('click', function () {
+            input.value = '';
+            row.classList.add('d-none');
+        });
+        saveBtn.addEventListener('click', function () {
+            var name = input.value.trim();
+            if (!name) { input.focus(); return; }
+            if (!institutionSelect.value) { alert('Elegí una institución primero.'); return; }
+            saveBtn.disabled = true;
+            fetch(CFG.urls.createRelatedElement, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({ type: 'campus', name: name, institution_id: institutionSelect.value })
+            })
+                .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+                .then(function (result) {
+                    if (!result.ok || !result.data.success) {
+                        throw new Error(result.data.error || 'No se pudo crear la sede.');
+                    }
+                    var opt = document.createElement('option');
+                    opt.value = result.data.id;
+                    opt.textContent = result.data.name;
+                    campusSelect.appendChild(opt);
+                    campusSelect.value = result.data.id;
+                    campusSelect.disabled = false;
+                    input.value = '';
+                    row.classList.add('d-none');
+                })
+                .catch(function (err) { alert(err.message); })
+                .finally(function () { saveBtn.disabled = false; });
+        });
+    })();
+
+    // "Crear una" para Resultados de Aprendizaje cuando la materia elegida
+    // no tiene ninguno — no hay (todavía) un alta rápida de RA sin salir del
+    // asistente: la creación real vive en learningoutcome_add, que exige un
+    // career_subject_id YA EXISTENTE (ver material/urls.py) y ese vínculo
+    // Carrera↔Materia puede no existir para la combinación recién elegida.
+    // El link va a la ficha de la materia (subject_detail), que sí lista
+    // todas sus asociaciones Carrera↔Materia reales con su propio botón de
+    // alta de RA por cada una — más confiable que adivinar/crear el vínculo
+    // acá. Igual que con rúbricas, abre en pestaña nueva.
+    function refreshOutcomesCreateLink(subjectId) {
+        outcomesCreateLink.innerHTML = subjectId
+            ? ' <a href="' + CFG.urls.subjectDetailBase + subjectId + '/" target="_blank" rel="noopener">Crear uno</a>'
+            : '';
+    }
+
+    function loadOutcomesForSubject(subjectId, checkedIds) {
         outcomesList.innerHTML = '';
+        refreshOutcomesCreateLink(subjectId);
         if (!subjectId) {
             outcomesList.classList.add('d-none');
             outcomesEmpty.classList.remove('d-none');
-            return;
+            return Promise.resolve();
         }
-        fetch(CFG.urls.getLearningOutcomes + '?subject_id=' + subjectId)
+        return fetch(CFG.urls.getLearningOutcomes + '?subject_id=' + subjectId)
             .then(function (r) { return r.json(); })
             .then(function (outcomes) {
                 if (!outcomes.length) {
@@ -94,8 +174,9 @@ _onDomReady(function () {
                 outcomes.forEach(function (outcome) {
                     var row = document.createElement('div');
                     row.className = 'form-check';
+                    var checked = (checkedIds || []).includes(String(outcome.id));
                     row.innerHTML =
-                        '<input class="form-check-input outcome-checkbox" type="checkbox" value="' + outcome.id + '" id="outcome_' + outcome.id + '">' +
+                        '<input class="form-check-input outcome-checkbox" type="checkbox" value="' + outcome.id + '" id="outcome_' + outcome.id + '"' + (checked ? ' checked' : '') + '>' +
                         '<label class="form-check-label" for="outcome_' + outcome.id + '">' + outcome.description + '</label>';
                     outcomesList.appendChild(row);
                 });
@@ -106,7 +187,93 @@ _onDomReady(function () {
                 outcomesList.classList.add('d-none');
                 outcomesEmpty.classList.remove('d-none');
             });
+    }
+    subjectSelect.addEventListener('change', function () { loadOutcomesForSubject(this.value); });
+
+    // ── Rúbricas: mismo refresco que Resultados de aprendizaje, más el caso
+    // "recién creé una en la pestaña nueva y volví" (ver window focus más
+    // abajo) — antes esto quedaba invisible en el asistente hasta un F5, y
+    // F5 no tenía backup: perdía todo el progreso (ver sessionStorage abajo). ──
+    var rubricsEmpty = document.getElementById('wizRubricsEmpty');
+    var rubricsList = document.getElementById('wizRubricsList');
+    function loadRubrics(checkedIds) {
+        return fetch(CFG.urls.getVisibleRubricsJson)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var rubrics = data.rubrics || [];
+                rubricsList.innerHTML = '';
+                rubrics.forEach(function (r) {
+                    var row = document.createElement('div');
+                    row.className = 'form-check';
+                    var checked = (checkedIds || []).includes(String(r.id));
+                    row.innerHTML =
+                        '<input class="form-check-input rubric-checkbox" type="checkbox" value="' + r.id + '" id="rubric_cb_' + r.id + '"' + (checked ? ' checked' : '') + '>' +
+                        '<label class="form-check-label" for="rubric_cb_' + r.id + '">' + r.title + '</label>';
+                    rubricsList.appendChild(row);
+                });
+                rubricsEmpty.classList.toggle('d-none', rubrics.length > 0);
+                rubricsList.classList.toggle('d-none', rubrics.length === 0);
+            })
+            .catch(function () { /* deja la lista servida por el servidor tal cual */ });
+    }
+
+    // Al volver a esta pestaña (creaste una rúbrica o un RA en una pestaña
+    // nueva y volviste) se refresca lo que puede haber cambiado, sin
+    // recargar la página ni perder el resto del progreso del asistente.
+    window.addEventListener('focus', function () {
+        var checkedOutcomes = Array.from(outcomesList.querySelectorAll('.outcome-checkbox:checked')).map(function (cb) { return cb.value; });
+        var checkedRubrics = Array.from(rubricsList.querySelectorAll('.rubric-checkbox:checked')).map(function (cb) { return cb.value; });
+        if (subjectSelect.value) loadOutcomesForSubject(subjectSelect.value, checkedOutcomes);
+        loadRubrics(checkedRubrics);
     });
+
+    // ── Reordenar Materia según la carrera elegida en el paso 1 ──────────
+    // Orden pedido: primero las materias con preguntas propias (van a dar un
+    // examen mejor armado), después las de la carrera ya elegida, después
+    // el resto — cada grupo en su propio <optgroup> (más claro que una
+    // línea de separación suelta, y es HTML nativo de <select>). Se cachea
+    // por career_id para no repetir el fetch si el usuario va y vuelve
+    // entre pasos sin cambiar de carrera.
+    var reorderedForCareerId = null;
+    function reorderSubjectsByCareer(careerId) {
+        if (!careerId || careerId === reorderedForCareerId) return Promise.resolve();
+        var ownIds = (CFG.ownSubjectIds || []).map(String);
+        var previousValue = subjectSelect.value;
+        var allOptions = Array.from(subjectSelect.querySelectorAll('option[value]')).filter(function (o) { return o.value; });
+
+        return fetch(CFG.urls.getSubjectsByCareerBase + careerId + '/')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var careerIds = (data.subjects || []).map(function (s) { return String(s.id); });
+                var groupOwn = [], groupCareer = [], groupRest = [];
+                allOptions.forEach(function (opt) {
+                    if (ownIds.includes(opt.value)) groupOwn.push(opt);
+                    else if (careerIds.includes(opt.value)) groupCareer.push(opt);
+                    else groupRest.push(opt);
+                });
+
+                subjectSelect.innerHTML = '';
+                var placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = 'Seleccionar materia';
+                subjectSelect.appendChild(placeholder);
+
+                function appendGroup(label, opts) {
+                    if (!opts.length) return;
+                    var group = document.createElement('optgroup');
+                    group.label = label;
+                    opts.forEach(function (o) { group.appendChild(o); });
+                    subjectSelect.appendChild(group);
+                }
+                appendGroup('Con contenido propio (preguntas ya cargadas)', groupOwn);
+                appendGroup('De esta carrera', groupCareer);
+                appendGroup('Todas las demás', groupRest);
+
+                subjectSelect.value = previousValue;
+                reorderedForCareerId = careerId;
+            })
+            .catch(function () { /* deja el <select> plano tal cual venía del servidor */ });
+    }
 
     function validateStep(n) {
         if (n === 1) {
@@ -114,6 +281,7 @@ _onDomReady(function () {
                 alert('Elegí institución, facultad y carrera para continuar.');
                 return false;
             }
+            reorderSubjectsByCareer(careerSelect.value);
         }
         if (n === 2) {
             if (!subjectSelect.value) {
@@ -198,6 +366,7 @@ _onDomReady(function () {
                 if (!result.ok || !result.data.success) {
                     throw new Error(result.data.error || 'No se pudo crear la plantilla.');
                 }
+                draft.clear();
                 window.location.href = CFG.urls.listExamTemplates;
             })
             .catch(function (err) {
@@ -207,5 +376,80 @@ _onDomReady(function () {
             });
     });
 
+    // ── Backup a sessionStorage: red de contención ante F5 accidental,
+    // cierre de pestaña, o volver de crear algo en una pestaña nueva y no
+    // encontrar cómo seguir. Antes CUALQUIER recarga de esta pantalla
+    // perdía absolutamente todo el progreso del asistente. Motor genérico
+    // en wizard_draft.js (mismo patrón que ya usa Generar con IA) — acá
+    // solo se define QUÉ guardar y CÓMO restaurarlo (la cascada de fetches
+    // es específica de este wizard). ──────────────────────────────────────
+    var draft = window.EducaAppWizardDraft.init('educaapp_template_wizard_draft');
+    var form = document.getElementById('templateWizardForm');
+    var professorSelect = document.getElementById('id_professor');
+    var catedraInput = document.getElementById('id_catedra');
+    var printFormatSelect = document.getElementById('id_print_format');
+    var notesInput = document.getElementById('id_notes');
+
+    function saveDraft() {
+        draft.save({
+            institution: institutionSelect.value,
+            faculty: facultySelect.value,
+            career: careerSelect.value,
+            campus: campusSelect.value,
+            subject: subjectSelect.value,
+            professor: professorSelect.value,
+            catedra: catedraInput.value,
+            printFormat: printFormatSelect.value,
+            name: nameInput.value,
+            notes: notesInput.value,
+            outcomeIds: Array.from(outcomesList.querySelectorAll('.outcome-checkbox:checked')).map(function (cb) { return cb.value; }),
+            rubricIds: Array.from(rubricsList.querySelectorAll('.rubric-checkbox:checked')).map(function (cb) { return cb.value; }),
+        });
+    }
+    form.addEventListener('change', saveDraft);
+    form.addEventListener('input', saveDraft);
+
+    function restoreDraft() {
+        var saved = draft.load();
+        if (!saved || !saved.institution) return;
+
+        draft.confirmRestore('Encontramos una plantilla sin terminar de una sesión anterior. ¿Querés recuperarla?').then(function (quiere) {
+            if (!quiere) { draft.clear(); return; }
+
+            institutionSelect.value = saved.institution;
+            loadFacultiesAndCampuses(saved.institution).then(function () {
+                facultySelect.value = saved.faculty || '';
+                if (saved.campus) campusSelect.value = saved.campus;
+                return loadCareers(saved.faculty);
+            }).then(function () {
+                careerSelect.value = saved.career || '';
+                return reorderSubjectsByCareer(saved.career);
+            }).then(function () {
+                subjectSelect.value = saved.subject || '';
+                professorSelect.value = saved.professor || '';
+                catedraInput.value = saved.catedra || '';
+                printFormatSelect.value = saved.printFormat || '';
+                nameInput.value = saved.name || '';
+                notesInput.value = saved.notes || '';
+                return Promise.all([
+                    loadOutcomesForSubject(saved.subject, saved.outcomeIds),
+                    loadRubrics(saved.rubricIds),
+                ]);
+            }).then(function () {
+                // goToStep(4) no alcanza acá: el motor solo deja saltar a un
+                // paso <= maxStepReached, y ese contador sigue en 1 porque
+                // nunca se pasó por goNext() en esta carga — hay que
+                // "caminar" los 3 pasos para que se actualice como
+                // corresponde (los datos ya restaurados hacen que
+                // onValidateStep pase limpio en cada uno).
+                wizardCtrl.goNext();
+                wizardCtrl.goNext();
+                wizardCtrl.goNext();
+            });
+        });
+    }
+
+    form.addEventListener('submit', function (e) { e.preventDefault(); });
     wizardCtrl.goToStep(1);
+    restoreDraft();
 });

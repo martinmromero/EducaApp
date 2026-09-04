@@ -168,6 +168,7 @@ path('upload-questions/', material_views.upload_questions, name='upload_question
 
 path('get-questions-by-topics/', material_views.get_questions_by_topics, name='get_questions_by_topics'),
 path('get-careers-by-faculty/<int:faculty_id>/', material_views.get_careers_by_faculty, name='get_careers_by_faculty'),
+path('get-subjects-by-career/<int:career_id>/', material_views.get_subjects_by_career, name='get_subjects_by_career'),
 
 
 path('get-exam-template/<int:template_id>/', material_views.get_exam_template, name='get_exam_template'),
@@ -223,6 +224,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
 
     # RÚBRICAS
     path('rubricas/', material_views.rubric_list, name='rubric_list'),
+    path('rubricas/json/', material_views.get_visible_rubrics_json, name='get_visible_rubrics_json'),
     path('rubricas/nueva/', material_views.rubric_create, name='rubric_create'),
     path('rubricas/<int:pk>/', material_views.rubric_view, name='rubric_view'),
     path('rubricas/<int:pk>/editar/', material_views.rubric_edit, name='rubric_edit'),

@@ -261,6 +261,7 @@ class ExamTemplateForm(forms.ModelForm):
         fields = [
             'name',
             'institution', 'faculty', 'career', 'subject', 'campus', 'professor',
+            'catedra',
             'print_format',
             'learning_outcomes', 'rubrics', 'notes_and_recommendations',
         ]
@@ -268,6 +269,10 @@ class ExamTemplateForm(forms.ModelForm):
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Ej: Parcial 1 - Comisión A (opcional)',
+            }),
+            'catedra': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Cátedra A - Prof. Pérez (opcional)',
             }),
             'learning_outcomes': forms.CheckboxSelectMultiple(
                 attrs={'class': 'learning-outcomes-checkbox'}

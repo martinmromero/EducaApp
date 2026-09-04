@@ -416,6 +416,11 @@ document.addEventListener('DOMContentLoaded', function() {
             var profesorSelect = document.getElementById('profesor_dropdown');
             profesorSelect.value = data.professor_id;
         }
+        // Cátedra
+        if (data.catedra) {
+            var catedraInput = document.getElementById('catedra');
+            if (catedraInput) catedraInput.value = data.catedra;
+        }
         // Tipo de examen
         if (data.exam_type) {
             var tipoExamenSelect = document.getElementById('tipo_examen_select');

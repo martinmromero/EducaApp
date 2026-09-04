@@ -132,10 +132,10 @@ TEXT_TEST_MODELS = [
         'model': 'openai/gpt-oss-120b',
         'generate_kwargs': {'reasoning_effort': 'low'},
     },
-    {
-        'model': 'qwen/qwen3.6-27b',
-        'generate_kwargs': {'reasoning_effort': 'none'},
-    },
+    # qwen/qwen3.6-27b sacado de la rotación: Groq avisó su deprecación el
+    # 2026-09-01 (decomisionado 2026-09-14, reemplazo qwen3.8-27b). Ya venía
+    # fallando más que los gpt-oss en las ventanas de testing reales (JSON
+    # mal formado y rate-limit) — no vale la pena volver a sumarlo.
 ]
 # Techo externo de tokens de salida para este test — más alto que el default
 # de producción (4096) para darle aire al colchón de razonamiento de arriba;
@@ -324,13 +324,16 @@ def _pick_fixture():
 
 
 def _pick_text_model():
-    """Rota entre TEXT_TEST_MODELS según la cantidad de corridas ya guardadas
-    — con un módulo distinto al de _pick_fixture (2), así documento y modelo
-    no quedan pegados siempre a la misma combinación (con 3 candidatos, el
-    ciclo completo doc×modelo se cubre cada 6 corridas)."""
+    """Rota entre TEXT_TEST_MODELS. Con la misma cantidad de candidatos que
+    de fixtures (2 y 2), alternar los dos con el mismo `count % 2` los
+    dejaría pegados siempre a la misma combinación (modelo 0 siempre con
+    "easy", modelo 1 siempre con "hard") — por eso acá el modelo cambia
+    cada 2 corridas en vez de cada 1, así el ciclo completo modelo×documento
+    (4 combinaciones) se cubre cada 4 corridas en vez de dejar la mitad sin
+    probar nunca."""
     from .models import GroqMonitorRun
     count = GroqMonitorRun.objects.count()
-    return TEXT_TEST_MODELS[count % len(TEXT_TEST_MODELS)]
+    return TEXT_TEST_MODELS[(count // 2) % len(TEXT_TEST_MODELS)]
 
 
 def run_test(fixture_key=None, persist='db'):
@@ -344,7 +347,7 @@ def run_test(fixture_key=None, persist='db'):
 
     El modelo de texto NO se lee de GlobalAIConfig.model — rota automáticamente
     entre TEXT_TEST_MODELS (ver comentario ahí) usando solo la API key ya
-    cargada en GlobalAIConfig(provider='groq'). Así se compara a los tres
+    cargada en GlobalAIConfig(provider='groq'). Así se compara a los
     candidatos con datos reales sin tocar cuál es el modelo activo en
     producción."""
     from django.contrib.auth.models import User

@@ -3,7 +3,19 @@
 // Página nueva e independiente de create_exam.js: mismos endpoints, DOM distinto
 // (un paso visible a la vez + selector de tópicos/preguntas coloreado por tópico).
 
-document.addEventListener('DOMContentLoaded', function () {
+// document.addEventListener('DOMContentLoaded', fn) a secas no alcanza: si
+// el evento ya disparó para cuando este script corre, el callback nunca se
+// ejecuta sin ningún error visible (encontrado en create_exam_template_wizard.js,
+// mismo patrón acá por las dudas).
+function _onDomReady(fn) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fn);
+    } else {
+        fn();
+    }
+}
+
+_onDomReady(function () {
     var CFG = window.EducaAppWizardConfig || { urls: {} };
     var wireCatalogSearch = window.EducaAppWizardCatalogSearch.wireCatalogSearch;
     var clearCatalogField = window.EducaAppWizardCatalogSearch.clearCatalogField;
@@ -582,17 +594,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Cambiar la institución invalida facultad/carrera elegidas (dependen del
     // contexto de arriba), repuebla el dropdown de facultad sugerida acorde
-    // y recarga las sedes disponibles, igual que antes.
-    institucionHidden.addEventListener('change', function () {
+    // y recarga las sedes disponibles, igual que antes. Extraída como función
+    // (devuelve la promise del fetch de sedes) para poder reutilizarla desde
+    // el restore de borrador (ver wizard_draft.js más abajo), que necesita
+    // esperar a que las sedes terminen de cargar antes de elegir una.
+    function applyInstitucionChange(institucionId) {
         clearCatalogField(document.getElementById('facultad_search'), facultadHidden);
         clearCatalogField(document.getElementById('carrera_search'), carreraHidden);
-        var institucionId = this.value;
         var instEntry = findInTree(institucionId);
         populateSuggestSelect(facultadSelect, facultadSearchWrap, (instEntry && instEntry.faculties) || [], 'Seleccionar facultad');
         populateSuggestSelect(carreraSelect, carreraSearchWrap, [], 'Seleccionar carrera');
         sedeSelect.innerHTML = '<option value="">Seleccionar sede</option><option value="otro">Otro</option>';
+        updateSuggestedBatchName();
         if (/^\d+$/.test(institucionId)) {
-            fetch(CFG.urls.getCampusesByInstitutionBase + institucionId + '/')
+            return fetch(CFG.urls.getCampusesByInstitutionBase + institucionId + '/')
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     sedeSelect.innerHTML = '<option value="">Seleccionar sede</option><option value="otro">Otro</option>';
@@ -603,16 +618,67 @@ document.addEventListener('DOMContentLoaded', function () {
                     });
                 });
         }
-        updateSuggestedBatchName();
-    });
+        return Promise.resolve();
+    }
+    institucionHidden.addEventListener('change', function () { applyInstitucionChange(this.value); });
 
-    facultadHidden.addEventListener('change', function () {
+    function applyFacultadChange(facultadId) {
         clearCatalogField(document.getElementById('carrera_search'), carreraHidden);
-        var facultadId = this.value;
         var instEntry = findInTree(institucionHidden.value);
         var facEntry = instEntry && instEntry.faculties.find(function (f) { return String(f.id) === String(facultadId); });
         populateSuggestSelect(carreraSelect, carreraSearchWrap, (facEntry && facEntry.careers) || [], 'Seleccionar carrera');
-    });
+    }
+    facultadHidden.addEventListener('change', function () { applyFacultadChange(this.value); });
+
+    // ── Aplicar institución/facultad/carrera desde una fuente externa
+    // (plantilla elegida o borrador recuperado) ─────────────────────────
+    // Mismo criterio en los 3 niveles: si el id está entre las sugeridas
+    // por la materia actual (catalogTree) se usa el <select> con ese id;
+    // si no, cae a "Otro" con el buscador libre mostrando el nombre tal
+    // cual vino. Factorizado acá porque plantilla y borrador necesitan
+    // exactamente la misma lógica (antes vivía duplicada solo en el
+    // handler de "plantilla").
+    function applyInstitucionSelection(institutionId, institutionName) {
+        var instEntry = findInTree(institutionId);
+        if (instEntry) {
+            institucionSelect.value = String(institutionId);
+            institucionSearchWrap.classList.add('d-none');
+        } else {
+            institucionSelect.value = '__otro__';
+            institucionSearchWrap.classList.remove('d-none');
+        }
+        institucionSearch.setValue(institutionId, institutionName || (instEntry && instEntry.name) || '');
+        institucionHidden.value = institutionId;
+        return applyInstitucionChange(institutionId);
+    }
+    function applyFacultadSelection(facultyId, facultyName) {
+        var instEntry = findInTree(institucionHidden.value);
+        var facEntry = instEntry && instEntry.faculties.find(function (f) { return String(f.id) === String(facultyId); });
+        if (facEntry) {
+            facultadSelect.value = String(facultyId);
+            facultadSearchWrap.classList.add('d-none');
+        } else {
+            facultadSelect.value = '__otro__';
+            facultadSearchWrap.classList.remove('d-none');
+        }
+        facultadSearch.setValue(facultyId, facultyName || (facEntry && facEntry.name) || '');
+        facultadHidden.value = facultyId;
+        applyFacultadChange(facultyId);
+    }
+    function applyCarreraSelection(careerId, careerName) {
+        var instEntry = findInTree(institucionHidden.value);
+        var facEntry = instEntry && instEntry.faculties.find(function (f) { return String(f.id) === String(facultadHidden.value); });
+        var carEntry = facEntry && facEntry.careers.find(function (c) { return String(c.id) === String(careerId); });
+        if (carEntry) {
+            carreraSelect.value = String(careerId);
+            carreraSearchWrap.classList.add('d-none');
+        } else {
+            carreraSelect.value = '__otro__';
+            carreraSearchWrap.classList.remove('d-none');
+        }
+        carreraSearch.setValue(careerId, careerName || (carEntry && carEntry.name) || '');
+        carreraHidden.value = careerId;
+    }
 
     // ── Autocompletar desde plantilla elegida ────────────────────────────
     function markFromTemplate(inputId) {
@@ -674,31 +740,12 @@ document.addEventListener('DOMContentLoaded', function () {
         await loadCatalogTree();
 
         if (data.institution_id) {
-            var instEntryTpl = findInTree(data.institution_id);
-            if (instEntryTpl) {
-                institucionSelect.value = String(data.institution_id);
-                institucionSearchWrap.classList.add('d-none');
-            } else {
-                institucionSelect.value = '__otro__';
-                institucionSearchWrap.classList.remove('d-none');
-            }
-            institucionSearch.setValue(data.institution_id, data.institution_name || (instEntryTpl && instEntryTpl.name) || '');
-            institucionHidden.dispatchEvent(new Event('change'));
+            await applyInstitucionSelection(data.institution_id, data.institution_name);
             markFromTemplate('institucion_select');
             openInstitucionBlock();
         }
         if (data.faculty_id) {
-            var instEntryForFacTpl = findInTree(institucionHidden.value);
-            var facEntryTpl = instEntryForFacTpl && instEntryForFacTpl.faculties.find(function (f) { return String(f.id) === String(data.faculty_id); });
-            if (facEntryTpl) {
-                facultadSelect.value = String(data.faculty_id);
-                facultadSearchWrap.classList.add('d-none');
-            } else {
-                facultadSelect.value = '__otro__';
-                facultadSearchWrap.classList.remove('d-none');
-            }
-            facultadSearch.setValue(data.faculty_id, data.faculty_name || (facEntryTpl && facEntryTpl.name) || '');
-            facultadHidden.dispatchEvent(new Event('change'));
+            applyFacultadSelection(data.faculty_id, data.faculty_name);
             markFromTemplate('facultad_select');
         }
         if (data.career_id) {
@@ -706,26 +753,24 @@ document.addEventListener('DOMContentLoaded', function () {
             // estar asociada a la facultad de la plantilla (ver comentario
             // histórico de esta pantalla) — no hace falta resolverlo acá:
             // el nombre ya viene en la respuesta de get_exam_template.
-            var instEntryForCarTpl = findInTree(institucionHidden.value);
-            var facEntryForCarTpl = instEntryForCarTpl && instEntryForCarTpl.faculties.find(function (f) { return String(f.id) === String(facultadHidden.value); });
-            var carEntryTpl = facEntryForCarTpl && facEntryForCarTpl.careers.find(function (c) { return String(c.id) === String(data.career_id); });
-            if (carEntryTpl) {
-                carreraSelect.value = String(data.career_id);
-                carreraSearchWrap.classList.add('d-none');
-            } else {
-                carreraSelect.value = '__otro__';
-                carreraSearchWrap.classList.remove('d-none');
-            }
-            carreraSearch.setValue(data.career_id, data.career_name || (carEntryTpl && carEntryTpl.name) || '');
+            applyCarreraSelection(data.career_id, data.career_name);
             markFromTemplate('carrera_select');
         }
         if (data.campus_id) {
+            // Recién acá, después de esperar applyInstitucionSelection (que
+            // ahora sí se espera con await), sedeSelect ya tiene las sedes
+            // de la institución cargadas — antes esto se ejecutaba en
+            // paralelo con el fetch de sedes y podía perder la selección.
             sedeSelect.value = data.campus_id;
             markFromTemplate('sede_dropdown');
         }
         if (data.professor_id) {
             document.getElementById('profesor_dropdown').value = data.professor_id;
             markFromTemplate('profesor_dropdown');
+        }
+        if (data.catedra) {
+            document.getElementById('catedra').value = data.catedra;
+            markFromTemplate('catedra');
         }
         if (data.exam_type) {
             document.getElementById('tipo_examen_select').value = data.exam_type;
@@ -749,5 +794,139 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     window.toggleTextbox = toggleTextboxGlobal;
 
+    // ── Backup a sessionStorage (mismo motor que los otros 3 wizards, ver
+    // wizard_draft.js) — este es el más largo de los 4 (6 pasos, catálogo
+    // institución/facultad/carrera/sede, selector de preguntas coloreado),
+    // así que es el que más se perdía con un F5 accidental. No se guarda
+    // la plantilla elegida en sí (paso 1): se guarda el resultado ya
+    // aplicado en los pasos siguientes, así el restore no depende de
+    // volver a resolver la plantilla contra el servidor. ─────────────────
+    var draft = window.EducaAppWizardDraft.init('educaapp_exam_wizard_draft');
+
+    function checkedValues(containerId, selector) {
+        var container = document.getElementById(containerId);
+        if (!container) return [];
+        return Array.from(container.querySelectorAll(selector || 'input[type="checkbox"]:checked')).map(function (cb) { return cb.value; });
+    }
+
+    function saveDraft() {
+        draft.save({
+            subject: subjectSelect.value,
+            topicIds: getSelectedTopicIds(),
+            questionIds: selectedQuestionIds,
+            learningOutcomeIds: checkedValues('learning_outcomes_container'),
+            profesorDropdown: document.getElementById('profesor_dropdown').value,
+            profesorText: document.getElementById('profesor_text').value,
+            fecha: document.getElementById('fecha').value,
+            duration: durationInput.value,
+            durationUnit: durationUnit.value,
+            year: yearInput.value,
+            periodoNumero: periodoNumero.value,
+            periodoTipo: periodoTipo.value,
+            institucionBlockOpen: !institucionBlock.classList.contains('d-none'),
+            institucion: institucionHidden.value,
+            institucionLabel: document.getElementById('institucion_search').value,
+            facultad: facultadHidden.value,
+            facultadLabel: document.getElementById('facultad_search').value,
+            carrera: carreraHidden.value,
+            carreraLabel: document.getElementById('carrera_search').value,
+            sede: sedeSelect.value,
+            sedeText: document.getElementById('sede_text').value,
+            curso: document.getElementById('curso').value,
+            catedra: document.getElementById('catedra').value,
+            turno: document.getElementById('turno_dropdown').value,
+            turnoText: document.getElementById('turno_text').value,
+            tipoExamen: document.getElementById('tipo_examen_select').value,
+            modalidad: (document.querySelector('input[name="tipo_modalidad"]:checked') || {}).value || '',
+            modalidadResolucion: Array.from(document.querySelectorAll('input[name="modalidad_resolucion"]:checked')).map(function (cb) { return cb.value; }),
+            batchName: batchNameInput.value,
+            batchNameUserEdited: batchNameInput.dataset.userEdited === '1',
+            instructions: document.getElementById('id_instructions').value,
+            numVersions: document.getElementById('num_versions').value,
+            questionsPerVersion: document.getElementById('questions_per_version').value,
+            balanceByTopic: document.getElementById('balance_by_topic').checked,
+            rubricIds: checkedValues('rubrics_checkbox_container', 'input[name="rubric_ids"]:checked'),
+        });
+    }
+    wizForm.addEventListener('change', saveDraft);
+    wizForm.addEventListener('input', saveDraft);
+
+    function restoreDraft() {
+        var saved = draft.load();
+        if (!saved || !saved.subject) return;
+
+        draft.confirmRestore('Encontramos un examen sin terminar de una sesión anterior. ¿Querés recuperarlo?').then(function (quiere) {
+            if (!quiere) { draft.clear(); return; }
+
+            subjectSelect.value = saved.subject;
+            loadSubjectDependents(saved.subject, saved.topicIds, saved.questionIds).then(function () {
+                (saved.learningOutcomeIds || []).forEach(function (id) {
+                    var cb = document.getElementById('wiz_outcome_' + id);
+                    if (cb) cb.checked = true;
+                });
+
+                document.getElementById('profesor_dropdown').value = saved.profesorDropdown || '';
+                document.getElementById('profesor_text').value = saved.profesorText || '';
+                document.getElementById('fecha').value = saved.fecha || '';
+                durationInput.value = saved.duration || '';
+                durationUnit.value = saved.durationUnit || 'minutos';
+                yearInput.value = saved.year || '';
+                periodoNumero.value = saved.periodoNumero || '';
+                periodoTipo.value = saved.periodoTipo || 'Cuatrimestre';
+                syncPeriodo();
+
+                document.getElementById('curso').value = saved.curso || '';
+                document.getElementById('catedra').value = saved.catedra || '';
+                document.getElementById('turno_dropdown').value = saved.turno || '';
+                document.getElementById('turno_text').value = saved.turnoText || '';
+                toggleTextboxGlobal('turno_dropdown', 'turno_text');
+                document.getElementById('tipo_examen_select').value = saved.tipoExamen || '';
+                if (saved.modalidad) {
+                    var modalidadRadio = document.querySelector('input[name="tipo_modalidad"][value="' + saved.modalidad + '"]');
+                    if (modalidadRadio) modalidadRadio.checked = true;
+                }
+                (saved.modalidadResolucion || []).forEach(function (val) {
+                    var cb = document.querySelector('input[name="modalidad_resolucion"][value="' + val + '"]');
+                    if (cb) cb.checked = true;
+                });
+                batchNameInput.value = saved.batchName || '';
+                batchNameInput.dataset.userEdited = saved.batchNameUserEdited ? '1' : '0';
+                document.getElementById('id_instructions').value = saved.instructions || '';
+                document.getElementById('num_versions').value = saved.numVersions || '1';
+                document.getElementById('questions_per_version').value = saved.questionsPerVersion || '';
+                document.getElementById('balance_by_topic').checked = saved.balanceByTopic !== false;
+                (saved.rubricIds || []).forEach(function (id) {
+                    var cb = document.querySelector('#rubrics_checkbox_container input[name="rubric_ids"][value="' + id + '"]');
+                    if (cb) cb.checked = true;
+                });
+
+                return loadCatalogTree();
+            }).then(function () {
+                if (saved.institucion) {
+                    if (saved.institucionBlockOpen) openInstitucionBlock();
+                    return applyInstitucionSelection(saved.institucion, saved.institucionLabel).then(function () {
+                        if (saved.facultad) applyFacultadSelection(saved.facultad, saved.facultadLabel);
+                        if (saved.carrera) applyCarreraSelection(saved.carrera, saved.carreraLabel);
+                        if (saved.sede) sedeSelect.value = saved.sede;
+                        document.getElementById('sede_text').value = saved.sedeText || '';
+                        toggleTextboxGlobal('sede_dropdown', 'sede_text');
+                    });
+                }
+                return Promise.resolve();
+            }).then(function () {
+                wizardCtrl.goNext();
+                wizardCtrl.goNext();
+                wizardCtrl.goNext();
+                wizardCtrl.goNext();
+                wizardCtrl.goNext();
+            });
+        });
+    }
+
+    wizForm.addEventListener('submit', function () { draft.clear(); });
+    var startOverLink = document.querySelector('a[href*="limpiar=1"]');
+    if (startOverLink) startOverLink.addEventListener('click', function () { draft.clear(); });
+
     wizardCtrl.goToStep(1);
+    restoreDraft();
 });

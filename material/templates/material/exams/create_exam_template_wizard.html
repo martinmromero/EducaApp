@@ -63,6 +63,14 @@
                         <select class="form-select" name="campus" id="id_campus" disabled>
                             <option value="">Sin sede específica</option>
                         </select>
+                        <button type="button" class="wiz-toggle-more mt-1 d-none" id="wizAddCampusToggle">+ Agregar sede</button>
+                        <div class="d-none mt-2" id="wizAddCampusRow">
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control" id="wizAddCampusInput" placeholder="Nombre de la sede">
+                                <button type="button" class="btn btn-success" id="wizAddCampusSave">Guardar</button>
+                                <button type="button" class="btn btn-outline-secondary" id="wizAddCampusCancel">Cancelar</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -92,6 +100,10 @@
                         </select>
                     </div>
                     <div class="col-md-6">
+                        <label class="form-label" for="id_catedra">Cátedra <span class="text-muted fw-normal">(opcional)</span></label>
+                        <input type="text" class="form-control" name="catedra" id="id_catedra" placeholder="Ej: Cátedra A - Prof. Pérez">
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label" for="id_print_format">Formato de impresión <span class="text-muted fw-normal">(opcional)</span></label>
                         <select class="form-select" name="print_format" id="id_print_format">
                             <option value="">Usar el predeterminado (institución/usuario)</option>
@@ -112,12 +124,16 @@
                 <label class="form-label">Resultados de aprendizaje</label>
                 <div id="wizOutcomesEmpty" class="text-muted small border rounded p-3 text-center mb-3">
                     Esta materia todavía no tiene resultados de aprendizaje cargados.
+                    <span id="wizOutcomesCreateLink"></span>
                 </div>
                 <div id="wizOutcomesList" class="d-none border rounded p-2 mb-3" style="max-height: 200px; overflow-y: auto;"></div>
 
-                {% if rubrics %}
                 <label class="form-label">Rúbricas</label>
-                <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                <p id="wizRubricsEmpty" class="text-muted small {% if rubrics %}d-none{% endif %} mb-3">
+                    Todavía no hay ninguna rúbrica creada.
+                    <a href="{% url 'material:rubric_create' %}" target="_blank" rel="noopener">Crear una</a>
+                </p>
+                <div id="wizRubricsList" class="border rounded p-2 mb-3 {% if not rubrics %}d-none{% endif %}" style="max-height: 200px; overflow-y: auto;">
                     {% for rubrica in rubrics %}
                     <div class="form-check">
                         <input class="form-check-input rubric-checkbox" type="checkbox" value="{{ rubrica.id }}" id="rubric_cb_{{ rubrica.id }}">
@@ -125,11 +141,6 @@
                     </div>
                     {% endfor %}
                 </div>
-                {% else %}
-                <p class="text-muted small mb-0">
-                    Todavía no hay ninguna rúbrica creada. <a href="{% url 'material:rubric_create' %}" target="_blank" rel="noopener">Crear una</a>
-                </p>
-                {% endif %}
 
                 <div class="mt-3">
                     <label class="form-label" for="id_notes">Notas y recomendaciones <span class="text-muted fw-normal">(opcional)</span></label>
@@ -168,12 +179,18 @@ window.EducaAppTemplateWizardConfig = {
         getFacultiesByInstitutionBase: "/get_faculties_by_institution/",
         getCareersByFacultyBase: "/get-careers-by-faculty/",
         getCampusesByInstitutionBase: "/get_campuses_by_institution/",
+        getSubjectsByCareerBase: "/get-subjects-by-career/",
         getLearningOutcomes: "{% url 'material:get_learning_outcomes' %}",
+        getVisibleRubricsJson: "{% url 'material:get_visible_rubrics_json' %}",
         saveExamTemplate: "{% url 'material:save_exam_template' %}",
-        listExamTemplates: "{% url 'material:list_exam_templates' %}"
-    }
+        listExamTemplates: "{% url 'material:list_exam_templates' %}",
+        createRelatedElement: "/api/create-related-element/",
+        subjectDetailBase: "/subjects/"
+    },
+    ownSubjectIds: {{ own_subject_ids_json|safe }}
 };
 </script>
 <script src="{% static 'material/js/wizard_engine.js' %}"></script>
+<script src="{% static 'material/js/wizard_draft.js' %}"></script>
 <script src="{% static 'material/js/create_exam_template_wizard.js' %}"></script>
 {% endblock %}

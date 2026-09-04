@@ -75,6 +75,7 @@ def build_exam_document_payload(exam: Any, *, include_answers: bool = False, inc
             'facultad': getattr(exam, 'faculty_name', '') or '',
             'carrera': getattr(exam, 'career_name', '') or '',
             'materia': getattr(getattr(exam, 'subject', None), 'name', '') or getattr(exam, 'subject_name', ''),
+            'catedra': getattr(exam, 'catedra', '') or '',
             'profesor': getattr(getattr(exam, 'professor', None), 'get_full_name', lambda: '')() if getattr(exam, 'professor', None) else '',
             'fecha': fecha_formateada,
             'tipo_examen': exam_type_label,

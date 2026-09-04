@@ -412,6 +412,7 @@ def get_exam_template(request, template_id):
         'campus_id': template.campus.id if template.campus else None,
         'campus_name': template.campus.name if template.campus else None,
         'professor_id': template.professor.id if template.professor else None,
+        'catedra': template.catedra or '',
         'exam_type': template.exam_type,
         'exam_mode': template.exam_mode,
         'shift': template.shift,
@@ -459,6 +460,19 @@ def get_careers_by_faculty(request, faculty_id):
     careers = get_visible_careers(request.user).filter(faculties__id=faculty_id).distinct()
     data = [{'id': c.id, 'name': c.name} for c in careers]
     return JsonResponse({'careers': data})
+
+@login_required
+def get_subjects_by_career(request, career_id):
+    """Materias de una carrera (Career.subjects, through CareerSubject) —
+    usado por el asistente de Plantilla de Examen para priorizar, dentro del
+    selector de Materia, las que pertenecen a la carrera ya elegida en el
+    paso anterior. Acotado a get_visible_subjects (catálogo + espacio
+    personal propio), mismo criterio que el resto de los selectores."""
+    from .content_visibility import get_visible_subjects
+    career = get_object_or_404(Career, pk=career_id)
+    subjects = get_visible_subjects(request.user).filter(pk__in=career.subjects.all())
+    data = [{'id': s.id, 'name': s.name} for s in subjects]
+    return JsonResponse({'subjects': data})
 # Standard library imports
 import csv
 import json
@@ -880,6 +894,7 @@ def _collect_exam_post_data(request, form):
     exam_data['sede'] = request.POST.get('sede_dropdown')
     exam_data['sede_text'] = request.POST.get('sede_text', '').strip()
     exam_data['curso'] = request.POST.get('curso')
+    exam_data['catedra'] = request.POST.get('catedra', '').strip()
     exam_data['turno'] = request.POST.get('turno_dropdown')
     exam_data['turno_text'] = request.POST.get('turno_text', '').strip()
     exam_data['profesor'] = request.POST.get('profesor_dropdown')
@@ -1149,6 +1164,7 @@ def _build_preview_exam_payload_from_exam(examen):
         'sede': sede,
         'sede_text': sede_text,
         'curso': examen.curso or '',
+        'catedra': examen.catedra or '',
         'turno': turno,
         'turno_text': turno_text,
         'profesor': profesor,
@@ -1900,6 +1916,7 @@ def save_exam_from_session(request):
                     'resolution_time': resolution_time or None,
                     'alumno': exam_data.get('alumno') or '',
                     'curso': exam_data.get('curso') or '',
+                    'catedra': exam_data.get('catedra') or '',
                     'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
                 }
                 for field_name, field_value in exam_kwargs.items():
@@ -1938,6 +1955,7 @@ def save_exam_from_session(request):
                         'resolution_time': resolution_time or None,
                         'alumno': exam_data.get('alumno') or '',
                         'curso': exam_data.get('curso') or '',
+                        'catedra': exam_data.get('catedra') or '',
                         'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
                     }
                     if idx <= len(existing_versions):
@@ -1983,6 +2001,7 @@ def save_exam_from_session(request):
                         'resolution_time': resolution_time or None,
                         'alumno': exam_data.get('alumno') or '',
                         'curso': exam_data.get('curso') or '',
+                        'catedra': exam_data.get('catedra') or '',
                         'topics_to_evaluate': exam_data.get('topics_to_evaluate') or None,
                     }
                     if supports_version_batches and batch is not None:
@@ -2084,6 +2103,11 @@ def create_exam_template_wizard(request):
     print_formats = get_visible_print_formats(request.user)
     rubrics = get_visible_rubrics(request.user)
     professors = User.objects.filter(is_active=True).exclude(profile__is_training_account=True)
+    # Para reordenar el <select> de materia en el paso 2: las que ya tienen
+    # preguntas propias van primero (ver create_exam_template_wizard.js) —
+    # acotado a `subjects` (lo que ya se va a listar) para no mandar al
+    # frontend ningún id que después no encuentre su <option>.
+    own_subject_ids = list(subjects.filter(questions__user=request.user).distinct().values_list('id', flat=True))
 
     context = {
         'institutions': institutions,
@@ -2091,6 +2115,7 @@ def create_exam_template_wizard(request):
         'print_formats': print_formats,
         'rubrics': rubrics,
         'professors': professors,
+        'own_subject_ids_json': json.dumps(own_subject_ids),
     }
     return render(request, 'material/exams/create_exam_template_wizard.html', context)
 
@@ -2219,7 +2244,7 @@ def preview_exam_template(request):
         if selected_outcomes:
             outcomes = LearningOutcome.objects.filter(
                 id__in=selected_outcomes,
-                subject=subject
+                career_subject__subject=subject
             )
             outcomes_to_display = [
                 {
@@ -2241,6 +2266,7 @@ def preview_exam_template(request):
             'alumno': '',  # Campo vacío para plantillas
             'fecha': '',  # Campo vacío para plantillas
             'year': '',  # Las plantillas no tienen año: se muestra en blanco
+            'catedra': request.POST.get('catedra', '').strip(),
             'curso': '',  # No disponible en plantillas
             'turno': '',  # No disponible en plantillas
             'sede': ''   # No disponible en plantillas
@@ -2403,6 +2429,7 @@ def view_exam_template(request, template_id):
         'instructions': '',
         'tipo_examen': template.get_exam_type_display(),
         'tipo_modalidad': template.get_exam_mode_display(),
+        'catedra': template.catedra or '',
         'curso': '',
         'turno': '',
         'sede': '',
@@ -2463,6 +2490,7 @@ def save_exam_template(request):
                 'faculty_id': request.POST.get('faculty'),
                 'career_id': request.POST.get('career'),
                 'subject_id': request.POST.get('subject'),
+                'catedra': request.POST.get('catedra', '').strip(),
                 'exam_mode': request.POST.get('exam_mode'),
                 'exam_type': request.POST.get('exam_type'),
                 'campus_id': request.POST.get('campus'),
@@ -2512,9 +2540,13 @@ def save_exam_template(request):
                 outcomes_ids = [x for x in outcomes_str.split(',') if x]
 
             if outcomes_ids:
+                # LearningOutcome no tiene subject_id propio, solo llega a
+                # Subject indirecto via career_subject (ver comentario del
+                # modelo: un mismo RA es de una Materia EN una Carrera
+                # puntual, no de la Materia en abstracto).
                 outcomes = LearningOutcome.objects.filter(
                     id__in=outcomes_ids,
-                    subject_id=content_fields['subject_id']
+                    career_subject__subject_id=content_fields['subject_id']
                 )
                 exam_template.learning_outcomes.set(outcomes)
             elif save_mode == 'update':
@@ -7255,6 +7287,18 @@ def rubric_list(request):
     return render(request, 'material/rubricas/list.html', {'rubricas': rubricas})
 
 
+@login_required
+def get_visible_rubrics_json(request):
+    """Mismo listado que rubric_list pero en JSON — usado por el asistente
+    de Plantilla de Examen para refrescar la lista de rúbricas sin recargar
+    la página al volver de la pestaña de 'Crear rúbrica' (antes esa vuelta
+    dejaba la rúbrica recién creada invisible hasta un F5, que de paso
+    borraba todo el progreso del asistente)."""
+    from .content_visibility import get_visible_rubrics
+    rubricas = get_visible_rubrics(request.user).order_by('title')
+    return JsonResponse({'rubrics': [{'id': r.id, 'title': r.title} for r in rubricas]})
+
+
 def _save_rubric_grid(request, rubrica):
     """Parsea la grilla del POST y guarda niveles, criterios y celdas."""
     import json as _json
@@ -9213,15 +9257,21 @@ def groq_monitor_page(request):
                 hours = max(1, min(168, int(request.POST.get('hours', 48))))
             except (TypeError, ValueError):
                 pass
+            interval_minutes = cfg.interval_minutes
+            try:
+                interval_minutes = max(5, min(1440, int(request.POST.get('interval_minutes', cfg.interval_minutes))))
+            except (TypeError, ValueError):
+                pass
             now = timezone.now()
             cfg.enabled = True
             cfg.started_at = now
             cfg.ends_at = now + timezone.timedelta(hours=hours)
+            cfg.interval_minutes = interval_minutes
             cfg.last_run_at = None
             cfg.save()
             from .groq_monitor import ensure_scheduler_running
             ensure_scheduler_running('text')
-            messages.success(request, f'Monitoreo activado por {hours} horas.', extra_tags='general')
+            messages.success(request, f'Monitoreo activado por {hours} horas, cada {interval_minutes} minutos.', extra_tags='general')
         elif action == 'stop':
             cfg.enabled = False
             cfg.save(update_fields=['enabled'])

@@ -98,9 +98,9 @@
             <!-- Resto de Área 1, para el recorrido de ?demo_peek=1: de Sede/
                  Localización a Duración, inclusive. -->
             <div id="examArea1Extra">
-            <!-- Sección 3 columnas: Sede / Localización - Curso / Comisión - Turno -->
+            <!-- Sección 4 columnas: Sede / Localización - Curso / Comisión - Cátedra - Turno -->
             <div class="row mb-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label for="sede_dropdown">Sede / Localización</label>
                     <select class="form-select" name="sede_dropdown" id="sede_dropdown" onchange="toggleTextbox('sede_dropdown', 'sede_text')">
                         <option value="">Seleccionar sede</option>
@@ -108,11 +108,15 @@
                     </select>
                     <input type="text" class="form-control mt-2" name="sede_text" id="sede_text" placeholder="Ingrese sede" style="display:none;">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label for="curso">Año / Curso / Comisión</label>
                     <input type="text" class="form-control" name="curso" id="curso">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label for="catedra">Cátedra <span class="text-muted fw-normal">(opcional)</span></label>
+                    <input type="text" class="form-control" name="catedra" id="catedra" placeholder="Ej: Cátedra A - Prof. Pérez">
+                </div>
+                <div class="col-md-3">
                     <label for="turno_dropdown">Turno</label>
                     <select class="form-select" name="turno_dropdown" id="turno_dropdown" onchange="toggleTextbox('turno_dropdown', 'turno_text')">
                         <option value="">Seleccionar turno</option>
