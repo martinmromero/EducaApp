@@ -300,14 +300,24 @@ _onDomReady(function () {
         };
         var outcomesCount = outcomesList.querySelectorAll('.outcome-checkbox:checked').length;
         var rubricsCount = document.querySelectorAll('.rubric-checkbox:checked').length;
+        // Cátedra y Notas: se guardan bien desde siempre (van en el mismo
+        // FormData del submit final), pero antes no aparecían acá — el
+        // docente no podía confirmar visualmente lo que había tipeado en el
+        // paso 2 antes de crear la plantilla.
+        var catedraInput = document.getElementById('id_catedra');
+        var notesInput = document.getElementById('id_notes');
+        var catedraVal = catedraInput && catedraInput.value.trim() ? catedraInput.value.trim() : '-';
+        var notesVal = notesInput && notesInput.value.trim() ? notesInput.value.trim() : '-';
         box.innerHTML =
             '<dl class="row mb-0">' +
             '<dt class="col-sm-4">Institución</dt><dd class="col-sm-8">' + label(institutionSelect) + '</dd>' +
             '<dt class="col-sm-4">Facultad / Carrera</dt><dd class="col-sm-8">' + label(facultySelect) + ' / ' + label(careerSelect) + '</dd>' +
             '<dt class="col-sm-4">Materia</dt><dd class="col-sm-8">' + label(subjectSelect) + '</dd>' +
             '<dt class="col-sm-4">Profesor</dt><dd class="col-sm-8">' + label(document.getElementById('id_professor')) + '</dd>' +
+            '<dt class="col-sm-4">Cátedra</dt><dd class="col-sm-8">' + catedraVal + '</dd>' +
             '<dt class="col-sm-4">Resultados de aprendizaje</dt><dd class="col-sm-8">' + outcomesCount + ' seleccionado(s)</dd>' +
             '<dt class="col-sm-4">Rúbricas</dt><dd class="col-sm-8">' + rubricsCount + ' seleccionada(s)</dd>' +
+            '<dt class="col-sm-4">Notas y recomendaciones</dt><dd class="col-sm-8">' + notesVal + '</dd>' +
             '</dl>';
     }
 

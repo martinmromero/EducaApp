@@ -382,6 +382,12 @@ def extract_book_metadata(file_path):
             # Buscar la primera línea con longitud significativa (probablemente el título)
             for line in lines[:10]:
                 line = line.strip()
+                # Saltear el propio separador "--- Página N ---" inyectado
+                # más arriba al armar first_pages_text — si no, en cualquier
+                # PDF sin título embebido este heurístico "elegía" el
+                # separador de la página 1 como si fuera el título real.
+                if re.match(r'^-{2,}\s*P[aá]gina\s+\d+\s*-{2,}$', line, re.IGNORECASE):
+                    continue
                 if 10 < len(line) < 200 and not line.startswith('ISBN'):
                     metadata['title'] = line
                     break

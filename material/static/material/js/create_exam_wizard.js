@@ -33,7 +33,7 @@ _onDomReady(function () {
     }
 
     var wizardCtrl = window.EducaAppWizard.init({
-        totalSteps: 6,
+        totalSteps: 8,
         onValidateStep: validateStep,
         onEnterFinalStep: function () { renderSummary(); },
     });
@@ -87,28 +87,6 @@ _onDomReady(function () {
         el.addEventListener('change', syncPeriodo);
         el.addEventListener('input', syncPeriodo);
     });
-
-    // ── Toggle institución/facultad/carrera/sede ────────────────────────
-    var institucionToggleBtn = document.getElementById('wizToggleInstitucion');
-    var institucionBlock = document.getElementById('wizInstitucionBlock');
-    institucionToggleBtn.addEventListener('click', function () {
-        var willShow = institucionBlock.classList.contains('d-none');
-        institucionBlock.classList.toggle('d-none', !willShow);
-        institucionToggleBtn.textContent = willShow
-            ? '– Ocultar institución, facultad, carrera y sede'
-            : '+ Agregar institución, facultad, carrera y sede';
-        if (willShow) loadCatalogTree();
-    });
-    function openInstitucionBlock() {
-        // No recarga el árbol de catálogo acá: quien llama a esta función
-        // (aplicar plantilla, restaurar borrador) ya lo hizo justo antes y
-        // recién aplicó institución/facultad/carrera sobre ese árbol — si
-        // volviéramos a pedirlo acá, la respuesta llega después (fetch async
-        // sin esperar) y repuebla el <select> de institución sin selección,
-        // pisando lo que applyInstitucionSelection acababa de dejar puesto.
-        institucionBlock.classList.remove('d-none');
-        institucionToggleBtn.textContent = '– Ocultar institución, facultad, carrera y sede';
-    }
 
     // ── Nombre sugerido del examen ───────────────────────────────────────
     var batchNameInput = document.getElementById('batch_name');
@@ -747,7 +725,6 @@ _onDomReady(function () {
         if (data.institution_id) {
             await applyInstitucionSelection(data.institution_id, data.institution_name);
             markFromTemplate('institucion_select');
-            openInstitucionBlock();
         }
         if (data.faculty_id) {
             applyFacultadSelection(data.faculty_id, data.faculty_name);
@@ -828,7 +805,6 @@ _onDomReady(function () {
             year: yearInput.value,
             periodoNumero: periodoNumero.value,
             periodoTipo: periodoTipo.value,
-            institucionBlockOpen: !institucionBlock.classList.contains('d-none'),
             institucion: institucionHidden.value,
             institucionLabel: document.getElementById('institucion_search').value,
             facultad: facultadHidden.value,
@@ -908,7 +884,6 @@ _onDomReady(function () {
                 return loadCatalogTree();
             }).then(function () {
                 if (saved.institucion) {
-                    if (saved.institucionBlockOpen) openInstitucionBlock();
                     return applyInstitucionSelection(saved.institucion, saved.institucionLabel).then(function () {
                         if (saved.facultad) applyFacultadSelection(saved.facultad, saved.facultadLabel);
                         if (saved.carrera) applyCarreraSelection(saved.carrera, saved.carreraLabel);
@@ -919,6 +894,8 @@ _onDomReady(function () {
                 }
                 return Promise.resolve();
             }).then(function () {
+                wizardCtrl.goNext();
+                wizardCtrl.goNext();
                 wizardCtrl.goNext();
                 wizardCtrl.goNext();
                 wizardCtrl.goNext();

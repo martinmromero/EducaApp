@@ -234,6 +234,74 @@ window.EducaAppLoadTemplateDependents = loadDependents;
     institutionSelect?.addEventListener('change', function() {
         loadDependents(this.value);
     });
+
+    // =============================================
+    // SECCIÓN 5b: CASCADA FACULTAD→CARRERA Y CARRERA→MATERIA
+    // =============================================
+    // Antes esta forma clásica no filtraba Carrera por Facultad ni
+    // reordenaba Materia por Carrera (mostraba siempre el catálogo
+    // completo) — el asistente (create_exam_template_wizard.js) sí lo
+    // hacía. Mismo criterio acá para que las dos UI se comporten igual.
+    // NO se dispara solo, únicamente al cambiar Facultad/Carrera a mano —
+    // así no pisa la precarga en modo edición (que asigna .value sin
+    // dispatchear 'change').
+    const careerSelect = document.getElementById('id_career');
+    const subjectSelect = document.getElementById('id_subject');
+    let subjectsReorderedForCareer = null;
+
+    if (facultySelect && careerSelect) {
+        facultySelect.addEventListener('change', function () {
+            const facultyId = this.value;
+            if (!facultyId) return;
+            fetch(`/get-careers-by-faculty/${facultyId}/`)
+                .then(r => r.json())
+                .then(data => {
+                    const previousValue = careerSelect.value;
+                    careerSelect.innerHTML = '<option value="">Seleccionar carrera</option>';
+                    (data.careers || []).forEach(c => careerSelect.add(new Option(c.name, c.id)));
+                    // Si la carrera que ya estaba elegida sigue siendo válida
+                    // para la nueva facultad, se mantiene — si no, queda en
+                    // blanco (mismo criterio que loadDependents con facultad).
+                    if ([...careerSelect.options].some(o => o.value === previousValue)) {
+                        careerSelect.value = previousValue;
+                    }
+                })
+                .catch(() => { console.error('Error cargando carreras por facultad'); });
+        });
+    }
+
+    if (careerSelect && subjectSelect) {
+        careerSelect.addEventListener('change', function () {
+            const careerId = this.value;
+            if (!careerId || careerId === subjectsReorderedForCareer) return;
+            const previousValue = subjectSelect.value;
+            const allOptions = Array.from(subjectSelect.querySelectorAll('option[value]')).filter(o => o.value);
+
+            fetch(`/get-subjects-by-career/${careerId}/`)
+                .then(r => r.json())
+                .then(data => {
+                    const careerIds = (data.subjects || []).map(s => String(s.id));
+                    const groupCareer = [], groupRest = [];
+                    allOptions.forEach(opt => (careerIds.includes(opt.value) ? groupCareer : groupRest).push(opt));
+
+                    subjectSelect.innerHTML = '';
+                    const placeholder = new Option('---------', '');
+                    subjectSelect.appendChild(placeholder);
+                    function appendGroup(label, opts) {
+                        if (!opts.length) return;
+                        const group = document.createElement('optgroup');
+                        group.label = label;
+                        opts.forEach(o => group.appendChild(o));
+                        subjectSelect.appendChild(group);
+                    }
+                    appendGroup('De esta carrera', groupCareer);
+                    appendGroup('Todas las demás', groupRest);
+                    subjectSelect.value = previousValue;
+                    subjectsReorderedForCareer = careerId;
+                })
+                .catch(() => { console.error('Error reordenando materias por carrera'); });
+        });
+    }
 });
 
 // =============================================
@@ -429,9 +497,19 @@ function previewExamTemplate() {
         document.querySelectorAll('.outcome-checkbox:checked')
     ).map(checkbox => checkbox.value).join(',');
 
+    // Los checkboxes de rúbrica no tienen atributo "name" (los arma
+    // handleSave a mano al guardar, ver más abajo) — sin este mismo paso
+    // acá, la vista previa nunca recibía ninguna rúbrica seleccionada y la
+    // sección de Rúbricas quedaba ausente del todo, aunque sí quedaban
+    // guardadas y visibles una vez guardada la plantilla.
+    const selectedRubrics = Array.from(
+        document.querySelectorAll('.rubric-checkbox:checked')
+    ).map(checkbox => checkbox.value).join(',');
+
     // Configurar FormData
     const formData = new FormData(form);
     formData.set('learning_outcomes', selectedOutcomes);
+    formData.set('rubrics', selectedRubrics);
 
     // Mostrar loading
     const btn = document.querySelector('button[onclick="previewExamTemplate()"]');

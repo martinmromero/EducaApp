@@ -232,6 +232,14 @@ class FacultyV2(models.Model):
         return f"{self.name} - {self.institution.name}"
 
 class InstitutionLog(models.Model):
+    # CANDIDATO A BORRAR (QA 2026-09-10, parkeado a pedido del usuario):
+    # ningún flujo real de crear/editar/borrar institución, sede o facultad
+    # escribe acá — el único .create() que existe en todo el código (al
+    # crear una plantilla de examen) le pasa una oración entera a `action`,
+    # que solo acepta un choice de máx. 10 caracteres, así que ni siquiera
+    # esa escritura sirve. La pantalla /instituciones-v2/logs/<pk>/ que lee
+    # este modelo no tiene ningún link real hacia ella desde ningún lado.
+    # Antes de borrar: confirmar que nadie llegó a usarla ni depende de ella.
     ACTION_CHOICES = [
         ('create', 'Creación'),
         ('update', 'Actualización'),
@@ -363,6 +371,27 @@ def get_or_create_real_subject(name, user):
     if subject:
         return subject, False
     return Subject.objects.create(name=name, is_seed_demo=False, created_by=user), True
+
+
+def get_or_create_real_career(name, user):
+    """Punto único para crear/matchear una carrera REAL por nombre (paso
+    "Carrera" del wizard cuando el docente tipea un nombre nuevo). Mismo
+    criterio que get_or_create_real_subject: matchea por (nombre, user),
+    nunca reutiliza una fila semilla."""
+    career = Career.objects.filter(name=name, is_seed_demo=False, created_by=user).first()
+    if career:
+        return career, False
+    return Career.objects.create(name=name, is_seed_demo=False, created_by=user), True
+
+
+def get_or_create_real_faculty(name, institution_id, user):
+    """Punto único para crear/matchear una facultad REAL por nombre (paso
+    "Institución" del wizard, selector de facultad). Mismo criterio que
+    get_or_create_real_career: matchea por (nombre, institución, user)."""
+    faculty = FacultyV2.objects.filter(name=name, institution_id=institution_id, created_by=user).first()
+    if faculty:
+        return faculty, False
+    return FacultyV2.objects.create(name=name, institution_id=institution_id, created_by=user), True
 
 
 

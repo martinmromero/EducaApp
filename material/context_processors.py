@@ -3,9 +3,10 @@ import json as _json
 from django.conf import settings
 from .models import (
     InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic, Contenido,
-    InstitutionSubject, GroupMembership, CatalogRequest,
+    InstitutionSubject, GroupMembership, CatalogRequest, Career, CareerSubject,
+    FacultyV2, InstitutionCareer,
 )
-from .content_visibility import get_visible_subjects
+from .content_visibility import get_visible_subjects, get_visible_careers, get_visible_faculties
 from .views import is_admin as _is_admin
 
 
@@ -73,18 +74,71 @@ def onboarding_context(request):
     # institución(es) semilla (ver seed_demo_content): existen solo para el
     # examen de ejemplo de "esquema ya armado", no para que un docente real
     # las elija como su propia institución en el paso manual del wizard.
-    all_institutions = list(
-        InstitutionV2.objects.filter(is_active=True, is_seed_demo=False).order_by('name').values('id', 'name')
-    )
-
     # Instituciones ya vinculadas al usuario
     user_inst_ids = set(
         UserInstitution.objects.filter(user=request.user)
         .values_list('institution_id', flat=True)
     )
-    user_institutions = [
+    all_institutions = [
         {'id': inst.id, 'name': inst.name, 'logo_src': inst.logo_src}
-        for inst in InstitutionV2.objects.filter(id__in=user_inst_ids).order_by('name')
+        for inst in InstitutionV2.objects.filter(is_active=True, is_seed_demo=False).order_by('name')
+    ]
+    user_institutions = [i for i in all_institutions if i['id'] in user_inst_ids]
+
+    # Facultades visibles para el picker "elegí otra facultad" del paso
+    # Institución (paso 2) — con la institución exacta a la que pertenece
+    # cada una (FK directa, no M2M) para filtrar client-side una vez elegida
+    # la institución.
+    visible_faculties = list(
+        get_visible_faculties(request.user).values('id', 'name', 'institution_id')
+    )
+    all_faculties = [
+        {'id': f['id'], 'name': f['name'], 'institution_id': f['institution_id']}
+        for f in visible_faculties
+    ]
+    user_faculty_ids = set(
+        FacultyV2.objects.filter(created_by=request.user, is_active=True)
+        .values_list('id', flat=True)
+    )
+    user_faculties = [f for f in all_faculties if f['id'] in user_faculty_ids]
+
+    # Carreras visibles para el picker "elegí otra carrera" del paso Carrera,
+    # con las facultades donde cada una aparece (para filtrar client-side una
+    # vez elegida la facultad del paso anterior — antes se filtraba solo por
+    # institución y una institución con varias facultades, ej. UAI, mezclaba
+    # carreras de todas ellas en un único listado larguísimo). El catálogo
+    # bulk-importado vincula carrera-facultad vía Career.faculties direct
+    # (InstitutionCareer existe pero no tiene facultad — solo se usa para lo
+    # que este wizard vaya creando, y ahora también linkea a la facultad
+    # elegida vía Career.faculties, ver onboarding_save_step paso 3).
+    visible_careers = list(get_visible_careers(request.user).values('id', 'name'))
+    visible_career_ids = [c['id'] for c in visible_careers]
+    career_faculty_ids = {}
+    for row in Career.faculties.through.objects.filter(career_id__in=visible_career_ids).values(
+        'career_id', 'facultyv2_id'
+    ):
+        career_faculty_ids.setdefault(row['career_id'], set()).add(row['facultyv2_id'])
+    all_careers = [
+        {'id': c['id'], 'name': c['name'], 'faculty_ids': sorted(career_faculty_ids.get(c['id'], []))}
+        for c in visible_careers
+    ]
+
+    # Carreras del usuario (dueño real) — con faculty_ids para poder acotar
+    # también "Tus carreras" a la facultad elegida en el paso anterior. Antes
+    # se mostraban TODAS las carreras propias sin filtrar (mismo criterio que
+    # user_subjects/user_institutions, que sí tiene sentido ahí porque no hay
+    # una institución/facultad "actual" en ese paso) — pero acá, después de
+    # varias sesiones de prueba, "Tus carreras" terminaba lleno de carreras
+    # de OTRAS instituciones/facultades y las de la recién elegida (ej.
+    # Tecnología Informática de UAI) quedaban enterradas o ni siquiera
+    # visibles como propias, aunque siguieran estando en "elegir otra
+    # carrera". Ver reporte de usuario: eligió UAI y no vio ninguna carrera
+    # de esa facultad en el paso Carrera — filtrar solo por institución no
+    # alcanzaba porque UAI tiene varias facultades.
+    user_careers = [
+        {'id': c['id'], 'name': c['name'], 'faculty_ids': sorted(career_faculty_ids.get(c['id'], []))}
+        for c in Career.objects.filter(created_by=request.user, is_seed_demo=False)
+        .order_by('name').values('id', 'name')
     ]
 
     # Materias del usuario (dueño real, no ya no se infiere solo de haber
@@ -102,6 +156,15 @@ def onboarding_context(request):
     # temas y resultados de aprendizaje) y hasta editables por ID desde acá.
     # Ver [[project_subject_topic_global_sharing_bug]].
     visible_subject_ids = list(get_visible_subjects(request.user).values_list('id', flat=True))
+
+    # Materias de cada carrera (paso Carrera -> paso Materia): acota el
+    # picker de materia existente a las que de verdad están en el plan de
+    # estudios de la carrera elegida, en vez de mostrar todo el catálogo.
+    subject_ids_by_career = {}
+    for row in CareerSubject.objects.filter(
+        subject_id__in=visible_subject_ids, career_id__in=visible_career_ids
+    ).values('career_id', 'subject_id'):
+        subject_ids_by_career.setdefault(row['career_id'], []).append(row['subject_id'])
 
     outcomes_by_subj = {}
     for lo in LearningOutcome.objects.filter(
@@ -164,8 +227,14 @@ def onboarding_context(request):
         'autoShow': not profile.onboarding_completed,
         'userInstIds': list(user_inst_ids),
         'userInstitutions': user_institutions,
+        'allInstitutions': all_institutions,
+        'userFaculties': user_faculties,
+        'allFaculties': all_faculties,
+        'userCareers': user_careers,
+        'allCareers': all_careers,
         'userSubjects': user_subjects,
         'allSubjects': all_subjects,
+        'subjectIdsByCareer': subject_ids_by_career,
         'userContenidos': user_contenidos,
         'demoSubjects': demo_subjects,
     }

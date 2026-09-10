@@ -177,16 +177,43 @@ def preview_exam(request):
     from .content_visibility import get_visible_questions, EXAM_ELIGIBLE_Q
     include_seed = bool(exam.get('include_seed'))
 
-    generated_versions = []
-    if manual_question_ids and subject_obj:
-        if versions_count == 1:
-            generated_versions = [list(get_visible_questions(
-                request.user, subject=subject_obj, include_seed=include_seed
-            ).filter(
-                EXAM_ELIGIBLE_Q,
-                pk__in=manual_question_ids,
-            ).distinct())]
-        else:
+    # Si ya hay una selección confirmada en esta sesión de preview (por
+    # ejemplo, el usuario reemplazó una pregunta puntual con "Cambiar
+    # pregunta" en preview_exam_replace_question), hay que reusarla tal
+    # cual en vez de volver a sortear todo al azar en cada reload — antes
+    # cualquier reemplazo manual se perdía apenas la página se recargaba,
+    # porque este bloque siempre regeneraba las versiones desde cero.
+    existing_version_ids = request.session.get('preview_generated_versions_ids')
+    if existing_version_ids:
+        all_ids = [qid for ids in existing_version_ids for qid in ids]
+        questions_by_id = {q.id: q for q in Question.objects.filter(pk__in=all_ids)}
+        generated_versions = [
+            [questions_by_id[qid] for qid in ids if qid in questions_by_id]
+            for ids in existing_version_ids
+        ]
+    else:
+        generated_versions = []
+        if manual_question_ids and subject_obj:
+            if versions_count == 1:
+                generated_versions = [list(get_visible_questions(
+                    request.user, subject=subject_obj, include_seed=include_seed
+                ).filter(
+                    EXAM_ELIGIBLE_Q,
+                    pk__in=manual_question_ids,
+                ).distinct())]
+            else:
+                balance_by_topic = str(exam.get('balance_by_topic', '1')) == '1'
+                generated_versions = _pick_questions_for_versions(
+                    subject=subject_obj,
+                    selected_topics=selected_topics,
+                    user=request.user,
+                    versions_count=versions_count,
+                    questions_per_version=questions_per_version,
+                    balance_by_topic=balance_by_topic,
+                    allowed_question_ids=manual_question_ids,
+                    include_seed=include_seed,
+                )
+        elif subject_obj:
             balance_by_topic = str(exam.get('balance_by_topic', '1')) == '1'
             generated_versions = _pick_questions_for_versions(
                 subject=subject_obj,
@@ -195,20 +222,8 @@ def preview_exam(request):
                 versions_count=versions_count,
                 questions_per_version=questions_per_version,
                 balance_by_topic=balance_by_topic,
-                allowed_question_ids=manual_question_ids,
                 include_seed=include_seed,
             )
-    elif subject_obj:
-        balance_by_topic = str(exam.get('balance_by_topic', '1')) == '1'
-        generated_versions = _pick_questions_for_versions(
-            subject=subject_obj,
-            selected_topics=selected_topics,
-            user=request.user,
-            versions_count=versions_count,
-            questions_per_version=questions_per_version,
-            balance_by_topic=balance_by_topic,
-            include_seed=include_seed,
-        )
 
     versions_preview = []
     preview_ids = []
@@ -506,7 +521,7 @@ from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, 
 from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer, InstitutionSubject)
 from .models import CatalogRequest
 from .models import Favorite
-from .models import get_or_create_real_subject
+from .models import get_or_create_real_subject, get_or_create_real_career, get_or_create_real_faculty
 from django.contrib.contenttypes.models import ContentType
 from .forms import (
     CustomLoginForm, ExamForm, ExamTemplateForm, QuestionForm, 
@@ -601,7 +616,12 @@ def get_subtopics(request):
 def get_unidades_by_subject(request):
     """Unidades del usuario para una materia — agrupan Temas para elegir
     contenido más rápido al crear examen (ver informe de rediseño). Privadas
-    por usuario, igual que Topic: cada quien ve solo las suyas."""
+    por usuario, igual que Topic: cada quien ve solo las suyas.
+
+    CANDIDATO A BORRAR (QA 2026-09-10): ningún template ni JS del proyecto
+    llama a este endpoint ni al modelo Unidad — quedó del rediseño pero
+    nunca se conectó a ninguna pantalla real. Confirmar que sigue sin uso
+    antes de borrar junto con el modelo Unidad."""
     subject_id = request.GET.get('subject_id')
     unidades = Unidad.objects.filter(
         subject_id=subject_id, created_by=request.user
@@ -1592,11 +1612,14 @@ def create_exam_wizard(request):
         request.session.pop('preview_generated_versions_ids', None)
         return redirect('material:create_exam_wizard')
 
-    # Institución/facultad/carrera ya NO se pre-cargan acá: el paso las busca
+    # Institución/facultad/carrera no se pre-cargan acá: el paso las busca
     # en vivo contra check_catalog_duplicate (catálogo institucional +
     # espacio personal propio, mismo motor que usa Solicitar Alta) — ver
     # create_exam_wizard.js. Sede sigue con su propio dropdown en cascada
-    # (CampusV2 nunca se sumó al modelo de espacio personal).
+    # (CampusV2 nunca se sumó al modelo de espacio personal). Este wizard es
+    # un flujo aparte del asistente de configuración inicial (/comenzar/) a
+    # propósito — éste invita a entrar acá al terminar, pero sin pasarle
+    # nada por query params: cada uno arranca limpio.
     from .content_visibility import get_visible_professors
     profesores = get_visible_professors(request.user)
     templates = get_visible_templates(request.user)
@@ -1658,6 +1681,7 @@ def save_exam_from_session(request):
     # esta editando.
     title_override = (request.POST.get('title') or '').strip()
     title = title_override or (exam_data.get('title') or '').strip() or \
+            (exam_data.get('batch_name') or '').strip() or \
             f"{tipo} - {subject.name}" + (f" ({fecha})" if fecha else "")
 
     duration = 60
@@ -1941,7 +1965,7 @@ def save_exam_from_session(request):
                 existing_versions = list(editing_batch.versions.order_by('version_number', 'id'))
                 for idx, version_questions in enumerate(chosen_versions, start=1):
                     exam_kwargs = {
-                        'title': f"{title} - Version {idx}",
+                        'title': f"{title} - Version {idx}" if len(chosen_versions) > 1 else title,
                         'subject': subject,
                         'duration_minutes': duration,
                         'instructions': exam_data.get('instructions') or '',
@@ -1986,7 +2010,7 @@ def save_exam_from_session(request):
             else:
                 for idx, version_questions in enumerate(chosen_versions, start=1):
                     exam_kwargs = {
-                        'title': f"{title} - Version {idx}",
+                        'title': f"{title} - Version {idx}" if len(chosen_versions) > 1 else title,
                         'subject': subject,
                         'created_by': request.user,
                         'duration_minutes': duration,
@@ -2257,6 +2281,21 @@ def preview_exam_template(request):
                 for outcome in outcomes
             ]
 
+        # Rúbricas elegidas en el form (mismo criterio de parámetros que
+        # save_exam_template más abajo: 'rubrics[]' o 'rubrics' separado por
+        # comas) — antes esta vista previa no las calculaba y la sección de
+        # Rúbricas quedaba ausente del todo, aunque sí quedaban guardadas y
+        # visibles una vez guardada la plantilla (ver view_exam_template).
+        from .content_visibility import get_visible_rubrics
+        if 'rubrics[]' in request.POST:
+            rubric_ids = request.POST.getlist('rubrics[]')
+        else:
+            rubric_ids = [x for x in request.POST.get('rubrics', '').split(',') if x]
+        rubric_grids = [
+            _prepare_rubric_grid(r)
+            for r in get_visible_rubrics(request.user).filter(id__in=rubric_ids)
+        ] if rubric_ids else []
+
         # Crear un objeto exam-like para compatibilidad con el template base.
         # 'instructions' vacío a propósito — mismo criterio que view_exam_template:
         # una plantilla solo tiene notes_and_recommendations, no un segundo
@@ -2287,6 +2326,7 @@ def preview_exam_template(request):
             'exam_type': request.POST.get('exam_type', ''),
             'notes_and_recommendations': request.POST.get('notes_and_recommendations', ''),
             'learning_outcomes': outcomes_to_display,
+            'rubric_grids': rubric_grids,
             'current_date': '',  # Las plantillas no tienen fecha: se muestra en blanco
             'print_style': get_print_style_context(
                 chosen_print_format or resolve_print_format_for_context(user=request.user, institution=institution)
@@ -2313,6 +2353,12 @@ def edit_exam_template(request, template_id):
         return redirect('material:list_exam_templates')
 
     if request.method == 'POST':
+        # CANDIDATO A BORRAR (QA 2026-09-10): create_exam_template.js hace
+        # e.preventDefault() incondicional sobre el submit nativo de este
+        # form — el guardado real siempre pasa por AJAX a
+        # material:save_exam_template. Esta rama (con los prints de debug
+        # de abajo) parece inalcanzable desde la UI actual. Confirmar antes
+        # de borrar.
         # Debug: Ver qué datos se están enviando
         print(f"DEBUG: Datos POST recibidos: {dict(request.POST)}")
         
@@ -2809,11 +2855,19 @@ def mis_invitaciones(request):
         )
         return redirect('material:mis_invitaciones')
 
+    # En DEBUG (local/dev) usamos el host real del request en vez de
+    # PUBLIC_BASE_URL — ese setting default apunta a Vercel (el dominio
+    # público real en producción), y antes de este fix también se usaba
+    # corriendo local, generando links a producción imposibles de probar.
+    # En producción (DEBUG=False) el comportamiento no cambia: sigue
+    # respetando PUBLIC_BASE_URL para que el link muestre el dominio
+    # público (Vercel) en vez del host real de Render.
+    base_url = request.build_absolute_uri('/').rstrip('/') if settings.DEBUG else settings.PUBLIC_BASE_URL.rstrip('/')
     invitations = Invitation.objects.select_related('created_by', 'used_by')
     items = [
         {
             'invitation': inv,
-            'link': settings.PUBLIC_BASE_URL.rstrip('/') + reverse(
+            'link': base_url + reverse(
                 'material:invitacion_aceptar', args=[inv.token]
             ),
         }
@@ -4371,6 +4425,11 @@ def create_question_from_dict(data, contenido, user, subject):
 
 
 def download_template(request, format):
+    # CANDIDATO A BORRAR (QA 2026-09-10): la UI real de /upload-questions/
+    # (pestaña "Lote CSV/TXT") no llama a este endpoint — sus links de
+    # "Descargar ejemplo" apuntan a archivos estáticos propios
+    # (static/material/ejemplo_batch_preguntas.csv/.txt). Confirmar que
+    # sigue sin ningún caller antes de borrar.
     if format == 'csv':
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="template.csv"'
@@ -4601,6 +4660,9 @@ def institution_v2_list(request):
             'facultyv2_set'
         ).distinct()
 
+        favorite_ids = set(UserInstitution.objects.filter(
+            user=request.user, is_favorite=True,
+        ).values_list('institution_id', flat=True))
         favorite_count = UserInstitution.objects.filter(
             user=request.user,
             is_favorite=True,
@@ -4625,6 +4687,7 @@ def institution_v2_list(request):
         messages.error(request, 'Se detecto un problema temporal de base de datos en Instituciones. Reintenta en unos minutos.')
         page_obj = Paginator([], 10).get_page(1)
         favorite_count = 0
+        favorite_ids = set()
         selected_filters = get_selected_filters(request, INSTITUTION_V2_FILTER_FIELDS)
         filter_options = {f.name: [] for f in INSTITUTION_V2_FILTER_FIELDS}
         active_filter_count = 0
@@ -4635,6 +4698,7 @@ def institution_v2_list(request):
         'name_query': name_query,
         'favorite_only': favorite_only,
         'favorite_count': favorite_count,
+        'favorite_ids': favorite_ids,
         'filter_options': filter_options,
         'selected_filters': selected_filters,
         'active_filter_count': active_filter_count,
@@ -4960,10 +5024,15 @@ def toggle_favorite_institution(request, pk):
     user_institution, created = UserInstitution.objects.get_or_create(user=request.user, institution=institution)
     user_institution.is_favorite = not user_institution.is_favorite
     user_institution.save()
-    return redirect('material:institution_v2_detail', pk=pk)
+    # ?next= para poder favoritear desde el listado sin salir de ahí (antes
+    # siempre mandaba al detalle, que era el único lugar donde existía el
+    # botón) — mismo helper que ya usa /favoritos/.
+    return redirect(_safe_next_url(request, reverse('material:institution_v2_detail', args=[pk])))
 
 @login_required
 def institution_v2_logs(request, pk):
+    # CANDIDATO A BORRAR (ver InstitutionLog en models.py): nada escribe
+    # logs reales acá y no hay ningún link a esta pantalla desde la app.
     # Institución es catálogo público — lectura abierta a cualquier usuario
     # logueado, no solo a quien la tiene vinculada como "suya".
     institution = get_object_or_404(InstitutionV2, pk=pk)
@@ -5341,6 +5410,7 @@ def bulk_eliminar_subjects(request):
     # Solo las propias — ver nota de ownership en delete_subject.
     subjects = Subject.objects.filter(pk__in=ids, created_by=request.user)
     count = subjects.count()
+    skipped = len(ids) - count
     try:
         subjects.delete()
     except ProtectedError as e:
@@ -5349,8 +5419,19 @@ def bulk_eliminar_subjects(request):
 
     if count == 1:
         messages.success(request, 'Se eliminó 1 materia exitosamente.', extra_tags='materias')
-    else:
+    elif count > 1:
         messages.success(request, f'Se eliminaron {count} materias exitosamente.', extra_tags='materias')
+    if skipped:
+        # Antes esto pasaba en silencio: se borraban las propias y se
+        # mostraba "Se eliminaron N" sin avisar que otras seleccionadas no
+        # se tocaron por no ser del usuario — quien seleccionó varias podía
+        # creer que borró todas.
+        plural = 's' if skipped != 1 else ''
+        messages.warning(
+            request,
+            f'{skipped} materia{plural} seleccionada{plural} no se eliminó{plural} porque no te pertenece{plural}.',
+            extra_tags='materias',
+        )
     return redirect('material:subject_list')
 
 class SubjectDetailView(LoginRequiredMixin, DetailView):
@@ -5460,8 +5541,14 @@ def bulk_eliminar_careers(request):
         messages.error(request, 'No se seleccionó ninguna carrera para eliminar.', extra_tags='carreras')
         return redirect('material:career_list')
 
-    careers = Career.objects.filter(pk__in=ids)
+    # Solo las propias — mismo criterio que bulk_eliminar_subjects: el
+    # housekeeping directo desde la lista no debe poder borrar la carrera
+    # personal de otro usuario sin pasar por la bandeja de curación
+    # (/solicitudes-catalogo/bandeja/), que es donde eso se revisa de
+    # verdad (aprobar al catálogo / rechazar / fusionar).
+    careers = Career.objects.filter(pk__in=ids, created_by=request.user)
     count = careers.count()
+    skipped = len(ids) - count
     try:
         careers.delete()
     except ProtectedError as e:
@@ -5470,14 +5557,24 @@ def bulk_eliminar_careers(request):
 
     if count == 1:
         messages.success(request, 'Se eliminó 1 carrera exitosamente.', extra_tags='carreras')
-    else:
+    elif count > 1:
         messages.success(request, f'Se eliminaron {count} carreras exitosamente.', extra_tags='carreras')
+    if skipped:
+        plural = 's' if skipped != 1 else ''
+        messages.warning(
+            request,
+            f'{skipped} carrera{plural} seleccionada{plural} no se eliminó{plural} porque no te pertenece{plural}.',
+            extra_tags='carreras',
+        )
     return redirect('material:career_list')
 
 @login_required
 @user_passes_test(is_admin, login_url='/')
 def delete_career(request, pk):
-    career = get_object_or_404(Career, pk=pk)
+    # Solo el dueño puede borrar — mismo criterio que delete_subject. Borrar
+    # la carrera personal de otro usuario tiene que pasar por la bandeja de
+    # curación, no por este botón directo de la lista.
+    career = get_object_or_404(Career, pk=pk, created_by=request.user)
     if request.method == 'POST':
         try:
             career.delete()
@@ -6781,7 +6878,9 @@ def onboarding_save_step(request):
     Pasos:
       step=1  ? nombre del docente (first_name, last_name)
       step=2  ? institucion (elegir existente o crear nueva + sedes + facultades opcionales)
-      step=3  ? materia (nombre + resultados de aprendizaje + temas opcionales)
+      step=3  ? carrera (elegir existente o crear nueva, vinculada a la institucion del paso 2)
+      step=4  ? materia (nombre + resultados de aprendizaje + temas opcionales), vinculada a la
+                carrera del paso 3 y, opcionalmente, a otras carreras del mismo docente
       step=done ? marca onboarding_completed=True
     Siempre devuelve {"ok": true} - el frontend puede continuar aunque algo falle.
     """
@@ -6876,13 +6975,75 @@ def onboarding_save_step(request):
                     if fac_name:
                         FacultyV2.objects.get_or_create(institution=inst, name=fac_name)
 
+            # Facultad elegida (existente o nueva) para esta institución —
+            # se captura acá, no en un paso aparte, para acotar el picker de
+            # "elegir carrera existente" del paso 3 a las carreras de esa
+            # facultad exacta. Antes el paso 3 filtraba solo por institución
+            # y una institución con varias facultades (ej. UAI) mezclaba en
+            # un único listado las carreras de todas ellas.
+            existing_faculty_id = body.get('existing_faculty_id')
+            faculty_name = body.get('faculty_name', '').strip()
+            inst_id_for_faculty = extra.get('institution_id')
+            if existing_faculty_id and str(existing_faculty_id).isdigit():
+                from .content_visibility import get_visible_faculties
+                if get_visible_faculties(request.user).filter(pk=existing_faculty_id).exists():
+                    extra['faculty_id'] = int(existing_faculty_id)
+            elif faculty_name and inst_id_for_faculty:
+                faculty, _ = get_or_create_real_faculty(faculty_name, inst_id_for_faculty, request.user)
+                extra['faculty_id'] = faculty.id
+
         elif step == 3:
-            # Paso 3: materia — puede ser existente (solo link o edit) o nueva
+            # Paso 3: carrera — puede ser existente (solo link) o nueva.
+            # Se captura ANTES de la materia (paso 4) para poder acotar el
+            # picker de "elegir materia existente" a las materias del plan
+            # de estudios de esta carrera, en vez de todo el catálogo
+            # institucional (antes mostraba cientos de materias sin filtrar).
+            existing_career_id = body.get('existing_career_id')
+            career_name = body.get('career_name', '').strip()
+            step2_institution_id = body.get('institution_id')
+            step2_faculty_id = body.get('faculty_id')
+
+            def _link_institution_career(career_id):
+                if step2_institution_id and str(step2_institution_id).isdigit() and career_id:
+                    InstitutionCareer.objects.get_or_create(
+                        institution_id=int(step2_institution_id),
+                        career_id=career_id,
+                    )
+                # Vínculo real carrera-facultad (Career.faculties, la misma
+                # M2M que usa el catálogo institucional) — sin esto, una
+                # carrera creada/elegida acá quedaba con institución pero sin
+                # facultad, e invisible al volver a filtrar "Tus carreras"
+                # por la facultad elegida en el paso 2.
+                if step2_faculty_id and str(step2_faculty_id).isdigit() and career_id:
+                    Career.objects.get(pk=career_id).faculties.add(int(step2_faculty_id))
+
+            if existing_career_id:
+                from .content_visibility import get_visible_careers
+                if get_visible_careers(request.user).filter(pk=existing_career_id).exists():
+                    extra['career_id'] = int(existing_career_id)
+            elif career_name:
+                career, _ = get_or_create_real_career(career_name, request.user)
+                extra['career_id'] = career.id
+
+            _link_institution_career(extra.get('career_id'))
+
+        elif step == 4:
+            # Paso 4: materia — puede ser existente (solo link o edit) o nueva
             existing_subject_id = body.get('existing_subject_id')
             subject_name = body.get('subject_name', '').strip()
             # Institución elegida en el paso 2, para vincularla acá con la
             # materia via InstitutionSubject (antes este vínculo no se creaba).
             step2_institution_id = body.get('institution_id')
+            # Carrera elegida en el paso 3, para vincularla vía CareerSubject.
+            # "Cargar estas preguntas a alguna otra materia" (materia(s)
+            # distinta(s), de cualquier facultad/carrera) ya NO se resuelve
+            # acá con un CareerSubject más para ESTA MISMA materia — eso
+            # asumía que era literalmente la misma materia repetida en otro
+            # plan de estudios. Ahora es de verdad OTRA Subject, así que el
+            # contenido recién subido en el paso 5 queda etiquetado también a
+            # esas materias (Contenido.subjects, ver other_subject_ids en
+            # upload_and_process_document) en vez de crear vínculos acá.
+            step3_career_id = body.get('career_id')
 
             def _link_institution_subject(subject_id):
                 if step2_institution_id and str(step2_institution_id).isdigit() and subject_id:
@@ -6890,6 +7051,12 @@ def onboarding_save_step(request):
                         institution_id=int(step2_institution_id),
                         subject_id=subject_id,
                     )
+
+            def _link_career_subjects(subject_id):
+                if not subject_id:
+                    return
+                if step3_career_id and str(step3_career_id).isdigit():
+                    CareerSubject.objects.get_or_create(career_id=int(step3_career_id), subject_id=subject_id)
 
             if existing_subject_id and body.get('edit_subject'):
                 # Editar materia existente — solo si es dueño (antes cualquier
@@ -6905,9 +7072,10 @@ def onboarding_save_step(request):
                     # Agregar/eliminar outcomes: deshabilitado en este paso del
                     # wizard — LearningOutcome ahora es unívoco a (materia,
                     # carrera), requisito no opcional (ver informe de
-                    # rediseño del catálogo), y este paso no captura carrera.
-                    # Se cargan desde el detalle de la materia una vez que
-                    # esté asociada a una carrera (ver SubjectDetailView).
+                    # rediseño del catálogo). Aunque este paso ya captura la
+                    # carrera (paso 3), la captura de outcomes se deja para
+                    # el detalle de la materia (ver SubjectDetailView) para
+                    # no sobrecargar este paso del wizard.
                     remove_outcome_ids = [int(x) for x in body.get('remove_outcome_ids', []) if str(x).isdigit()]
                     if remove_outcome_ids:
                         LearningOutcome.objects.filter(
@@ -6938,8 +7106,7 @@ def onboarding_save_step(request):
                 extra['subject_id'] = subject.id
 
                 # Resultados de aprendizaje: deshabilitado acá por la misma
-                # razón que en el paso de edición (ver comentario arriba) —
-                # este paso del wizard no captura carrera.
+                # razón que en el paso de edición (ver comentario arriba).
 
                 # Temas opcionales
                 for topic_name in body.get('topics', []):
@@ -6949,6 +7116,7 @@ def onboarding_save_step(request):
                                                     defaults={'importance': 3})
 
             _link_institution_subject(extra.get('subject_id'))
+            _link_career_subjects(extra.get('subject_id'))
 
         elif step == 'seed_pref':
             # Preferencia de sumar contenido semilla del sistema al examen de
@@ -7698,10 +7866,17 @@ def ai_config_status(request):
     is_global_fallback = isinstance(backend, SharedDemoBackend)
     try:
         status = backend.get_status()
-        # Siempre devolver el source real del usuario como 'backend'
-        status['backend'] = config.source
+        # OJO: NO pisar status['backend'] con config.source (ver el mismo
+        # fix ya aplicado en check_local_ai_status, views_document_processor.py).
+        # config.source es la preferencia guardada por el usuario
+        # ('ollama_local', 'byok', etc.), pero get_backend_for_user() puede
+        # resolver a un backend real distinto (ej. Ollama no disponible →
+        # cae al fallback compartido de Groq) sin tocar esa preferencia.
+        # Pisar 'backend' acá hacía que la pantalla mostrara "Servidor Ollama
+        # conectado" mientras en realidad se usaba el cupo compartido de Groq.
+        status['source'] = config.source
     except Exception as e:
-        status = {'connected': False, 'error': str(e), 'backend': config.source}
+        status = {'connected': False, 'error': str(e), 'source': config.source}
 
     status['using_shared_fallback'] = is_global_fallback
     if is_global_fallback:

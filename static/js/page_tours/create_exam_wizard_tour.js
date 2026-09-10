@@ -52,21 +52,37 @@
       {
         element: '[data-step-pill="4"]',
         popover: {
-          title: 'Cuándo y detalles',
-          description: 'Profesor, fecha y duración, más institución/sede/curso y tipo de examen (todo opcional, para el encabezado impreso).',
-          side: 'bottom',
-        },
-      },
-      {
-        element: '[data-step-pill="5"]',
-        popover: {
           title: 'Uno o varios temas',
           description: 'Se puede armar más de un tema con preguntas distintas para la misma fecha de examen, cada uno con su propio encabezado.',
           side: 'bottom',
         },
       },
       {
+        element: '[data-step-pill="5"]',
+        popover: {
+          title: 'Profesor y fecha',
+          description: 'Quién lo toma, cuándo y con qué duración.',
+          side: 'bottom',
+        },
+      },
+      {
         element: '[data-step-pill="6"]',
+        popover: {
+          title: 'Institución y sede',
+          description: 'Institución, facultad, carrera, sede, cátedra y turno — todo opcional, se usa para el encabezado impreso.',
+          side: 'bottom',
+        },
+      },
+      {
+        element: '[data-step-pill="7"]',
+        popover: {
+          title: 'Tipo y modalidad',
+          description: 'Tipo de examen, modalidad individual o grupal, modalidad de resolución, nombre del examen y notas.',
+          side: 'bottom',
+        },
+      },
+      {
+        element: '[data-step-pill="8"]',
         popover: {
           title: 'Rúbricas',
           description: 'Rúbricas opcionales para incluir al imprimir o exportar. Este último paso también muestra un resumen antes de generar la vista previa.',

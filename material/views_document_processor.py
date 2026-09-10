@@ -82,6 +82,11 @@ def upload_and_process_document(request):
     remove_footers = request.POST.get('remove_footers', 'true').lower() == 'true'
     contenido_title = request.POST.get('contenido_title', '').strip()
     subject_id = request.POST.get('subject_id', '').strip()
+    # Materia(s) adicionales (paso "Materia" del asistente de configuración
+    # inicial: "cargar estas preguntas a alguna otra materia") — el
+    # contenido queda etiquetado a todas de una, sin que el docente tenga
+    # que volver a subirlo por cada una.
+    other_subject_ids = [x for x in request.POST.getlist('other_subject_ids') if x.isdigit()]
 
     # Validar tamaño (plan gratuito de Render: memoria y tiempo de request limitados)
     max_upload_mb = settings.CONTENIDO_MAX_UPLOAD_MB
@@ -201,6 +206,17 @@ def upload_and_process_document(request):
             except Subject.DoesNotExist:
                 pass
 
+        # Materia(s) adicionales elegidas en el paso "Materia" del asistente
+        # ("cargar estas preguntas a alguna otra materia") — acotado a
+        # get_visible_subjects (catálogo + espacio personal propio), mismo
+        # criterio que el resto de los selectores del asistente.
+        if other_subject_ids:
+            from .content_visibility import get_visible_subjects
+            extra_subjects = get_visible_subjects(request.user).filter(pk__in=other_subject_ids)
+            cont = Contenido.objects.get(pk=contenido_id)
+            for extra_subj in extra_subjects:
+                cont.subjects.add(extra_subj)
+
         # --- Actualizar sesión ---
         # Eliminar archivo previo de session temporal si era una sesión de doc_sessions
         prev_session = request.session.get('doc_processor', {})
@@ -225,12 +241,25 @@ def upload_and_process_document(request):
 
         total_tokens = result.get('stats', {}).get('total_tokens', 0)
 
+        # Materia(s) reales a las que quedó etiquetado el Contenido (la
+        # elegida + las "otras materias" del paso 4 del asistente, si las
+        # hubo) — el frontend las necesita para preseleccionar TODAS al
+        # guardar las preguntas generadas, no solo la primera. Sin esto,
+        # "cargar estas preguntas a alguna otra materia" etiquetaba el
+        # Contenido correctamente pero las preguntas terminaban guardadas
+        # solo en la materia primaria de todos modos.
+        contenido_subjects = [
+            {'id': s.id, 'name': s.name}
+            for s in Contenido.objects.get(pk=contenido_id).subjects.all()
+        ]
+
         # Formatear respuesta (content_preview solo para mostrar en UI)
         response_data = {
             'success': True,
             'doc_id': doc_id,
             'filename': nombre,
             'contenido_id': contenido_id,
+            'subjects': contenido_subjects,
             'duplicate_message': duplicate_message,
             'metadata': result.get('metadata', {}),
             'stats': result.get('stats', {}),
@@ -256,13 +285,24 @@ def upload_and_process_document(request):
         return JsonResponse(response_data)
         
     except Exception as e:
-        # Limpiar en caso de error
-        if 'file_path' in locals() and os.path.exists(file_path):
+        # Limpiar en caso de error — pero SOLO si el archivo en file_path
+        # todavía es un intermedio descartable, nunca si ya quedó guardado y
+        # vinculado a un Contenido persistido (contenido_id ya seteado en
+        # ese punto, en las 3 ramas: dedup/restaurado/nuevo). Antes borraba
+        # file_path sin distinguir esos dos casos: CUALQUIER excepción
+        # posterior al guardado — aunque no tuviera nada que ver con el
+        # archivo, ej. un error armando la respuesta o etiquetando la
+        # materia — dejaba un Contenido con file_deleted_at=None (nunca
+        # marcado como borrado) pero el archivo físico ya no estaba, rompiendo
+        # la vista previa de páginas más tarde sin ningún rastro del motivo
+        # real (esta excepción tampoco se logueaba).
+        if 'contenido_id' not in locals() and 'file_path' in locals() and os.path.exists(file_path):
             try:
                 os.unlink(file_path)
             except OSError:
                 pass
-        
+
+        logger.exception("Error procesando documento subido (%s)", nombre)
         return JsonResponse({
             'success': False,
             'error': str(e)
@@ -410,10 +450,20 @@ def process_contenido_by_id(request, contenido_id):
     try:
         result = extract_text_advanced(file_path, remove_headers=True, remove_footers=True)
 
-        # Limpiar sesion previa
+        # Limpiar archivo de sesión temporal previo — nunca uno ya guardado
+        # en contenidos/. Mismo criterio (allow-list) que usa la subida
+        # directa en upload_and_process_document: solo borra si el path
+        # está DENTRO de doc_sessions/. La versión anterior era un deny-list
+        # que armaba el prefijo a mano con "/" — en Windows los paths usan
+        # "\", así que la comparación nunca daba match, "not ...startswith"
+        # quedaba siempre en True, y esto borraba el archivo recién subido
+        # en CADA auto-carga del wizard (paso 5->6, ver process_contenido_by_id
+        # llamado justo después de subir), vaciando el contenido apenas se
+        # guardaba — con cualquier archivo, de cualquier tamaño.
         prev_session = request.session.get('doc_processor', {})
         prev_path = prev_session.get('file_path')
-        if prev_path and os.path.exists(prev_path) and not prev_path.startswith(str(settings.MEDIA_ROOT).rstrip('/') + '/contenidos'):
+        sessions_dir = os.path.join(settings.MEDIA_ROOT, 'doc_sessions')
+        if prev_path and prev_path.startswith(str(sessions_dir)) and os.path.exists(prev_path):
             try:
                 os.unlink(prev_path)
             except OSError:
@@ -435,6 +485,7 @@ def process_contenido_by_id(request, contenido_id):
             'doc_id': doc_id,
             'filename': nombre,
             'contenido_id': contenido.id,
+            'subjects': [{'id': s.id, 'name': s.name} for s in contenido.subjects.all()],
             'metadata': result.get('metadata', {}),
             'stats': result.get('stats', {}),
             'scanned_pages': result.get('scanned_pages', []),
@@ -1936,14 +1987,18 @@ def save_generated_questions(request):
         # Resolver materias seleccionadas por el usuario
         selected_subjects = list(Subject.objects.filter(id__in=subject_ids)) if subject_ids else []
         if not selected_subjects:
-            # Fallback: la materia ya asociada al Contenido de origen (la que
-            # el usuario eligió al subir el documento), NO la primera materia
-            # del sistema en orden alfabético — eso hacía que, con contenido
+            # Fallback: TODAS las materias ya asociadas al Contenido de
+            # origen (la elegida al subirlo + las "otras materias" del paso
+            # 4 del asistente, si las hubo) — antes solo tomaba .first(),
+            # perdiendo silenciosamente el resto aunque el Contenido ya
+            # estuviera etiquetado a varias. Nunca la primera materia del
+            # sistema en orden alfabético — eso hacía que, con contenido
             # semilla cargado, cualquier guardado sin materia explícita
             # terminara clasificado en la materia que alfabéticamente
             # apareciera primero (p. ej. "Bases de Datos"), sin relación con
             # lo que el usuario estaba trabajando.
-            fallback = contenido_origen.subjects.first() if contenido_origen else None
+            selected_subjects = list(contenido_origen.subjects.all()) if contenido_origen else []
+            fallback = selected_subjects[0] if selected_subjects else None
             if not fallback:
                 # Excluye materias semilla (is_seed_demo) del fallback por la
                 # misma razón que el comentario de arriba: sin esto, contenido
@@ -1955,7 +2010,8 @@ def save_generated_questions(request):
                     'success': False,
                     'error': 'No hay materias configuradas en el sistema'
                 }, status=400)
-            selected_subjects = [fallback]
+            if not selected_subjects:
+                selected_subjects = [fallback]
 
         # El tema/subtema se ancla a la primera materia seleccionada
         from material.models import Subtopic

@@ -7,7 +7,7 @@
 <div class="container-fluid">
     <div class="card shadow mb-4">
         <div class="card-header py-2">
-            <span class="list-control-info">{{ items|length }} favorito{{ items|length|pluralize }}</span>
+            <span class="list-control-info" id="favoritesCountLabel">{{ items|length }} favorito{{ items|length|pluralize }}</span>
         </div>
         <div class="card-body">
             {% if items %}
@@ -140,6 +140,9 @@
         const btn = e.detail.btn;
         const row = btn.closest('[data-favorite-row]');
         if (row) row.remove();
+        const remaining = document.querySelectorAll('[data-favorite-row]').length;
+        const label = document.getElementById('favoritesCountLabel');
+        if (label) label.textContent = remaining + ' favorito' + (remaining === 1 ? '' : 's');
     });
 </script>
 {% endblock %}

@@ -223,6 +223,9 @@
                     <!-- Paso final: lo que efectivamente se está pidiendo (nombre_propuesto) -->
                     <div class="catreq-chip catreq-chip-final" id="chipFinal">
                         <div class="catreq-chip-final-label" id="finalLabel"></div>
+                        <div class="catreq-chip-final-locked-hint" id="finalLockedHint" style="display:none;">
+                            Se bloquea temporalmente al cambiar un paso de arriba — lo que ya tenías escrito acá no se pierde, reaparece apenas termines de completar los pasos de arriba de nuevo.
+                        </div>
                         <div class="catreq-chip-search" id="finalSearchWrap">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
                             {{ form.nombre_propuesto }}
@@ -287,6 +290,7 @@
     .catreq-chip-final { border: none; padding: 4px 2px 0; }
     .catreq-chip-final.is-locked { opacity: .5; }
     .catreq-chip-final-label { font-size: .85rem; font-weight: 600; margin-bottom: 6px; }
+    .catreq-chip-final-locked-hint { font-size: .8rem; color: var(--bs-warning-text-emphasis, #997404); background: var(--bs-warning-bg-subtle, #fff3cd); border: 1px solid var(--bs-warning-border-subtle, #ffe69c); border-radius: .4rem; padding: 8px 10px; margin-bottom: 8px; }
     .catreq-chip-final .catreq-chip-search .form-control { padding-left: 36px; }
     .catreq-final-confirmado { border: 1px solid var(--bs-border-color); border-radius: .4rem; padding: 10px 12px; margin-top: 4px; background: var(--bs-tertiary-bg); }
     .catreq-final-confirmado-msg { display: flex; align-items: center; gap: 8px; font-size: .88rem; margin-bottom: 6px; }
@@ -308,6 +312,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const materiaSelect = document.getElementById('id_materia');
     const nombrePropuesto = document.getElementById('id_nombre_propuesto');
     const finalLabel = document.getElementById('finalLabel');
+    const finalLockedHint = document.getElementById('finalLockedHint');
     const sugerenciasFinal = document.getElementById('sugerenciasFinal');
     const chipFinal = document.getElementById('chipFinal');
     const finalSearchWrap = document.getElementById('finalSearchWrap');
@@ -625,6 +630,11 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         chipFinal.classList.toggle('is-locked', !todosResueltos);
         nombrePropuesto.disabled = !todosResueltos;
+        // Si se bloqueó habiendo algo ya tipeado, avisar explícitamente que
+        // no se perdió — antes quedaba solo atenuado (opacity), sin ningún
+        // texto que explique por qué, y parecía que el campo se había
+        // vaciado silenciosamente al cambiar un paso anterior.
+        finalLockedHint.style.display = (!todosResueltos && nombrePropuesto.value.trim()) ? '' : 'none';
         finalLabel.textContent = FINAL_QUESTIONS[tipoSelect.value] || 'Nombre propuesto';
         nombrePropuesto.placeholder = NOMBRE_PROPUESTO_PLACEHOLDER[tipoSelect.value] || '';
         nombrePropuesto.rows = esResultadoAprendizaje ? 3 : 1;

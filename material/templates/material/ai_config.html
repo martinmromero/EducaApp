@@ -430,14 +430,21 @@ function checkStatus() {
   fetch('{% url "material:ai_config_status" %}')
     .then(r => r.json())
     .then(data => {
-      const backend = data.backend || 'ollama_local';
-      const msgs = STATUS_MSGS[backend] || STATUS_MSGS['ollama_local'];
+      // data.source es la preferencia guardada por el usuario
+      // ('ollama_local', 'byok', etc.) — pero si el backend real resuelto
+      // terminó cayendo al fallback compartido (using_shared_fallback), el
+      // mensaje tiene que reflejar ESO y no la preferencia guardada, o si
+      // no se muestra "Servidor Ollama conectado" mientras en realidad se
+      // está gastando el cupo compartido de Groq (ver ai_config_status).
+      const source = data.source || 'ollama_local';
+      const statusKey = data.using_shared_fallback ? 'shared_demo' : source;
+      const msgs = STATUS_MSGS[statusKey] || STATUS_MSGS['ollama_local'];
       if (data.connected) {
         const ready = data.ready_for_generation !== false;
         document.getElementById('status-icon').textContent = ready ? '✅' : '⚠️';
         document.getElementById('status-text').textContent = ready ? msgs.ok : 'Conectado, pero el modelo no está listo para generar';
         const detail = [];
-        if (data.provider && data.provider !== backend) detail.push(data.provider);
+        if (data.provider && data.provider !== statusKey) detail.push(data.provider);
         if (data.model) detail.push(data.model);
         if (data.url)   detail.push(data.url);
         if (!ready) detail.push('revisar el modelo');

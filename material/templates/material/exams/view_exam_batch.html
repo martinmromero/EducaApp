@@ -78,6 +78,29 @@
   </div>
 </div>
 
+<!-- batchSavedModal tiene que estar ANTES del <script> de más abajo: el
+     script hace document.getElementById('batchSavedModal') al cargar, y si
+     el div todavía no fue parseado (como pasaba antes, más abajo del
+     cierre de </script>) esa búsqueda devuelve null — Bootstrap no lo
+     valida y termina tirando un error interno confuso ("Cannot read
+     properties of undefined (reading 'backdrop')") recién al llamar
+     .show(), mucho después y lejos de la causa real. -->
+<div class="modal fade" id="batchSavedModal" tabindex="-1" aria-labelledby="batchSavedModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="batchSavedModalLabel"><i class="fas fa-check-circle"></i> Lote guardado</h5>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0" id="batchSavedModalMessage">Lote guardado correctamente.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Ir a mis exámenes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   function getCookie(name) {
@@ -182,11 +205,31 @@
   const renameForm = document.getElementById('batchRenameForm');
   const renameBtn = document.getElementById('batchRenameBtn');
   const savedModalEl = document.getElementById('batchSavedModal');
-  const savedModal = new window.bootstrap.Modal(savedModalEl);
-
-  savedModalEl.addEventListener('hidden.bs.modal', function () {
-    window.location.href = "{% url 'material:mis_examenes' %}";
-  });
+  // Lazy, igual que getModal() más arriba: instanciar el modal acá mismo
+  // (antes de que renameForm.addEventListener() de abajo llegue a
+  // registrarse) tiraba una excepción no capturada si Bootstrap todavía no
+  // había terminado de cargar, y eso abortaba el resto del script — el
+  // listener de submit nunca se registraba y "Guardar nombre" caía a un
+  // submit HTML plano en vez de mostrar este modal de confirmación.
+  let savedModal = null;
+  function getSavedModal() {
+    if (!savedModal) {
+      if (!window.bootstrap || !window.bootstrap.Modal) {
+        throw new Error('Bootstrap modal no disponible');
+      }
+      // getOrCreateInstance en vez de "new Modal(...)": este modal en
+      // particular (a diferencia del de "Cambiar pregunta" más arriba)
+      // tira "Cannot read properties of undefined (reading 'backdrop')"
+      // si se construye con el constructor directo — getOrCreateInstance
+      // es la forma que recomienda Bootstrap 5 para evitar ese conflicto
+      // de doble inicialización sobre el mismo elemento.
+      savedModal = window.bootstrap.Modal.getOrCreateInstance(savedModalEl);
+      savedModalEl.addEventListener('hidden.bs.modal', function () {
+        window.location.href = "{% url 'material:mis_examenes' %}";
+      });
+    }
+    return savedModal;
+  }
 
   renameForm.addEventListener('submit', function (evt) {
     evt.preventDefault();
@@ -202,7 +245,7 @@
         renameBtn.disabled = false;
         if (data.success) {
           document.getElementById('batchSavedModalMessage').textContent = data.message || 'Lote guardado correctamente.';
-          savedModal.show();
+          getSavedModal().show();
         } else {
           window.EducaAppModal.alert(data.message || 'No se pudo guardar el nombre del lote.', { title: 'Error al guardar', variant: 'danger' });
         }
@@ -214,20 +257,4 @@
   });
 })();
 </script>
-
-<div class="modal fade" id="batchSavedModal" tabindex="-1" aria-labelledby="batchSavedModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header bg-success text-white">
-        <h5 class="modal-title" id="batchSavedModalLabel"><i class="fas fa-check-circle"></i> Lote guardado</h5>
-      </div>
-      <div class="modal-body">
-        <p class="mb-0" id="batchSavedModalMessage">Lote guardado correctamente.</p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Ir a mis exámenes</button>
-      </div>
-    </div>
-  </div>
-</div>
 {% endblock %}

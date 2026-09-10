@@ -22,17 +22,28 @@ class MaterialConfig(AppConfig):
         # no tienen ninguna sesión activa (p. ej. archivos que quedaron
         # pendientes por un crash o cierre forzado de la app).
         # Se ejecuta en un hilo daemon para no bloquear el arranque.
-        import threading
+        #
+        # Solo en producción (DEBUG=False): en desarrollo local, `runserver`
+        # reinicia el proceso -> ready() se vuelve a ejecutar en CADA guardado
+        # de un .py mientras se está codeando, no solo cuando la app
+        # "arranca" de verdad. Esto borraba archivos recién subidos minutos
+        # antes en medio de una sesión de pruebas normal, sin que el usuario
+        # hubiera cerrado sesión ni la app hubiera crasheado — ver reporte de
+        # usuario: un documento subido "hace un rato" ya no estaba disponible
+        # para la vista previa de páginas, con cualquier archivo/tamaño.
+        from django.conf import settings
+        if not settings.DEBUG:
+            import threading
 
-        def _run_cleanup():
-            try:
-                from .cleanup import cleanup_files_for_inactive_sessions
-                cleanup_files_for_inactive_sessions()
-            except Exception as exc:
-                import logging
-                logging.getLogger(__name__).warning(
-                    "Error en la limpieza de contenidos sin sesión activa: %s", exc
-                )
+            def _run_cleanup():
+                try:
+                    from .cleanup import cleanup_files_for_inactive_sessions
+                    cleanup_files_for_inactive_sessions()
+                except Exception as exc:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "Error en la limpieza de contenidos sin sesión activa: %s", exc
+                    )
 
-        t = threading.Thread(target=_run_cleanup, daemon=True, name="contenido-cleanup")
-        t.start()
+            t = threading.Thread(target=_run_cleanup, daemon=True, name="contenido-cleanup")
+            t.start()

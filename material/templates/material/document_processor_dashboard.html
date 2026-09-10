@@ -13,7 +13,7 @@
     {% if wizard_active %}
     <div class="row">
         <div class="col-12">
-            {% include 'material/_onb2_banner.html' with onb2_step=5 onb2_step_label="Generá y aprobá preguntas" %}
+            {% include 'material/_onb2_banner.html' with onb2_step=6 onb2_step_label="Generá y aprobá preguntas" %}
             <div id="onb2SaveCta" class="alert alert-success d-none d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3"></div>
         </div>
     </div>
@@ -821,7 +821,7 @@ function expandUploadForm() {
         const content = document.getElementById('resultContent');
         let extra = '';
         {% if wizard_active %}
-        extra = '<div class="mt-2"><a href="{% url "material:onboarding_v2_page" %}?step=4" class="btn btn-sm btn-outline-secondary">' +
+        extra = '<div class="mt-2"><a href="{% url "material:onboarding_v2_page" %}?step=5" class="btn btn-sm btn-outline-secondary">' +
                 '<i class="bi bi-arrow-left"></i> Volver al asistente y subir de nuevo</a></div>';
         {% endif %}
         if (content) content.innerHTML = '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-triangle"></i> No se pudo cargar el documento. ' + message + extra + '</div>';
@@ -2638,13 +2638,25 @@ async function saveGeneratedQuestions() {
         }
     }
 
-    // Reconstruir el buscador de materias y re-aplicar preselección del wizard si existe
+    // Reconstruir el buscador de materias, preseleccionando TODAS las que
+    // ya tiene etiquetadas el Contenido (window.currentDocumentData.subjects
+    // — la elegida al subirlo más las "otras materias" del paso 4 del
+    // asistente, si las hubo). Antes acá solo se re-aplicaba la preselección
+    // del wizard (una sola materia, la de la URL): "cargar estas preguntas a
+    // alguna otra materia" etiquetaba bien el Contenido pero las preguntas
+    // terminaban guardándose solo en esa materia primaria de todos modos,
+    // porque el picker de guardado nunca se enteraba de las demás.
     const _preselectedSubjectId = '{{ preselected_subject_id }}';
     const _preselectedSubjectName = '{{ preselected_subject_name|escapejs }}';
+    const _docSubjects = (window.currentDocumentData && Array.isArray(window.currentDocumentData.subjects))
+        ? window.currentDocumentData.subjects
+        : [];
     _spRebuildContainer(
-        (_preselectedSubjectId && _preselectedSubjectName)
-            ? [{ id: _preselectedSubjectId, name: _preselectedSubjectName }]
-            : []
+        _docSubjects.length
+            ? _docSubjects
+            : ((_preselectedSubjectId && _preselectedSubjectName)
+                ? [{ id: _preselectedSubjectId, name: _preselectedSubjectName }]
+                : [])
     );
     document.getElementById('spSubjectSearchInput').value = '';
     _spCerrarSuggest();
@@ -2814,7 +2826,7 @@ async function doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, ne
             setTimeout(function () {
                 const cid = (window.currentDocumentData && window.currentDocumentData.contenido_id) || '';
                 const sid = '{{ preselected_subject_id }}';
-                let backUrl = "{% url 'material:onboarding_v2_page' %}?step=6&contenido_id=" + encodeURIComponent(cid);
+                let backUrl = "{% url 'material:onboarding_v2_page' %}?step=7&contenido_id=" + encodeURIComponent(cid);
                 if (sid) backUrl += '&subject_id=' + encodeURIComponent(sid);
                 window.location.href = backUrl;
             }, 1300);

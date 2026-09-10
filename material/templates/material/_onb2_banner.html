@@ -3,14 +3,14 @@ ONBOARDING WIZARD V2 — banner de continuidad.
 Se incluye en páginas reales (no embebidas) a las que el asistente te manda
 (procesador de IA, crear examen) para que quede claro que seguís "adentro"
 del asistente, con progreso y una salida explícita.
-Uso: {% include 'material/_onb2_banner.html' with onb2_step=5 onb2_step_label="Generá y aprobá preguntas" %}
+Uso: {% include 'material/_onb2_banner.html' with onb2_step=6 onb2_step_label="Generá y aprobá preguntas" %}
 {% endcomment %}
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-3 py-2 mb-3 rounded"
      style="background:var(--edu-accent-soft-bg);border:1px solid var(--edu-accent-soft-border);">
   <div class="d-flex align-items-center gap-2" style="font-size:.92rem">
     <i class="bi bi-magic text-primary"></i>
     <span class="fw-semibold">Asistente de configuración</span>
-    <span class="text-muted">— Paso {{ onb2_step }} de 6 · {{ onb2_step_label }}</span>
+    <span class="text-muted">— Paso {{ onb2_step }} de 7 · {{ onb2_step_label }}</span>
   </div>
   <a href="{% url 'material:onboarding_v2_exit' %}" class="text-muted small text-decoration-none onb2-exit-link">
     <i class="bi bi-x-lg me-1"></i>Salir del asistente

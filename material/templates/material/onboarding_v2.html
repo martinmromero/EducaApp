@@ -87,35 +87,42 @@
         <div class="onb2-step-item" data-step="3">
           <div class="onb2-step-dot">3</div>
           <div class="onb2-step-text">
-            <div class="fw-semibold">Materia</div>
-            <div class="text-muted small">Qué se va a evaluar</div>
+            <div class="fw-semibold">Carrera</div>
+            <div class="text-muted small">Dónde se dicta la materia</div>
           </div>
         </div>
         <div class="onb2-step-item" data-step="4">
           <div class="onb2-step-dot">4</div>
           <div class="onb2-step-text">
+            <div class="fw-semibold">Materia</div>
+            <div class="text-muted small">Qué se va a evaluar</div>
+          </div>
+        </div>
+        <div class="onb2-step-item" data-step="5">
+          <div class="onb2-step-dot">5</div>
+          <div class="onb2-step-text">
             <div class="fw-semibold">Contenido</div>
             <div class="text-muted small">Subir un documento fuente</div>
           </div>
         </div>
-        <div class="onb2-step-item" data-step="5">
+        <div class="onb2-step-item" data-step="6">
           <div class="onb2-step-dot"><i class="bi bi-cpu"></i></div>
           <div class="onb2-step-text">
             <div class="fw-semibold">Generar con IA</div>
             <div class="text-muted small">Curar las preguntas</div>
           </div>
         </div>
-        <div class="onb2-step-item" data-step="6">
+        <div class="onb2-step-item" data-step="7">
           <div class="onb2-step-dot"><i class="bi bi-clipboard-check"></i></div>
           <div class="onb2-step-text">
             <div class="fw-semibold">Examen</div>
             <div class="text-muted small">Armarlo y guardarlo</div>
           </div>
         </div>
+        <p class="text-muted mt-3 mb-0" style="font-size:.78rem">
+          <i class="bi bi-info-circle me-1"></i>Los pasos 6 y 7 llevan a las pantallas reales de EducaApp — arriba se ve una franja que ubica dentro del asistente.
+        </p>
       </div>
-      <p class="text-muted mt-3 mb-0" style="font-size:.78rem">
-        <i class="bi bi-info-circle me-1"></i>Los pasos 5 y 6 llevan a las pantallas reales de EducaApp — arriba se ve una franja que ubica dentro del asistente.
-      </p>
     </div>
 
     <!-- Panel -->
@@ -144,69 +151,100 @@
             <h4 class="fw-semibold mb-1"><i class="bi bi-buildings me-2 text-primary"></i>Institución</h4>
             <p class="text-muted mb-4">Se van a asociar las materias y exámenes a esta institución. Se puede cambiar después.</p>
 
-            <div id="onb2InstCardsBlock" class="d-none mb-4">
-              <p class="text-muted mb-2 small">Institución que se va a seguir usando:</p>
+            <div id="onb2InstCardsBlock" class="mb-2">
               <div id="onb2InstCards" class="onb2-card-grid"></div>
             </div>
+            <p class="text-muted mb-3 d-none" id="onb2InstCardsEmpty" style="font-size:.85rem">
+              Todavía no hay instituciones cargadas en el sistema — crear la primera abajo.
+            </p>
+            <div class="mb-2">
+              <label class="form-label text-muted small mb-1">¿No está en la lista? Escribir el nombre para crear una nueva</label>
+              <input type="text" class="form-control" id="onb2InstName" placeholder="Ej: Universidad Nacional del Sur">
+            </div>
 
-            <details id="onb2InstOtherDetails">
-              <summary class="text-muted onb2-toggle-summary" id="onb2InstOtherSummary">Elegir otra institución o crear una nueva</summary>
-              <div class="mt-3">
-                <div class="mb-3">
-                  <label class="form-label">Seleccionar institución existente</label>
-                  <select class="form-select form-select-lg" id="onb2InstExisting">
-                    <option value="">— seleccionar —</option>
-                    {% for inst in onboarding_institutions %}
-                    <option value="{{ inst.id }}">{{ inst.name }}</option>
-                    {% endfor %}
-                  </select>
-                  <p class="text-muted mb-0 mt-1 d-none" id="onb2InstExistingEmpty" style="font-size:.82rem">
-                    No hay otras instituciones registradas en el sistema todavía — crear una nueva abajo.
-                  </p>
-                </div>
-                <div class="text-center text-muted my-3 small" id="onb2InstOrCreate">— o crear una nueva —</div>
-                <div class="mb-2">
-                  <label class="form-label">Nombre de la institución</label>
-                  <input type="text" class="form-control form-control-lg" id="onb2InstName" placeholder="Ej: Universidad Nacional del Sur">
-                </div>
+            <hr class="my-4">
+
+            <div id="onb2FacultyBlock">
+              <label class="form-label fw-semibold">Facultad</label>
+              <p class="text-muted mb-3" style="font-size:.85rem">Se usa para mostrar, en el paso siguiente, solo las carreras de esta facultad.</p>
+
+              <div id="onb2FacultyCardsBlock" class="mb-2">
+                <div id="onb2FacultyCards" class="onb2-card-grid"></div>
               </div>
-            </details>
+              <p class="text-muted mb-3 d-none" id="onb2FacultyCardsEmpty" style="font-size:.85rem">
+                Todavía no hay facultades cargadas para esta institución — crear la primera abajo.
+              </p>
+              <div class="mb-2">
+                <label class="form-label text-muted small mb-1">¿No está en la lista? Escribir el nombre para crear una nueva</label>
+                <input type="text" class="form-control" id="onb2FacultyName" placeholder="Ej: Facultad de Tecnología Informática">
+              </div>
+            </div>
           </div>
 
           <!-- Paso 3 -->
           <div class="onb2-panel d-none" id="onb2Panel3">
-            <h4 class="fw-semibold mb-1"><i class="bi bi-book me-2 text-primary"></i>Materia</h4>
-            <p class="text-muted mb-4">Se usa para clasificar los contenidos y las preguntas que genere la IA.</p>
+            <h4 class="fw-semibold mb-1"><i class="bi bi-signpost-split me-2 text-primary"></i>Carrera</h4>
+            <p class="text-muted mb-4">Se usa para saber en qué plan de estudios se dicta la materia, y así mostrar solo las materias que corresponden en el siguiente paso.</p>
 
-            <div id="onb2SubjectCardsBlock" class="d-none mb-4">
-              <p class="text-muted mb-2 small">Tus materias:</p>
-              <div id="onb2SubjectCards" class="onb2-card-grid"></div>
+            <div id="onb2CareerCardsBlock" class="mb-2">
+              <div id="onb2CareerCards" class="onb2-card-grid"></div>
             </div>
-
-            <details id="onb2SubjectOtherDetails">
-              <summary class="text-muted onb2-toggle-summary" id="onb2SubjectOtherSummary">Elegir otra materia o crear una nueva</summary>
-              <div class="mt-3">
-                <div class="mb-2">
-                  <label class="form-label">Elegir una materia ya cargada en el sistema</label>
-                  <p class="text-muted mb-2" style="font-size:.8rem">Materias cargadas por cualquier docente que use EducaApp, no solo por esta cuenta.</p>
-                  <select class="form-select form-select-lg" id="onb2SubjectExisting">
-                    <option value="">— seleccionar —</option>
-                  </select>
-                  <p class="text-muted mb-0 mt-1 d-none" id="onb2SubjectExistingEmpty" style="font-size:.82rem">
-                    No hay otras materias registradas en el sistema todavía — crear una nueva abajo.
-                  </p>
-                </div>
-                <div class="text-center text-muted my-3 small">— o crear una nueva —</div>
-                <div class="mb-2">
-                  <label class="form-label">Nombre de la materia</label>
-                  <input type="text" class="form-control form-control-lg" id="onb2SubjectName" placeholder="Ej: Álgebra Lineal">
-                </div>
-              </div>
-            </details>
+            <p class="text-muted mb-3 d-none" id="onb2CareerCardsEmpty" style="font-size:.85rem">
+              Todavía no hay carreras cargadas para esta facultad — crear la primera abajo.
+            </p>
+            <div class="mb-2">
+              <label class="form-label text-muted small mb-1">¿No está en la lista? Escribir el nombre para crear una nueva</label>
+              <input type="text" class="form-control" id="onb2CareerName" placeholder="Ej: Contador Público">
+            </div>
           </div>
 
           <!-- Paso 4 -->
           <div class="onb2-panel d-none" id="onb2Panel4">
+            <h4 class="fw-semibold mb-1"><i class="bi bi-book me-2 text-primary"></i>Materia</h4>
+            <p class="text-muted mb-4">Se usa para clasificar los contenidos y las preguntas que genere la IA.</p>
+
+            <p class="text-muted mb-2" style="font-size:.8rem">Materias del plan de estudios de la carrera elegida en el paso anterior, cargadas por cualquier docente que use EducaApp.</p>
+            <div id="onb2SubjectCardsBlock" class="mb-2">
+              <div id="onb2SubjectCards" class="onb2-card-grid"></div>
+            </div>
+            <p class="text-muted mb-3 d-none" id="onb2SubjectCardsEmpty" style="font-size:.85rem">
+              Todavía no hay materias cargadas para esta carrera — crear la primera abajo.
+            </p>
+            <div class="mb-2">
+              <label class="form-label text-muted small mb-1">¿No está en la lista? Escribir el nombre para crear una nueva</label>
+              <input type="text" class="form-control" id="onb2SubjectName" placeholder="Ej: Álgebra Lineal">
+            </div>
+
+            <div class="mt-4">
+              <details id="onb2OtherSubjectDetails">
+                <summary class="text-muted onb2-toggle-summary">Si se desea cargar estas preguntas a alguna otra materia, elegir aquí</summary>
+                <div class="mt-3">
+                  <p class="text-muted mb-2" style="font-size:.8rem">Se va a reusar el mismo contenido y las mismas preguntas en esa materia, sin cargarlos de nuevo. Es opcional, y se puede hacer después también.</p>
+                  <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                      <label class="form-label small mb-1">Facultad</label>
+                      <select class="form-select" id="onb2OtherSubjectFaculty">
+                        <option value="">— seleccionar —</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label small mb-1">Carrera</label>
+                      <select class="form-select" id="onb2OtherSubjectCareer" disabled>
+                        <option value="">— elegir facultad primero —</option>
+                      </select>
+                    </div>
+                  </div>
+                  <label class="form-label small mb-1">Materia(s)</label>
+                  <div id="onb2OtherSubjectList" style="max-height:200px;overflow-y:auto;border:1px solid #dee2e6;border-radius:.375rem;padding:.5rem">
+                    <p class="text-muted mb-0" style="font-size:.8rem">Elegir facultad y carrera para ver sus materias.</p>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <!-- Paso 5 -->
+          <div class="onb2-panel d-none" id="onb2Panel5">
             <h4 class="fw-semibold mb-1"><i class="bi bi-file-earmark-arrow-up me-2 text-primary"></i>Subir un contenido</h4>
             <p class="text-muted mb-4">Un apunte, capítulo o presentación. La IA lo va a leer para generar preguntas en el próximo paso.</p>
 
@@ -233,8 +271,8 @@
             </div>
           </div>
 
-          <!-- Paso 5: handoff al procesador de IA real (navegación real, sin iframe) -->
-          <div class="onb2-panel d-none" id="onb2Panel5">
+          <!-- Paso 6: handoff al procesador de IA real (navegación real, sin iframe) -->
+          <div class="onb2-panel d-none" id="onb2Panel6">
             <h4 class="fw-semibold mb-1"><i class="bi bi-cpu me-2 text-primary"></i>Generar y aprobar preguntas</h4>
             <p class="text-muted mb-3">Se abre el procesador de IA real para generar preguntas, revisarlas y elegir cuáles guardar.</p>
 
@@ -251,7 +289,7 @@
               </div>
               <div class="mb-2">
                 <label class="form-label">API key de Gemini</label>
-                <input type="password" class="form-control form-control-lg" id="onb2GeminiKey" placeholder="AIza…">
+                <div id="onb2GeminiKeyWrap"></div>
               </div>
               <button type="button" class="btn btn-primary" id="onb2ConnectGeminiBtn">
                 <i class="bi bi-plug me-1"></i>Conectar y continuar
@@ -263,7 +301,7 @@
               <div class="alert alert-danger" id="onb2AiErrorMsg"></div>
             </div>
 
-            <div id="onb2Step5Ready" class="d-none text-center py-4">
+            <div id="onb2Step6Ready" class="d-none text-center py-4">
               <i class="bi bi-check-circle-fill text-success" style="font-size:2.5rem"></i>
               <p class="fw-semibold mt-3 mb-1">El documento está listo para procesar.</p>
               <p class="text-muted mb-4">La IA está conectada. Se van a poder generar preguntas, revisarlas y aprobar las que se quiera guardar.</p>
@@ -273,17 +311,17 @@
             </div>
           </div>
 
-          <!-- Paso 6: handoff a crear examen (navegación real, sin iframe) -->
-          <div class="onb2-panel d-none" id="onb2Panel6">
+          <!-- Paso 7: handoff a crear examen (navegación real, sin iframe) -->
+          <div class="onb2-panel d-none" id="onb2Panel7">
             <h4 class="fw-semibold mb-1"><i class="bi bi-clipboard-check me-2 text-primary"></i>Armar el examen</h4>
             <p class="text-muted mb-3">Ya hay preguntas aprobadas y guardadas. Ahora se arma el examen: elegir materia, cantidad de preguntas, y si es un solo tema o varios por lotes.</p>
 
-            <div id="onb2Step6SeedSuggest" class="alert alert-info d-none" role="alert">
-              <p class="mb-2" id="onb2Step6SeedText"></p>
-              <button type="button" class="btn btn-sm btn-primary" id="onb2Step6SeedYes">
+            <div id="onb2Step7SeedSuggest" class="alert alert-info d-none" role="alert">
+              <p class="mb-2" id="onb2Step7SeedText"></p>
+              <button type="button" class="btn btn-sm btn-primary" id="onb2Step7SeedYes">
                 <i class="bi bi-stars me-1"></i>Sí, sumar preguntas de ejemplo
               </button>
-              <button type="button" class="btn btn-sm btn-link text-muted" id="onb2Step6SeedNo">No, gracias</button>
+              <button type="button" class="btn btn-sm btn-link text-muted" id="onb2Step7SeedNo">No, gracias</button>
             </div>
 
             <div class="text-center py-4">
@@ -348,6 +386,10 @@
 }
 .onb2-pick-card:hover { border-color: #adb5bd; }
 .onb2-pick-card.onb2-picked { border-color: #0d6efd; background: var(--edu-accent-soft-bg); color: var(--edu-accent-soft-text); }
+.onb2-pick-card-badge {
+  font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em;
+  padding: .1rem .4rem; border-radius: .35rem; background: var(--bs-secondary-bg); color: var(--bs-secondary-color);
+}
 @media (max-width: 991px) {
   .onb2-stepper { flex-direction: row; overflow-x: auto; gap: 1rem; position: static; }
   .onb2-step-text { display: none; }
@@ -358,7 +400,7 @@
 {% block javascript %}
 <script>
 (function () {
-  const STEPS = 6;
+  const STEPS = 7;
   let currentStep = 1;
   const csrfToken = '{{ csrf_token }}';
   const ONB_DATA = {{ onb_data_json|safe }};
@@ -373,7 +415,10 @@
   let lastUploadedContenidoId = null;
   let lastSelectedSubjectId = null;
   let selectedInstitutionId = null;
+  let selectedFacultyId = null;
+  let selectedCareerId = null;
   let selectedExistingSubjectId = null;
+  let otherSubjectIds = [];
 
   function jsonHeaders() {
     return { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken };
@@ -409,50 +454,55 @@
     updateStepper(n);
     document.getElementById('onb2BackBtn').classList.toggle('d-none', n === 1);
     const nextBtn = document.getElementById('onb2NextBtn');
-    // Los pasos 5 y 6 no se completan con "Siguiente": el 5 tiene su propio botón
-    // que te saca del asistente hacia la pantalla real; el 6 es solo informativo.
-    nextBtn.classList.toggle('d-none', n === 5 || n === 6);
-    if (n === 4) {
+    // Los pasos 6 y 7 no se completan con "Siguiente": el 6 tiene su propio botón
+    // que te saca del asistente hacia la pantalla real; el 7 es solo informativo.
+    nextBtn.classList.toggle('d-none', n === 6 || n === 7);
+    if (n === 5) {
       nextBtn.innerHTML = 'Generar preguntas con IA <i class="bi bi-arrow-right ms-1"></i>';
     } else {
       nextBtn.innerHTML = 'Siguiente <i class="bi bi-arrow-right ms-1"></i>';
     }
-    if (n === 5) startStep5();
-    if (n === 6) {
-      let url = '{% url "material:create_exam" %}?wizard=1';
-      if (lastUploadedContenidoId) url += '&contenido_id=' + lastUploadedContenidoId;
-      if (lastSelectedSubjectId) url += '&subject_id=' + lastSelectedSubjectId;
-      document.getElementById('onb2GoToCreateExamBtn').href = url;
-      maybeSuggestSeedAtStep6();
+    if (n === 2) refreshFacultyPickerForInstitution(selectedInstitutionId);
+    if (n === 3) refreshCareerPickerForFaculty(selectedFacultyId);
+    if (n === 4) refreshMateriaPickersForCareer(selectedCareerId);
+    if (n === 6) startStep6();
+    if (n === 7) {
+      // Invita al wizard de armado de examen paso a paso (create_exam_wizard,
+      // no el form grande de siempre) como un flujo aparte, no encadenado —
+      // sin pasarle institución/facultad/carrera/materia por query params:
+      // el asistente inicial y el de armar examen quedan separados a
+      // propósito, cada uno con su propio inicio limpio.
+      document.getElementById('onb2GoToCreateExamBtn').href = '{% url "material:create_exam_wizard" %}';
+      maybeSuggestSeedAtStep7();
     }
   }
 
-  /* ── Paso 6: si el usuario tiene pocas preguntas propias en la materia y no
-     sumó contenido semilla en el paso 3, se lo sugerimos acá — siempre acotado
+  /* ── Paso 7: si el usuario tiene pocas preguntas propias en la materia y no
+     sumó contenido semilla en el paso 4, se lo sugerimos acá — siempre acotado
      a la misma materia exacta, nunca mezclando materias distintas. ── */
-  async function maybeSuggestSeedAtStep6() {
-    const box = document.getElementById('onb2Step6SeedSuggest');
+  async function maybeSuggestSeedAtStep7() {
+    const box = document.getElementById('onb2Step7SeedSuggest');
     box.classList.add('d-none');
     if (!lastSelectedSubjectId) return;
     try {
       const resp = await fetch(subjectStatusUrl + '?subject_id=' + lastSelectedSubjectId);
       const data = await resp.json();
       if (data.has_seed && !data.include_seed_active && data.own_count < 10) {
-        document.getElementById('onb2Step6SeedText').textContent =
+        document.getElementById('onb2Step7SeedText').textContent =
           'Hay ' + data.own_count + ' pregunta(s) propia(s) en esta materia. ¿Sumar preguntas de ejemplo del sistema para completar el examen de prueba?';
         box.classList.remove('d-none');
       }
-    } catch (_) { /* no bloqueamos el paso 6 por un error de red */ }
+    } catch (_) { /* no bloqueamos el paso 7 por un error de red */ }
   }
 
-  document.getElementById('onb2Step6SeedYes').addEventListener('click', async function () {
+  document.getElementById('onb2Step7SeedYes').addEventListener('click', async function () {
     const btn = this;
     btn.disabled = true;
     await saveStep('seed_pref', { include_seed: true });
-    document.getElementById('onb2Step6SeedSuggest').classList.add('d-none');
+    document.getElementById('onb2Step7SeedSuggest').classList.add('d-none');
   });
-  document.getElementById('onb2Step6SeedNo').addEventListener('click', function () {
-    document.getElementById('onb2Step6SeedSuggest').classList.add('d-none');
+  document.getElementById('onb2Step7SeedNo').addEventListener('click', function () {
+    document.getElementById('onb2Step7SeedSuggest').classList.add('d-none');
   });
 
   /* ── Agregar una card nueva en vivo cuando el usuario crea institución/materia,
@@ -461,27 +511,29 @@
   function addInstitutionCardIfNew(id, name) {
     const cardsEl = document.getElementById('onb2InstCards');
     if (!name || cardsEl.querySelector('[data-id="' + id + '"]')) return;
+    document.getElementById('onb2InstCardsEmpty').classList.add('d-none');
     const card = document.createElement('div');
     card.className = 'onb2-pick-card onb2-picked';
     card.dataset.id = id;
-    card.innerHTML = '<i class="bi bi-buildings"></i>' + name;
+    card.innerHTML = '<i class="bi bi-buildings"></i>' + name + '<span class="onb2-pick-card-badge">Personal</span>';
     cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
     card.addEventListener('click', function () {
       cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
       card.classList.add('onb2-picked');
       selectedInstitutionId = String(id);
+      refreshFacultyPickerForInstitution(selectedInstitutionId);
     });
     cardsEl.appendChild(card);
-    document.getElementById('onb2InstCardsBlock').classList.remove('d-none');
   }
 
   function addSubjectCardIfNew(id, name) {
     const cardsEl = document.getElementById('onb2SubjectCards');
     if (!name || cardsEl.querySelector('[data-id="' + id + '"]')) return;
+    document.getElementById('onb2SubjectCardsEmpty').classList.add('d-none');
     const card = document.createElement('div');
     card.className = 'onb2-pick-card onb2-picked';
     card.dataset.id = id;
-    card.innerHTML = '<i class="bi bi-book"></i>' + name;
+    card.innerHTML = '<i class="bi bi-book"></i>' + name + '<span class="onb2-pick-card-badge">Personal</span>';
     cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
     card.addEventListener('click', function () {
       cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
@@ -490,87 +542,222 @@
       lastSelectedSubjectId = id;
     });
     cardsEl.appendChild(card);
-    document.getElementById('onb2SubjectCardsBlock').classList.remove('d-none');
+  }
+
+  /* ── Picker unificado: TODAS las opciones visibles (catálogo + espacio
+     personal propio) en una sola grilla de cards, sin separar "las mías"
+     arriba de "el resto" en un dropdown secundario — con pocas o ninguna
+     preferencia cargada (este es el wizard "casi inicial"), esa separación
+     terminaba escondiendo la mayoría de las opciones reales detrás de un
+     desplegable colapsado mientras arriba solo se veían duplicados
+     personales de pruebas anteriores. Las propias llevan badge "Personal"
+     para que se note la procedencia sin separarlas espacialmente. onPick
+     recibe el id elegido (string) o null si la lista quedó vacía. ── */
+  function renderUnifiedPicker(cardsEl, emptyEl, items, ownIds, iconHtml, onPick) {
+    const sorted = items.slice().sort(function (a, b) { return a.name.localeCompare(b.name, 'es'); });
+    emptyEl.classList.toggle('d-none', sorted.length > 0);
+    if (!sorted.length) {
+      cardsEl.innerHTML = '';
+      onPick(null);
+      return;
+    }
+    // Preseleccionada: la primera propia si hay alguna (lo más probable que
+    // el docente quiera reusar), si no la primera de la lista alfabética —
+    // pero el ORDEN de la lista en sí queda siempre alfabético, sin mover
+    // las propias al frente.
+    const defaultItem = sorted.find(function (item) { return ownIds.has(item.id); }) || sorted[0];
+    cardsEl.innerHTML = sorted.map(function (item) {
+      const badge = ownIds.has(item.id) ? '<span class="onb2-pick-card-badge">Personal</span>' : '';
+      const picked = item.id === defaultItem.id ? ' onb2-picked' : '';
+      return '<div class="onb2-pick-card' + picked + '" data-id="' + item.id + '">' +
+        iconHtml + item.name + badge + '</div>';
+    }).join('');
+    cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (card) {
+      card.addEventListener('click', function () {
+        cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
+        card.classList.add('onb2-picked');
+        onPick(card.dataset.id);
+      });
+    });
+    onPick(String(defaultItem.id));
   }
 
   /* ── Paso 2: institución ── */
-  (function setupInstitutionPicker() {
-    const list = ONB_DATA.userInstitutions || [];
-    const sel = document.getElementById('onb2InstExisting');
-    const ownIds = new Set(list.map(function (i) { return String(i.id); }));
-    [...sel.options].forEach(function (opt) {
-      if (ownIds.has(opt.value)) opt.remove();
+  function refreshInstitutionPicker() {
+    const ownIds = new Set(ONB_DATA.userInstIds || []);
+    renderUnifiedPicker(
+      document.getElementById('onb2InstCards'),
+      document.getElementById('onb2InstCardsEmpty'),
+      ONB_DATA.allInstitutions || [],
+      ownIds,
+      '<i class="bi bi-buildings"></i>',
+      function (id) {
+        selectedInstitutionId = id;
+        refreshFacultyPickerForInstitution(id);
+      }
+    );
+  }
+  refreshInstitutionPicker();
+
+  /* ── Paso 2: facultad — depende de la institución elegida en el mismo
+     paso (no de un paso aparte). Se llama al entrar al paso 2 y cada vez
+     que la institución cambia mientras seguimos en él (click de otra card,
+     institución nueva creada). ── */
+  function refreshFacultyPickerForInstitution(institutionId) {
+    const instId = institutionId ? parseInt(institutionId, 10) : null;
+    const ownIds = new Set((ONB_DATA.userFaculties || []).map(function (f) { return f.id; }));
+    const items = (ONB_DATA.allFaculties || []).filter(function (f) {
+      return !instId || f.institution_id === instId;
     });
-    if (sel.options.length <= 1) {
-      sel.classList.add('d-none');
-      document.getElementById('onb2InstExistingEmpty').classList.remove('d-none');
-    }
+    renderUnifiedPicker(
+      document.getElementById('onb2FacultyCards'),
+      document.getElementById('onb2FacultyCardsEmpty'),
+      items, ownIds, '<i class="bi bi-diagram-3"></i>',
+      function (id) { selectedFacultyId = id; }
+    );
+  }
 
-    if (list.length) {
-      const cardsEl = document.getElementById('onb2InstCards');
-      cardsEl.innerHTML = list.map(function (i, idx) {
-        const logo = i.logo_src
-          ? '<img src="' + i.logo_src + '" alt="" style="width:28px;height:28px;object-fit:contain;border-radius:.25rem">'
-          : '<i class="bi bi-buildings"></i>';
-        return '<div class="onb2-pick-card' + (idx === 0 ? ' onb2-picked' : '') + '" data-id="' + i.id + '">' +
-          logo + i.name + '</div>';
-      }).join('');
-      cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (card) {
-        card.addEventListener('click', function () {
-          cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
-          card.classList.add('onb2-picked');
-          selectedInstitutionId = card.dataset.id;
-          sel.value = '';
-        });
-      });
-      document.getElementById('onb2InstCardsBlock').classList.remove('d-none');
-      selectedInstitutionId = String(list[0].id);
-    } else {
-      document.getElementById('onb2InstOtherDetails').setAttribute('open', 'open');
-      document.getElementById('onb2InstOtherSummary').style.display = 'none';
-    }
-  })();
-
-  /* ── Paso 3: materia ── */
-  (function setupSubjectPicker() {
-    const own = ONB_DATA.userSubjects || [];
-    const all = ONB_DATA.allSubjects || [];
-    const ownIds = new Set(own.map(function (s) { return s.id; }));
-    const sel = document.getElementById('onb2SubjectExisting');
-    all.filter(function (s) { return !ownIds.has(s.id); }).forEach(function (s) {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = s.name;
-      sel.appendChild(opt);
+  function addFacultyCardIfNew(id, name) {
+    const cardsEl = document.getElementById('onb2FacultyCards');
+    if (!name || cardsEl.querySelector('[data-id="' + id + '"]')) return;
+    document.getElementById('onb2FacultyCardsEmpty').classList.add('d-none');
+    const card = document.createElement('div');
+    card.className = 'onb2-pick-card onb2-picked';
+    card.dataset.id = id;
+    card.innerHTML = '<i class="bi bi-diagram-3"></i>' + name + '<span class="onb2-pick-card-badge">Personal</span>';
+    cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
+    card.addEventListener('click', function () {
+      cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
+      card.classList.add('onb2-picked');
+      selectedFacultyId = String(id);
     });
-    if (sel.options.length <= 1) {
-      sel.classList.add('d-none');
-      document.getElementById('onb2SubjectExistingEmpty').classList.remove('d-none');
+    cardsEl.appendChild(card);
+  }
+
+  /* ── Paso 3: carrera — acotada a la facultad elegida en el paso anterior
+     (si no, carreras de otras facultades/instituciones probadas antes
+     entierran/ocultan las de la facultad recién elegida — una institución
+     con varias facultades, ej. UAI, mezclaba en un único listado las
+     carreras de todas ellas cuando esto solo filtraba por institución). Se
+     llama al entrar al paso 3, no solo al cargar la página, porque la
+     facultad puede cambiar durante el recorrido (volver atrás y elegir
+     otra). ── */
+  function refreshCareerPickerForFaculty(facultyId) {
+    const facId = facultyId ? parseInt(facultyId, 10) : null;
+    const ownIds = new Set((ONB_DATA.userCareers || []).map(function (c) { return c.id; }));
+    const items = (ONB_DATA.allCareers || []).filter(function (c) {
+      return !facId || (c.faculty_ids || []).indexOf(facId) !== -1;
+    });
+    renderUnifiedPicker(
+      document.getElementById('onb2CareerCards'),
+      document.getElementById('onb2CareerCardsEmpty'),
+      items, ownIds, '<i class="bi bi-signpost-split"></i>',
+      function (id) { selectedCareerId = id; }
+    );
+  }
+
+  function addCareerCardIfNew(id, name) {
+    const cardsEl = document.getElementById('onb2CareerCards');
+    if (!name || cardsEl.querySelector('[data-id="' + id + '"]')) return;
+    document.getElementById('onb2CareerCardsEmpty').classList.add('d-none');
+    const card = document.createElement('div');
+    card.className = 'onb2-pick-card onb2-picked';
+    card.dataset.id = id;
+    card.innerHTML = '<i class="bi bi-signpost-split"></i>' + name + '<span class="onb2-pick-card-badge">Personal</span>';
+    cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
+    card.addEventListener('click', function () {
+      cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
+      card.classList.add('onb2-picked');
+      selectedCareerId = String(id);
+    });
+    cardsEl.appendChild(card);
+  }
+
+  /* ── Al entrar al paso Materia: acota "elegir materia existente" a la
+     carrera elegida en el paso anterior, y arma la lista de "¿se dicta en
+     otras carreras?" con las demás carreras de la misma institución. ── */
+  function refreshMateriaPickersForCareer(careerId) {
+    // Acotada estrictamente a las materias YA vinculadas a esta carrera
+    // exacta (CareerSubject) — nada de mostrar "todas las propias" como
+    // respaldo si esta carrera todavía no tiene ninguna: eso es lo que
+    // hacía aparecer el catálogo entero de materias del docente sin
+    // relación con la facultad/carrera recién elegidas. Vacío es un estado
+    // legítimo acá (crear la primera materia de esa carrera).
+    const allowedIds = new Set(careerId ? ((ONB_DATA.subjectIdsByCareer || {})[careerId] || []) : []);
+    const ownIds = new Set((ONB_DATA.userSubjects || []).map(function (s) { return s.id; }));
+    const items = (ONB_DATA.allSubjects || []).filter(function (s) { return allowedIds.has(s.id); });
+    renderUnifiedPicker(
+      document.getElementById('onb2SubjectCards'),
+      document.getElementById('onb2SubjectCardsEmpty'),
+      items, ownIds, '<i class="bi bi-book"></i>',
+      function (id) {
+        selectedExistingSubjectId = id;
+        lastSelectedSubjectId = id ? parseInt(id, 10) : null;
+      }
+    );
+
+  }
+
+  /* ── Paso 4: "cargar estas preguntas a alguna otra materia" — colapsado
+     por defecto (no afecta la vista inicial del paso) y con su propio
+     filtro en cascada facultad -> carrera -> materia(s), independiente de
+     la carrera elegida en el paso 3. Antes esto ofrecía "otras carreras"
+     asumiendo que era LA MISMA materia (vía CareerSubject) — acá el
+     docente puede reusar el contenido en una materia distinta de verdad
+     (de otra facultad/carrera incluso), no solo la misma materia repetida
+     en otro plan de estudios. ── */
+  function setupOtherSubjectPicker() {
+    const facSel = document.getElementById('onb2OtherSubjectFaculty');
+    const carSel = document.getElementById('onb2OtherSubjectCareer');
+    const listEl = document.getElementById('onb2OtherSubjectList');
+
+    const faculties = (ONB_DATA.allFaculties || []).slice().sort(function (a, b) {
+      return a.name.localeCompare(b.name, 'es');
+    });
+    facSel.innerHTML = '<option value="">— seleccionar —</option>' + faculties.map(function (f) {
+      return '<option value="' + f.id + '">' + f.name + '</option>';
+    }).join('');
+
+    function renderEmptyList(msg) {
+      listEl.innerHTML = '<p class="text-muted mb-0" style="font-size:.8rem">' + msg + '</p>';
     }
 
-    if (own.length) {
-      const cardsEl = document.getElementById('onb2SubjectCards');
-      cardsEl.innerHTML = own.map(function (s, idx) {
-        return '<div class="onb2-pick-card' + (idx === 0 ? ' onb2-picked' : '') + '" data-id="' + s.id + '">' +
-          '<i class="bi bi-book"></i>' + s.name + '</div>';
-      }).join('');
-      cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (card) {
-        card.addEventListener('click', function () {
-          cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
-          card.classList.add('onb2-picked');
-          selectedExistingSubjectId = card.dataset.id;
-          lastSelectedSubjectId = parseInt(card.dataset.id, 10);
-          sel.value = '';
+    facSel.addEventListener('change', function () {
+      const facId = this.value ? parseInt(this.value, 10) : null;
+      carSel.innerHTML = '<option value="">— seleccionar —</option>';
+      carSel.disabled = !facId;
+      renderEmptyList(facId ? 'Elegir carrera para ver sus materias.' : 'Elegir facultad y carrera para ver sus materias.');
+      if (!facId) return;
+      (ONB_DATA.allCareers || []).filter(function (c) {
+        return (c.faculty_ids || []).indexOf(facId) !== -1;
+      }).sort(function (a, b) { return a.name.localeCompare(b.name, 'es'); })
+        .forEach(function (c) {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = c.name;
+          carSel.appendChild(opt);
         });
-      });
-      document.getElementById('onb2SubjectCardsBlock').classList.remove('d-none');
-      selectedExistingSubjectId = String(own[0].id);
-      lastSelectedSubjectId = own[0].id;
-    } else {
-      document.getElementById('onb2SubjectOtherDetails').setAttribute('open', 'open');
-      document.getElementById('onb2SubjectOtherSummary').style.display = 'none';
-    }
-  })();
+    });
+
+    carSel.addEventListener('change', function () {
+      const carId = this.value;
+      if (!carId) { renderEmptyList('Elegir carrera para ver sus materias.'); return; }
+      const allowedIds = new Set((ONB_DATA.subjectIdsByCareer || {})[carId] || []);
+      const currentSubjectId = lastSelectedSubjectId ? parseInt(lastSelectedSubjectId, 10) : null;
+      const subjects = (ONB_DATA.allSubjects || []).filter(function (s) {
+        return allowedIds.has(s.id) && s.id !== currentSubjectId;
+      }).sort(function (a, b) { return a.name.localeCompare(b.name, 'es'); });
+      if (!subjects.length) {
+        renderEmptyList('Esta carrera todavía no tiene otras materias cargadas.');
+        return;
+      }
+      listEl.innerHTML = subjects.map(function (s) {
+        return '<div class="form-check"><input class="form-check-input" type="checkbox" value="' + s.id + '" id="onb2OtherSubject_' + s.id + '">' +
+          '<label class="form-check-label" for="onb2OtherSubject_' + s.id + '">' + s.name + '</label></div>';
+      }).join('');
+    });
+  }
+  setupOtherSubjectPicker();
 
   (function renderPrevContenidos() {
     const list = ONB_DATA.userContenidos || [];
@@ -592,18 +779,6 @@
       });
     });
   })();
-
-  document.getElementById('onb2InstExisting').addEventListener('change', function () {
-    if (!this.value) return;
-    selectedInstitutionId = this.value;
-    document.querySelectorAll('#onb2InstCards .onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
-  });
-  document.getElementById('onb2SubjectExisting').addEventListener('change', function () {
-    if (!this.value) return;
-    selectedExistingSubjectId = this.value;
-    lastSelectedSubjectId = parseInt(this.value, 10);
-    document.querySelectorAll('#onb2SubjectCards .onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
-  });
 
   /* ── Autocompletar título del contenido con el nombre del archivo ── */
   document.getElementById('onb2ContenidoFile').addEventListener('change', function () {
@@ -643,15 +818,41 @@
         showStep(2);
       } else if (currentStep === 2) {
         const instName = document.getElementById('onb2InstName').value.trim();
-        const res = await saveStep(2, { institution_id: selectedInstitutionId, new_institution_name: instName });
+        const facultyName = document.getElementById('onb2FacultyName').value.trim();
+        const res = await saveStep(2, {
+          institution_id: selectedInstitutionId, new_institution_name: instName,
+          existing_faculty_id: selectedFacultyId, faculty_name: facultyName,
+        });
         if (res.institution_id) {
           selectedInstitutionId = String(res.institution_id);
           addInstitutionCardIfNew(res.institution_id, instName);
         }
+        if (res.faculty_id) {
+          selectedFacultyId = String(res.faculty_id);
+          addFacultyCardIfNew(res.faculty_id, facultyName);
+        }
         showStep(3);
       } else if (currentStep === 3) {
+        const careerName = document.getElementById('onb2CareerName').value.trim();
+        const res = await saveStep(3, {
+          existing_career_id: selectedCareerId, career_name: careerName,
+          institution_id: selectedInstitutionId, faculty_id: selectedFacultyId,
+        });
+        if (res.career_id) {
+          selectedCareerId = String(res.career_id);
+          addCareerCardIfNew(res.career_id, careerName);
+        }
+        showStep(4);
+      } else if (currentStep === 4) {
         const subjectName = document.getElementById('onb2SubjectName').value.trim();
-        const res = await saveStep(3, { existing_subject_id: selectedExistingSubjectId, subject_name: subjectName, institution_id: selectedInstitutionId });
+        otherSubjectIds = Array.prototype.slice.call(
+          document.querySelectorAll('#onb2OtherSubjectList input[type="checkbox"]:checked')
+        ).map(function (el) { return el.value; });
+        const res = await saveStep(4, {
+          existing_subject_id: selectedExistingSubjectId, subject_name: subjectName,
+          institution_id: selectedInstitutionId, career_id: selectedCareerId,
+          other_subject_ids: otherSubjectIds,
+        });
         if (res.subject_id) {
           lastSelectedSubjectId = res.subject_id;
           addSubjectCardIfNew(res.subject_id, subjectName);
@@ -668,11 +869,11 @@
           );
           await saveStep('seed_pref', { include_seed: wantsSeed });
         }
-        showStep(4);
-      } else if (currentStep === 4) {
+        showStep(5);
+      } else if (currentStep === 5) {
         const ok = await ensureContenidoUploaded();
         if (!ok) { btn.disabled = false; return; }
-        showStep(5);
+        showStep(6);
       }
     } finally {
       btn.disabled = false;
@@ -698,6 +899,10 @@
     fd.append('documento', file);
     if (titleInput.value.trim()) fd.append('contenido_title', titleInput.value.trim());
     if (lastSelectedSubjectId) fd.append('subject_id', lastSelectedSubjectId);
+    // Materia(s) adicionales elegidas en el paso 4 ("cargar estas preguntas
+    // a alguna otra materia") — el contenido queda etiquetado a todas, así
+    // el docente no tiene que volver a subirlo para reusarlo ahí.
+    otherSubjectIds.forEach(function (sid) { fd.append('other_subject_ids', sid); });
 
     try {
       const resp = await fetch(uploadAndProcessUrl, {
@@ -722,11 +927,31 @@
     }
   }
 
-  /* ── Paso 5: chequeo de IA, y de ahí en más navegación real (sin iframe) ── */
-  function show5(which) {
-    ['onb2AiChecking', 'onb2AiConnectPanel', 'onb2AiError', 'onb2Step5Ready'].forEach(function (id) {
+  /* ── Paso 6: chequeo de IA, y de ahí en más navegación real (sin iframe) ── */
+  function show6(which) {
+    ['onb2AiChecking', 'onb2AiConnectPanel', 'onb2AiError', 'onb2Step6Ready'].forEach(function (id) {
       document.getElementById(id).classList.toggle('d-none', id !== which);
     });
+    if (which === 'onb2AiConnectPanel') ensureGeminiKeyInput();
+  }
+
+  /* ── El input de la API key se crea recién acá, no en el HTML inicial —
+     un <input type="password"> presente en el DOM desde que carga la
+     página (aunque esté oculto en un paso más adelante) le basta a Chrome
+     para tratar TODO el wizard como "formulario de login" y autocompletar
+     el primer campo de texto visible (ej. el Título del paso Contenido) con
+     el username guardado para este sitio. Creándolo recién cuando de
+     verdad hace falta, Chrome no tiene ninguna señal de "hay una
+     contraseña acá" mientras se completan los pasos anteriores. ── */
+  function ensureGeminiKeyInput() {
+    if (document.getElementById('onb2GeminiKey')) return;
+    const input = document.createElement('input');
+    input.type = 'password';
+    input.className = 'form-control form-control-lg';
+    input.id = 'onb2GeminiKey';
+    input.placeholder = 'AIza…';
+    input.autocomplete = 'off';
+    document.getElementById('onb2GeminiKeyWrap').appendChild(input);
   }
 
   function goToProcessorUrl() {
@@ -735,24 +960,24 @@
     return url;
   }
 
-  async function startStep5() {
+  async function startStep6() {
     if (!lastUploadedContenidoId) {
-      show5('onb2AiError');
+      show6('onb2AiError');
       document.getElementById('onb2AiErrorMsg').textContent = 'Todavía no se subió ni se seleccionó un contenido en el paso anterior.';
       return;
     }
-    show5('onb2AiChecking');
+    show6('onb2AiChecking');
     try {
       const resp = await fetch(aiStatusUrl);
       const status = await resp.json();
       if (status.connected) {
         document.getElementById('onb2GoToProcessorBtn').href = goToProcessorUrl();
-        show5('onb2Step5Ready');
+        show6('onb2Step6Ready');
       } else {
-        show5('onb2AiConnectPanel');
+        show6('onb2AiConnectPanel');
       }
     } catch (e) {
-      show5('onb2AiError');
+      show6('onb2AiError');
       document.getElementById('onb2AiErrorMsg').textContent = 'No se pudo verificar el estado de la IA.';
     }
   }
@@ -774,7 +999,7 @@
       const data = await resp.json();
       if (data.ok) {
         document.getElementById('onb2GoToProcessorBtn').href = goToProcessorUrl();
-        show5('onb2Step5Ready');
+        show6('onb2Step6Ready');
       } else {
         errEl.textContent = data.error || 'No se pudo validar la API key.';
       }
@@ -788,7 +1013,7 @@
 
   document.getElementById('onb2BackToGenerateLink').addEventListener('click', function (ev) {
     ev.preventDefault();
-    showStep(5);
+    showStep(6);
   });
 
   /* ── Pantalla de decisión (gateway): se muestra primero, antes de step 1 ── */
@@ -798,7 +1023,7 @@
   function enterOwnFlow(step) {
     gatewayEl.classList.add('d-none');
     wizardBodyEl.classList.remove('d-none');
-    showStep(step >= 1 && step <= 6 ? step : 1);
+    showStep(step >= 1 && step <= 7 ? step : 1);
   }
 
   document.getElementById('onb2GatewayOwnBtn').addEventListener('click', function () {
@@ -851,7 +1076,7 @@
   if (qSubjectId) lastSelectedSubjectId = qSubjectId;
 
   const requestedStep = parseInt(params.get('step'), 10);
-  if (requestedStep >= 1 && requestedStep <= 6) {
+  if (requestedStep >= 1 && requestedStep <= 7) {
     enterOwnFlow(requestedStep);
   } else {
     // Tour de orientación primero, antes de pedir cualquier dato — solo la

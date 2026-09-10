@@ -156,8 +156,16 @@ class ProfileAdmin(admin.ModelAdmin):
     # saltandose las protecciones de auto-degradación y "último admin" que
     # tiene la vista material:edit_user. Se restringe a superusers para que
     # ese único camino siga siendo el punto de control real.
-    list_display = ('user', 'role', 'security_question', 'security_answer')
+    list_display = ('user', 'role', 'security_question', 'security_answer_masked')
     list_filter = ('role',)
+
+    @admin.display(description='Respuesta de seguridad')
+    def security_answer_masked(self, obj):
+        # La respuesta se usa para recuperar contraseña sin email — no hace
+        # falta mostrarla en claro en el listado para saber si está
+        # cargada; sigue siendo visible/editable en el detalle de cada
+        # profile para soporte puntual, solo se oculta acá.
+        return '●●●●●●' if obj.security_answer else '—'
 
     def has_add_permission(self, request):
         return request.user.is_superuser

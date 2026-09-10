@@ -1,5 +1,6 @@
 {% extends 'material/base.html' %}
 {% load message_tags %}
+{% load l10n %}
 {% block page_title %}<i class="bi bi-chat-square-text me-2"></i>Prompt de generación IA{% endblock %}
 
 {% block content %}
@@ -26,7 +27,7 @@
                         <div class="mb-3" style="max-width:220px">
                             <label for="id_temperature" class="form-label fw-semibold">Temperature</label>
                             <input type="number" name="temperature" id="id_temperature" class="form-control"
-                                   min="0" max="1" step="0.05" value="{{ cfg.temperature }}">
+                                   min="0" max="1" step="0.05" value="{{ cfg.temperature|unlocalize }}">
                             <div class="form-text">
                                 0 = más literal/predecible, 1 = más "creativo" (y más propenso a inventar
                                 datos que no están en el texto). Recomendado: 0.1–0.3.
