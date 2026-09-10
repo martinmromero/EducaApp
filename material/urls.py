@@ -208,6 +208,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('solicitudes-catalogo/verificar-duplicado/', material_views.check_catalog_duplicate, name='check_catalog_duplicate'),
     path('solicitudes-catalogo/buscar-destino-fusion/', material_views.buscar_destino_fusion, name='buscar_destino_fusion'),
     path('solicitudes-catalogo/mias/', material_views.mis_solicitudes_catalogo, name='mis_solicitudes_catalogo'),
+    path('preguntas-borradas/', material_views.mis_avisos_preguntas_borradas, name='mis_avisos_preguntas_borradas'),
     path('solicitudes-catalogo/espacio-personal/<str:nivel>/<int:pk>/eliminar/', material_views.eliminar_espacio_personal, name='eliminar_espacio_personal'),
     path('solicitudes-catalogo/bandeja/', material_views.catalog_requests_bandeja, name='catalog_requests_bandeja'),
 

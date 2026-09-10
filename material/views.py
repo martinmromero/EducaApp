@@ -521,6 +521,7 @@ from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, 
 from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer, InstitutionSubject)
 from .models import CatalogRequest
 from .models import Favorite
+from .models import QuestionDeletionNotice
 from .models import get_or_create_real_subject, get_or_create_real_career, get_or_create_real_faculty
 from django.contrib.contenttypes.models import ContentType
 from .forms import (
@@ -3813,20 +3814,53 @@ def editar_pregunta(request, pk):
         'pregunta': pregunta
     })
 
+def _avisar_borrado_pregunta_a_duenos(pregunta, examenes, orales, deleted_by):
+    """Crea un QuestionDeletionNotice por cada Examen/Cuestionario Oral
+    afectado cuyo dueño NO sea quien borra (ese ya se entera al toque por el
+    messages.warning de la vista) — para que el dueño real vea, la próxima
+    vez que entre, en qué examen/cuestionario y qué pregunta le faltó."""
+    exam_ct = ContentType.objects.get_for_model(Exam)
+    oral_ct = ContentType.objects.get_for_model(OralExamSet)
+    snapshot = pregunta.question_text[:500]
+    avisos = []
+    for exam in examenes:
+        if exam.created_by_id and exam.created_by_id != deleted_by.id:
+            avisos.append(QuestionDeletionNotice(
+                recipient_id=exam.created_by_id, deleted_by=deleted_by,
+                question_text_snapshot=snapshot, content_type=exam_ct, object_id=exam.id,
+            ))
+    for oral in orales:
+        if oral.user_id != deleted_by.id:
+            avisos.append(QuestionDeletionNotice(
+                recipient_id=oral.user_id, deleted_by=deleted_by,
+                question_text_snapshot=snapshot, content_type=oral_ct, object_id=oral.id,
+            ))
+    if avisos:
+        QuestionDeletionNotice.objects.bulk_create(avisos)
+
+
 @login_required
 def eliminar_pregunta(request, pk):
     pregunta = get_object_or_404(Question, pk=pk, user=request.user)
 
     if request.method == 'POST':
         examenes_afectados = list(pregunta.exams.all())
+        orales_afectados = list(OralExamSet.objects.filter(
+            groups__students__oralexamstudentquestion__question=pregunta
+        ).distinct())
+        _avisar_borrado_pregunta_a_duenos(pregunta, examenes_afectados, orales_afectados, request.user)
         pregunta.delete()
+        avisos = []
         if examenes_afectados:
             nombres = ', '.join(e.title for e in examenes_afectados)
+            avisos.append(f'{len(examenes_afectados)} examen(es) escritos quedaron con una pregunta menos: {nombres}.')
+        if orales_afectados:
+            nombres_o = ', '.join(o.name for o in orales_afectados)
+            avisos.append(f'{len(orales_afectados)} cuestionario(s) oral(es) quedaron con una asignación menos: {nombres_o}.')
+        if avisos:
             messages.warning(
                 request,
-                f'Pregunta eliminada. Quedó usada en {len(examenes_afectados)} '
-                f'examen(es) que ahora tienen una pregunta menos: {nombres}. '
-                'Revisalos y reemplazala si hace falta.',
+                'Pregunta eliminada. ' + ' '.join(avisos) + ' Revisalos y reemplazá/regenerá lo que haga falta.',
                 extra_tags='preguntas'
             )
         else:
@@ -3836,6 +3870,9 @@ def eliminar_pregunta(request, pk):
     return render(request, 'material/questions/confirmar_eliminar.html', {
         'pregunta': pregunta,
         'examenes_afectados': pregunta.exams.all(),
+        'orales_afectados': OralExamSet.objects.filter(
+            groups__students__oralexamstudentquestion__question=pregunta
+        ).distinct(),
     })
 
 @login_required
@@ -3848,9 +3885,6 @@ def bulk_eliminar_preguntas(request):
     if delete_all_filtered:
         preguntas = Question.objects.filter(user=request.user)
         preguntas = _aplicar_filtros_preguntas(preguntas, request.POST)
-        count = preguntas.count()
-        examenes_afectados = set(Exam.objects.filter(questions__in=preguntas))
-        preguntas.delete()
     else:
         ids_raw = request.POST.getlist('pregunta_ids')
         ids = [int(i) for i in ids_raw if i.isdigit()]
@@ -3858,9 +3892,24 @@ def bulk_eliminar_preguntas(request):
             messages.error(request, 'No se seleccionó ninguna pregunta para eliminar.', extra_tags='preguntas')
             return redirect('material:lista_preguntas')
         preguntas = Question.objects.filter(pk__in=ids, user=request.user)
-        count = preguntas.count()
-        examenes_afectados = set(Exam.objects.filter(questions__in=preguntas))
-        preguntas.delete()
+
+    count = preguntas.count()
+    examenes_afectados = set(Exam.objects.filter(questions__in=preguntas))
+    orales_afectados = set(OralExamSet.objects.filter(
+        groups__students__oralexamstudentquestion__question__in=preguntas
+    ))
+    # Un aviso por pregunta (no uno global): cada dueño afectado necesita
+    # saber CUÁL pregunta específica le faltó en cuál examen/cuestionario,
+    # no solo "algo cambió" — por eso se itera acá en vez de un solo query
+    # agregado como examenes_afectados/orales_afectados de arriba (esos sí
+    # sirven para el aviso genérico de quien borra, más abajo).
+    for pregunta in preguntas:
+        _avisar_borrado_pregunta_a_duenos(
+            pregunta, pregunta.exams.all(),
+            OralExamSet.objects.filter(groups__students__oralexamstudentquestion__question=pregunta).distinct(),
+            request.user,
+        )
+    preguntas.delete()
 
     if count == 1:
         messages.success(request, 'Se eliminó 1 pregunta correctamente.', extra_tags='preguntas')
@@ -3873,6 +3922,14 @@ def bulk_eliminar_preguntas(request):
             request,
             f'{len(examenes_afectados)} examen(es) quedaron con una o más preguntas menos: '
             f'{nombres}. Revisalos y reemplazá las preguntas que hagan falta.',
+            extra_tags='preguntas'
+        )
+    if orales_afectados:
+        nombres_o = ', '.join(o.name for o in orales_afectados)
+        messages.warning(
+            request,
+            f'{len(orales_afectados)} cuestionario(s) oral(es) quedaron con una o más asignaciones menos: '
+            f'{nombres_o}. Revisalos y regená lo que haga falta.',
             extra_tags='preguntas'
         )
 
@@ -8208,6 +8265,26 @@ def mis_solicitudes_catalogo(request):
     return render(request, 'material/catalog_requests/list.html', {
         'solicitudes': solicitudes,
         'sin_avisar': sin_avisar,
+    })
+
+
+@login_required
+def mis_avisos_preguntas_borradas(request):
+    """Avisos de que una pregunta compartida que veníamos usando en un
+    examen o cuestionario oral fue borrada por su dueño original — ver
+    QuestionDeletionNotice y _avisar_borrado_pregunta_a_duenos."""
+    avisos = list(
+        QuestionDeletionNotice.objects.filter(recipient=request.user)
+        .select_related('content_type', 'deleted_by').order_by('-created_at')
+    )
+    for aviso in avisos:
+        # content_object puede ser None si el examen/cuestionario también
+        # se borró después — el aviso sigue siendo válido igual (informa
+        # qué pregunta faltó), solo no hay a dónde linkear.
+        aviso.target = aviso.content_object
+    QuestionDeletionNotice.objects.filter(recipient=request.user, visto=False).update(visto=True)
+    return render(request, 'material/questions/avisos_preguntas_borradas.html', {
+        'avisos': avisos,
     })
 
 

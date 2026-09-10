@@ -4,7 +4,7 @@ from django.conf import settings
 from .models import (
     InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic, Contenido,
     InstitutionSubject, GroupMembership, CatalogRequest, Career, CareerSubject,
-    FacultyV2, InstitutionCareer,
+    FacultyV2, InstitutionCareer, QuestionDeletionNotice,
 )
 from .content_visibility import get_visible_subjects, get_visible_careers, get_visible_faculties
 from .views import is_admin as _is_admin
@@ -45,6 +45,13 @@ def onboarding_context(request):
     pending_catalog_notifications_count = CatalogRequest.objects.filter(
         solicitado_por=request.user, visto_por_solicitante=False,
     ).exclude(estado='pendiente').count()
+    # Badge de "Preguntas borradas" — aviso a quien es dueño de un examen o
+    # cuestionario oral cuando OTRO usuario borró una pregunta compartida
+    # que ese examen/cuestionario venía usando (ver QuestionDeletionNotice
+    # y _avisar_borrado_pregunta_a_duenos en views.py).
+    pending_question_deletion_notices_count = QuestionDeletionNotice.objects.filter(
+        recipient=request.user, visto=False,
+    ).count()
 
     base_ctx = {
         'onboarding_institutions': [],
@@ -52,6 +59,7 @@ def onboarding_context(request):
         'pending_invites_count': pending_invites_count,
         'pending_catalog_requests_count': pending_catalog_requests_count,
         'pending_catalog_notifications_count': pending_catalog_notifications_count,
+        'pending_question_deletion_notices_count': pending_question_deletion_notices_count,
         'is_admin': is_admin_user,
         'visual_theme': profile.visual_theme,
         'visual_theme_choices': profile.VISUAL_THEME_CHOICES,

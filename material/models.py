@@ -2805,3 +2805,36 @@ class Favorite(models.Model):
 
     def __str__(self):
         return f"{self.user.username} ★ {self.content_type.model}#{self.object_id}"
+
+
+class QuestionDeletionNotice(models.Model):
+    """Aviso persistente para el dueño de un Examen o Cuestionario Oral
+    (compartido vía grupo de confianza) cuando OTRO usuario borra una
+    Question que ese examen/cuestionario venía usando — Exam.questions es
+    M2M y OralExamStudentQuestion.question es CASCADE, así que sin este
+    aviso el dueño real nunca se entera de que su examen quedó con una
+    pregunta menos (o el cuestionario oral con una asignación de menos) y no
+    sabe que tiene que revisar/regenerar. La pregunta ya no existe para
+    cuando se muestra el aviso, por eso se guarda una copia del texto
+    (question_text_snapshot) en vez de una FK.
+
+    content_type/object_id (GenericForeignKey, mismo patrón que Favorite)
+    apunta al Exam o al OralExamSet afectado — no a la Question borrada."""
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='question_deletion_notices')
+    deleted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='+')
+    question_text_snapshot = models.TextField()
+    content_type = models.ForeignKey('contenttypes.ContentType', on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+    # Mismo patrón que CatalogRequest.visto_por_solicitante: sostiene el
+    # badge del menú, se apaga al visitar la pantalla de avisos.
+    visto = models.BooleanField(default=False, verbose_name="Visto")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Aviso de pregunta borrada"
+        verbose_name_plural = "Avisos de preguntas borradas"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Aviso para {self.recipient.username}: {self.content_type.model}#{self.object_id}"

@@ -15,6 +15,17 @@
             </ul>
         </div>
     {% endif %}
+    {% if orales_afectados %}
+        <div class="alert alert-warning">
+            <strong>Atención:</strong> esta pregunta está asignada en {{ orales_afectados|length }} cuestionario{{ orales_afectados|length|pluralize:",s" }} oral{{ orales_afectados|length|pluralize:",es" }}.
+            Si se elimina, quedará{{ orales_afectados|length|pluralize:",n" }} con una asignación menos y habrá que regenerar ese set:
+            <ul class="mb-0">
+                {% for oral in orales_afectados %}
+                    <li>{{ oral.name }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
     <form method="post">
         {% csrf_token %}
         <button type="submit" class="btn btn-danger">Eliminar</button>
