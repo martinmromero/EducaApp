@@ -12,6 +12,24 @@
         {% include 'material/components/delete_preview.html' %}
         <form method="post">
             {% csrf_token %}
+            {% if preview.can_delete and hay_consumidores_externos %}
+                <div class="alert alert-info">
+                    <strong>Otro{{ cantidad_consumidores_externos|pluralize:",s" }} docente{{ cantidad_consumidores_externos|pluralize:",s" }}</strong>
+                    ({{ cantidad_consumidores_externos }}) tiene{{ cantidad_consumidores_externos|pluralize:",n" }} exámenes, lotes de versiones o cuestionarios orales armados con esta materia (la compartiste en un grupo de confianza). Elegí qué pasa con su contenido:
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="radio" name="resolution" id="resolutionBorrado" value="borrado" checked>
+                        <label class="form-check-label" for="resolutionBorrado">
+                            Borrar para todos (sus exámenes/orales quedan sin esta materia, avisados para que la reemplacen)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="resolution" id="resolutionCopia" value="copia">
+                        <label class="form-check-label" for="resolutionCopia">
+                            Dejarles una copia propia (siguen teniendo la materia y sus temas, avisados de que ahora es suya)
+                        </label>
+                    </div>
+                </div>
+            {% endif %}
             <div class="d-flex justify-content-between">
                 <a href="{% url 'material:subject_detail' pk=subject.pk %}" class="btn btn-secondary">
                     <i class="bi bi-x-circle"></i> Cancelar

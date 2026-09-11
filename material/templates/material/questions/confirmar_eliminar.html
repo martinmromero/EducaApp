@@ -28,6 +28,24 @@
     {% endif %}
     <form method="post">
         {% csrf_token %}
+        {% if hay_consumidores_externos %}
+            <div class="alert alert-info">
+                <strong>Otro{{ cantidad_consumidores_externos|pluralize:",s" }} docente{{ cantidad_consumidores_externos|pluralize:",s" }}</strong>
+                ({{ cantidad_consumidores_externos }}) usa{{ cantidad_consumidores_externos|pluralize:",n" }} esta pregunta en sus propios exámenes o cuestionarios orales (la compartiste en un grupo de confianza). Elegí qué pasa con su contenido:
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="radio" name="resolution" id="resolutionBorrado" value="borrado" checked>
+                    <label class="form-check-label" for="resolutionBorrado">
+                        Borrar para todos (van a quedar con esa pregunta faltante, avisados para que la reemplacen)
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="resolution" id="resolutionCopia" value="copia">
+                    <label class="form-check-label" for="resolutionCopia">
+                        Dejarles una copia propia (siguen teniendo la pregunta, avisados de que ahora es suya)
+                    </label>
+                </div>
+            </div>
+        {% endif %}
         <button type="submit" class="btn btn-danger">Eliminar</button>
         <a href="{% url 'material:lista_preguntas' %}" class="btn btn-secondary">Cancelar</a>
     </form>

@@ -1,0 +1,46 @@
+{% extends 'material/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Confirmar Eliminación</h2>
+    <p>¿Confirmar la eliminación de {{ count }} pregunta{{ count|pluralize }}?</p>
+
+    <div class="alert alert-info">
+        <strong>Otro{{ cantidad_consumidores_externos|pluralize:",s" }} docente{{ cantidad_consumidores_externos|pluralize:",s" }}</strong>
+        ({{ cantidad_consumidores_externos }}) usa{{ cantidad_consumidores_externos|pluralize:",n" }} alguna de estas preguntas en sus propios exámenes o cuestionarios orales (las compartiste en un grupo de confianza). Elegí qué pasa con su contenido:
+        <form method="post" id="bulkDeleteForm">
+            {% csrf_token %}
+            {% if delete_all_filtered %}
+                <input type="hidden" name="all_filtered_selected" value="1">
+                {% for key, val in filtros_ocultos %}
+                    <input type="hidden" name="{{ key }}" value="{{ val }}">
+                {% endfor %}
+            {% else %}
+                {% for id in hidden_ids %}
+                    <input type="hidden" name="pregunta_ids" value="{{ id }}">
+                {% endfor %}
+            {% endif %}
+            <div class="form-check mt-2">
+                <input class="form-check-input" type="radio" name="resolution" id="resolutionBorrado" value="borrado" checked>
+                <label class="form-check-label" for="resolutionBorrado">
+                    Borrar para todos (van a quedar con esas preguntas faltantes, avisados para que las reemplacen)
+                </label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="resolution" id="resolutionCopia" value="copia">
+                <label class="form-check-label" for="resolutionCopia">
+                    Dejarles una copia propia de cada una (siguen teniendo las preguntas, avisados de que ahora son suyas)
+                </label>
+            </div>
+            <button type="submit" class="btn btn-danger mt-3">Eliminar</button>
+            <a href="{% url 'material:lista_preguntas' %}" class="btn btn-secondary mt-3">Cancelar</a>
+        </form>
+    </div>
+
+    <ul class="mb-0">
+        {% for pregunta in preguntas %}
+            <li class="text-muted small">{{ pregunta.question_text|truncatechars:80 }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

@@ -2810,19 +2810,32 @@ class Favorite(models.Model):
 class QuestionDeletionNotice(models.Model):
     """Aviso persistente para el dueño de un Examen o Cuestionario Oral
     (compartido vía grupo de confianza) cuando OTRO usuario borra una
-    Question que ese examen/cuestionario venía usando — Exam.questions es
-    M2M y OralExamStudentQuestion.question es CASCADE, así que sin este
-    aviso el dueño real nunca se entera de que su examen quedó con una
-    pregunta menos (o el cuestionario oral con una asignación de menos) y no
-    sabe que tiene que revisar/regenerar. La pregunta ya no existe para
-    cuando se muestra el aviso, por eso se guarda una copia del texto
-    (question_text_snapshot) en vez de una FK.
+    Question o una Subject que ese examen/cuestionario venía usando —
+    Exam.questions es M2M, OralExamStudentQuestion.question es CASCADE, y
+    Exam/ExamVersionBatch.subject es SET_NULL / OralExamSet.subject es
+    CASCADE — sin este aviso el dueño real nunca se entera de que su
+    examen/cuestionario quedó afectado. El nombre del campo
+    (question_text_snapshot) quedó de cuando esto solo cubría preguntas;
+    ahora guarda la etiqueta de CUALQUIER elemento borrado ("Pregunta: ..."
+    o "Materia: ...") — no se renombró para no sumar una migración de campo
+    sin necesidad real.
+
+    `resolution` distingue dos resultados posibles (ver
+    _bifurcar_o_avisar_pregunta / _bifurcar_o_avisar_subject en views.py): A
+    eligió borrar para todos (el afectado tiene que rearmar/reemplazar lo
+    suyo), o A autorizó dejar una copia propia (ya aplicada automáticamente,
+    esto es solo informativo).
 
     content_type/object_id (GenericForeignKey, mismo patrón que Favorite)
-    apunta al Exam o al OralExamSet afectado — no a la Question borrada."""
+    apunta al Exam o al OralExamSet afectado — no al elemento borrado."""
+    RESOLUTION_CHOICES = [
+        ('borrado', 'Se borró para todos'),
+        ('copia', 'Se dejó una copia propia'),
+    ]
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='question_deletion_notices')
     deleted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='+')
     question_text_snapshot = models.TextField()
+    resolution = models.CharField(max_length=10, choices=RESOLUTION_CHOICES, default='borrado')
     content_type = models.ForeignKey('contenttypes.ContentType', on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey('content_type', 'object_id')
@@ -2832,8 +2845,8 @@ class QuestionDeletionNotice(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Aviso de pregunta borrada"
-        verbose_name_plural = "Avisos de preguntas borradas"
+        verbose_name = "Aviso de contenido compartido borrado"
+        verbose_name_plural = "Avisos de contenido compartido borrado"
         ordering = ['-created_at']
 
     def __str__(self):

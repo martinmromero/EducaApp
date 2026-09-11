@@ -3814,26 +3814,89 @@ def editar_pregunta(request, pk):
         'pregunta': pregunta
     })
 
-def _avisar_borrado_pregunta_a_duenos(pregunta, examenes, orales, deleted_by):
-    """Crea un QuestionDeletionNotice por cada Examen/Cuestionario Oral
-    afectado cuyo dueño NO sea quien borra (ese ya se entera al toque por el
-    messages.warning de la vista) — para que el dueño real vea, la próxima
-    vez que entre, en qué examen/cuestionario y qué pregunta le faltó."""
+def _consumidores_externos_pregunta(pregunta, examenes, orales, deleted_by):
+    """IDs de usuarios (!= deleted_by) que consumen la pregunta vía algún
+    examen o cuestionario oral — son quienes necesitan elegir "borrar para
+    todos" o "dejar copia" antes de tocar la pregunta."""
+    ids = set()
+    for exam in examenes:
+        if exam.created_by_id and exam.created_by_id != deleted_by.id:
+            ids.add(exam.created_by_id)
+    for oral in orales:
+        if oral.user_id != deleted_by.id:
+            ids.add(oral.user_id)
+    return ids
+
+
+def _clonar_pregunta_para(pregunta, nuevo_dueno):
+    """Clona una Question completa para dejarla en manos de `nuevo_dueno`
+    cuando su dueño original eligió "dejar copias" al borrarla. Mantiene
+    topic/subtopic/contenido tal cual (son contenido compartido que sigue
+    existiendo, no se está borrando) y copia las materias (M2M)."""
+    clone = Question.objects.create(
+        contenido=pregunta.contenido,
+        topic=pregunta.topic,
+        subtopic=pregunta.subtopic,
+        question_type=pregunta.question_type,
+        question_text=pregunta.question_text,
+        answer_text=pregunta.answer_text,
+        question_image=pregunta.question_image,
+        answer_image=pregunta.answer_image,
+        question_image_b64=pregunta.question_image_b64,
+        answer_image_b64=pregunta.answer_image_b64,
+        options_json=pregunta.options_json,
+        difficulty=pregunta.difficulty,
+        bloom_level=pregunta.bloom_level,
+        source_page=pregunta.source_page,
+        user=nuevo_dueno,
+        generated_by_ai=pregunta.generated_by_ai,
+        ai_approved=pregunta.ai_approved,
+        source_chapters_json=pregunta.source_chapters_json,
+    )
+    clone.subjects.set(pregunta.subjects.all())
+    return clone
+
+
+def _bifurcar_o_avisar_pregunta(pregunta, examenes, orales, deleted_by, resolution):
+    """Para cada dueño externo afectado: si resolution=='copia', clona la
+    pregunta a su nombre y repunta sus exámenes/cuestionarios orales a la
+    copia (así no pierden nada); si es 'borrado', no toca nada más (la
+    pregunta original desaparece de ahí cuando se borre). En ambos casos
+    deja un QuestionDeletionNotice con el resultado, para que el dueño
+    externo se entere la próxima vez que entre."""
     exam_ct = ContentType.objects.get_for_model(Exam)
     oral_ct = ContentType.objects.get_for_model(OralExamSet)
     snapshot = pregunta.question_text[:500]
+
+    external_owner_ids = _consumidores_externos_pregunta(pregunta, examenes, orales, deleted_by)
+    clones_by_owner = {}
+    if resolution == 'copia' and external_owner_ids:
+        for owner in User.objects.filter(pk__in=external_owner_ids):
+            clones_by_owner[owner.id] = _clonar_pregunta_para(pregunta, owner)
+
     avisos = []
     for exam in examenes:
         if exam.created_by_id and exam.created_by_id != deleted_by.id:
+            if resolution == 'copia':
+                clone = clones_by_owner[exam.created_by_id]
+                exam.questions.remove(pregunta)
+                exam.questions.add(clone)
             avisos.append(QuestionDeletionNotice(
                 recipient_id=exam.created_by_id, deleted_by=deleted_by,
                 question_text_snapshot=snapshot, content_type=exam_ct, object_id=exam.id,
+                resolution=resolution,
             ))
     for oral in orales:
         if oral.user_id != deleted_by.id:
+            if resolution == 'copia':
+                clone = clones_by_owner[oral.user_id]
+                OralExamStudentQuestion.objects.filter(
+                    student__group__exam_set=oral, question=pregunta,
+                ).update(question=clone)
             avisos.append(QuestionDeletionNotice(
                 recipient_id=oral.user_id, deleted_by=deleted_by,
                 question_text_snapshot=snapshot, content_type=oral_ct, object_id=oral.id,
+                resolution=resolution,
             ))
     if avisos:
         QuestionDeletionNotice.objects.bulk_create(avisos)
@@ -3848,15 +3911,27 @@ def eliminar_pregunta(request, pk):
         orales_afectados = list(OralExamSet.objects.filter(
             groups__students__oralexamstudentquestion__question=pregunta
         ).distinct())
-        _avisar_borrado_pregunta_a_duenos(pregunta, examenes_afectados, orales_afectados, request.user)
+        externos = _consumidores_externos_pregunta(pregunta, examenes_afectados, orales_afectados, request.user)
+        resolution = request.POST.get('resolution', 'borrado')
+        if resolution not in ('borrado', 'copia'):
+            resolution = 'borrado'
+        _bifurcar_o_avisar_pregunta(pregunta, examenes_afectados, orales_afectados, request.user, resolution)
         pregunta.delete()
+
         avisos = []
-        if examenes_afectados:
-            nombres = ', '.join(e.title for e in examenes_afectados)
-            avisos.append(f'{len(examenes_afectados)} examen(es) escritos quedaron con una pregunta menos: {nombres}.')
-        if orales_afectados:
-            nombres_o = ', '.join(o.name for o in orales_afectados)
-            avisos.append(f'{len(orales_afectados)} cuestionario(s) oral(es) quedaron con una asignación menos: {nombres_o}.')
+        propios_examenes = [e for e in examenes_afectados if e.created_by_id == request.user.id or not e.created_by_id]
+        propios_orales = [o for o in orales_afectados if o.user_id == request.user.id]
+        if propios_examenes:
+            nombres = ', '.join(e.title for e in propios_examenes)
+            avisos.append(f'{len(propios_examenes)} examen(es) escritos tuyos quedaron con una pregunta menos: {nombres}.')
+        if propios_orales:
+            nombres_o = ', '.join(o.name for o in propios_orales)
+            avisos.append(f'{len(propios_orales)} cuestionario(s) oral(es) tuyos quedaron con una asignación menos: {nombres_o}.')
+        if externos:
+            if resolution == 'copia':
+                avisos.append(f'{len(externos)} docente(s) más usaban esta pregunta: se les dejó una copia propia y fueron avisados.')
+            else:
+                avisos.append(f'{len(externos)} docente(s) más usaban esta pregunta: se borró para todos y fueron avisados.')
         if avisos:
             messages.warning(
                 request,
@@ -3867,12 +3942,17 @@ def eliminar_pregunta(request, pk):
             messages.success(request, 'Pregunta eliminada correctamente', extra_tags='preguntas')
         return redirect('material:lista_preguntas')
 
+    examenes_afectados = pregunta.exams.all()
+    orales_afectados = OralExamSet.objects.filter(
+        groups__students__oralexamstudentquestion__question=pregunta
+    ).distinct()
+    externos = _consumidores_externos_pregunta(pregunta, examenes_afectados, orales_afectados, request.user)
     return render(request, 'material/questions/confirmar_eliminar.html', {
         'pregunta': pregunta,
-        'examenes_afectados': pregunta.exams.all(),
-        'orales_afectados': OralExamSet.objects.filter(
-            groups__students__oralexamstudentquestion__question=pregunta
-        ).distinct(),
+        'examenes_afectados': examenes_afectados,
+        'orales_afectados': orales_afectados,
+        'hay_consumidores_externos': bool(externos),
+        'cantidad_consumidores_externos': len(externos),
     })
 
 @login_required
@@ -3881,57 +3961,100 @@ def bulk_eliminar_preguntas(request):
     from urllib.parse import urlencode
 
     delete_all_filtered = request.POST.get('all_filtered_selected') == '1'
+    ids_raw = request.POST.getlist('pregunta_ids')
 
     if delete_all_filtered:
         preguntas = Question.objects.filter(user=request.user)
         preguntas = _aplicar_filtros_preguntas(preguntas, request.POST)
     else:
-        ids_raw = request.POST.getlist('pregunta_ids')
         ids = [int(i) for i in ids_raw if i.isdigit()]
         if not ids:
             messages.error(request, 'No se seleccionó ninguna pregunta para eliminar.', extra_tags='preguntas')
             return redirect('material:lista_preguntas')
         preguntas = Question.objects.filter(pk__in=ids, user=request.user)
 
-    count = preguntas.count()
-    examenes_afectados = set(Exam.objects.filter(questions__in=preguntas))
-    orales_afectados = set(OralExamSet.objects.filter(
-        groups__students__oralexamstudentquestion__question__in=preguntas
-    ))
-    # Un aviso por pregunta (no uno global): cada dueño afectado necesita
-    # saber CUÁL pregunta específica le faltó en cuál examen/cuestionario,
-    # no solo "algo cambió" — por eso se itera acá en vez de un solo query
-    # agregado como examenes_afectados/orales_afectados de arriba (esos sí
-    # sirven para el aviso genérico de quien borra, más abajo).
+    preguntas = list(preguntas)
+    count = len(preguntas)
+    if count == 0:
+        messages.error(request, 'No se seleccionó ninguna pregunta para eliminar.', extra_tags='preguntas')
+        return redirect('material:lista_preguntas')
+
+    # Afectados por pregunta (no un query agregado): cada dueño externo
+    # necesita saber CUÁL pregunta específica le faltó en cuál examen/
+    # cuestionario, y hace falta la lista por pregunta para poder bifurcar
+    # (clonar) más abajo si A elige "dejar copias".
+    afectados_por_pregunta = []
+    externos_totales = set()
     for pregunta in preguntas:
-        _avisar_borrado_pregunta_a_duenos(
-            pregunta, pregunta.exams.all(),
-            OralExamSet.objects.filter(groups__students__oralexamstudentquestion__question=pregunta).distinct(),
-            request.user,
-        )
-    preguntas.delete()
+        examenes = list(pregunta.exams.all())
+        orales = list(OralExamSet.objects.filter(
+            groups__students__oralexamstudentquestion__question=pregunta
+        ).distinct())
+        externos_totales |= _consumidores_externos_pregunta(pregunta, examenes, orales, request.user)
+        afectados_por_pregunta.append((pregunta, examenes, orales))
+
+    resolution = request.POST.get('resolution')
+    if externos_totales and resolution not in ('borrado', 'copia'):
+        filtros_ocultos = []
+        for key in ['subject', 'topic', 'subtopic', 'bloom_level', 'ai_status']:
+            filtros_ocultos.extend((key, val) for val in request.POST.getlist(key))
+        return render(request, 'material/questions/bulk_confirmar_eliminar.html', {
+            'count': count,
+            'preguntas': preguntas,
+            'cantidad_consumidores_externos': len(externos_totales),
+            'delete_all_filtered': delete_all_filtered,
+            'hidden_ids': ids_raw,
+            'filtros_ocultos': filtros_ocultos,
+        })
+    if resolution not in ('borrado', 'copia'):
+        resolution = 'borrado'
+
+    propios_examenes = set()
+    propios_orales = set()
+    for pregunta, examenes, orales in afectados_por_pregunta:
+        _bifurcar_o_avisar_pregunta(pregunta, examenes, orales, request.user, resolution)
+        for e in examenes:
+            if not (e.created_by_id and e.created_by_id != request.user.id):
+                propios_examenes.add(e)
+        for o in orales:
+            if o.user_id == request.user.id:
+                propios_orales.add(o)
+        pregunta.delete()
 
     if count == 1:
         messages.success(request, 'Se eliminó 1 pregunta correctamente.', extra_tags='preguntas')
     else:
         messages.success(request, f'Se eliminaron {count} preguntas correctamente.', extra_tags='preguntas')
 
-    if examenes_afectados:
-        nombres = ', '.join(e.title for e in examenes_afectados)
+    if propios_examenes:
+        nombres = ', '.join(e.title for e in propios_examenes)
         messages.warning(
             request,
-            f'{len(examenes_afectados)} examen(es) quedaron con una o más preguntas menos: '
+            f'{len(propios_examenes)} examen(es) tuyos quedaron con una o más preguntas menos: '
             f'{nombres}. Revisalos y reemplazá las preguntas que hagan falta.',
             extra_tags='preguntas'
         )
-    if orales_afectados:
-        nombres_o = ', '.join(o.name for o in orales_afectados)
+    if propios_orales:
+        nombres_o = ', '.join(o.name for o in propios_orales)
         messages.warning(
             request,
-            f'{len(orales_afectados)} cuestionario(s) oral(es) quedaron con una o más asignaciones menos: '
+            f'{len(propios_orales)} cuestionario(s) oral(es) tuyos quedaron con una o más asignaciones menos: '
             f'{nombres_o}. Revisalos y regená lo que haga falta.',
             extra_tags='preguntas'
         )
+    if externos_totales:
+        if resolution == 'copia':
+            messages.info(
+                request,
+                f'{len(externos_totales)} docente(s) más usaban alguna de estas preguntas: se les dejó copia propia y fueron avisados.',
+                extra_tags='preguntas'
+            )
+        else:
+            messages.warning(
+                request,
+                f'{len(externos_totales)} docente(s) más usaban alguna de estas preguntas: se borraron para todos y fueron avisados.',
+                extra_tags='preguntas'
+            )
 
     params = []
     for key in ['subject', 'topic', 'subtopic', 'bloom_level', 'ai_status']:
@@ -5434,13 +5557,135 @@ def subject_list(request):
 
     return render(request, 'material/subjects/list.html', context)
 
+def _subject_afectados(subject):
+    """Exámenes, lotes de versiones y cuestionarios orales que referencian
+    esta Subject directamente (no vía preview genérico: acá hace falta la
+    lista concreta de objetos, no solo el conteo, para poder bifurcar)."""
+    examenes = list(Exam.objects.filter(subject=subject))
+    batches = list(ExamVersionBatch.objects.filter(subject=subject))
+    orales = list(OralExamSet.objects.filter(subject=subject))
+    return examenes, batches, orales
+
+
+def _consumidores_externos_subject(examenes, batches, orales, deleted_by):
+    """IDs de usuarios (!= deleted_by) que consumen la materia vía algún
+    examen, lote de versiones o cuestionario oral — quienes necesitan que A
+    elija "borrar para todos" o "dejar copia" antes de tocarla."""
+    ids = set()
+    for exam in examenes:
+        if exam.created_by_id and exam.created_by_id != deleted_by.id:
+            ids.add(exam.created_by_id)
+    for batch in batches:
+        if batch.created_by_id and batch.created_by_id != deleted_by.id:
+            ids.add(batch.created_by_id)
+    for oral in orales:
+        if oral.user_id != deleted_by.id:
+            ids.add(oral.user_id)
+    return ids
+
+
+def _clonar_subject_para(subject, nuevo_dueno):
+    """Clona la Subject (+ sus Topics, que se borrarían en cascada con
+    ella) para dejarla en manos de `nuevo_dueno`. Queda como materia
+    personal (no catálogo institucional): es una copia de resguardo, no
+    una promoción al catálogo — ver principio "los elementos son de cada
+    usuario, salvo que pasen al catálogo global"."""
+    clone = Subject.objects.create(
+        name=subject.name,
+        created_by=nuevo_dueno,
+        is_seed_demo=False,
+        es_catalogo_institucional=False,
+    )
+    topic_clone_map = {}
+    for topic in Topic.objects.filter(subject=subject):
+        topic_clone_map[topic.id] = Topic.objects.create(
+            name=topic.name,
+            subject=clone,
+            importance=topic.importance,
+            created_by=nuevo_dueno,
+        )
+    return clone, topic_clone_map
+
+
+def _bifurcar_o_avisar_subject(subject, examenes, batches, orales, deleted_by, resolution):
+    """Análogo a _bifurcar_o_avisar_pregunta pero para Subject: si
+    resolution=='copia', clona la materia (+ tópicos) por cada dueño
+    externo y repunta sus exámenes/lotes/orales a la copia; si es
+    'borrado', deja que el on_delete de cada FK/M2M actúe solo (SET_NULL en
+    Exam/ExamVersionBatch.subject, CASCADE en OralExamSet.subject). En
+    ambos casos deja un QuestionDeletionNotice avisando el resultado."""
+    exam_ct = ContentType.objects.get_for_model(Exam)
+    batch_ct = ContentType.objects.get_for_model(ExamVersionBatch)
+    oral_ct = ContentType.objects.get_for_model(OralExamSet)
+    snapshot = f'Materia: {subject.name}'
+
+    external_owner_ids = _consumidores_externos_subject(examenes, batches, orales, deleted_by)
+    clones_by_owner = {}
+    if resolution == 'copia' and external_owner_ids:
+        for owner in User.objects.filter(pk__in=external_owner_ids):
+            clones_by_owner[owner.id] = _clonar_subject_para(subject, owner)
+
+    avisos = []
+    for exam in examenes:
+        if exam.created_by_id and exam.created_by_id != deleted_by.id:
+            if resolution == 'copia':
+                clone, topic_clone_map = clones_by_owner[exam.created_by_id]
+                exam.subject = clone
+                exam.save(update_fields=['subject'])
+                for topic in list(exam.topics.filter(subject=subject)):
+                    if topic.id in topic_clone_map:
+                        exam.topics.remove(topic)
+                        exam.topics.add(topic_clone_map[topic.id])
+            avisos.append(QuestionDeletionNotice(
+                recipient_id=exam.created_by_id, deleted_by=deleted_by,
+                question_text_snapshot=snapshot, content_type=exam_ct, object_id=exam.id,
+                resolution=resolution,
+            ))
+    for batch in batches:
+        if batch.created_by_id and batch.created_by_id != deleted_by.id:
+            if resolution == 'copia':
+                clone, _topic_clone_map = clones_by_owner[batch.created_by_id]
+                batch.subject = clone
+                batch.save(update_fields=['subject'])
+            avisos.append(QuestionDeletionNotice(
+                recipient_id=batch.created_by_id, deleted_by=deleted_by,
+                question_text_snapshot=snapshot, content_type=batch_ct, object_id=batch.id,
+                resolution=resolution,
+            ))
+    for oral in orales:
+        if oral.user_id != deleted_by.id:
+            if resolution == 'copia':
+                clone, topic_clone_map = clones_by_owner[oral.user_id]
+                topics_originales = list(oral.topics.all())
+                oral.subject = clone
+                oral.save(update_fields=['subject'])
+                nuevos_topics = [topic_clone_map[t.id] for t in topics_originales if t.id in topic_clone_map]
+                if nuevos_topics:
+                    oral.topics.set(nuevos_topics)
+            avisos.append(QuestionDeletionNotice(
+                recipient_id=oral.user_id, deleted_by=deleted_by,
+                question_text_snapshot=snapshot, content_type=oral_ct, object_id=oral.id,
+                resolution=resolution,
+            ))
+    if avisos:
+        QuestionDeletionNotice.objects.bulk_create(avisos)
+
+
 @login_required
 @user_passes_test(is_admin, login_url='/')
 def delete_subject(request, pk):
     # Solo el dueño puede borrar — las compartidas por otros vía grupos de
     # confianza son visibles/usables pero no borrables.
     subject = get_object_or_404(Subject, pk=pk, created_by=request.user)
+    preview = get_delete_preview(subject)
+
     if request.method == 'POST':
+        if preview['can_delete']:
+            examenes, batches, orales = _subject_afectados(subject)
+            resolution = request.POST.get('resolution', 'borrado')
+            if resolution not in ('borrado', 'copia'):
+                resolution = 'borrado'
+            _bifurcar_o_avisar_subject(subject, examenes, batches, orales, request.user, resolution)
         try:
             subject.delete()
         except ProtectedError as e:
@@ -5448,9 +5693,14 @@ def delete_subject(request, pk):
             return redirect('material:subject_list')
         messages.success(request, 'Materia eliminada exitosamente', extra_tags='materias')
         return redirect('material:subject_list')
+
+    examenes, batches, orales = _subject_afectados(subject)
+    externos = _consumidores_externos_subject(examenes, batches, orales, request.user)
     return render(request, 'material/subjects/confirm_delete.html', {
         'subject': subject,
-        'preview': get_delete_preview(subject),
+        'preview': preview,
+        'hay_consumidores_externos': bool(externos),
+        'cantidad_consumidores_externos': len(externos),
     })
 
 
@@ -5465,30 +5715,88 @@ def bulk_eliminar_subjects(request):
         return redirect('material:subject_list')
 
     # Solo las propias — ver nota de ownership en delete_subject.
-    subjects = Subject.objects.filter(pk__in=ids, created_by=request.user)
-    count = subjects.count()
-    skipped = len(ids) - count
-    try:
-        subjects.delete()
-    except ProtectedError as e:
-        messages.error(request, _protected_error_message(e), extra_tags='materias')
+    subjects = list(Subject.objects.filter(pk__in=ids, created_by=request.user))
+    skipped_not_owned = len(ids) - len(subjects)
+
+    # Antes un solo bloqueo (PROTECT de ExamTemplate) abortaba el lote
+    # entero sin borrar nada: ahora se separan de antemano (mismo preview
+    # que usa delete_subject) y se borran las que sí se pueden, avisando
+    # cuáles quedaron afuera y por qué.
+    borrables, bloqueadas = [], []
+    for subject in subjects:
+        (borrables if get_delete_preview(subject)['can_delete'] else bloqueadas).append(subject)
+
+    if not borrables:
+        if bloqueadas:
+            nombres = ', '.join(s.name for s in bloqueadas)
+            messages.error(
+                request,
+                f'No se pudo eliminar ninguna: están bloqueadas por plantillas de examen que las usan: {nombres}.',
+                extra_tags='materias'
+            )
+        else:
+            messages.error(request, 'No se seleccionó ninguna materia para eliminar.', extra_tags='materias')
         return redirect('material:subject_list')
+
+    afectados_por_subject = []
+    externos_totales = set()
+    for subject in borrables:
+        examenes, batches, orales = _subject_afectados(subject)
+        externos_totales |= _consumidores_externos_subject(examenes, batches, orales, request.user)
+        afectados_por_subject.append((subject, examenes, batches, orales))
+
+    resolution = request.POST.get('resolution')
+    if externos_totales and resolution not in ('borrado', 'copia'):
+        return render(request, 'material/subjects/bulk_confirmar_eliminar.html', {
+            'count': len(borrables),
+            'subjects': borrables,
+            'cantidad_consumidores_externos': len(externos_totales),
+            'hidden_ids': [s.id for s in borrables],
+        })
+    if resolution not in ('borrado', 'copia'):
+        resolution = 'borrado'
+
+    count = 0
+    for subject, examenes, batches, orales in afectados_por_subject:
+        _bifurcar_o_avisar_subject(subject, examenes, batches, orales, request.user, resolution)
+        subject.delete()
+        count += 1
 
     if count == 1:
         messages.success(request, 'Se eliminó 1 materia exitosamente.', extra_tags='materias')
     elif count > 1:
         messages.success(request, f'Se eliminaron {count} materias exitosamente.', extra_tags='materias')
-    if skipped:
+    if skipped_not_owned:
         # Antes esto pasaba en silencio: se borraban las propias y se
         # mostraba "Se eliminaron N" sin avisar que otras seleccionadas no
         # se tocaron por no ser del usuario — quien seleccionó varias podía
         # creer que borró todas.
-        plural = 's' if skipped != 1 else ''
+        plural = 's' if skipped_not_owned != 1 else ''
         messages.warning(
             request,
-            f'{skipped} materia{plural} seleccionada{plural} no se eliminó{plural} porque no te pertenece{plural}.',
+            f'{skipped_not_owned} materia{plural} seleccionada{plural} no se eliminó{plural} porque no te pertenece{plural}.',
             extra_tags='materias',
         )
+    if bloqueadas:
+        nombres = ', '.join(s.name for s in bloqueadas)
+        messages.warning(
+            request,
+            f'{len(bloqueadas)} materia(s) no se eliminaron porque están bloqueadas por plantillas de examen que las usan: {nombres}.',
+            extra_tags='materias',
+        )
+    if externos_totales:
+        if resolution == 'copia':
+            messages.info(
+                request,
+                f'{len(externos_totales)} docente(s) más usaban alguna de estas materias: se les dejó copia propia y fueron avisados.',
+                extra_tags='materias'
+            )
+        else:
+            messages.warning(
+                request,
+                f'{len(externos_totales)} docente(s) más usaban alguna de estas materias: se borraron para todos y fueron avisados.',
+                extra_tags='materias'
+            )
     return redirect('material:subject_list')
 
 class SubjectDetailView(LoginRequiredMixin, DetailView):
