@@ -506,8 +506,12 @@ def process_contenido_by_id(request, contenido_id):
             },
         })
 
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    except Exception:
+        logger.exception("Error en process_contenido_by_id")
+        return JsonResponse({
+            'success': False,
+            'error': 'Ocurrió un error inesperado al procesar el documento. Volvé a intentarlo o contactá al administrador si persiste.',
+        }, status=500)
 
 
 # ============================================
@@ -894,11 +898,11 @@ def generate_questions_from_chapters(request):
             'failed_chunks': failed_chunks,
         })
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error en generate_questions_from_chapters")
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': 'Ocurrió un error inesperado generando las preguntas. Volvé a intentarlo o contactá al administrador si persiste.',
         }, status=500)
 
 
@@ -1763,9 +1767,12 @@ def document_page_preview(request):
         else:
             return JsonResponse({'success': False, 'error': f'Formato no soportado para preview: {ext}'}, status=400)
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error en document_page_preview")
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        return JsonResponse({
+            'success': False,
+            'error': 'No se pudo generar la vista previa de esa página. Volvé a intentarlo o contactá al administrador si persiste.',
+        }, status=500)
 
 
 @login_required
@@ -1940,9 +1947,12 @@ def get_pages_text(request):
             'total_tokens': sum(ch['tokens'] for ch in chapters),
         })
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error en get_pages_text")
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        return JsonResponse({
+            'success': False,
+            'error': 'No se pudo extraer el texto de ese documento. Volvé a intentarlo o contactá al administrador si persiste.',
+        }, status=500)
 
 
 @login_required
@@ -2172,8 +2182,12 @@ def get_topics_by_subject(request, subject_id):
             for t in topics
         ]
         return JsonResponse({'success': True, 'topics': result})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    except Exception:
+        logger.exception("Error en get_topics_by_subject")
+        return JsonResponse({
+            'success': False,
+            'error': 'No se pudieron cargar los tópicos de esa materia. Volvé a intentarlo o contactá al administrador si persiste.',
+        }, status=500)
 
 
 @login_required

@@ -190,6 +190,16 @@ def _append_payload(doc, payload, formato):
                 for i, value in enumerate(row.get('celdas', []), start=1):
                     if i < len(cells):
                         _set_cell_text(cells[i], value, font_name=font_name, size_pt=rubric_size, color_rgb=text_rgb)
+                        # "( )" al pie de cada celda para que el docente
+                        # marque a mano en qué nivel calificó ese criterio —
+                        # mismo convención que ya usa esta app para
+                        # verdadero_falso (ver _append_payload más arriba).
+                        mark_paragraph = cells[i].add_paragraph()
+                        _zero_paragraph_spacing(mark_paragraph)
+                        _append_run(
+                            mark_paragraph, '( )',
+                            font_name=font_name, size_pt=rubric_size, color_rgb=text_rgb,
+                        )
 
 
 def _hex_to_rgb(hex_color):
@@ -449,8 +459,8 @@ def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_na
     meta_tab_cm = max(middle_cm - 0.3, 1.0)
 
     def _append_meta_field(paragraph, label, value):
-        # Un campo vacío (ej. profesor no cargado) se omite entero en vez de
-        # mostrar "Profesor: -" — antes siempre se imprimía el placeholder.
+        # Un campo vacío (ej. docente no cargado) se omite entero en vez de
+        # mostrar "Docente: -" — antes siempre se imprimía el placeholder.
         if not value:
             return False
         _append_run(paragraph, f'{label}: ', font_name=font_name, size_pt=base_size, color_rgb=text_rgb, bold=True)
@@ -472,7 +482,7 @@ def _append_letterhead_table(doc, block, base_size, title_rgb, text_rgb, font_na
     left_written = _append_meta_field(p_meta, 'Materia', subject)
     if left_written and professor:
         p_meta.add_run('\t')
-    _append_meta_field(p_meta, 'Profesor', professor)
+    _append_meta_field(p_meta, 'Docente', professor)
 
     if catedra:
         # Fila extra, solo si se cargó — mismo criterio que el renderer PDF.

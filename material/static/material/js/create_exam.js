@@ -411,7 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
         }
-        // Profesor
+        // Docente
         if (data.professor_id) {
             var profesorSelect = document.getElementById('profesor_dropdown');
             profesorSelect.value = data.professor_id;

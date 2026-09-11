@@ -208,7 +208,19 @@ def exportar_examen_docx(request, pk):
         con_respuestas=con_respuestas,
         include_rubrics=include_rubrics,
     )
-    content = render_exam_payload_to_docx(payload, formato)
+    try:
+        content = render_exam_payload_to_docx(payload, formato)
+    except Exception:
+        # Antes sin try/except: si python-docx fallaba, el usuario veía un
+        # 500 crudo de Django en vez del mensaje legible que ya tenía su par
+        # PDF (asimetría señalada en la auditoría de robustez y confirmada
+        # en la re-validación 2026-09-11).
+        logger.exception("Error al generar DOCX del examen %s", pk)
+        return HttpResponse(
+            'No se pudo generar el archivo DOCX de este examen. Volvé a intentarlo o contactá al administrador si persiste.',
+            status=500,
+            content_type='text/plain; charset=utf-8',
+        )
 
     suffix = '_con_respuestas' if con_respuestas else ''
     filename = _safe_filename(examen.title or 'Examen', suffix) + '.docx'
@@ -247,9 +259,13 @@ def exportar_examen_pdf(request, pk):
             include_rubrics=include_rubrics,
         )
         content = render_exam_payload_to_pdf(payload, formato)
-    except Exception as render_error:
+    except Exception:
+        # Antes devolvía str(render_error) crudo al usuario — mensaje
+        # técnico de ReportLab/Python, no algo que un docente entienda.
+        # El detalle real ahora solo va al log del servidor.
+        logger.exception("Error al generar PDF del examen %s", pk)
         return HttpResponse(
-            f'Error al generar PDF con renderer unificado: {render_error}',
+            'No se pudo generar el archivo PDF de este examen. Volvé a intentarlo o contactá al administrador si persiste.',
             status=500,
             content_type='text/plain; charset=utf-8',
         )
@@ -282,7 +298,15 @@ def exportar_lote_docx(request, batch_id):
             'label': f"Version {examen.__dict__.get('version_number') or idx}",
         })
 
-    content = render_exam_batch_payloads_to_docx(exam_documents)
+    try:
+        content = render_exam_batch_payloads_to_docx(exam_documents)
+    except Exception:
+        logger.exception("Error al generar DOCX del lote %s", batch_id)
+        return HttpResponse(
+            'No se pudo generar el archivo DOCX de este lote. Volvé a intentarlo o contactá al administrador si persiste.',
+            status=500,
+            content_type='text/plain; charset=utf-8',
+        )
     suffix = '_con_respuestas' if con_respuestas else ''
     filename = _safe_filename(batch.name or 'Lote', suffix) + '.docx'
     response = HttpResponse(
@@ -315,9 +339,10 @@ def exportar_lote_pdf(request, batch_id):
 
     try:
         content = render_exam_batch_payloads_to_pdf(exam_documents)
-    except Exception as render_error:
+    except Exception:
+        logger.exception("Error al generar PDF del lote %s", batch_id)
         return HttpResponse(
-            f'Error al generar PDF del lote con renderer unificado: {render_error}',
+            'No se pudo generar el archivo PDF de este lote. Volvé a intentarlo o contactá al administrador si persiste.',
             status=500,
             content_type='text/plain; charset=utf-8',
         )

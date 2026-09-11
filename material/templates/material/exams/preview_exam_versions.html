@@ -93,7 +93,7 @@
     <div class="card-header"><strong>Rúbricas</strong></div>
     <div class="card-body table-responsive">
       {% for grid in rubric_grids %}
-        {% include 'material/rubricas/_grid_table.html' with grid=grid %}
+        {% include 'material/rubricas/_grid_table.html' with grid=grid show_marks=True %}
       {% endfor %}
     </div>
   </div>

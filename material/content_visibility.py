@@ -117,7 +117,7 @@ def get_visible_formats(user):
 
 
 def get_visible_professors(user):
-    """Candidatos a "Profesor" de un examen/plantilla.
+    """Candidatos a "Docente" de un examen/plantilla.
 
     Un admin (o superuser) arma exámenes/plantillas en nombre de cualquier
     docente real del sistema — mismo criterio de "admin" que

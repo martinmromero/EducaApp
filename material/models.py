@@ -887,13 +887,13 @@ class Exam(models.Model):
         blank=True,  
         verbose_name="Materia"  
     )  
-    professor = models.ForeignKey(  
-        User,  
-        on_delete=models.SET_NULL,  
-        null=True,  
-        blank=True,  
-        verbose_name="Profesor"  
-    )  
+    professor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Docente"
+    )
     year = models.IntegerField(verbose_name="Año", null=True, blank=True)
     exam_type = models.CharField(
         max_length=40,
@@ -1710,7 +1710,7 @@ class ExamTemplate(models.Model):
         User,
         on_delete=models.PROTECT,
         related_name='professor_exam_templates',
-        verbose_name="Profesor",
+        verbose_name="Docente",
         null=True,
         blank=True
     )

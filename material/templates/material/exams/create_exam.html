@@ -129,18 +129,18 @@
                 </div>
             </div>
 
-            <!-- Sección 4 columnas: Profesor - Fecha - Año - Duración (minutos) -->
+            <!-- Sección 4 columnas: Docente - Fecha - Año - Duración (minutos) -->
             <div class="row mb-3">
                 <div class="col-md-3">
-                    <label for="profesor_dropdown">Profesor</label>
+                    <label for="profesor_dropdown">Docente</label>
                     <select class="form-select" name="profesor_dropdown" id="profesor_dropdown" onchange="toggleTextbox('profesor_dropdown', 'profesor_text')">
-                        <option value="">Seleccionar profesor</option>
+                        <option value="">Seleccionar docente</option>
                         {% for profesor in profesores %}
                             <option value="{{ profesor.id }}">{{ profesor.get_full_name|default:profesor.username }}</option>
                         {% endfor %}
                         <option value="otro">Otro</option>
                     </select>
-                    <input type="text" class="form-control mt-2" name="profesor_text" id="profesor_text" placeholder="Ingrese profesor" style="display:none;">
+                    <input type="text" class="form-control mt-2" name="profesor_text" id="profesor_text" placeholder="Ingrese docente" style="display:none;">
                 </div>
                 <div class="col-md-3">
                     <label for="fecha">Fecha</label>
@@ -557,7 +557,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ONBOARDING WIZARD V2: resaltar en verde los campos que se completaron
     // solos con lo que ya cargaste en el asistente (institución, materia,
-    // profesor, temas), para que se distingan de lo que carga el usuario.
+    // docente, temas), para que se distingan de lo que carga el usuario.
     if (Array.isArray(WIZARD_PREFILL_FIELDS) && WIZARD_PREFILL_FIELDS.length) {
         // Para 'topics', el <select> real está oculto (hay checkboxes armados por
         // JS encima); resaltamos el contenedor visible en vez del select.

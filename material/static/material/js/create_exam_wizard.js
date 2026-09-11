@@ -29,6 +29,20 @@ _onDomReady(function () {
                 return false;
             }
         }
+        if (n === 3) {
+            // Sin esto se podía llegar hasta el paso 8 y enviar sin haber
+            // tildado nada acá — el error recién aparecía en el servidor
+            // ("no se seleccionó ningún tópico ni pregunta") y encima
+            // expulsaba al docente del asistente hacia el formulario
+            // clásico completo (ver preview_exam). Mismo patrón que ya
+            // usa create_oral_exam_wizard.js para este mismo chequeo.
+            var hayTopicos = document.querySelectorAll('#wizTopicsList input[type="checkbox"]:checked').length > 0;
+            var hayPreguntas = document.querySelectorAll('#wizQuestionsGroups input[type="checkbox"]:checked').length > 0;
+            if (!hayTopicos && !hayPreguntas) {
+                alert('Elegí al menos un tópico o una pregunta puntual para continuar.');
+                return false;
+            }
+        }
         return true;
     }
 

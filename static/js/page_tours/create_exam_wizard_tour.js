@@ -60,7 +60,7 @@
       {
         element: '[data-step-pill="5"]',
         popover: {
-          title: 'Profesor y fecha',
+          title: 'Docente y fecha',
           description: 'Quién lo toma, cuándo y con qué duración.',
           side: 'bottom',
         },

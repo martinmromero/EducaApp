@@ -214,9 +214,21 @@ def _append_payload(flow, payload, style_text, style_title, style_h2, *, include
         elif tipo == 'tabla_rubrica' and block.get('filas'):
             flow.append(Paragraph(block.get('titulo', 'Rubrica'), style_h2))
             headers = ['Criterio'] + list(block.get('columnas', []))
+            rubric_cell_style = ParagraphStyle(
+                'RubricCell', parent=style_text,
+                fontSize=base_size - 1 if base_size > 9 else base_size,
+            )
             rows = [headers]
             for row in block['filas']:
-                rows.append([row.get('criterio', '')] + list(row.get('celdas', [])))
+                # "( )" al pie de cada celda para que el docente marque a
+                # mano en qué nivel calificó ese criterio — mismo convención
+                # que ya usa esta app para verdadero_falso, no un ícono
+                # nuevo. Paragraph (no texto plano) para que el <br/> se
+                # interprete como salto de línea real dentro de la celda.
+                rows.append(
+                    [Paragraph(row.get('criterio', ''), rubric_cell_style)]
+                    + [Paragraph(f"{c}<br/>( )", rubric_cell_style) for c in row.get('celdas', [])]
+                )
 
             table = Table(rows, hAlign='LEFT')
             table_style = TableStyle([
@@ -281,8 +293,8 @@ def _build_letterhead_table(block, style_text, style_h2, content_width_cm=16.2):
     year = block.get('anio') or '-'
 
     def _meta_label_value(label, value):
-        # Un campo vacío (ej. profesor no cargado) se omite entero en vez de
-        # mostrar "Profesor: -" — antes siempre se imprimía el placeholder.
+        # Un campo vacío (ej. docente no cargado) se omite entero en vez de
+        # mostrar "Docente: -" — antes siempre se imprimía el placeholder.
         return f"<b>{label}:</b> {value}" if value else ''
 
     center_style = ParagraphStyle('LetterCenter', parent=style_h2, alignment=1, spaceBefore=0, spaceAfter=0)
@@ -297,12 +309,12 @@ def _build_letterhead_table(block, style_text, style_h2, content_width_cm=16.2):
     # La celda que aloja meta_table tiene 5pt de LEFT/RIGHTPADDING (ver estilo
     # de la tabla exterior mas abajo); sin descontarlos aca, colWidths suma mas
     # que el espacio real disponible y el texto alineado a la derecha
-    # ("Profesor:", tipo de examen) se sale del borde de la tabla.
+    # ("Docente:", tipo de examen) se sale del borde de la tabla.
     half_pt = (middle_cm * cm - 2 * CELL_PAD_PT) / 2
 
     meta_rows = [
         [Paragraph(_meta_label_value('Facultad', faculty), meta_left_style), Paragraph(_meta_label_value('Carrera', career), meta_right_style)],
-        [Paragraph(_meta_label_value('Materia', subject), meta_left_style), Paragraph(_meta_label_value('Profesor', professor), meta_right_style)],
+        [Paragraph(_meta_label_value('Materia', subject), meta_left_style), Paragraph(_meta_label_value('Docente', professor), meta_right_style)],
     ]
     if catedra:
         # Fila extra, solo si se cargó — la mayoría de los examenes no la

@@ -313,7 +313,7 @@ _onDomReady(function () {
             '<dt class="col-sm-4">Institución</dt><dd class="col-sm-8">' + label(institutionSelect) + '</dd>' +
             '<dt class="col-sm-4">Facultad / Carrera</dt><dd class="col-sm-8">' + label(facultySelect) + ' / ' + label(careerSelect) + '</dd>' +
             '<dt class="col-sm-4">Materia</dt><dd class="col-sm-8">' + label(subjectSelect) + '</dd>' +
-            '<dt class="col-sm-4">Profesor</dt><dd class="col-sm-8">' + label(document.getElementById('id_professor')) + '</dd>' +
+            '<dt class="col-sm-4">Docente</dt><dd class="col-sm-8">' + label(document.getElementById('id_professor')) + '</dd>' +
             '<dt class="col-sm-4">Cátedra</dt><dd class="col-sm-8">' + catedraVal + '</dd>' +
             '<dt class="col-sm-4">Resultados de aprendizaje</dt><dd class="col-sm-8">' + outcomesCount + ' seleccionado(s)</dd>' +
             '<dt class="col-sm-4">Rúbricas</dt><dd class="col-sm-8">' + rubricsCount + ' seleccionada(s)</dd>' +

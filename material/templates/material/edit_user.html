@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="container">
-    <h1>Editar Usuario: {{ user.username }}</h1>
+    <h1>Editar Usuario: {{ edited_user.username }}</h1>
     {% show_messages "usuarios" %}
     <form method="post">
         {% csrf_token %}
@@ -23,8 +23,15 @@
         <div class="form-check mb-3">
             {{ form.is_active }} {{ form.is_active.label_tag }}
         </div>
-        <!-- Mostrar el campo de rol solo si el usuario que edita es administrador -->
-        {% if request.user.profile.role == 'admin' %}
+        <!-- Mostrar el campo de rol solo si el usuario que edita es administrador.
+             `is_admin` (ver context_processors.py) es el único criterio real de
+             "admin" de la app (is_superuser CUENTA, no solo profile.role=='admin'
+             — ver material/views.py:is_admin). Compararlo contra
+             request.user.profile.role a secas escondía el campo Rol para el ÚNICO
+             admin real de esta instalación (el superusuario, cuyo profile.role
+             quedó en 'user' por default) — nadie podía promover/degradar a nadie
+             desde la pantalla clásica. Hallazgo de la auditoría 2026-09-11. -->
+        {% if is_admin %}
             <div class="mb-3">
                 {{ form.role.label_tag }} {{ form.role }}
             </div>

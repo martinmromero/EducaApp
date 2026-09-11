@@ -18,7 +18,7 @@
         <div class="wiz-step-pill" data-step-pill="2"><span class="wiz-step-num"><span>2</span></span><span class="wiz-step-label">Materia</span></div>
         <div class="wiz-step-pill" data-step-pill="3"><span class="wiz-step-num"><span>3</span></span><span class="wiz-step-label">Tópicos y preguntas</span></div>
         <div class="wiz-step-pill" data-step-pill="4"><span class="wiz-step-num"><span>4</span></span><span class="wiz-step-label">Uno o varios temas</span></div>
-        <div class="wiz-step-pill" data-step-pill="5"><span class="wiz-step-num"><span>5</span></span><span class="wiz-step-label">Profesor y fecha</span></div>
+        <div class="wiz-step-pill" data-step-pill="5"><span class="wiz-step-num"><span>5</span></span><span class="wiz-step-label">Docente y fecha</span></div>
         <div class="wiz-step-pill" data-step-pill="6"><span class="wiz-step-num"><span>6</span></span><span class="wiz-step-label">Institución y sede</span></div>
         <div class="wiz-step-pill" data-step-pill="7"><span class="wiz-step-num"><span>7</span></span><span class="wiz-step-label">Tipo y modalidad</span></div>
         <div class="wiz-step-pill" data-step-pill="8"><span class="wiz-step-num"><span>8</span></span><span class="wiz-step-label">Rúbricas</span></div>
@@ -130,16 +130,16 @@
             </div>
         </div>
 
-        <!-- PASO 5: Profesor y fecha -->
+        <!-- PASO 5: Docente y fecha -->
         <div class="wiz-step" data-step="5">
             <div class="wiz-step-card">
-                <h4>Profesor y fecha</h4>
+                <h4>Docente y fecha</h4>
                 <p class="wiz-step-intro">Quién lo toma, cuándo y con qué duración.</p>
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label" for="profesor_dropdown">Profesor</label>
+                        <label class="form-label" for="profesor_dropdown">Docente</label>
                         <select class="form-select" name="profesor_dropdown" id="profesor_dropdown">
-                            <option value="">Seleccionar profesor</option>
+                            <option value="">Seleccionar docente</option>
                             {% for profesor in profesores %}
                                 <option value="{{ profesor.id }}" {% if profesor.id == current_user_id %}selected{% endif %}>{{ profesor.get_full_name|default:profesor.username }}</option>
                             {% endfor %}
@@ -316,6 +316,10 @@
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_hibrido" value="hibrido">
                                 <label class="form-check-label" for="resolucion_hibrido">Híbrido</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="modalidad_resolucion" id="resolucion_otro" value="otro">
+                                <label class="form-check-label" for="resolucion_otro">Otro</label>
                             </div>
                         </div>
                     </div>

@@ -698,9 +698,18 @@ class AdminRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
         return redirect(self.login_url)
 
 def _is_last_active_admin(user):
-    return not Profile.objects.filter(
-        role='admin', user__is_active=True
-    ).exclude(user_id=user.id).exists()
+    """Un usuario cuenta como "otro admin activo" si su Profile.role es
+    'admin' O es superuser — mismo criterio que is_admin() de arriba. Antes
+    solo miraba profile.role='admin': el superusuario de esta instalación
+    (cuyo profile.role quedó en 'user' por default) no contaba como admin,
+    así que desactivar/degradar a CUALQUIER OTRO admin real quedaba
+    bloqueado con un "sos el último admin" falso, aunque el superuser
+    siguiera activo y con acceso total. Nunca dejaba al sistema sin admin
+    de verdad (erraba para el lado seguro), pero bloqueaba acciones
+    legítimas con un motivo incorrecto. Hallazgo de la auditoría 2026-09-11."""
+    return not User.objects.filter(
+        Q(profile__role='admin') | Q(is_superuser=True), is_active=True,
+    ).exclude(id=user.id).exists()
 
 
 def _protected_error_message(exc):
@@ -1723,17 +1732,22 @@ def save_exam_from_session(request):
     # professor FK — validado contra get_visible_professors, nunca contra
     # User.objects a secas: un usuario común solo puede figurar como
     # profesor de sí mismo, un ID de otra cuenta puesto a mano en el POST
-    # no alcanza (ver bug de Profesor mostrando todas las cuentas del sistema).
+    # no alcanza (ver bug de Docente mostrando todas las cuentas del sistema).
     from .content_visibility import get_visible_professors
     professor = None
     prof_raw = exam_data.get('profesor', '')
     if str(prof_raw).isdigit():
         professor = get_visible_professors(request.user).filter(pk=int(prof_raw)).first()
 
-    # turno / shift
-    shift_raw = exam_data.get('turno', '') or exam_data.get('turno_text', '')
+    # turno / shift — el <select> manda el value tal cual se ve en pantalla
+    # ("Mañana", con mayúscula) pero Exam.SHIFT_CHOICES son en minúscula
+    # ("mañana"); comparar sin normalizar dejaba shift=None SIEMPRE que se
+    # elegía del desplegable (solo "Otro"/texto libre coincidía por
+    # casualidad si se tipeaba en minúscula) — bug confirmado por
+    # reproducción real, auditoría 2026-09-11.
+    shift_raw = (exam_data.get('turno') or exam_data.get('turno_text') or '').strip()
     valid_shifts = ['mañana', 'tarde', 'noche']
-    shift = shift_raw if shift_raw in valid_shifts else None
+    shift = shift_raw.lower() if shift_raw.lower() in valid_shifts else None
 
     # exam_type: se recorta al max_length real del campo como salvaguarda
     # (nunca deberia disparar con los valores actuales de EXAM_TYPE_CHOICES,
@@ -2260,6 +2274,12 @@ def preview_exam_template(request):
         subject = Subject.objects.get(id=request.POST['subject'])
         professor = User.objects.get(id=request.POST.get('professor', request.user.id))
 
+        campus_id = request.POST.get('campus')
+        campus_name = ''
+        if campus_id and campus_id.isdigit():
+            campus_obj = CampusV2.objects.filter(pk=campus_id).first()
+            campus_name = campus_obj.name if campus_obj else ''
+
         # Si ya se eligió un formato de impresión en el form (antes de
         # guardar la plantilla), la vista previa lo respeta — mismo criterio
         # que view_exam_template una vez guardada.
@@ -2313,7 +2333,13 @@ def preview_exam_template(request):
             'catedra': request.POST.get('catedra', '').strip(),
             'curso': '',  # No disponible en plantillas
             'turno': '',  # No disponible en plantillas
-            'sede': ''   # No disponible en plantillas
+            # Antes hardcodeado en '' con el comentario "no disponible en
+            # plantillas" — dejó de ser cierto cuando ExamTemplate.campus se
+            # agregó (sí se guarda, ver save_exam_template); un docente que
+            # elegía Sede en el asistente nunca la veía reflejada en su
+            # propia vista previa, como si no hubiera guardado nada.
+            # Hallazgo de la auditoría 2026-09-11.
+            'sede': campus_name,
         }
 
         context = {
@@ -2339,7 +2365,7 @@ def preview_exam_template(request):
 
     except Exception as e:
         logger.error(f"Preview error: {str(e)}", exc_info=True)
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({'error': 'No se pudo generar la vista previa de la plantilla. Volvé a intentarlo o contactá al administrador si persiste.'}, status=500)
 
 @login_required
 def edit_exam_template(request, template_id):
@@ -2483,7 +2509,10 @@ def view_exam_template(request, template_id):
         'catedra': template.catedra or '',
         'curso': '',
         'turno': '',
-        'sede': '',
+        # Antes hardcodeado en '' — dejó de ser cierto cuando
+        # ExamTemplate.campus se agregó (ver hallazgo en preview_exam_template
+        # más arriba, mismo bug acá para la vista ya guardada).
+        'sede': template.campus.name if template.campus_id else '',
         'alumno': '',
         'fecha': '',  # Las plantillas no tienen fecha: se muestra en blanco
         'year': '',  # Las plantillas no tienen año: se muestra en blanco
@@ -2531,7 +2560,7 @@ def save_exam_template(request):
             if print_format_id_raw and print_format_id_raw.isdigit():
                 print_format_obj = get_visible_print_formats(request.user).filter(pk=print_format_id_raw).first()
 
-            # Profesor: mismo criterio que print_format_obj arriba — solo uno
+            # Docente: mismo criterio que print_format_obj arriba — solo uno
             # visible para este usuario (get_visible_professors: uno mismo,
             # salvo admin que puede elegir cualquier cuenta), nunca confiando
             # en el ID crudo del POST. Si lo elegido no es válido, cae al
@@ -2581,6 +2610,16 @@ def save_exam_template(request):
             if save_mode == 'update' and template_id and template_id.isdigit():
                 exam_template = get_object_or_404(ExamTemplate, pk=template_id, created_by=request.user)
                 for field, value in content_fields.items():
+                    # campus es el único campo de content_fields que la
+                    # pantalla CLÁSICA (create_exam_template.html) ni
+                    # siquiera muestra — solo existe en el asistente. Sin
+                    # este chequeo, editar por la pantalla clásica una
+                    # plantilla armada con el asistente borraba su Sede en
+                    # silencio (request.POST.get('campus') da None porque la
+                    # clave nunca vino, y el setattr incondicional lo pisaba
+                    # igual). Hallazgo de la auditoría 2026-09-11.
+                    if field == 'campus_id' and 'campus' not in request.POST:
+                        continue
                     setattr(exam_template, field, value)
                 exam_template.save(skip_validation=True)
                 success_message = 'Plantilla actualizada correctamente'
@@ -2671,7 +2710,7 @@ EXAM_TEMPLATE_FILTER_FIELDS = [
     ColumnFilterField('faculty', 'Facultad', label_field='faculty__name'),
     ColumnFilterField('career', 'Carrera', label_field='career__name'),
     ColumnFilterField('subject', 'Materia', label_field='subject__name'),
-    ColumnFilterField('professor', 'Profesor', label_fields=['professor__first_name', 'professor__last_name']),
+    ColumnFilterField('professor', 'Docente', label_fields=['professor__first_name', 'professor__last_name']),
     ColumnFilterField('year', 'Año'),
     ColumnFilterField('exam_type', 'Tipo', choices=ExamTemplate.EXAM_TYPE_CHOICES),
 ]
@@ -3166,7 +3205,13 @@ def edit_user(request, user_id):
             return redirect('material:user_list')
     else:
         form = UserEditForm(instance=user)
-    return render(request, 'material/edit_user.html', {'form': form, 'user': user})
+    # 'edited_user', no 'user': la clave 'user' pisa el request.user real que
+    # el auth context processor inyecta en TODA plantilla — con 'user' acá,
+    # el saludo del sidebar en base.html mostraba el nombre de la cuenta
+    # EDITADA en vez del admin logueado mientras se edita/borra a otro
+    # usuario (confuso justo en una acción sensible). Hallazgo de la
+    # auditoría 2026-09-11; mismo fix aplicado en delete_user más abajo.
+    return render(request, 'material/edit_user.html', {'form': form, 'edited_user': user})
 
 @login_required
 @user_passes_test(is_admin, login_url='/')
@@ -3187,7 +3232,7 @@ def delete_user(request, user_id):
         messages.success(request, 'Usuario eliminado correctamente.', extra_tags='usuarios')
         return redirect('material:user_list')
     return render(request, 'material/confirm_delete_user.html', {
-        'user': user,
+        'edited_user': user,
         'preview': get_delete_preview(user),
     })
 
@@ -4771,8 +4816,27 @@ nivel_bloom: 1"""
 def delete_exam_template(request):
     if request.method == 'POST':
         template_ids = request.POST.getlist('template_ids')
+        # list_exam_templates muestra propias Y compartidas por grupo de
+        # confianza (get_visible_templates), con el mismo checkbox de
+        # selección masiva en ambas — sin este chequeo, tildar plantillas
+        # ajenas junto con las propias borraba solo las propias pero decía
+        # "se eliminaron correctamente" igual, sin avisar que algunas no se
+        # tocaron (mismo bug ya corregido anoche en bulk_eliminar_preguntas/
+        # bulk_eliminar_subjects, hallazgo de la auditoría 2026-09-11).
+        count = ExamTemplate.objects.filter(id__in=template_ids, created_by=request.user).count()
+        skipped = len(template_ids) - count
         ExamTemplate.objects.filter(id__in=template_ids, created_by=request.user).delete()
-        messages.success(request, 'Las plantillas seleccionadas se han eliminado correctamente.', extra_tags='plantillas')
+        if count:
+            messages.success(request, 'Las plantillas seleccionadas se han eliminado correctamente.', extra_tags='plantillas')
+        if skipped:
+            plural = 's' if skipped != 1 else ''
+            messages.warning(
+                request,
+                f'{skipped} plantilla{plural} seleccionada{plural} no se eliminó{plural} porque no te pertenece{plural}.',
+                extra_tags='plantillas',
+            )
+        if not count and not skipped:
+            messages.error(request, 'No se seleccionó ninguna plantilla para eliminar.', extra_tags='plantillas')
     return redirect('material:list_exam_templates')
 
 
@@ -7989,8 +8053,13 @@ def get_visible_rubrics_json(request):
 
 
 def _save_rubric_grid(request, rubrica):
-    """Parsea la grilla del POST y guarda niveles, criterios y celdas."""
-    import json as _json
+    """Parsea la grilla del POST y guarda niveles, criterios y celdas.
+    Devuelve (cantidad_niveles, cantidad_criterios) realmente guardados,
+    para que el caller pueda rechazar una grilla vacía — el único freno que
+    existía era el `required` de los inputs generados por JS, puramente
+    del lado del cliente: un POST directo (bypaseando el JS) guardaba una
+    rúbrica sin ningún nivel/criterio, sin ningún error server-side
+    (hallazgo de la auditoría 2026-09-11)."""
     level_count = int(request.POST.get('level_count', 0) or 0)
     criterion_count = int(request.POST.get('criterion_count', 0) or 0)
 
@@ -8005,13 +8074,17 @@ def _save_rubric_grid(request, rubrica):
             lv = RubricLevel.objects.create(rubric=rubrica, label=label, order=i)
             levels.append((i, lv))
 
+    criteria_saved = 0
     for j in range(criterion_count):
         name = request.POST.get(f'criterion_name_{j}', '').strip()
         if name:
+            criteria_saved += 1
             cr = RubricCriterion.objects.create(rubric=rubrica, name=name, order=j)
             for orig_i, lv in levels:
                 desc = request.POST.get(f'cell_{j}_{orig_i}', '')
                 RubricCell.objects.create(criterion=cr, level=lv, description=desc)
+
+    return len(levels), criteria_saved
 
 
 @login_required
@@ -8027,7 +8100,15 @@ def rubric_create(request):
         else:
             with transaction.atomic():
                 rubrica = Rubric.objects.create(title=title, created_by=request.user)
-                _save_rubric_grid(request, rubrica)
+                n_levels, n_criteria = _save_rubric_grid(request, rubrica)
+                if not n_levels or not n_criteria:
+                    transaction.set_rollback(True)
+                    messages.error(request, 'La rúbrica necesita al menos un nivel y un criterio con nombre.')
+                    return render(request, 'material/rubricas/form.html', {
+                        'action': 'Crear',
+                        'levels_json': DEFAULT_LEVELS,
+                        'criteria_json': DEFAULT_CRITERIA,
+                    })
             messages.success(request, 'Rúbrica creada correctamente.')
             return redirect('material:rubric_list')
 
@@ -8043,6 +8124,7 @@ def rubric_edit(request, pk):
     import json as _json
     rubrica = get_object_or_404(Rubric, pk=pk, created_by=request.user)
 
+    grid_error = False
     if request.method == 'POST':
         title = request.POST.get('title', '').strip()
         if not title:
@@ -8051,11 +8133,18 @@ def rubric_edit(request, pk):
             with transaction.atomic():
                 rubrica.title = title
                 rubrica.save()
-                _save_rubric_grid(request, rubrica)
-            messages.success(request, 'Rúbrica actualizada correctamente.')
-            return redirect('material:rubric_list')
+                n_levels, n_criteria = _save_rubric_grid(request, rubrica)
+                if not n_levels or not n_criteria:
+                    transaction.set_rollback(True)
+                    grid_error = True
+                    messages.error(request, 'La rúbrica necesita al menos un nivel y un criterio con nombre.')
+            if not grid_error:
+                messages.success(request, 'Rúbrica actualizada correctamente.')
+                return redirect('material:rubric_list')
 
-    # GET: cargar estructura existente
+    # GET (o el POST con grilla vacía de arriba): cargar estructura existente
+    # — con set_rollback ya restauró la grilla previa, así que no se pierde
+    # nada guardado, aunque sí se pierde lo recién tipeado en ese intento.
     ordered_levels = list(rubrica.levels.order_by('order'))
     ordered_criteria = list(rubrica.criteria.order_by('order'))
     cells_map = {
@@ -8237,6 +8326,7 @@ def formato_impresion_set_default(request, pk):
         clear_existing_default_for_scope(user=formato.user, institution=formato.institution, exclude_id=formato.pk)
         formato.es_default = True
         formato.save(update_fields=['es_default'])
+    messages.success(request, f'"{formato.nombre}" marcado como predeterminado.')
     return redirect('material:formato_impresion_list')
 
 
@@ -9727,6 +9817,19 @@ def grupo_salir(request, pk):
     if membership is None:
         messages.error(request, 'No pertenecés a este grupo.', extra_tags='grupos')
         return redirect('material:grupos_list')
+
+    # Si quien sale es quien creó el grupo, transferir la creación a otro
+    # miembro aceptado (el más antiguo) — sin esto, grupo_remover_miembro
+    # (gateado por group.created_by_id == request.user.id) quedaba
+    # inutilizable para siempre en cuanto el creador se iba: nadie más
+    # podía volver a sacar a un miembro. Hallazgo de la auditoría 2026-09-11.
+    if group.created_by_id == request.user.id:
+        next_owner = GroupMembership.objects.filter(
+            group=group, status='accepted'
+        ).exclude(user=request.user).order_by('created_at').first()
+        if next_owner:
+            group.created_by = next_owner.user
+            group.save(update_fields=['created_by'])
 
     ContentShare.objects.filter(group=group, shared_by=request.user, is_active=True).update(is_active=False)
     membership.delete()

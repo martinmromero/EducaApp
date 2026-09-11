@@ -2,6 +2,11 @@
 Include: renders a rubric grid dict as an HTML table.
 Usage: {% include 'material/rubricas/_grid_table.html' with grid=my_grid %}
 The grid dict has keys: title, levels (list of str), rows (list of {name, cells})
+`show_marks=True` agrega un recuadrito "[ ]" en cada celda para que el
+docente marque a mano (impreso o en pantalla) en qué nivel calificó cada
+criterio — pedido explícito del usuario para el contexto de examen, no se
+pasa desde las pantallas de gestión de la rúbrica en sí (exam_rubrics.html,
+rubricas/view.html), donde no aplica.
 {% endcomment %}
 {% if grid.levels %}
 <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:0.82em;margin-top:6px;word-break:break-word;">
@@ -18,7 +23,13 @@ The grid dict has keys: title, levels (list of str), rows (list of {name, cells}
         <tr>
             <td style="border:1px solid var(--bs-border-color);padding:5px 8px;font-weight:600;vertical-align:top;background:var(--bs-tertiary-bg);">{{ row.name }}</td>
             {% for cell in row.cells %}
-            <td style="border:1px solid var(--bs-border-color);padding:5px 8px;vertical-align:top;">{{ cell }}</td>
+            <td style="border:1px solid var(--bs-border-color);padding:5px 8px;vertical-align:top;">
+                {{ cell }}
+                {% if show_marks %}
+                {# "( )" para marcar a mano — mismo convención que ya usa la app en verdadero_falso (ver pdf_renderer.py/docx_renderer.py), no un ícono nuevo. #}
+                <div style="margin-top:4px;font-size:0.9em;color:var(--bs-secondary-color);">( )</div>
+                {% endif %}
+            </td>
             {% endfor %}
         </tr>
         {% endfor %}

@@ -60,7 +60,7 @@
                                 <th>Facultad</th>
                                 <th>Carrera</th>
                                 <th>Materia</th>
-                                <th>Profesor</th>
+                                <th>Docente</th>
                                 <th>Año</th>
                                 <th id="templateColActions">Acciones</th>
                             </tr>
@@ -81,7 +81,7 @@
                                 <td data-label="Facultad">{% if template.faculty_name_snapshot %}{{ template.faculty_name_snapshot }}{% else %}{{ template.faculty.name|default:"-" }}{% endif %}</td>
                                 <td data-label="Carrera">{{ template.career_name_snapshot|default:template.career.name|default:"-" }}</td>
                                 <td data-label="Materia">{% if template.subject_name_snapshot %}{{ template.subject_name_snapshot }}{% else %}{{ template.subject.name|default:"-" }}{% endif %}</td>
-                                <td data-label="Profesor">
+                                <td data-label="Docente">
                                     {% if template.professor %}
                                         {{ template.professor.get_full_name }}
                                     {% else %}

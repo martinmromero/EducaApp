@@ -93,11 +93,21 @@ def toggle_testing_mode(request):
         return redirect('material:index')
     active = not request.session.get(SESSION_TESTING_MODE_ACTIVE, False)
     request.session[SESSION_TESTING_MODE_ACTIVE] = active
-    next_url = request.POST.get('next') or 'material:index'
-    try:
-        return redirect(next_url)
-    except Exception:
-        return redirect('material:index')
+    # url_has_allowed_host_and_scheme: hoy el único emisor de 'next' es
+    # {{ request.path }} en base.html (siempre same-origin, sin riesgo real
+    # hoy), pero redirect(next_url) sin validar el host es un patrón frágil
+    # de open-redirect si algo más llega a alimentar ese campo más
+    # adelante — endurecido preventivamente (auditoría 2026-09-11).
+    from django.utils.http import url_has_allowed_host_and_scheme
+    next_url = request.POST.get('next')
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        try:
+            return redirect(next_url)
+        except Exception:
+            pass
+    return redirect('material:index')
 
 
 @login_required

@@ -1104,7 +1104,13 @@ class FormatoImpresionForm(forms.ModelForm):
             'institution': forms.Select(attrs={'class': 'form-select'}),
             'tamano_hoja': forms.Select(attrs={'class': 'form-select'}),
             'fuente': forms.Select(attrs={'class': 'form-select'}),
-            'tamano_fuente': forms.NumberInput(attrs={'class': 'form-control', 'min': 8, 'max': 24}),
+            # min/max deben coincidir con los validadores reales del modelo
+            # (MinValueValidator(6)/MaxValueValidator(72), migración 0096) —
+            # antes el widget topeaba en 24 y bloqueaba en el navegador un
+            # pedido legítimo de letra grande (accesibilidad/impresión)
+            # aunque el backend lo hubiera aceptado sin problema (hallazgo
+            # de la auditoría 2026-09-11).
+            'tamano_fuente': forms.NumberInput(attrs={'class': 'form-control', 'min': 6, 'max': 72}),
             'interlineado': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.05', 'min': 1}),
             'margen_superior_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
             'margen_inferior_cm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0}),
