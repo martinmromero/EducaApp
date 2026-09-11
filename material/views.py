@@ -2930,24 +2930,37 @@ def invitacion_aceptar(request, token):
             errors.append('Completar la respuesta a la pregunta de seguridad.')
 
         if not errors:
-            user = User.objects.create(
-                username=username, first_name=first_name, last_name=last_name, email=email,
-            )
-            user.set_password(p1)
-            user.save()
-            profile = user.profile
-            profile.security_question = security_question
-            profile.security_answer = security_answer
-            update_fields = ['security_question', 'security_answer']
-            if invitation.is_tester:
-                profile.is_tester = True
-                profile.test_stage = invitation.test_stage
-                update_fields += ['is_tester', 'test_stage']
-            profile.save(update_fields=update_fields)
+            # select_for_update + re-chequeo de is_used() DENTRO del lock:
+            # sin esto, dos POSTs casi simultáneos con el mismo link (dos
+            # pestañas, o el link reenviado sin querer) pasaban ambos el
+            # is_used()==False de arriba y ambos terminaban creando una
+            # cuenta real — el link "de un solo uso" no lo garantizaba ante
+            # concurrencia (hallazgo de la auditoría de robustez
+            # 2026-09-10). Con el lock, el segundo request espera a que el
+            # primero termine y su propio is_used() ya da True.
+            with transaction.atomic():
+                invitation_locked = Invitation.objects.select_for_update().get(pk=invitation.pk)
+                if invitation_locked.is_used():
+                    return render(request, 'registration/invitacion_aceptar.html', {'invitation_used': True})
 
-            invitation.used_at = timezone.now()
-            invitation.used_by = user
-            invitation.save(update_fields=['used_at', 'used_by'])
+                user = User.objects.create(
+                    username=username, first_name=first_name, last_name=last_name, email=email,
+                )
+                user.set_password(p1)
+                user.save()
+                profile = user.profile
+                profile.security_question = security_question
+                profile.security_answer = security_answer
+                update_fields = ['security_question', 'security_answer']
+                if invitation_locked.is_tester:
+                    profile.is_tester = True
+                    profile.test_stage = invitation_locked.test_stage
+                    update_fields += ['is_tester', 'test_stage']
+                profile.save(update_fields=update_fields)
+
+                invitation_locked.used_at = timezone.now()
+                invitation_locked.used_by = user
+                invitation_locked.save(update_fields=['used_at', 'used_by'])
 
             login(request, user)
             return redirect('material:index')
@@ -2997,13 +3010,29 @@ def password_reset_request(request):
             error = 'No se encontró ese usuario, o todavía no tiene una pregunta de seguridad configurada. Contactar al administrador.'
         else:
             request.session['pwreset_username'] = username
-            request.session['pwreset_attempts'] = 0
             return redirect('password_reset_question')
     return render(request, 'registration/password_reset_request.html', {'error': error})
 
 
+PWRESET_MAX_ATTEMPTS = 5
+PWRESET_LOCKOUT_SECONDS = 900  # 15 minutos
+
+
+def _pwreset_attempts_key(username):
+    return f'pwreset_fail:{username.lower()}'
+
+
 def password_reset_question(request):
-    """Paso 2: muestra la pregunta guardada del usuario y valida la respuesta."""
+    """Paso 2: muestra la pregunta guardada del usuario y valida la respuesta.
+
+    El límite de intentos se guarda en cache (server-side, por username), NO
+    en sesión: antes vivía en request.session['pwreset_attempts'], que un
+    atacante evade trivialmente descartando cookies o abriendo una sesión
+    nueva — el contador se reseteaba solo con eso, sin ningún registro que
+    sobreviva entre sesiones. Hallazgo de la auditoría de robustez
+    2026-09-10. Con --workers 1 (ver render.yaml) el cache in-memory por
+    default de Django alcanza sin necesitar Redis."""
+    from django.core.cache import cache
     from .models import Profile
     username = request.session.get('pwreset_username')
     if not username:
@@ -3013,23 +3042,30 @@ def password_reset_question(request):
         request.session.pop('pwreset_username', None)
         return redirect('password_reset_request')
 
+    attempts_key = _pwreset_attempts_key(username)
+    if cache.get(attempts_key, 0) >= PWRESET_MAX_ATTEMPTS:
+        request.session.pop('pwreset_username', None)
+        return render(request, 'registration/password_reset_request.html', {
+            'error': 'Demasiados intentos para ese usuario. Esperá unos minutos y volvé a empezar.',
+        })
+
     question_label = dict(Profile.SECURITY_QUESTION_CHOICES).get(user.profile.security_question, '')
     error = None
     if request.method == 'POST':
         answer = request.POST.get('answer', '').strip()
         saved = (user.profile.security_answer or '').strip()
         if answer and answer.lower() == saved.lower():
+            cache.delete(attempts_key)
             request.session['pwreset_verified_username'] = username
+            request.session['pwreset_verified_at'] = timezone.now().isoformat()
             request.session.pop('pwreset_username', None)
-            request.session.pop('pwreset_attempts', None)
             return redirect('password_reset_new')
-        attempts = request.session.get('pwreset_attempts', 0) + 1
-        request.session['pwreset_attempts'] = attempts
-        if attempts >= 5:
+        attempts = cache.get(attempts_key, 0) + 1
+        cache.set(attempts_key, attempts, PWRESET_LOCKOUT_SECONDS)
+        if attempts >= PWRESET_MAX_ATTEMPTS:
             request.session.pop('pwreset_username', None)
-            request.session.pop('pwreset_attempts', None)
             return render(request, 'registration/password_reset_request.html', {
-                'error': 'Demasiados intentos. Volver a empezar.',
+                'error': 'Demasiados intentos para ese usuario. Esperá unos minutos y volvé a empezar.',
             })
         error = 'La respuesta no coincide. Intentar de nuevo.'
     return render(request, 'registration/password_reset_question.html', {
@@ -3042,13 +3078,26 @@ def password_reset_new(request):
     """Paso 3: ya validada la identidad por la pregunta de seguridad, define la contraseña nueva."""
     from django.contrib.auth.password_validation import validate_password
     from django.core.exceptions import ValidationError
+    from django.utils.dateparse import parse_datetime
 
     username = request.session.get('pwreset_verified_username')
     if not username:
         return redirect('password_reset_request')
+    # Ventana propia de expiración: sin esto, en una computadora compartida
+    # alguien que deja el navegador abierto justo después del paso 2 (ya
+    # verificado, sin llegar a definir la contraseña) deja la sesión abierta
+    # indefinidamente para que cualquiera después complete el paso 3 sin
+    # volver a responder la pregunta de seguridad.
+    verified_at_raw = request.session.get('pwreset_verified_at')
+    verified_at = parse_datetime(verified_at_raw) if verified_at_raw else None
+    if not verified_at or (timezone.now() - verified_at).total_seconds() > 600:
+        request.session.pop('pwreset_verified_username', None)
+        request.session.pop('pwreset_verified_at', None)
+        return redirect('password_reset_request')
     user = User.objects.filter(username=username).first()
     if not user:
         request.session.pop('pwreset_verified_username', None)
+        request.session.pop('pwreset_verified_at', None)
         return redirect('password_reset_request')
 
     errors = []
@@ -3066,6 +3115,7 @@ def password_reset_new(request):
             user.set_password(p1)
             user.save()
             request.session.pop('pwreset_verified_username', None)
+            request.session.pop('pwreset_verified_at', None)
             messages.success(request, 'Contraseña actualizada. Ya se puede iniciar sesión.', extra_tags='general')
             return redirect('login')
     return render(request, 'registration/password_reset_new.html', {'errors': errors})
@@ -3904,19 +3954,29 @@ def _bifurcar_o_avisar_pregunta(pregunta, examenes, orales, deleted_by, resoluti
 
 @login_required
 def eliminar_pregunta(request, pk):
-    pregunta = get_object_or_404(Question, pk=pk, user=request.user)
-
     if request.method == 'POST':
-        examenes_afectados = list(pregunta.exams.all())
-        orales_afectados = list(OralExamSet.objects.filter(
-            groups__students__oralexamstudentquestion__question=pregunta
-        ).distinct())
-        externos = _consumidores_externos_pregunta(pregunta, examenes_afectados, orales_afectados, request.user)
-        resolution = request.POST.get('resolution', 'borrado')
-        if resolution not in ('borrado', 'copia'):
-            resolution = 'borrado'
-        _bifurcar_o_avisar_pregunta(pregunta, examenes_afectados, orales_afectados, request.user, resolution)
-        pregunta.delete()
+        # select_for_update + atomic: sin esto, un doble clic en "Eliminar"
+        # (dos requests solapados) podía pasar ambos el fetch antes de que
+        # cualquiera borrara la fila, duplicando clones/avisos si la
+        # resolución era 'copia'. Con el lock, el segundo request espera a
+        # que el primero termine (borra la fila) y su propio fetch cae en
+        # 404 — idempotente en vez de duplicar en silencio. atomic() además
+        # asegura que si algo falla a mitad de camino no queda la pregunta
+        # bifurcada pero sin borrar.
+        with transaction.atomic():
+            pregunta = get_object_or_404(
+                Question.objects.select_for_update(), pk=pk, user=request.user
+            )
+            examenes_afectados = list(pregunta.exams.all())
+            orales_afectados = list(OralExamSet.objects.filter(
+                groups__students__oralexamstudentquestion__question=pregunta
+            ).distinct())
+            externos = _consumidores_externos_pregunta(pregunta, examenes_afectados, orales_afectados, request.user)
+            resolution = request.POST.get('resolution', 'borrado')
+            if resolution not in ('borrado', 'copia'):
+                resolution = 'borrado'
+            _bifurcar_o_avisar_pregunta(pregunta, examenes_afectados, orales_afectados, request.user, resolution)
+            pregunta.delete()
 
         avisos = []
         propios_examenes = [e for e in examenes_afectados if e.created_by_id == request.user.id or not e.created_by_id]
@@ -3942,15 +4002,22 @@ def eliminar_pregunta(request, pk):
             messages.success(request, 'Pregunta eliminada correctamente', extra_tags='preguntas')
         return redirect('material:lista_preguntas')
 
-    examenes_afectados = pregunta.exams.all()
-    orales_afectados = OralExamSet.objects.filter(
+    pregunta = get_object_or_404(Question, pk=pk, user=request.user)
+    examenes_afectados = list(pregunta.exams.all())
+    orales_afectados = list(OralExamSet.objects.filter(
         groups__students__oralexamstudentquestion__question=pregunta
-    ).distinct()
+    ).distinct())
     externos = _consumidores_externos_pregunta(pregunta, examenes_afectados, orales_afectados, request.user)
+    # Solo se listan por nombre los exámenes/orales PROPIOS de quien borra —
+    # antes se listaban todos sin filtrar, filtrando información (título del
+    # examen, nombre del cuestionario) de OTROS docentes hacia quien borra,
+    # sin ningún vínculo de permiso más que compartir la pregunta.
+    propios_examenes = [e for e in examenes_afectados if not (e.created_by_id and e.created_by_id != request.user.id)]
+    propios_orales = [o for o in orales_afectados if o.user_id == request.user.id]
     return render(request, 'material/questions/confirmar_eliminar.html', {
         'pregunta': pregunta,
-        'examenes_afectados': examenes_afectados,
-        'orales_afectados': orales_afectados,
+        'examenes_afectados': propios_examenes,
+        'orales_afectados': propios_orales,
         'hay_consumidores_externos': bool(externos),
         'cantidad_consumidores_externos': len(externos),
     })
@@ -3962,6 +4029,7 @@ def bulk_eliminar_preguntas(request):
 
     delete_all_filtered = request.POST.get('all_filtered_selected') == '1'
     ids_raw = request.POST.getlist('pregunta_ids')
+    skipped_not_owned = 0
 
     if delete_all_filtered:
         preguntas = Question.objects.filter(user=request.user)
@@ -3971,7 +4039,14 @@ def bulk_eliminar_preguntas(request):
         if not ids:
             messages.error(request, 'No se seleccionó ninguna pregunta para eliminar.', extra_tags='preguntas')
             return redirect('material:lista_preguntas')
+        # lista_preguntas muestra también preguntas COMPARTIDAS (no solo
+        # propias, ver get_visible_questions) y el checkbox de selección
+        # masiva se renderiza para cualquier fila visible — sin este chequeo,
+        # tildar una pregunta ajena junto con las propias borraba solo las
+        # propias sin avisar que alguna quedó afuera por no ser tuya (mismo
+        # bug ya corregido en bulk_eliminar_subjects).
         preguntas = Question.objects.filter(pk__in=ids, user=request.user)
+        skipped_not_owned = len(ids) - preguntas.count()
 
     preguntas = list(preguntas)
     count = len(preguntas)
@@ -4009,17 +4084,31 @@ def bulk_eliminar_preguntas(request):
     if resolution not in ('borrado', 'copia'):
         resolution = 'borrado'
 
+    # select_for_update + atomic: sin esto, un doble clic en "Eliminar" de la
+    # pantalla de confirmación podía duplicar clones/avisos si dos requests
+    # se solapaban antes de que cualquiera borrara las filas. Con el lock,
+    # el segundo espera al primero y su propio filter() ya no encuentra las
+    # filas (ya borradas) — se recalcula `count` sobre lo efectivamente
+    # bloqueado en vez de confiar en el conteo de antes del lock.
+    afectados_por_id = {p.id: (examenes, orales) for p, examenes, orales in afectados_por_pregunta}
     propios_examenes = set()
     propios_orales = set()
-    for pregunta, examenes, orales in afectados_por_pregunta:
-        _bifurcar_o_avisar_pregunta(pregunta, examenes, orales, request.user, resolution)
-        for e in examenes:
-            if not (e.created_by_id and e.created_by_id != request.user.id):
-                propios_examenes.add(e)
-        for o in orales:
-            if o.user_id == request.user.id:
-                propios_orales.add(o)
-        pregunta.delete()
+    with transaction.atomic():
+        preguntas_lock = list(Question.objects.select_for_update().filter(pk__in=list(afectados_por_id.keys())))
+        count = len(preguntas_lock)
+        if count == 0:
+            messages.error(request, 'Esas preguntas ya se habían eliminado.', extra_tags='preguntas')
+            return redirect('material:lista_preguntas')
+        for pregunta in preguntas_lock:
+            examenes, orales = afectados_por_id[pregunta.id]
+            _bifurcar_o_avisar_pregunta(pregunta, examenes, orales, request.user, resolution)
+            for e in examenes:
+                if not (e.created_by_id and e.created_by_id != request.user.id):
+                    propios_examenes.add(e)
+            for o in orales:
+                if o.user_id == request.user.id:
+                    propios_orales.add(o)
+            pregunta.delete()
 
     if count == 1:
         messages.success(request, 'Se eliminó 1 pregunta correctamente.', extra_tags='preguntas')
@@ -4055,6 +4144,13 @@ def bulk_eliminar_preguntas(request):
                 f'{len(externos_totales)} docente(s) más usaban alguna de estas preguntas: se borraron para todos y fueron avisados.',
                 extra_tags='preguntas'
             )
+    if skipped_not_owned:
+        plural = 's' if skipped_not_owned != 1 else ''
+        messages.warning(
+            request,
+            f'{skipped_not_owned} pregunta{plural} seleccionada{plural} no se eliminó{plural} porque no te pertenece{plural}.',
+            extra_tags='preguntas',
+        )
 
     params = []
     for key in ['subject', 'topic', 'subtopic', 'bloom_level', 'ai_status']:
@@ -5656,12 +5752,19 @@ def _bifurcar_o_avisar_subject(subject, examenes, batches, orales, deleted_by, r
         if oral.user_id != deleted_by.id:
             if resolution == 'copia':
                 clone, topic_clone_map = clones_by_owner[oral.user_id]
-                topics_originales = list(oral.topics.all())
                 oral.subject = clone
                 oral.save(update_fields=['subject'])
-                nuevos_topics = [topic_clone_map[t.id] for t in topics_originales if t.id in topic_clone_map]
-                if nuevos_topics:
-                    oral.topics.set(nuevos_topics)
+                # oral.topics es un M2M plano sin restricción a nivel de BD
+                # de que pertenezcan a `subject` — filtrar por subject=subject
+                # (igual que el bloque de Exam de arriba) y hacer
+                # remove/add puntual, no .set(): un .set() a secas con solo
+                # los tópicos clonados hubiera borrado en silencio cualquier
+                # tópico de OTRA materia que el cuestionario también tuviera
+                # asignado.
+                for topic in list(oral.topics.filter(subject=subject)):
+                    if topic.id in topic_clone_map:
+                        oral.topics.remove(topic)
+                        oral.topics.add(topic_clone_map[topic.id])
             avisos.append(QuestionDeletionNotice(
                 recipient_id=oral.user_id, deleted_by=deleted_by,
                 question_text_snapshot=snapshot, content_type=oral_ct, object_id=oral.id,
@@ -5674,26 +5777,37 @@ def _bifurcar_o_avisar_subject(subject, examenes, batches, orales, deleted_by, r
 @login_required
 @user_passes_test(is_admin, login_url='/')
 def delete_subject(request, pk):
-    # Solo el dueño puede borrar — las compartidas por otros vía grupos de
-    # confianza son visibles/usables pero no borrables.
-    subject = get_object_or_404(Subject, pk=pk, created_by=request.user)
-    preview = get_delete_preview(subject)
-
     if request.method == 'POST':
-        if preview['can_delete']:
-            examenes, batches, orales = _subject_afectados(subject)
-            resolution = request.POST.get('resolution', 'borrado')
-            if resolution not in ('borrado', 'copia'):
-                resolution = 'borrado'
-            _bifurcar_o_avisar_subject(subject, examenes, batches, orales, request.user, resolution)
-        try:
-            subject.delete()
-        except ProtectedError as e:
-            messages.error(request, _protected_error_message(e), extra_tags='materias')
-            return redirect('material:subject_list')
+        # atomic + select_for_update: sin esto, si _bifurcar_o_avisar_subject
+        # ya había clonado/repuntado el contenido de un dueño externo y
+        # subject.delete() fallaba después por ProtectedError (una plantilla
+        # nueva apareció entre el preview y el delete), quedaba un estado
+        # inconsistente — la materia original seguía existiendo pero B ya
+        # había sido bifurcado y avisado de algo que en realidad no pasó.
+        # set_rollback(True) fuerza el rollback del bloque aunque atrapemos
+        # la excepción acá adentro para mostrar un mensaje claro.
+        with transaction.atomic():
+            subject = get_object_or_404(
+                Subject.objects.select_for_update(), pk=pk, created_by=request.user
+            )
+            preview = get_delete_preview(subject)
+            if preview['can_delete']:
+                examenes, batches, orales = _subject_afectados(subject)
+                resolution = request.POST.get('resolution', 'borrado')
+                if resolution not in ('borrado', 'copia'):
+                    resolution = 'borrado'
+                _bifurcar_o_avisar_subject(subject, examenes, batches, orales, request.user, resolution)
+            try:
+                subject.delete()
+            except ProtectedError as e:
+                transaction.set_rollback(True)
+                messages.error(request, _protected_error_message(e), extra_tags='materias')
+                return redirect('material:subject_list')
         messages.success(request, 'Materia eliminada exitosamente', extra_tags='materias')
         return redirect('material:subject_list')
 
+    subject = get_object_or_404(Subject, pk=pk, created_by=request.user)
+    preview = get_delete_preview(subject)
     examenes, batches, orales = _subject_afectados(subject)
     externos = _consumidores_externos_subject(examenes, batches, orales, request.user)
     return render(request, 'material/subjects/confirm_delete.html', {
@@ -5756,11 +5870,38 @@ def bulk_eliminar_subjects(request):
     if resolution not in ('borrado', 'copia'):
         resolution = 'borrado'
 
+    # atomic + select_for_update por materia (no un solo atomic para todo el
+    # lote): así una que se vuelve no-borrable justo antes de este momento
+    # (ExamTemplate nuevo, o ya borrada por un doble submit) no tira un 500
+    # crudo a mitad del loop dejando el resto del lote a medio procesar —
+    # antes esta función ni siquiera atrapaba ProtectedError acá, a
+    # diferencia de delete_subject.
     count = 0
+    fallidas_en_ultimo_momento = []
     for subject, examenes, batches, orales in afectados_por_subject:
-        _bifurcar_o_avisar_subject(subject, examenes, batches, orales, request.user, resolution)
-        subject.delete()
-        count += 1
+        with transaction.atomic():
+            subject_locked = Subject.objects.select_for_update().filter(pk=subject.id).first()
+            if subject_locked is None:
+                continue
+            if not get_delete_preview(subject_locked)['can_delete']:
+                fallidas_en_ultimo_momento.append(subject_locked.name)
+                continue
+            _bifurcar_o_avisar_subject(subject_locked, examenes, batches, orales, request.user, resolution)
+            try:
+                subject_locked.delete()
+                count += 1
+            except ProtectedError:
+                transaction.set_rollback(True)
+                fallidas_en_ultimo_momento.append(subject_locked.name)
+
+    if fallidas_en_ultimo_momento:
+        nombres = ', '.join(fallidas_en_ultimo_momento)
+        messages.warning(
+            request,
+            f'{len(fallidas_en_ultimo_momento)} materia(s) no se pudieron eliminar (quedaron protegidas justo '
+            f'antes de borrarse, o ya se habían eliminado): {nombres}.',
+            extra_tags='materias',
+        )
 
     if count == 1:
         messages.success(request, 'Se eliminó 1 materia exitosamente.', extra_tags='materias')
@@ -7959,12 +8100,44 @@ def rubric_view(request, pk):
     })
 
 
+def _avisar_borrado_rubrica_a_duenos(rubrica, examenes, deleted_by):
+    """Mismo mecanismo que _bifurcar_o_avisar_pregunta/_subject (ver
+    QuestionDeletionNotice) pero para Rúbricas: sin esto, borrar una rúbrica
+    compartida y en uso rompía en silencio (CASCADE de ExamRubric.rubric,
+    material/models.py) el examen de otro docente sin avisarle — hallazgo de
+    la auditoría de robustez 2026-09-10. No se ofrece "dejar copia" acá (a
+    diferencia de Pregunta/Materia): una rúbrica en uso solo pierde el
+    vínculo con el examen (ExamRubric se borra en cascada), el examen en sí
+    sigue existiendo intacto, así que basta con avisar."""
+    exam_ct = ContentType.objects.get_for_model(Exam)
+    snapshot = f'Rúbrica: {rubrica.title}'
+    avisos = [
+        QuestionDeletionNotice(
+            recipient_id=exam.created_by_id, deleted_by=deleted_by,
+            question_text_snapshot=snapshot, content_type=exam_ct, object_id=exam.id,
+            resolution='borrado',
+        )
+        for exam in examenes if exam.created_by_id and exam.created_by_id != deleted_by.id
+    ]
+    if avisos:
+        QuestionDeletionNotice.objects.bulk_create(avisos)
+
+
 @login_required
 def rubric_delete(request, pk):
     rubrica = get_object_or_404(Rubric, pk=pk, created_by=request.user)
     if request.method == 'POST':
+        examenes_afectados = [er.exam for er in ExamRubric.objects.filter(rubric=rubrica).select_related('exam')]
+        _avisar_borrado_rubrica_a_duenos(rubrica, examenes_afectados, request.user)
         rubrica.delete()
-        messages.success(request, 'Rúbrica eliminada.')
+        externos = [e for e in examenes_afectados if e.created_by_id and e.created_by_id != request.user.id]
+        if externos:
+            messages.warning(
+                request,
+                f'Rúbrica eliminada. {len(externos)} examen(es) de otro(s) docente(s) quedaron sin esta rúbrica y fueron avisados.',
+            )
+        else:
+            messages.success(request, 'Rúbrica eliminada.')
     return redirect('material:rubric_list')
 
 
@@ -9496,18 +9669,99 @@ def grupo_invitar(request, pk):
         return redirect('material:grupos_list')
 
     user_id = request.POST.get('user_id')
+    target = None
     if str(user_id).isdigit():
         target = User.objects.filter(pk=int(user_id), is_active=True).exclude(
             pk=request.user.id
         ).exclude(profile__is_training_account=True).first()
-        if target and not GroupMembership.objects.filter(group=group, user=target).exists():
+
+    if not target:
+        messages.error(request, 'Usuario inválido.', extra_tags='grupos')
+        return redirect('material:grupo_detalle', pk=group.pk)
+
+    # Quien rechazó una invitación antes queda con una fila 'rejected' — el
+    # unique_together (group, user) impide crear una segunda, así que sin
+    # esto quedaba "invitable" en el dropdown (grupo_detalle solo excluye
+    # pending/accepted) pero cualquier intento de invitarlo caía siempre en
+    # el mensaje de error de abajo. Reabrir la invitación en vez de bloquear
+    # para siempre.
+    existing = GroupMembership.objects.filter(group=group, user=target).first()
+    if existing and existing.status in ('pending', 'accepted'):
+        messages.error(request, 'Ese usuario ya es miembro o ya fue invitado.', extra_tags='grupos')
+    elif existing and existing.status == 'rejected':
+        existing.status = 'pending'
+        existing.invited_by = request.user
+        existing.responded_at = None
+        existing.save(update_fields=['status', 'invited_by', 'responded_at'])
+        messages.success(request, f'Invitación reenviada a {target.username}.', extra_tags='grupos')
+    else:
+        # create() sin get_or_create: dos POST casi simultáneos (doble clic,
+        # dos pestañas) podían pasar ambos el chequeo de existencia de arriba
+        # y chocar contra el unique_together (group, user) con un
+        # IntegrityError sin capturar -> 500. Ahora se degrada con gracia.
+        try:
             GroupMembership.objects.create(
                 group=group, user=target, status='pending', invited_by=request.user,
             )
             messages.success(request, f'Invitación enviada a {target.username}.', extra_tags='grupos')
-        else:
+        except IntegrityError:
             messages.error(request, 'Ese usuario ya es miembro o ya fue invitado.', extra_tags='grupos')
 
+    return redirect('material:grupo_detalle', pk=group.pk)
+
+
+@login_required
+@require_POST
+def grupo_salir(request, pk):
+    """Autoservicio: hasta ahora la única forma de dejar un grupo o sacar a
+    un miembro era que un admin borrara la fila GroupMembership a mano
+    desde /admin/ — sin ningún camino desde la UI (ver auditoría de
+    robustez 2026-09-10). Al salir, además de la membresía, se desactivan
+    los ContentShare propios en ese grupo: sin esto, lo que compartiste
+    seguía siendo visible para el resto (get_visible_* solo chequea la
+    membresía del que CONSUME, nunca la del que compartió)."""
+    from .models import SharingGroup, GroupMembership, ContentShare
+
+    group = get_object_or_404(SharingGroup, pk=pk)
+    membership = GroupMembership.objects.filter(group=group, user=request.user).first()
+    if membership is None:
+        messages.error(request, 'No pertenecés a este grupo.', extra_tags='grupos')
+        return redirect('material:grupos_list')
+
+    ContentShare.objects.filter(group=group, shared_by=request.user, is_active=True).update(is_active=False)
+    membership.delete()
+    messages.success(
+        request,
+        f'Saliste del grupo "{group.name}". Lo que compartías ahí dejó de estar visible para el resto.',
+        extra_tags='grupos',
+    )
+    return redirect('material:grupos_list')
+
+
+@login_required
+@require_POST
+def grupo_remover_miembro(request, pk, user_id):
+    """Mismo autoservicio que grupo_salir pero para que quien creó el grupo
+    pueda sacar a otro miembro — antes solo se podía a mano en /admin/."""
+    from .models import SharingGroup, GroupMembership, ContentShare
+
+    group = get_object_or_404(SharingGroup, pk=pk)
+    if group.created_by_id != request.user.id:
+        messages.error(request, 'Solo quien creó el grupo puede remover miembros.', extra_tags='grupos')
+        return redirect('material:grupo_detalle', pk=group.pk)
+    if int(user_id) == request.user.id:
+        messages.error(request, 'Para salir del grupo usá la opción "Salir del grupo".', extra_tags='grupos')
+        return redirect('material:grupo_detalle', pk=group.pk)
+
+    membership = GroupMembership.objects.filter(group=group, user_id=user_id).first()
+    if membership is None:
+        messages.error(request, 'Ese usuario no pertenece a este grupo.', extra_tags='grupos')
+        return redirect('material:grupo_detalle', pk=group.pk)
+
+    ContentShare.objects.filter(group=group, shared_by_id=user_id, is_active=True).update(is_active=False)
+    removed_username = membership.user.username
+    membership.delete()
+    messages.success(request, f'Se removió a {removed_username} del grupo.', extra_tags='grupos')
     return redirect('material:grupo_detalle', pk=group.pk)
 
 

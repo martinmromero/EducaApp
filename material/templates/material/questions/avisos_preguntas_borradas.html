@@ -46,6 +46,8 @@
                                 <td>
                                     {% if aviso.resolution == 'copia' %}
                                         <span class="badge bg-success">Se dejó una copia tuya</span>
+                                    {% elif aviso.content_type.model == 'oralexamset' and not aviso.target %}
+                                        <span class="badge bg-danger">Se eliminó por completo, hay que rearmarlo</span>
                                     {% else %}
                                         <span class="badge bg-danger">Se borró, hay que reemplazarlo</span>
                                     {% endif %}

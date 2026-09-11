@@ -5,9 +5,18 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0 text-gray-800"><i class="bi bi-people-fill me-2"></i>{{ group.name }}</h1>
-        <a href="{% url 'material:grupos_list' %}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left me-1"></i>Mis grupos
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{% url 'material:grupos_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Mis grupos
+            </a>
+            <form method="post" action="{% url 'material:grupo_salir' group.id %}"
+                  onsubmit="return confirm('¿Salir de este grupo? Lo que compartís ahí dejará de estar visible para el resto.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-box-arrow-left me-1"></i>Salir del grupo
+                </button>
+            </form>
+        </div>
     </div>
 
     {% show_messages "grupos" %}
@@ -22,13 +31,24 @@
                     {% for m in memberships %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         {{ m.user.username }}
-                        {% if m.status == 'accepted' %}
-                        <span class="badge bg-success">Miembro</span>
-                        {% elif m.status == 'pending' %}
-                        <span class="badge bg-warning text-dark">Invitación pendiente</span>
-                        {% else %}
-                        <span class="badge bg-secondary">Rechazó</span>
-                        {% endif %}
+                        <div class="d-flex align-items-center gap-2">
+                            {% if m.status == 'accepted' %}
+                            <span class="badge bg-success">Miembro</span>
+                            {% elif m.status == 'pending' %}
+                            <span class="badge bg-warning text-dark">Invitación pendiente</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Rechazó</span>
+                            {% endif %}
+                            {% if group.created_by_id == request.user.id and m.user_id != request.user.id %}
+                            <form method="post" action="{% url 'material:grupo_remover_miembro' group.id m.user_id %}"
+                                  onsubmit="return confirm('¿Remover a {{ m.user.username }} del grupo?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Remover del grupo">
+                                    <i class="bi bi-person-x"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
                     </li>
                     {% endfor %}
                 </ul>

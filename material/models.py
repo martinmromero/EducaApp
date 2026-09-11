@@ -2106,14 +2106,37 @@ class BaseFormatoImpresionFields(models.Model):
     ]
 
     fuente = models.CharField(max_length=50, choices=FONT_CHOICES, default='Arial')
-    tamano_fuente = models.PositiveSmallIntegerField(default=11)
-    interlineado = models.FloatField(default=1.15)
+    # Los límites en el <input type="number"> del form (min/max/step) son
+    # solo del lado del navegador — evadibles con un POST directo. Sin
+    # validación acá, un margen negativo o un interlineado 0 se persistía
+    # tal cual y después se inyectaba en el CSS de impresión
+    # (get_print_style_context en print_format_utils.py), rompiendo
+    # visualmente el PDF/HTML impreso (hallazgo de la auditoría de
+    # robustez 2026-09-10).
+    tamano_fuente = models.PositiveSmallIntegerField(
+        default=11, validators=[MinValueValidator(6), MaxValueValidator(72)],
+    )
+    interlineado = models.FloatField(
+        default=1.15, validators=[MinValueValidator(0.5), MaxValueValidator(3.0)],
+    )
     tamano_hoja = models.CharField(max_length=10, choices=PAPER_SIZE_CHOICES, default='A4')
 
-    margen_superior_cm = models.DecimalField(max_digits=5, decimal_places=2, default=2.00)
-    margen_inferior_cm = models.DecimalField(max_digits=5, decimal_places=2, default=2.00)
-    margen_izquierdo_cm = models.DecimalField(max_digits=5, decimal_places=2, default=2.50)
-    margen_derecho_cm = models.DecimalField(max_digits=5, decimal_places=2, default=2.00)
+    margen_superior_cm = models.DecimalField(
+        max_digits=5, decimal_places=2, default=2.00,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+    )
+    margen_inferior_cm = models.DecimalField(
+        max_digits=5, decimal_places=2, default=2.00,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+    )
+    margen_izquierdo_cm = models.DecimalField(
+        max_digits=5, decimal_places=2, default=2.50,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+    )
+    margen_derecho_cm = models.DecimalField(
+        max_digits=5, decimal_places=2, default=2.00,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+    )
 
     color_titulo = models.CharField(max_length=7, blank=True, default='')
     color_texto = models.CharField(max_length=7, blank=True, default='')
