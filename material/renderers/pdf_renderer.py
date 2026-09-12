@@ -218,16 +218,25 @@ def _append_payload(flow, payload, style_text, style_title, style_h2, *, include
                 'RubricCell', parent=style_text,
                 fontSize=base_size - 1 if base_size > 9 else base_size,
             )
+
+            def _mark_box():
+                # Recuadrito vacío para que el docente marque una X a mano
+                # en qué nivel calificó cada criterio — formato pedido
+                # explícitamente por el usuario (mockup de referencia:
+                # recuadro chico en la esquina de cada celda), reemplaza el
+                # "( )" de texto usado antes.
+                box_pt = 9
+                box = Table([['']], colWidths=[box_pt], rowHeights=[box_pt], hAlign='RIGHT')
+                box.setStyle(TableStyle([('BOX', (0, 0), (-1, -1), 0.75, colors.grey)]))
+                return box
+
             rows = [headers]
             for row in block['filas']:
-                # "( )" al pie de cada celda para que el docente marque a
-                # mano en qué nivel calificó ese criterio — mismo convención
-                # que ya usa esta app para verdadero_falso, no un ícono
-                # nuevo. Paragraph (no texto plano) para que el <br/> se
-                # interprete como salto de línea real dentro de la celda.
+                # Paragraph (no texto plano) para que las celdas acepten
+                # una lista de flowables apilados: descripción + recuadro.
                 rows.append(
                     [Paragraph(row.get('criterio', ''), rubric_cell_style)]
-                    + [Paragraph(f"{c}<br/>( )", rubric_cell_style) for c in row.get('celdas', [])]
+                    + [[Paragraph(c, rubric_cell_style), Spacer(1, 3), _mark_box()] for c in row.get('celdas', [])]
                 )
 
             table = Table(rows, hAlign='LEFT')

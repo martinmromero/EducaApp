@@ -2,32 +2,41 @@
 Include: renders a rubric grid dict as an HTML table.
 Usage: {% include 'material/rubricas/_grid_table.html' with grid=my_grid %}
 The grid dict has keys: title, levels (list of str), rows (list of {name, cells})
-`show_marks=True` agrega un recuadrito "[ ]" en cada celda para que el
-docente marque a mano (impreso o en pantalla) en qué nivel calificó cada
-criterio — pedido explícito del usuario para el contexto de examen, no se
-pasa desde las pantallas de gestión de la rúbrica en sí (exam_rubrics.html,
-rubricas/view.html), donde no aplica.
+`show_marks=True` agrega un recuadrito en la esquina inferior derecha de
+cada celda, DENTRO de su rectángulo (no montado sobre el borde — la
+primera versión lo hacía sobresalir por fuera de la celda y en la última
+fila quedaba flotando afuera de la tabla, se veía roto), para que el
+docente marque una X a mano en qué nivel calificó cada criterio — formato
+pedido explícitamente por el usuario (mockup de referencia), solo para el
+contexto de examen; no se pasa desde las pantallas de gestión de la
+rúbrica en sí (exam_rubrics.html, rubricas/view.html).
+
+Los colores usan var(--bs-*, <valor fijo>) con fallback explícito: este
+partial se incluye tanto en pantallas normales de la app (Bootstrap
+cargado, esas variables existen) como en base_exam_preview.html, que es un
+documento standalone SIN Bootstrap — sin el fallback, todo el cuadro
+(bordes incluidos, no solo el recuadro nuevo) queda invisible ahí.
+Confirmado en vivo: sin el fallback, getComputedStyle daba "0px none".
 {% endcomment %}
 {% if grid.levels %}
 <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:0.82em;margin-top:6px;word-break:break-word;">
     <thead>
         <tr>
-            <th style="border:1px solid var(--bs-border-color);padding:5px 8px;background:var(--bs-secondary-bg);text-align:left;width:22%;">Criterio</th>
+            <th style="border:1px solid var(--bs-border-color, #ccc);padding:5px 8px;background:var(--bs-secondary-bg, #e9ecef);text-align:left;width:22%;">Criterio</th>
             {% for lv in grid.levels %}
-            <th style="border:1px solid var(--bs-border-color);padding:5px 8px;background:var(--bs-secondary-bg);text-align:center;">{{ lv }}</th>
+            <th style="border:1px solid var(--bs-border-color, #ccc);padding:5px 8px;background:var(--bs-secondary-bg, #e9ecef);text-align:center;">{{ lv }}</th>
             {% endfor %}
         </tr>
     </thead>
     <tbody>
         {% for row in grid.rows %}
         <tr>
-            <td style="border:1px solid var(--bs-border-color);padding:5px 8px;font-weight:600;vertical-align:top;background:var(--bs-tertiary-bg);">{{ row.name }}</td>
+            <td style="border:1px solid var(--bs-border-color, #ccc);padding:5px 8px;font-weight:600;vertical-align:top;background:var(--bs-tertiary-bg, #f8f9fa);">{{ row.name }}</td>
             {% for cell in row.cells %}
-            <td style="border:1px solid var(--bs-border-color);padding:5px 8px;vertical-align:top;">
+            <td style="border:1px solid var(--bs-border-color, #ccc);padding:5px 8px 22px;vertical-align:top;position:relative;">
                 {{ cell }}
                 {% if show_marks %}
-                {# "( )" para marcar a mano — mismo convención que ya usa la app en verdadero_falso (ver pdf_renderer.py/docx_renderer.py), no un ícono nuevo. #}
-                <div style="margin-top:4px;font-size:0.9em;color:var(--bs-secondary-color);">( )</div>
+                <div style="position:absolute;right:8px;bottom:6px;width:16px;height:16px;border:1px solid var(--bs-border-color, #666);background:var(--bs-body-bg, #fff);"></div>
                 {% endif %}
             </td>
             {% endfor %}

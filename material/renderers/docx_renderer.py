@@ -190,16 +190,18 @@ def _append_payload(doc, payload, formato):
                 for i, value in enumerate(row.get('celdas', []), start=1):
                     if i < len(cells):
                         _set_cell_text(cells[i], value, font_name=font_name, size_pt=rubric_size, color_rgb=text_rgb)
-                        # "( )" al pie de cada celda para que el docente
-                        # marque a mano en qué nivel calificó ese criterio —
-                        # mismo convención que ya usa esta app para
-                        # verdadero_falso (ver _append_payload más arriba).
+                        # Recuadrito para que el docente marque una X a mano
+                        # en qué nivel calificó cada criterio — formato
+                        # pedido explícitamente por el usuario (mockup de
+                        # referencia), reemplaza el "( )" de texto usado
+                        # antes. Alineado a la derecha (lo más parecido a
+                        # "esquina inferior derecha" que permite una celda
+                        # de tabla de Word sin dibujar formas sueltas).
+                        from docx.enum.text import WD_ALIGN_PARAGRAPH
                         mark_paragraph = cells[i].add_paragraph()
                         _zero_paragraph_spacing(mark_paragraph)
-                        _append_run(
-                            mark_paragraph, '( )',
-                            font_name=font_name, size_pt=rubric_size, color_rgb=text_rgb,
-                        )
+                        mark_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                        _add_boxed_mark(mark_paragraph, font_name=font_name, size_pt=rubric_size, color_rgb=text_rgb)
 
 
 def _hex_to_rgb(hex_color):
@@ -350,6 +352,25 @@ def _append_run(paragraph, text, *, font_name, size_pt, color_rgb, bold=False):
         color_rgb=color_rgb,
         bold=bold,
     )
+    return run
+
+
+def _add_boxed_mark(paragraph, *, font_name, size_pt, color_rgb):
+    """Agrega un pequeño recuadro vacío (borde de caracter alrededor de un
+    par de espacios) para marcar una X a mano — Word no tiene una forma
+    simple de "dibujar un cuadrado" vía python-docx sin manipular XML de
+    bajo nivel, así que se usa w:bdr (borde de texto) sobre un run en
+    blanco, mismo patrón que ya usa _apply_table_borders más abajo."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    run = _append_run(paragraph, '  ', font_name=font_name, size_pt=size_pt, color_rgb=color_rgb)
+    r_pr = run._element.get_or_add_rPr()
+    border = OxmlElement('w:bdr')
+    border.set(qn('w:val'), 'single')
+    border.set(qn('w:sz'), '8')
+    border.set(qn('w:space'), '2')
+    border.set(qn('w:color'), '888888')
+    r_pr.append(border)
     return run
 
 
