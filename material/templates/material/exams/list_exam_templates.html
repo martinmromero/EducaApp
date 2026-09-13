@@ -2,6 +2,7 @@
 {% load static %}
 {% load message_tags %}
 {% block body_extra_attrs %}data-tour-page="exam_template_list"{% endblock %}
+{% block title %}Plantillas de Examen - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-file-earmark-ruled me-2"></i>Plantillas{% endblock %}
 {% block page_actions %}
 <a href="{% url 'material:create_exam_template' %}" class="btn btn-primary" id="templateNewBtn">

@@ -178,7 +178,7 @@
                                 </div>
                                 <p class="mt-2 mb-1">{{ sq.question.question_text }}</p>
                                 {% if sq.question.question_image_b64 %}
-                                    <img src="{{ sq.question.question_image_b64 }}" class="img-fluid mt-2" style="max-width: 200px;">
+                                    <img src="{{ sq.question.question_image_b64 }}" class="img-fluid mt-2" style="max-width: 200px;" alt="Imagen de la pregunta">
                                 {% endif %}
 
                                 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mt-2">
@@ -187,7 +187,7 @@
                                         <div class="mt-2 p-2 bg-body-tertiary rounded">
                                             <p>{{ sq.question.answer_text }}</p>
                                             {% if sq.question.answer_image_b64 %}
-                                                <img src="{{ sq.question.answer_image_b64 }}" class="img-fluid mt-2" style="max-width: 200px;">
+                                                <img src="{{ sq.question.answer_image_b64 }}" class="img-fluid mt-2" style="max-width: 200px;" alt="Imagen de la respuesta">
                                             {% endif %}
                                             {% if sq.question.bibliographic_reference %}
                                                 <small class="text-muted d-block mt-2"><i class="fas fa-book"></i> Fuente: {{ sq.question.bibliographic_reference }}</small>

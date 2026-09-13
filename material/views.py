@@ -10034,6 +10034,15 @@ def service_worker(request):
     return HttpResponse(content, content_type='application/javascript')
 
 
+def robots_txt(request):
+    """Todo el sitio real está atrás de login (Django nunca indexa contenido
+    de un usuario autenticado igual, pero esto evita que un crawler
+    desperdicie ciclos intentando rastrear URLs que de todos modos van a
+    rebotar contra el login) — Disallow total, sin sitemap (no hay
+    contenido público que listar)."""
+    return HttpResponse("User-agent: *\nDisallow: /\n", content_type="text/plain")
+
+
 def health_check(request):
     # UptimeRobot pinguea esto seguido (cada ~5 min) para que Render no
     # duerma el free tier — se aprovecha ese mismo pulso como "reloj" del

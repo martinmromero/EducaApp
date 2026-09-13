@@ -20,8 +20,10 @@
         </div>
     </div>
 
-    {# Mensajes: los muestra base.html (show_messages "general") — este loop
-       crudo duplicaba cada mensaje (hallazgo de la auditoría 2026-09-11). #}
+    {% comment %}
+    Mensajes: los muestra base.html (show_messages "general") — este loop
+    crudo duplicaba cada mensaje (hallazgo de la auditoría 2026-09-11).
+    {% endcomment %}
 
     <div class="row mt-4 g-4">
 

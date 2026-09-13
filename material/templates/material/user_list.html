@@ -1,5 +1,6 @@
 {% extends 'material/base.html' %}
 {% load message_tags %}
+{% block title %}Usuarios - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-people-fill me-2"></i>Usuarios{% endblock %}
 {% block page_actions %}
 <a href="{% url 'material:create_user' %}" class="btn btn-primary" id="userNewBtn">

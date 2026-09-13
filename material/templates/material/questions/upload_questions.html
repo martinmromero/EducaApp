@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% extends 'material/base.html' %}
 {% load static %}
 {% load message_tags %}
+{% block title %}Subir Preguntas - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-upload me-2"></i>Subir Preguntas{% endblock %}
 
 {% block content %}
@@ -294,7 +295,7 @@ nivel_bloom: 2
                         if (input.files && input.files[0]) {
                             const reader = new FileReader();
                             reader.onload = function(e) {
-                                $(previewId).html(`<img src="${e.target.result}" class="img-fluid rounded border">`);
+                                $(previewId).html(`<img src="${e.target.result}" class="img-fluid rounded border" alt="Vista previa de la imagen elegida">`);
                             }
                             reader.readAsDataURL(input.files[0]);
                         } else {

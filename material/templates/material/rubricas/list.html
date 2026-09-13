@@ -1,6 +1,7 @@
 {% extends 'material/base.html' %}
 {% load static %}
 {% block body_extra_attrs %}data-tour-page="rubric_list"{% endblock %}
+{% block title %}Rúbricas - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-card-checklist me-2"></i>Rúbricas{% endblock %}
 {% block page_actions %}
 <a href="{% url 'material:rubric_create' %}" class="btn btn-primary" id="rubricNewBtn">
@@ -11,9 +12,11 @@
 {% block content %}
 <script src="{% static 'js/page_tours/rubric_list_tour.js' %}"></script>
 {% include 'material/components/_mobile_card_table.html' %}
-{# Mensajes: los muestra base.html (show_messages "general") — este loop
-   crudo quedaba de antes de adoptar ese tag y duplicaba cada mensaje
-   (hallazgo de la auditoría 2026-09-11). #}
+{% comment %}
+Mensajes: los muestra base.html (show_messages "general") — este loop
+crudo quedaba de antes de adoptar ese tag y duplicaba cada mensaje
+(hallazgo de la auditoría 2026-09-11).
+{% endcomment %}
 <div class="container-fluid">
 
     <div class="card shadow mb-4">
