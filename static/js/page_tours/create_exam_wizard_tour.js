@@ -172,7 +172,7 @@
         stepNumber: 3,
         popover: {
           title: 'Tópicos y preguntas',
-          description: 'Tópicos y preguntas de ejemplo ya tildados — cada tópico con su color propio para distinguir de un vistazo qué pregunta pertenece a cuál (de niveles de Bloom variados, para mostrar esa clasificación).',
+          description: 'Tópicos y preguntas de ejemplo ya tildados — cada tópico con su color propio para distinguir de un vistazo qué pregunta pertenece a cuál.',
           side: 'top',
           onNextClick: next(4),
         },
