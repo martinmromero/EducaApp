@@ -34,11 +34,13 @@
 
     <div id="alerts-container"></div>
 
-    {# ?demo_peek=1 en el action (solo en el vistazo demo): create_exam ve la
-       misma marca en el GET y el POST — sin ella, el POST (sin query string)
-       hace is_demo_peek=False y limpia onb2_include_seed/onb2_demo_scheme_active
-       de la sesión ANTES de leerlos para armar exam_data, dejando "afuera" el
-       contenido semilla del ejemplo y el preview sin preguntas. #}
+    {% comment %}
+    ?demo_peek=1 en el action (solo en el vistazo demo): create_exam ve la
+    misma marca en el GET y el POST — sin ella, el POST (sin query string)
+    hace is_demo_peek=False y limpia onb2_include_seed/onb2_demo_scheme_active
+    de la sesión ANTES de leerlos para armar exam_data, dejando "afuera" el
+    contenido semilla del ejemplo y el preview sin preguntas.
+    {% endcomment %}
     <form method="post" action="{% url 'material:create_exam' %}{% if is_demo_peek %}?demo_peek=1{% endif %}" id="examWizardForm">
         {% csrf_token %}
         <input type="hidden" name="title" id="id_title">

@@ -222,7 +222,7 @@
     // materia de ejemplo tiene preguntas de sobra (el límite era esta
     // autoselección, no la disponibilidad real).
     questionsStep.onHighlightStarted = function () { checkDiverseByBloom('questions_checkbox_container', 5); };
-    questionsStep.popover.description = 'Al tildar algunos tópicos (como en este ejemplo), el panel de preguntas se filtra para mostrar solo las de esos tópicos — acá se muestran de distintos niveles de Bloom, para ilustrar esa clasificación.';
+    questionsStep.popover.description = 'Al tildar algunos tópicos (como en este ejemplo), el panel de preguntas se filtra para mostrar solo las de esos tópicos.';
 
     steps.push({
       element: '#demoPeekContinueBtn',

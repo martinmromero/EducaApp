@@ -38,10 +38,16 @@
         </div>
     </div>
 
-    <div class="d-flex flex-wrap gap-2">
+    <p class="text-muted small mb-2">Elegir cómo ver el examen armado — con el mismo contenido de ejemplo en los dos casos:</p>
+    <div class="d-flex flex-wrap gap-2 mb-2" id="recapViewExamButtons">
         <a href="{% url 'material:create_exam' %}?demo_peek=1" class="btn btn-primary btn-lg" id="recapViewExamBtn">
-            Crear examen <i class="bi bi-arrow-right ms-1"></i>
+            Formulario clásico <i class="bi bi-arrow-right ms-1"></i>
         </a>
+        <a href="{% url 'material:create_exam_wizard' %}?demo_peek=1" class="btn btn-primary btn-lg" id="recapViewExamWizardBtn">
+            Asistente guiado <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
         <button type="button" class="btn btn-outline-primary btn-lg" id="recapReplayTourBtn">
             <i class="bi bi-play-circle me-1"></i>Repetir recorrido
         </button>
@@ -248,15 +254,23 @@
                 onHighlightStarted: highlight('tourMenuExamenes', 'recapItem5'),
             },
             {
-                element: '#recapViewExamBtn',
+                // Se resalta el contenedor de los DOS botones (no uno solo)
+                // para que ambos queden clickeables dentro del recorte del
+                // overlay de driver.js — antes se resaltaba únicamente
+                // #recapViewExamBtn (formulario clásico), y el overlay
+                // bloqueaba los clics fuera de esa zona: se veía el botón
+                // del asistente guiado pero no se podía elegir sin cerrar
+                // primero el recorrido.
+                element: '#recapViewExamButtons',
                 popover: {
-                    title: 'Crear examen',
-                    description: 'Para ver el resultado, hacer clic en este botón.',
+                    title: 'Ver el examen armado',
+                    description: 'Se puede ver el resultado con el formulario clásico o con el asistente guiado — cualquiera de los dos botones funciona igual.',
                     side: 'top',
                     // Último paso: driver.js solo lee onNextClick DENTRO de
                     // popover (no como propiedad del paso) — puesto afuera,
                     // el clic en "Listo" cerraba el recorrido sin avanzar.
-                    // Se fuerza la misma acción que el clic real en el botón.
+                    // Si nadie eligió un botón puntual, "Listo" cae al
+                    // formulario clásico (mismo default de siempre).
                     onNextClick: function () {
                         document.getElementById('recapViewExamBtn')?.click();
                     },
