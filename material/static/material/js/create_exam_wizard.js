@@ -51,6 +51,11 @@ _onDomReady(function () {
         onValidateStep: validateStep,
         onEnterFinalStep: function () { renderSummary(); },
     });
+    // Expuesto para que el recorrido de demo (create_exam_wizard_tour.js,
+    // función startDemo) pueda avanzar los pasos del asistente en sincro con
+    // sus propios popovers — wizard_engine.js no lo expone en window por su
+    // cuenta.
+    window.EducaAppExamWizardCtrl = wizardCtrl;
 
     function renderSummary() {
         var box = document.getElementById('wizSummary');
@@ -837,6 +842,14 @@ _onDomReady(function () {
 
             onTopicSelectionChange();
             updateSuggestedBatchName();
+
+            // Recién ahora (todo el prefill asincrónico ya resuelto: materia,
+            // institución, tópicos/preguntas) arranca el recorrido guiado del
+            // demo — ver create_exam_wizard_tour.js startDemo(). Arrancarlo
+            // antes mostraría pasos todavía vacíos.
+            if (window.EducaAppCreateExamWizardTour) {
+                window.EducaAppCreateExamWizardTour.startDemo();
+            }
         });
     }
 
