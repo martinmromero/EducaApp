@@ -37,6 +37,48 @@
     });
   }
 
+  // Variante de checkFirst para el panel de preguntas del modo demo: en vez
+  // de tildar siempre las primeras N en orden de DOM (que en la práctica
+  // terminaba siendo siempre preguntas de nivel 1 "Recordar", porque el
+  // contenido semilla las lista primero por dificultad ascendente — ver
+  // hallazgo de la demo de onboarding), elige de a una por nivel de Bloom
+  // presente (round-robin), para que el ejemplo muestre variedad real.
+  // Requiere que cada checkbox tenga cb.dataset.bloom (ver create_exam.js);
+  // si ninguno lo tiene, se degrada a elegir en el orden que aparecen.
+  function checkDiverseByBloom(containerId, count, attemptsLeft) {
+    attemptsLeft = attemptsLeft === undefined ? 10 : attemptsLeft;
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('#' + containerId + ' input[type="checkbox"]'));
+    if (!boxes.length && attemptsLeft > 0) {
+      setTimeout(function () { checkDiverseByBloom(containerId, count, attemptsLeft - 1); }, 300);
+      return;
+    }
+    var byLevel = {};
+    var noLevel = [];
+    boxes.forEach(function (cb) {
+      var lvl = cb.dataset.bloom;
+      if (lvl) { (byLevel[lvl] = byLevel[lvl] || []).push(cb); } else { noLevel.push(cb); }
+    });
+    var levels = Object.keys(byLevel);
+    var picked = [];
+    var round = 0;
+    while (picked.length < count && levels.some(function (l) { return byLevel[l].length > 0; })) {
+      var level = levels[round % levels.length];
+      var pool = byLevel[level];
+      if (pool && pool.length) picked.push(pool.shift());
+      round++;
+    }
+    var rest = noLevel.concat(levels.reduce(function (acc, l) { return acc.concat(byLevel[l]); }, []));
+    while (picked.length < count && rest.length) {
+      picked.push(rest.shift());
+    }
+    picked.forEach(function (cb) {
+      if (!cb.checked) {
+        cb.checked = true;
+        cb.dispatchEvent(new Event('change'));
+      }
+    });
+  }
+
   // Re-lee directo de los checkboxes tildados (en vez de confiar en que el
   // 'change' de cada uno ya sincronizó el <select> oculto) para no depender
   // del orden exacto de los listeners.
@@ -113,7 +155,7 @@
         area: 1,
         popover: {
           title: 'Resto de las opciones',
-          description: 'Sede, curso/comisión, cátedra, turno, profesor, fecha, duración y período académico: todas estas opciones son opcionales.',
+          description: 'Sede, curso/comisión, cátedra, turno, docente, fecha, duración y período académico: todos estos campos son opcionales.',
           side: 'top',
         },
       },
@@ -174,8 +216,13 @@
     topicsStep.popover.description = 'Aquí se eligen los tópicos a evaluar (en este ejemplo ya se tildan un par, para mostrar el resto del flujo).';
 
     var questionsStep = steps[5];
-    questionsStep.onHighlightStarted = function () { checkFirst('questions_checkbox_container', 3); };
-    questionsStep.popover.description = 'Al tildar algunos tópicos (como en este ejemplo), el panel de preguntas se filtra para mostrar solo las de esos tópicos.';
+    // 5, no 3: coincide con questions_per_version del examen de ejemplo
+    // (ver onboarding_v2_demo_scheme) — con menos, la vista previa siempre
+    // mostraba "se pidieron 5 pero solo se encontraron 3", aun cuando la
+    // materia de ejemplo tiene preguntas de sobra (el límite era esta
+    // autoselección, no la disponibilidad real).
+    questionsStep.onHighlightStarted = function () { checkDiverseByBloom('questions_checkbox_container', 5); };
+    questionsStep.popover.description = 'Al tildar algunos tópicos (como en este ejemplo), el panel de preguntas se filtra para mostrar solo las de esos tópicos — acá se muestran de distintos niveles de Bloom, para ilustrar esa clasificación.';
 
     steps.push({
       element: '#demoPeekContinueBtn',

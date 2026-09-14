@@ -46,7 +46,7 @@
         element: '#templateColInstitution',
         popover: {
           title: 'Filtros por columna',
-          description: 'Cada columna con este ícono de embudo se puede filtrar de forma independiente (institución, facultad, carrera, materia, profesor, año).',
+          description: 'Cada columna con este ícono de embudo se puede filtrar de forma independiente (institución, facultad, carrera, materia, docente, año).',
           side: 'bottom',
         },
       },

@@ -5,12 +5,14 @@
 {% block title %}Nuevo Examen - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-plus-circle me-2"></i>Nuevo Examen{% endblock %}
 {% block content %}
+<link rel="stylesheet" href="{% static 'material/css/create_exam_wizard.css' %}">
 <script src="{% static 'material/js/create_exam.js' %}"></script>
 <script src="{% static 'js/page_tours/create_exam_tour.js' %}"></script>
 {% if is_demo_peek %}
 <div class="alert alert-info d-flex align-items-center gap-2" id="demoPeekBanner">
     <i class="bi bi-info-circle-fill fs-5"></i>
-    <div>Así se ve <strong>Crear Examen</strong> con los datos de este ejemplo ya cargados — con material propio, cada campo se completa aquí mismo.</div>
+    <div class="flex-grow-1">Así se ve <strong>Crear Examen</strong> con los datos de este ejemplo ya cargados — con material propio, cada campo se completa aquí mismo.</div>
+    <a href="{% url 'material:create_exam_wizard' %}?demo_peek=1" class="btn btn-sm btn-outline-primary text-nowrap">Ver como asistente guiado</a>
 </div>
 {% endif %}
 {% if wizard_active %}

@@ -7,11 +7,18 @@
 <link rel="stylesheet" href="{% static 'material/css/wizard_common.css' %}">
 <link rel="stylesheet" href="{% static 'material/css/create_exam_wizard.css' %}">
 
+{% if is_demo_peek %}
+<div class="alert alert-info d-flex align-items-center gap-2" id="demoPeekBanner">
+    <i class="bi bi-info-circle-fill fs-5"></i>
+    <div class="flex-grow-1">Así se arma un examen con el <strong>asistente guiado</strong>, con los datos de este ejemplo ya cargados — con material propio, cada paso se completa aquí mismo.</div>
+    <a href="{% url 'material:create_exam' %}?demo_peek=1" class="btn btn-sm btn-outline-primary text-nowrap">Ver como formulario clásico</a>
+</div>
+{% endif %}
 <div class="wiz-wrap">
     <p class="text-muted mb-3">
         Un paso a la vez para armar un examen con material propio. Se puede volver atrás en cualquier momento;
         nada se guarda hasta llegar a "Ver vista previa" al final.
-        <a href="{% url 'material:create_exam' %}" class="ms-1">Usar la pantalla completa de siempre</a>
+        {% if not is_demo_peek %}<a href="{% url 'material:create_exam' %}" class="ms-1">Usar la pantalla completa de siempre</a>{% endif %}
     </p>
 
     <nav class="wiz-stepper" id="wizStepper" aria-label="Pasos del asistente">
@@ -27,7 +34,12 @@
 
     <div id="alerts-container"></div>
 
-    <form method="post" action="{% url 'material:create_exam' %}" id="examWizardForm">
+    {# ?demo_peek=1 en el action (solo en el vistazo demo): create_exam ve la
+       misma marca en el GET y el POST — sin ella, el POST (sin query string)
+       hace is_demo_peek=False y limpia onb2_include_seed/onb2_demo_scheme_active
+       de la sesión ANTES de leerlos para armar exam_data, dejando "afuera" el
+       contenido semilla del ejemplo y el preview sin preguntas. #}
+    <form method="post" action="{% url 'material:create_exam' %}{% if is_demo_peek %}?demo_peek=1{% endif %}" id="examWizardForm">
         {% csrf_token %}
         <input type="hidden" name="title" id="id_title">
         <input type="text" name="alumno" id="alumno" style="display:none" disabled>
@@ -63,7 +75,7 @@
                 <select class="form-select" name="subject" id="id_subject" required>
                     <option value="">Seleccionar materia</option>
                     {% for materia in materias %}
-                        <option value="{{ materia.id }}">{{ materia.name }}</option>
+                        <option value="{{ materia.id }}" {% if materia.id|stringformat:"s" == demo_subject_id %}selected{% endif %}>{{ materia.name }}</option>
                     {% endfor %}
                 </select>
                 {% if not materias %}
@@ -146,7 +158,7 @@
                             {% endfor %}
                             <option value="otro">Otro</option>
                         </select>
-                        <input type="text" class="form-control mt-2 d-none" name="profesor_text" id="profesor_text" placeholder="Ingrese profesor">
+                        <input type="text" class="form-control mt-2 d-none" name="profesor_text" id="profesor_text" placeholder="Ingrese docente">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="fecha">Fecha del examen</label>
@@ -387,7 +399,9 @@ window.EducaAppWizardConfig = {
         checkCatalogDuplicate: "{% url 'material:check_catalog_duplicate' %}",
         catalogRequestCreateBase: "{% url 'material:catalog_request_create' %}",
         getCatalogTreeForSubjectBase: "/get_catalog_tree_for_subject/"
-    }
+    },
+    isDemoPeek: {{ is_demo_peek|yesno:"true,false" }},
+    demoPrefill: {{ demo_prefill_json|safe }}
 };
 </script>
 <script src="{% static 'material/js/wizard_engine.js' %}"></script>

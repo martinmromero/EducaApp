@@ -783,6 +783,63 @@ _onDomReady(function () {
         updateSuggestedBatchName();
     });
 
+    // ── Modo demo (?demo_peek=1) ──────────────────────────────────────────
+    // La materia ya viene preseleccionada por el servidor (create_exam_wizard,
+    // sesión onb2_demo_scheme_active — ver create_exam ?demo_peek=1, mismo
+    // mecanismo). Acá solo hace falta disparar las mismas cascadas que un
+    // cambio manual dispararía (tópicos/preguntas + institución) y
+    // autoseleccionar tópicos/preguntas de ejemplo con la misma variedad de
+    // Bloom que ya usa el formulario clásico en modo demo (ver
+    // checkDiverseByBloom en create_exam_tour.js), para que ambos caminos
+    // terminen mostrando el mismo tipo de examen armado. A diferencia del
+    // formulario clásico, este asistente es un <form> real e interactivo:
+    // no hace falta bloquearlo de solo lectura ni un tour que lo recorra —
+    // el docente lo completa a su ritmo, ya con todo precargado.
+    if (CFG.isDemoPeek && CFG.demoPrefill && CFG.demoPrefill.subject_id) {
+        Promise.all([
+            loadSubjectDependents(CFG.demoPrefill.subject_id, [], []),
+            loadCatalogTree(),
+        ]).then(function () {
+            if (CFG.demoPrefill.institucion_id) {
+                return applyInstitucionSelection(CFG.demoPrefill.institucion_id, CFG.demoPrefill.institucion_name);
+            }
+        }).then(function () {
+            var topicCbs = Array.prototype.slice.call(document.querySelectorAll('#wizTopicsList input[type="checkbox"]'));
+            var chosenTopicIds = topicCbs.slice(0, 2).map(function (cb) { return cb.dataset.topicValue; });
+            chosenTopicIds.forEach(function (id) {
+                var cb = document.getElementById('wiz_topic_cb_' + id);
+                if (cb) cb.checked = true;
+            });
+
+            // Una pregunta por nivel de Bloom presente (round-robin) entre
+            // los tópicos elegidos arriba, hasta 5 — evita que el ejemplo
+            // muestre solo preguntas de "Recordar" (mismo criterio que
+            // checkDiverseByBloom).
+            var pool = allQuestionsCache.filter(function (q) { return chosenTopicIds.includes(String(q.topic_id)); });
+            var byLevel = {};
+            var noLevel = [];
+            pool.forEach(function (q) {
+                var lvl = q.bloom_level;
+                if (lvl) { (byLevel[lvl] = byLevel[lvl] || []).push(q); } else { noLevel.push(q); }
+            });
+            var levels = Object.keys(byLevel);
+            var picked = [];
+            var round = 0;
+            while (picked.length < 5 && levels.some(function (l) { return byLevel[l].length > 0; })) {
+                var level = levels[round % levels.length];
+                var lvlPool = byLevel[level];
+                if (lvlPool && lvlPool.length) picked.push(lvlPool.shift());
+                round++;
+            }
+            var rest = noLevel.concat(levels.reduce(function (acc, l) { return acc.concat(byLevel[l]); }, []));
+            while (picked.length < 5 && rest.length) picked.push(rest.shift());
+            selectedQuestionIds = picked.map(function (q) { return String(q.id); });
+
+            onTopicSelectionChange();
+            updateSuggestedBatchName();
+        });
+    }
+
     function toggleTextboxGlobal(selectId, textboxId) {
         var select = document.getElementById(selectId);
         var textbox = document.getElementById(textboxId);
@@ -843,8 +900,16 @@ _onDomReady(function () {
             rubricIds: checkedValues('rubrics_checkbox_container', 'input[name="rubric_ids"]:checked'),
         });
     }
-    wizForm.addEventListener('change', saveDraft);
-    wizForm.addEventListener('input', saveDraft);
+    // El modo demo (?demo_peek=1) no debe guardar NI ofrecer restaurar un
+    // borrador: no es un examen real en curso, y la selección diversa por
+    // Bloom que arma automáticamente (ver más abajo) competía en paralelo
+    // con un restoreDraft() de una sesión anterior — ambos llamaban a
+    // loadSubjectDependents() al mismo tiempo y el que terminaba último
+    // pisaba al otro, vaciando tópicos/preguntas en carreras impredecibles.
+    if (!CFG.isDemoPeek) {
+        wizForm.addEventListener('change', saveDraft);
+        wizForm.addEventListener('input', saveDraft);
+    }
 
     function restoreDraft() {
         var saved = draft.load();
@@ -924,5 +989,5 @@ _onDomReady(function () {
     if (startOverLink) startOverLink.addEventListener('click', function () { draft.clear(); });
 
     wizardCtrl.goToStep(1);
-    restoreDraft();
+    if (!CFG.isDemoPeek) restoreDraft();
 });

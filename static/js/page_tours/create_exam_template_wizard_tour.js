@@ -35,8 +35,8 @@
       {
         element: '[data-step-pill="2"]',
         popover: {
-          title: 'Materia y profesor',
-          description: 'Materia obligatoria; profesor, cátedra y formato de impresión son opcionales.',
+          title: 'Materia y docente',
+          description: 'Materia obligatoria; docente, cátedra y formato de impresión son opcionales.',
           side: 'bottom',
         },
       },

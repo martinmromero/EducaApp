@@ -49,6 +49,35 @@ document.addEventListener('DOMContentLoaded', function() {
     let institucionDependentsPromise = Promise.resolve();
     let facultadDependentsPromise = Promise.resolve();
 
+    // Colorear cada tópico (mismos 8 tonos categóricos + gris de "otros" que
+    // ya usa el asistente paso a paso, ver create_exam_wizard.css/js) para
+    // distinguir de un vistazo qué pregunta pertenece a qué tópico, sin
+    // reestructurar la lista en bloques agrupados como hace el asistente.
+    var TOPIC_COLOR_VARS = ['--wiz-topic-1', '--wiz-topic-2', '--wiz-topic-3', '--wiz-topic-4',
+        '--wiz-topic-5', '--wiz-topic-6', '--wiz-topic-7', '--wiz-topic-8'];
+    var topicColorMap = {};
+
+    function topicColor(topicId) {
+        return topicColorMap[topicId] || 'var(--wiz-topic-other)';
+    }
+
+    function assignTopicColors() {
+        var topicsSelect = document.getElementById('id_topics');
+        if (!topicsSelect) return;
+        topicColorMap = {};
+        Array.from(topicsSelect.options).filter(function(opt) { return opt.value !== 'all'; }).forEach(function(opt, i) {
+            topicColorMap[opt.value] = i < TOPIC_COLOR_VARS.length ? 'var(' + TOPIC_COLOR_VARS[i] + ')' : 'var(--wiz-topic-other)';
+        });
+    }
+
+    function topicColorDot(topicId) {
+        var dot = document.createElement('span');
+        dot.className = 'wiz-topic-dot';
+        dot.style.background = topicColor(topicId);
+        dot.style.marginRight = '.4rem';
+        return dot;
+    }
+
     function getSelectedTopicIds() {
         var topicsSelect = document.getElementById('id_topics');
         if (!topicsSelect) return [];
@@ -129,6 +158,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     option.value = question.id;
                     option.textContent = question.text;
                     option.selected = previouslySelected.includes(String(question.id));
+                    // Lo usa el modo demo del tour (checkFirstDiverseByBloom) para
+                    // no autoseleccionar siempre las mismas preguntas de nivel 1.
+                    if (question.bloom_level) option.dataset.bloom = question.bloom_level;
+                    // Lo usa renderQuestionsCheckboxes() para colorear cada
+                    // pregunta según su tópico (ver assignTopicColors).
+                    if (question.topic_id) option.dataset.topicId = question.topic_id;
                     questionsSelect.appendChild(option);
                 });
                 renderQuestionsCheckboxes();
@@ -144,10 +179,12 @@ document.addEventListener('DOMContentLoaded', function() {
         var container = document.getElementById('topics_checkbox_container');
         if (!topicsSelect || !container) return;
 
+        assignTopicColors();
+
         container.innerHTML = '';
         Array.from(topicsSelect.options).filter(function(option) { return option.value !== 'all'; }).forEach(function(option) {
             var row = document.createElement('div');
-            row.className = 'form-check mb-1';
+            row.className = 'form-check mb-1 d-flex align-items-center';
             var cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.className = 'form-check-input';
@@ -167,6 +204,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             row.appendChild(cb);
+            row.appendChild(topicColorDot(option.value));
             row.appendChild(label);
             container.appendChild(row);
         });
@@ -239,14 +277,16 @@ document.addEventListener('DOMContentLoaded', function() {
         container.innerHTML = '';
         Array.from(questionsSelect.options).forEach(function(option) {
             var row = document.createElement('div');
-            row.className = 'form-check mb-1';
+            row.className = 'form-check mb-1 d-flex align-items-start';
 
             var cb = document.createElement('input');
             cb.type = 'checkbox';
-            cb.className = 'form-check-input';
+            cb.className = 'form-check-input mt-1';
             cb.id = 'question_cb_' + option.value;
             cb.checked = option.selected;
             cb.dataset.questionValue = option.value;
+            if (option.dataset.bloom) cb.dataset.bloom = option.dataset.bloom;
+            if (option.dataset.topicId) cb.dataset.topicId = option.dataset.topicId;
 
             var label = document.createElement('label');
             label.className = 'form-check-label';
@@ -258,6 +298,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             row.appendChild(cb);
+            if (option.dataset.topicId) {
+                var dot = topicColorDot(option.dataset.topicId);
+                dot.style.marginTop = '.35rem';
+                row.appendChild(dot);
+            }
             row.appendChild(label);
             container.appendChild(row);
         });

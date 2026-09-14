@@ -32,7 +32,7 @@
         element: '#examHeaderBlock',
         popover: {
           title: 'Encabezado del examen',
-          description: 'Institución, carrera, profesor, materia y tipo de examen: se configuran en "Crear examen" o se completan automáticamente si se usa una plantilla.',
+          description: 'Institución, carrera, docente, materia y tipo de examen: se configuran en "Crear examen" o se completan automáticamente si se usa una plantilla.',
           side: 'bottom',
         },
       },

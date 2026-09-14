@@ -459,7 +459,11 @@ def get_questions_by_topics(request):
         # Texto completo (sin truncar): quien arma el examen necesita poder
         # distinguir preguntas parecidas, y el panel ya es una lista con
         # scroll propio pensada para texto de varias líneas.
-        {'id': q.id, 'text': q.question_text, 'topic_id': q.topic_id}
+        # bloom_level: lo usa create_exam_tour.js (modo demo) para
+        # autoseleccionar preguntas de distintos niveles en vez de las
+        # primeras N por orden de DOM — ver hallazgo del demo de
+        # onboarding mostrando solo preguntas de "Recordar".
+        {'id': q.id, 'text': q.question_text, 'topic_id': q.topic_id, 'bloom_level': q.bloom_level}
         for q in questions
     ]
     return JsonResponse(data, safe=False)
@@ -1611,7 +1615,8 @@ def create_exam_wizard(request):
     edición en curso ni un borrador de sesión previo: es siempre un examen
     nuevo, a diferencia de create_exam.
     """
-    from .models import Subject, ExamTemplate
+    import json as _json
+    from .models import Subject, ExamTemplate, InstitutionV2
     from django.contrib.auth.models import User
     from .content_visibility import get_visible_questions, get_visible_rubrics, get_visible_templates, EXAM_ELIGIBLE_Q
 
@@ -1622,6 +1627,16 @@ def create_exam_wizard(request):
         request.session.pop('preview_generated_versions_ids', None)
         return redirect('material:create_exam_wizard')
 
+    # ONBOARDING WIZARD V2 (ejemplo enlatado): ?demo_peek=1 muestra este mismo
+    # asistente con la materia/institución del ejemplo ya elegidas (mismo
+    # mecanismo y misma sesión que create_exam ?demo_peek=1 — ver esa vista).
+    # A diferencia del formulario clásico, acá el <form> es real e
+    # interactivo: no hace falta bloquearlo de solo lectura ni una selección
+    # automática de tópicos/preguntas vía tour — se prellenan campos y el
+    # usuario recorre el asistente a su ritmo; el submit final ("Ver vista
+    # previa") ya reutiliza el POST real de create_exam sin nada especial.
+    is_demo_peek = request.GET.get('demo_peek') == '1' and bool(request.session.get('onb2_demo_scheme_active'))
+
     # Institución/facultad/carrera no se pre-cargan acá: el paso las busca
     # en vivo contra check_catalog_duplicate (catálogo institucional +
     # espacio personal propio, mismo motor que usa Solicitar Alta) — ver
@@ -1629,18 +1644,36 @@ def create_exam_wizard(request):
     # (CampusV2 nunca se sumó al modelo de espacio personal). Este wizard es
     # un flujo aparte del asistente de configuración inicial (/comenzar/) a
     # propósito — éste invita a entrar acá al terminar, pero sin pasarle
-    # nada por query params: cada uno arranca limpio.
+    # nada por query params: cada uno arranca limpio (salvo el vistazo demo).
     from .content_visibility import get_visible_professors
     profesores = get_visible_professors(request.user)
     templates = get_visible_templates(request.user)
     visible_rubrics = get_visible_rubrics(request.user)
 
-    # Mismo criterio que create_exam: solo materias con al menos una
-    # pregunta elegible visible para este usuario (propia o compartida).
-    visible_subject_ids = get_visible_questions(request.user).filter(
-        EXAM_ELIGIBLE_Q
-    ).values_list('subjects__id', flat=True).distinct()
-    materias = Subject.objects.filter(is_seed_demo=False, id__in=visible_subject_ids)
+    if is_demo_peek:
+        # Mismo criterio que create_exam ?demo_peek=1: la materia semilla del
+        # ejemplo no es "propia" de ningún usuario real, así que el filtro de
+        # visibilidad normal la dejaría afuera.
+        materias = Subject.objects.all()
+    else:
+        # Mismo criterio que create_exam: solo materias con al menos una
+        # pregunta elegible visible para este usuario (propia o compartida).
+        visible_subject_ids = get_visible_questions(request.user).filter(
+            EXAM_ELIGIBLE_Q
+        ).values_list('subjects__id', flat=True).distinct()
+        materias = Subject.objects.filter(is_seed_demo=False, id__in=visible_subject_ids)
+
+    demo_prefill = {}
+    if is_demo_peek:
+        exam_session = request.session.get('preview_exam') or {}
+        demo_prefill['subject_id'] = exam_session.get('subject', '')
+        institucion_id = exam_session.get('institucion', '')
+        demo_prefill['institucion_id'] = institucion_id
+        demo_prefill['institucion_name'] = ''
+        if str(institucion_id).isdigit():
+            institucion_obj = InstitutionV2.objects.filter(pk=int(institucion_id)).first()
+            if institucion_obj:
+                demo_prefill['institucion_name'] = institucion_obj.name
 
     context = {
         'materias': materias,
@@ -1648,6 +1681,9 @@ def create_exam_wizard(request):
         'templates': templates,
         'visible_rubrics': visible_rubrics,
         'current_user_id': request.user.id,
+        'is_demo_peek': is_demo_peek,
+        'demo_subject_id': demo_prefill.get('subject_id', ''),
+        'demo_prefill_json': _json.dumps(demo_prefill),
     }
     return render(request, 'material/exams/create_exam_wizard.html', context)
 
