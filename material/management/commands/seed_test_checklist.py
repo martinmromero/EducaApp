@@ -51,6 +51,7 @@ ITEMS = [
     (4, "Banco de Preguntas", "Cargar una pregunta a mano con el formulario manual", "upload_questions", False, 1),
     (4, "Banco de Preguntas", "Descargar la plantilla CSV/TXT e importar preguntas en bloque", "upload_questions", False, 1),
     (4, "Banco de Preguntas", "Exportar el banco de preguntas", "lista_preguntas", False, 1),
+    (4, "Banco de Preguntas", "Eliminar una pregunta compartida con un grupo y elegir entre \"borrar para todos\" o \"dejar copia\"", "lista_preguntas", False, 1),
 
     (5, "Mis Exámenes", "Crear un examen nuevo (\"Crear Examen\" / \"Nuevo Examen\" — no el asistente nuevo)", "create_exam", False, 2),
     (5, "Mis Exámenes", "Ver, editar y eliminar un examen existente", "mis_examenes", False, 2),
@@ -59,6 +60,7 @@ ITEMS = [
     (5, "Mis Exámenes", "Exportar un examen a DOCX", "mis_examenes", False, 2),
     (5, "Mis Exámenes", "Trabajar con un lote de varias versiones: renombrar, editar, eliminar", "mis_examenes", False, 2),
     (5, "Mis Exámenes", "Eliminar varios exámenes a la vez", "mis_examenes", False, 2),
+    (5, "Mis Exámenes", "Probar el asistente guiado (paso a paso) para crear un examen nuevo", "create_exam_wizard", False, 2),
 
     (6, "Cuestionarios Orales (Bolillero Digital)", "Crear un cuestionario oral — caso chico: 8 alumnos/2 preguntas/2 grupos", "create_oral_exam", False, 2),
     (6, "Cuestionarios Orales (Bolillero Digital)", "Crear un cuestionario oral — caso grande: 30 alumnos/3 preguntas/6 grupos", "create_oral_exam", False, 2),
@@ -66,11 +68,13 @@ ITEMS = [
     (6, "Cuestionarios Orales (Bolillero Digital)", "Intercambiar/pedir otra pregunta durante la evaluación", "list_oral_exams", False, 2),
     (6, "Cuestionarios Orales (Bolillero Digital)", "Evaluar en tiempo real (Bien/Regular/Mal) y revisar la nota final automática", "list_oral_exams", False, 2),
     (6, "Cuestionarios Orales (Bolillero Digital)", "Eliminar un cuestionario y eliminar varios a la vez", "list_oral_exams", False, 2),
+    (6, "Cuestionarios Orales (Bolillero Digital)", "Probar el asistente guiado (paso a paso) para crear un cuestionario oral", "create_oral_exam_wizard", False, 2),
 
     (7, "Plantillas de Examen", "Crear una plantilla con logo institucional, resultados de aprendizaje y temas a evaluar", "create_exam_template", False, 2),
     (7, "Plantillas de Examen", "Editar y previsualizar una plantilla", "list_exam_templates", False, 2),
     (7, "Plantillas de Examen", "Generar un examen a partir de una plantilla", "list_exam_templates", False, 2),
     (7, "Plantillas de Examen", "Eliminar una plantilla", "list_exam_templates", False, 2),
+    (7, "Plantillas de Examen", "Probar el asistente guiado (paso a paso) para crear una plantilla", "create_exam_template_wizard", False, 2),
 
     (8, "Rúbricas", "Crear una rúbrica (grilla de niveles × criterios)", "rubric_create", False, 2),
     (8, "Rúbricas", "Ver, editar y eliminar una rúbrica", "rubric_list", False, 2),
@@ -87,6 +91,7 @@ ITEMS = [
     (10, "Mi Espacio Académico", "Crear, editar y eliminar una materia", "subject_list", False, 3),
     (10, "Mi Espacio Académico", "Agregar/editar/eliminar resultados de aprendizaje de una materia", "subject_list", False, 3),
     (10, "Mi Espacio Académico", "Confirmar que los filtros en cascada (institución→sede→facultad→carrera→materia) funcionan", "institution_v2_list", False, 3),
+    (10, "Mi Espacio Académico", "Probar el asistente guiado (paso a paso) para crear una institución", "create_institution_v2_wizard", False, 3),
 
     (11, "Grupos de Confianza", "Crear un grupo", "grupo_crear", False, 3),
     (11, "Grupos de Confianza", "Invitar a otro tester (usuario/email real)", "grupos_list", False, 3),
@@ -117,6 +122,19 @@ ITEMS = [
     (16, "Administración", "Uso de Neon (DB): confirmar que carga sin error", "neon_usage_page", True, None),
     (16, "Administración", "Prompt de generación IA: revisar que se pueda ver/editar", "question_generation_prompt_config", True, None),
     (16, "Administración", "IA Institucional: configurar clave a nivel institución", "institution_ai_config", True, None),
+    (16, "Administración", "Revisar la bandeja de solicitudes de catálogo y aprobar o rechazar una", "catalog_requests_bandeja", True, None),
+    (16, "Administración", "Carga masiva de catálogo (CSV) y confirmar que se procesa sin error", "admin_bulk_catalog_upload", True, None),
+
+    # Áreas 17 y 18: agregadas después de las 16 originales, no intercaladas
+    # por número — mover ítems existentes de área cambiaría su natural key
+    # (area_number, text) y el comando las trataría como "fuera de alcance",
+    # borrando en cascada los TestResult que testers ya hayan cargado para
+    # ellas (ver docstring del Command más abajo). Un tester sin etapa
+    # asignada las ve igual, solo que después del área 16 en vez de antes.
+    (17, "Catálogo Académico compartido", "Proponer una carrera o materia nueva al catálogo compartido desde \"Mis agregados\"", "mis_solicitudes_catalogo", False, 3),
+    (17, "Catálogo Académico compartido", "Ver el estado de una solicitud propia (pendiente, aprobada o rechazada)", "mis_solicitudes_catalogo", False, 3),
+
+    (18, "Contenido compartido y sus avisos", "Verificar que le llega un aviso al dueño de un examen/oral cuando otro integrante del grupo borra una pregunta compartida que usaba", "mis_avisos_preguntas_borradas", False, 3),
 ]
 
 
