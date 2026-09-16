@@ -64,25 +64,39 @@ def _state_payload(request, index=None):
     items = list(_visible_items(request.user))
     total = len(items)
     if total == 0:
-        return {'total': 0, 'index': 0, 'item': None}
+        return {'total': 0, 'index': 0, 'item': None, 'overview': []}
 
     if index is None:
         index = request.session.get(SESSION_TESTING_CURRENT_INDEX, 0)
     index = max(0, min(index, total - 1))
     request.session[SESSION_TESTING_CURRENT_INDEX] = index
 
-    item = items[index]
-    result = TestResult.objects.filter(user=request.user, item=item).first()
+    # Un solo query para el resultado del ítem actual Y el resumen de todos
+    # los demás (overview) — evita repetir el filtro item__in=items dos veces.
+    results_by_item = {
+        r.item_id: r
+        for r in TestResult.objects.filter(user=request.user, item__in=items)
+    }
+    done = sum(1 for r in results_by_item.values() if r.status != 'pendiente')
 
-    done = TestResult.objects.filter(
-        user=request.user, item__in=items,
-    ).exclude(status='pendiente').count()
+    item = items[index]
+    overview = [
+        {
+            'index': i,
+            'area_number': it.area_number,
+            'area_name': it.area_name,
+            'text': it.text,
+            'status': results_by_item[it.id].status if it.id in results_by_item else 'pendiente',
+        }
+        for i, it in enumerate(items)
+    ]
 
     return {
         'total': total,
         'index': index,
         'done': done,
-        'item': _item_payload(item, result),
+        'item': _item_payload(item, results_by_item.get(item.id)),
+        'overview': overview,
     }
 
 

@@ -125,10 +125,28 @@
                 <div class="fw-semibold">Modo Testing</div>
                 <small class="text-muted" id="testPanelProgress">Cargando…</small>
             </div>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exitTestingMode()" aria-label="Salir de Modo Testing" title="Salir de Modo Testing">
-                <i class="bi bi-x-lg"></i>
-            </button>
+            <div class="d-flex align-items-center gap-1">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="testPanelOverviewBtn" onclick="toggleTestOverview()" aria-label="Ver todo el checklist" title="Ver todo el checklist">
+                    <i class="bi bi-list-check"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exitTestingMode()" aria-label="Salir de Modo Testing" title="Salir de Modo Testing">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
         </div>
+        <!-- Confirmación de guardado: bloque propio, NO dentro de
+             #testPanelBody — ese innerHTML se reconstruye entero en cada
+             renderState(), así que cualquier mensaje puesto ahí adentro
+             desaparece antes de que el tester llegue a verlo. Vive acá para
+             sobrevivir al re-render y de verdad mostrarse. -->
+        <div class="test-panel-toast d-none" id="testPanelToast">
+            <i class="bi bi-check-circle-fill me-1"></i>Guardado — segui con "Siguiente" o elegí otro ítem en <i class="bi bi-list-check mx-1"></i>.
+        </div>
+        <!-- Checklist completo, colapsado por defecto: deja ver de un
+             vistazo qué está pendiente/con problemas sin tener que ir
+             ítem por ítem con Anterior/Siguiente, y saltar directo a
+             cualquier área haciendo clic en su fila. -->
+        <div class="test-panel-overview d-none" id="testPanelOverview"></div>
         <div class="test-panel-body" id="testPanelBody">
             <p class="text-muted">Cargando checklist…</p>
         </div>
@@ -909,6 +927,8 @@
       }
       window.exitTestingMode = exitTestingMode;
 
+      const OVERVIEW_STATUS_ICON = { ok: '✅', problemas: '⚠️', no_ok: '❌', pendiente: '⬜' };
+
       function renderState(data) {
         const progress = document.getElementById('testPanelProgress');
         const body = document.getElementById('testPanelBody');
@@ -934,26 +954,82 @@
           (item.target_url ? '<a href="' + item.target_url + '" class="btn btn-sm btn-outline-primary mb-3"><i class="bi bi-box-arrow-up-right me-1"></i>Ir a esta pantalla</a>' : '') +
           '<div class="mb-2">' + radios + '</div>' +
           '<textarea class="form-control form-control-sm mb-2" id="testComment" rows="3" placeholder="Comentario (qué esperabas vs. qué pasó)">' + escapeHtml(item.comment) + '</textarea>' +
-          '<button type="button" class="btn btn-primary btn-sm w-100" onclick="testPanelSave(' + item.id + ')">Guardar resultado</button>' +
-          '<div class="small text-success mt-1 d-none" id="testSavedMsg">Guardado.</div>';
+          '<button type="button" class="btn btn-primary btn-sm w-100" onclick="testPanelSave(' + item.id + ')">Guardar resultado</button>';
         prevBtn.disabled = data.index === 0;
         nextBtn.disabled = data.index === data.total - 1;
       }
 
+      // Lista completa (todas las áreas), colapsada por defecto — se
+      // reconstruye junto con renderState() en cada save/navigate para que
+      // los estados (✅/⚠️/❌/⬜) y el ítem resaltado como "actual" queden
+      // siempre al día, esté abierta o no.
+      function renderOverview(data) {
+        const container = document.getElementById('testPanelOverview');
+        if (!container) return;
+        const overview = data.overview || [];
+        let html = '';
+        let lastArea = null;
+        overview.forEach(function (it) {
+          if (it.area_number !== lastArea) {
+            html += '<div class="test-overview-area">Área ' + String(it.area_number).padStart(2, '0') + ' · ' + escapeHtml(it.area_name) + '</div>';
+            lastArea = it.area_number;
+          }
+          const current = it.index === data.index;
+          html += '<button type="button" class="test-overview-item' + (current ? ' current' : '') + '" onclick="testPanelNavigate(null, ' + it.index + ')">' +
+            '<span class="test-overview-status">' + OVERVIEW_STATUS_ICON[it.status] + '</span>' +
+            '<span class="test-overview-text">' + escapeHtml(it.text) + '</span></button>';
+        });
+        container.innerHTML = html || '<p class="text-muted small mb-0 px-3">Nada para mostrar.</p>';
+      }
+
+      function toggleTestOverview() {
+        const el = document.getElementById('testPanelOverview');
+        const btn = document.getElementById('testPanelOverviewBtn');
+        el.classList.toggle('d-none');
+        if (btn) btn.classList.toggle('active', !el.classList.contains('d-none'));
+      }
+      window.toggleTestOverview = toggleTestOverview;
+
       function loadState() {
         fetch('{% url "material:testing_panel_state" %}')
           .then(function (r) { return r.json(); })
-          .then(function (data) { if (data.active) renderState(data); });
+          .then(function (data) { if (data.active) { renderState(data); renderOverview(data); } });
       }
 
-      function testPanelNavigate(direction) {
+      function testPanelNavigate(direction, explicitIndex) {
+        const body = new URLSearchParams();
+        if (explicitIndex === null || explicitIndex === undefined) {
+          body.set('direction', direction);
+        } else {
+          body.set('index', explicitIndex);
+        }
         fetch('{% url "material:testing_panel_navigate" %}', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken() },
-          body: 'direction=' + direction,
-        }).then(function (r) { return r.json(); }).then(function (data) { if (data.active) renderState(data); });
+          body: body.toString(),
+        }).then(function (r) { return r.json(); }).then(function (data) {
+          if (data.active) { renderState(data); renderOverview(data); }
+        });
       }
       window.testPanelNavigate = testPanelNavigate;
+
+      let testToastTimer = null;
+      function showTestSavedToast() {
+        const toast = document.getElementById('testPanelToast');
+        if (toast) {
+          toast.classList.remove('d-none');
+          clearTimeout(testToastTimer);
+          testToastTimer = setTimeout(function () { toast.classList.add('d-none'); }, 3000);
+        }
+        // Invita a seguir sin forzar el foco (movería el scroll del panel):
+        // un pulso breve en "Siguiente" alcanza, salvo que ya sea el último
+        // ítem (ahí el botón sigue disabled y no tiene sentido resaltarlo).
+        const nextBtn = document.getElementById('testPanelNext');
+        if (nextBtn && !nextBtn.disabled) {
+          nextBtn.classList.add('test-panel-pulse');
+          setTimeout(function () { nextBtn.classList.remove('test-panel-pulse'); }, 1600);
+        }
+      }
 
       function testPanelSave(itemId) {
         const statusInput = document.querySelector('input[name="testStatus"]:checked');
@@ -968,7 +1044,11 @@
           headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken() },
           body: body.toString(),
         }).then(function (r) { return r.json(); }).then(function (data) {
-          if (data.success) renderState(data);
+          if (data.success) {
+            renderState(data);
+            renderOverview(data);
+            showTestSavedToast();
+          }
         });
       }
       window.testPanelSave = testPanelSave;

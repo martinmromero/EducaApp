@@ -259,6 +259,67 @@ body.offcanvas-open .sidebar-toggle-external {
     justify-content: space-between;
     gap: 8px;
 }
+.test-panel-toast {
+    padding: 8px 16px;
+    background-color: #d1e7dd;
+    color: #0f5132;
+    font-size: 0.85rem;
+    border-bottom: 1px solid #badbcc;
+}
+#testPanelOverviewBtn.active {
+    background-color: #0d6efd;
+    color: #fff;
+}
+.test-panel-overview {
+    max-height: 260px;
+    overflow-y: auto;
+    border-bottom: 1px solid #ddd;
+    padding: 8px 0;
+}
+.test-overview-area {
+    padding: 6px 16px 2px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #6c757d;
+    font-weight: 600;
+}
+.test-overview-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    padding: 5px 16px;
+    border: none;
+    background: none;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+.test-overview-item:hover {
+    background-color: rgba(13, 110, 253, .08);
+}
+.test-overview-item.current {
+    background-color: rgba(13, 110, 253, .15);
+    font-weight: 600;
+}
+.test-overview-status {
+    flex-shrink: 0;
+}
+.test-overview-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* Pulso breve en "Siguiente" justo después de guardar — invita a seguir
+   sin depender de que el tester note el toast de arriba. */
+@keyframes testPanelPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(13, 110, 253, .6); }
+    50% { box-shadow: 0 0 0 6px rgba(13, 110, 253, 0); }
+}
+.test-panel-pulse {
+    animation: testPanelPulse 0.8s ease-in-out 2;
+}
 .main-content.test-panel-open {
     margin-right: 340px;
 }
@@ -401,8 +462,26 @@ body.offcanvas-open .sidebar-toggle-external {
     color: #ffffff;
 }
 [data-bs-theme="dark"] .test-panel-header,
-[data-bs-theme="dark"] .test-panel-footer {
+[data-bs-theme="dark"] .test-panel-footer,
+[data-bs-theme="dark"] .test-panel-overview {
     border-color: #333;
+}
+[data-bs-theme="dark"] .test-panel-toast {
+    background-color: #0f3d2a;
+    color: #75dda3;
+    border-bottom-color: #145c3a;
+}
+[data-bs-theme="dark"] .test-overview-area {
+    color: #adb5bd;
+}
+[data-bs-theme="dark"] .test-overview-item {
+    color: #fff;
+}
+[data-bs-theme="dark"] .test-overview-item:hover {
+    background-color: rgba(255, 255, 255, .08);
+}
+[data-bs-theme="dark"] .test-overview-item.current {
+    background-color: rgba(13, 110, 253, .3);
 }
 [data-bs-theme="dark"] .sidebar a {
     color: #ffffff;
