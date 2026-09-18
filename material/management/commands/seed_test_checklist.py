@@ -51,7 +51,6 @@ ITEMS = [
     (4, "Banco de Preguntas", "Cargar una pregunta a mano con el formulario manual", "upload_questions", False, 1),
     (4, "Banco de Preguntas", "Descargar la plantilla CSV/TXT e importar preguntas en bloque", "upload_questions", False, 1),
     (4, "Banco de Preguntas", "Exportar el banco de preguntas", "lista_preguntas", False, 1),
-    (4, "Banco de Preguntas", "Eliminar una pregunta compartida con un grupo y elegir entre \"borrar para todos\" o \"dejar copia\"", "lista_preguntas", False, 1),
 
     (5, "Mis Exámenes", "Crear un examen nuevo (\"Crear Examen\" / \"Nuevo Examen\" — no el asistente nuevo)", "create_exam", False, 2),
     (5, "Mis Exámenes", "Ver, editar y eliminar un examen existente", "mis_examenes", False, 2),
@@ -98,6 +97,16 @@ ITEMS = [
     (11, "Grupos de Confianza", "Aceptar una invitación pendiente desde la otra cuenta", "invitaciones_pendientes", False, 3),
     (11, "Grupos de Confianza", "Compartir una materia dentro del grupo", "grupos_list", False, 3),
     (11, "Grupos de Confianza", "Compartir una rúbrica dentro del grupo", "grupos_list", False, 3),
+    # area_number se deja en 4 (Banco de Preguntas) a propósito, aunque
+    # aparezca después de Grupos en la secuencia — es la clave natural
+    # junto con el texto (ver docstring del Command), cambiarla borraría en
+    # cascada el resultado real que un tester ya cargó para este ítem. Se
+    # reubica ACÁ (con stage=3, no 1) porque un tester reportó en Modo
+    # Testing que en su posición original (justo después de los otros
+    # ítems del área 4) todavía no había compartido nada con nadie — este
+    # paso depende de tener un grupo con contenido compartido, así que solo
+    # tiene sentido después del área 11.
+    (4, "Banco de Preguntas", "Eliminar una pregunta compartida con un grupo y elegir entre \"borrar para todos\" o \"dejar copia\"", "lista_preguntas", False, 3),
 
     (12, "Favoritos", "Marcar algo como favorito", "index", False, 3),
     (12, "Favoritos", "Ver la lista de favoritos (card en Inicio)", "favoritos_list", False, 3),

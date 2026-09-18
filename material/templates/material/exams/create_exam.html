@@ -104,7 +104,7 @@
             <!-- Sección 4 columnas: Sede / Localización - Curso / Comisión - Cátedra - Turno -->
             <div class="row mb-3">
                 <div class="col-md-3">
-                    <label for="sede_dropdown">Sede / Localización</label>
+                    <label for="sede_dropdown" class="exam-field-label">Sede / Localización</label>
                     <select class="form-select" name="sede_dropdown" id="sede_dropdown" onchange="toggleTextbox('sede_dropdown', 'sede_text')">
                         <option value="">Seleccionar sede</option>
                         <option value="otro">Otro</option>
@@ -112,15 +112,15 @@
                     <input type="text" class="form-control mt-2" name="sede_text" id="sede_text" placeholder="Ingrese sede" style="display:none;">
                 </div>
                 <div class="col-md-3">
-                    <label for="curso">Año / Curso / Comisión</label>
+                    <label for="curso" class="exam-field-label">Año / Curso / Comisión</label>
                     <input type="text" class="form-control" name="curso" id="curso">
                 </div>
                 <div class="col-md-3">
-                    <label for="catedra">Cátedra <span class="text-muted fw-normal">(opcional)</span></label>
+                    <label for="catedra" class="exam-field-label">Cátedra <span class="text-muted fw-normal">(opcional)</span></label>
                     <input type="text" class="form-control" name="catedra" id="catedra" placeholder="Ej: Cátedra A - Prof. Pérez">
                 </div>
                 <div class="col-md-3">
-                    <label for="turno_dropdown">Turno</label>
+                    <label for="turno_dropdown" class="exam-field-label">Turno</label>
                     <select class="form-select" name="turno_dropdown" id="turno_dropdown" onchange="toggleTextbox('turno_dropdown', 'turno_text')">
                         <option value="">Seleccionar turno</option>
                         <option value="Mañana">Mañana</option>
@@ -135,7 +135,7 @@
             <!-- Sección 4 columnas: Docente - Fecha - Año - Duración (minutos) -->
             <div class="row mb-3">
                 <div class="col-md-3">
-                    <label for="profesor_dropdown">Docente</label>
+                    <label for="profesor_dropdown" class="exam-field-label">Docente</label>
                     <select class="form-select" name="profesor_dropdown" id="profesor_dropdown" onchange="toggleTextbox('profesor_dropdown', 'profesor_text')">
                         <option value="">Seleccionar docente</option>
                         {% for profesor in profesores %}
@@ -146,15 +146,15 @@
                     <input type="text" class="form-control mt-2" name="profesor_text" id="profesor_text" placeholder="Ingrese docente" style="display:none;">
                 </div>
                 <div class="col-md-3">
-                    <label for="fecha">Fecha</label>
+                    <label for="fecha" class="exam-field-label">Fecha</label>
                     <input type="date" class="form-control" name="fecha" id="fecha">
                 </div>
                 <div class="col-md-3">
-                    <label for="year">Año para el encabezado</label>
+                    <label for="year" class="exam-field-label">Año para el encabezado</label>
                     <input type="number" class="form-control" name="year" id="year" min="1900" max="2100">
                 </div>
                 <div class="col-md-3">
-                    <label for="id_duration_minutes">Duración</label>
+                    <label for="id_duration_minutes" class="exam-field-label">Duración</label>
                     <div class="input-group">
                         {{ form.duration_minutes }}
                         <select class="form-select" id="duration_unit" style="max-width: 8.5rem;">
@@ -345,6 +345,7 @@
                 <div class="col-md-6">
                     <label for="questions_per_version" class="form-label">Preguntas por tema</label>
                     <input type="number" min="1" class="form-control" id="questions_per_version" name="questions_per_version" placeholder="Ej: 10">
+                    <div id="questionsAvailabilityHint" class="form-text"></div>
                 </div>
             </div>
             <div class="form-check mt-3">
@@ -441,27 +442,32 @@
             openArea(toArea);
         }
 
+        // El auto-avance (cerrar el área actual y abrir la siguiente) tiene
+        // sentido en el flujo lineal de completar un examen NUEVO — al
+        // editar uno ya armado, las áreas llegan pobladas y el usuario solo
+        // quiere revisar/tocar algo puntual, así que se desactiva del todo
+        // en modo edición.
+        var isEditingExam = {{ is_editing|yesno:"true,false" }};
+
         var durationInput = document.getElementById('id_duration_minutes');
         var durationUnit = document.getElementById('duration_unit');
-        [durationInput, durationUnit].forEach(function (el) {
-            if (el) el.addEventListener('change', function () { advance(1, 2); });
-        });
-
-        var instructions = document.getElementById('id_instructions');
-        if (instructions) instructions.addEventListener('blur', function () { advance(2, 3); });
-
-        // Los checkboxes de preguntas se arman dinámicamente (fetch por
-        // tópico elegido) — se delega el listener al contenedor en vez de
-        // engancharlo pregunta por pregunta.
-        var questionsContainer = document.getElementById('questions_checkbox_container');
-        if (questionsContainer) {
-            var advancedFrom3 = false;
-            questionsContainer.addEventListener('change', function (ev) {
-                if (advancedFrom3 || !ev.target.matches('input[type="checkbox"]:checked')) return;
-                advancedFrom3 = true;
-                advance(3, 4);
+        if (!isEditingExam) {
+            [durationInput, durationUnit].forEach(function (el) {
+                if (el) el.addEventListener('change', function () { advance(1, 2); });
             });
         }
+
+        var instructions = document.getElementById('id_instructions');
+        if (instructions && !isEditingExam) instructions.addEventListener('blur', function () { advance(2, 3); });
+
+        // El auto-avance 3→4 (tildar la primera pregunta cerraba de golpe
+        // el área de tópicos/preguntas) se reportó como "comportamiento
+        // errático" tanto editando un examen existente como armando uno
+        // nuevo — a diferencia de duración/instrucciones (un solo campo
+        // "se completó"), acá el usuario suele seguir tildando varias
+        // preguntas más, así que cerrar el área a la primera sorprende en
+        // cualquier flujo. Se saca directamente, no se condiciona a
+        // isEditingExam.
 
         // Período académico (Área 1): number + selector, igual que Duración.
         // Su valor combinado alimenta el campo oculto "batch_semester", que
@@ -721,6 +727,18 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 {% endif %}
 <style>
+/* Filas de 4 columnas (Sede/Curso/Cátedra/Turno, Docente/Fecha/Año/Duración):
+   con labels de largo distinto ("Año / Curso / Comisión" vs "Turno"), en
+   anchos intermedios (ventana no maximizada, pero todavía por encima del
+   breakpoint md) una etiqueta larga pasa a 2 líneas mientras las demás
+   quedan en 1 — el input de esa columna queda más abajo que sus vecinos.
+   Reservar 2 líneas de alto en TODAS las labels de estas filas evita el
+   desnivel sea cual sea el ancho (reportado en Modo Testing: "textboxes
+   quedan desalineados si no es full screen"). */
+.exam-field-label {
+    display: block;
+    min-height: 3rem;
+}
 .resolucion-grid {
     column-count: 1;
 }

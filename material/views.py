@@ -1595,6 +1595,13 @@ def create_exam(request):
         'preselected_template_id': preselected_template_id,
         'visible_rubrics': visible_rubrics,
         'prefill_data_json': prefill_data_json,
+        # Evita el auto-avance de áreas (ver create_exam.html) cuando se está
+        # editando un examen/lote ya armado: ese avance está pensado para el
+        # flujo lineal de completar un examen nuevo de punta a punta, no para
+        # revisar/tocar selecciones que ya existen — reportado en Modo Testing
+        # como "comportamiento errático" (tildar la primera pregunta al
+        # revisar un examen existente contraía el área sin que tuviera sentido).
+        'is_editing': bool(request.session.get('editing_exam_id') or request.session.get('editing_batch_id')),
         'wizard_active': wizard_active,
         'wizard_prefill_fields_json': _json.dumps(wizard_prefill_fields),
         'is_demo_peek': is_demo_peek,
@@ -6922,7 +6929,32 @@ def create_oral_exam(request):
             messages.success(request, 'Cuestionario oral creado exitosamente', extra_tags='cuestionarios_orales')
             return redirect('material:view_oral_exam', exam_id=oral_exam.id)
         else:
-            messages.error(request, 'Por favor corrija los errores en el formulario', extra_tags='cuestionarios_orales')
+            # El mensaje genérico no decía QUÉ estaba mal — reportado desde
+            # el asistente (wizard), que postea a esta misma vista y ante un
+            # error rebota al form clásico sin ningún contexto de qué pasó.
+            # Mismo criterio que upload_questions (views.py) para listar los
+            # errores reales por campo.
+            field_errors = []
+            for field_name, errors in form.errors.items():
+                # La mayoría de las reglas de OralExamForm.clean() (subtemas
+                # insuficientes, más grupos que alumnos, etc.) son errores de
+                # formulario completo (NON_FIELD_ERRORS, field_name '__all__'),
+                # no de un campo puntual — sin este caso especial el mensaje
+                # quedaba "__all__: <texto>".
+                if field_name == '__all__':
+                    field_errors.extend(str(err) for err in errors)
+                    continue
+                label = form.fields.get(field_name).label if field_name in form.fields else field_name
+                for err in errors:
+                    field_errors.append(f"{label}: {err}")
+            if field_errors:
+                messages.error(
+                    request,
+                    'Por favor corrija los errores en el formulario: ' + ' | '.join(field_errors),
+                    extra_tags='cuestionarios_orales'
+                )
+            else:
+                messages.error(request, 'Por favor corrija los errores en el formulario', extra_tags='cuestionarios_orales')
     else:
         form = OralExamForm(user=request.user)
     

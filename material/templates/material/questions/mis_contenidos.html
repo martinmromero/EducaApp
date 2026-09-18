@@ -29,7 +29,7 @@
 
     <!-- Vigentes -->
     <h2 class="h4 mt-4">Vigentes</h2>
-    <p class="text-muted small mb-2">Seleccionar uno o más contenidos y usar "Borrar seleccionados" para eliminar sus archivos en conjunto (no exporta nada).</p>
+    <p class="text-muted small mb-2">Seleccionar uno o más contenidos y usar "Borrar seleccionados" para eliminar sus archivos.</p>
     <form method="post" action="{% url 'material:delete_contenido' %}" id="deleteFormVigentes">
         {% csrf_token %}
         <div class="table-responsive">

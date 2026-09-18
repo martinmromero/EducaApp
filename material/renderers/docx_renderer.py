@@ -558,7 +558,15 @@ def _fit_logo_size_for_docx(logo_stream=None, logo_path=None):
             image = PILImage.open(logo_path)
 
         original_width, original_height = image.size
-        image.close()
+        # OJO: NO cerrar `image` acá — Image.close() también cierra el
+        # BytesIO subyacente cuando se abrió desde un stream (no un path),
+        # y el mismo `logo_stream` se reutiliza más abajo para add_picture().
+        # Cerrarlo hacía fallar el seek(0) de la línea siguiente con
+        # "I/O operation on closed file", tanto en el try como en el except
+        # (que también intenta un seek) — la excepción se propagaba sin
+        # capturar hasta el except silencioso de _append_letterhead_table,
+        # así que el logo institucional nunca se insertaba en el DOCX (sí en
+        # el PDF, que no pasa por PIL/Image.close en este mismo camino).
         if not original_width or not original_height:
             return max_width_cm, max_height_cm, 'width'
 
@@ -575,6 +583,8 @@ def _fit_logo_size_for_docx(logo_stream=None, logo_path=None):
             return width_cm, height_cm, 'width'
         return width_cm, height_cm, 'height'
     except Exception:
-        if logo_stream is not None:
+        # Defensivo: si el stream ya se cerró por algún otro motivo, este
+        # seek no debe tapar el error real con uno nuevo sin capturar.
+        if logo_stream is not None and not logo_stream.closed:
             logo_stream.seek(0)
         return max_width_cm, max_height_cm, 'width'

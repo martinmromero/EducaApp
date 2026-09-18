@@ -1706,6 +1706,15 @@ async function startGeneration() {
     }, { once: true });
     bootstrap.Modal.getInstance(preflightModalEl).hide();
 
+    // Reinicia el conteo/backup de preguntas de la tanda anterior — sin
+    // esto, cancelar y volver a elegir páginas para generar de nuevo (sin
+    // haber guardado nada) seguía numerando a partir de donde había
+    // quedado la tanda descartada, y el modal de guardado terminaba
+    // ofreciendo guardar más preguntas de las que en verdad había
+    // (reportado en Modo Testing).
+    window.generatedQuestions = [];
+    clearGeneratedQuestionsBackup();
+
     const loadingEl = document.getElementById('questionsLoadingIndicator');
     document.getElementById('questionsContent').innerHTML = '';
     loadingEl.style.display = 'block';
@@ -2131,15 +2140,28 @@ function bloomBadge(nivel) {
 }
 
 function sourceReferenceHTML(q) {
+    // El nombre del documento va SIEMPRE primero — sin metadata de libro
+    // (ISBN/autor/editorial: todavía no se extrae de los documentos
+    // subidos, queda como mejora futura) es lo mínimo que identifica de
+    // dónde salió la pregunta. "Fuente: Página 8 (pág. 8)" no lo decía
+    // (reportado en Modo Testing). Cuando el título del capítulo es un
+    // fallback genérico tipo "Página N" (documento sin tabla de contenidos
+    // real), se muestra solo "pág. N" para no repetir "Página N" dos veces.
     const chapters = Array.isArray(q.source_chapters) ? q.source_chapters : [];
-    const parts = chapters.map(ch => {
-        const pages = Array.isArray(ch.pages) && ch.pages.length
-            ? ` (pág. ${ch.pages[0]}${ch.pages.length > 1 ? '–' + ch.pages[ch.pages.length - 1] : ''})`
+    const chapterParts = chapters.map(ch => {
+        const isGenericPageTitle = /^página\s+\d+/i.test(ch.title || '');
+        const pageRange = Array.isArray(ch.pages) && ch.pages.length
+            ? `${ch.pages[0]}${ch.pages.length > 1 ? '–' + ch.pages[ch.pages.length - 1] : ''}`
             : '';
-        return `${ch.title || ''}${pages}`;
+        if (isGenericPageTitle) {
+            return pageRange ? `pág. ${pageRange}` : (ch.title || '');
+        }
+        return `${ch.title || ''}${pageRange ? ` (pág. ${pageRange})` : ''}`;
     }).filter(Boolean).join('; ');
-    if (!parts) return '';
-    return `<div class="mt-2"><small class="text-muted"><i class="fas fa-book"></i> Fuente: ${parts}</small></div>`;
+
+    const label = [q.source_file || '', chapterParts].filter(Boolean).join(', ');
+    if (!label) return '';
+    return `<div class="mt-2"><small class="text-muted"><i class="fas fa-book"></i> Fuente: ${label}</small></div>`;
 }
 
 function questionBodyHTML(q) {

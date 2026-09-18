@@ -196,12 +196,14 @@
 
             <div class="mb-3">
               <label class="form-label fw-semibold">Materia(s)</label>
-              {{ form.subjects }}
-              <div class="form-text">Ctrl+clic para seleccionar varias.</div>
+              <input type="text" class="form-control form-control-sm mb-2" id="subjectsFilter" placeholder="Buscar materia...">
+              <div class="subjects-checklist">
+                {{ form.subjects }}
+              </div>
             </div>
 
             <div class="mb-3">
-              <label class="form-label fw-semibold">Tópico <span class="text-danger">*</span></label>
+              <label class="form-label fw-semibold">Tópico <small class="text-muted">(opcional)</small></label>
               <div class="d-flex gap-1 align-items-center">
                 {{ form.topic }}
                 <span id="topicSpinner" class="spinner-border spinner-border-sm text-secondary ms-1" style="display:none!important" role="status"></span>
@@ -268,7 +270,6 @@
   const optD          = document.getElementById('optD');
   const optJsonHidden = document.getElementById('id_options_json');
   const answerTitle   = document.getElementById('answerCardTitle');
-  const subjectsSel   = document.getElementById('id_subjects');
   const topicSel      = document.getElementById('id_topic');
   const subtopicSel   = document.getElementById('id_subtopic');
   const topicSpinner  = document.getElementById('topicSpinner');
@@ -305,29 +306,64 @@
     // Para otros tipos no tocamos options_json (puede estar vacío)
   }
 
-  // ── AJAX: cargar temas al cambiar materia ─────────────────────────────
-  async function loadTopics(subjectId, keepTopicId) {
+  // ── Materia(s): checkboxes (CheckboxSelectMultiple), no un <select> ────
+  // OJO: no existe ningún elemento con id="id_subjects" — Django renderiza
+  // este campo como una lista de <input type="checkbox" name="subjects">
+  // sueltos. El código anterior buscaba ese id inexistente, así que
+  // getSelectedSubjectId() devolvía siempre null y la cascada materia→tópico
+  // nunca corría (quedaba "pegada" a los tópicos precargados server-side del
+  // única materia original, sin actualizar si el tester tildaba/destildaba
+  // materias). Mismo criterio que upload_questions.html: leer todos los
+  // checkboxes tildados y combinar los tópicos de cada uno.
+  function getSelectedSubjectIds() {
+    return Array.from(document.querySelectorAll('input[name="subjects"]:checked')).map(cb => cb.value);
+  }
+  function getSelectedSubjectsMap() {
+    const map = {};
+    document.querySelectorAll('input[name="subjects"]:checked').forEach(cb => {
+      const label = cb.closest('label');
+      map[cb.value] = label ? label.textContent.trim() : cb.value;
+    });
+    return map;
+  }
+
+  // ── AJAX: cargar temas al cambiar materia(s) ───────────────────────────
+  async function loadTopics(subjectIds, keepTopicId) {
     if (!topicSel) return;
+    if (!subjectIds.length) {
+      topicSel.innerHTML = '<option value="">— Seleccionar una materia —</option>';
+      subtopicSel.innerHTML = '<option value="">— Sin sub-tópico —</option>';
+      return;
+    }
     topicSpinner.style.display = '';
     topicSel.disabled = true;
     subtopicSel.disabled = true;
     subtopicSel.innerHTML = '<option value="">— Sin sub-tópico —</option>';
 
+    const subjectsMap = getSelectedSubjectsMap();
+    const showSubjectHint = subjectIds.length > 1;
     try {
-      const url = '{% url "material:get_topics_by_subject" 0 %}'.replace('/0/', `/${subjectId}/`);
-      const resp = await fetch(url);
-      const data = await resp.json();
+      const results = await Promise.all(subjectIds.map(async (subjectId) => {
+        const url = '{% url "material:get_topics_by_subject" 0 %}'.replace('/0/', `/${subjectId}/`);
+        const resp = await fetch(url);
+        const data = await resp.json();
+        return { subjectId, topics: data.success ? data.topics : [] };
+      }));
+      const seenTopicIds = new Set();
       topicSel.innerHTML = '<option value="">— Sin tópico —</option>';
-      if (data.success) {
-        data.topics.forEach(t => {
+      results.forEach(({ subjectId, topics }) => {
+        const subjectName = subjectsMap[subjectId] || '';
+        topics.forEach(t => {
+          if (seenTopicIds.has(t.id)) return;
+          seenTopicIds.add(t.id);
           const opt = document.createElement('option');
           opt.value = t.id;
-          opt.textContent = t.name;
-          opt.dataset.subtopics = JSON.stringify(t.subtopics);
+          opt.textContent = showSubjectHint ? `${t.name} (${subjectName})` : t.name;
+          opt.dataset.subtopics = JSON.stringify(t.subtopics || []);
           if (keepTopicId && parseInt(keepTopicId) === t.id) opt.selected = true;
           topicSel.appendChild(opt);
         });
-      }
+      });
     } catch (e) {
       console.error('Error cargando temas:', e);
     } finally {
@@ -336,12 +372,6 @@
       subtopicSel.disabled = false;
       onTopicChange();
     }
-  }
-
-  function getSelectedSubjectId() {
-    if (!subjectsSel) return null;
-    const selected = [...subjectsSel.options].filter(o => o.selected);
-    return selected.length > 0 ? selected[0].value : null;
   }
 
   // ── Actualizar subtemas según tema seleccionado ───────────────────────
@@ -374,25 +404,34 @@
       subtopicSel.dataset.keepId = '{{ pregunta.subtopic_id|default:"" }}';
     }
 
-    // Cargar subtemas para el tema inicial (ya están en el HTML del form)
-    // Poblar el data-subtopics del tema seleccionado mediante AJAX silencioso
-    const subId = getSelectedSubjectId();
-    if (subId) {
-      loadTopics(subId, '{{ pregunta.topic_id|default:"" }}');
+    // Poblar el data-subtopics de cada tema mediante AJAX silencioso — los
+    // <option> de tópico ya están en el HTML (queryset server-side), pero
+    // sin data-subtopics no hay forma de armar el <select> de sub-tópico
+    // sin otro viaje al server.
+    const initialSubjectIds = getSelectedSubjectIds();
+    if (initialSubjectIds.length) {
+      loadTopics(initialSubjectIds, '{{ pregunta.topic_id|default:"" }}');
     }
 
-    // Eventos
-    if (subjectsSel) {
-      subjectsSel.addEventListener('change', () => {
-        const id = getSelectedSubjectId();
-        if (id) loadTopics(id, null);
-        else {
-          topicSel.innerHTML = '<option value="">— Seleccionar una materia —</option>';
-          subtopicSel.innerHTML = '<option value="">— Sin sub-tópico —</option>';
-        }
+    // Eventos: cualquier checkbox de materia tildado/destildado recalcula
+    // la lista combinada de tópicos.
+    document.querySelectorAll('input[name="subjects"]').forEach(cb => {
+      cb.addEventListener('change', () => loadTopics(getSelectedSubjectIds(), null));
+    });
+    if (topicSel) topicSel.addEventListener('change', onTopicChange);
+
+    // Filtro en vivo de materias — mismo criterio que upload_questions.html,
+    // reclamo de Modo Testing sobre el form "kilométrico" con muchas materias.
+    const subjectsFilter = document.getElementById('subjectsFilter');
+    if (subjectsFilter) {
+      subjectsFilter.addEventListener('input', () => {
+        const q = subjectsFilter.value.trim().toLowerCase();
+        document.querySelectorAll('.subjects-checklist > div > div').forEach(item => {
+          const label = item.textContent.trim().toLowerCase();
+          item.classList.toggle('subject-filtered-out', q.length > 0 && !label.includes(q));
+        });
       });
     }
-    if (topicSel) topicSel.addEventListener('change', onTopicChange);
 
     // Serializar opciones antes de submit
     document.getElementById('editarPreguntaForm')

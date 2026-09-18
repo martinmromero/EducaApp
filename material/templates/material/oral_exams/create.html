@@ -441,10 +441,30 @@ document.addEventListener('DOMContentLoaded', function() {
         ensureValidationPanelExists();
         
         if (totalStudents > 0 && numGroups > 0 && studentsPerGroup > 0) {
+            // "Máximo por grupo" (window.currentValidationInfo, cargado por
+            // showValidationInfo según sub-tópicos disponibles) es un límite
+            // APARTE del simple cálculo de capacidad de abajo — antes esta
+            // rama solo miraba que los cupos alcanzaran, así que una
+            // configuración con MÁS estudiantes por grupo de los que los
+            // sub-tópicos disponibles soportan sin repetir preguntas
+            // igual se mostraba en verde como "válida" (reportado en Modo
+            // Testing: mostraba "Máximo por grupo: 1" arriba y "2 grupos ×
+            // 4 estudiantes ✓" abajo, contradictorio).
+            var maxPerGroup = window.currentValidationInfo ? window.currentValidationInfo.max_students_per_group : null;
+            var exceedsSubtopicLimit = typeof maxPerGroup === 'number' && studentsPerGroup > maxPerGroup;
             if (calculated >= totalStudents && calculated <= totalStudents * 1.25) {
-                // Configuración válida (máximo 25% de espacios vacíos)
-                addValidationClass('is-valid');
-                showCalculationInfo(totalStudents, numGroups, studentsPerGroup, calculated);
+                if (exceedsSubtopicLimit) {
+                    addValidationClass('is-warning');
+                    showCalculationWarning(
+                        `${numGroups} grupos × ${studentsPerGroup} estudiantes alcanza en cantidad, pero con los ` +
+                        `sub-tópicos disponibles el máximo por grupo sin repetir preguntas es ${maxPerGroup}. ` +
+                        `Algunos estudiantes del mismo grupo van a recibir preguntas repetidas.`
+                    );
+                } else {
+                    // Configuración válida (máximo 25% de espacios vacíos)
+                    addValidationClass('is-valid');
+                    showCalculationInfo(totalStudents, numGroups, studentsPerGroup, calculated);
+                }
             } else if (calculated < totalStudents) {
                 // Configuración insuficiente
                 addValidationClass('is-invalid');

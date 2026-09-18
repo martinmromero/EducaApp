@@ -191,6 +191,39 @@ body.offcanvas-open .sidebar-toggle-external {
     margin-right: 10px;
 }
 
+/* Materias: CheckboxSelectMultiple en esta versión de Django renderiza un
+   <div id="id_subjects"> con un <div> por cada checkbox+label adentro (no
+   <ul>/<li>) — se convierte en una grilla de checks estilo Bootstrap con
+   scroll acotado, en vez de una lista sin límite que hace kilométrico el
+   resto del form (reportado en Modo Testing: el form de cargar/editar una
+   pregunta a mano mostraba TODAS las materias visibles sin ningún límite
+   de alto). Compartido entre upload_questions.html y editar_pregunta.html. */
+.subjects-checklist {
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    padding: .75rem 1rem;
+}
+.subjects-checklist > div {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: .35rem .75rem;
+}
+.subjects-checklist > div > div {
+    margin: 0;
+}
+.subjects-checklist label {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-weight: normal;
+    margin: 0;
+}
+.subjects-checklist > div > div.subject-filtered-out {
+    display: none;
+}
+
 /* Modo Testing — panel lateral derecho, mismo criterio que .sidebar/.main-content
    pero espejado: fixed a la derecha, colapsa deslizando fuera de la pantalla
    en vez de empujar contenido cuando no hace falta verlo. */

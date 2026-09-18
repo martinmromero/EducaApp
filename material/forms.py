@@ -92,8 +92,8 @@ class QuestionForm(forms.ModelForm):
     )
     topic = forms.ModelChoiceField(
         queryset=Topic.objects.none(),
-        required=True,
-        label="Tópico principal"
+        required=False,
+        label="Tópico principal (opcional)"
     )
     subtopic = forms.ModelChoiceField(
         queryset=Subtopic.objects.none(),
@@ -127,7 +127,17 @@ class QuestionForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.current_user = kwargs.pop('current_user', None)
         super().__init__(*args, **kwargs)
-        
+
+        # Antes listaba TODAS las materias no-seed del sitio entero (queryset
+        # de clase) — un docente con pocas materias propias se encontraba con
+        # el catálogo institucional completo de cualquier otra institución,
+        # haciendo el form "kilométrico" e inusable (reportado en Modo
+        # Testing). Se acota a las mismas materias visibles que el resto de
+        # la app (propias + compartidas + institucionales de su carrera).
+        if self.current_user:
+            from .content_visibility import get_visible_subjects
+            self.fields['subjects'].queryset = get_visible_subjects(self.current_user).order_by('name')
+
         self.fields['topic'].widget.attrs.update({'class': 'form-select'})
         self.fields['subtopic'].widget.attrs.update({'class': 'form-select'})
 
@@ -1040,9 +1050,20 @@ class OralExamForm(forms.ModelForm):
             subtopics_needed = effective_students_per_group * questions_per_student
 
             if subtopics_needed > total_subtopics:
-                suggested_groups = math.ceil(
-                    total_students / max(1, total_subtopics // questions_per_student)
-                )
+                max_students_per_group_by_subtopics = total_subtopics // questions_per_student
+                if max_students_per_group_by_subtopics < 1:
+                    # Ni siquiera UN estudiante puede tener {questions_per_student}
+                    # preguntas sin repetir con este pool de sub-tópicos — no hay
+                    # ninguna cantidad de grupos que lo arregle (sugerir "grupos de
+                    # 1 alumno" seguiría siendo imposible). El único camino real es
+                    # bajar preguntas/estudiante o sumar más sub-tópicos/preguntas.
+                    raise ValidationError(
+                        f'Con solo {total_subtopics} sub-tópico(s) disponible(s) no alcanza para '
+                        f'{questions_per_student} pregunta(s) por estudiante sin repetir, sin importar cuántos '
+                        f'grupos se armen. Bajar "preguntas por estudiante" a {total_subtopics} como máximo, '
+                        f'o agregar más sub-tópicos/preguntas a los tópicos elegidos.'
+                    )
+                suggested_groups = math.ceil(total_students / max_students_per_group_by_subtopics)
                 suggested_students_per_group = math.ceil(total_students / suggested_groups)
 
                 raise ValidationError(

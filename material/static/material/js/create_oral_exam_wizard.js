@@ -154,7 +154,17 @@ _onDomReady(function () {
                 }
                 var studentsPerGroup = Math.ceil(totalStudents / numGroups);
                 var info = data.info;
-                if (studentsPerGroup > info.max_students_per_group) {
+                if (info.max_students_per_group < 1) {
+                    // Ni con 1 solo alumno por grupo alcanzan los sub-temas — no
+                    // es un problema de "más grupos", ningún tamaño de grupo lo
+                    // arregla. Recomendar "0 alumnos por grupo" (como hacía antes)
+                    // no tiene sentido: un grupo necesita al menos 1.
+                    renderValidation(warningHtml(
+                        'Con solo ' + info.total_subtopics + ' sub-tema(s) disponible(s) no alcanza para ' +
+                        questionsPerStudent + ' pregunta(s) por alumno sin repetir, sin importar cuántos grupos se armen. ' +
+                        'Bajá "Preguntas por alumno" a ' + info.total_subtopics + ' como máximo, o agregá más sub-temas/preguntas.'
+                    ));
+                } else if (studentsPerGroup > info.max_students_per_group) {
                     renderValidation(warningHtml(
                         'Con ' + info.total_subtopics + ' sub-tema(s) disponible(s) y ' + questionsPerStudent + ' pregunta(s) por alumno, ' +
                         'el máximo recomendado es ' + info.max_students_per_group + ' alumno(s) por grupo — esta configuración da ' +

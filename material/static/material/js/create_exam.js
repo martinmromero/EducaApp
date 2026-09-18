@@ -112,6 +112,37 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Aviso en vivo bajo "Preguntas por tema": antes el único chequeo contra
+    // el pool real de preguntas pasaba en el servidor recién al generar la
+    // vista previa ("Se pidieron N pero solo se encontraron M") — reportado
+    // en Modo Testing como "la cantidad de preguntas no es valedero [contra
+    // lo que hay]". Usa el mismo <select id="id_questions"> que ya carga
+    // loadQuestionsBySelectedTopics(), sin pedir nada nuevo al servidor.
+    function updateQuestionsAvailabilityHint() {
+        var hint = document.getElementById('questionsAvailabilityHint');
+        var questionsSelect = document.getElementById('id_questions');
+        var qpvInput = document.getElementById('questions_per_version');
+        if (!hint || !questionsSelect) return;
+
+        var available = questionsSelect.options.length;
+        if (!getSelectedTopicIds().length) {
+            hint.textContent = '';
+            hint.className = 'form-text';
+            return;
+        }
+        var requested = parseInt(qpvInput && qpvInput.value, 10);
+        if (requested && requested > available) {
+            hint.textContent = 'Ojo: pediste ' + requested + ' y hay ' + available + ' preguntas disponibles para los tópicos elegidos.';
+            hint.className = 'form-text text-warning';
+        } else {
+            hint.textContent = available + ' pregunta' + (available === 1 ? '' : 's') + ' disponible' + (available === 1 ? '' : 's') + ' para los tópicos elegidos.';
+            hint.className = 'form-text text-muted';
+        }
+    }
+
+    var qpvInputEl = document.getElementById('questions_per_version');
+    if (qpvInputEl) qpvInputEl.addEventListener('input', updateQuestionsAvailabilityHint);
+
     function loadQuestionsBySelectedTopics() {
         var selectedTopics = getSelectedTopicIds();
         var questionsSelect = document.getElementById('id_questions');
@@ -121,6 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!selectedTopics.length) {
             questionsSelect.innerHTML = '';
             renderQuestionsCheckboxes();
+            updateQuestionsAvailabilityHint();
             return;
         }
 
@@ -167,6 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     questionsSelect.appendChild(option);
                 });
                 renderQuestionsCheckboxes();
+                updateQuestionsAvailabilityHint();
                 window.EXAM_PREFILL_QUESTIONS = null;
             })
             .catch(function(err) {

@@ -87,7 +87,7 @@
       element: '#tourMenuContenidos',
       popover: {
         title: 'Contenidos',
-        description: 'Biblioteca de todo lo que se subió: apuntes, PDFs y materiales de clase, ya se hayan procesado con IA o no.',
+        description: 'Biblioteca de todo lo que se subió: apuntes, PDFs y materiales de clase.',
         side: 'right',
       },
       onHighlightStarted: () => expandMenu('tourMenuContenidos'),
