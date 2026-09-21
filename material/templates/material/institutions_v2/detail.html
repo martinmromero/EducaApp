@@ -11,6 +11,10 @@
                 {% if not institution.es_catalogo_institucional %}
                     <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
                 {% endif %}
+            </h2>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="btn-group">
                 <!-- institution-favorite-star, NO favorite-star: ese nombre lo usa
                      static/js/favorites.js (sistema genérico de Favorite +
                      /favoritos/toggle/, para exam/examtemplate/subject/batch/oral) —
@@ -18,30 +22,26 @@
                      /instituciones-v2/favorito/), reusar la misma clase hacía que
                      favorites.js la reinicializara e ignorara el estado real. -->
                 <a href="{% url 'material:toggle_favorite_institution' institution.pk %}?next={{ request.get_full_path|urlencode }}"
-                   class="btn btn-sm btn-link p-0 px-1 align-middle institution-favorite-star{% if is_favorite %} text-warning{% endif %}"
+                   class="btn {% if is_favorite %}btn-warning{% else %}btn-outline-warning{% endif %} institution-favorite-star"
                    title="{% if is_favorite %}Quitar de favoritos{% else %}Agregar a favoritos{% endif %}">
-                    <i class="{% if is_favorite %}fas{% else %}far{% endif %} fa-star"></i>
+                    <i class="{% if is_favorite %}fas{% else %}far{% endif %} fa-star me-1"></i>Favorito
                 </a>
-            </h2>
-        </div>
-        <div class="col-md-4 text-end">
-            {% if is_admin %}
-            <div class="btn-group">
+                {% if is_admin %}
                 <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-outline-primary">
                     <i class="bi bi-pencil me-1"></i>Editar
                 </a>
                 <a href="{% url 'material:delete_institution_v2' institution.pk %}" class="btn btn-outline-danger">
                     <i class="bi bi-trash me-1"></i>Eliminar
                 </a>
+                {% elif institution.created_by_id == user.id and not institution.es_catalogo_institucional %}
+                <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-outline-primary">
+                    <i class="bi bi-pencil me-1"></i>Editar
+                </a>
+                <a href="{% url 'material:eliminar_espacio_personal' 'institucion' institution.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-outline-danger">
+                    <i class="bi bi-trash me-1"></i>Borrar del espacio personal
+                </a>
+                {% endif %}
             </div>
-            {% elif institution.created_by_id == user.id and not institution.es_catalogo_institucional %}
-            <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-outline-primary">
-                <i class="bi bi-pencil me-1"></i>Editar
-            </a>
-            <a href="{% url 'material:eliminar_espacio_personal' 'institucion' institution.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-outline-danger">
-                <i class="bi bi-trash me-1"></i>Borrar del espacio personal
-            </a>
-            {% endif %}
         </div>
     </div>
 
@@ -111,7 +111,7 @@
                                     {% if faculty.is_active %}Activa{% else %}Inactiva{% endif %}
                                 </span>
                                 {% if is_admin or faculty.created_by_id == user.id and not faculty.es_catalogo_institucional %}
-                                <a href="{% url 'material:edit_faculty_v2' institution.pk faculty.pk %}" class="btn btn-sm btn-outline-warning" title="Editar facultad">
+                                <a href="{% url 'material:edit_faculty_v2' institution.pk faculty.pk %}" class="btn btn-sm btn-outline-success" title="Editar facultad">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 {% endif %}

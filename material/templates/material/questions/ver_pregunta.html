@@ -77,46 +77,32 @@
     <!-- ── Columna derecha ────────────────────────────────────── -->
     <div class="col-lg-4">
 
-      <!-- Card: Dificultad + Bloom -->
+      <!-- Un solo card con las 3 secciones (antes 3 cards separados con su
+           propio header cada uno) — con una pregunta corta sin opciones,
+           esa columna quedaba mucho más alta que la de la izquierda y
+           dejaba una franja enorme vacía debajo del texto principal. -->
       <div class="card shadow-sm mb-4">
-        <div class="card-header bg-warning text-dark d-flex align-items-center gap-2">
-          <i class="fas fa-sliders-h"></i>
-          <span class="fw-semibold">Clasificación</span>
-        </div>
         <div class="card-body">
-          <p class="mb-2"><span class="fw-semibold">Dificultad:</span> {{ pregunta.difficulty }}/5</p>
+          <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="fas fa-sliders-h me-1"></i>Clasificación</h6>
+          <p class="mb-1"><span class="fw-semibold">Dificultad:</span> {{ pregunta.difficulty }}/5</p>
           <p class="mb-0"><span class="fw-semibold">Nivel de Bloom:</span> {{ pregunta.get_bloom_level_display|default:"—" }}</p>
-        </div>
-      </div>
 
-      <!-- Card: Materia, Tema, Subtema -->
-      <div class="card shadow-sm mb-4">
-        <div class="card-header d-flex align-items-center gap-2">
-          <i class="fas fa-book text-primary"></i>
-          <span class="fw-semibold">Materia y tópico</span>
-        </div>
-        <div class="card-body">
-          <p class="mb-2"><span class="fw-semibold">Materia(s):</span>
+          <hr>
+          <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="fas fa-book me-1"></i>Materia y tópico</h6>
+          <p class="mb-1"><span class="fw-semibold">Materia(s):</span>
             {% for materia in pregunta.subjects.all %}{{ materia.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
           </p>
-          <p class="mb-2"><span class="fw-semibold">Tópico:</span> {{ pregunta.topic|default:"—" }}</p>
+          <p class="mb-1"><span class="fw-semibold">Tópico:</span> {{ pregunta.topic|default:"—" }}</p>
           <p class="mb-0"><span class="fw-semibold">Sub-tópico:</span> {{ pregunta.subtopic|default:"—" }}</p>
-        </div>
-      </div>
 
-      <!-- Card: Fuente -->
-      <div class="card shadow-sm mb-4">
-        <div class="card-header d-flex align-items-center gap-2">
-          <i class="fas fa-file-alt text-secondary"></i>
-          <span class="fw-semibold">Fuente del documento</span>
-        </div>
-        <div class="card-body">
+          <hr>
+          <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="fas fa-file-alt me-1"></i>Fuente del documento</h6>
           {% if pregunta.bibliographic_reference %}
-            <p class="mb-2"><span class="fw-semibold">Referencia:</span> {{ pregunta.bibliographic_reference }}</p>
+            <p class="mb-1"><span class="fw-semibold">Referencia:</span> {{ pregunta.bibliographic_reference }}</p>
           {% else %}
-            <p class="mb-2 text-muted">Sin referencia bibliográfica cargada.</p>
+            <p class="mb-1 text-muted">Sin referencia bibliográfica cargada.</p>
           {% endif %}
-          <p class="mb-2"><span class="fw-semibold">Contenido:</span> {{ pregunta.contenido.title|default:"—" }}</p>
+          <p class="mb-1"><span class="fw-semibold">Contenido:</span> {{ pregunta.contenido.title|default:"—" }}</p>
           <p class="mb-0"><span class="fw-semibold">Página de referencia:</span> {{ pregunta.source_page|default:"—" }}</p>
         </div>
       </div>
@@ -124,7 +110,7 @@
       <!-- Botones de acción -->
       <div class="d-grid gap-2">
         {% if pregunta.user_id == request.user.id %}
-        <a href="{% url 'material:editar_pregunta' pregunta.pk %}" class="btn btn-warning">
+        <a href="{% url 'material:editar_pregunta' pregunta.pk %}" class="btn btn-success">
           <i class="fas fa-edit me-2"></i>Editar
         </a>
         {% else %}

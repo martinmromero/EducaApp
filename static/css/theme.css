@@ -45,3 +45,31 @@
   --edu-accent-soft-border: rgba(13, 110, 253, 0.35);
   --edu-accent-soft-text: #6ea8fe;
 }
+
+/*
+ * Transición gradual claro/oscuro (técnica tomada de wiki.lineageos.org/faq):
+ * como los colores del sitio ya salen de variables --bs-* / --edu-* que
+ * Bootstrap y este archivo redefinen bajo [data-bs-theme="dark"], alcanza con
+ * declarar una transition en las propiedades que consumen esas variables
+ * para que el cambio de tema se anime solo al tocar el toggle, sin JS.
+ *
+ * Se aplica con el selector universal para cubrir cards, sidebar, tablas,
+ * modales, etc. sin tener que listarlos uno por uno. Los componentes de
+ * Bootstrap que ya traen su propia transition más corta (.btn, .form-control,
+ * etc.) ganan por especificidad y no se ven afectados: siguen respondiendo
+ * rápido al hover/focus, solo el cambio de tema queda gradual.
+ */
+:root {
+  --edu-theme-transition-speed: 0.5s;
+}
+*, *::before, *::after {
+  transition: background-color var(--edu-theme-transition-speed) ease,
+              color var(--edu-theme-transition-speed) ease,
+              border-color var(--edu-theme-transition-speed) ease,
+              box-shadow var(--edu-theme-transition-speed) ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+  }
+}

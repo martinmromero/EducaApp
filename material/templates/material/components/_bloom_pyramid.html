@@ -13,6 +13,20 @@ Geometría SVG (viewBox 300×490):
   - Offset superior: y=5 → 5 × 0.549 = 2.7 px → padding-top: 3px en las filas
   → Garantiza alineación exacta entre cada franja del SVG y su fila de texto.
 {% endcomment %}
+<style>
+  /* En mobile, la fila SVG+texto (SVG fijo de 263px + columna de texto) no
+     entraba en el ancho disponible de una tarjeta a pantalla completa:
+     el texto quedaba apretado a ~60-80px y terminaba invisible (reportado
+     en Modo Testing dos veces: paso 67 pedía sacar "HOTS/LOTS" -- nunca se
+     hizo -- y que en mobile "no muestra ningún texto"). Se apila la
+     pirámide arriba de las filas en vez de ir lado a lado por debajo del
+     breakpoint, así el texto tiene el ancho completo de la tarjeta. */
+  .bloom-pyramid-row { display:flex; gap:12px; align-items:flex-start; }
+  @media (max-width: 480px) {
+    .bloom-pyramid-row { flex-direction:column; align-items:center; }
+    .bloom-pyramid-row > .bloom-pyramid-rows { width:100%; padding-top:8px !important; }
+  }
+</style>
 <div style="font-family:Arial,sans-serif;max-width:680px">
 
   <p style="text-align:center;font-weight:700;font-size:1rem;margin:0 0 2px">
@@ -22,7 +36,7 @@ Geometría SVG (viewBox 300×490):
     {% if pyramid_title %}{{ pyramid_title }}{% else %}Anderson &amp; Krathwohl, 2001{% endif %}
   </p>
 
-  <div style="display:flex;gap:12px;align-items:flex-start">
+  <div class="bloom-pyramid-row">
 
     <!-- ═══ SVG PIRÁMIDE — sin texto interior ═══ -->
     <!--
@@ -53,9 +67,6 @@ Geometría SVG (viewBox 300×490):
         <polygon points="40,405 440,405 480,485 0,485"
                  fill="#e74c3c" stroke="white" stroke-width="2.5"/>
       </svg>
-      <div style="font-size:9px;color:var(--bs-secondary-color);margin-top:3px;line-height:1.5">
-        ▲ HOTS<br>▼ LOTS
-      </div>
     </div>
 
     <!-- ═══ FILAS ALINEADAS CON LAS BANDAS ═══ -->
@@ -63,21 +74,21 @@ Geometría SVG (viewBox 300×490):
       padding-top:3px = offset del primer vértice (y=5 → 2.7px renderizados).
       Cada fila: height:44px con box-sizing:border-box.
     -->
-    <div style="flex:1;min-width:0;padding-top:3px">
+    <div class="bloom-pyramid-rows" style="flex:1;min-width:0;padding-top:3px">
 
       {% if bloom_display %}
 
         {% for item in bloom_display %}
         <div style="height:44px;display:flex;align-items:center;gap:8px;
-                    border-bottom:1px solid var(--bs-border-color);box-sizing:border-box">
+                    border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
           <span style="background:{{ item.color }};color:white;border-radius:50%;
                        width:22px;height:22px;display:inline-flex;align-items:center;
                        justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">
             {{ item.level }}
           </span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:{{ item.color }};font-size:13px;line-height:1.2">{{ item.name }}</div>
-            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;overflow:hidden;text-overflow:ellipsis">{{ item.verbs }}</div>
+            <div style="font-weight:700;color:{{ item.color }};font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ item.name }}</div>
+            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ item.verbs }}</div>
           </div>
           <span style="font-weight:700;font-size:15px;color:{{ item.color }};flex-shrink:0;min-width:24px;text-align:right">{{ item.count }}</span>
         </div>
@@ -86,46 +97,46 @@ Geometría SVG (viewBox 300×490):
       {% else %}
 
         <!-- Modo referencia — sin conteos, 6 filas hardcodeadas -->
-        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box">
+        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
           <span style="background:#9b59b6;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">6</span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#9b59b6;font-size:13px;line-height:1.2">Crear</div>
-            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4">diseñar, construir, planificar, producir</div>
+            <div style="font-weight:700;color:#9b59b6;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Crear</div>
+            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">diseñar, construir, planificar, producir</div>
           </div>
         </div>
-        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box">
+        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
           <span style="background:#3498db;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">5</span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#3498db;font-size:13px;line-height:1.2">Evaluar</div>
-            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4">juzgar, criticar, valorar, argumentar</div>
+            <div style="font-weight:700;color:#3498db;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Evaluar</div>
+            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">juzgar, criticar, valorar, argumentar</div>
           </div>
         </div>
-        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box">
+        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
           <span style="background:#27ae60;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">4</span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#27ae60;font-size:13px;line-height:1.2">Analizar</div>
-            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4">diferenciar, comparar, organizar, atribuir</div>
+            <div style="font-weight:700;color:#27ae60;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Analizar</div>
+            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">diferenciar, comparar, organizar, atribuir</div>
           </div>
         </div>
-        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box">
+        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
           <span style="background:#f39c12;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">3</span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#f39c12;font-size:13px;line-height:1.2">Aplicar</div>
-            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4">ejecutar, implementar, usar, resolver</div>
+            <div style="font-weight:700;color:#f39c12;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Aplicar</div>
+            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ejecutar, implementar, usar, resolver</div>
           </div>
         </div>
-        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box">
+        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
           <span style="background:#e67e22;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">2</span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#e67e22;font-size:13px;line-height:1.2">Comprender</div>
-            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4">interpretar, ejemplificar, resumir, inferir</div>
+            <div style="font-weight:700;color:#e67e22;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Comprender</div>
+            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">interpretar, ejemplificar, resumir, inferir</div>
           </div>
         </div>
-        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box">
+        <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
           <span style="background:#e74c3c;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">1</span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#e74c3c;font-size:13px;line-height:1.2">Recordar</div>
-            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4">reconocer, listar, identificar, nombrar</div>
+            <div style="font-weight:700;color:#e74c3c;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Recordar</div>
+            <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">reconocer, listar, identificar, nombrar</div>
           </div>
         </div>
 

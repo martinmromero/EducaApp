@@ -39,7 +39,7 @@
                     <a href="?personal={% if only_personal %}0{% else %}1{% endif %}{% if personal_toggle_querystring %}&{{ personal_toggle_querystring }}{% endif %}"
                        class="btn btn-sm list-toolbar-btn {% if only_personal %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
                        title="Mostrar solo lo que está en el espacio personal propio, todavía no sumado al catálogo institucional">
-                        <i class="bi bi-person-badge"></i> <span class="d-none d-sm-inline">Personal</span>
+                        <i class="fas fa-id-badge"></i> <span class="d-none d-sm-inline">Personal</span>
                     </a>
                     <a href="?favorites={% if favorite_only %}off{% else %}on{% endif %}"
                        class="btn btn-sm list-toolbar-btn {% if favorite_only %}btn-warning{% else %}btn-outline-secondary{% endif %}"
@@ -125,7 +125,7 @@
                                     <td class="align-middle d-none d-md-table-cell">
                                         <div class="btn-group btn-group-sm" role="group">
                                             <a href="{% url 'material:toggle_favorite_institution' institution.pk %}?next={{ request.get_full_path|urlencode }}"
-                                               class="btn btn-sm btn-link p-0 px-1 institution-favorite-star{% if institution.pk in favorite_ids %} text-warning{% endif %}"
+                                               class="btn btn-sm {% if institution.pk in favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} institution-favorite-star"
                                                title="{% if institution.pk in favorite_ids %}Quitar de favoritos{% else %}Agregar a favoritos{% endif %}">
                                                 <i class="{% if institution.pk in favorite_ids %}fas{% else %}far{% endif %} fa-star"></i>
                                             </a>
@@ -133,14 +133,14 @@
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             {% if is_admin %}
-                                            <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-sm btn-warning" title="Editar institución">
+                                            <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-sm btn-success" title="Editar institución">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                             <a href="{% url 'material:delete_institution_v2' institution.pk %}" class="btn btn-sm btn-danger" title="Eliminar institución">
                                                 <i class="fas fa-trash"></i>
                                             </a>
                                             {% elif institution.created_by_id == user.id and not institution.es_catalogo_institucional %}
-                                            <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-sm btn-warning" title="Editar">
+                                            <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-sm btn-success" title="Editar">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                             <a href="{% url 'material:eliminar_espacio_personal' 'institucion' institution.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-danger" title="Borrar del espacio personal">
@@ -166,7 +166,7 @@
                                                 </a>
                                                 <div class="btn-group btn-group-sm" role="group">
                                                     <a href="{% url 'material:toggle_favorite_institution' institution.pk %}?next={{ request.get_full_path|urlencode }}"
-                                                       class="btn btn-sm btn-link p-0 px-1 institution-favorite-star{% if institution.pk in favorite_ids %} text-warning{% endif %}"
+                                                       class="btn btn-sm {% if institution.pk in favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} institution-favorite-star"
                                                        title="{% if institution.pk in favorite_ids %}Quitar de favoritos{% else %}Agregar a favoritos{% endif %}">
                                                         <i class="{% if institution.pk in favorite_ids %}fas{% else %}far{% endif %} fa-star"></i>
                                                     </a>
@@ -174,14 +174,14 @@
                                                         <i class="fas fa-eye"></i>
                                                     </a>
                                                     {% if is_admin %}
-                                                    <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-sm btn-warning" title="Editar institución">
+                                                    <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-sm btn-success" title="Editar institución">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
                                                     <a href="{% url 'material:delete_institution_v2' institution.pk %}" class="btn btn-sm btn-danger" title="Eliminar institución">
                                                         <i class="fas fa-trash"></i>
                                                     </a>
                                                     {% elif institution.created_by_id == user.id and not institution.es_catalogo_institucional %}
-                                                    <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-sm btn-warning" title="Editar">
+                                                    <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-sm btn-success" title="Editar">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
                                                     <a href="{% url 'material:eliminar_espacio_personal' 'institucion' institution.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-danger" title="Borrar del espacio personal">

@@ -551,6 +551,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const extra = {};
             if (chip.nivel === 'facultad') extra.institucion_id = institucionSelect.value;
             if (chip.nivel === 'carrera') extra.facultad_id = facultadSelect.value;
+            if (chip.nivel === 'materia') extra.carrera_id = carreraSelect.value;
             if (chipEsNueva(chips.institucion) && chip.nivel === 'facultad') {
                 // La institución todavía no existe: ninguna facultad cargada
                 // puede pertenecerle — no tiene sentido buscar coincidencias.

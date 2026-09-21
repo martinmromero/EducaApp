@@ -55,7 +55,6 @@
                         <thead>
                             <tr>
                                 <th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar plantillas para eliminarlas en conjunto"></th>
-                                <th style="width:40px;"></th>
                                 <th>Nombre</th>
                                 <th id="templateColInstitution">Institución</th>
                                 <th>Facultad</th>
@@ -72,11 +71,6 @@
                                 <td class="rt-card-select">
                                     <input type="checkbox" name="template_ids" value="{{ template.id }}" title="Seleccionar para eliminar en conjunto">
                                 </td>
-                                <td class="rt-card-badge">
-                                    <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
-                                            data-model="examtemplate" data-id="{{ template.id }}"
-                                            data-active="{% if template.id in favorite_ids %}1{% else %}0{% endif %}"></button>
-                                </td>
                                 <td class="rt-card-title" data-label="Nombre">{{ template.name|default:template }}</td>
                                 <td data-label="Institución">{% if template.institution_name_snapshot %}{{ template.institution_name_snapshot }}{% else %}{{ template.institution.name|default:"-" }}{% endif %}</td>
                                 <td data-label="Facultad">{% if template.faculty_name_snapshot %}{{ template.faculty_name_snapshot }}{% else %}{{ template.faculty.name|default:"-" }}{% endif %}</td>
@@ -92,16 +86,20 @@
                                 <td data-label="Año">{{ template.year }}</td>
                                 <td data-label="Acciones">
                                     <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm {% if template.id in favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} favorite-star"
+                                                data-model="examtemplate" data-id="{{ template.id }}"
+                                                data-active="{% if template.id in favorite_ids %}1{% else %}0{% endif %}"
+                                                title="Marcar la plantilla como favorita"></button>
                                         <a href="{% url 'material:view_exam_template' template.id %}"
                                            class="btn btn-sm btn-info" title="Ver plantilla" target="_blank">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                         <a href="{% url 'material:edit_exam_template' template.id %}"
-                                           class="btn btn-sm btn-warning" title="Editar plantilla">
+                                           class="btn btn-sm btn-success" title="Editar plantilla">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         <a href="{% url 'material:create_exam' %}?plantilla_id={{ template.id }}"
-                                           class="btn btn-sm btn-success" title="Crear examen con esta plantilla">
+                                           class="btn btn-sm btn-primary" title="Crear examen con esta plantilla">
                                             <i class="fas fa-plus"></i>
                                         </a>
                                         <button type="submit" form="deleteRowForm_{{ template.id }}"
@@ -113,7 +111,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="10" class="text-center py-4">
+                                <td colspan="9" class="text-center py-4">
                                     <div class="alert alert-info mb-0">
                                         No hay plantillas guardadas.
                                         <a href="{% url 'material:create_exam_template' %}" class="alert-link">

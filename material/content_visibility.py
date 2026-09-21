@@ -9,10 +9,10 @@ una relación permanente que el propio usuario configuró en "Mis grupos").
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 
 from .models import (
-    Career, ContentShare, ExamTemplate, FacultyV2, FormatoImpresion,
+    Career, ContentShare, ExamTemplate, Favorite, FacultyV2, FormatoImpresion,
     InstitutionV2, Profile, Question, Rubric, Subject,
 )
 
@@ -51,6 +51,49 @@ def get_visible_subjects(user):
     return Subject.objects.filter(is_seed_demo=False).filter(
         Q(es_catalogo_institucional=True) | Q(created_by=user)
     )
+
+
+def order_subjects_by_relevance(user, subjects_qs):
+    """Reordena una queryset de Subject para que lo más relevante para ESTE
+    usuario aparezca primero — favoritas, después las que ya tiene con
+    preguntas propias cargadas, y recién después el resto por orden
+    alfabético. Pensado para checklists largos de materias (editar
+    pregunta, cargar pregunta a mano — reportado en Modo Testing: "mostrar
+    cientos de materias posibles no sirve") donde poder buscar por texto no
+    alcanza si además no se sabe por dónde arrancar. Reusable en cualquier
+    pantalla con el mismo problema: no asume nada del widget (checklist,
+    dropdown, lo que sea), solo reordena la queryset — el HTML sigue
+    saliendo en ese mismo orden porque los widgets de selección iteran la
+    queryset tal cual."""
+    subject_ct = ContentType.objects.get_for_model(Subject)
+    is_favorite = Exists(
+        Favorite.objects.filter(user=user, content_type=subject_ct, object_id=OuterRef('pk'))
+    )
+    has_content = Exists(
+        Question.objects.filter(user=user, subjects=OuterRef('pk'))
+    )
+    return subjects_qs.annotate(
+        _is_favorite=is_favorite, _has_content=has_content,
+    ).order_by('-_is_favorite', '-_has_content', 'name')
+
+
+def count_relevant_subjects(user, subjects_qs):
+    """Cuántas de `subjects_qs` son "de este usuario" en el mismo sentido
+    que `order_subjects_by_relevance` (favoritas o con preguntas propias
+    cargadas) — pensado para que el frontend sepa dónde termina de verdad
+    lo relevante, en vez de cortar en una posición fija arbitraria (mostrar
+    siempre top-8 aunque solo 2 sean relevantes de verdad no es mejor que
+    mostrar todo)."""
+    subject_ct = ContentType.objects.get_for_model(Subject)
+    is_favorite = Exists(
+        Favorite.objects.filter(user=user, content_type=subject_ct, object_id=OuterRef('pk'))
+    )
+    has_content = Exists(
+        Question.objects.filter(user=user, subjects=OuterRef('pk'))
+    )
+    return subjects_qs.annotate(
+        _is_favorite=is_favorite, _has_content=has_content,
+    ).filter(Q(_is_favorite=True) | Q(_has_content=True)).count()
 
 
 def get_visible_questions(user, subject=None, include_seed=False):

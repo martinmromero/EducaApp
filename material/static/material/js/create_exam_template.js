@@ -39,8 +39,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const institutionSelect = document.getElementById('id_institution');
     const facultySelect = document.getElementById('id_faculty');
     const campusSelect = document.getElementById('id_campus');
-    const previewContainer = document.getElementById('previewContainer');
-    const previewContent = document.getElementById('previewContent');
 
     // =============================================
     // SECCIÓN 2: CARGA DE DEPENDIENTES (FACULTADES/CAMPUS)
@@ -305,74 +303,8 @@ window.EducaAppLoadTemplateDependents = loadDependents;
 });
 
 // =============================================
-// SECCIÓN 6: FUNCIONES DE PREVIEW MEJORADA
+// SECCIÓN 6: FUNCIONES DE PREVIEW
 // =============================================
-/**
- * Función para previsualizar la plantilla de examen en nueva ventana
- */
- // =============================================
-    // SECCIÓN 6: FUNCIONES DE PREVIEW MEJORADA
-    // =============================================
-// create_exam_template.js
-// REEMPLAZA LA FUNCIÓN COMPLETA POR ESTA VERSIÓN:
-/* function setupPreviewButton() {
-    const previewBtn = document.getElementById('previewBtn');
-    if (!previewBtn) return;
-
-    previewBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        
-        // Validación rápida
-        const examMode = document.getElementById('id_exam_mode').value;
-        if (!examMode) {
-            alert('Seleccione la modalidad del examen');
-            return;
-        }
-
-        // Indicador de carga
-        const originalText = previewBtn.innerHTML;
-        previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
-        previewBtn.disabled = true;
-
-        // Preparar datos
-        const form = document.getElementById('examTemplateForm');
-        const formData = new FormData(form);
-
-        // Enviar datos
-        fetch('/exam-templates/preview/', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            }
-        })
-        .then(response => {
-            previewBtn.innerHTML = originalText;
-            previewBtn.disabled = false;
-            
-            if (!response.ok) throw new Error('Error del servidor');
-            return response.text();
-        })
-        .then(html => {
-            document.getElementById('previewContent').innerHTML = html;
-            document.getElementById('previewContainer').style.display = 'block';
-        })
-        .catch(error => {
-            console.error('Preview error:', error);
-            alert('Error al generar previsualización');
-        });
-    });
-}
-
-// Agregar al final del DOMContentLoaded:
-document.addEventListener('DOMContentLoaded', function() {
-    // ... (todo tu código existente) ...
-    setupPreviewButton();  // <-- Esta línea nueva
-}); */
-
-    // toda la funcion siguiente si se reemplazó OK con la de arriba function setupPreviewButton() , borrarla
-
-
 
 // =============================================
 // SECCIÓN 7: CARGA DE LEARNING OUTCOMES (CHECKLIST)
@@ -479,14 +411,12 @@ function setupLearningOutcomesChecklist() {
 
 function previewExamTemplate() {
     const form = document.getElementById('examTemplateForm');
-    const previewContainer = document.getElementById('previewContainer');
-    const previewContent = document.getElementById('previewContent');
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
     // Validación básica
-    if (!form.elements['institution'].value || 
-        !form.elements['faculty'].value || 
-        !form.elements['career'].value || 
+    if (!form.elements['institution'].value ||
+        !form.elements['faculty'].value ||
+        !form.elements['career'].value ||
         !form.elements['subject'].value) {
         alert('Complete los campos requeridos');
         return;
@@ -510,46 +440,55 @@ function previewExamTemplate() {
     const formData = new FormData(form);
     formData.set('learning_outcomes', selectedOutcomes);
     formData.set('rubrics', selectedRubrics);
+    formData.set('csrfmiddlewaretoken', csrfToken);
 
-    // Mostrar loading
+    // La previsualización se abre en una PESTAÑA NUEVA de verdad (POST real
+    // hacia una ventana con nombre único, abierta explícitamente con
+    // window.open ANTES de armar el <form> -- no con fetch()+iframe, esa
+    // versión anterior arreglaba zoom/dark-mode (documento aislado) pero
+    // "Volver" ahí adentro navegaba el iframe a la pantalla completa de
+    // /exam-templates/ apretada en una caja chica (reportado: "se rompe").
+    // target="_blank" sobre el <form> solo (sin window.open primero) puede
+    // degradar a navegar la MISMA pestaña si el navegador no lo reconoce
+    // como gesto directo del usuario -- window.open() de entrada, todavía
+    // dentro del mismo click, es la forma confiable de garantizar pestaña
+    // nueva de verdad. Con una pestaña real, ESTA pestaña con el form
+    // nunca se toca -- nada que perder ni que reconstruir al volver,
+    // "Volver" en la preview solo cierra esa pestaña (ver base_exam_preview.html).
+    const windowName = 'examTemplatePreview_' + Date.now();
+    const previewWindow = window.open('', windowName);
+    if (!previewWindow) {
+        alert('El navegador bloqueó la ventana de previsualización. Habilitá las ventanas emergentes para este sitio e intentá de nuevo.');
+        return;
+    }
+
+    const tempForm = document.createElement('form');
+    tempForm.method = 'POST';
+    tempForm.action = '/exam-templates/preview/';
+    tempForm.target = windowName;
+    tempForm.style.display = 'none';
+    for (const [key, value] of formData.entries()) {
+        if (value instanceof File) continue; // no hay campos de archivo en este form, pero por las dudas
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        tempForm.appendChild(input);
+    }
+    document.body.appendChild(tempForm);
+    tempForm.submit();
+    document.body.removeChild(tempForm);
+
+    // Feedback breve en el botón (la pestaña nueva abre casi al instante,
+    // no hay una promesa que esperar como con fetch).
     const btn = document.querySelector('button[onclick="previewExamTemplate()"]');
     const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+    btn.innerHTML = '<i class="fas fa-check"></i> Abierto en pestaña nueva';
     btn.disabled = true;
-
-    // Limpiar preview anterior
-    previewContent.innerHTML = '';
-    previewContainer.style.display = 'none';
-
-    fetch('/exam-templates/preview/', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRFToken': csrfToken
-        }
-    })
-    .then(response => {
-        if (!response.ok) throw new Error('Error al generar preview');
-        return response.text();
-    })
-    .then(html => {
-        previewContent.innerHTML = html;
-        previewContainer.style.display = 'block';
-        previewContainer.scrollIntoView({ behavior: 'smooth' });
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        previewContent.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-triangle"></i> 
-                Error al generar previsualización: ${error.message}
-            </div>`;
-        previewContainer.style.display = 'block';
-    })
-    .finally(() => {
+    setTimeout(() => {
         btn.innerHTML = originalText;
         btn.disabled = false;
-    });
+    }, 1500);
 }
 
 // Inicialización cuando el DOM esté listo

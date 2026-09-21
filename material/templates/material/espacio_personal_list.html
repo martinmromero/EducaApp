@@ -1,6 +1,6 @@
 {% extends 'material/base.html' %}
 {% block title %}Espacio personal - EducaApp{% endblock %}
-{% block page_title %}<i class="bi bi-person-badge me-2"></i>Espacio personal{% endblock %}
+{% block page_title %}<i class="fas fa-id-badge me-2"></i>Espacio personal{% endblock %}
 
 {% block content %}
 {% url 'material:espacio_personal_list' as espacio_personal_url %}
@@ -54,7 +54,7 @@
             </div>
             {% else %}
             <div class="text-center py-5">
-                <i class="bi bi-person-badge fa-3x text-muted mb-3" style="font-size:2.5rem;"></i>
+                <i class="fas fa-id-badge fa-3x text-muted mb-3" style="font-size:2.5rem;"></i>
                 <h5>Todavía no hay nada en el espacio personal</h5>
                 <p class="text-muted">
                     Se crea automáticamente al usar

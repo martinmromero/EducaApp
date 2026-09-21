@@ -37,8 +37,18 @@
         </div>
     </div>
 
+    <!-- Orden pedido en Modo Testing: fila 1 Institución-Facultad, fila 2
+         Carrera-Materia, fila 3 Docente-Cátedra, fila 4 Formato de
+         impresión sola -- antes eran dos columnas independientes apiladas
+         (Institución/Facultad/Carrera a la izquierda, Materia/Docente/
+         Cátedra/Formato a la derecha) que solo coincidían en fila por
+         casualidad de alturas, no por diseño. El filtrado en cascada
+         (institución→facultad→carrera→materia, ver create_exam_template.js)
+         no depende del orden visual, solo de los id de cada campo -- este
+         cambio es puramente de layout. -->
+
+    <!-- Fila 1: Institución - Facultad -->
     <div class="two-column-form">
-        <!-- Columna izquierda -->
         <div class="form-column">
             <!-- Institución -->
             <div class="form-group">
@@ -46,7 +56,7 @@
                     <label for="{{ form.institution.id_for_label }}">{{ form.institution.label }}</label>
                     <div class="input-combo">
                         {{ form.institution }}
-                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn"
                                 data-target="institution" data-field="id_institution">
                             <i class="fas fa-plus"></i> Nuevo
                         </button>
@@ -54,14 +64,15 @@
                     <input type="text" class="form-control dynamic-input" id="new_institution" placeholder="Nombre de la Institución">
                 </div>
             </div>
-
+        </div>
+        <div class="form-column">
             <!-- Facultad -->
             <div class="form-group">
                 <div class="form-row">
                     <label for="{{ form.faculty.id_for_label }}">{{ form.faculty.label }}</label>
                     <div class="input-combo">
                         {{ form.faculty }}
-                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn"
                                 data-target="faculty" data-field="id_faculty" data-parent="id_institution">
                             <i class="fas fa-plus"></i> Nuevo
                         </button>
@@ -69,14 +80,19 @@
                     <input type="text" class="form-control dynamic-input" id="new_faculty" placeholder="Nombre de la Facultad">
                 </div>
             </div>
+        </div>
+    </div>
 
+    <!-- Fila 2: Carrera - Materia -->
+    <div class="two-column-form">
+        <div class="form-column">
             <!-- Carrera -->
             <div class="form-group">
                 <div class="form-row">
                     <label for="{{ form.career.id_for_label }}">{{ form.career.label }}</label>
                     <div class="input-combo">
                         {{ form.career }}
-                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn"
                                 data-target="career" data-field="id_career">
                             <i class="fas fa-plus"></i> Nuevo
                         </button>
@@ -85,8 +101,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Columna derecha -->
         <div class="form-column">
             <!-- Materia -->
             <div class="form-group">
@@ -94,7 +108,7 @@
                     <label for="{{ form.subject.id_for_label }}">{{ form.subject.label }}</label>
                     <div class="input-combo">
                         {{ form.subject }}
-                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" 
+                        <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn"
                                 data-target="subject" data-field="id_subject">
                             <i class="fas fa-plus"></i> Nuevo
                         </button>
@@ -102,7 +116,12 @@
                     <input type="text" class="form-control dynamic-input" id="new_subject" placeholder="Nombre de la Materia">
                 </div>
             </div>
+        </div>
+    </div>
 
+    <!-- Fila 3: Docente - Cátedra -->
+    <div class="two-column-form">
+        <div class="form-column">
             <!-- Docente -->
             <div class="form-group">
                 <div class="form-row">
@@ -110,7 +129,8 @@
                     {{ form.professor }}
                 </div>
             </div>
-
+        </div>
+        <div class="form-column">
             <!-- Cátedra: texto libre, distintas cátedras de la misma materia
                  pueden diferir en profesor/contenido — solo imprime en el
                  encabezado, no hay catálogo propio (ver Exam.catedra). -->
@@ -120,16 +140,19 @@
                     {{ form.catedra }}
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- Formato de impresión: es parte de la plantilla, no solo un
-                 dato de contenido — dos plantillas de la misma institución
-                 pueden querer imprimirse distinto. Sin elegir nada acá sigue
-                 aplicando el default de siempre (institución/usuario). El
-                 armado del formato en sí (tamaño de hoja, fuente, márgenes,
-                 colores, vista previa en vivo) es una pantalla completa
-                 aparte — se abre en una pestaña nueva para no perder lo ya
-                 cargado acá; al volver, el nuevo formato ya aparece en el
-                 desplegable. -->
+    <!-- Fila 4: Formato de impresión (sola). Es parte de la plantilla, no
+         solo un dato de contenido — dos plantillas de la misma institución
+         pueden querer imprimirse distinto. Sin elegir nada acá sigue
+         aplicando el default de siempre (institución/usuario). El armado
+         del formato en sí (tamaño de hoja, fuente, márgenes, colores, vista
+         previa en vivo) es una pantalla completa aparte — se abre en una
+         pestaña nueva para no perder lo ya cargado acá; al volver, el nuevo
+         formato ya aparece en el desplegable. -->
+    <div class="two-column-form">
+        <div class="form-column">
             <div class="form-group">
                 <div class="form-row">
                     <label for="{{ form.print_format.id_for_label }}">{{ form.print_format.label }}</label>
@@ -238,34 +261,22 @@
 </form>
 
 <!-- Preview section -->
-<div id="previewContainer" class="preview-container mt-4" style="display: none;">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3>Previsualización</h3>
-        <button onclick="document.getElementById('previewContainer').style.display='none'" 
-                class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-times"></i> Cerrar
-        </button>
-    </div>
-    <div id="previewContent" class="preview-content"></div>
-</div>
+<!-- La previsualización se abre en una PESTAÑA NUEVA de verdad (ver
+     previewExamTemplate() en create_exam_template.js), no incrustada acá.
+     Antes se probó con un <iframe srcdoc> adentro de esta misma página:
+     arreglaba el zoom/dark-mode (documento aislado), pero "Volver" seguía
+     rompiendo la experiencia -- navegaba el <iframe> a la pantalla completa
+     de /exam-templates/ (con su propio navbar/sidebar) apretada en una caja
+     chica, una segunda instancia superpuesta de toda la app. Con una
+     pestaña de verdad, esta pestaña original con el form NUNCA se toca (no
+     hay iframe, no hay innerHTML) -- así que no hace falta reconstruir nada
+     al volver: "Volver" en la pestaña de preview simplemente la cierra (ver
+     base_exam_preview.html) y la pestaña original, con todo lo cargado,
+     sigue ahí tal cual se la dejó. Reportado en Modo Testing (zoom/
+     fullscreen/dark-mode/logo/scroll/volver, luego "Volver" seguía roto
+     con el iframe). -->
 
 <style>
-.preview-container {
-    border: 1px solid var(--bs-border-color);
-    border-radius: 5px;
-    padding: 20px;
-    background-color: var(--bs-tertiary-bg);
-    margin-top: 30px;
-    transition: all 0.3s ease;
-}
-.preview-content {
-    background: white;
-    padding: 20px;
-    border-radius: 5px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.05);
-    max-height: 70vh;
-    overflow-y: auto;
-}
 .outcomes-checkbox-list {
     max-height: 200px;
     overflow-y: auto;

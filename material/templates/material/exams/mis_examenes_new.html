@@ -51,7 +51,6 @@
                         <thead>
                             <tr>
                                 <th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar exámenes o lotes para eliminarlos en conjunto"></th>
-                                <th style="width:40px;"></th>
                                 <th>Nombre</th>
                                 <th>Materia</th>
                                 <th id="examColTipo">Tipo</th>
@@ -66,24 +65,22 @@
                                 <td class="rt-card-select">
                                     <input type="checkbox" name="item_ids" value="batch:{{ item.batch.id }}" title="Seleccionar para eliminar en conjunto">
                                 </td>
-                                <td class="rt-card-badge">
-                                    <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
-                                            data-model="batch" data-id="{{ item.batch.id }}"
-                                            data-active="{% if item.batch.id in batch_favorite_ids %}1{% else %}0{% endif %}"
-                                            title="Marcar el lote como favorito"></button>
-                                </td>
                                 <td class="rt-card-title" data-label="Nombre"><strong>{{ item.batch.name }}</strong></td>
                                 <td data-label="Materia">{{ item.batch.subject.name|default:'-' }}</td>
                                 <td data-label="Tipo"><span class="badge bg-info text-white">Lote &middot; {{ item.batch.version_count }} temas</span></td>
                                 <td data-label="Creado">{{ item.batch.created_at|date:"d/m/Y H:i" }}</td>
                                 <td data-label="Acciones">
                                     <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm {% if item.batch.id in batch_favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} favorite-star"
+                                                data-model="batch" data-id="{{ item.batch.id }}"
+                                                data-active="{% if item.batch.id in batch_favorite_ids %}1{% else %}0{% endif %}"
+                                                title="Marcar el lote como favorito"></button>
                                         <a href="{% url 'material:view_exam_batch' item.batch.id %}"
                                            class="btn btn-sm btn-info" title="Ver lote">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                         <a href="{% url 'material:editar_lote' item.batch.id %}"
-                                           class="btn btn-sm btn-warning" title="Editar lote">
+                                           class="btn btn-sm btn-success" title="Editar lote">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         <button type="submit" form="deleteRowForm_batch_{{ item.batch.id }}"
@@ -98,23 +95,22 @@
                                 <td class="rt-card-select">
                                     <input type="checkbox" name="item_ids" value="exam:{{ item.examen.pk }}" title="Seleccionar para eliminar en conjunto">
                                 </td>
-                                <td class="rt-card-badge">
-                                    <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
-                                            data-model="exam" data-id="{{ item.examen.pk }}"
-                                            data-active="{% if item.examen.pk in favorite_ids %}1{% else %}0{% endif %}"></button>
-                                </td>
                                 <td class="rt-card-title" data-label="Nombre">{{ item.examen.title }}</td>
                                 <td data-label="Materia">{{ item.examen.subject.name|default:'-' }}</td>
                                 <td data-label="Tipo"><span class="badge bg-secondary text-white">Individual</span></td>
                                 <td data-label="Creado">{{ item.examen.created_at|date:"d/m/Y H:i" }}</td>
                                 <td data-label="Acciones">
                                     <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm {% if item.examen.pk in favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} favorite-star"
+                                                data-model="exam" data-id="{{ item.examen.pk }}"
+                                                data-active="{% if item.examen.pk in favorite_ids %}1{% else %}0{% endif %}"
+                                                title="Marcar el examen como favorito"></button>
                                         <a href="{% url 'material:ver_examen' item.examen.pk %}"
                                            class="btn btn-sm btn-info" title="Ver examen">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                         <a href="{% url 'material:editar_examen' item.examen.pk %}"
-                                           class="btn btn-sm btn-warning" title="Editar examen">
+                                           class="btn btn-sm btn-success" title="Editar examen">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         <button type="submit" form="deleteRowForm_exam_{{ item.examen.pk }}"

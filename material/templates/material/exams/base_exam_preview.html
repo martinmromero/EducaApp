@@ -795,7 +795,7 @@
         <button onclick="window.print()">
             <i class="fas fa-print"></i> Imprimir Examen
         </button>
-        <button onclick="history.back()" class="secondary">
+        <button onclick="examPreviewGoBack('{{ back_url|default:""|escapejs }}')" class="secondary">
             <i class="fas fa-arrow-left"></i> Volver
         </button>
         {% endblock %}
@@ -860,6 +860,27 @@
         window.addEventListener('resize', fitZoom);
     });
 })();
+
+// "Volver": si esta pestaña se abrió como preview desde otra (ej. el botón
+// "Previsualizar" de create_exam_template.html, que la abre con
+// target="_blank" sobre un <form> oculto -- ver create_exam_template.js),
+// window.opener apunta a esa pestaña original, que nunca se tocó y ya
+// tiene todo lo cargado; ahí "Volver" solo tiene que cerrar ESTA pestaña,
+// no navegarla (reportado: navegar acá mismo mostraba /exam-templates/ con
+// su propio navbar/sidebar apretado en esta misma pestaña de preview, "se
+// rompe"). Si no hay opener (se llegó por navegación normal, ej. abriendo
+// una plantilla ya guardada desde el listado), se navega como siempre.
+function examPreviewGoBack(fallbackUrl) {
+    if (window.opener && !window.opener.closed) {
+        window.close();
+        return;
+    }
+    if (fallbackUrl) {
+        window.location.href = fallbackUrl;
+    } else {
+        history.back();
+    }
+}
 </script>
 
 <div class="simple-modal-backdrop no-print" id="examSavedBackdrop">

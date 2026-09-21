@@ -134,9 +134,18 @@ class QuestionForm(forms.ModelForm):
         # haciendo el form "kilométrico" e inusable (reportado en Modo
         # Testing). Se acota a las mismas materias visibles que el resto de
         # la app (propias + compartidas + institucionales de su carrera).
+        self.relevant_subjects_count = 0
         if self.current_user:
-            from .content_visibility import get_visible_subjects
-            self.fields['subjects'].queryset = get_visible_subjects(self.current_user).order_by('name')
+            from .content_visibility import (
+                count_relevant_subjects, get_visible_subjects, order_subjects_by_relevance,
+            )
+            visible_subjects = get_visible_subjects(self.current_user)
+            self.fields['subjects'].queryset = order_subjects_by_relevance(self.current_user, visible_subjects)
+            # Cuántas de esas materias son de verdad "propias" (favoritas o
+            # con preguntas cargadas) — el checklist las muestra directo,
+            # sin este número no hay forma de saber dónde cortar sin
+            # inventar una posición fija (ver smart_checklist.js).
+            self.relevant_subjects_count = count_relevant_subjects(self.current_user, visible_subjects)
 
         self.fields['topic'].widget.attrs.update({'class': 'form-select'})
         self.fields['subtopic'].widget.attrs.update({'class': 'form-select'})
@@ -235,7 +244,7 @@ class ExamForm(forms.ModelForm):
                  'instructions', 'duration_minutes']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
-            'subject': forms.Select(attrs={'class': 'form-control'}),
+            'subject': forms.Select(attrs={'class': 'form-select'}),
             'topics': forms.SelectMultiple(attrs={'class': 'form-control'}),
             'questions': forms.SelectMultiple(attrs={'class': 'form-control'}),
             'instructions': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
@@ -262,7 +271,7 @@ class ProfileForm(forms.ModelForm):
         model = Profile
         fields = ['role']
         widgets = {
-            'role': forms.Select(attrs={'class': 'form-control'}),
+            'role': forms.Select(attrs={'class': 'form-select'}),
         }
 
 class ExamTemplateForm(forms.ModelForm):
@@ -299,10 +308,16 @@ class ExamTemplateForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         if user:
-            self.fields['institution'].queryset = InstitutionV2.objects.filter(
-                userinstitution__user=user,
-                is_active=True
-            )
+            # Antes acotaba a InstitutionV2 con un UserInstitution ya creado
+            # para este usuario -- esa fila solo se crea al favoritear (ver
+            # toggle_favorite_institution), así que una institución del
+            # catálogo público que el usuario nunca favoriteó/tocó quedaba
+            # invisible acá aunque la pudiera usar en cualquier otro lado de
+            # la app (reportado en Modo Testing: sacar el favorito de una
+            # institución hacía aparecer OTRA en este mismo desplegable).
+            # Mismo criterio que el resto de los formularios de catálogo.
+            from .content_visibility import get_visible_institutions
+            self.fields['institution'].queryset = get_visible_institutions(user).order_by('name')
             # Antes 'subject' no tenía queryset propio (default: TODAS las
             # materias del sistema) — la vista podía mostrar un desplegable
             # acotado, pero el POST en sí validaba contra cualquier Subject
@@ -323,6 +338,24 @@ class ExamTemplateForm(forms.ModelForm):
 
         self.fields['faculty'].queryset = FacultyV2.objects.none()
         self.fields['campus'].queryset = CampusV2.objects.none()
+        # 'career' quedaba SIN queryset propio -- a diferencia de
+        # faculty/campus (forzados a .none(), poblados solo por la cascada
+        # AJAX de create_exam_template.js), el <select> de Carrera mostraba
+        # Career.objects.all() completo (cientos) desde el primer render,
+        # sin relación con la institución/facultad elegida (reportado en
+        # Modo Testing: "permite tomar cualquier variante de institución -
+        # facultad - carrera, no fuerza"). En modo edición se acota a las
+        # carreras de la facultad ya guardada para que la selección previa
+        # siga apareciendo (mismo criterio que learning_outcomes más abajo);
+        # si no hay instancia/facultad todavía, .none() como faculty/campus
+        # -- la cascada de create_exam_template.js la puebla al elegir Facultad.
+        if user and self.instance.pk and self.instance.faculty_id:
+            from .content_visibility import get_visible_careers
+            self.fields['career'].queryset = get_visible_careers(user).filter(
+                faculties__id=self.instance.faculty_id
+            ).distinct().order_by('name')
+        else:
+            self.fields['career'].queryset = Career.objects.none()
         # Uno mismo más los compañeros de grupo de confianza — no todas las
         # cuentas del sistema (ver content_visibility.get_visible_professors).
         if user:
@@ -364,7 +397,7 @@ class CustomLoginForm(AuthenticationForm):
 
 class UserEditForm(forms.ModelForm):
     role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, label="Rol",
-                            widget=forms.Select(attrs={'class': 'form-control'}), required=False)
+                            widget=forms.Select(attrs={'class': 'form-select'}), required=False)
     reset_onboarding = forms.BooleanField(
         required=False,
         label="Reiniciar onboarding",
@@ -458,7 +491,7 @@ class UserCreateForm(forms.ModelForm):
     """Alta de usuario desde el panel de administración (sin pasar por Django Admin)."""
     role = forms.ChoiceField(
         choices=Profile.ROLE_CHOICES, label="Rol", initial='user',
-        widget=forms.Select(attrs={'class': 'form-control'}),
+        widget=forms.Select(attrs={'class': 'form-select'}),
     )
     new_password1 = forms.CharField(
         label="Contraseña inicial",

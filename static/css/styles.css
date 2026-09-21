@@ -606,13 +606,16 @@ body.offcanvas-open .sidebar-toggle-external {
     font-size: 1.15em;
 }
 
-/* Estilos para las instituciones favoritas */
-.favorite-star {
-    cursor: pointer;
+/* Botón de favorito (estrella) dentro de un grupo de Acciones: mismo
+   "motor" visual en toda la app (favorite-star = JS genérico, ver
+   static/js/favorites.js; institution-favorite-star = mecanismo aparte,
+   ver institutions_v2/detail.html) — btn-warning/btn-outline-warning
+   sólido igual que sus vecinos del btn-group (ver/editar/eliminar), sin
+   p-0 ni btn-link, para que quede centrado y con el mismo fondo que el
+   resto del bloque en vez de verse "suelto". */
+.favorite-star,
+.institution-favorite-star {
     transition: all 0.2s;
-}
-.favorite-star:hover {
-    transform: scale(1.2);
 }
 
 .faculty-entry {

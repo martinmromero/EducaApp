@@ -79,6 +79,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 <div class="form-group mb-3">
                     <label for="{{ form.subjects.id_for_label }}">Materias</label>
+                    <div class="row g-2 mb-2" id="subjectsCatalogFilters">
+                        <div class="col-sm-4">
+                            <select class="form-select form-select-sm" id="subjectsFilterInstitucion">
+                                <option value="">Institución (todas)</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-4">
+                            <select class="form-select form-select-sm" id="subjectsFilterFacultad">
+                                <option value="">Facultad (todas)</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-4">
+                            <select class="form-select form-select-sm" id="subjectsFilterCarrera">
+                                <option value="">Carrera (todas)</option>
+                            </select>
+                        </div>
+                    </div>
                     <input type="text" class="form-control form-control-sm mb-2" id="subjectsFilter" placeholder="Buscar materia...">
                     <div class="subjects-checklist">
                         {{ form.subjects }}
@@ -90,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="form-group mb-3">
                             <label for="{{ form.topic.id_for_label }}">Tópico principal <small class="text-muted">(opcional)</small></label>
                             <div class="input-combo d-flex align-items-center gap-2">
-                                <select name="topic" id="id_topic" class="form-control"></select>
+                                <select name="topic" id="id_topic" class="form-select"></select>
                                 <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" id="addTopicBtn" data-target="topic" data-field="id_topic">
                                     <i class="fas fa-plus"></i> Nuevo
                                 </button>
@@ -106,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="form-group mb-3">
                             <label for="{{ form.subtopic.id_for_label }}">Sub-tópico</label>
                             <div class="input-combo d-flex align-items-center gap-2">
-                                <select name="subtopic" id="id_subtopic" class="form-control"></select>
+                                <select name="subtopic" id="id_subtopic" class="form-select"></select>
                                 <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn" id="addSubtopicBtn" data-target="subtopic" data-field="id_subtopic">
                                     <i class="fas fa-plus"></i> Nuevo
                                 </button>
@@ -220,9 +237,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 {% csrf_token %}
 
                 <div class="form-group mb-3">
-                    <label for="batchSubject">Paso 1 — Materia</label>
-                    <select name="subject_id" id="batchSubject" class="form-control">
-                        <option value="">Elegir materia...</option>
+                    <label for="batchSubject">Paso 1 — Materia</label><br>
+                    <select name="subject_id" id="batchSubject" class="form-select">
+                        <option value="">Elegir materia...</option> <br>
                         {% for s in visible_subjects %}
                             <option value="{{ s.pk }}">{{ s.name }}{% if not s.es_catalogo_institucional %} (espacio personal){% endif %}</option>
                         {% endfor %}
@@ -231,8 +248,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         Falta elegir la materia antes de subir el archivo.
                     </div>
                     <small class="form-text text-muted">
-                        Todas las preguntas del archivo se cargan bajo esta materia. Si la que hace falta no está en la lista, se puede
-                        <a href="{% url 'material:catalog_request_create' %}?tipo=materia" target="_blank">agregarla al catálogo</a> — queda disponible de inmediato en el espacio personal, sin esperar a nadie.
+                        Todas las preguntas del archivo se cargan bajo esta materia. Si la que hace falta no está en la lista, se la puede
+                        <a href="{% url 'material:catalog_request_create' %}?tipo=materia" target="_blank">agregar al catálogo</a> — queda disponible de inmediato en el espacio personal.
                     </small>
                 </div>
 
@@ -242,18 +259,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     <small class="form-text text-muted">Formatos soportados: CSV o TXT</small>
                 </div>
 
-                <div class="alert alert-info mt-3">
-                    <em>Las columnas <code>tema</code> y <code>subtema</code> del archivo corresponden a "Tópico" y "Sub-tópico" en el resto de la pantalla — el nombre de columna no cambia, solo cómo se llaman en la interfaz. El archivo ya no lleva columna de materia: todas las preguntas quedan bajo la elegida en el Paso 1.</em><br><br>
+                <div class="mt-3 mb-2">
+                    <a href="/static/material/ejemplo_batch_preguntas.csv" class="btn btn-outline-secondary btn-sm" download>Descargar ejemplo CSV</a>
+                    <a href="/static/material/ejemplo_batch_preguntas.txt" class="btn btn-outline-secondary btn-sm ms-2" download>Descargar ejemplo TXT</a>
+                <br></div>
+
+                <details class="mt-2">
+                    <summary class="text-muted" style="cursor:pointer">Ver el formato esperado del archivo</summary>
+                    <div class="alert alert-info mt-2">
                     <strong>Formato esperado para CSV:</strong><br>
                     <code>pregunta,respuesta,tema,subtema,pagina,tipo,opciones,dificultad,nivel_bloom</code><br>
                     <em>Campos requeridos: pregunta, respuesta, tema</em><br>
                     <em>Campos opcionales: subtema, pagina, tipo, opciones, dificultad, nivel_bloom</em><br>
                     <em>tipo: desarrollo | opcion_multiple | completar_blank | verdadero_falso</em><br>
-                    <em>opciones: solo para opcion_multiple (JSON o "A|B|C|D")</em><br>
+                    <em>opciones: solo para opcion_multiple, separadas por "|" (ej: A|B|C|D)</em><br>
                     <em>dificultad: 1 a 5 (default 1)</em><br>
                     <em>nivel_bloom: 1 a 6 (1=Recordar … 6=Crear)</em><br>
                     Ejemplo:<br>
-                    <code>¿Cuánto es 2+2?,4,Álgebra,,12,opcion_multiple,"[""1"",""2"",""3"",""4""]",2,1</code><br>
+                    <code>¿Cuánto es 2+2?,4,Álgebra,,12,opcion_multiple,"1|2|3|4",2,1</code><br>
                     <code>¿San Martín cruzó los Andes?,Verdadero,Independencia,Argentina,34,verdadero_falso,,1,2</code>
                     <br><br>
                     <strong>Formato esperado para TXT:</strong><br>
@@ -278,9 +301,8 @@ tipo: verdadero_falso
 dificultad: 1
 nivel_bloom: 2
                     </pre>
-                    <a href="/static/material/ejemplo_batch_preguntas.csv" class="btn btn-outline-secondary btn-sm mt-2" download>Descargar ejemplo CSV</a>
-                    <a href="/static/material/ejemplo_batch_preguntas.txt" class="btn btn-outline-secondary btn-sm mt-2 ms-2" download>Descargar ejemplo TXT</a>
-                </div>
+                    </div>
+                </details>
 
                 <button type="submit" class="btn btn-primary mt-3">Subir Preguntas</button>
             </form>
@@ -289,6 +311,7 @@ nivel_bloom: 2
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="{% static 'material/js/smart_checklist.js' %}"></script>
                 <script>
                 $(document).ready(function() {
                     // Previsualización de imágenes
@@ -324,13 +347,56 @@ nivel_bloom: 2
                     // (catálogo institucional + espacio personal) tildar la
                     // correcta a ojo era el reclamo concreto de "form
                     // kilométrico" en Modo Testing.
-                    $('#subjectsFilter').on('input', function () {
-                        const q = $(this).val().trim().toLowerCase();
-                        $('.subjects-checklist > div > div').each(function () {
-                            const label = $(this).text().trim().toLowerCase();
-                            $(this).toggleClass('subject-filtered-out', q.length > 0 && !label.includes(q));
-                        });
-                    });
+                    // Muestra directo solo las materias que ya son "tuyas"
+                    // (favoritas o con preguntas propias cargadas) y deja el
+                    // resto detrás de un buscador — este componente maneja
+                    // también el filtro de texto de #subjectsFilter.
+                    var smartChecklist = window.EducaAppSmartChecklist ? window.EducaAppSmartChecklist.init({
+                        checklistSelector: '.subjects-checklist',
+                        filterInputSelector: '#subjectsFilter',
+                        relevantCount: {{ form.relevant_subjects_count|default:0 }},
+                    }) : null;
+
+                    // Filtro OPCIONAL por Institución/Facultad/Carrera del
+                    // checklist de materias (pedido en Modo Testing) —
+                    // cualquiera de los 3 se puede tocar primero, y acota a
+                    // los otros dos también (no es una cascada de un solo
+                    // sentido): /get-subjects-catalog-filters/ devuelve, para
+                    // cada nivel, las opciones válidas dados los OTROS DOS.
+                    (function () {
+                        var $inst = $('#subjectsFilterInstitucion');
+                        var $fac = $('#subjectsFilterFacultad');
+                        var $car = $('#subjectsFilterCarrera');
+                        if (!$inst.length) return;
+
+                        function fillSelect($select, items, placeholder, keepValue) {
+                            var current = keepValue ? $select.val() : '';
+                            var stillValid = items.some(function (it) { return String(it.id) === String(current); });
+                            $select.empty().append($('<option>', { value: '', text: placeholder }));
+                            items.forEach(function (it) {
+                                $select.append($('<option>', { value: it.id, text: it.name }));
+                            });
+                            $select.val(stillValid ? current : '');
+                        }
+
+                        function refreshFilters() {
+                            $.get('{% url "material:get_subjects_catalog_filters" %}', {
+                                institucion_id: $inst.val(),
+                                facultad_id: $fac.val(),
+                                carrera_id: $car.val(),
+                            }).done(function (data) {
+                                fillSelect($inst, data.institutions, 'Institución (todas)', true);
+                                fillSelect($fac, data.faculties, 'Facultad (todas)', true);
+                                fillSelect($car, data.careers, 'Carrera (todas)', true);
+                                if (smartChecklist) {
+                                    smartChecklist.setAllowedIds(data.subject_ids ? new Set(data.subject_ids.map(String)) : null);
+                                }
+                            });
+                        }
+
+                        $inst.add($fac).add($car).on('change', refreshFilters);
+                        refreshFilters();
+                    })();
 
                     // Materias es CheckboxSelectMultiple (varios <input> con el mismo
                     // name="subjects", no un único <select>) — hay que leer todos los

@@ -13,9 +13,7 @@
     </button>
 </a>
 {% endif %}
-<a href="{{ back_url }}">
-    <button class="secondary">
-        <i class="fas fa-arrow-left"></i> Volver
-    </button>
-</a>
+<button onclick="examPreviewGoBack('{{ back_url|escapejs }}')" class="secondary">
+    <i class="fas fa-arrow-left"></i> Volver
+</button>
 {% endblock %}

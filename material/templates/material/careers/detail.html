@@ -61,14 +61,14 @@
         </div>
         <div class="card-footer">
             {% if is_admin %}
-            <a href="{% url 'material:career_associations' pk=career.pk %}" class="btn btn-warning">
+            <a href="{% url 'material:career_associations' pk=career.pk %}" class="btn btn-success">
                 <i class="fas fa-edit"></i> Editar
             </a>
             <a href="{% url 'material:delete_career' pk=career.pk %}" class="btn btn-danger">
                 <i class="fas fa-trash"></i> Eliminar
             </a>
             {% elif career.created_by_id == user.id and not career.es_catalogo_institucional %}
-            <a href="{% url 'material:career_associations' pk=career.pk %}" class="btn btn-outline-warning">
+            <a href="{% url 'material:career_associations' pk=career.pk %}" class="btn btn-outline-success">
                 <i class="fas fa-edit"></i> Editar
             </a>
             <a href="{% url 'material:eliminar_espacio_personal' 'carrera' career.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-outline-danger">

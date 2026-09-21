@@ -1,10 +1,33 @@
+﻿Cada pregunta va en un bloque de lineas con el formato clave espacio valor, separado del siguiente bloque por una linea en blanco.
+El campo tipo puede ser desarrollo, opcion_multiple, completar_blank o verdadero_falso.
+El campo opciones solo se usa con opcion_multiple, separando cada opcion con el caracter pipe, por ejemplo A pipe B pipe C pipe D.
+Los campos subtema, pagina, opciones, dificultad y nivel_bloom son opcionales.
+Copia el bloque del tipo que necesites las veces que haga falta y cambia el contenido.
+
+pregunta: ¿Cuál es la capital de Francia?
+respuesta: París
+tema: Geografía
+subtema: Capitales
+pagina: 12
+tipo: desarrollo
+dificultad: 2
+nivel_bloom: 1
+
 pregunta: ¿Cuánto es 2+2?
 respuesta: 4
 tema: Álgebra
 pagina: 12
 tipo: opcion_multiple
 opciones: 1|2|3|4
-dificultad: 2
+dificultad: 1
+nivel_bloom: 1
+
+pregunta: La capital de Argentina es ___.
+respuesta: Buenos Aires
+tema: Geografía
+pagina: 5
+tipo: completar_blank
+dificultad: 1
 nivel_bloom: 1
 
 pregunta: ¿San Martín cruzó los Andes?

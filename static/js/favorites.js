@@ -4,6 +4,14 @@
  * data-active ("1"/"0"), y el token CSRF en el DOM (Django lo agrega
  * automáticamente en cualquier <form> con {% csrf_token %}; si la página
  * no tiene ningún form, se lee de la cookie).
+ *
+ * Clases base esperadas en el HTML: "btn btn-sm btn-outline-warning" (o
+ * "btn-warning" si data-active="1" desde el server, para evitar el flash
+ * antes de que corra este script) — mismo "motor" visual que el resto de
+ * los botones de un btn-group (fondo sólido, sin p-0/btn-link), así el
+ * ícono queda centrado igual que sus vecinos y no se ve "suelto" del
+ * grupo. Ver institution-favorite-star (institutions_v2) para el mismo
+ * criterio aplicado a su mecanismo aparte (no usa esta clase ni este JS).
  */
 (function () {
   function getCookie(name) {
@@ -19,7 +27,8 @@
   function renderStar(btn, isActive) {
     btn.dataset.active = isActive ? '1' : '0';
     btn.innerHTML = isActive ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
-    btn.classList.toggle('text-warning', isActive);
+    btn.classList.toggle('btn-warning', isActive);
+    btn.classList.toggle('btn-outline-warning', !isActive);
     btn.title = isActive ? 'Quitar de favoritos' : 'Agregar a favoritos';
   }
 

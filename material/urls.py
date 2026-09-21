@@ -169,6 +169,7 @@ path('upload-questions/', material_views.upload_questions, name='upload_question
 path('get-questions-by-topics/', material_views.get_questions_by_topics, name='get_questions_by_topics'),
 path('get-careers-by-faculty/<int:faculty_id>/', material_views.get_careers_by_faculty, name='get_careers_by_faculty'),
 path('get-subjects-by-career/<int:career_id>/', material_views.get_subjects_by_career, name='get_subjects_by_career'),
+path('get-subjects-catalog-filters/', material_views.get_subjects_catalog_filters, name='get_subjects_catalog_filters'),
 
 
 path('get-exam-template/<int:template_id>/', material_views.get_exam_template, name='get_exam_template'),

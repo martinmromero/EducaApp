@@ -68,22 +68,23 @@ crudo quedaba de antes de adoptar ese tag y duplicaba cada mensaje
                             </td>
                             <td class="text-nowrap text-muted small" data-label="Modificada">{{ rubrica.updated_at|date:"d/m/Y H:i" }}</td>
                             <td class="text-end text-nowrap" data-label="Acciones">
+                                <div class="btn-group" role="group">
                                 {% if rubrica.created_by_id == request.user.id %}
-                                <a href="{% url 'material:rubric_edit' rubrica.pk %}" class="btn btn-sm btn-outline-secondary">
-                                    <i class="bi bi-pencil"></i> Editar
+                                <a href="{% url 'material:rubric_view' rubrica.pk %}" class="btn btn-sm btn-info" title="Ver rúbrica">
+                                    <i class="fas fa-eye"></i>
                                 </a>
-                                <form method="post" action="{% url 'material:rubric_delete' rubrica.pk %}" class="d-inline"
-                                      onsubmit="return eduConfirmSubmit(event, '¿Eliminar la rúbrica «{{ rubrica.title|escapejs }}»?', {title: 'Eliminar rúbrica', variant: 'danger', okLabel: 'Eliminar'});">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">
-                                        <i class="bi bi-trash"></i> Eliminar
-                                    </button>
-                                </form>
+                                <a href="{% url 'material:rubric_edit' rubrica.pk %}" class="btn btn-sm btn-success" title="Editar rúbrica">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="submit" form="deleteRubricForm_{{ rubrica.pk }}" class="btn btn-sm btn-danger" title="Eliminar rúbrica">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                                 {% else %}
-                                <a href="{% url 'material:rubric_view' rubrica.pk %}" class="btn btn-sm btn-outline-secondary">
-                                    <i class="bi bi-eye"></i> Ver
+                                <a href="{% url 'material:rubric_view' rubrica.pk %}" class="btn btn-sm btn-info" title="Ver rúbrica">
+                                    <i class="fas fa-eye"></i>
                                 </a>
                                 {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -99,5 +100,15 @@ crudo quedaba de antes de adoptar ese tag y duplicaba cada mensaje
             {% endif %}
         </div>
     </div>
+
+    <!-- Formularios individuales de eliminación (uno por rúbrica, ligados al botón de la fila) -->
+    {% for rubrica in rubricas %}
+    {% if rubrica.created_by_id == request.user.id %}
+    <form method="post" action="{% url 'material:rubric_delete' rubrica.pk %}" id="deleteRubricForm_{{ rubrica.pk }}"
+          onsubmit="return eduConfirmSubmit(event, '¿Eliminar la rúbrica «{{ rubrica.title|escapejs }}»?', {title: 'Eliminar rúbrica', variant: 'danger', okLabel: 'Eliminar'});">
+        {% csrf_token %}
+    </form>
+    {% endif %}
+    {% endfor %}
 </div>
 {% endblock %}

@@ -55,7 +55,6 @@
                             <thead>
                                 <tr>
                                     <th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar cuestionarios para eliminarlos en conjunto"></th>
-                                    <th style="width:40px;"></th>
                                     <th>Nombre</th>
                                     <th>Materia</th>
                                     <th id="oralColGroups">Grupos</th>
@@ -72,11 +71,6 @@
                                     <td class="rt-card-select">
                                         <input type="checkbox" name="oral_exam_ids" value="{{ exam.id }}" title="Seleccionar para eliminar en conjunto">
                                     </td>
-                                    <td class="rt-card-badge">
-                                        <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
-                                                data-model="oral" data-id="{{ exam.id }}"
-                                                data-active="{% if exam.id in favorite_ids %}1{% else %}0{% endif %}"></button>
-                                    </td>
                                     <td class="rt-card-title" data-label="Nombre">{{ exam.name }}</td>
                                     <td data-label="Materia">{{ exam.subject.name }}</td>
                                     <td data-label="Grupos">{{ exam.num_groups }}</td>
@@ -86,6 +80,10 @@
                                     <td data-label="Creado">{{ exam.created_at|date:"d/m/Y" }}</td>
                                     <td data-label="Acciones">
                                         <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn btn-sm {% if exam.id in favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} favorite-star"
+                                                    data-model="oral" data-id="{{ exam.id }}"
+                                                    data-active="{% if exam.id in favorite_ids %}1{% else %}0{% endif %}"
+                                                    title="Marcar el cuestionario como favorito"></button>
                                             <a href="{% url 'material:view_oral_exam' exam.id %}"
                                                class="btn btn-sm btn-info"
                                                title="Ver cuestionario">

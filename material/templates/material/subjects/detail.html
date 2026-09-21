@@ -10,7 +10,7 @@
         <h5 class="mb-0">Detalle de Materia</h5>
         {% if is_admin %}
         <div class="btn-group">
-            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-warning">
+            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-success">
                 <i class="bi bi-pencil"></i> Editar
             </a>
             <a href="{% url 'material:delete_subject' pk=subject.pk %}" class="btn btn-danger">
@@ -19,7 +19,7 @@
         </div>
         {% elif subject.created_by_id == user.id and not subject.es_catalogo_institucional %}
         <div class="btn-group">
-            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-outline-warning">
+            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-outline-success">
                 <i class="bi bi-pencil"></i> Editar
             </a>
             <a href="{% url 'material:eliminar_espacio_personal' 'materia' subject.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-outline-danger">
@@ -67,7 +67,7 @@
                                             <div>{{ outcome.description }}</div>
                                             {% if is_admin %}
                                             <div class="btn-group">
-                                                <a href="{% url 'material:learningoutcome_edit' pk=outcome.pk %}" class="btn btn-sm btn-outline-warning">
+                                                <a href="{% url 'material:learningoutcome_edit' pk=outcome.pk %}" class="btn btn-sm btn-outline-success">
                                                     <i class="bi bi-pencil"></i>
                                                 </a>
                                                 <a href="{% url 'material:learningoutcome_delete' pk=outcome.pk %}" class="btn btn-sm btn-outline-danger">

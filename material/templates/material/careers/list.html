@@ -38,7 +38,7 @@
                     <a href="?personal={% if only_personal %}0{% else %}1{% endif %}{% if personal_toggle_querystring %}&{{ personal_toggle_querystring }}{% endif %}"
                        class="btn btn-sm list-toolbar-btn {% if only_personal %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
                        title="Mostrar solo lo que está en el espacio personal propio, todavía no sumado al catálogo institucional">
-                        <i class="bi bi-person-badge"></i> <span class="d-none d-sm-inline">Personal</span>
+                        <i class="fas fa-id-badge"></i> <span class="d-none d-sm-inline">Personal</span>
                     </a>
                 </div>
                 <div class="d-none align-items-center gap-2" id="listSelectionBar">
@@ -110,7 +110,7 @@
                                         </a>
                                         {% if is_admin %}
                                         <a href="{% url 'material:career_associations' pk=career.pk %}"
-                                           class="btn btn-sm btn-warning" title="Editar carrera">
+                                           class="btn btn-sm btn-success" title="Editar carrera">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         <a href="{% url 'material:delete_career' pk=career.pk %}"
@@ -119,7 +119,7 @@
                                         </a>
                                         {% elif career.created_by_id == user.id and not career.es_catalogo_institucional %}
                                         <a href="{% url 'material:career_associations' pk=career.pk %}"
-                                           class="btn btn-sm btn-outline-warning" title="Editar">
+                                           class="btn btn-sm btn-outline-success" title="Editar">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         <a href="{% url 'material:eliminar_espacio_personal' 'carrera' career.pk %}?next={{ request.get_full_path|urlencode }}"

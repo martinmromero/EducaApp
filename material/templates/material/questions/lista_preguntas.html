@@ -225,7 +225,7 @@
                                     </a>
                                     {% if pregunta.user_id == request.user.id %}
                                     <a href="{% url 'material:editar_pregunta' pregunta.pk %}"
-                                       class="btn btn-sm btn-warning" title="Editar pregunta">
+                                       class="btn btn-sm btn-success" title="Editar pregunta">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     <a href="{% url 'material:eliminar_pregunta' pregunta.pk %}"

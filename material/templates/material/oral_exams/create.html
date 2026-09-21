@@ -98,7 +98,7 @@
                                     </button>
                                 </div>
                             </div>
-                            <div id="topics-container" class="border p-3" style="max-height: 400px; overflow-y: auto;">
+                            <div id="topics-container" class="border p-3" style="max-height: 400px; overflow-y: auto;" data-selected-topics="{% if form.topics.value %}{{ form.topics.value|join:',' }}{% endif %}">
                                 {% for choice in form.topics %}
                                     <div class="form-check">
                                         {{ choice.tag }}
@@ -111,6 +111,7 @@
                             {% if form.topics.errors %}
                                 <div class="text-danger">{{ form.topics.errors }}</div>
                             {% endif %}
+                            <small class="form-text text-muted">El resto de los campos se habilita al marcar al menos un tópico.</small>
                         </div>
                     </div>
                 </div>
@@ -179,15 +180,33 @@ document.addEventListener('DOMContentLoaded', function() {
     subjectSelect.addEventListener('change', function() {
         const subjectId = this.value;
         if (subjectId) {
-            loadTopicsForSubject(subjectId);
-            enableTopicsSelection();
+            loadTopicsForSubject(subjectId, false);
             resetFieldsFromStep('topics');
         } else {
             disableFieldsAfterSubject();
             resetAllCalculatedFields();
         }
     });
-    
+
+    // Si el server re-renderiza este form CON una materia ya elegida (por
+    // ejemplo, después de un error de validación — Django repuebla el
+    // <select> con lo que se había enviado), el 'change' de arriba nunca
+    // dispara solo por cargar la página: el form quedaba con la materia
+    // marcada pero los tópicos pegados en "Seleccione una materia primero"
+    // (reportado en Modo Testing, nuevo-11). Se dispara el mismo flujo a
+    // mano acá. Ademas, si algun topico ya venia tildado en el envio que
+    // fallo, se re-marca (topics-container[data-selected-topics], seteado
+    // por el server con form.topics.value) y se corre la cascada real
+    // (onTopicsChanged) en vez de un no-op -- si no, total_students /
+    // preguntas_por_estudiante / grupos quedaban disabled para siempre
+    // tras un error aunque el usuario ya los hubiera completado antes (y
+    // esos valores tambien se pierden: un campo disabled no viaja en el
+    // POST, asi que Django los ve como "requerido" -- reportado como "se
+    // bloquea el form y no puedo modificar los campos").
+    if (subjectSelect.value) {
+        loadTopicsForSubject(subjectSelect.value, true);
+    }
+
     // 2. SELECCIÓN DE CONTENIDOS - Segundo paso
     const selectAllBtn = document.getElementById('select-all-topics');
     const deselectAllBtn = document.getElementById('deselect-all-topics');
@@ -239,10 +258,6 @@ document.addEventListener('DOMContentLoaded', function() {
         clearTopics();
     }
     
-    function enableTopicsSelection() {
-        // Los topics se habilitan cuando se carga la materia
-    }
-    
     function enableTotalStudents() {
         totalStudentsField.disabled = false;
         questionsPerStudentField.disabled = true;
@@ -282,23 +297,39 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // FUNCIONES DE MANEJO DE EVENTOS
-    function loadTopicsForSubject(subjectId) {
+    function loadTopicsForSubject(subjectId, isReload) {
         fetch(`{% url 'material:get_topics' %}?subject_id=${subjectId}&for_exam=1`)
             .then(response => response.json())
             .then(data => {
+                // En una recarga por error, re-tildar los topicos que ya
+                // venian marcados en el envio que fallo (si no, se pierden
+                // silenciosamente porque el fetch reconstruye los checkbox
+                // desde cero, todos sin marcar).
+                const selected = isReload
+                    ? (topicsContainer.dataset.selectedTopics || '').split(',').filter(Boolean)
+                    : [];
                 topicsContainer.innerHTML = '';
                 data.forEach(topic => {
                     const div = document.createElement('div');
                     div.className = 'form-check';
+                    const isChecked = selected.includes(String(topic.id));
                     div.innerHTML = `
-                        <input class="form-check-input" type="checkbox" 
-                               name="topics" value="${topic.id}" id="topic_${topic.id}">
+                        <input class="form-check-input" type="checkbox"
+                               name="topics" value="${topic.id}" id="topic_${topic.id}"${isChecked ? ' checked' : ''}>
                         <label class="form-check-label" for="topic_${topic.id}">
                             ${topic.name}
                         </label>
                     `;
                     topicsContainer.appendChild(div);
                 });
+                // Cascada real (no un no-op): si quedaron topicos tildados,
+                // esto habilita total_students y sigue encadenando segun lo
+                // que ya tenga valor cada campo (ver onTopicsChanged /
+                // onTotalStudentsChanged) -- asi los campos no quedan
+                // disabled para siempre despues de un error.
+                if (isReload) {
+                    onTopicsChanged();
+                }
             })
             .catch(error => {
                 console.error('Error al cargar temas:', error);

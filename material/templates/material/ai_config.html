@@ -32,7 +32,7 @@
 
       <!-- IA de prueba gratuita (fallback compartido) -->
       <div class="col-12 order-1">
-        <label class="card p-3 d-flex flex-row align-items-start gap-3
+        <label class="card p-3 d-flex flex-row align-items-start gap-3 ai-source-card
                       {% if config.source == 'shared_demo' %}border-primary bg-primary bg-opacity-10{% endif %}"
                style="cursor:pointer" for="src_shared_demo">
           <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="source"
@@ -50,7 +50,7 @@
 
       <!-- Ollama local -->
       <div class="col-12 order-4">
-        <label class="card p-3 d-flex flex-row align-items-start gap-3
+        <label class="card p-3 d-flex flex-row align-items-start gap-3 ai-source-card
                       {% if config.source == 'ollama_local' %}border-primary bg-primary bg-opacity-10{% endif %}"
                style="cursor:pointer" for="src_ollama">
           <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="source"
@@ -78,7 +78,7 @@
 
       <!-- BYOK -->
       <div class="col-12 order-2">
-        <label class="card p-3 d-flex flex-row align-items-start gap-3 cursor-pointer
+        <label class="card p-3 d-flex flex-row align-items-start gap-3 cursor-pointer ai-source-card
                       {% if config.source == 'byok' %}border-primary bg-primary bg-opacity-10{% endif %}"
                style="cursor:pointer" for="src_byok">
           <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="source"
@@ -197,7 +197,7 @@
 
       <!-- Institucional -->
       <div class="col-12 order-3">
-        <label class="card p-3 d-flex flex-row align-items-start gap-3 cursor-pointer
+        <label class="card p-3 d-flex flex-row align-items-start gap-3 cursor-pointer ai-source-card
                       {% if config.source == 'institutional' %}border-primary bg-primary bg-opacity-10{% endif %}"
                style="cursor:pointer" for="src_inst">
           <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="source"
@@ -212,7 +212,7 @@
                 <span class="badge bg-secondary ms-2">No configurada</span>
               {% endif %}
             </div>
-            <small class="text-muted">Usa la API Key configurada por la institución. No hace falta cuenta propia.</small>
+            <small class="text-muted">Usa la API Key configurada por la institución (configurada por el administrador). No hace falta cuenta propia.</small>
 
             <!-- Selector de institución -->
             <div id="inst-fields" class="mt-3 {% if config.source != 'institutional' %}d-none{% endif %}">
@@ -261,6 +261,16 @@ function onSourceChange() {
   document.getElementById('ollama-fields').classList.toggle('d-none', src !== 'ollama_local');
   document.getElementById('byok-fields').classList.toggle('d-none', src !== 'byok');
   document.getElementById('inst-fields').classList.toggle('d-none', src !== 'institutional');
+  // El resaltado de la tarjeta elegida se pintaba solo en el render inicial
+  // (Django, según config.source) y nunca se movía al tocar otra opción —
+  // quedaba la tarjeta vieja marcada para siempre en la misma carga de
+  // página (reportado en Modo Testing con "IA Local (Ollama)" pegada).
+  document.querySelectorAll('.ai-source-card').forEach(function (card) {
+    const radio = document.getElementById(card.getAttribute('for'));
+    card.classList.toggle('border-primary', !!radio?.checked);
+    card.classList.toggle('bg-primary', !!radio?.checked);
+    card.classList.toggle('bg-opacity-10', !!radio?.checked);
+  });
 }
 
 function onProviderChange() {

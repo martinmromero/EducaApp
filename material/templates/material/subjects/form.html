@@ -21,8 +21,19 @@
 
             {% if subject %}
                 <div class="text-muted mb-3" style="font-size:0.9rem;">
+                    {% if is_admin %}
                     Los resultados de aprendizaje se cargan por carrera desde el
                     <a href="{% url 'material:subject_detail' pk=subject.pk %}">detalle de la materia</a>.
+                    {% else %}
+                    <!-- Antes este mensaje mandaba a "detalle de la materia" a
+                         cualquier usuario, pero agregar/editar un resultado de
+                         aprendizaje es exclusivo de administradores (ver
+                         LearningOutcomeCreateView) — para el dueño de una
+                         materia personal era un loop sin salida: "se agrega en
+                         el detalle" → el detalle no le muestra ningún botón
+                         para agregarlo. -->
+                    Los resultados de aprendizaje son datos curados por un administrador — si hace falta agregar uno para esta materia, pedírselo a un administrador.
+                    {% endif %}
                 </div>
             {% endif %}
 

@@ -444,17 +444,35 @@ document.addEventListener('DOMContentLoaded', function() {
         // Institución → espera a que facultad/sede terminen de cargar antes
         // de seleccionar la facultad de la plantilla (si no, el <option>
         // todavía no existe y la selección se pierde en silencio).
-        if (data.institution_id) {
+        // Si la institución de la plantilla ya no existe (se borró después
+        // de guardarla), asignar su id igual dejaba el <select> sin ninguna
+        // opción coincidente — se veía en blanco, sin ni siquiera el
+        // placeholder "Seleccionar institución" (reportado en Modo
+        // Testing). Se verifica que el id siga entre las opciones antes de
+        // asignarlo.
+        var institutionOptionExists = data.institution_id && Array.prototype.some.call(
+            institucionSelect.options, function (o) { return o.value === String(data.institution_id); }
+        );
+        if (institutionOptionExists) {
             institucionSelect.value = data.institution_id;
             institucionSelect.dispatchEvent(new Event('change'));
             await institucionDependentsPromise;
+        } else {
+            institucionSelect.value = '';
         }
         if (data.faculty_id) {
-            facultadSelect.value = data.faculty_id;
-            facultadSelect.dispatchEvent(new Event('change'));
-            // Facultad → espera a que carrera termine de cargar antes de
-            // buscar la carrera de la plantilla entre las opciones.
-            await facultadDependentsPromise;
+            var facultyOptionExists = Array.prototype.some.call(
+                facultadSelect.options, function (o) { return o.value === String(data.faculty_id); }
+            );
+            if (facultyOptionExists) {
+                facultadSelect.value = data.faculty_id;
+                facultadSelect.dispatchEvent(new Event('change'));
+                // Facultad → espera a que carrera termine de cargar antes de
+                // buscar la carrera de la plantilla entre las opciones.
+                await facultadDependentsPromise;
+            } else {
+                facultadSelect.value = '';
+            }
         }
         if (data.career_id) {
             var found = Array.from(carreraSelect.options).some(function(option) {

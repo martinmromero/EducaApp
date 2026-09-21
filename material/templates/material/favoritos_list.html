@@ -16,7 +16,6 @@
                 <table class="table table-striped mobile-card-table" id="favoritosTable">
                     <thead>
                         <tr>
-                            <th></th>
                             <th>Tipo</th>
                             <th>Nombre</th>
                             <th>Detalle</th>
@@ -27,11 +26,6 @@
                     <tbody>
                         {% for item in items %}
                         <tr data-favorite-row data-model="{{ item.kind }}" data-id="{{ item.object.pk }}">
-                            <td class="rt-card-badge">
-                                <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
-                                        data-model="{{ item.kind }}" data-id="{{ item.object.pk }}"
-                                        data-active="1" title="Quitar de favoritos"></button>
-                            </td>
                             <td data-label="Tipo">
                                 {% if item.kind == 'exam' %}
                                     <span class="badge bg-success">Examen</span>
@@ -43,6 +37,8 @@
                                     <span class="badge bg-info text-white">Lote</span>
                                 {% elif item.kind == 'oral' %}
                                     <span class="badge bg-secondary">Cuestionario oral</span>
+                                {% elif item.kind == 'institucion' %}
+                                    <span class="badge bg-dark">Institución</span>
                                 {% endif %}
                             </td>
                             <td class="rt-card-title" data-label="Nombre">
@@ -51,6 +47,7 @@
                                 {% elif item.kind == 'subject' %}{{ item.object.name }}
                                 {% elif item.kind == 'batch' %}{{ item.object.name }}
                                 {% elif item.kind == 'oral' %}{{ item.object.name }}
+                                {% elif item.kind == 'institucion' %}{{ item.object.name }}
                                 {% endif %}
                             </td>
                             <td data-label="Detalle">
@@ -59,22 +56,30 @@
                                 {% elif item.kind == 'subject' %}{{ item.object.careers.all|join:', '|default:'—' }}
                                 {% elif item.kind == 'batch' %}{{ item.object.subject.name|default:'—' }} &middot; {{ item.object.version_count }} versiones
                                 {% elif item.kind == 'oral' %}{{ item.object.subject.name|default:'—' }}
+                                {% elif item.kind == 'institucion' %}{{ item.object.sigla|default:'—' }}
                                 {% endif %}
                             </td>
                             <td data-label="Favoriteado">{{ item.favorited_at|date:"d/m/Y" }}</td>
                             <td data-label="Acciones">
                                 <div class="btn-group" role="group">
+                                {% if item.kind == 'institucion' %}
+                                    <a href="{% url 'material:toggle_favorite_institution' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-warning" title="Quitar de favoritos"><i class="fas fa-star"></i></a>
+                                {% else %}
+                                    <button type="button" class="btn btn-sm btn-warning favorite-star"
+                                            data-model="{{ item.kind }}" data-id="{{ item.object.pk }}"
+                                            data-active="1" title="Quitar de favoritos"></button>
+                                {% endif %}
                                 {% if item.kind == 'exam' %}
                                     <a href="{% url 'material:ver_examen' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver examen"><i class="fas fa-eye"></i></a>
-                                    <a href="{% url 'material:editar_examen' item.object.pk %}" class="btn btn-sm btn-warning" title="Editar examen"><i class="fas fa-edit"></i></a>
+                                    <a href="{% url 'material:editar_examen' item.object.pk %}" class="btn btn-sm btn-success" title="Editar examen"><i class="fas fa-edit"></i></a>
                                     <button type="submit" form="deleteFav_exam_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar examen"><i class="fas fa-trash"></i></button>
                                 {% elif item.kind == 'examtemplate' %}
                                     <a href="{% url 'material:view_exam_template' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver plantilla"><i class="fas fa-eye"></i></a>
-                                    <a href="{% url 'material:edit_exam_template' item.object.pk %}" class="btn btn-sm btn-warning" title="Editar plantilla"><i class="fas fa-edit"></i></a>
+                                    <a href="{% url 'material:edit_exam_template' item.object.pk %}" class="btn btn-sm btn-success" title="Editar plantilla"><i class="fas fa-edit"></i></a>
                                     <button type="submit" form="deleteFav_examtemplate_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar plantilla"><i class="fas fa-trash"></i></button>
                                 {% elif item.kind == 'subject' %}
                                     <a href="{% url 'material:subject_detail' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver materia"><i class="fas fa-eye"></i></a>
-                                    <a href="{% url 'material:edit_subject' pk=item.object.pk %}" class="btn btn-sm btn-warning" title="Editar materia"><i class="fas fa-edit"></i></a>
+                                    <a href="{% url 'material:edit_subject' pk=item.object.pk %}" class="btn btn-sm btn-success" title="Editar materia"><i class="fas fa-edit"></i></a>
                                     <a href="{% url 'material:delete_subject' pk=item.object.pk %}" class="btn btn-sm btn-danger" title="Eliminar materia"><i class="fas fa-trash"></i></a>
                                 {% elif item.kind == 'batch' %}
                                     <a href="{% url 'material:view_exam_batch' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver lote"><i class="fas fa-eye"></i></a>
@@ -82,6 +87,8 @@
                                 {% elif item.kind == 'oral' %}
                                     <a href="{% url 'material:view_oral_exam' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver cuestionario"><i class="fas fa-eye"></i></a>
                                     <button type="submit" form="deleteFav_oral_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar cuestionario"><i class="fas fa-trash"></i></button>
+                                {% elif item.kind == 'institucion' %}
+                                    <a href="{% url 'material:institution_v2_detail' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver institución"><i class="fas fa-eye"></i></a>
                                 {% endif %}
                                 </div>
                             </td>

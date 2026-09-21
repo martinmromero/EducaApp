@@ -5,11 +5,6 @@
         <input type="checkbox" name="subject_ids" value="{{ subject.pk }}">
     </td>
     {% endif %}
-    <td class="rt-card-badge">
-        <button type="button" class="btn btn-sm btn-link p-0 favorite-star"
-                data-model="subject" data-id="{{ subject.pk }}"
-                data-active="{% if subject.pk in favorite_ids %}1{% else %}0{% endif %}"></button>
-    </td>
     <td class="rt-card-title" data-label="Nombre">
         {{ subject.name }}
         {% if not subject.es_catalogo_institucional %}
@@ -31,11 +26,15 @@
     </td>
     <td data-label="Acciones">
         <div class="btn-group">
+            <button type="button" class="btn btn-sm {% if subject.pk in favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} favorite-star"
+                    data-model="subject" data-id="{{ subject.pk }}"
+                    data-active="{% if subject.pk in favorite_ids %}1{% else %}0{% endif %}"
+                    title="Marcar la materia como favorita"></button>
             <a href="{% url 'material:subject_detail' pk=subject.pk %}" class="btn btn-sm btn-info" title="Ver materia">
                 <i class="fas fa-eye"></i>
             </a>
             {% if is_admin %}
-            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-warning" title="Editar materia">
+            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-success" title="Editar materia">
                 <i class="fas fa-edit"></i>
             </a>
             <a href="{% url 'material:delete_subject' pk=subject.pk %}"
@@ -43,7 +42,7 @@
                 <i class="fas fa-trash"></i>
             </a>
             {% elif subject.created_by_id == user.id and not subject.es_catalogo_institucional %}
-            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-outline-warning" title="Editar materia">
+            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-outline-success" title="Editar materia">
                 <i class="fas fa-edit"></i>
             </a>
             <a href="{% url 'material:eliminar_espacio_personal' 'materia' subject.pk %}?next={{ request.get_full_path|urlencode }}"
@@ -56,6 +55,6 @@
 </tr>
 {% empty %}
 <tr>
-    <td colspan="5" class="text-center">No hay materias que coincidan con la búsqueda/filtros.</td>
+    <td colspan="4" class="text-center">No hay materias que coincidan con la búsqueda/filtros.</td>
 </tr>
 {% endfor %}

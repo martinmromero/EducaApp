@@ -492,6 +492,66 @@ def get_subjects_by_career(request, career_id):
     subjects = get_visible_subjects(request.user).filter(pk__in=career.subjects.all())
     data = [{'id': s.id, 'name': s.name} for s in subjects]
     return JsonResponse({'subjects': data})
+
+
+@login_required
+def get_subjects_catalog_filters(request):
+    """Filtro OPCIONAL por Institución/Facultad/Carrera para el checklist de
+    materias de /upload-questions/ — pedido explícito en Modo Testing.
+    A diferencia de los cascada de arriba (que solo acotan hacia abajo:
+    institución limita facultad, facultad limita carrera), acá cualquiera
+    de los 3 se puede tocar primero y tiene que acotar a los OTROS DOS
+    también — elegir una carrera sin haber tocado institución/facultad
+    tiene que dejarlos mostrando solo lo relacionado a esa carrera. Por
+    eso las opciones de cada nivel se calculan a partir de los otros DOS
+    filtros, nunca del propio (si no, elegir algo no podría nunca cambiar
+    sus propias opciones)."""
+    from .content_visibility import (
+        get_visible_careers, get_visible_faculties, get_visible_institutions, get_visible_subjects,
+    )
+
+    def to_int(raw):
+        return int(raw) if raw and raw.isdigit() else None
+
+    institucion_id = to_int(request.GET.get('institucion_id'))
+    facultad_id = to_int(request.GET.get('facultad_id'))
+    carrera_id = to_int(request.GET.get('carrera_id'))
+
+    institutions_qs = get_visible_institutions(request.user)
+    if facultad_id:
+        institutions_qs = institutions_qs.filter(facultyv2_set__id=facultad_id)
+    elif carrera_id:
+        institutions_qs = institutions_qs.filter(facultyv2_set__career_faculties__id=carrera_id)
+
+    faculties_qs = get_visible_faculties(request.user)
+    if institucion_id:
+        faculties_qs = faculties_qs.filter(institution_id=institucion_id)
+    if carrera_id:
+        faculties_qs = faculties_qs.filter(career_faculties__id=carrera_id)
+
+    careers_qs = get_visible_careers(request.user)
+    if facultad_id:
+        careers_qs = careers_qs.filter(faculties__id=facultad_id)
+    elif institucion_id:
+        careers_qs = careers_qs.filter(faculties__institution_id=institucion_id)
+
+    subject_ids = None
+    if institucion_id or facultad_id or carrera_id:
+        subjects_qs = get_visible_subjects(request.user)
+        if institucion_id:
+            subjects_qs = subjects_qs.filter(careers__faculties__institution_id=institucion_id)
+        if facultad_id:
+            subjects_qs = subjects_qs.filter(careers__faculties__id=facultad_id)
+        if carrera_id:
+            subjects_qs = subjects_qs.filter(careers__id=carrera_id)
+        subject_ids = list(subjects_qs.distinct().values_list('id', flat=True))
+
+    return JsonResponse({
+        'institutions': list(institutions_qs.distinct().order_by('name').values('id', 'name')),
+        'faculties': list(faculties_qs.distinct().order_by('name').values('id', 'name')),
+        'careers': list(careers_qs.distinct().order_by('name').values('id', 'name')),
+        'subject_ids': subject_ids,
+    })
 # Standard library imports
 import csv
 import json
@@ -770,7 +830,13 @@ def index(request):
     except Exception:
         ultimos_examenes = []
     try:
-        favoritos_count = Favorite.objects.filter(user=request.user).count()
+        # Institución no usa la tabla Favorite genérica (ver favoritos_list)
+        # — sin sumarlo acá el card de Inicio subcontaba justo lo que un
+        # usuario acababa de marcar.
+        favoritos_count = (
+            Favorite.objects.filter(user=request.user).count()
+            + UserInstitution.objects.filter(user=request.user, is_favorite=True).count()
+        )
     except Exception:
         favoritos_count = 0
     try:
@@ -2179,12 +2245,14 @@ def create_exam_template_wizard(request):
     usuario, igual que el formulario clásico, no el buscador de catálogo
     libre del wizard de examen.
     """
-    from .content_visibility import get_visible_subjects, get_visible_rubrics
+    from .content_visibility import get_visible_institutions, get_visible_subjects, get_visible_rubrics
     from .print_format_utils import get_visible_print_formats
 
-    institutions = InstitutionV2.objects.filter(
-        userinstitution__user=request.user, is_active=True
-    )
+    # Mismo bug que ExamTemplateForm (ver forms.py): filtrar por
+    # UserInstitution excluía cualquier institución del catálogo público que
+    # el usuario nunca hubiera favoriteado/tocado (esa fila solo se crea en
+    # toggle_favorite_institution).
+    institutions = get_visible_institutions(request.user).order_by('name')
     subjects = get_visible_subjects(request.user)
     print_formats = get_visible_print_formats(request.user)
     rubrics = get_visible_rubrics(request.user)
@@ -2209,12 +2277,6 @@ def create_exam_template_wizard(request):
 @login_required
 def create_exam_template(request):
     from .content_visibility import get_visible_subjects
-
-    # Obtener instituciones del usuario
-    user_institutions = InstitutionV2.objects.filter(
-        userinstitution__user=request.user,
-        is_active=True
-    )
 
     # Materias visibles del usuario (propias + compartidas vía grupos de
     # confianza). Antes se derivaban de compartir institución con otro
@@ -2315,7 +2377,12 @@ def preview_exam_template(request):
         faculty = FacultyV2.objects.get(id=request.POST['faculty'])
         career = Career.objects.get(id=request.POST['career'])
         subject = Subject.objects.get(id=request.POST['subject'])
-        professor = User.objects.get(id=request.POST.get('professor', request.user.id))
+        # .get('professor', ...) no alcanza: el campo SIEMPRE viaja en el
+        # POST (es un <select> del form), así que con "Docente" en blanco
+        # llega como '' (clave presente, valor vacío) -- .get() solo usa el
+        # default cuando la CLAVE falta, no cuando está vacía. Sin este "or"
+        # tiraba 500 (ValueError: Field 'id' expected a number but got '').
+        professor = User.objects.get(id=request.POST.get('professor') or request.user.id)
 
         campus_id = request.POST.get('campus')
         campus_name = ''
@@ -2491,7 +2558,22 @@ def edit_exam_template(request, template_id):
         else:
             print(f"DEBUG: Errores del formulario: {form.errors}")
             print(f"DEBUG: Non-field errors: {form.non_field_errors()}")
-            messages.error(request, 'Por favor corrige los errores en el formulario.', extra_tags='plantillas')
+            field_errors = []
+            for field_name, errors in form.errors.items():
+                if field_name == '__all__':
+                    field_errors.extend(str(err) for err in errors)
+                    continue
+                label = form.fields.get(field_name).label if field_name in form.fields else field_name
+                for err in errors:
+                    field_errors.append(f"{label}: {err}")
+            if field_errors:
+                messages.error(
+                    request,
+                    'Por favor corrige los errores en el formulario: ' + ' | '.join(field_errors),
+                    extra_tags='plantillas'
+                )
+            else:
+                messages.error(request, 'Por favor corrige los errores en el formulario.', extra_tags='plantillas')
     else:
         # GET request - crear formulario con la instancia existente
         form = ExamTemplateForm(instance=template, user=request.user)
@@ -5292,7 +5374,22 @@ def edit_institution_v2(request, pk):
             except Exception as e:
                 messages.error(request, f'Error al guardar los cambios: {str(e)}')
         else:
-            messages.error(request, 'Por favor corrija los errores en el formulario')
+            field_errors = []
+            for field_name, errors in form.errors.items():
+                if field_name == '__all__':
+                    field_errors.extend(str(err) for err in errors)
+                    continue
+                label = form.fields.get(field_name).label if field_name in form.fields else field_name
+                for err in errors:
+                    field_errors.append(f"{label}: {err}")
+            if field_errors:
+                messages.error(
+                    request,
+                    'Por favor corrija los errores en el formulario: ' + ' | '.join(field_errors),
+                    extra_tags='instituciones'
+                )
+            else:
+                messages.error(request, 'Por favor corrija los errores en el formulario', extra_tags='instituciones')
 
     else:
         form = InstitutionV2Form(instance=institution)
@@ -5465,12 +5562,13 @@ def set_visual_theme(request):
 
 @login_required
 def delete_institution_logo_v2(request, pk):
-    # Institución es catálogo público — no hace falta ser "dueño" vía
-    # UserInstitution, alcanza con ser admin. JSON 403 (no redirect: es un
-    # endpoint fetch()) — faltaba este gate por completo antes.
-    if not is_admin(request.user):
-        return JsonResponse({'success': False, 'error': 'Solo un administrador puede editar el catálogo.'}, status=403)
     institution = get_object_or_404(InstitutionV2, pk=pk)
+    # Mismo criterio que edit_institution_v2 (donde se sube el logo): admin,
+    # o el dueño de su propio borrador de espacio personal — antes exigía
+    # is_admin a secas, así que el dueño podía subir el logo pero nunca
+    # quitarlo. JSON 403 (no redirect: es un endpoint fetch()).
+    if not _puede_editar_catalogo(request.user, institution):
+        return JsonResponse({'success': False, 'error': 'No se puede editar esta institución.'}, status=403)
     if request.method == 'POST':
         try:
             institution.logo.delete()
@@ -5621,6 +5719,25 @@ def favoritos_list(request):
             'object': obj,
             'favorited_at': fav.created_at,
         })
+
+    # Institución NO usa la tabla Favorite genérica de arriba — se marca
+    # aparte con UserInstitution.is_favorite (mecanismo previo, ver
+    # toggle_favorite_institution), así que sin esto quedaba totalmente
+    # afuera de "Mis Favoritos" pese a que la estrella de Instituciones sí
+    # la deja marcada (reportado en Modo Testing: el card de Inicio solo
+    # enumeraba el examen, no la institución). UserInstitution no tiene
+    # fecha propia — se ordena por updated_at de la institución, la mejor
+    # aproximación disponible.
+    institution_favs = UserInstitution.objects.filter(
+        user=request.user, is_favorite=True,
+    ).select_related('institution')
+    for uf in institution_favs:
+        items.append({
+            'kind': 'institucion',
+            'object': uf.institution,
+            'favorited_at': uf.institution.updated_at,
+        })
+    items.sort(key=lambda i: i['favorited_at'], reverse=True)
 
     return render(request, 'material/favoritos_list.html', {'items': items})
 
@@ -5905,6 +6022,17 @@ def delete_subject(request, pk):
                     resolution = 'borrado'
                 _bifurcar_o_avisar_subject(subject, examenes, batches, orales, request.user, resolution)
             try:
+                # Igual que eliminar_espacio_personal: CatalogRequest.materia
+                # es SET_NULL, así que borrar la materia de acá no se lleva
+                # puesta una solicitud pendiente — queda "pendiente" para
+                # siempre si no se la cancela ahora.
+                CatalogRequest.objects.filter(materia=subject, estado='pendiente').update(
+                    estado='rechazada',
+                    nota_admin=f'Cancelada automáticamente: quien la solicitó borró "{subject.name}" de su espacio personal antes de que se revisara.',
+                    resuelto_por=request.user,
+                    resuelto_en=timezone.now(),
+                    visto_por_solicitante=True,
+                )
                 subject.delete()
             except ProtectedError as e:
                 transaction.set_rollback(True)
@@ -6278,7 +6406,22 @@ def career_associations(request, pk):
             messages.success(request, 'Asociaciones actualizadas correctamente', extra_tags='examenes')
             return redirect('material:career_detail', pk=pk)
         else:
-            messages.error(request, 'Por favor corrige los errores en el formulario', extra_tags='examenes')
+            field_errors = []
+            for field_name, errors in form.errors.items():
+                if field_name == '__all__':
+                    field_errors.extend(str(err) for err in errors)
+                    continue
+                label = form.fields.get(field_name).label if field_name in form.fields else field_name
+                for err in errors:
+                    field_errors.append(f"{label}: {err}")
+            if field_errors:
+                messages.error(
+                    request,
+                    'Por favor corrige los errores en el formulario: ' + ' | '.join(field_errors),
+                    extra_tags='examenes'
+                )
+            else:
+                messages.error(request, 'Por favor corrige los errores en el formulario', extra_tags='examenes')
     else:
         form = CareerForm(instance=career, career_pk=pk, user=request.user)
     
@@ -8831,6 +8974,15 @@ def check_catalog_duplicate(request):
             qs = qs.filter(faculties__id=facultad_id)
     elif nivel == 'materia':
         qs = get_visible_subjects(request.user)
+        # Acotado a la carrera ya elegida arriba en el chip — igual criterio
+        # que facultad/carrera de arriba. Sin esto, el buscador de "materia
+        # ya cargada en esta carrera" (usado por resultado_aprendizaje)
+        # mostraba TODAS las materias visibles del usuario que matchearan
+        # el texto, contradiciendo lo que el propio mensaje del chip promete
+        # (reportado en Modo Testing).
+        carrera_id = request.GET.get('carrera_id', '')
+        if carrera_id.isdigit():
+            qs = qs.filter(careers__id=carrera_id)
     else:
         return JsonResponse([], safe=False)
 
@@ -8979,6 +9131,19 @@ def eliminar_espacio_personal(request, nivel, pk):
             messages.error(request, 'No se pudo borrar — algo lo sigue usando. Revisar el detalle e intentar de nuevo.')
             return redirect(destino)
         nombre = entidad.name
+        # Las FK de CatalogRequest a esta entidad son SET_NULL (ver
+        # comentario en el modelo), así que borrar de acá abajo no se
+        # lleva puesta la solicitud — pero si queda "pendiente" nadie la
+        # va a resolver nunca (el admin ya no tiene qué aprobar/rechazar).
+        # Se cancela ahora, mientras todavía se puede identificar cuál
+        # solicitud era.
+        CatalogRequest.objects.filter(**{nivel: entidad}, estado='pendiente').update(
+            estado='rechazada',
+            nota_admin=f'Cancelada automáticamente: quien la solicitó borró "{nombre}" de su espacio personal antes de que se revisara.',
+            resuelto_por=request.user,
+            resuelto_en=timezone.now(),
+            visto_por_solicitante=True,
+        )
         entidad.delete()
         messages.success(request, f'Se borró "{nombre}" del espacio personal.')
         return redirect(destino)
@@ -9350,6 +9515,11 @@ def _materializar_y_generar_solicitudes(form, user):
         carrera_obj, creada = _obtener_o_crear_personal(Career, datos['carrera_nueva'])
         if facultad_obj:
             carrera_obj.faculties.add(facultad_obj)
+        if institucion_obj:
+            # Sin esto, career_associations no puede precargar el
+            # desplegable de Institución de esta carrera — buscaba esta
+            # fila y nunca existía (ver nuevo-04 en el tracker de UAT).
+            InstitutionCareer.objects.get_or_create(institution=institucion_obj, career=carrera_obj)
         if creada:
             _agregar_fila('carrera', carrera_obj.name, institucion=institucion_obj, facultad=facultad_obj, carrera=carrera_obj)
 
@@ -9371,6 +9541,8 @@ def _materializar_y_generar_solicitudes(form, user):
             raise ValueError('falta facultad')
         nueva_carrera, creada = _obtener_o_crear_personal(Career, datos['nombre_propuesto'])
         nueva_carrera.faculties.add(facultad_obj)
+        if institucion_obj:
+            InstitutionCareer.objects.get_or_create(institution=institucion_obj, career=nueva_carrera)
         if creada:
             _agregar_fila('carrera', nueva_carrera.name, institucion=institucion_obj, facultad=facultad_obj, carrera=nueva_carrera)
     elif tipo == 'materia':

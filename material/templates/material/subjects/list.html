@@ -51,7 +51,7 @@
                     <a href="?personal={% if only_personal %}0{% else %}1{% endif %}{% if personal_toggle_querystring %}&{{ personal_toggle_querystring }}{% endif %}"
                        class="btn btn-sm list-toolbar-btn {% if only_personal %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
                        title="Mostrar solo lo que está en el espacio personal propio, todavía no sumado al catálogo institucional">
-                        <i class="bi bi-person-badge"></i> <span class="d-none d-sm-inline">Personal</span>
+                        <i class="fas fa-id-badge"></i> <span class="d-none d-sm-inline">Personal</span>
                     </a>
                 </div>
             </div>
@@ -69,7 +69,6 @@
                     <thead>
                         <tr>
                             {% if is_admin %}<th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>{% endif %}
-                            <th style="width:40px;"></th>
                             <th>Nombre</th>
                             <th>Resultados de Aprendizaje</th>
                             <th>Acciones</th>

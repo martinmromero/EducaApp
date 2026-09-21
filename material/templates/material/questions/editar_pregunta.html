@@ -1,4 +1,5 @@
 {% extends 'material/base.html' %}
+{% load static %}
 
 {% block content %}
 <div class="container-lg py-4">
@@ -255,6 +256,7 @@
   </form>
 </div>
 
+<script src="{% static 'material/js/smart_checklist.js' %}"></script>
 <script>
 (function () {
   // ── Datos iniciales desde el servidor ──────────────────────────────────
@@ -420,16 +422,16 @@
     });
     if (topicSel) topicSel.addEventListener('change', onTopicChange);
 
-    // Filtro en vivo de materias — mismo criterio que upload_questions.html,
-    // reclamo de Modo Testing sobre el form "kilométrico" con muchas materias.
-    const subjectsFilter = document.getElementById('subjectsFilter');
-    if (subjectsFilter) {
-      subjectsFilter.addEventListener('input', () => {
-        const q = subjectsFilter.value.trim().toLowerCase();
-        document.querySelectorAll('.subjects-checklist > div > div').forEach(item => {
-          const label = item.textContent.trim().toLowerCase();
-          item.classList.toggle('subject-filtered-out', q.length > 0 && !label.includes(q));
-        });
+    // Muestra directo solo las materias que ya son "tuyas" (favoritas o con
+    // preguntas propias cargadas — ver content_visibility.order_subjects_by_relevance
+    // / count_relevant_subjects) y deja el resto detrás de un buscador, en
+    // vez de mostrar cientos de checkboxes de entrada. El filtro de texto
+    // de #subjectsFilter lo maneja este mismo componente.
+    if (window.EducaAppSmartChecklist) {
+      window.EducaAppSmartChecklist.init({
+        checklistSelector: '.subjects-checklist',
+        filterInputSelector: '#subjectsFilter',
+        relevantCount: {{ form.relevant_subjects_count|default:0 }},
       });
     }
 
