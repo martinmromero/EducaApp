@@ -472,24 +472,38 @@ document.addEventListener('DOMContentLoaded', function() {
         ensureValidationPanelExists();
         
         if (totalStudents > 0 && numGroups > 0 && studentsPerGroup > 0) {
-            // "Máximo por grupo" (window.currentValidationInfo, cargado por
-            // showValidationInfo según sub-tópicos disponibles) es un límite
-            // APARTE del simple cálculo de capacidad de abajo — antes esta
-            // rama solo miraba que los cupos alcanzaran, así que una
-            // configuración con MÁS estudiantes por grupo de los que los
-            // sub-tópicos disponibles soportan sin repetir preguntas
-            // igual se mostraba en verde como "válida" (reportado en Modo
-            // Testing: mostraba "Máximo por grupo: 1" arriba y "2 grupos ×
-            // 4 estudiantes ✓" abajo, contradictorio).
-            var maxPerGroup = window.currentValidationInfo ? window.currentValidationInfo.max_students_per_group : null;
-            var exceedsSubtopicLimit = typeof maxPerGroup === 'number' && studentsPerGroup > maxPerGroup;
+            // Dos límites DISTINTOS del mismo "currentValidationInfo" (cargado
+            // por showValidationInfo): que ALCANCEN LAS PREGUNTAS para no
+            // repetir la pregunta exacta dentro de un grupo (el problema
+            // real -- generate_oral_exam_questions, views.py, evita esto
+            // mientras haya preguntas sin usar en el grupo) y que alcancen
+            // los SUB-TEMAS para que cada estudiante no repita sub-tema
+            // entre sus propias preguntas (preferencia de variedad, no algo
+            // que bloquee la creación). Antes se mezclaban en un solo aviso
+            // basado solo en sub-tópicos ("máximo por grupo") que hablaba de
+            // "preguntas repetidas" aunque hubiera preguntas de sobra
+            // (reportado en Modo Testing con 60 preguntas y pocos sub-temas).
+            var info = window.currentValidationInfo || {};
+            var totalQuestionsAvail = typeof info.total_questions === 'number' ? info.total_questions : null;
+            var totalSubtopicsAvail = typeof info.total_subtopics === 'number' ? info.total_subtopics : null;
+            var questionsPerStudentVal = parseInt(questionsPerStudentField.value) || 0;
+            var questionsNeededPerGroup = studentsPerGroup * questionsPerStudentVal;
+            var notEnoughQuestions = totalQuestionsAvail !== null && totalQuestionsAvail < questionsNeededPerGroup;
+            var notEnoughSubtopics = !notEnoughQuestions && totalSubtopicsAvail !== null && totalSubtopicsAvail < questionsPerStudentVal;
             if (calculated >= totalStudents && calculated <= totalStudents * 1.25) {
-                if (exceedsSubtopicLimit) {
+                if (notEnoughQuestions) {
                     addValidationClass('is-warning');
                     showCalculationWarning(
-                        `${numGroups} grupos × ${studentsPerGroup} estudiantes alcanza en cantidad, pero con los ` +
-                        `sub-tópicos disponibles el máximo por grupo sin repetir preguntas es ${maxPerGroup}. ` +
-                        `Algunos estudiantes del mismo grupo van a recibir preguntas repetidas.`
+                        `Hay ${totalQuestionsAvail} pregunta(s) disponible(s) en total, pero el grupo más numeroso necesita ` +
+                        `${questionsNeededPerGroup} (${studentsPerGroup} estudiante(s) × ${questionsPerStudentVal} pregunta(s)) para no repetir ` +
+                        `la misma pregunta entre estudiantes de ese grupo. Es probable que se repita alguna pregunta exacta.`
+                    );
+                } else if (notEnoughSubtopics) {
+                    addValidationClass('is-warning');
+                    showCalculationWarning(
+                        `Hay ${totalSubtopicsAvail} sub-tópico(s) disponible(s) para ${questionsPerStudentVal} pregunta(s) por estudiante, ` +
+                        `así que cada estudiante va a repetir sub-tópico entre sus propias preguntas. Esto no impide crear el cuestionario: ` +
+                        `hay preguntas de sobra para que no se repita la pregunta exacta dentro de un mismo grupo.`
                     );
                 } else {
                     // Configuración válida (máximo 25% de espacios vacíos)

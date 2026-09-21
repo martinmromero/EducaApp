@@ -1108,40 +1108,40 @@ class OralExamForm(forms.ModelForm):
             math.ceil(total_students / num_groups) if num_groups else students_per_group
         )
         if effective_students_per_group and questions_per_student:
-            # Para evitar repeticiones, necesitamos al menos tantos subtemas
-            # como (estudiantes por grupo × preguntas por estudiante) — cada
-            # estudiante necesita `questions_per_student` subtemas distintos
-            # dentro de su grupo (ver generate_oral_exam_questions, views.py).
-            max_students_per_group_by_subtopics = total_subtopics
-            subtopics_needed = effective_students_per_group * questions_per_student
+            # Dos límites DISTINTOS, que antes se mezclaban en un solo aviso
+            # basado solo en sub-tópicos (y hablaba de "no alcanza... sin
+            # repetir" como si fuera inviable, cuando generate_oral_exam_
+            # questions ya degrada reutilizando sub-tópicos sin bloquear
+            # nada -- reportado en Modo Testing con 60 preguntas cargadas y
+            # solo 3 sub-tópicos, el aviso seguía sonando a "no se puede"):
+            # (1) que ALCANCEN LAS PREGUNTAS para no repetir la pregunta
+            # exacta dentro de un mismo grupo (el problema real: el
+            # algoritmo evita esto mientras haya preguntas sin usar en el
+            # grupo) y (2) que alcancen los SUB-TÓPICOS para que cada
+            # estudiante no repita sub-tópico entre sus propias preguntas
+            # (preferencia de variedad, no algo que impida crear el
+            # cuestionario).
+            max_students_per_group_by_subtopics = (
+                total_subtopics // questions_per_student if questions_per_student else total_subtopics
+            )
+            questions_needed_per_group = effective_students_per_group * questions_per_student
+            enough_questions = total_questions >= questions_needed_per_group
+            enough_subtopics = total_subtopics >= questions_per_student
 
-            if subtopics_needed > total_subtopics:
-                # No hay suficiente subdivisión de contenido para armar el grupo
-                # sin repetir sub-tópicos. Antes esto bloqueaba la creación por
-                # completo; a pedido del usuario (2026-09-20) pasa a ser una
-                # advertencia no bloqueante — el algoritmo de generación
-                # (generate_oral_exam_questions, views.py) ya sabe degradar
-                # reutilizando sub-tópicos/preguntas, y es el docente quien
-                # decide si esa repetición es aceptable para este cuestionario.
-                max_students_per_group_by_subtopics = total_subtopics // questions_per_student
-                if max_students_per_group_by_subtopics < 1:
-                    subtopic_warning = (
-                        f'Con solo {total_subtopics} sub-tópico(s) disponible(s) no alcanza para '
-                        f'{questions_per_student} pregunta(s) por estudiante sin repetir sub-tópico. '
-                        f'Se van a repetir sub-tópicos (y posiblemente preguntas) dentro de cada grupo. '
-                        f'Si preferís evitarlo, bajá "preguntas por estudiante" a {total_subtopics} como máximo, '
-                        f'o agregá más sub-tópicos/preguntas a los tópicos elegidos.'
-                    )
-                else:
-                    suggested_groups = math.ceil(total_students / max_students_per_group_by_subtopics)
-                    suggested_students_per_group = math.ceil(total_students / suggested_groups)
-                    subtopic_warning = (
-                        f'Con {total_subtopics} sub-tópicos disponibles se necesitan {subtopics_needed} '
-                        f'({effective_students_per_group} estudiantes/grupo × {questions_per_student} preguntas/estudiante) '
-                        f'para evitar repeticiones. Se van a repetir sub-tópicos entre alumnos del mismo grupo. '
-                        f'Si preferís evitarlo: {suggested_groups} grupos de {suggested_students_per_group} '
-                        f'estudiantes cada uno, o reducí "preguntas por estudiante".'
-                    )
+            if not enough_questions:
+                subtopic_warning = (
+                    f'Hay {total_questions} pregunta(s) disponible(s) en total, pero el grupo más numeroso necesita '
+                    f'{questions_needed_per_group} ({effective_students_per_group} estudiantes/grupo × {questions_per_student} preguntas/estudiante) '
+                    f'para no repetir la misma pregunta entre estudiantes de ese grupo. Es probable que se repita alguna pregunta exacta. '
+                    f'Para evitarlo: agregar más preguntas, aumentar la cantidad de grupos o reducir las preguntas por estudiante.'
+                )
+                cleaned_data['_subtopic_warning'] = subtopic_warning
+            elif not enough_subtopics:
+                subtopic_warning = (
+                    f'Hay {total_subtopics} sub-tópico(s) disponible(s) para {questions_per_student} pregunta(s) por estudiante, '
+                    f'así que cada estudiante va a repetir sub-tópico entre sus propias preguntas. Esto no impide crear el cuestionario: '
+                    f'hay {total_questions} pregunta(s) en total, suficientes para que no se repita la pregunta exacta dentro de un mismo grupo.'
+                )
                 cleaned_data['_subtopic_warning'] = subtopic_warning
         
         # Agregar información útil a los cleaned_data para mostrar en el template

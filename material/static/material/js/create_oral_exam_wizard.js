@@ -154,26 +154,40 @@ _onDomReady(function () {
                 }
                 var studentsPerGroup = Math.ceil(totalStudents / numGroups);
                 var info = data.info;
-                if (info.max_students_per_group < 1) {
-                    // Ni con 1 solo alumno por grupo alcanzan los sub-temas — no
-                    // es un problema de "más grupos", ningún tamaño de grupo lo
-                    // arregla. Recomendar "0 alumnos por grupo" (como hacía antes)
-                    // no tiene sentido: un grupo necesita al menos 1.
+                // Dos límites DISTINTOS, que antes se mezclaban en un solo
+                // mensaje basado solo en sub-temas (implicaba que la creación
+                // era directamente inviable, "sin importar cuántos grupos se
+                // armen", cuando en realidad generate_oral_exam_questions
+                // (views.py) ya degrada reutilizando sub-temas sin bloquear
+                // nada — reportado en Modo Testing con 60 preguntas y 3
+                // sub-temas, mensaje seguía diciendo "no alcanza"): (1) que
+                // ALCANCEN LAS PREGUNTAS para no repetir la pregunta exacta
+                // dentro de un mismo grupo (el problema real, el algoritmo SI
+                // evita esto mientras haya preguntas sin usar en el grupo) y
+                // (2) que alcancen los SUB-TEMAS para que cada alumno no
+                // repita sub-tema entre sus propias preguntas (una preferencia
+                // de variedad, no algo que impida crear el cuestionario).
+                var questionsNeededPerGroup = studentsPerGroup * questionsPerStudent;
+                var enoughQuestions = info.total_questions >= questionsNeededPerGroup;
+                var enoughSubtopics = info.total_subtopics >= questionsPerStudent;
+
+                if (!enoughQuestions) {
                     renderValidation(warningHtml(
-                        'Con solo ' + info.total_subtopics + ' sub-tema(s) disponible(s) no alcanza para ' +
-                        questionsPerStudent + ' pregunta(s) por alumno sin repetir, sin importar cuántos grupos se armen. ' +
-                        'Bajá "Preguntas por alumno" a ' + info.total_subtopics + ' como máximo, o agregá más sub-temas/preguntas.'
+                        'Hay ' + info.total_questions + ' pregunta(s) disponible(s) en total, pero el grupo más numeroso necesita ' +
+                        questionsNeededPerGroup + ' (' + studentsPerGroup + ' alumno(s) × ' + questionsPerStudent + ' pregunta(s)) para no repetir ' +
+                        'la misma pregunta entre alumnos de ese grupo. Es probable que se repita alguna pregunta exacta. ' +
+                        'Para evitarlo: agregar más preguntas, aumentar la cantidad de grupos o reducir las preguntas por alumno.'
                     ));
-                } else if (studentsPerGroup > info.max_students_per_group) {
+                } else if (!enoughSubtopics) {
                     renderValidation(warningHtml(
-                        'Con ' + info.total_subtopics + ' sub-tema(s) disponible(s) y ' + questionsPerStudent + ' pregunta(s) por alumno, ' +
-                        'el máximo recomendado es ' + info.max_students_per_group + ' alumno(s) por grupo — esta configuración da ' +
-                        studentsPerGroup + '. Aumentá los grupos o bajá las preguntas por alumno para evitar repeticiones.'
+                        'Hay ' + info.total_subtopics + ' sub-tema(s) disponible(s) para ' + questionsPerStudent + ' pregunta(s) por alumno, ' +
+                        'así que cada alumno va a repetir sub-tema entre sus propias preguntas. Esto no impide crear el cuestionario: ' +
+                        'hay ' + info.total_questions + ' pregunta(s) en total, suficientes para que no se repita la pregunta exacta dentro de un mismo grupo.'
                     ));
                 } else {
                     renderValidation(okHtml(
                         'Cada grupo va a tener hasta ' + studentsPerGroup + ' alumno(s), con ' + info.total_subtopics +
-                        ' sub-tema(s) disponible(s) — alcanza sin repetir.'
+                        ' sub-tema(s) y ' + info.total_questions + ' pregunta(s) disponibles — alcanza sin repetir.'
                     ));
                 }
             })
