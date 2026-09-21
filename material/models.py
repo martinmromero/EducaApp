@@ -1878,6 +1878,11 @@ class OralExamSet(models.Model):
         verbose_name='Temas a evaluar',
         help_text='Seleccione los temas que se incluirán en el examen oral'
     )
+    include_no_topic = models.BooleanField(
+        default=False,
+        verbose_name='Incluir preguntas sin tópico',
+        help_text='Suma también las preguntas de la materia que no tienen un tópico asignado (no se pueden representar en el M2M "topics", que solo apunta a Topic reales).'
+    )
     num_groups = models.PositiveIntegerField(
         verbose_name='Número de grupos',
         help_text='Cantidad de grupos de estudiantes'

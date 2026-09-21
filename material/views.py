@@ -155,7 +155,14 @@ def preview_exam(request):
         selected_topics = Topic.objects.filter(pk__in=topic_ids)
     else:
         selected_topics = Topic.objects.none()
+    # 'sin_topico' es otro sentinel explícito (checkbox "Sin tópico definido"
+    # en el picker de tópicos) — 'all' también lo implica, porque "todos los
+    # tópicos" debería barrer TODAS las preguntas aprobadas de la materia,
+    # con o sin tópico asignado (ver _pick_questions_for_versions).
+    include_no_topic = topics_is_all_sentinel or 'sin_topico' in raw_topics
     topics_texts = list(selected_topics.values_list('name', flat=True))
+    if include_no_topic:
+        topics_texts.append('Sin tópico definido')
 
     outcomes_texts = list(LearningOutcome.objects.filter(pk__in=outcome_ids).values_list('description', flat=True)) if outcome_ids else []
 
@@ -172,7 +179,8 @@ def preview_exam(request):
         questions_per_version = 0
 
     if questions_per_version <= 0:
-        questions_per_version = len(manual_question_ids) if manual_question_ids else max(1, selected_topics.count())
+        topics_count = selected_topics.count() + (1 if include_no_topic else 0)
+        questions_per_version = len(manual_question_ids) if manual_question_ids else max(1, topics_count)
 
     from .content_visibility import get_visible_questions, EXAM_ELIGIBLE_Q
     include_seed = bool(exam.get('include_seed'))
@@ -212,6 +220,7 @@ def preview_exam(request):
                     balance_by_topic=balance_by_topic,
                     allowed_question_ids=manual_question_ids,
                     include_seed=include_seed,
+                    include_no_topic=include_no_topic,
                 )
         elif subject_obj:
             balance_by_topic = str(exam.get('balance_by_topic', '1')) == '1'
@@ -222,6 +231,7 @@ def preview_exam(request):
                 versions_count=versions_count,
                 questions_per_version=questions_per_version,
                 balance_by_topic=balance_by_topic,
+                include_no_topic=include_no_topic,
                 include_seed=include_seed,
             )
 
@@ -442,7 +452,12 @@ def get_questions_by_topics(request):
     all_topics = request.GET.get('all', 'false') == 'true'
     subject_id = request.GET.get('subject_id')
     topics = request.GET.get('topics', '')
-    topic_ids = [int(t) for t in topics.split(',') if t]
+    raw_topic_values = [t for t in topics.split(',') if t]
+    # 'sin_topico' (checkbox "Sin tópico definido") no es un pk real — igual
+    # que en _pick_questions_for_versions, se separa del resto para poder
+    # sumarlo con topic_id__isnull en vez de romper el int() de abajo.
+    include_no_topic = 'sin_topico' in raw_topic_values
+    topic_ids = [int(t) for t in raw_topic_values if t != 'sin_topico']
     subject_arg = int(subject_id) if subject_id and str(subject_id).isdigit() else None
     # Mismo include_seed que get_topics?for_exam=1: sin esto, el examen de
     # ejemplo del asistente (cuyas preguntas son todas del bot de contenido
@@ -453,8 +468,11 @@ def get_questions_by_topics(request):
     questions = Question.objects.none()
     if all_topics and subject_id:
         questions = base_qs.filter(review_filter)
-    elif topic_ids:
-        questions = base_qs.filter(topic_id__in=topic_ids).filter(review_filter)
+    elif topic_ids or include_no_topic:
+        topic_filter = Q(topic_id__in=topic_ids)
+        if include_no_topic:
+            topic_filter |= Q(topic__isnull=True)
+        questions = base_qs.filter(topic_filter).filter(review_filter)
     data = [
         # Texto completo (sin truncar): quien arma el examen necesita poder
         # distinguir preguntas parecidas, y el panel ya es una lista con
@@ -642,16 +660,28 @@ def get_topics(request):
     usuarios sin ninguna pregunta suya disponible ahí — los elegía, tildaba
     "Todo", y el examen le salía vacío para esos tópicos, sin ningún aviso.
 
-    `for_exam=1` (usado por create_exam.js y oral_exams/create.html, donde
-    el objetivo es "dame preguntas ya cargadas") filtra a solo los tópicos
-    que tienen AL MENOS una pregunta visible para este usuario. Sin ese
-    parámetro (usado por upload_questions.html, donde el objetivo es
-    "categorizar contenido nuevo mío") se listan todos los tópicos de la
-    materia sin filtrar — ahí sí tiene sentido reutilizar un tópico que hoy
-    está "vacío" para este usuario, porque le está por sumar contenido.
+    `for_exam=1` (usado por create_exam.js, create_exam_wizard.js,
+    create_oral_exam_wizard.js y oral_exams/create.html, donde el objetivo
+    es "dame preguntas ya cargadas") filtra a solo los tópicos que tienen AL
+    MENOS una pregunta visible para este usuario. Sin ese parámetro (usado
+    por upload_questions.html, donde el objetivo es "categorizar contenido
+    nuevo mío") se listan todos los tópicos de la materia sin filtrar — ahí
+    sí tiene sentido reutilizar un tópico que hoy está "vacío" para este
+    usuario, porque le está por sumar contenido.
+
+    `include_no_topic=1` (además de for_exam=1; usado solo por create_exam.js
+    y create_exam_wizard.js) suma la opción sintética 'sin_topico' cuando hay
+    preguntas sin tópico asignado. Es opt-in y NO se activa para los
+    consumidores orales (create_oral_exam_wizard.js / oral_exams/create.html):
+    ahí el 'topics' que se manda termina en OralExamForm, un
+    ModelMultipleChoiceField a Topic que hace `pk__in=[...]` — un valor no
+    numérico ahí tira ValueError ("Field 'id' expected a number but got
+    'sin_topico'"), 500 real reportado en producción. El soporte de "sin
+    tópico" para cuestionarios orales queda pendiente si se pide más adelante.
     """
     subject_id = request.GET.get('subject_id')
     topics_qs = Topic.objects.filter(subject_id=subject_id).distinct()
+    include_no_topic_option = False
 
     if request.GET.get('for_exam') == '1' and request.user.is_authenticated:
         from .content_visibility import get_visible_questions, EXAM_ELIGIBLE_Q
@@ -663,13 +693,24 @@ def get_topics(request):
             # aparecería como "disponible" aunque el usuario no haya activado
             # esa preferencia, y el examen le saldría vacío igual para ese caso.
             include_seed = bool(request.session.get('onb2_include_seed'))
-            visible_topic_ids = get_visible_questions(
+            visible_questions = get_visible_questions(
                 request.user, subject=subject_obj, include_seed=include_seed
-            ).filter(EXAM_ELIGIBLE_Q).values_list('topic_id', flat=True).distinct()
+            ).filter(EXAM_ELIGIBLE_Q)
+            visible_topic_ids = visible_questions.values_list('topic_id', flat=True).distinct()
             topics_qs = topics_qs.filter(pk__in=visible_topic_ids)
+            # Preguntas sin tópico asignado (topic_id NULL — carga vieja sin
+            # categorizar, o el tópico original se borró) nunca aparecen como
+            # un Topic real: sin esto quedaban invisibles para siempre en
+            # "Crear Examen", aunque estén aprobadas y disponibles. Opt-in
+            # (include_no_topic=1) porque los consumidores orales no lo piden
+            # y no saben manejar el sentinel — ver docstring arriba.
+            if request.GET.get('include_no_topic') == '1':
+                include_no_topic_option = visible_questions.filter(topic__isnull=True).exists()
 
-    topics = topics_qs.values('id', 'name')
-    return JsonResponse(list(topics), safe=False)
+    topics = list(topics_qs.values('id', 'name'))
+    if include_no_topic_option:
+        topics.append({'id': 'sin_topico', 'name': 'Sin tópico definido'})
+    return JsonResponse(topics, safe=False)
 
 def get_subtopics(request):
     topic_id = request.GET.get('topic_id')
@@ -1065,17 +1106,26 @@ def _arrange_questions_avoiding_same_topic_consecutive(question_list):
     return result
 
 
-def _pick_questions_for_versions(subject, selected_topics, user, versions_count, questions_per_version, balance_by_topic=True, allowed_question_ids=None, include_seed=False):
+def _pick_questions_for_versions(subject, selected_topics, user, versions_count, questions_per_version, balance_by_topic=True, allowed_question_ids=None, include_seed=False, include_no_topic=False):
     import random
     from collections import defaultdict
 
     from .content_visibility import get_visible_questions, EXAM_ELIGIBLE_Q
 
     pools = defaultdict(list)
+    # Preguntas con topic_id NULL (subida vieja sin tópico, o el original se
+    # borró) no matchean nunca `topic__in=<queryset de Topic>` — quedaban
+    # afuera de "Crear Examen" para siempre, sin forma de elegirlas. Con
+    # include_no_topic=True (checkbox "Sin tópico definido" en el picker) se
+    # suman aparte, agrupadas bajo la clave None igual que cualquier otro
+    # tópico (ver content_visibility.get_visible_questions para el resto del
+    # scoping por usuario/semilla/compartido).
+    topic_filter = Q(topic__in=selected_topics)
+    if include_no_topic:
+        topic_filter |= Q(topic__isnull=True)
     base_qs = get_visible_questions(user, subject=subject, include_seed=include_seed).filter(
         EXAM_ELIGIBLE_Q,
-        topic__in=selected_topics,
-    ).select_related('topic')
+    ).filter(topic_filter).select_related('topic')
     if allowed_question_ids:
         base_qs = base_qs.filter(pk__in=allowed_question_ids)
 
@@ -1085,6 +1135,8 @@ def _pick_questions_for_versions(subject, selected_topics, user, versions_count,
         random.shuffle(pools[topic_id])
 
     topic_ids = list(selected_topics.values_list('id', flat=True))
+    if include_no_topic:
+        topic_ids.append(None)
     if not topic_ids:
         return []
 
@@ -1898,11 +1950,15 @@ def save_exam_from_session(request):
             return [int(v) for v in raw if str(v).isdigit()]
         return []
 
+    raw_topics_list = [str(v) for v in exam_data.get('topics', [])]
     t_ids = _ids('topics')
-    if t_ids and 'all' not in [str(v) for v in exam_data.get('topics', [])]:
+    if t_ids and 'all' not in raw_topics_list:
         selected_topics = Topic.objects.filter(pk__in=t_ids)
     else:
         selected_topics = Topic.objects.filter(subject=subject)
+    # Ver _pick_questions_for_versions: preguntas con topic_id NULL no
+    # matchean topic__in, así que necesitan sumarse aparte con este flag.
+    include_no_topic = 'all' in raw_topics_list or 'sin_topico' in raw_topics_list
 
     o_ids = _ids('learning_outcomes')
     selected_outcomes = LearningOutcome.objects.filter(pk__in=o_ids) if o_ids else LearningOutcome.objects.none()
@@ -1930,9 +1986,10 @@ def save_exam_from_session(request):
         pass
 
     if questions_per_version is None:
-        questions_per_version = len(q_ids) if q_ids else max(1, selected_topics.count())
+        topics_count = selected_topics.count() + (1 if include_no_topic else 0)
+        questions_per_version = len(q_ids) if q_ids else max(1, topics_count)
 
-    if selected_topics.count() == 0:
+    if selected_topics.count() == 0 and not include_no_topic:
         return _error('Debe seleccionar al menos un tópico para generar temas.')
 
     preview_version_ids = request.session.get('preview_generated_versions_ids') or []
@@ -1979,6 +2036,7 @@ def save_exam_from_session(request):
                 balance_by_topic=balance_by_topic,
                 allowed_question_ids=q_ids,
                 include_seed=include_seed,
+                include_no_topic=include_no_topic,
             )
     else:
         balance_by_topic = str(exam_data.get('balance_by_topic', '1')) == '1'
@@ -1990,6 +2048,7 @@ def save_exam_from_session(request):
             questions_per_version=questions_per_version,
             balance_by_topic=balance_by_topic,
             include_seed=include_seed,
+            include_no_topic=include_no_topic,
         )
     if not chosen_versions or not chosen_versions[0]:
         return _error('No hay preguntas suficientes para generar el examen.')
@@ -6958,30 +7017,44 @@ def validate_oral_exam(request):
         
         data = json.loads(request.body)
         subject_id = data.get('subject_id')
-        topic_ids = data.get('topic_ids', [])
+        raw_topic_ids = data.get('topic_ids', [])
         total_students = data.get('total_students', 0)
         questions_per_student = data.get('questions_per_student', 3)
-        
-        if not all([subject_id, topic_ids]):
+
+        # 'sin_topico' (checkbox "Sin tópico definido") no es un pk real —
+        # topic_id__in=[...] más abajo tira ValueError crudo si se cuela sin
+        # separarlo primero (mismo criterio que OralExamForm.clean()/
+        # create_oral_exam).
+        include_no_topic = 'sin_topico' in raw_topic_ids
+        topic_ids = [t for t in raw_topic_ids if t != 'sin_topico']
+
+        if not subject_id or not (topic_ids or include_no_topic):
             return JsonResponse({'success': False, 'error': 'Datos incompletos'})
-        
+
         # Obtener preguntas disponibles
+        topic_filter = Q(topic_id__in=topic_ids)
+        if include_no_topic:
+            topic_filter |= Q(topic__isnull=True)
         available_questions = Question.objects.filter(
             subjects__id=subject_id,
-            topic_id__in=topic_ids,
             user=request.user
-        ).select_related('topic', 'subtopic')
-        
+        ).filter(topic_filter).select_related('topic', 'subtopic')
+
         if not available_questions.exists():
             return JsonResponse({
-                'success': False, 
+                'success': False,
                 'error': 'No hay preguntas disponibles para los tópicos seleccionados'
             })
-        
+
         # Contar subtemas
         subtopics_count = defaultdict(int)
         for question in available_questions:
-            key = question.subtopic.id if question.subtopic else f"topic_{question.topic.id}"
+            if question.subtopic:
+                key = question.subtopic.id
+            elif question.topic:
+                key = f"topic_{question.topic.id}"
+            else:
+                key = 'sin_topico'
             subtopics_count[key] += 1
         
         total_subtopics = len(subtopics_count)
@@ -7042,10 +7115,23 @@ def create_oral_exam_wizard(request):
 @login_required
 def create_oral_exam(request):
     if request.method == 'POST':
-        form = OralExamForm(request.POST, user=request.user)
+        # 'sin_topico' (checkbox "Sin tópico definido" en el picker de
+        # tópicos, ver get_topics) no es un pk real de Topic — dejarlo pasar
+        # tal cual a OralExamForm rompe su campo topics (ModelMultipleChoiceField
+        # intenta pk__in=[...] con un valor no numérico y tira un ValueError
+        # crudo, 500 real reportado en producción). Se saca acá, antes de
+        # instanciar el form, y se manda como flag aparte.
+        post_data = request.POST.copy()
+        raw_topics = post_data.getlist('topics')
+        include_no_topic = 'sin_topico' in raw_topics
+        if include_no_topic:
+            post_data.setlist('topics', [t for t in raw_topics if t != 'sin_topico'])
+
+        form = OralExamForm(post_data, user=request.user, include_no_topic=include_no_topic)
         if form.is_valid():
             oral_exam = form.save(commit=False)
             oral_exam.user = request.user
+            oral_exam.include_no_topic = include_no_topic
             
             # Calcular distribución real de estudiantes
             total_students = form.cleaned_data['total_students']
@@ -7065,11 +7151,33 @@ def create_oral_exam(request):
             
             oral_exam.save()
             form.save_m2m()  # Guardar las relaciones many-to-many
-            
+
             # Generar las preguntas para cada grupo y estudiante
-            generate_oral_exam_questions(oral_exam)
-            
+            generation_stats = generate_oral_exam_questions(oral_exam)
+
             messages.success(request, 'Cuestionario oral creado exitosamente', extra_tags='cuestionarios_orales')
+
+            # Advertir si no había sub-tópicos suficientes para evitar
+            # repeticiones (form.clean() ya lo detecta de antemano) y/o si el
+            # algoritmo terminó reutilizando alguna pregunta exacta dentro de
+            # un mismo grupo — a pedido del usuario (2026-09-20) esto ya no
+            # bloquea la creación, solo se le avisa al docente para que revise.
+            subtopic_warning = form.cleaned_data.get('_validation_info', {}).get('subtopic_warning')
+            if subtopic_warning:
+                messages.warning(request, subtopic_warning, extra_tags='cuestionarios_orales')
+            repeated_groups = generation_stats.get('groups_with_repeated_questions') if generation_stats else None
+            if repeated_groups:
+                grupos_txt = ', '.join(str(g) for g in repeated_groups)
+                messages.warning(
+                    request,
+                    f'Por falta de preguntas/sub-tópicos disponibles, el grupo {grupos_txt} '
+                    f'repitió alguna pregunta exacta entre sus estudiantes. Revisá el cuestionario antes de usarlo.'
+                    if len(repeated_groups) == 1 else
+                    f'Por falta de preguntas/sub-tópicos disponibles, los grupos {grupos_txt} '
+                    f'repitieron alguna pregunta exacta entre sus estudiantes. Revisá el cuestionario antes de usarlo.',
+                    extra_tags='cuestionarios_orales'
+                )
+
             return redirect('material:view_oral_exam', exam_id=oral_exam.id)
         else:
             # El mensaje genérico no decía QUÉ estaba mal — reportado desde
@@ -7192,20 +7300,31 @@ def generate_oral_exam_questions(oral_exam):
     import random
     from .models import OralExamGroup, OralExamStudent, OralExamStudentQuestion
     
-    # Obtener todas las preguntas disponibles de los temas seleccionados
+    # Obtener todas las preguntas disponibles de los temas seleccionados.
+    # oral_exam.topics (M2M a Topic) nunca puede representar "sin tópico" —
+    # se suma aparte con topic__isnull cuando include_no_topic está tildado
+    # (ver OralExamForm.clean(), mismo criterio).
+    topic_filter = Q(topic__in=oral_exam.topics.all())
+    if oral_exam.include_no_topic:
+        topic_filter |= Q(topic__isnull=True)
     available_questions = Question.objects.filter(
         subjects__id=oral_exam.subject.id,
-        topic__in=oral_exam.topics.all(),
         user=oral_exam.user
-    ).select_related('topic', 'subtopic')
-    
+    ).filter(topic_filter).select_related('topic', 'subtopic')
+
     if not available_questions.exists():
         raise ValueError("No hay preguntas disponibles para los tópicos seleccionados")
-    
-    # Agrupar preguntas por subtema (o por tema si no hay subtema)
+
+    # Agrupar preguntas por subtema (o por tema si no hay subtema, o por
+    # 'sin_topico' si la pregunta tampoco tiene tópico asignado).
     questions_by_subtopic = defaultdict(list)
     for question in available_questions:
-        key = question.subtopic.id if question.subtopic else f"topic_{question.topic.id}"
+        if question.subtopic:
+            key = question.subtopic.id
+        elif question.topic:
+            key = f"topic_{question.topic.id}"
+        else:
+            key = 'sin_topico'
         questions_by_subtopic[key].append(question)
     
     # Verificar que hay suficientes subtemas para el algoritmo
@@ -7221,7 +7340,8 @@ def generate_oral_exam_questions(oral_exam):
     extra_students = total_students % oral_exam.num_groups
     
     students_assigned = 0
-    
+    groups_with_repeated_questions = []  # Números de grupo donde se reutilizó una pregunta exacta
+
     # Crear los grupos
     for group_num in range(1, oral_exam.num_groups + 1):
         # Evitar crear grupos vacíos o exceder el total — chequeado ANTES de
@@ -7305,12 +7425,19 @@ def generate_oral_exam_questions(oral_exam):
                     if all_unused_questions:
                         selected_question = random.choice(all_unused_questions)
                         # Marcar el subtema de la pregunta seleccionada
-                        subtopic_key = selected_question.subtopic.id if selected_question.subtopic else f"topic_{selected_question.topic.id}"
+                        if selected_question.subtopic:
+                            subtopic_key = selected_question.subtopic.id
+                        elif selected_question.topic:
+                            subtopic_key = f"topic_{selected_question.topic.id}"
+                        else:
+                            subtopic_key = 'sin_topico'
                         used_subtopics_by_round[round_num].add(subtopic_key)
                     else:
                         # Caso extremo: reutilizar preguntas (pocas preguntas disponibles)
                         if available_questions:
                             selected_question = random.choice(list(available_questions))
+                            if group_num not in groups_with_repeated_questions:
+                                groups_with_repeated_questions.append(group_num)
                             print(f"ADVERTENCIA: Reutilizando pregunta en Grupo {group_num}, Ronda {round_num} - Pocas preguntas disponibles")
                         else:
                             print(f"ERROR CRÍTICO: No hay preguntas disponibles")
@@ -7327,6 +7454,11 @@ def generate_oral_exam_questions(oral_exam):
                 )
         
         print(f"Grupo {group_num}: {len(used_questions_in_group)} preguntas únicas asignadas a {len(students)} estudiantes")
+
+    return {
+        'total_subtopics': total_subtopics,
+        'groups_with_repeated_questions': groups_with_repeated_questions,
+    }
 
 @login_required
 def delete_oral_exam(request, exam_id):

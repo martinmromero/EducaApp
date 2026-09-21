@@ -54,7 +54,7 @@ _onDomReady(function () {
             topicsList.innerHTML = '';
             return Promise.resolve();
         }
-        return fetch(CFG.urls.getTopics + '?subject_id=' + subjectId + '&for_exam=1')
+        return fetch(CFG.urls.getTopics + '?subject_id=' + subjectId + '&for_exam=1&include_no_topic=1')
             .then(function (r) { return r.json(); })
             .then(function (topics) {
                 topicsList.innerHTML = '';

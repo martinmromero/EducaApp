@@ -545,7 +545,7 @@ document.addEventListener('DOMContentLoaded', function() {
             questionsSelect.innerHTML = '';
         }
         // Temas evaluados
-        var topicsPromise = fetch('/get-topics/?subject_id=' + subjectId + '&for_exam=1')
+        var topicsPromise = fetch('/get-topics/?subject_id=' + subjectId + '&for_exam=1&include_no_topic=1')
             .then(function(response) {
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 return response.json();

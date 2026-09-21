@@ -1,9 +1,11 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load message_tags %}
 
 {% block content %}
 <div class="container-fluid">
     {% csrf_token %}
+    {% show_messages "cuestionarios_orales" %}
     <h1 class="h3 mb-4 text-gray-800">{{ oral_exam.name }}</h1>
     
     <!-- Información del examen -->
@@ -30,6 +32,9 @@
                     {% for topic in oral_exam.topics.all %}
                         <li>{{ topic.name }}</li>
                     {% endfor %}
+                    {% if oral_exam.include_no_topic %}
+                        <li>Sin tópico definido</li>
+                    {% endif %}
                 </ul>
             </div>
         </div>

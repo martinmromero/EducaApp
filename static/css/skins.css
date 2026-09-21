@@ -347,3 +347,21 @@
   --bs-btn-hover-bg: #00754a;
   --bs-btn-hover-border-color: #00754a;
 }
+
+/* Modo oscuro + cualquier tema visual: los --bs-link-color de marca de
+   arriba se pensaron sobre fondo claro y varios quedan invisibles o casi
+   (figma #000000, pinterest #211922) o de bajísimo contraste (slack
+   #1264a3, starbucks #00754a) sobre el fondo oscuro — reportado en Modo
+   Testing como el link "Buscar y agregar otra materia" invisible en
+   editar_pregunta.html. Mismo criterio que ya se usa arriba para los
+   títulos de Starbucks: en modo oscuro se pisa el tinte de marca por el
+   azul que usa el propio modo oscuro de Bootstrap 5.3, en vez de intentar
+   mantener un color de marca distinto por tema. [data-visual-theme] (sin
+   valor) + [data-bs-theme="dark"] pesa más en especificidad que
+   [data-visual-theme="x"] solo, así que gana sin importar el orden. */
+[data-visual-theme][data-bs-theme="dark"] {
+  --bs-link-color: #6ea8fe;
+  --bs-link-color-rgb: 110, 168, 254;
+  --bs-link-hover-color: #8bb9fe;
+  --bs-link-hover-color-rgb: 139, 185, 254;
+}

@@ -208,6 +208,14 @@
               <div class="d-flex gap-1 align-items-center">
                 {{ form.topic }}
                 <span id="topicSpinner" class="spinner-border spinner-border-sm text-secondary ms-1" style="display:none!important" role="status"></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" id="addTopicBtn" title="Crear nuevo tópico">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              <div class="input-group input-group-sm mt-2" id="newTopicContainer" style="display:none">
+                <input type="text" class="form-control" id="new_topic" placeholder="Nombre del nuevo tópico">
+                <button type="button" class="btn btn-success" id="saveNewTopic">Guardar</button>
+                <button type="button" class="btn btn-secondary" id="cancelNewTopic">Cancelar</button>
               </div>
               {% if form.topic.errors %}
                 <div class="text-danger small mt-1">{{ form.topic.errors.0 }}</div>
@@ -216,7 +224,17 @@
 
             <div class="mb-0">
               <label class="form-label fw-semibold">Sub-tópico <small class="text-muted">(opcional)</small></label>
-              {{ form.subtopic }}
+              <div class="d-flex gap-1 align-items-center">
+                {{ form.subtopic }}
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" id="addSubtopicBtn" title="Crear nuevo sub-tópico">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              <div class="input-group input-group-sm mt-2" id="newSubtopicContainer" style="display:none">
+                <input type="text" class="form-control" id="new_subtopic" placeholder="Nombre del nuevo sub-tópico">
+                <button type="button" class="btn btn-success" id="saveNewSubtopic">Guardar</button>
+                <button type="button" class="btn btn-secondary" id="cancelNewSubtopic">Cancelar</button>
+              </div>
             </div>
 
           </div>
@@ -275,6 +293,19 @@
   const topicSel      = document.getElementById('id_topic');
   const subtopicSel   = document.getElementById('id_subtopic');
   const topicSpinner  = document.getElementById('topicSpinner');
+
+  // ── Crear nuevo tópico / sub-tópico sin salir del form ────────────────
+  const addTopicBtn        = document.getElementById('addTopicBtn');
+  const newTopicContainer  = document.getElementById('newTopicContainer');
+  const newTopicInput      = document.getElementById('new_topic');
+  const saveNewTopicBtn    = document.getElementById('saveNewTopic');
+  const cancelNewTopicBtn  = document.getElementById('cancelNewTopic');
+  const addSubtopicBtn       = document.getElementById('addSubtopicBtn');
+  const newSubtopicContainer = document.getElementById('newSubtopicContainer');
+  const newSubtopicInput     = document.getElementById('new_subtopic');
+  const saveNewSubtopicBtn   = document.getElementById('saveNewSubtopic');
+  const cancelNewSubtopicBtn = document.getElementById('cancelNewSubtopic');
+  const csrfToken = document.querySelector('#editarPreguntaForm [name=csrfmiddlewaretoken]').value;
 
   // ── Tipo de pregunta → mostrar / ocultar opciones ─────────────────────
   function onTypeChange() {
@@ -394,6 +425,120 @@
     });
   }
 
+  // ── Agregar el tópico/sub-tópico recién creado al <select> sin recargar ──
+  function addTopicOption(topic) {
+    const opt = document.createElement('option');
+    opt.value = topic.id;
+    opt.textContent = topic.name;
+    opt.dataset.subtopics = '[]';
+    topicSel.appendChild(opt);
+    topicSel.value = String(topic.id);
+    onTopicChange();
+  }
+  function addSubtopicOption(subtopic) {
+    const opt = document.createElement('option');
+    opt.value = subtopic.id;
+    opt.textContent = subtopic.name;
+    subtopicSel.appendChild(opt);
+    subtopicSel.value = String(subtopic.id);
+  }
+
+  function initTopicSubtopicCreation() {
+    if (addTopicBtn) {
+      addTopicBtn.addEventListener('click', () => {
+        newTopicContainer.style.display = '';
+        newTopicInput.value = '';
+        newTopicInput.focus();
+      });
+    }
+    if (cancelNewTopicBtn) {
+      cancelNewTopicBtn.addEventListener('click', () => {
+        newTopicContainer.style.display = 'none';
+        newTopicInput.value = '';
+      });
+    }
+    if (saveNewTopicBtn) {
+      saveNewTopicBtn.addEventListener('click', async () => {
+        const name = newTopicInput.value.trim();
+        const subjectIds = getSelectedSubjectIds();
+        // Un tópico pertenece a una sola materia (FK): si hay varias
+        // tildadas, se crea en la primera y de todos modos aparece en el
+        // desplegable combinado (mismo criterio que upload_questions.html).
+        const subjectId = subjectIds.length ? subjectIds[0] : null;
+        if (!name) { newTopicInput.focus(); return; }
+        if (!subjectId) {
+          window.EducaAppModal.alert('Elegí primero al menos una materia.', { title: 'Falta la materia', variant: 'warning' });
+          return;
+        }
+        saveNewTopicBtn.disabled = true;
+        try {
+          const resp = await fetch('{% url "material:add_topic" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: new URLSearchParams({ name: name, subject_id: subjectId }),
+          });
+          const data = await resp.json();
+          if (data.success) {
+            addTopicOption(data.topic);
+            newTopicContainer.style.display = 'none';
+          } else {
+            window.EducaAppModal.alert(data.error || 'Error al crear el tópico', { title: 'Error', variant: 'danger' });
+          }
+        } catch (e) {
+          console.error('Error creando tópico:', e);
+          window.EducaAppModal.alert('Error de conexión al crear el tópico', { title: 'Error', variant: 'danger' });
+        } finally {
+          saveNewTopicBtn.disabled = false;
+        }
+      });
+    }
+
+    if (addSubtopicBtn) {
+      addSubtopicBtn.addEventListener('click', () => {
+        if (!topicSel.value) {
+          window.EducaAppModal.alert('Elegí primero un tópico.', { title: 'Falta el tópico', variant: 'warning' });
+          return;
+        }
+        newSubtopicContainer.style.display = '';
+        newSubtopicInput.value = '';
+        newSubtopicInput.focus();
+      });
+    }
+    if (cancelNewSubtopicBtn) {
+      cancelNewSubtopicBtn.addEventListener('click', () => {
+        newSubtopicContainer.style.display = 'none';
+        newSubtopicInput.value = '';
+      });
+    }
+    if (saveNewSubtopicBtn) {
+      saveNewSubtopicBtn.addEventListener('click', async () => {
+        const name = newSubtopicInput.value.trim();
+        const topicId = topicSel.value;
+        if (!name || !topicId) { newSubtopicInput.focus(); return; }
+        saveNewSubtopicBtn.disabled = true;
+        try {
+          const resp = await fetch('{% url "material:add_subtopic" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ name: name, topic_id: topicId }),
+          });
+          const data = await resp.json();
+          if (data.success) {
+            addSubtopicOption(data.subtopic);
+            newSubtopicContainer.style.display = 'none';
+          } else {
+            window.EducaAppModal.alert(data.error || 'Error al crear el sub-tópico', { title: 'Error', variant: 'danger' });
+          }
+        } catch (e) {
+          console.error('Error creando sub-tópico:', e);
+          window.EducaAppModal.alert('Error de conexión al crear el sub-tópico', { title: 'Error', variant: 'danger' });
+        } finally {
+          saveNewSubtopicBtn.disabled = false;
+        }
+      });
+    }
+  }
+
   // ── Inicialización ────────────────────────────────────────────────────
   function init() {
     // Opciones múltiples
@@ -421,6 +566,8 @@
       cb.addEventListener('change', () => loadTopics(getSelectedSubjectIds(), null));
     });
     if (topicSel) topicSel.addEventListener('change', onTopicChange);
+
+    initTopicSubtopicCreation();
 
     // Muestra directo solo las materias que ya son "tuyas" (favoritas o con
     // preguntas propias cargadas — ver content_visibility.order_subjects_by_relevance

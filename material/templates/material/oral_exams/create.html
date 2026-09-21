@@ -298,7 +298,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // FUNCIONES DE MANEJO DE EVENTOS
     function loadTopicsForSubject(subjectId, isReload) {
-        fetch(`{% url 'material:get_topics' %}?subject_id=${subjectId}&for_exam=1`)
+        fetch(`{% url 'material:get_topics' %}?subject_id=${subjectId}&for_exam=1&include_no_topic=1`)
             .then(response => response.json())
             .then(data => {
                 // En una recarga por error, re-tildar los topicos que ya

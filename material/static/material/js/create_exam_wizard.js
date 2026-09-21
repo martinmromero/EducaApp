@@ -166,7 +166,15 @@ _onDomReady(function () {
 
     function getSelectedTopicIds() {
         return Array.from(document.querySelectorAll('#wizTopicsList input[type="checkbox"]:checked'))
-            .map(function (cb) { return parseInt(cb.dataset.topicValue, 10); });
+            .map(function (cb) {
+                // 'sin_topico' (checkbox "Sin tópico definido") no es un pk
+                // real — parseInt lo convertía en NaN y la selección se
+                // perdía en silencio. Ver allQuestionsCache más abajo, donde
+                // topic_id=null se normaliza al mismo string para que el
+                // filtro de renderQuestionGroups matchee.
+                var value = cb.dataset.topicValue;
+                return value === 'sin_topico' ? value : parseInt(value, 10);
+            });
     }
 
     function syncHiddenSelect(selectEl, ids) {
@@ -357,7 +365,7 @@ _onDomReady(function () {
         topicsEmpty.classList.add('d-none');
         topicsWrap.classList.remove('d-none');
 
-        var topicsPromise = fetch(CFG.urls.getTopics + '?subject_id=' + subjectId + '&for_exam=1')
+        var topicsPromise = fetch(CFG.urls.getTopics + '?subject_id=' + subjectId + '&for_exam=1&include_no_topic=1')
             .then(function (r) { return r.json(); });
         var questionsPromise = fetch(CFG.urls.getQuestionsByTopics + '?subject_id=' + subjectId + '&all=true')
             .then(function (r) { return r.json(); });
@@ -366,7 +374,15 @@ _onDomReady(function () {
 
         return Promise.all([topicsPromise, questionsPromise, outcomesPromise]).then(function (results) {
             var topics = results[0];
-            allQuestionsCache = results[1];
+            // Preguntas sin tópico asignado vienen con topic_id: null desde
+            // /get-questions-by-topics/ — se normalizan acá al mismo sentinel
+            // 'sin_topico' que usa la opción del picker (ver get_topics en
+            // views.py), así getSelectedTopicIds()/renderQuestionGroups
+            // pueden comparar por igualdad sin casos especiales para null.
+            allQuestionsCache = (results[1] || []).map(function (q) {
+                q.topic_id = (q.topic_id === null || q.topic_id === undefined) ? 'sin_topico' : q.topic_id;
+                return q;
+            });
             var outcomes = results[2];
 
             assignTopicColors(topics);

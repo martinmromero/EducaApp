@@ -3,6 +3,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 import math
 from .models import (
     Contenido, Question, Exam, ExamTemplate, Profile,
@@ -165,24 +166,32 @@ class QuestionForm(forms.ModelForm):
                 self.fields['contenido'].queryset = Contenido.objects.none()
         self.fields['contenido'].widget.attrs.update({'class': 'form-select'})
         self.fields['contenido'].required = False
-        if self.instance.pk and self.instance.subjects.exists():
-            first_subject = self.instance.subjects.first()
-            self.fields['topic'].queryset = Topic.objects.filter(subject=first_subject)
-            if self.instance.topic:
-                self.fields['subtopic'].queryset = Subtopic.objects.filter(topic=self.instance.topic)
-        # Si hay datos en el POST, actualizar los querysets
-        elif 'subjects' in self.data:
+        # Si el form viene bound (POST) hay que armar los querysets con lo que
+        # el usuario tildó/eligió EN ESE SUBMIT, no con lo que ya estaba
+        # guardado en la instancia — si no, cambiar de tópico y elegir un
+        # sub-tópico del tópico nuevo en el mismo submit siempre fallaba la
+        # validación (el queryset de subtopic quedaba armado con
+        # self.instance.topic, el tópico VIEJO, antes de guardar). Se
+        # reprodujo agregando un tópico nuevo desde editar_pregunta.html y
+        # guardando en el acto: "Sub-tópico: la opción seleccionada no es
+        # una de las disponibles".
+        if 'subjects' in self.data:
             try:
                 subject_ids = self.data.getlist('subjects')
                 if subject_ids:
                     subject_id = int(subject_ids[0])
                     self.fields['topic'].queryset = Topic.objects.filter(subject_id=subject_id)
-                
-                if 'topic' in self.data:
+
+                if self.data.get('topic'):
                     topic_id = int(self.data.get('topic'))
                     self.fields['subtopic'].queryset = Subtopic.objects.filter(topic_id=topic_id)
             except (ValueError, TypeError):
                 pass
+        elif self.instance.pk and self.instance.subjects.exists():
+            first_subject = self.instance.subjects.first()
+            self.fields['topic'].queryset = Topic.objects.filter(subject=first_subject)
+            if self.instance.topic:
+                self.fields['subtopic'].queryset = Subtopic.objects.filter(topic=self.instance.topic)
 
     def save(self, commit=True):
         """
@@ -925,7 +934,12 @@ class OralExamForm(forms.ModelForm):
     topics = forms.ModelMultipleChoiceField(
         queryset=Topic.objects.none(),  # Se establecerá dinámicamente
         widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
-        required=True,
+        # required=False: puede venir vacío cuando el docente eligió SOLO
+        # "Sin tópico definido" (sentinel 'sin_topico', interceptado y sacado
+        # de request.POST ANTES de llegar acá por create_oral_exam — ver
+        # include_no_topic más abajo) — clean() exige al menos una de las
+        # dos opciones.
+        required=False,
         label='Tópicos a evaluar'
     )
     
@@ -973,14 +987,20 @@ class OralExamForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
+        # 'sin_topico' no es un pk real de Topic — create_oral_exam (views.py)
+        # ya lo sacó de request.POST['topics'] antes de instanciar este form
+        # (si no, ModelMultipleChoiceField explota con un ValueError crudo al
+        # intentar pk__in=[...] con un valor no numérico) y manda el flag acá
+        # para que clean() sepa sumar las preguntas sin tópico.
+        self.include_no_topic = kwargs.pop('include_no_topic', False)
         super().__init__(*args, **kwargs)
-        
+
         # Guardar el usuario en initial para acceso posterior
         if self.user:
             if 'initial' not in kwargs:
                 self.initial = {}
             self.initial['user'] = self.user
-        
+
         # Filtrar materias por usuario
         if self.user:
             user_subjects = Subject.objects.filter(
@@ -1006,10 +1026,14 @@ class OralExamForm(forms.ModelForm):
         students_per_group = cleaned_data.get('students_per_group')
         topics = cleaned_data.get('topics')
         subject = cleaned_data.get('subject')
-        
-        if not all([total_students, questions_per_student, topics, subject]):
+        include_no_topic = self.include_no_topic
+
+        if not all([total_students, questions_per_student, subject]):
             return cleaned_data
-        
+        if not topics and not include_no_topic:
+            self.add_error('topics', 'Debe seleccionar al menos un tópico (o "Sin tópico definido").')
+            return cleaned_data
+
         # No puede haber más grupos que estudiantes — cada grupo necesita al
         # menos 1 estudiante. Sin este chequeo, generate_oral_exam_questions
         # (views.py) termina creando grupos vacíos y menos grupos de los
@@ -1046,19 +1070,28 @@ class OralExamForm(forms.ModelForm):
         from .models import Question
         
         user = self.initial.get('user') if hasattr(self, 'initial') else None
+        topic_filter = Q(topic__in=topics)
+        if include_no_topic:
+            topic_filter |= Q(topic__isnull=True)
         available_questions = Question.objects.filter(
             subjects__id=subject.id,
-            topic__in=topics,
             user=user
-        ).select_related('topic', 'subtopic')
-        
+        ).filter(topic_filter).select_related('topic', 'subtopic')
+
         if not available_questions.exists():
             raise ValidationError('No hay preguntas disponibles para los tópicos seleccionados')
         
-        # Agrupar por subtema
+        # Agrupar por subtema. Preguntas sin tópico (topic_id NULL) no tienen
+        # question.topic.id para armar la clave de fallback — irían a un
+        # AttributeError sin este tercer caso.
         subtopics_count = defaultdict(int)
         for question in available_questions:
-            key = question.subtopic.id if question.subtopic else f"topic_{question.topic.id}"
+            if question.subtopic:
+                key = question.subtopic.id
+            elif question.topic:
+                key = f"topic_{question.topic.id}"
+            else:
+                key = 'sin_topico'
             subtopics_count[key] += 1
         
         total_subtopics = len(subtopics_count)
@@ -1083,35 +1116,41 @@ class OralExamForm(forms.ModelForm):
             subtopics_needed = effective_students_per_group * questions_per_student
 
             if subtopics_needed > total_subtopics:
+                # No hay suficiente subdivisión de contenido para armar el grupo
+                # sin repetir sub-tópicos. Antes esto bloqueaba la creación por
+                # completo; a pedido del usuario (2026-09-20) pasa a ser una
+                # advertencia no bloqueante — el algoritmo de generación
+                # (generate_oral_exam_questions, views.py) ya sabe degradar
+                # reutilizando sub-tópicos/preguntas, y es el docente quien
+                # decide si esa repetición es aceptable para este cuestionario.
                 max_students_per_group_by_subtopics = total_subtopics // questions_per_student
                 if max_students_per_group_by_subtopics < 1:
-                    # Ni siquiera UN estudiante puede tener {questions_per_student}
-                    # preguntas sin repetir con este pool de sub-tópicos — no hay
-                    # ninguna cantidad de grupos que lo arregle (sugerir "grupos de
-                    # 1 alumno" seguiría siendo imposible). El único camino real es
-                    # bajar preguntas/estudiante o sumar más sub-tópicos/preguntas.
-                    raise ValidationError(
+                    subtopic_warning = (
                         f'Con solo {total_subtopics} sub-tópico(s) disponible(s) no alcanza para '
-                        f'{questions_per_student} pregunta(s) por estudiante sin repetir, sin importar cuántos '
-                        f'grupos se armen. Bajar "preguntas por estudiante" a {total_subtopics} como máximo, '
-                        f'o agregar más sub-tópicos/preguntas a los tópicos elegidos.'
+                        f'{questions_per_student} pregunta(s) por estudiante sin repetir sub-tópico. '
+                        f'Se van a repetir sub-tópicos (y posiblemente preguntas) dentro de cada grupo. '
+                        f'Si preferís evitarlo, bajá "preguntas por estudiante" a {total_subtopics} como máximo, '
+                        f'o agregá más sub-tópicos/preguntas a los tópicos elegidos.'
                     )
-                suggested_groups = math.ceil(total_students / max_students_per_group_by_subtopics)
-                suggested_students_per_group = math.ceil(total_students / suggested_groups)
-
-                raise ValidationError(
-                    f'Con {total_subtopics} sub-tópicos disponibles se necesitan {subtopics_needed} '
-                    f'({effective_students_per_group} estudiantes/grupo × {questions_per_student} preguntas/estudiante) '
-                    f'para evitar repeticiones. Sugerencia: {suggested_groups} grupos de {suggested_students_per_group} '
-                    f'estudiantes cada uno, o reducir preguntas por estudiante.'
-                )
+                else:
+                    suggested_groups = math.ceil(total_students / max_students_per_group_by_subtopics)
+                    suggested_students_per_group = math.ceil(total_students / suggested_groups)
+                    subtopic_warning = (
+                        f'Con {total_subtopics} sub-tópicos disponibles se necesitan {subtopics_needed} '
+                        f'({effective_students_per_group} estudiantes/grupo × {questions_per_student} preguntas/estudiante) '
+                        f'para evitar repeticiones. Se van a repetir sub-tópicos entre alumnos del mismo grupo. '
+                        f'Si preferís evitarlo: {suggested_groups} grupos de {suggested_students_per_group} '
+                        f'estudiantes cada uno, o reducí "preguntas por estudiante".'
+                    )
+                cleaned_data['_subtopic_warning'] = subtopic_warning
         
         # Agregar información útil a los cleaned_data para mostrar en el template
         cleaned_data['_validation_info'] = {
             'total_questions': total_questions,
             'total_subtopics': total_subtopics,
             'subtopics_detail': dict(subtopics_count),
-            'max_students_per_group': max_students_per_group_by_subtopics if 'max_students_per_group_by_subtopics' in locals() else total_subtopics
+            'max_students_per_group': max_students_per_group_by_subtopics if 'max_students_per_group_by_subtopics' in locals() else total_subtopics,
+            'subtopic_warning': cleaned_data.get('_subtopic_warning')
         }
         
         return cleaned_data
