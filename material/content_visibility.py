@@ -13,7 +13,7 @@ from django.db.models import Exists, OuterRef, Q
 
 from .models import (
     Career, ContentShare, ExamTemplate, Favorite, FacultyV2, FormatoImpresion,
-    InstitutionV2, Profile, Question, Rubric, Subject,
+    InstitutionV2, LearningOutcome, Profile, Question, Rubric, Subject,
 )
 
 
@@ -49,6 +49,21 @@ def get_visible_subjects(user):
     sigue siendo privado por separado, con su propio criterio.
     """
     return Subject.objects.filter(is_seed_demo=False).filter(
+        Q(es_catalogo_institucional=True) | Q(created_by=user)
+    )
+
+
+def get_visible_learning_outcomes(user):
+    """Mismo mecanismo de espacio personal que institución/facultad/carrera/
+    materia (ver get_visible_subjects) — un Resultado de Aprendizaje
+    institucional (curado por admin) es visible para todos; uno personal
+    solo para quien lo cargó, hasta que un admin lo sume al catálogo o lo
+    fusione con uno existente. No hace falta excluir contenido semilla acá
+    aparte: los RA semilla cuelgan de una Subject con is_seed_demo=True, que
+    ya queda afuera de get_visible_subjects — cualquier caller que combine
+    esto con `career_subject__subject__in=get_visible_subjects(user)` (o
+    equivalente) los excluye de forma transitiva."""
+    return LearningOutcome.objects.filter(
         Q(es_catalogo_institucional=True) | Q(created_by=user)
     )
 

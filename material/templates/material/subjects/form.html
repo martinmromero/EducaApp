@@ -21,17 +21,16 @@
 
             {% if subject %}
                 <div class="text-muted mb-3" style="font-size:0.9rem;">
-                    {% if is_admin %}
+                    {% if is_admin or subject.created_by_id == user.id and not subject.es_catalogo_institucional %}
+                    <!-- Admin, o dueño de esta materia personal: puede cargar
+                         sus propios RA (espacio personal, ver
+                         LearningOutcomeCreateView) desde el detalle. -->
                     Los resultados de aprendizaje se cargan por carrera desde el
                     <a href="{% url 'material:subject_detail' pk=subject.pk %}">detalle de la materia</a>.
                     {% else %}
-                    <!-- Antes este mensaje mandaba a "detalle de la materia" a
-                         cualquier usuario, pero agregar/editar un resultado de
-                         aprendizaje es exclusivo de administradores (ver
-                         LearningOutcomeCreateView) — para el dueño de una
-                         materia personal era un loop sin salida: "se agrega en
-                         el detalle" → el detalle no le muestra ningún botón
-                         para agregarlo. -->
+                    <!-- Materia del catálogo institucional y quien edita no es
+                         su dueño ni admin: los RA de una materia oficial siguen
+                         siendo dato curado, se piden a un administrador. -->
                     Los resultados de aprendizaje son datos curados por un administrador — si hace falta agregar uno para esta materia, pedírselo a un administrador.
                     {% endif %}
                 </div>

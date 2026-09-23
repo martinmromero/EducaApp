@@ -4,12 +4,18 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-2">
         <h1 class="h3 mb-0 text-gray-800"><i class="bi bi-list-check me-2"></i>Mis agregados al catálogo</h1>
         <a href="{% url 'material:catalog_request_create' %}" class="btn btn-primary btn-sm">
             <i class="bi bi-plus-lg me-1"></i>Agregar
         </a>
     </div>
+    <p class="text-muted small mb-4">
+        <i class="bi bi-info-circle me-1"></i>
+        Todo lo que agregás acá queda usable de inmediato en tu espacio personal. El estado de abajo es solo sobre si
+        además pasa a compartirse con el resto de la institución — <strong>"Rechazada" no borra nada tuyo</strong>,
+        significa que un administrador decidió no sumarlo al catálogo compartido; vos lo seguís usando igual.
+    </p>
 
     {% show_messages "solicitudes" %}
 
@@ -42,13 +48,16 @@
                                 <td>{{ s.get_tipo_display }}</td>
                                 <td>{{ s.nombre_propuesto }}</td>
                                 <td class="text-muted small">{{ s.contexto_display }}</td>
-                                <td>
+                                <td style="min-width:220px">
                                     {% if s.estado == 'pendiente' %}
                                         <span class="badge text-bg-warning">Pendiente</span>
+                                        <div class="text-muted small mt-1">Ya lo podés usar. Falta que un administrador decida si además lo suma al catálogo institucional.</div>
                                     {% elif s.estado == 'aprobada' %}
                                         <span class="badge text-bg-success">Aprobada</span>
+                                        <div class="text-muted small mt-1">{{ s.resultado_mensaje }}</div>
                                     {% else %}
                                         <span class="badge text-bg-danger">Rechazada</span>
+                                        <div class="text-muted small mt-1">{{ s.resultado_mensaje }}</div>
                                     {% endif %}
                                 </td>
                                 <td class="text-muted small">{{ s.created_at|date:'d/m/Y' }}</td>

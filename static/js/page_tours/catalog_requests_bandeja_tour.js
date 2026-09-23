@@ -23,7 +23,7 @@
         element: 'button[name="accion"][value="aprobar"]',
         popover: {
           title: 'Aprobar o rechazar',
-          description: 'Aprobar suma la fila al catálogo institucional. Rechazar la deja fuera — la nota es opcional y se le muestra a quien la pidió.',
+          description: 'Aprobar suma la fila al catálogo institucional. Rechazar NO borra nada del usuario — solo la deja fuera del catálogo compartido, sigue usable en su espacio personal. La nota es opcional y se le muestra a quien la pidió.',
           side: 'top',
         },
       },

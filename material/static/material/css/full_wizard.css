@@ -1,0 +1,80 @@
+/* full_wizard.css — solo lo específico del Asistente completo.
+   Lo genérico (stepper, tarjetas, botones de navegación) vive en
+   wizard_common.css, ya compartido por los otros 4 wizards. */
+
+.fw-breadcrumb {
+    font-size: .85rem;
+    color: var(--bs-secondary-color, #6c757d);
+}
+.fw-breadcrumb .fw-crumb {
+    display: inline-block;
+    margin-right: .5rem;
+}
+.fw-breadcrumb .fw-crumb-skip {
+    font-style: italic;
+    opacity: .7;
+}
+
+.fw-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+.fw-chip {
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 999px;
+    padding: .35rem .9rem;
+    background: var(--bs-body-bg, #fff);
+    cursor: pointer;
+    font-size: .88rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+}
+.fw-chip:hover {
+    border-color: var(--bs-primary, #0d6efd);
+}
+.fw-chip.is-selected {
+    background: var(--bs-primary, #0d6efd);
+    border-color: var(--bs-primary, #0d6efd);
+    color: #fff;
+}
+.fw-chip .badge {
+    font-size: .65rem;
+}
+
+.fw-suggest-box {
+    position: relative;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: .375rem;
+    margin-top: .25rem;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--bs-body-bg, #fff);
+    box-shadow: 0 4px 10px rgba(0,0,0,.08);
+    z-index: 5;
+}
+.fw-suggest-item {
+    padding: .45rem .75rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.fw-suggest-item:hover {
+    background: var(--bs-tertiary-bg, #f5f5f5);
+}
+
+.fw-step-title {
+    margin-bottom: .25rem;
+}
+
+/* La navegación entre pasos acá la maneja cada paso por su cuenta (chip
+   elegido, "Crear nueva", "Saltear" propios, o los botones de Continuar/
+   Saltear de los pasos 6-7) — el "Siguiente" genérico del engine
+   compartido no aplica a este wizard (avanzar sin elegir nada sería
+   ambiguo: ¿saltea o repite el paso anterior?). #wizBackBtn y
+   #wizSubmitBtn (paso final) sí se mantienen, son inequívocos. */
+#wizNextBtn {
+    display: none !important;
+}

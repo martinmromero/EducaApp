@@ -164,7 +164,8 @@ def preview_exam(request):
     if include_no_topic:
         topics_texts.append('Sin tópico definido')
 
-    outcomes_texts = list(LearningOutcome.objects.filter(pk__in=outcome_ids).values_list('description', flat=True)) if outcome_ids else []
+    from .content_visibility import get_visible_learning_outcomes
+    outcomes_texts = list(get_visible_learning_outcomes(request.user).filter(pk__in=outcome_ids).values_list('description', flat=True)) if outcome_ids else []
 
     versions_count = 1
     try:
@@ -1961,7 +1962,8 @@ def save_exam_from_session(request):
     include_no_topic = 'all' in raw_topics_list or 'sin_topico' in raw_topics_list
 
     o_ids = _ids('learning_outcomes')
-    selected_outcomes = LearningOutcome.objects.filter(pk__in=o_ids) if o_ids else LearningOutcome.objects.none()
+    from .content_visibility import get_visible_learning_outcomes
+    selected_outcomes = get_visible_learning_outcomes(request.user).filter(pk__in=o_ids) if o_ids else LearningOutcome.objects.none()
 
     # Rúbricas elegidas en el wizard: se filtran por get_visible_rubrics
     # (propias + compartidas por grupo) para que un rubric_id ajeno colado a
@@ -2397,10 +2399,11 @@ def create_exam_template(request):
     else:
         form = ExamTemplateForm(user=request.user)
     
+    from .content_visibility import get_visible_learning_outcomes
     context = {
         'form': form,
         'subjects': subjects,
-        'learning_outcomes': LearningOutcome.objects.filter(
+        'learning_outcomes': get_visible_learning_outcomes(request.user).filter(
             career_subject__subject__in=subjects
         ).select_related('career_subject__subject'),
         'current_institution': request.GET.get('institution_id'),
@@ -2460,7 +2463,8 @@ def preview_exam_template(request):
         # Obtener los outcomes seleccionados del modelo LearningOutcome
         outcomes_to_display = []
         if selected_outcomes:
-            outcomes = LearningOutcome.objects.filter(
+            from .content_visibility import get_visible_learning_outcomes
+            outcomes = get_visible_learning_outcomes(request.user).filter(
                 id__in=selected_outcomes,
                 career_subject__subject=subject
             )
@@ -2642,13 +2646,13 @@ def edit_exam_template(request, template_id):
     # el rediseño de instituciones) siempre resultaba en lista vacía, así
     # que en la práctica esto mostraba SIEMPRE todas las materias del
     # sistema sin excepción. Ver [[project_subject_topic_global_sharing_bug]].
-    from .content_visibility import get_visible_subjects
+    from .content_visibility import get_visible_subjects, get_visible_learning_outcomes
     subjects = get_visible_subjects(request.user)
 
     context = {
         'form': form,
         'subjects': subjects,
-        'learning_outcomes': LearningOutcome.objects.filter(
+        'learning_outcomes': get_visible_learning_outcomes(request.user).filter(
             career_subject__subject__in=subjects
         ).select_related('career_subject__subject'),
         'current_institution': template.institution.id if template.institution else None,
@@ -2829,7 +2833,8 @@ def save_exam_template(request):
                 # Subject indirecto via career_subject (ver comentario del
                 # modelo: un mismo RA es de una Materia EN una Carrera
                 # puntual, no de la Materia en abstracto).
-                outcomes = LearningOutcome.objects.filter(
+                from .content_visibility import get_visible_learning_outcomes
+                outcomes = get_visible_learning_outcomes(request.user).filter(
                     id__in=outcomes_ids,
                     career_subject__subject_id=content_fields['subject_id']
                 )
@@ -4073,24 +4078,29 @@ def ver_pregunta(request, pk):
     # clickear una pregunta del examen de ejemplo tiraría 404.
     from .content_visibility import get_visible_questions
     pregunta = get_object_or_404(get_visible_questions(request.user, include_seed=True), pk=pk)
-    return render(request, 'material/questions/ver_pregunta.html', {'pregunta': pregunta})
+    return render(request, 'material/questions/ver_pregunta.html', {
+        'pregunta': pregunta,
+        'back_url': _safe_next_url(request, reverse('material:lista_preguntas')),
+    })
 
 @login_required
 def editar_pregunta(request, pk):
     pregunta = get_object_or_404(Question, pk=pk, user=request.user)
+    back_url = _safe_next_url(request, reverse('material:lista_preguntas'))
 
     if request.method == 'POST':
         form = QuestionForm(request.POST, request.FILES, instance=pregunta, current_user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Pregunta actualizada correctamente', extra_tags='preguntas')
-            return redirect('material:lista_preguntas')
+            return redirect(back_url)
     else:
         form = QuestionForm(instance=pregunta, current_user=request.user)
-    
+
     return render(request, 'material/questions/editar_pregunta.html', {
         'form': form,
-        'pregunta': pregunta
+        'pregunta': pregunta,
+        'back_url': back_url,
     })
 
 def _consumidores_externos_pregunta(pregunta, examenes, orales, deleted_by):
@@ -5042,8 +5052,9 @@ def get_learning_outcomes(request):
         # ahora junta los resultados de TODAS las carreras de la materia.
         # Pendiente (Fase 3): pasar career_id real una vez que el asistente
         # lo capture en este paso.
+        from .content_visibility import get_visible_learning_outcomes
         outcomes = list(
-            LearningOutcome.objects.filter(career_subject__subject=subject)
+            get_visible_learning_outcomes(request.user).filter(career_subject__subject=subject)
             .values('id', 'description')
         )
 
@@ -5054,6 +5065,28 @@ def get_learning_outcomes(request):
     except Exception as e:
         logger.error(f"Error en get_learning_outcomes: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def get_learning_outcomes_by_career_subject(request):
+    """RA visibles (catálogo + espacio personal propio) de una combinación
+    puntual Carrera+Materia — a diferencia de get_learning_outcomes (que
+    junta los de TODAS las carreras de una materia), esto es lo que
+    necesita el paso "Resultados de aprendizaje" del Asistente completo
+    (full_wizard): ya se resolvió una Carrera y una Materia concretas en
+    los pasos anteriores (el frontend solo tiene esos 2 ids, no el pk de
+    CareerSubject — por eso query params y no un path param), así que solo
+    tiene sentido listar los RA de esa combinación exacta."""
+    career_id = request.GET.get('career_id', '')
+    subject_id = request.GET.get('subject_id', '')
+    if not career_id.isdigit() or not subject_id.isdigit():
+        return JsonResponse({'outcomes': []})
+    from .content_visibility import get_visible_learning_outcomes
+    outcomes = get_visible_learning_outcomes(request.user).filter(
+        career_subject__career_id=career_id, career_subject__subject_id=subject_id,
+    ).order_by('created_at').values('id', 'description')
+    return JsonResponse({'outcomes': list(outcomes)})
+
 
 # edit_institution/delete_institution (modelo Institution v1) se eliminaron
 # junto con el stack v1 — ver informe de rediseño del catálogo académico.
@@ -6248,11 +6281,21 @@ class SubjectDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         # Los resultados de aprendizaje son unívocos a (materia, carrera) —
         # ver informe de rediseño del catálogo — así que se muestran
-        # agrupados por carrera, no como lista plana de la materia.
+        # agrupados por carrera, no como lista plana de la materia. Prefetch
+        # ya filtrado por get_visible_learning_outcomes: un RA personal de
+        # OTRO usuario no debe aparecer acá aunque comparta esta materia.
+        from .content_visibility import get_visible_learning_outcomes
         context['career_subjects'] = CareerSubject.objects.filter(
             subject=self.object
-        ).select_related('career').prefetch_related('outcome_relations').order_by('career__name')
+        ).select_related('career').prefetch_related(
+            Prefetch('outcome_relations', queryset=get_visible_learning_outcomes(self.request.user))
+        ).order_by('career__name')
         context['back_url'] = _safe_next_url(self.request, reverse('material:subject_list'))
+        # Mismo criterio que LearningOutcomeCreateView/_puede_editar_catalogo:
+        # admin, o dueño de esta materia todavía no sumada al catálogo.
+        context['puede_agregar_ra'] = is_admin(self.request.user) or (
+            self.object.created_by_id == self.request.user.id and not self.object.es_catalogo_institucional
+        )
         return context
 
 
@@ -6666,6 +6709,20 @@ def create_related_element(request):
 
 
 @login_required
+def get_visible_institutions_json(request):
+    """Instituciones visibles para este usuario (catálogo + espacio
+    personal propio) en JSON — usado por el paso 1 (Institución) del
+    Asistente completo (full_wizard) para listar de entrada las
+    instituciones disponibles, sin obligar a tipear para buscar (mismo
+    problema ya resuelto para facultad/carrera/materia por get_faculties_
+    by_institution/get_careers_by_faculty/get_subjects_by_career, que este
+    endpoint imita para el nivel de arriba de todos, que no tiene padre)."""
+    from .content_visibility import get_visible_institutions
+    instituciones = get_visible_institutions(request.user).order_by('name').values('id', 'name')
+    return JsonResponse({'institutions': list(instituciones)})
+
+
+@login_required
 def get_faculties_by_institution(request, institution_id):
     """
     Devuelve las facultades asociadas a una institución en formato JSON.
@@ -6757,10 +6814,48 @@ def get_catalog_tree_for_subject(request, subject_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-class LearningOutcomeCreateView(AdminRequiredMixin, CreateView):
-    # LearningOutcome no tiene dueño propio y es visible para cualquiera que
-    # vea la materia — es dato de catálogo (curricula oficial), no contenido
-    # privado, así que queda admin-only igual que el resto del ABM.
+class _PuedeAgregarRAMixin(LoginRequiredMixin, UserPassesTestMixin):
+    """Admin, o dueño de una materia personal (todavía no sumada al
+    catálogo institucional) sobre la que se está agregando el RA — mismo
+    criterio que _puede_editar_catalogo, pero acá no hay todavía una
+    instancia de LearningOutcome sobre la que aplicarlo (se está creando),
+    así que se chequea sobre el Subject del career_subject de la URL."""
+    login_url = '/'
+
+    def test_func(self):
+        career_subject = get_object_or_404(CareerSubject, pk=self.kwargs['career_subject_id'])
+        subject = career_subject.subject
+        return is_admin(self.request.user) or (
+            subject.created_by_id == self.request.user.id and not subject.es_catalogo_institucional
+        )
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        return redirect(self.login_url)
+
+
+class _PuedeEditarRAMixin(LoginRequiredMixin, UserPassesTestMixin):
+    """Admin, o quien cargó este RA puntual en su espacio personal — mismo
+    criterio que _puede_editar_catalogo, ahora que LearningOutcome tiene
+    created_by/es_catalogo_institucional igual que el resto del catálogo."""
+    login_url = '/'
+
+    def test_func(self):
+        return _puede_editar_catalogo(self.request.user, self.get_object())
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        return redirect(self.login_url)
+
+
+class LearningOutcomeCreateView(_PuedeAgregarRAMixin, CreateView):
+    # Antes admin-only a secas ("dato de catálogo, no contenido privado").
+    # Ahora sigue esa política SOLO para materias del catálogo institucional
+    # — sobre una materia personal, su propio dueño también puede cargar
+    # sus RA (quedan en su espacio personal hasta que un admin los sume o
+    # los fusione, igual que institución/facultad/carrera/materia).
     model = LearningOutcome
     form_class = LearningOutcomeForm
     template_name = 'material/learningoutcome_form.html'
@@ -6775,8 +6870,21 @@ class LearningOutcomeCreateView(AdminRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.career_subject_id = self.kwargs['career_subject_id']
+        if is_admin(self.request.user):
+            form.instance.es_catalogo_institucional = True
+        else:
+            form.instance.created_by = self.request.user
+            form.instance.es_catalogo_institucional = False
         response = super().form_valid(form)
-        messages.success(self.request, 'Resultado de aprendizaje creado exitosamente', extra_tags='materias')
+        if form.instance.es_catalogo_institucional:
+            messages.success(self.request, 'Resultado de aprendizaje creado exitosamente', extra_tags='materias')
+        else:
+            messages.success(
+                self.request,
+                'Resultado de aprendizaje creado en tu espacio personal — ya se puede usar. '
+                'Queda a la espera de sumarse al catálogo institucional.',
+                extra_tags='materias',
+            )
         return response
 
 class LearningOutcomeListView(ListView):
@@ -6785,7 +6893,8 @@ class LearningOutcomeListView(ListView):
     context_object_name = 'outcomes'
 
     def get_queryset(self):
-        return LearningOutcome.objects.filter(
+        from .content_visibility import get_visible_learning_outcomes
+        return get_visible_learning_outcomes(self.request.user).filter(
             career_subject_id=self.kwargs['career_subject_id']
         ).order_by('created_at')
 
@@ -6794,10 +6903,14 @@ class LearningOutcomeListView(ListView):
         career_subject = get_object_or_404(CareerSubject, pk=self.kwargs['career_subject_id'])
         context['career_subject'] = career_subject
         context['subject'] = career_subject.subject
+        subject = career_subject.subject
+        context['puede_agregar_ra'] = is_admin(self.request.user) or (
+            subject.created_by_id == self.request.user.id and not subject.es_catalogo_institucional
+        )
         return context
 
 
-class LearningOutcomeUpdateView(AdminRequiredMixin, UpdateView):
+class LearningOutcomeUpdateView(_PuedeEditarRAMixin, UpdateView):
     model = LearningOutcome
     form_class = LearningOutcomeForm
     template_name = 'material/learningoutcome_form.html'
@@ -6821,7 +6934,7 @@ class LearningOutcomeUpdateView(AdminRequiredMixin, UpdateView):
         return response
 
 
-class LearningOutcomeDeleteView(AdminRequiredMixin, DeleteView):
+class LearningOutcomeDeleteView(_PuedeEditarRAMixin, DeleteView):
     model = LearningOutcome
     template_name = 'material/learningoutcomes/confirm_delete.html'
 
@@ -7991,7 +8104,8 @@ def onboarding_save_step(request):
                     # no sobrecargar este paso del wizard.
                     remove_outcome_ids = [int(x) for x in body.get('remove_outcome_ids', []) if str(x).isdigit()]
                     if remove_outcome_ids:
-                        LearningOutcome.objects.filter(
+                        from .content_visibility import get_visible_learning_outcomes
+                        get_visible_learning_outcomes(request.user).filter(
                             pk__in=remove_outcome_ids, career_subject__subject=subj
                         ).delete()
                     # Agregar temas nuevos
@@ -8962,7 +9076,7 @@ def catalog_request_create(request):
         form = CatalogRequestForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             try:
-                filas = _materializar_y_generar_solicitudes(form, request.user)
+                filas, _entidad_resultante = _materializar_y_generar_solicitudes(form.cleaned_data, request.user)
             except ValueError as e:
                 messages.error(
                     request,
@@ -8970,9 +9084,7 @@ def catalog_request_create(request):
                     extra_tags='solicitudes',
                 )
                 return render(request, 'material/catalog_requests/form.html', {'form': form})
-            if form.cleaned_data['tipo'] == 'resultado_aprendizaje':
-                mensaje = 'Solicitud enviada. Se avisará el resultado cuando el administrador la revise.'
-            elif len(filas) > 1:
+            if len(filas) > 1:
                 niveles = ', '.join(f.get_tipo_display().lower() for f in filas)
                 mensaje = (
                     f'Se creó en el espacio personal ({niveles}) — ya se puede usar. '
@@ -8993,6 +9105,174 @@ def catalog_request_create(request):
         form = CatalogRequestForm(initial=initial, user=request.user)
 
     return render(request, 'material/catalog_requests/form.html', {'form': form})
+
+
+# --- ASISTENTE COMPLETO (full_wizard) -------------------------------------
+# 3ra herramienta de carga, combinando lo de arriba (Solicitar Alta: motor
+# de espacio personal + auditoría) con lo de /comenzar/ (secuencia guiada
+# hasta armar un examen) — ver [[project_combined_onboarding_wizard_design]].
+# A diferencia de /comenzar/, disponible siempre para cualquier usuario, no
+# solo la primera vez, y no toca profile.onboarding_completed en ningún
+# momento.
+
+@login_required
+def full_wizard_page(request):
+    """Página completa del Asistente combinado. GET-only: arma el shell y
+    dispara desde el JS la carga de instituciones visibles para el paso 1
+    (ver get_visible_institutions_json) — el resto de los pasos se resuelven
+    en cascada a medida que se avanza."""
+    return render(request, 'material/full_wizard.html', {})
+
+
+@login_required
+@require_POST
+def full_wizard_save_step(request):
+    """Guarda UN paso del Asistente completo. Mismo motor que Solicitar
+    Alta (_materializar_y_generar_solicitudes, con requerir_cadena=False:
+    acá SÍ es válido saltear un nivel superior — ver el parking lot de
+    diseño) — deja la misma auditoría (CatalogRequest) que esa pantalla, a
+    diferencia de onboarding_save_step, que nunca dejó ninguna.
+
+    Body JSON esperado:
+      step: 'institucion' | 'facultad' | 'carrera' | 'materia' | 'resultado_aprendizaje'
+      action: 'existente' | 'nueva' | 'saltear'
+      existing_id: <int>          (si action == 'existente')
+      new_name: <str>             (si action == 'nueva'; para RA es el texto del resultado)
+      institucion_id / facultad_id / carrera_id / materia_id: contexto ya
+        resuelto (o ausente/null si esos pasos se saltearon) de los pasos
+        previos de ESTA misma corrida del wizard — el frontend los manda
+        siempre, los use o no cada paso.
+
+    Devuelve {"ok": true, "id": <int|null>, "name": <str|null>, "skipped": bool}
+    o {"ok": false, "error": "..."} con status 400 si algo no es válido —
+    a diferencia de onboarding_save_step, que nunca fallaba (devolvía
+    {"ok": true} igual): acá el frontend necesita saber si el paso realmente
+    se guardó para decidir si puede avanzar."""
+    import json as _json
+    from .content_visibility import (
+        get_visible_institutions, get_visible_faculties, get_visible_careers,
+        get_visible_subjects, get_visible_learning_outcomes,
+    )
+
+    try:
+        body = _json.loads(request.body)
+    except _json.JSONDecodeError:
+        return JsonResponse({'ok': False, 'error': 'JSON inválido.'}, status=400)
+
+    step = body.get('step')
+    action = body.get('action')
+    pasos_validos = ('institucion', 'facultad', 'carrera', 'materia', 'resultado_aprendizaje')
+    if step not in pasos_validos:
+        return JsonResponse({'ok': False, 'error': 'Paso desconocido.'}, status=400)
+    if action not in ('existente', 'nueva', 'saltear'):
+        return JsonResponse({'ok': False, 'error': 'Acción desconocida.'}, status=400)
+
+    if action == 'saltear':
+        return JsonResponse({'ok': True, 'id': None, 'name': None, 'skipped': True})
+
+    # Contexto ya resuelto en pasos previos de esta corrida — nunca se
+    # confía en el id tal cual llega, se re-valida que sea visible para
+    # este usuario (catálogo o su propio espacio personal), igual que en
+    # cualquier otro endpoint de este archivo que recibe un id por POST.
+    _visible_por_nivel = {
+        'institucion': get_visible_institutions, 'facultad': get_visible_faculties,
+        'carrera': get_visible_careers, 'materia': get_visible_subjects,
+    }
+
+    def _resolver_contexto(nivel, id_valor):
+        if not id_valor:
+            return None
+        return get_object_or_404(_visible_por_nivel[nivel](request.user), pk=id_valor)
+
+    try:
+        institucion_obj = _resolver_contexto('institucion', body.get('institucion_id'))
+        facultad_obj = _resolver_contexto('facultad', body.get('facultad_id'))
+        carrera_obj = _resolver_contexto('carrera', body.get('carrera_id'))
+        materia_obj = _resolver_contexto('materia', body.get('materia_id'))
+    except Http404:
+        return JsonResponse({'ok': False, 'error': 'Uno de los niveles ya elegidos dejó de ser válido — volvé a elegirlo.'}, status=400)
+
+    if action == 'existente':
+        existing_id = body.get('existing_id')
+        if not existing_id:
+            return JsonResponse({'ok': False, 'error': 'Falta elegir cuál.'}, status=400)
+        try:
+            if step == 'resultado_aprendizaje':
+                entidad = get_object_or_404(get_visible_learning_outcomes(request.user), pk=existing_id)
+                nombre = entidad.description
+            elif step == 'facultad':
+                # A diferencia de carrera/materia (M2M, se puede sumar un
+                # vínculo más sin pisar nada), una Facultad pertenece a UNA
+                # sola Institución (FK real) — si ya está resuelta la
+                # institución del paso anterior, elegir acá una facultad de
+                # OTRA institución sería inconsistente, se acota la
+                # búsqueda en vez de aceptar cualquier cosa visible.
+                qs = _visible_por_nivel[step](request.user)
+                if institucion_obj:
+                    qs = qs.filter(institution_id=institucion_obj.id)
+                entidad = get_object_or_404(qs, pk=existing_id)
+                nombre = entidad.name
+            else:
+                entidad = get_object_or_404(_visible_por_nivel[step](request.user), pk=existing_id)
+                nombre = entidad.name
+        except Http404:
+            return JsonResponse({'ok': False, 'error': 'Eso ya no está disponible, o no pertenece al nivel elegido antes — volvé a elegir.'}, status=400)
+
+        # Reusar algo existente también encadena hacia el nivel resuelto en
+        # el paso anterior (carrera/materia son M2M o through, admiten sumar
+        # el vínculo sin romper nada) — mismo espíritu que la cascada de
+        # _materializar_y_generar_solicitudes cuando el nivel es "_nueva".
+        if step == 'carrera':
+            if facultad_obj:
+                entidad.faculties.add(facultad_obj)
+            if institucion_obj:
+                InstitutionCareer.objects.get_or_create(institution=institucion_obj, career=entidad)
+        elif step == 'materia' and carrera_obj:
+            CareerSubject.objects.get_or_create(career=carrera_obj, subject=entidad)
+
+        return JsonResponse({'ok': True, 'id': entidad.pk, 'name': nombre, 'created': False})
+
+    # action == 'nueva'
+    nombre_nuevo = (body.get('new_name') or '').strip()
+    if not nombre_nuevo:
+        return JsonResponse({'ok': False, 'error': 'Falta el nombre.'}, status=400)
+
+    if step == 'resultado_aprendizaje':
+        if not carrera_obj or not materia_obj:
+            return JsonResponse({'ok': False, 'error': 'Falta resolver Carrera y Materia antes de cargar un resultado de aprendizaje.'}, status=400)
+        if not CareerSubject.objects.filter(career=carrera_obj, subject=materia_obj).exists():
+            return JsonResponse({'ok': False, 'error': 'Esta materia no está vinculada a esta carrera — no se puede cargar un resultado de aprendizaje acá.'}, status=400)
+
+    datos = {
+        'tipo': step,
+        'institucion': institucion_obj, 'institucion_nueva': '', 'institucion_sigla_nueva': '',
+        'facultad': facultad_obj, 'facultad_nueva': '',
+        'carrera': carrera_obj, 'carrera_nueva': '',
+        'materia': materia_obj,
+        'nombre_propuesto': nombre_nuevo,
+        'logo_propuesto': None,
+        'justificacion': '',
+    }
+    # Cada rama del if espera su propio nombre "nuevo" en la clave que
+    # corresponde a SU nivel (institucion_nueva/facultad_nueva/carrera_nueva) —
+    # ver _materializar_y_generar_solicitudes. Para 'materia' y
+    # 'resultado_aprendizaje' el nombre ya viaja en nombre_propuesto tal cual.
+    if step == 'institucion':
+        datos['institucion_nueva'] = nombre_nuevo
+    elif step == 'facultad':
+        datos['facultad_nueva'] = nombre_nuevo
+    elif step == 'carrera':
+        datos['carrera_nueva'] = nombre_nuevo
+
+    try:
+        filas, entidad = _materializar_y_generar_solicitudes(datos, request.user, requerir_cadena=False)
+    except ValueError as e:
+        return JsonResponse({'ok': False, 'error': f'Falta contexto: {e}'}, status=400)
+
+    if entidad is None:
+        return JsonResponse({'ok': False, 'error': 'No se pudo crear.'}, status=400)
+    nombre_final = entidad.description if step == 'resultado_aprendizaje' else entidad.name
+    return JsonResponse({'ok': True, 'id': entidad.pk, 'name': nombre_final, 'created': bool(filas)})
 
 
 def _normalizar_para_busqueda(texto):
@@ -9163,6 +9443,26 @@ def buscar_destino_fusion(request):
         qs = Career.objects.filter(is_seed_demo=False, es_catalogo_institucional=True)
     elif nivel == 'materia':
         qs = Subject.objects.filter(is_seed_demo=False, es_catalogo_institucional=True)
+    elif nivel == 'resultado_aprendizaje':
+        # Un RA no tiene "name" (es una oración larga en `description`, ver
+        # LearningOutcome) y solo tiene sentido fusionarlo dentro del MISMO
+        # CareerSubject — comparar contra el resto del catálogo mezclaría
+        # resultados de materias/carreras que no tienen nada que ver.
+        career_subject_id = request.GET.get('career_subject_id', '')
+        if not career_subject_id.isdigit():
+            return JsonResponse([], safe=False)
+        qs = LearningOutcome.objects.filter(
+            career_subject_id=career_subject_id, es_catalogo_institucional=True,
+        )
+        q_norm = _normalizar_para_busqueda(q)
+        q_tokens = _tokens(q_norm)
+        candidatos = qs.order_by('description').values('id', 'description')
+        puntuados = [(c, _similitud(q_norm, q_tokens, c['description'])) for c in candidatos]
+        puntuados = [par for par in puntuados if par[1] > 0]
+        puntuados.sort(key=lambda par: -par[1])
+        return JsonResponse([
+            {'id': c['id'], 'name': c['description']} for c, _score in puntuados[:20]
+        ], safe=False)
     else:
         return JsonResponse([], safe=False)
 
@@ -9218,6 +9518,7 @@ _NIVEL_MODELO_ESPACIO_PERSONAL = {
     'facultad': FacultyV2,
     'carrera': Career,
     'materia': Subject,
+    'resultado_aprendizaje': LearningOutcome,
 }
 
 
@@ -9378,6 +9679,16 @@ def _fusionar_en_destino(tipo, origen, destino):
                     user=ui.user, institution=destino, defaults={'is_favorite': ui.is_favorite},
                 )
                 ui.delete()
+        elif tipo == 'resultado_aprendizaje':
+            # No tiene nada colgando DEBAJO (es la hoja del árbol) — solo
+            # hay que re-apuntar lo que lo usa: exámenes/plantillas que ya
+            # lo tenían tildado.
+            for exam in Exam.objects.filter(learning_outcomes=origen):
+                exam.learning_outcomes.remove(origen)
+                exam.learning_outcomes.add(destino)
+            for template in ExamTemplate.objects.filter(learning_outcomes=origen):
+                template.learning_outcomes.remove(origen)
+                template.learning_outcomes.add(destino)
         else:
             raise ValueError('ese tipo no admite fusión')
 
@@ -9389,12 +9700,9 @@ def resolve_catalog_request_fusion(solicitud, *, admin_user, destino_id):
     que el admin eligió a mano (ver _fusionar_en_destino) — tercera
     acción de la bandeja además de aprobar/rechazar, para cuando un
     borrador personal resulta ser lo mismo que algo que ya está en el
-    catálogo. No aplica a resultado_aprendizaje (no tiene fila propia que
-    fusionar, ver CatalogRequestForm). Devuelve (ok, mensaje)."""
+    catálogo. Devuelve (ok, mensaje)."""
     if solicitud.estado != 'pendiente':
         return False, 'Esa solicitud ya estaba resuelta.'
-    if solicitud.tipo == 'resultado_aprendizaje':
-        return False, 'Un resultado de aprendizaje no se fusiona — no tiene fila propia en el catálogo.'
 
     origen = getattr(solicitud, solicitud.tipo)
     if origen is None:
@@ -9439,8 +9747,8 @@ def resolve_catalog_request(solicitud, *, admin_user, aprobar, nota_admin=''):
         # Todo dentro de una transacción para no quedar a mitad de camino
         # si algo entre el delete y el save llega a fallar.
         with transaction.atomic():
-            campo_nivel = solicitud.tipo if solicitud.tipo != 'resultado_aprendizaje' else None
-            entidad = getattr(solicitud, campo_nivel) if campo_nivel else None
+            campo_nivel = solicitud.tipo
+            entidad = getattr(solicitud, campo_nivel)
             borrada = False
             if entidad is not None and not entidad.es_catalogo_institucional:
                 borrada = _intentar_eliminar_si_vacio(solicitud.tipo, entidad)
@@ -9465,28 +9773,15 @@ def resolve_catalog_request(solicitud, *, admin_user, aprobar, nota_admin=''):
 
     # El nivel de ESTA fila ya existe — se creó en el espacio personal al
     # enviar la solicitud (ver _materializar_y_generar_solicitudes), no
-    # acá. Aprobar ahora es solo promoverlo al catálogo institucional
-    # (flip del flag), salvo resultado_aprendizaje, que sigue creándose
-    # recién acá. Los demás niveles del mismo lote (si los hay) se
-    # aprueban o rechazan cada uno por su cuenta, en su propia fila.
-    entidad = {
-        'institucion': solicitud.institucion, 'facultad': solicitud.facultad,
-        'carrera': solicitud.carrera, 'materia': solicitud.materia,
-    }.get(solicitud.tipo)
+    # acá, para los 5 tipos por igual (incluido resultado_aprendizaje desde
+    # esta misma sesión). Aprobar ahora es solo promoverlo al catálogo
+    # institucional (flip del flag). Los demás niveles del mismo lote (si
+    # los hay) se aprueban o rechazan cada uno por su cuenta, en su propia
+    # fila.
+    entidad = getattr(solicitud, solicitud.tipo)
     if entidad is not None and not entidad.es_catalogo_institucional:
         entidad.es_catalogo_institucional = True
         entidad.save(update_fields=['es_catalogo_institucional'])
-
-    if solicitud.tipo == 'resultado_aprendizaje':
-        if not solicitud.carrera_id:
-            return False, 'No se pudo crear (falta carrera) — hay que completarlo y reintentar.'
-        if not solicitud.materia_id:
-            return False, 'No se pudo crear (falta materia) — hay que completarlo y reintentar.'
-        try:
-            career_subject = CareerSubject.objects.get(career_id=solicitud.carrera_id, subject_id=solicitud.materia_id)
-        except CareerSubject.DoesNotExist:
-            return False, 'No se pudo crear (la materia elegida no está vinculada a esa carrera en el catálogo) — hay que completarlo y reintentar.'
-        LearningOutcome.objects.get_or_create(career_subject=career_subject, description=solicitud.nombre_propuesto)
 
     solicitud.estado = 'aprobada'
     solicitud.resuelto_por = admin_user
@@ -9524,12 +9819,19 @@ def _validar_cadena_catalogo(*, institucion=None, facultad=None, carrera=None, m
         )
 
 
-def _materializar_y_generar_solicitudes(form, user):
-    """Al enviar el formulario, crea de inmediato lo que falte en el
-    "espacio personal" de quien lo pide (es_catalogo_institucional=False)
-    — se puede usar ya mismo, sin esperar a que el administrador lo sume
-    al catálogo institucional (ver acuerdo de "personal space" en el
-    informe de rediseño).
+def _materializar_y_generar_solicitudes(datos, user, requerir_cadena=True):
+    """Crea de inmediato lo que falte en el "espacio personal" de quien lo
+    pide (es_catalogo_institucional=False) — se puede usar ya mismo, sin
+    esperar a que el administrador lo sume al catálogo institucional (ver
+    acuerdo de "personal space" en el informe de rediseño).
+
+    `datos` es un dict con las mismas claves que `CatalogRequestForm.
+    cleaned_data` (institucion, institucion_nueva, facultad, facultad_
+    nueva, carrera, carrera_nueva, materia, nombre_propuesto, tipo, etc.)
+    — antes este parámetro era el form entero y esta función leía
+    `form.cleaned_data` directo; se separó para que un caller que arma el
+    dict a mano (el wizard combinado, ver full_wizard_save_step) pueda
+    reusar toda esta lógica sin construir un Form real por cada paso.
 
     A diferencia de la primera versión, acá NO se arma una sola fila de
     CatalogRequest para toda la cadena: se genera UNA FILA POR CADA NIVEL
@@ -9541,16 +9843,27 @@ def _materializar_y_generar_solicitudes(form, user):
     nivel que se reutilizó (ya existía, institucional o personal de este
     mismo usuario) no genera fila nueva — no hay nada que decidir ahí.
 
-    tipo='resultado_aprendizaje' queda afuera de este mecanismo a
-    propósito: el form exige niveles YA reales para ese tipo (ver
-    clean()), así que acá no hay nada que crear — se arma una única fila
-    sin lote, igual que antes, y el resultado en sí se sigue creando
-    recién al aprobar.
+    `requerir_cadena` (default True, comportamiento histórico de
+    Solicitar Alta, donde CatalogRequestForm.clean() ya exige el nivel de
+    arriba antes de llegar acá): si False, crear una Carrera sin Facultad
+    o una Materia sin Carrera ya no tira ValueError — quedan huérfanas
+    (CareerSubject/Career.faculties son opcionales a nivel de esquema).
+    Facultad SIEMPRE exige Institución sin importar esta flag: FacultyV2.
+    institution es un FK no nulable, no hay fila válida sin ese dato.
 
-    Devuelve la lista de CatalogRequest ya guardadas (puede quedar vacía
-    si tipo='resultado_aprendizaje' y algo falla — no debería pasar,
-    clean() ya lo valida)."""
-    datos = form.cleaned_data
+    tipo='resultado_aprendizaje' queda afuera de este mecanismo de
+    cascada: el form exige niveles YA reales para ese tipo (ver clean()),
+    así que acá no hay nada que crear salvo el RA en sí — se arma una
+    única fila sin lote.
+
+    Devuelve (filas, entidad): `filas` es la lista de CatalogRequest ya
+    guardadas (solo por lo REALMENTE creado, puede quedar vacía si todo
+    ya existía); `entidad` es la fila real ya resuelta para `tipo` —
+    reusada si ya existía, recién creada si no — para que un caller como
+    full_wizard_save_step tenga el id al toque, sin tener que adivinarlo a
+    partir de `filas` (que no lo trae si `_obtener_o_crear_personal`
+    reusó un borrador propio ya existente, el único caso donde no se
+    genera ninguna fila nueva)."""
     tipo = datos['tipo']
 
     _validar_cadena_catalogo(
@@ -9559,13 +9872,26 @@ def _materializar_y_generar_solicitudes(form, user):
     )
 
     if tipo == 'resultado_aprendizaje':
+        # A diferencia de los otros 4 tipos, acá no hace falta
+        # _obtener_o_crear_personal: el form ya exige que carrera/materia
+        # sean filas reales existentes (ver clean()), así que el
+        # CareerSubject de ambas ya existe (_validar_cadena_catalogo de
+        # arriba lo garantiza). El RA en sí SÍ se crea ahora, en el espacio
+        # personal — igual que institución/facultad/carrera/materia, ya
+        # queda usable de inmediato sin esperar al admin.
+        career_subject = CareerSubject.objects.get(career=datos['carrera'], subject=datos['materia'])
+        outcome = LearningOutcome.objects.create(
+            career_subject=career_subject, description=datos['nombre_propuesto'],
+            created_by=user, es_catalogo_institucional=False,
+        )
         solicitud = CatalogRequest.objects.create(
             tipo=tipo, nombre_propuesto=datos['nombre_propuesto'],
             institucion=datos.get('institucion'), facultad=datos.get('facultad'),
             carrera=datos.get('carrera'), materia=datos.get('materia'),
+            resultado_aprendizaje=outcome,
             justificacion=datos.get('justificacion', ''), solicitado_por=user,
         )
-        return [solicitud]
+        return [solicitud], outcome
 
     logo_propuesto = datos.get('logo_propuesto')
     sigla_propuesta = (datos.get('institucion_sigla_nueva') or '').strip()
@@ -9655,6 +9981,7 @@ def _materializar_y_generar_solicitudes(form, user):
         if creada:
             _agregar_fila('carrera', carrera_obj.name, institucion=institucion_obj, facultad=facultad_obj, carrera=carrera_obj)
 
+    entidad_resultante = None
     if tipo == 'institucion':
         nueva_institucion, creada = _obtener_o_crear_personal(InstitutionV2, datos['nombre_propuesto'])
         _aplicar_logo(nueva_institucion)
@@ -9662,30 +9989,36 @@ def _materializar_y_generar_solicitudes(form, user):
         UserInstitution.objects.get_or_create(user=user, institution=nueva_institucion)
         if creada:
             _agregar_fila('institucion', nueva_institucion.name, institucion=nueva_institucion)
+        entidad_resultante = nueva_institucion
     elif tipo == 'facultad':
         if not institucion_obj:
             raise ValueError('falta institución')
         nueva_facultad, creada = _obtener_o_crear_personal(FacultyV2, datos['nombre_propuesto'], institution=institucion_obj)
         if creada:
             _agregar_fila('facultad', nueva_facultad.name, institucion=institucion_obj, facultad=nueva_facultad)
+        entidad_resultante = nueva_facultad
     elif tipo == 'carrera':
-        if not facultad_obj:
+        if not facultad_obj and requerir_cadena:
             raise ValueError('falta facultad')
         nueva_carrera, creada = _obtener_o_crear_personal(Career, datos['nombre_propuesto'])
-        nueva_carrera.faculties.add(facultad_obj)
+        if facultad_obj:
+            nueva_carrera.faculties.add(facultad_obj)
         if institucion_obj:
             InstitutionCareer.objects.get_or_create(institution=institucion_obj, career=nueva_carrera)
         if creada:
             _agregar_fila('carrera', nueva_carrera.name, institucion=institucion_obj, facultad=facultad_obj, carrera=nueva_carrera)
+        entidad_resultante = nueva_carrera
     elif tipo == 'materia':
-        if not carrera_obj:
+        if not carrera_obj and requerir_cadena:
             raise ValueError('falta carrera')
         nueva_materia, creada = _obtener_o_crear_personal(Subject, datos['nombre_propuesto'])
-        CareerSubject.objects.get_or_create(career=carrera_obj, subject=nueva_materia)
+        if carrera_obj:
+            CareerSubject.objects.get_or_create(career=carrera_obj, subject=nueva_materia)
         if creada:
             _agregar_fila('materia', nueva_materia.name, institucion=institucion_obj, facultad=facultad_obj, carrera=carrera_obj, materia=nueva_materia)
+        entidad_resultante = nueva_materia
 
-    return filas
+    return filas, entidad_resultante
 
 
 _MOJIBAKE_MARKER = 'Ã'

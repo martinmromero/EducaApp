@@ -7,7 +7,14 @@
 {% block content %}
 <script src="{% static 'js/page_tours/catalog_requests_bandeja_tour.js' %}"></script>
 <div class="container-fluid">
-    <h1 class="h3 mb-4 text-gray-800"><i class="bi bi-inbox me-2"></i>Solicitudes de catálogo</h1>
+    <h1 class="h3 mb-2 text-gray-800"><i class="bi bi-inbox me-2"></i>Solicitudes de catálogo</h1>
+    <p class="text-muted small mb-4">
+        <i class="bi bi-info-circle me-1"></i>
+        Lo que pide cada usuario ya está usable en su espacio personal desde que lo cargó — esto no es una aprobación
+        de uso, es solo si además se suma al catálogo institucional (compartido). <strong>Rechazar no borra nada</strong>:
+        el usuario sigue teniendo y usando lo que cargó, solo no pasa a compartirse con el resto de la institución.
+        Usar "Fusionar" en cambio sí borra el borrador personal — lo reemplaza por el vínculo a la fila institucional elegida.
+    </p>
 
     {% show_messages "solicitudes" %}
 
@@ -73,18 +80,16 @@
                                             <button type="submit" name="accion" value="rechazar" class="btn btn-sm btn-outline-danger">
                                                 <i class="bi bi-x-lg"></i> Rechazar
                                             </button>
-                                            {% if s.tipo != 'resultado_aprendizaje' %}
                                             <button type="button" class="btn btn-sm btn-outline-secondary btn-toggle-fusion" data-target="fusion-{{ s.id }}">
                                                 <i class="bi bi-signpost-split"></i> Fusionar
                                             </button>
-                                            {% endif %}
                                         </div>
                                     </form>
-                                    {% if s.tipo != 'resultado_aprendizaje' %}
                                     <div class="fusion-panel border rounded p-2 mt-2 d-none" id="fusion-{{ s.id }}" style="min-width:260px">
                                         <label class="form-label small text-muted mb-1">Fusionar con una fila ya institucional:</label>
                                         <input type="text" class="form-control form-control-sm fusion-buscar"
                                                data-nivel="{{ s.tipo }}" data-institucion-id="{{ s.institucion_id|default_if_none:'' }}"
+                                               data-career-subject-id="{% if s.tipo == 'resultado_aprendizaje' %}{{ s.resultado_aprendizaje.career_subject_id|default_if_none:'' }}{% endif %}"
                                                placeholder="Buscar por nombre...">
                                         <div class="fusion-sugerencias small mt-1"></div>
                                         <form method="post" class="fusion-form mt-2">
@@ -97,7 +102,6 @@
                                             </button>
                                         </form>
                                     </div>
-                                    {% endif %}
                                     {% else %}
                                         <span class="text-muted small">—</span>
                                     {% endif %}
@@ -151,6 +155,9 @@ document.addEventListener('DOMContentLoaded', function () {
             const paramsObj = { nivel: nivel, q: q };
             if (nivel === 'facultad' && input.dataset.institucionId) {
                 paramsObj.institucion_id = input.dataset.institucionId;
+            }
+            if (nivel === 'resultado_aprendizaje' && input.dataset.careerSubjectId) {
+                paramsObj.career_subject_id = input.dataset.careerSubjectId;
             }
             const params = new URLSearchParams(paramsObj);
             fetch(BUSCAR_DESTINO_URL + '?' + params.toString())

@@ -1,0 +1,147 @@
+{% extends 'material/base.html' %}
+{% load static %}
+{% block body_extra_attrs %}data-tour-page="full_wizard"{% endblock %}
+{% block title %}Asistente completo - EducaApp{% endblock %}
+{% block page_title %}<i class="bi bi-magic me-2"></i>Asistente completo{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'material/css/wizard_common.css' %}">
+<link rel="stylesheet" href="{% static 'material/css/full_wizard.css' %}">
+
+<div class="wiz-wrap">
+    <p class="text-muted mb-3">
+        Institución, facultad, carrera, materia, resultados de aprendizaje, contenidos, preguntas y examen — todo en un
+        recorrido. En cada paso se puede usar algo ya cargado, crear algo nuevo, o saltear el paso. Lo que se crea acá
+        queda usable de inmediato en el espacio personal; un administrador decide después si lo suma al catálogo
+        institucional.
+    </p>
+
+    <nav class="wiz-stepper" id="wizStepper" aria-label="Pasos del asistente">
+        <div class="wiz-step-pill is-active" data-step-pill="1"><span class="wiz-step-num"><span>1</span></span><span class="wiz-step-label">Institución</span></div>
+        <div class="wiz-step-pill" data-step-pill="2"><span class="wiz-step-num"><span>2</span></span><span class="wiz-step-label">Facultad</span></div>
+        <div class="wiz-step-pill" data-step-pill="3"><span class="wiz-step-num"><span>3</span></span><span class="wiz-step-label">Carrera</span></div>
+        <div class="wiz-step-pill" data-step-pill="4"><span class="wiz-step-num"><span>4</span></span><span class="wiz-step-label">Materia</span></div>
+        <div class="wiz-step-pill" data-step-pill="5"><span class="wiz-step-num"><span>5</span></span><span class="wiz-step-label">Res. de aprendizaje</span></div>
+        <div class="wiz-step-pill" data-step-pill="6"><span class="wiz-step-num"><span>6</span></span><span class="wiz-step-label">Contenido</span></div>
+        <div class="wiz-step-pill" data-step-pill="7"><span class="wiz-step-num"><span>7</span></span><span class="wiz-step-label">Preguntas</span></div>
+        <div class="wiz-step-pill" data-step-pill="8"><span class="wiz-step-num"><span>8</span></span><span class="wiz-step-label">Examen</span></div>
+    </nav>
+
+    <div id="fwBreadcrumb" class="fw-breadcrumb mb-3"></div>
+
+    <!-- PASOS 1-5: Institución / Facultad / Carrera / Materia / RA -->
+    {% for cfg in "12345" %}
+    <div class="wiz-step {% if cfg == '1' %}is-active{% endif %}" data-step="{{ cfg }}">
+        <div class="wiz-step-card">
+            <h4 class="fw-step-title" data-role="title"></h4>
+            <p class="wiz-step-intro" data-role="parent-message"></p>
+
+            <div class="mb-2" data-role="list-empty-msg" style="display:none">
+                <p class="text-muted small mb-0">Todavía no hay nada cargado acá — buscar o crear abajo.</p>
+            </div>
+            <div class="fw-chip-list mb-3" data-role="chip-list"></div>
+
+            <div class="row g-2 align-items-end">
+                <div class="col-md-7">
+                    <label class="form-label small text-muted mb-1" data-role="search-label">¿No está en la lista? Buscar o escribir un nombre nuevo</label>
+                    <input type="text" class="form-control fw-search-input" data-role="search-input" autocomplete="off">
+                    <div class="fw-suggest-box d-none" data-role="suggest-box"></div>
+                </div>
+                <div class="col-md-3">
+                    <button type="button" class="btn btn-primary w-100" data-role="create-btn" disabled>
+                        <i class="bi bi-plus-circle me-1"></i>Crear nueva
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-outline-secondary w-100" data-role="skip-btn">
+                        Saltear
+                    </button>
+                </div>
+            </div>
+            <div class="text-danger small mt-2" data-role="error-msg" style="display:none"></div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- PASO 6: Contenido -->
+    <div class="wiz-step" data-step="6">
+        <div class="wiz-step-card">
+            <h4>Contenido</h4>
+            <p class="wiz-step-intro" id="fwStep6Msg">Subí un documento (PDF/DOCX/PPTX) para la materia elegida — de ahí sale la base para generar preguntas con IA.</p>
+            <a id="fwStep6Link" href="#" target="_blank" rel="noopener" class="btn btn-primary mb-2">
+                <i class="bi bi-upload me-1"></i>Subir contenido
+            </a>
+            <p class="text-muted small">Se abre en una pestaña nueva — al volver a esta, el asistente sigue donde estaba.</p>
+            <div class="d-flex gap-2 mt-3">
+                <button type="button" class="btn btn-outline-secondary" data-role="step-skip">Saltear</button>
+                <button type="button" class="btn btn-primary" data-role="step-continue">Siguiente<i class="bi bi-arrow-right ms-1"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PASO 7: Preguntas -->
+    <div class="wiz-step" data-step="7">
+        <div class="wiz-step-card">
+            <h4>Preguntas</h4>
+            <p class="wiz-step-intro">Generar preguntas con IA a partir del contenido subido, o cargarlas a mano.</p>
+            <div class="d-flex gap-2 flex-wrap mb-3">
+                <a id="fwStep7GenLink" href="#" target="_blank" rel="noopener" class="btn btn-primary">
+                    <i class="bi bi-cpu me-1"></i>Generar con IA
+                </a>
+                <a id="fwStep7ManualLink" href="#" target="_blank" rel="noopener" class="btn btn-outline-primary">
+                    <i class="bi bi-pencil-square me-1"></i>Cargar a mano
+                </a>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button type="button" class="btn btn-outline-secondary" data-role="step-skip">Saltear</button>
+                <button type="button" class="btn btn-primary" data-role="step-continue">Siguiente<i class="bi bi-arrow-right ms-1"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PASO 8: Examen (resumen final) -->
+    <div class="wiz-step" data-step="8">
+        <div class="wiz-step-card">
+            <h4>Examen</h4>
+            <p class="wiz-step-intro">Con lo cargado en este recorrido, ya se puede armar un examen.</p>
+            <a id="fwStep8Link" href="#" target="_blank" rel="noopener" class="btn btn-primary mb-3">
+                <i class="bi bi-file-earmark-check me-1"></i>Crear examen
+            </a>
+            <div class="wiz-summary" id="wizSummary"></div>
+        </div>
+    </div>
+
+    <div class="wiz-nav">
+        <button type="button" class="btn btn-outline-secondary" id="wizBackBtn">
+            <i class="bi bi-arrow-left me-1"></i>Atrás
+        </button>
+        <a href="{% url 'material:full_wizard' %}" class="text-muted small">Empezar de nuevo</a>
+        <button type="button" class="btn btn-primary" id="wizNextBtn">
+            Siguiente<i class="bi bi-arrow-right ms-1"></i>
+        </button>
+        <a href="{% url 'material:index' %}" class="btn btn-success d-none" id="wizSubmitBtn">
+            Terminar<i class="bi bi-check2 ms-1"></i>
+        </a>
+    </div>
+</div>
+
+<script>
+window.EducaAppFullWizardConfig = {
+    urls: {
+        saveStep: "{% url 'material:full_wizard_save_step' %}",
+        checkCatalogDuplicate: "{% url 'material:check_catalog_duplicate' %}",
+        listInstituciones: "{% url 'material:get_visible_institutions_json' %}",
+        facultadesByInstitucionBase: "/get_faculties_by_institution/",
+        carrerasByFacultadBase: "/get-careers-by-faculty/",
+        materiasByCarreraBase: "/get-subjects-by-career/",
+        outcomesByCareerSubject: "{% url 'material:get_learning_outcomes_by_career_subject' %}",
+        uploadContenido: "{% url 'material:upload_contenido' %}",
+        docProcessor: "{% url 'material:document_processor_dashboard' %}",
+        uploadQuestions: "{% url 'material:upload_questions' %}",
+        createExam: "{% url 'material:create_exam' %}",
+    }
+};
+</script>
+<script src="{% static 'material/js/wizard_engine.js' %}"></script>
+<script src="{% static 'material/js/wizard_draft.js' %}"></script>
+<script src="{% static 'material/js/full_wizard.js' %}"></script>
+{% endblock %}

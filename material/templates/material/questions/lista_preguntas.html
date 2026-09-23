@@ -219,12 +219,12 @@
                             </td>
                             <td data-label="Acciones">
                                 <div class="btn-group" role="group">
-                                    <a href="{% url 'material:ver_pregunta' pregunta.pk %}"
+                                    <a href="{% url 'material:ver_pregunta' pregunta.pk %}?next={{ request.get_full_path|urlencode }}"
                                        class="btn btn-sm btn-info" title="Ver pregunta">
                                         <i class="fas fa-eye"></i>
                                     </a>
                                     {% if pregunta.user_id == request.user.id %}
-                                    <a href="{% url 'material:editar_pregunta' pregunta.pk %}"
+                                    <a href="{% url 'material:editar_pregunta' pregunta.pk %}?next={{ request.get_full_path|urlencode }}"
                                        class="btn btn-sm btn-success" title="Editar pregunta">
                                         <i class="fas fa-edit"></i>
                                     </a>

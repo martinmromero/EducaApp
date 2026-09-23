@@ -366,32 +366,50 @@ def get_or_create_real_subject(name, user):
     que tipeaban el mismo nombre de materia terminaban compartiendo la misma
     fila (y por lo tanto sus temas, resultados de aprendizaje y visibilidad
     en /materias/) sin saberlo. Ver [[project_subject_topic_global_sharing_bug]].
+
+    Crea la fila NUEVA con es_catalogo_institucional=False (espacio
+    personal) — bug real encontrado 2026-09-23: nunca se seteaba acá, así
+    que toda materia creada por este camino (wizard de /comenzar/, CSV/TXT,
+    "Nueva materia", generador de IA) quedaba en el default del campo
+    (True), tratada como si ya fuera del catálogo institucional — visible
+    para cualquier usuario y, peor, el propio dueño perdía el permiso de
+    editar/borrar su propia materia (_puede_editar_catalogo exige
+    es_catalogo_institucional=False). Confirmado con datos reales: 805 de
+    807 materias con dueño en esta base quedaron mal marcadas.
     """
     subject = Subject.objects.filter(name=name, is_seed_demo=False, created_by=user).first()
     if subject:
         return subject, False
-    return Subject.objects.create(name=name, is_seed_demo=False, created_by=user), True
+    return Subject.objects.create(
+        name=name, is_seed_demo=False, created_by=user, es_catalogo_institucional=False,
+    ), True
 
 
 def get_or_create_real_career(name, user):
     """Punto único para crear/matchear una carrera REAL por nombre (paso
     "Carrera" del wizard cuando el docente tipea un nombre nuevo). Mismo
     criterio que get_or_create_real_subject: matchea por (nombre, user),
-    nunca reutiliza una fila semilla."""
+    nunca reutiliza una fila semilla, y crea en espacio personal — mismo
+    bug y mismo fix que ahí (2026-09-23)."""
     career = Career.objects.filter(name=name, is_seed_demo=False, created_by=user).first()
     if career:
         return career, False
-    return Career.objects.create(name=name, is_seed_demo=False, created_by=user), True
+    return Career.objects.create(
+        name=name, is_seed_demo=False, created_by=user, es_catalogo_institucional=False,
+    ), True
 
 
 def get_or_create_real_faculty(name, institution_id, user):
     """Punto único para crear/matchear una facultad REAL por nombre (paso
     "Institución" del wizard, selector de facultad). Mismo criterio que
-    get_or_create_real_career: matchea por (nombre, institución, user)."""
+    get_or_create_real_career: matchea por (nombre, institución, user), y
+    crea en espacio personal — mismo bug y mismo fix (2026-09-23)."""
     faculty = FacultyV2.objects.filter(name=name, institution_id=institution_id, created_by=user).first()
     if faculty:
         return faculty, False
-    return FacultyV2.objects.create(name=name, institution_id=institution_id, created_by=user), True
+    return FacultyV2.objects.create(
+        name=name, institution_id=institution_id, created_by=user, es_catalogo_institucional=False,
+    ), True
 
 
 
@@ -415,6 +433,19 @@ class LearningOutcome(models.Model):
         verbose_name="Contenido",
         help_text="Texto completo del resultado de aprendizaje"
     )
+    # Mismo mecanismo de espacio personal vs. catálogo institucional que
+    # InstitutionV2/FacultyV2/Career/Subject (ver informe de rediseño) —
+    # antes un RA solo lo podía cargar un admin, sin ningún borrador
+    # personal intermedio. Nullable/default=True por lo mismo que en esos
+    # modelos: las filas cargadas por un admin (o migradas antes de este
+    # campo) no tienen "creador personal" y ya están en el catálogo.
+    es_catalogo_institucional = models.BooleanField(
+        default=True, verbose_name="En el catálogo institucional",
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='learning_outcomes_created', verbose_name="Creado por",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -422,6 +453,17 @@ class LearningOutcome(models.Model):
         verbose_name = "Resultado de Aprendizaje"
         verbose_name_plural = "Resultados de Aprendizaje"
         ordering = ['created_at']
+
+    @property
+    def name(self):
+        """Alias de `description`, truncado — el resto del mecanismo de
+        "espacio personal" (eliminar_espacio_personal, confirm_delete_
+        personal.html, la bandeja de solicitudes) es genérico entre los 5
+        tipos y espera un `.name` corto; acá el contenido real es una
+        oración larga, así que se trunca en vez de sumar un campo nuevo
+        solo para esto."""
+        from django.utils.text import Truncator
+        return Truncator(self.description).chars(60)
 
 
 class Unidad(models.Model):
@@ -1482,6 +1524,16 @@ class CatalogRequest(models.Model):
         Subject, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='catalog_requests', verbose_name="Materia",
     )
+    # A diferencia de cuando este comentario se escribió más arriba (ver
+    # docstring de la clase): un resultado de aprendizaje SÍ tiene fila
+    # propia desde que se creó en el espacio personal (ver
+    # _materializar_y_generar_solicitudes) — este FK es el mismo mecanismo
+    # que institucion/facultad/carrera/materia de arriba, solo que sin
+    # variante "_nueva" (ver clean() de CatalogRequestForm).
+    resultado_aprendizaje = models.ForeignKey(
+        'LearningOutcome', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='catalog_requests', verbose_name="Resultado de aprendizaje",
+    )
 
     # Solo tiene efecto cuando la solicitud da de alta una institución nueva
     # (tipo='institucion' o institucion_nueva completado en un nivel más
@@ -1528,17 +1580,17 @@ class CatalogRequest(models.Model):
     }
 
     def entidad_propia(self):
-        """La fila real (InstitutionV2/FacultyV2/Career/Subject) que este
-        `tipo` representa — la que se creó/eligió para ESTE nivel puntual,
-        no el contexto de arriba. None para resultado_aprendizaje (no crea
-        nada propio, ver clean() en CatalogRequestForm) o si esa fila ya
-        no existe (fusionada o borrada). Usado para decidir si mostrar
+        """La fila real (InstitutionV2/FacultyV2/Career/Subject/
+        LearningOutcome) que este `tipo` representa — la que se creó/eligió
+        para ESTE nivel puntual, no el contexto de arriba. None si esa fila
+        ya no existe (fusionada o borrada). Usado para decidir si mostrar
         "Borrar" en Mis solicitudes — ver eliminar_espacio_personal."""
         return {
             'institucion': self.institucion,
             'facultad': self.facultad,
             'carrera': self.carrera,
             'materia': self.materia,
+            'resultado_aprendizaje': self.resultado_aprendizaje,
         }.get(self.tipo)
 
     def contexto_display(self):
@@ -1602,7 +1654,8 @@ class CatalogRequest(models.Model):
             )
         motivo = f' Motivo: {self.nota_admin}' if self.nota_admin else ''
         return (
-            f'{articulo} {tipo_label} "{self.nombre_propuesto}"{contexto} no se sumó al catálogo institucional.{motivo}'
+            f'{articulo} {tipo_label} "{self.nombre_propuesto}"{contexto} no se sumó al catálogo institucional, '
+            f'pero seguís pudiendo usarlo en tu espacio personal igual que antes.{motivo}'
         )
 
 
