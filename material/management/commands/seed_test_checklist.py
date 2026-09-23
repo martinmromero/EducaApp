@@ -51,6 +51,7 @@ ITEMS = [
     (4, "Banco de Preguntas", "Cargar una pregunta a mano con el formulario manual", "upload_questions", False, 1),
     (4, "Banco de Preguntas", "Descargar la plantilla CSV/TXT e importar preguntas en bloque", "upload_questions", False, 1),
     (4, "Banco de Preguntas", "Exportar el banco de preguntas", "lista_preguntas", False, 1),
+    (4, "Banco de Preguntas", "Filtrar el listado, abrir una pregunta (Ver o Editar) y volver con \"Volver\" — confirmar que respeta el filtro y la página en la que estabas", "lista_preguntas", False, 1),
 
     (5, "Mis Exámenes", "Crear un examen nuevo (\"Crear Examen\" / \"Nuevo Examen\" — no el asistente nuevo)", "create_exam", False, 2),
     (5, "Mis Exámenes", "Ver, editar y eliminar un examen existente", "mis_examenes", False, 2),
@@ -91,6 +92,10 @@ ITEMS = [
     (10, "Mi Espacio Académico", "Agregar/editar/eliminar resultados de aprendizaje de una materia", "subject_list", False, 3),
     (10, "Mi Espacio Académico", "Confirmar que los filtros en cascada (institución→sede→facultad→carrera→materia) funcionan", "institution_v2_list", False, 3),
     (10, "Mi Espacio Académico", "Probar el asistente guiado (paso a paso) para crear una institución", "create_institution_v2_wizard", False, 3),
+    (10, "Mi Espacio Académico", "Como docente NO admin, agregar un resultado de aprendizaje en una materia PERSONAL tuya (no del catálogo institucional) — confirmar que se puede cargar y queda usable de inmediato", "subject_list", False, 3),
+    (10, "Mi Espacio Académico", "Probar el \"Asistente completo\" (botón nuevo): recorrer institución → facultad → carrera → materia → resultados de aprendizaje → contenido → preguntas → examen en un solo flujo", "full_wizard", False, 3),
+    (10, "Mi Espacio Académico", "En el Asistente completo, elegir una institución con facultades ya cargadas y confirmar que el paso siguiente las muestra de entrada (sin tener que tipear para buscar)", "full_wizard", False, 3),
+    (10, "Mi Espacio Académico", "En el Asistente completo, saltear algún paso (por ejemplo Contenido) y confirmar que el asistente sigue avanzando en vez de terminar", "full_wizard", False, 3),
 
     (11, "Grupos de Confianza", "Crear un grupo", "grupo_crear", False, 3),
     (11, "Grupos de Confianza", "Invitar a otro tester (usuario/email real)", "grupos_list", False, 3),
@@ -133,6 +138,7 @@ ITEMS = [
     (16, "Administración", "IA Institucional: configurar clave a nivel institución", "institution_ai_config", True, None),
     (16, "Administración", "Revisar la bandeja de solicitudes de catálogo y aprobar o rechazar una", "catalog_requests_bandeja", True, None),
     (16, "Administración", "Carga masiva de catálogo (CSV) y confirmar que se procesa sin error", "admin_bulk_catalog_upload", True, None),
+    (16, "Administración", "En la bandeja de solicitudes, fusionar un resultado de aprendizaje duplicado con uno ya institucional", "catalog_requests_bandeja", True, None),
 
     # Áreas 17 y 18: agregadas después de las 16 originales, no intercaladas
     # por número — mover ítems existentes de área cambiaría su natural key
@@ -142,6 +148,7 @@ ITEMS = [
     # asignada las ve igual, solo que después del área 16 en vez de antes.
     (17, "Catálogo Académico compartido", "Proponer una carrera o materia nueva al catálogo compartido desde \"Mis agregados\"", "mis_solicitudes_catalogo", False, 3),
     (17, "Catálogo Académico compartido", "Ver el estado de una solicitud propia (pendiente, aprobada o rechazada)", "mis_solicitudes_catalogo", False, 3),
+    (17, "Catálogo Académico compartido", "En \"Mis agregados\", confirmar que una solicitud rechazada deja claro que NO se borró lo que cargaste, solo que no se sumó al catálogo compartido", "mis_solicitudes_catalogo", False, 3),
 
     (18, "Contenido compartido y sus avisos", "Verificar que le llega un aviso al dueño de un examen/oral cuando otro integrante del grupo borra una pregunta compartida que usaba", "mis_avisos_preguntas_borradas", False, 3),
 ]

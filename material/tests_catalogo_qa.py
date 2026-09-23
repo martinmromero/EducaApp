@@ -7,13 +7,14 @@ masiva de catálogo por CSV. Pensado para correr contra una base descartable
 (manage.py test crea/destruye test_educaapp) — no toca datos reales.
 """
 import io
+import json
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 
 from .models import (
     InstitutionV2, FacultyV2, Career, Subject, CareerSubject,
-    CatalogRequest, Topic, Question, LearningOutcome, CampusV2, ExamTemplate,
+    CatalogRequest, Topic, Question, LearningOutcome, CampusV2, ExamTemplate, Exam,
 )
 from .views import _similitud, _normalizar_para_busqueda, _tokens
 
@@ -651,3 +652,401 @@ class ExamWizardCatalogScopingTests(TestCase):
         self.assertEqual(data['faculty_name'], 'Facultad Propia')
         self.assertEqual(data['career_name'], 'Carrera Propia')
         self.assertEqual(data['campus_name'], 'Sede Wizard')
+
+
+class LearningOutcomePersonalSpaceTests(TestCase):
+    """2026-09-23: LearningOutcome gana created_by/es_catalogo_institucional
+    (antes admin-only a secas, sin ningun borrador personal intermedio) —
+    mismo mecanismo de espacio personal que institucion/facultad/carrera/
+    materia. Cubre: alta via CatalogRequestForm, permiso de las 3 vistas
+    ABM, aprobacion (promueve la MISMA fila, no crea una nueva), rechazo
+    (preserva, nunca se auto-purga), fusion (re-apunta Exam/ExamTemplate)."""
+
+    def setUp(self):
+        self.admin = make_user('admin_ra', role='admin')
+        self.dueno = make_user('docente_ra')
+        self.otro = make_user('otro_docente_ra')
+        self.institucion = InstitutionV2.objects.create(name='Inst RA', es_catalogo_institucional=True)
+        self.facultad = FacultyV2.objects.create(name='Fac RA', institution=self.institucion, es_catalogo_institucional=True)
+        self.carrera = Career.objects.create(name='Carrera RA', es_catalogo_institucional=True)
+        self.carrera.faculties.add(self.facultad)
+        self.materia_personal = Subject.objects.create(
+            name='Materia Personal RA', created_by=self.dueno, es_catalogo_institucional=False,
+        )
+        self.cs = CareerSubject.objects.create(career=self.carrera, subject=self.materia_personal)
+
+    def test_solicitud_crea_ra_personal_de_inmediato_y_usable(self):
+        c = Client()
+        c.login(username='docente_ra', password='testpass123')
+        resp = c.post(reverse('material:catalog_request_create'), {
+            'tipo': 'resultado_aprendizaje',
+            'institucion': self.institucion.pk, 'facultad': self.facultad.pk,
+            'carrera': self.carrera.pk, 'materia': self.materia_personal.pk,
+            'nombre_propuesto': 'Puede diseñar una base de datos normalizada',
+        })
+        self.assertEqual(resp.status_code, 302)
+        outcome = LearningOutcome.objects.get(career_subject=self.cs)
+        self.assertFalse(outcome.es_catalogo_institucional)
+        self.assertEqual(outcome.created_by_id, self.dueno.id)
+        solicitud = CatalogRequest.objects.get(tipo='resultado_aprendizaje')
+        self.assertEqual(solicitud.resultado_aprendizaje_id, outcome.pk)
+        self.assertEqual(solicitud.estado, 'pendiente')
+
+    def test_dueno_de_materia_personal_puede_crear_ra_via_create_view(self):
+        c = Client()
+        c.login(username='docente_ra', password='testpass123')
+        resp = c.post(reverse('material:learningoutcome_add', args=[self.cs.pk]), {
+            'description': 'Puede implementar un índice B-tree',
+        })
+        self.assertEqual(resp.status_code, 302)
+        outcome = LearningOutcome.objects.get(career_subject=self.cs)
+        self.assertFalse(outcome.es_catalogo_institucional)
+        self.assertEqual(outcome.created_by_id, self.dueno.id)
+
+    def test_otro_usuario_no_puede_crear_ra_en_materia_personal_ajena(self):
+        c = Client()
+        c.login(username='otro_docente_ra', password='testpass123')
+        resp = c.get(reverse('material:learningoutcome_add', args=[self.cs.pk]))
+        self.assertNotEqual(resp.status_code, 200)
+
+    def test_admin_puede_crear_ra_y_queda_institucional(self):
+        c = Client()
+        c.login(username='admin_ra', password='testpass123')
+        resp = c.post(reverse('material:learningoutcome_add', args=[self.cs.pk]), {
+            'description': 'RA cargado por un admin',
+        })
+        self.assertEqual(resp.status_code, 302)
+        outcome = LearningOutcome.objects.get(career_subject=self.cs)
+        self.assertTrue(outcome.es_catalogo_institucional)
+
+    def test_aprobar_ra_promueve_la_misma_fila_no_crea_otra(self):
+        outcome = LearningOutcome.objects.create(
+            career_subject=self.cs, description='RA a aprobar',
+            created_by=self.dueno, es_catalogo_institucional=False,
+        )
+        solicitud = CatalogRequest.objects.create(
+            tipo='resultado_aprendizaje', nombre_propuesto=outcome.description,
+            institucion=self.institucion, facultad=self.facultad,
+            carrera=self.carrera, materia=self.materia_personal,
+            resultado_aprendizaje=outcome, solicitado_por=self.dueno,
+        )
+        from .views import resolve_catalog_request
+        ok, _msg = resolve_catalog_request(solicitud, admin_user=self.admin, aprobar=True)
+        self.assertTrue(ok)
+        self.assertEqual(LearningOutcome.objects.filter(career_subject=self.cs).count(), 1,
+                          'aprobar no debe crear una segunda fila')
+        outcome.refresh_from_db()
+        self.assertTrue(outcome.es_catalogo_institucional)
+
+    def test_rechazar_ra_lo_preserva_en_espacio_personal(self):
+        outcome = LearningOutcome.objects.create(
+            career_subject=self.cs, description='RA a rechazar',
+            created_by=self.dueno, es_catalogo_institucional=False,
+        )
+        solicitud = CatalogRequest.objects.create(
+            tipo='resultado_aprendizaje', nombre_propuesto=outcome.description,
+            institucion=self.institucion, facultad=self.facultad,
+            carrera=self.carrera, materia=self.materia_personal,
+            resultado_aprendizaje=outcome, solicitado_por=self.dueno,
+        )
+        from .views import resolve_catalog_request
+        ok, _msg = resolve_catalog_request(solicitud, admin_user=self.admin, aprobar=False, nota_admin='no corresponde')
+        self.assertTrue(ok)
+        self.assertTrue(LearningOutcome.objects.filter(pk=outcome.pk).exists(),
+                         'un RA nunca se auto-purga al rechazar (es hoja del arbol, su texto ya es el contenido)')
+        outcome.refresh_from_db()
+        self.assertFalse(outcome.es_catalogo_institucional)
+
+    def test_fusionar_ra_reapunta_exam_y_examtemplate(self):
+        destino = LearningOutcome.objects.create(career_subject=self.cs, description='RA institucional', es_catalogo_institucional=True)
+        origen = LearningOutcome.objects.create(
+            career_subject=self.cs, description='RA duplicado', created_by=self.dueno, es_catalogo_institucional=False,
+        )
+        exam = Exam.objects.create(title='Examen RA', created_by=self.dueno, duration_minutes=60, exam_group='individual')
+        exam.learning_outcomes.add(origen)
+        template = ExamTemplate.objects.create(
+            created_by=self.dueno, institution=self.institucion, faculty=self.facultad,
+            career=self.carrera, subject=self.materia_personal,
+        )
+        template.learning_outcomes.add(origen)
+        solicitud = CatalogRequest.objects.create(
+            tipo='resultado_aprendizaje', nombre_propuesto=origen.description,
+            resultado_aprendizaje=origen, solicitado_por=self.dueno,
+        )
+        from .views import resolve_catalog_request_fusion
+        ok, _msg = resolve_catalog_request_fusion(solicitud, admin_user=self.admin, destino_id=destino.pk)
+        self.assertTrue(ok)
+        self.assertFalse(LearningOutcome.objects.filter(pk=origen.pk).exists())
+        exam.refresh_from_db()
+        self.assertIn(destino, exam.learning_outcomes.all())
+        template.refresh_from_db()
+        self.assertIn(destino, template.learning_outcomes.all())
+
+    def test_get_visible_learning_outcomes_no_filtra_al_dueno_pero_si_a_otros(self):
+        from .content_visibility import get_visible_learning_outcomes
+        propio = LearningOutcome.objects.create(
+            career_subject=self.cs, description='RA propio', created_by=self.dueno, es_catalogo_institucional=False,
+        )
+        ajeno = LearningOutcome.objects.create(
+            career_subject=self.cs, description='RA ajeno', created_by=self.otro, es_catalogo_institucional=False,
+        )
+        ids_dueno = set(get_visible_learning_outcomes(self.dueno).values_list('pk', flat=True))
+        self.assertIn(propio.pk, ids_dueno)
+        self.assertNotIn(ajeno.pk, ids_dueno)
+
+
+class GetOrCreateRealHelpersPersonalSpaceTests(TestCase):
+    """Bug encontrado 2026-09-23: get_or_create_real_subject/_career/_faculty
+    (usados por /comenzar/, CSV/TXT, "Nueva materia", generador de IA) nunca
+    marcaban es_catalogo_institucional=False al crear — quedaban
+    institucionales por accidente, compartidos con cualquiera, y su propio
+    creador perdia el permiso de editarlos."""
+
+    def setUp(self):
+        self.user = make_user('docente_helpers')
+
+    def test_get_or_create_real_subject_crea_personal(self):
+        from .models import get_or_create_real_subject
+        subj, creado = get_or_create_real_subject('Materia Helper', self.user)
+        self.assertTrue(creado)
+        self.assertFalse(subj.es_catalogo_institucional)
+        self.assertEqual(subj.created_by_id, self.user.id)
+
+    def test_get_or_create_real_career_crea_personal(self):
+        from .models import get_or_create_real_career
+        car, creado = get_or_create_real_career('Carrera Helper', self.user)
+        self.assertTrue(creado)
+        self.assertFalse(car.es_catalogo_institucional)
+
+    def test_get_or_create_real_faculty_crea_personal(self):
+        from .models import get_or_create_real_faculty
+        inst = InstitutionV2.objects.create(name='Inst Helper', es_catalogo_institucional=True)
+        fac, creado = get_or_create_real_faculty('Facultad Helper', inst.id, self.user)
+        self.assertTrue(creado)
+        self.assertFalse(fac.es_catalogo_institucional)
+
+    def test_subject_creado_por_helper_es_editable_por_su_dueno(self):
+        from .models import get_or_create_real_subject
+        subj, _creado = get_or_create_real_subject('Materia Editable Helper', self.user)
+        c = Client()
+        c.login(username='docente_helpers', password='testpass123')
+        resp = c.get(reverse('material:edit_subject', args=[subj.pk]))
+        self.assertEqual(resp.status_code, 200,
+                          'antes del fix, este 404/redirect porque quedaba institucional por accidente')
+
+
+class MaterializarSolicitudesRequerirCadenaTests(TestCase):
+    """_materializar_y_generar_solicitudes(datos, user, requerir_cadena=False)
+    — usado por el Asistente completo (full_wizard) para tolerar un nivel
+    superior salteado. requerir_cadena=True (default) preserva el
+    comportamiento historico de Solicitar Alta."""
+
+    def setUp(self):
+        self.user = make_user('docente_cadena')
+
+    def _datos(self, **overrides):
+        base = {
+            'tipo': None, 'institucion': None, 'institucion_nueva': '', 'institucion_sigla_nueva': '',
+            'facultad': None, 'facultad_nueva': '', 'carrera': None, 'carrera_nueva': '',
+            'materia': None, 'nombre_propuesto': '', 'logo_propuesto': None, 'justificacion': '',
+        }
+        base.update(overrides)
+        return base
+
+    def test_carrera_sin_facultad_permitida_con_flag_false(self):
+        from .views import _materializar_y_generar_solicitudes
+        filas, entidad = _materializar_y_generar_solicitudes(
+            self._datos(tipo='carrera', nombre_propuesto='Carrera Huerfana'),
+            self.user, requerir_cadena=False,
+        )
+        self.assertIsNotNone(entidad)
+        self.assertFalse(entidad.es_catalogo_institucional)
+        self.assertEqual(list(entidad.faculties.all()), [])
+
+    def test_carrera_sin_facultad_falla_con_flag_true(self):
+        from .views import _materializar_y_generar_solicitudes
+        with self.assertRaises(ValueError):
+            _materializar_y_generar_solicitudes(
+                self._datos(tipo='carrera', nombre_propuesto='Carrera Debe Fallar'),
+                self.user, requerir_cadena=True,
+            )
+
+    def test_materia_sin_carrera_permitida_con_flag_false(self):
+        from .views import _materializar_y_generar_solicitudes
+        filas, entidad = _materializar_y_generar_solicitudes(
+            self._datos(tipo='materia', nombre_propuesto='Materia Huerfana Directa'),
+            self.user, requerir_cadena=False,
+        )
+        self.assertIsNotNone(entidad)
+        self.assertFalse(entidad.es_catalogo_institucional)
+        self.assertFalse(CareerSubject.objects.filter(subject=entidad).exists())
+
+    def test_facultad_sin_institucion_falla_siempre_sin_importar_la_flag(self):
+        from .views import _materializar_y_generar_solicitudes
+        with self.assertRaises(ValueError):
+            _materializar_y_generar_solicitudes(
+                self._datos(tipo='facultad', nombre_propuesto='Facultad Debe Fallar Igual'),
+                self.user, requerir_cadena=False,
+            )
+
+    def test_retorno_es_tupla_filas_y_entidad_resultante(self):
+        from .views import _materializar_y_generar_solicitudes
+        resultado = _materializar_y_generar_solicitudes(
+            self._datos(tipo='institucion', nombre_propuesto='Institucion Retorno'),
+            self.user,
+        )
+        self.assertEqual(len(resultado), 2)
+        filas, entidad = resultado
+        self.assertEqual(len(filas), 1)
+        self.assertEqual(entidad.name, 'Institucion Retorno')
+
+
+class FullWizardSaveStepTests(TestCase):
+    """full_wizard_save_step: cada paso (institucion/facultad/carrera/materia/
+    resultado_aprendizaje) x cada accion (existente/nueva/saltear), scoping
+    de visibilidad, auto-vinculo al reusar existente, RA rechazado sin
+    carrera+materia resueltas. Ver [[project_full_wizard_shipped]]."""
+
+    def setUp(self):
+        self.user = make_user('docente_fw')
+        self.otro = make_user('otro_docente_fw')
+        self.client = Client()
+        self.client.login(username='docente_fw', password='testpass123')
+        self.institucion = InstitutionV2.objects.create(name='Inst FW', es_catalogo_institucional=True)
+        self.facultad = FacultyV2.objects.create(name='Fac FW', institution=self.institucion, es_catalogo_institucional=True)
+
+    def _post(self, payload):
+        return self.client.post(
+            reverse('material:full_wizard_save_step'),
+            data=json.dumps(payload), content_type='application/json',
+        )
+
+    def test_pagina_requiere_login_pero_no_onboarding_completo(self):
+        self.user.profile.onboarding_completed = False
+        self.user.profile.save(update_fields=['onboarding_completed'])
+        resp = self.client.get(reverse('material:full_wizard'))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_saltear_no_llama_al_motor_y_devuelve_skipped(self):
+        resp = self._post({'step': 'institucion', 'action': 'saltear'})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['ok'])
+        self.assertTrue(data['skipped'])
+        self.assertIsNone(data['id'])
+
+    def test_crear_nueva_institucion(self):
+        resp = self._post({'step': 'institucion', 'action': 'nueva', 'new_name': 'Institucion FW Nueva'})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['ok'])
+        inst = InstitutionV2.objects.get(pk=data['id'])
+        self.assertFalse(inst.es_catalogo_institucional)
+        self.assertEqual(CatalogRequest.objects.filter(tipo='institucion', institucion=inst).count(), 1)
+
+    def test_usar_existente_institucion(self):
+        resp = self._post({'step': 'institucion', 'action': 'existente', 'existing_id': self.institucion.pk})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['id'], self.institucion.pk)
+        self.assertFalse(data['created'])
+        # reusar algo existente no genera fila de auditoria
+        self.assertEqual(CatalogRequest.objects.filter(tipo='institucion').count(), 0)
+
+    def test_no_puede_reusar_espacio_personal_ajeno_como_existente(self):
+        ajena = InstitutionV2.objects.create(name='Inst Ajena FW', created_by=self.otro, es_catalogo_institucional=False)
+        resp = self._post({'step': 'institucion', 'action': 'existente', 'existing_id': ajena.pk})
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(resp.json()['ok'])
+
+    def test_crear_facultad_requiere_institucion_en_contexto(self):
+        resp = self._post({'step': 'facultad', 'action': 'nueva', 'new_name': 'Facultad Sin Contexto'})
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(resp.json()['ok'])
+
+    def test_crear_facultad_con_institucion_resuelta(self):
+        resp = self._post({
+            'step': 'facultad', 'action': 'nueva', 'new_name': 'Facultad FW Nueva',
+            'institucion_id': self.institucion.pk,
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        fac = FacultyV2.objects.get(pk=data['id'])
+        self.assertEqual(fac.institution_id, self.institucion.pk)
+        self.assertFalse(fac.es_catalogo_institucional)
+
+    def test_crear_carrera_saltando_facultad_queda_huerfana(self):
+        resp = self._post({'step': 'carrera', 'action': 'nueva', 'new_name': 'Carrera FW Huerfana'})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        car = Career.objects.get(pk=data['id'])
+        self.assertEqual(list(car.faculties.all()), [])
+        self.assertFalse(car.es_catalogo_institucional)
+
+    def test_usar_carrera_existente_bajo_facultad_resuelta_la_autovincula(self):
+        carrera_suelta = Career.objects.create(name='Carrera FW Suelta', es_catalogo_institucional=True)
+        resp = self._post({
+            'step': 'carrera', 'action': 'existente', 'existing_id': carrera_suelta.pk,
+            'institucion_id': self.institucion.pk, 'facultad_id': self.facultad.pk,
+        })
+        self.assertEqual(resp.status_code, 200)
+        carrera_suelta.refresh_from_db()
+        self.assertIn(self.facultad, carrera_suelta.faculties.all())
+        from .models import InstitutionCareer
+        self.assertTrue(InstitutionCareer.objects.filter(institution=self.institucion, career=carrera_suelta).exists())
+
+    def test_materia_existente_bajo_carrera_resuelta_crea_careersubject(self):
+        carrera = Career.objects.create(name='Carrera FW Para Materia', es_catalogo_institucional=True)
+        materia_suelta = Subject.objects.create(name='Materia FW Suelta', es_catalogo_institucional=True)
+        resp = self._post({
+            'step': 'materia', 'action': 'existente', 'existing_id': materia_suelta.pk,
+            'carrera_id': carrera.pk,
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(CareerSubject.objects.filter(career=carrera, subject=materia_suelta).exists())
+
+    def test_ra_sin_carrera_y_materia_resueltas_es_rechazado(self):
+        resp = self._post({'step': 'resultado_aprendizaje', 'action': 'nueva', 'new_name': 'RA sin contexto'})
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(resp.json()['ok'])
+
+    def test_ra_con_carrera_y_materia_vinculadas_se_crea_personal(self):
+        carrera = Career.objects.create(name='Carrera FW RA', es_catalogo_institucional=True)
+        materia = Subject.objects.create(name='Materia FW RA', es_catalogo_institucional=True)
+        CareerSubject.objects.create(career=carrera, subject=materia)
+        resp = self._post({
+            'step': 'resultado_aprendizaje', 'action': 'nueva', 'new_name': 'Puede resolver ecuaciones',
+            'carrera_id': carrera.pk, 'materia_id': materia.pk,
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        outcome = LearningOutcome.objects.get(pk=data['id'])
+        self.assertFalse(outcome.es_catalogo_institucional)
+        self.assertEqual(outcome.created_by_id, self.user.id)
+
+    def test_ra_rechazado_si_materia_no_esta_vinculada_a_la_carrera(self):
+        carrera = Career.objects.create(name='Carrera FW RA Suelta', es_catalogo_institucional=True)
+        materia = Subject.objects.create(name='Materia FW RA Suelta', es_catalogo_institucional=True)
+        # sin CareerSubject entre ambas a proposito
+        resp = self._post({
+            'step': 'resultado_aprendizaje', 'action': 'nueva', 'new_name': 'RA invalido',
+            'carrera_id': carrera.pk, 'materia_id': materia.pk,
+        })
+        self.assertEqual(resp.status_code, 400)
+
+    def test_paso_desconocido_da_400(self):
+        resp = self._post({'step': 'no_existe', 'action': 'saltear'})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_get_no_permitido(self):
+        resp = self.client.get(reverse('material:full_wizard_save_step'))
+        self.assertEqual(resp.status_code, 405)
+
+    def test_anonimo_no_puede_guardar_pasos(self):
+        anon = Client()
+        resp = anon.post(
+            reverse('material:full_wizard_save_step'),
+            data=json.dumps({'step': 'institucion', 'action': 'saltear'}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 302)
