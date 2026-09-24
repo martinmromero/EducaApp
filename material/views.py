@@ -6881,7 +6881,7 @@ class LearningOutcomeCreateView(_PuedeAgregarRAMixin, CreateView):
         else:
             messages.success(
                 self.request,
-                'Resultado de aprendizaje creado en tu espacio personal — ya se puede usar. '
+                'Resultado de aprendizaje creado en el espacio personal — ya se puede usar. '
                 'Queda a la espera de sumarse al catálogo institucional.',
                 extra_tags='materias',
             )
@@ -9190,7 +9190,7 @@ def full_wizard_save_step(request):
         carrera_obj = _resolver_contexto('carrera', body.get('carrera_id'))
         materia_obj = _resolver_contexto('materia', body.get('materia_id'))
     except Http404:
-        return JsonResponse({'ok': False, 'error': 'Uno de los niveles ya elegidos dejó de ser válido — volvé a elegirlo.'}, status=400)
+        return JsonResponse({'ok': False, 'error': 'Uno de los niveles ya elegidos dejó de ser válido — hay que volver a elegirlo.'}, status=400)
 
     if action == 'existente':
         existing_id = body.get('existing_id')
@@ -9216,7 +9216,7 @@ def full_wizard_save_step(request):
                 entidad = get_object_or_404(_visible_por_nivel[step](request.user), pk=existing_id)
                 nombre = entidad.name
         except Http404:
-            return JsonResponse({'ok': False, 'error': 'Eso ya no está disponible, o no pertenece al nivel elegido antes — volvé a elegir.'}, status=400)
+            return JsonResponse({'ok': False, 'error': 'Eso ya no está disponible, o no pertenece al nivel elegido antes — hay que elegir de nuevo.'}, status=400)
 
         # Reusar algo existente también encadena hacia el nivel resuelto en
         # el paso anterior (carrera/materia son M2M o through, admiten sumar

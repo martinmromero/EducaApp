@@ -12,9 +12,9 @@
     </div>
     <p class="text-muted small mb-4">
         <i class="bi bi-info-circle me-1"></i>
-        Todo lo que agregás acá queda usable de inmediato en tu espacio personal. El estado de abajo es solo sobre si
-        además pasa a compartirse con el resto de la institución — <strong>"Rechazada" no borra nada tuyo</strong>,
-        significa que un administrador decidió no sumarlo al catálogo compartido; vos lo seguís usando igual.
+        Todo lo que se agrega acá queda usable de inmediato en el espacio personal. El estado de abajo es solo sobre si
+        además pasa a compartirse con el resto de la institución — <strong>"Rechazada" no borra nada</strong>,
+        significa que un administrador decidió no sumarlo al catálogo compartido; se lo sigue usando igual.
     </p>
 
     {% show_messages "solicitudes" %}
@@ -51,7 +51,7 @@
                                 <td style="min-width:220px">
                                     {% if s.estado == 'pendiente' %}
                                         <span class="badge text-bg-warning">Pendiente</span>
-                                        <div class="text-muted small mt-1">Ya lo podés usar. Falta que un administrador decida si además lo suma al catálogo institucional.</div>
+                                        <div class="text-muted small mt-1">Ya se puede usar. Falta que un administrador decida si además lo suma al catálogo institucional.</div>
                                     {% elif s.estado == 'aprobada' %}
                                         <span class="badge text-bg-success">Aprobada</span>
                                         <div class="text-muted small mt-1">{{ s.resultado_mensaje }}</div>

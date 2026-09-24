@@ -1655,7 +1655,7 @@ class CatalogRequest(models.Model):
         motivo = f' Motivo: {self.nota_admin}' if self.nota_admin else ''
         return (
             f'{articulo} {tipo_label} "{self.nombre_propuesto}"{contexto} no se sumó al catálogo institucional, '
-            f'pero seguís pudiendo usarlo en tu espacio personal igual que antes.{motivo}'
+            f'pero sigue pudiendo usarse en el espacio personal igual que antes.{motivo}'
         )
 
 

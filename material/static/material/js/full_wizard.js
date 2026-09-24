@@ -89,25 +89,25 @@
             n: 1, key: 'institucion', label: 'Institución', parentKey: null, hardParent: false,
             listKey: 'institutions',
             loadUrl: function () { return CFG.urls.listInstituciones; },
-            hint: 'Si salteás este paso, tampoco vas a poder cargar una Facultad nueva en el paso siguiente (necesita una Institución elegida acá) — ese paso también quedaría salteado.',
+            hint: 'Si se saltea este paso, tampoco va a poder cargarse una Facultad nueva en el paso siguiente (necesita una Institución elegida acá) — ese paso también quedaría salteado.',
         },
         {
             n: 2, key: 'facultad', label: 'Facultad', parentKey: 'institucion', hardParent: true,
             listKey: 'faculties',
             loadUrl: function (parentId) { return CFG.urls.facultadesByInstitucionBase + parentId + '/'; },
-            hint: 'Si salteás este paso, la Carrera del paso siguiente se puede crear igual, pero sin esta Facultad asociada.',
+            hint: 'Si se saltea este paso, la Carrera del paso siguiente se puede crear igual, pero sin esta Facultad asociada.',
         },
         {
             n: 3, key: 'carrera', label: 'Carrera', parentKey: 'facultad', hardParent: false,
             listKey: 'careers',
             loadUrl: function (parentId) { return CFG.urls.carrerasByFacultadBase + parentId + '/'; },
-            hint: 'Si salteás este paso, la Materia del paso siguiente se puede crear igual, pero sin esta Carrera asociada.',
+            hint: 'Si se saltea este paso, la Materia del paso siguiente se puede crear igual, pero sin esta Carrera asociada.',
         },
         {
             n: 4, key: 'materia', label: 'Materia', parentKey: 'carrera', hardParent: false,
             listKey: 'subjects',
             loadUrl: function (parentId) { return CFG.urls.materiasByCarreraBase + parentId + '/'; },
-            hint: 'Importante: los pasos siguientes (Contenido, Preguntas y Examen) usan la materia elegida acá. Si salteás este paso, vas a tener que elegirla o crearla de nuevo en cada pantalla siguiente.',
+            hint: 'Importante: los pasos siguientes (Contenido, Preguntas y Examen) usan la materia elegida acá. Si se saltea este paso, va a ser necesario elegirla o crearla de nuevo en cada pantalla siguiente.',
         },
     ];
 
@@ -215,13 +215,13 @@
 
             if (!parentId) {
                 if (cfgStep.hardParent) {
-                    parentMsgEl.textContent = 'No se puede cargar ' + cfgStep.label.toLowerCase() + ' sin ' + LABELS[cfgStep.parentKey].toLowerCase() + ' — salteá este paso.';
+                    parentMsgEl.textContent = 'No se puede cargar ' + cfgStep.label.toLowerCase() + ' sin ' + LABELS[cfgStep.parentKey].toLowerCase() + ' — saltear este paso.';
                     chipListEl.innerHTML = '';
                     listEmptyEl.style.display = 'none';
                     searchInput.disabled = true;
                     return;
                 }
-                parentMsgEl.textContent = 'No se especificó ' + LABELS[cfgStep.parentKey].toLowerCase() + ' — buscando en todo tu catálogo visible en vez de acotar.';
+                parentMsgEl.textContent = 'No se especificó ' + LABELS[cfgStep.parentKey].toLowerCase() + ' — buscando en todo el catálogo visible en vez de acotar.';
                 searchInput.disabled = false;
                 renderChips([]);
                 return;
