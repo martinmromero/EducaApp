@@ -216,6 +216,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     # ASISTENTE COMPLETO (wizard combinado institución -> examen)
     path('asistente-completo/', material_views.full_wizard_page, name='full_wizard'),
     path('asistente-completo/guardar-paso/', material_views.full_wizard_save_step, name='full_wizard_save_step'),
+    path('asistente-completo/precargar-examen/', material_views.full_wizard_prefill_exam, name='full_wizard_prefill_exam'),
     path('asistente-completo/instituciones/', material_views.get_visible_institutions_json, name='get_visible_institutions_json'),
     path('asistente-completo/resultados/', material_views.get_learning_outcomes_by_career_subject, name='get_learning_outcomes_by_career_subject'),
 

@@ -81,26 +81,33 @@
     var wizardCtrl = null;
 
     // ---- Pasos 1-4: Institución / Facultad / Carrera / Materia ----------
+    // hint: explica, ANTES de elegir, qué efecto tiene saltear este paso en
+    // los pasos siguientes — pedido explícito del usuario ("entendiendo cómo
+    // se conectan entre sí"), mismo criterio para los 4 niveles + RA.
     var CATALOG_STEPS = [
         {
             n: 1, key: 'institucion', label: 'Institución', parentKey: null, hardParent: false,
             listKey: 'institutions',
             loadUrl: function () { return CFG.urls.listInstituciones; },
+            hint: 'Si salteás este paso, tampoco vas a poder cargar una Facultad nueva en el paso siguiente (necesita una Institución elegida acá) — ese paso también quedaría salteado.',
         },
         {
             n: 2, key: 'facultad', label: 'Facultad', parentKey: 'institucion', hardParent: true,
             listKey: 'faculties',
             loadUrl: function (parentId) { return CFG.urls.facultadesByInstitucionBase + parentId + '/'; },
+            hint: 'Si salteás este paso, la Carrera del paso siguiente se puede crear igual, pero sin esta Facultad asociada.',
         },
         {
             n: 3, key: 'carrera', label: 'Carrera', parentKey: 'facultad', hardParent: false,
             listKey: 'careers',
             loadUrl: function (parentId) { return CFG.urls.carrerasByFacultadBase + parentId + '/'; },
+            hint: 'Si salteás este paso, la Materia del paso siguiente se puede crear igual, pero sin esta Carrera asociada.',
         },
         {
             n: 4, key: 'materia', label: 'Materia', parentKey: 'carrera', hardParent: false,
             listKey: 'subjects',
             loadUrl: function (parentId) { return CFG.urls.materiasByCarreraBase + parentId + '/'; },
+            hint: 'Importante: los pasos siguientes (Contenido, Preguntas y Examen) usan la materia elegida acá. Si salteás este paso, vas a tener que elegirla o crearla de nuevo en cada pantalla siguiente.',
         },
     ];
 
@@ -115,6 +122,7 @@
     function setupCatalogStep(cfgStep) {
         var panel = panelFor(cfgStep.n);
         var titleEl = role(panel, 'title');
+        var hintEl = role(panel, 'step-hint');
         var parentMsgEl = role(panel, 'parent-message');
         var chipListEl = role(panel, 'chip-list');
         var listEmptyEl = role(panel, 'list-empty-msg');
@@ -125,6 +133,10 @@
         var errorEl = role(panel, 'error-msg');
 
         titleEl.textContent = cfgStep.label;
+        if (cfgStep.hint) {
+            hintEl.textContent = cfgStep.hint;
+            hintEl.style.display = 'block';
+        }
 
         function showError(msg) {
             errorEl.textContent = msg || '';
@@ -286,6 +298,7 @@
     function setupOutcomesStep() {
         var panel = panelFor(5);
         var titleEl = role(panel, 'title');
+        var hintEl = role(panel, 'step-hint');
         var parentMsgEl = role(panel, 'parent-message');
         var chipListEl = role(panel, 'chip-list');
         var listEmptyEl = role(panel, 'list-empty-msg');
@@ -297,6 +310,8 @@
         var searchLabel = role(panel, 'search-label');
 
         titleEl.textContent = 'Resultados de aprendizaje';
+        hintEl.textContent = 'Es opcional: no hace falta para subir contenido, generar preguntas ni armar el examen.';
+        hintEl.style.display = 'block';
         searchLabel.textContent = 'Agregar un resultado de aprendizaje nuevo (texto libre)';
         suggestBox.style.display = 'none';
         skipBtn.textContent = 'Continuar';
@@ -397,8 +412,31 @@
         if (genLink) genLink.href = CFG.urls.docProcessor;
         var manualLink = document.getElementById('fwStep7ManualLink');
         if (manualLink) manualLink.href = CFG.urls.uploadQuestions;
-        var examLink = document.getElementById('fwStep8Link');
-        if (examLink) examLink.href = CFG.urls.createExam;
+    }
+
+    // Precarga institución/facultad/carrera/materia/RA ya resueltos en el
+    // wizard antes de abrir Crear Examen (ver full_wizard_prefill_exam) —
+    // sin esto, "Crear examen" abría un formulario en blanco que obligaba a
+    // repetir todo lo ya elegido acá (pedido explícito del usuario).
+    var examBtnWired = false;
+    function wireExamButton() {
+        var btn = document.getElementById('fwStep8Btn');
+        if (!btn || examBtnWired) return;
+        examBtnWired = true;
+        btn.addEventListener('click', function () {
+            btn.disabled = true;
+            var payload = Object.assign(
+                { outcome_ids: STATE.outcomes.map(function (o) { return o.id; }) },
+                contextPayload()
+            );
+            fetch(CFG.urls.prefillExam, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify(payload),
+            })
+                .then(function () { window.location.href = CFG.urls.createExam; })
+                .catch(function () { window.location.href = CFG.urls.createExam; });
+        });
     }
 
     function renderSummary() {
@@ -418,6 +456,7 @@
         var catalogHandlers = CATALOG_STEPS.map(setupCatalogStep);
         var outcomesHandler = setupOutcomesStep();
         [6, 7, 8].forEach(setupHandoffStep);
+        wireExamButton();
 
         wizardCtrl = window.EducaAppWizard.init({
             totalSteps: 8,

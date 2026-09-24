@@ -69,6 +69,15 @@
     margin-bottom: .25rem;
 }
 
+.fw-step-hint {
+    font-size: .85rem;
+    background: var(--bs-warning-bg-subtle, #fff8e6);
+    border: 1px solid var(--bs-warning-border-subtle, #ffe69c);
+    border-radius: .375rem;
+    padding: .55rem .75rem;
+    color: var(--bs-emphasis-color, inherit);
+}
+
 /* La navegación entre pasos acá la maneja cada paso por su cuenta (chip
    elegido, "Crear nueva", "Saltear" propios, o los botones de Continuar/
    Saltear de los pasos 6-7) — el "Siguiente" genérico del engine

@@ -33,6 +33,7 @@
     <div class="wiz-step {% if cfg == '1' %}is-active{% endif %}" data-step="{{ cfg }}">
         <div class="wiz-step-card">
             <h4 class="fw-step-title" data-role="title"></h4>
+            <p class="fw-step-hint mb-2" data-role="step-hint" style="display:none"></p>
             <p class="wiz-step-intro" data-role="parent-message"></p>
 
             <div class="mb-2" data-role="list-empty-msg" style="display:none">
@@ -66,6 +67,10 @@
     <div class="wiz-step" data-step="6">
         <div class="wiz-step-card">
             <h4>Contenido</h4>
+            <p class="fw-step-hint mb-2">
+                Importante: este contenido es la base para generar preguntas con IA en el paso siguiente. Si preferís
+                cargar las preguntas a mano, podés saltear este paso sin problema.
+            </p>
             <p class="wiz-step-intro" id="fwStep6Msg">Subí un documento (PDF/DOCX/PPTX) para la materia elegida — de ahí sale la base para generar preguntas con IA.</p>
             <a id="fwStep6Link" href="#" target="_blank" rel="noopener" class="btn btn-primary mb-2">
                 <i class="bi bi-upload me-1"></i>Subir contenido
@@ -82,6 +87,10 @@
     <div class="wiz-step" data-step="7">
         <div class="wiz-step-card">
             <h4>Preguntas</h4>
+            <p class="fw-step-hint mb-2">
+                Importante: para poder armar un examen en el paso siguiente, la materia elegida necesita tener al
+                menos una pregunta ya aprobada. No saltees este paso si todavía no cargaste ninguna.
+            </p>
             <p class="wiz-step-intro">Generar preguntas con IA a partir del contenido subido, o cargarlas a mano.</p>
             <div class="d-flex gap-2 flex-wrap mb-3">
                 <a id="fwStep7GenLink" href="#" target="_blank" rel="noopener" class="btn btn-primary">
@@ -102,10 +111,13 @@
     <div class="wiz-step" data-step="8">
         <div class="wiz-step-card">
             <h4>Examen</h4>
-            <p class="wiz-step-intro">Con lo cargado en este recorrido, ya se puede armar un examen.</p>
-            <a id="fwStep8Link" href="#" target="_blank" rel="noopener" class="btn btn-primary mb-3">
+            <p class="wiz-step-intro">
+                Con lo cargado en este recorrido, ya se puede armar un examen — institución, facultad, carrera, materia
+                y resultados de aprendizaje ya elegidos acá van a aparecer precargados en el formulario.
+            </p>
+            <button type="button" id="fwStep8Btn" class="btn btn-primary mb-3">
                 <i class="bi bi-file-earmark-check me-1"></i>Crear examen
-            </a>
+            </button>
             <div class="wiz-summary" id="wizSummary"></div>
         </div>
     </div>
@@ -128,6 +140,7 @@
 window.EducaAppFullWizardConfig = {
     urls: {
         saveStep: "{% url 'material:full_wizard_save_step' %}",
+        prefillExam: "{% url 'material:full_wizard_prefill_exam' %}",
         checkCatalogDuplicate: "{% url 'material:check_catalog_duplicate' %}",
         listInstituciones: "{% url 'material:get_visible_institutions_json' %}",
         facultadesByInstitucionBase: "/get_faculties_by_institution/",

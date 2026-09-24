@@ -9275,6 +9275,62 @@ def full_wizard_save_step(request):
     return JsonResponse({'ok': True, 'id': entidad.pk, 'name': nombre_final, 'created': bool(filas)})
 
 
+@login_required
+@require_POST
+def full_wizard_prefill_exam(request):
+    """Al llegar al paso 8 (Examen) del Asistente completo, vuelca lo ya
+    resuelto en los pasos anteriores (institución/facultad/carrera/materia/
+    resultados de aprendizaje) a request.session['preview_exam'] — el mismo
+    diccionario que ya lee create_exam() para precargar sus campos (ver
+    EXAM_PREFILL en create_exam.html: institucion_dropdown/facultad_dropdown/
+    carrera_dropdown/id_subject/learning_outcomes_container ya saben leer
+    justo estas claves, con el id crudo como string). Así "Crear examen"
+    abre la pantalla real con todo lo elegido en el wizard, en vez de un
+    formulario en blanco que obliga a repetirlo todo.
+
+    A diferencia de onboarding_save_step (que arma un prefill parecido pero
+    solo para institución+materia, vía UserInstitution — el primer
+    UserInstitution del usuario, no necesariamente el de ESTE recorrido),
+    acá se usa exactamente lo que el usuario fue resolviendo en este wizard,
+    institución incluida."""
+    import json as _json
+    from .content_visibility import (
+        get_visible_institutions, get_visible_faculties, get_visible_careers,
+        get_visible_subjects, get_visible_learning_outcomes,
+    )
+
+    try:
+        body = _json.loads(request.body)
+    except _json.JSONDecodeError:
+        return JsonResponse({'ok': False, 'error': 'JSON inválido.'}, status=400)
+
+    def _id_visible(nivel_qs_fn, id_valor):
+        if not id_valor:
+            return ''
+        if nivel_qs_fn(request.user).filter(pk=id_valor).exists():
+            return str(id_valor)
+        return ''
+
+    preview_exam = {
+        'institucion': _id_visible(get_visible_institutions, body.get('institucion_id')),
+        'facultad': _id_visible(get_visible_faculties, body.get('facultad_id')),
+        'carrera': _id_visible(get_visible_careers, body.get('carrera_id')),
+        'subject': _id_visible(get_visible_subjects, body.get('materia_id')),
+    }
+    outcome_ids = body.get('outcome_ids') or []
+    if isinstance(outcome_ids, list) and outcome_ids:
+        visibles = set(get_visible_learning_outcomes(request.user).filter(
+            pk__in=outcome_ids
+        ).values_list('pk', flat=True))
+        preview_exam['learning_outcomes'] = [str(i) for i in outcome_ids if i in visibles]
+
+    request.session['preview_exam'] = preview_exam
+    request.session.pop('editing_exam_id', None)
+    request.session.pop('editing_batch_id', None)
+    request.session.pop('preview_generated_versions_ids', None)
+    return JsonResponse({'ok': True})
+
+
 def _normalizar_para_busqueda(texto):
     """Minúsculas y sin acentos — "matema" tiene que encontrar "Matemática".
     Base para las tres señales de parecido de abajo."""
