@@ -33,6 +33,8 @@ ITEMS = [
     (1, "Alta y primer acceso", "Recordá cómo te fue con el asistente de bienvenida (onboarding): pasos, contenido demo, resumen final", "onboarding_v2_page", False, None),
     (1, "Alta y primer acceso", "Cerrar sesión, volver a entrar con usuario/contraseña, y volver a activar Modo Testing para seguir", "login", False, None),
     (1, "Alta y primer acceso", "Cerrar sesión y probar \"olvidé mi contraseña\" sobre tu propia cuenta — al volver a entrar, reactivá Modo Testing y contá cómo te fue", "password_reset_request", False, None),
+    (1, "Alta y primer acceso", "Editar los datos propios (nombre, email, contraseña) desde \"Mis datos\", pie del menú", "mis_datos", False, None),
+    (1, "Alta y primer acceso", "Entrar y salir del Área de Pruebas (cuenta espejo de entrenamiento) desde el pie del menú", "", False, None),
 
     (2, "Generar preguntas con IA", "Subir un documento (PDF, DOCX o PPTX) y revisar la metadata extraída", "document_processor_dashboard", False, 1),
     (2, "Generar preguntas con IA", "Elegir páginas/diapositivas/párrafos específicos antes de generar", "document_processor_dashboard", False, 1),
@@ -69,6 +71,7 @@ ITEMS = [
     (6, "Cuestionarios Orales (Bolillero Digital)", "Evaluar en tiempo real (Bien/Regular/Mal) y revisar la nota final automática", "list_oral_exams", False, 2),
     (6, "Cuestionarios Orales (Bolillero Digital)", "Eliminar un cuestionario y eliminar varios a la vez", "list_oral_exams", False, 2),
     (6, "Cuestionarios Orales (Bolillero Digital)", "Probar el asistente guiado (paso a paso) para crear un cuestionario oral", "create_oral_exam_wizard", False, 2),
+    (6, "Cuestionarios Orales (Bolillero Digital)", "Asignar nombres a los alumnos de un cuestionario oral", "list_oral_exams", False, 2),
 
     (7, "Plantillas de Examen", "Crear una plantilla con logo institucional, resultados de aprendizaje y temas a evaluar", "create_exam_template", False, 2),
     (7, "Plantillas de Examen", "Editar y previsualizar una plantilla", "list_exam_templates", False, 2),
@@ -102,6 +105,8 @@ ITEMS = [
     (11, "Grupos de Confianza", "Aceptar una invitación pendiente desde la otra cuenta", "invitaciones_pendientes", False, 3),
     (11, "Grupos de Confianza", "Compartir una materia dentro del grupo", "grupos_list", False, 3),
     (11, "Grupos de Confianza", "Compartir una rúbrica dentro del grupo", "grupos_list", False, 3),
+    (11, "Grupos de Confianza", "Salir de un grupo del que se es miembro", "grupos_list", False, 3),
+    (11, "Grupos de Confianza", "Remover a un miembro del grupo (como creador)", "grupos_list", False, 3),
     # area_number se deja en 4 (Banco de Preguntas) a propósito, aunque
     # aparezca después de Grupos en la secuencia — es la clave natural
     # junto con el texto (ver docstring del Command), cambiarla borraría en
@@ -139,6 +144,7 @@ ITEMS = [
     (16, "Administración", "Revisar la bandeja de solicitudes de catálogo y aprobar o rechazar una", "catalog_requests_bandeja", True, None),
     (16, "Administración", "Carga masiva de catálogo (CSV) y confirmar que se procesa sin error", "admin_bulk_catalog_upload", True, None),
     (16, "Administración", "En la bandeja de solicitudes, fusionar un resultado de aprendizaje duplicado con uno ya institucional", "catalog_requests_bandeja", True, None),
+    (16, "Administración", "Restablecer el Área de Pruebas de otro usuario", "user_list", True, None),
 
     # Áreas 17 y 18: agregadas después de las 16 originales, no intercaladas
     # por número — mover ítems existentes de área cambiaría su natural key
