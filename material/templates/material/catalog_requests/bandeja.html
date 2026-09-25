@@ -10,10 +10,12 @@
     <h1 class="h3 mb-2 text-gray-800"><i class="bi bi-inbox me-2"></i>Solicitudes de catálogo</h1>
     <p class="text-muted small mb-4">
         <i class="bi bi-info-circle me-1"></i>
-        Lo que pide cada usuario ya está usable en su espacio personal desde que lo cargó — esto no es una aprobación
-        de uso, es solo si además se suma al catálogo institucional (compartido). <strong>Rechazar no borra nada</strong>:
-        el usuario sigue teniendo y usando lo que cargó, solo no pasa a compartirse con el resto de la institución.
-        Usar "Fusionar" en cambio sí borra el borrador personal — lo reemplaza por el vínculo a la fila institucional elegida.
+        Lo que carga cada usuario ya es usable en su espacio personal desde ese momento; estas tres acciones solo
+        deciden qué pasa con el catálogo institucional (compartido). <strong>Aprobar</strong> suma lo cargado al
+        catálogo institucional, visible para el resto. <strong>Rechazar</strong> no lo suma y no borra nada: sigue
+        estando y usándose en el espacio personal igual que antes. <strong>Fusionar</strong> reemplaza el borrador
+        personal por un vínculo a una fila institucional ya existente: todo lo que tenía cargado (temas, preguntas,
+        vínculos) se re-apunta a esa fila, y el borrador se elimina.
     </p>
 
     {% show_messages "solicitudes" %}
