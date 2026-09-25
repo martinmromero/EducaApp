@@ -1059,6 +1059,41 @@
     </script>
     {% endif %}
 
+    {% if user.is_authenticated %}
+    {# Prerenderiza estas pantallas recién al presionar el botón del mouse sobre su link #}
+    {# (eagerness "conservative"), nunca solo al pasar por encima — así el pedido al #}
+    {# servidor coincide casi exactamente con el click real, sin sumar tráfico extra a #}
+    {# la base. Lista cerrada a propósito: solo pantallas de solo lectura, sin llamadas #}
+    {# a IA externa ni escrituras en el GET (evitar sumar acá cualquier vista que marque #}
+    {# avisos como vistos, dispare Groq/Gemini, o exporte PDF/DOCX). Navegador sin #}
+    {# soporte (Firefox/Safari) ignora la etiqueta sin efecto alguno. #}
+    <script type="speculationrules">
+    {
+      "prerender": [
+        {
+          "source": "list",
+          "eagerness": "conservative",
+          "urls": [
+            "{% url 'material:index' %}",
+            "{% url 'material:mis_examenes' %}",
+            "{% url 'material:lista_preguntas' %}",
+            "{% url 'material:mis_contenidos' %}",
+            "{% url 'material:institution_v2_list' %}",
+            "{% url 'material:favoritos_list' %}",
+            "{% url 'material:espacio_personal_list' %}",
+            "{% url 'material:subject_list' %}",
+            "{% url 'material:career_list' %}",
+            "{% url 'material:rubric_list' %}",
+            "{% url 'material:formato_impresion_list' %}",
+            "{% url 'material:grupos_list' %}",
+            "{% url 'material:bloom_taxonomy' %}"
+          ]
+        }
+      ]
+    }
+    </script>
+    {% endif %}
+
     <!-- Bloque para JavaScript específico de cada página -->
     {% block javascript %}{% endblock %}
 
