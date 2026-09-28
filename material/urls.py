@@ -219,6 +219,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('asistente-completo/precargar-examen/', material_views.full_wizard_prefill_exam, name='full_wizard_prefill_exam'),
     path('asistente-completo/instituciones/', material_views.get_visible_institutions_json, name='get_visible_institutions_json'),
     path('asistente-completo/resultados/', material_views.get_learning_outcomes_by_career_subject, name='get_learning_outcomes_by_career_subject'),
+    path('asistente-completo/progreso-materia/', material_views.full_wizard_subject_progress, name='full_wizard_subject_progress'),
 
     # GRUPOS DE CONFIANZA (compartir preguntas)
     path('grupos/', material_views.grupos_list, name='grupos_list'),

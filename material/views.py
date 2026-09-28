@@ -9331,6 +9331,28 @@ def full_wizard_prefill_exam(request):
     return JsonResponse({'ok': True})
 
 
+@login_required
+def full_wizard_subject_progress(request):
+    """Para los pasos 6 (Contenido) y 7 (Preguntas) del Asistente completo:
+    dice si la materia elegida ya tiene algo propio cargado, así el botón
+    inferior compartido puede decir "Continuar" (ya se hizo algo) en vez de
+    "Saltear" (todavía no) — mismo criterio pedido por el usuario para los
+    8 pasos del wizard. Solo cuenta lo del propio usuario, no lo visible de
+    otros (un docente no "ya generó preguntas" solo porque otro compartió
+    algo en esa materia)."""
+    subject_id = request.GET.get('subject_id', '')
+    if not subject_id.isdigit():
+        return JsonResponse({'has_contenido': False, 'has_question': False})
+    from .content_visibility import EXAM_ELIGIBLE_Q
+    has_contenido = Contenido.objects.filter(
+        uploaded_by=request.user, subjects__id=int(subject_id)
+    ).exists()
+    has_question = Question.objects.filter(
+        EXAM_ELIGIBLE_Q, user=request.user, subjects__id=int(subject_id)
+    ).distinct().exists()
+    return JsonResponse({'has_contenido': has_contenido, 'has_question': has_question})
+
+
 def _normalizar_para_busqueda(texto):
     """Minúsculas y sin acentos — "matema" tiene que encontrar "Matemática".
     Base para las tres señales de parecido de abajo."""

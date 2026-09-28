@@ -78,12 +78,24 @@
     color: var(--bs-emphasis-color, inherit);
 }
 
-/* La navegación entre pasos acá la maneja cada paso por su cuenta (chip
-   elegido, "Crear nueva", "Saltear" propios, o los botones de Continuar/
-   Saltear de los pasos 6-7) — el "Siguiente" genérico del engine
-   compartido no aplica a este wizard (avanzar sin elegir nada sería
-   ambiguo: ¿saltea o repite el paso anterior?). #wizBackBtn y
-   #wizSubmitBtn (paso final) sí se mantienen, son inequívocos. */
-#wizNextBtn {
-    display: none !important;
+/* #fwActionBtn (propio de este wizard, no el #wizNextBtn del engine
+   compartido — ver comentario en full_wizard.html) es acá el único botón
+   de avance/salteo de cada paso — full_wizard.js le cambia el texto/ícono
+   y el handler de click según el paso ("Saltear" si todavía no se hizo
+   nada en ese nivel, "Continuar" si ya hay algo elegido/creado/subido). Antes
+   cada paso tenía su propio par de botones (columna "Saltear" al lado del
+   buscador en los pasos 1-5, fila "Saltear"/"Siguiente" propia en los
+   pasos 6-7) — quedaba un criterio de UX distinto en cada pantalla; ahora
+   todos los pasos comparten esta misma barra inferior. */
+.fw-nav-links {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .875rem;
+}
+.fw-nav-links a {
+    color: var(--bs-secondary-color, #6c757d);
+}
+.fw-nav-sep {
+    color: var(--bs-border-color, #dee2e6);
 }

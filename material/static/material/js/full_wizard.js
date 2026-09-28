@@ -23,6 +23,12 @@
         outcomes: [], // [{id, description}]
     };
 
+    // Asignados en DOMContentLoaded, leídos por configureBottomAction() —
+    // declarados acá arriba porque esa función se define antes del bloque
+    // que arma los handlers de cada paso.
+    var catalogHandlersRef = [];
+    var outcomesHandlerRef = null;
+
     function getCookie(name) {
         var v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
         return v ? v.pop() : '';
@@ -122,21 +128,21 @@
     function setupCatalogStep(cfgStep) {
         var panel = panelFor(cfgStep.n);
         var titleEl = role(panel, 'title');
-        var hintEl = role(panel, 'step-hint');
         var parentMsgEl = role(panel, 'parent-message');
         var chipListEl = role(panel, 'chip-list');
         var listEmptyEl = role(panel, 'list-empty-msg');
         var searchInput = role(panel, 'search-input');
         var suggestBox = role(panel, 'suggest-box');
         var createBtn = role(panel, 'create-btn');
-        var skipBtn = role(panel, 'skip-btn');
         var errorEl = role(panel, 'error-msg');
+        // El hint de "qué pasa si se saltea este paso" ya no se muestra acá
+        // de entrada (pedido explícito del usuario, quedaba como texto
+        // siempre visible antes de que la persona hiciera nada) — pasó a
+        // ser el mensaje del modal de confirmación de "Saltear", ver
+        // requestSkip() más abajo. El botón en sí vive en la barra inferior
+        // compartida (#wizNextBtn), no en esta tarjeta.
 
         titleEl.textContent = cfgStep.label;
-        if (cfgStep.hint) {
-            hintEl.textContent = cfgStep.hint;
-            hintEl.style.display = 'block';
-        }
 
         function showError(msg) {
             errorEl.textContent = msg || '';
@@ -145,7 +151,6 @@
 
         function setBusy(busy) {
             createBtn.disabled = busy || !searchInput.value.trim();
-            skipBtn.disabled = busy;
             searchInput.disabled = busy;
         }
 
@@ -286,12 +291,20 @@
                 .catch(function () { setBusy(false); showError('Error de red — reintentar.'); });
         });
 
-        skipBtn.addEventListener('click', function () {
-            STATE[cfgStep.key] = { id: null, name: null, skipped: true };
-            advance();
-        });
+        function requestSkip() {
+            function doSkip() {
+                STATE[cfgStep.key] = { id: null, name: null, skipped: true };
+                advance();
+            }
+            if (!cfgStep.hint) { doSkip(); return; }
+            window.EducaAppModal.confirm(cfgStep.hint, {
+                title: 'Saltear ' + cfgStep.label,
+                variant: 'warning',
+                okLabel: 'Saltear',
+            }).then(function (ok) { if (ok) doSkip(); });
+        }
 
-        return { onEnter: loadList };
+        return { onEnter: loadList, requestSkip: requestSkip, advanceOnly: advance };
     }
 
     // ---- Paso 5: Resultados de aprendizaje -------------------------------
@@ -305,7 +318,6 @@
         var searchInput = role(panel, 'search-input');
         var suggestBox = role(panel, 'suggest-box');
         var createBtn = role(panel, 'create-btn');
-        var skipBtn = role(panel, 'skip-btn');
         var errorEl = role(panel, 'error-msg');
         var searchLabel = role(panel, 'search-label');
 
@@ -314,7 +326,6 @@
         hintEl.style.display = 'block';
         searchLabel.textContent = 'Agregar un resultado de aprendizaje nuevo (texto libre)';
         suggestBox.style.display = 'none';
-        skipBtn.textContent = 'Continuar';
 
         function showError(msg) {
             errorEl.textContent = msg || '';
@@ -382,22 +393,79 @@
                 .catch(function () { createBtn.disabled = false; showError('Error de red — reintentar.'); });
         });
 
-        skipBtn.addEventListener('click', function () {
+        function continueClick() {
             renderBreadcrumb();
             saveDraft();
             wizardCtrl.goNext();
-        });
+        }
 
-        return { onEnter: loadExisting };
+        return { onEnter: loadExisting, continueClick: continueClick };
     }
 
-    // ---- Pasos 6-8: Contenido / Preguntas / Examen -----------------------
-    function setupHandoffStep(n) {
-        var panel = panelFor(n);
-        var skipBtn = panel.querySelector('[data-role="step-skip"]');
-        var continueBtn = panel.querySelector('[data-role="step-continue"]');
-        if (skipBtn) skipBtn.addEventListener('click', function () { wizardCtrl.goNext(); });
-        if (continueBtn) continueBtn.addEventListener('click', function () { wizardCtrl.goNext(); });
+    // ---- Barra inferior compartida (#wizNextBtn) --------------------------
+    // Un solo botón para los 8 pasos: "Saltear" (con confirmación, si el
+    // paso tiene algo pendiente de aviso) cuando todavía no se hizo nada en
+    // ese nivel, "Continuar" cuando ya hay algo elegido/creado/subido — ver
+    // pedido explícito del usuario de unificar el criterio entre pasos, que
+    // antes variaba (columna propia en 1-5, fila propia en 6-7).
+    var nextBtn = document.getElementById('fwActionBtn');
+    var HANDOFF_HINTS = {
+        6: 'Importante: este contenido es la base para generar preguntas con IA en el paso siguiente. Si se prefiere cargar las preguntas a mano, se puede saltear este paso sin problema.',
+        7: 'Importante: para poder armar un examen en el paso siguiente, la materia elegida necesita tener al menos una pregunta ya aprobada. No saltear este paso si todavía no se cargó ninguna.',
+    };
+    var HANDOFF_LABELS = { 6: 'Contenido', 7: 'Preguntas' };
+
+    function setNextButton(label, handler) {
+        if (!nextBtn) return;
+        nextBtn.classList.remove('d-none');
+        nextBtn.innerHTML = label + '<i class="bi bi-arrow-right ms-1"></i>';
+        nextBtn.disabled = false;
+        nextBtn.onclick = handler;
+    }
+
+    function requestSkipHandoff(n) {
+        var hint = HANDOFF_HINTS[n];
+        function doSkip() { wizardCtrl.goNext(); }
+        if (!hint) { doSkip(); return; }
+        window.EducaAppModal.confirm(hint, {
+            title: 'Saltear ' + HANDOFF_LABELS[n],
+            variant: 'warning',
+            okLabel: 'Saltear',
+        }).then(function (ok) { if (ok) doSkip(); });
+    }
+
+    function configureHandoffBottomAction(n) {
+        var subjectOk = STATE.materia && !STATE.materia.skipped;
+        setNextButton('Saltear', function () { requestSkipHandoff(n); });
+        if (!subjectOk) return;
+        var params = new URLSearchParams({ subject_id: STATE.materia.id });
+        fetch(CFG.urls.subjectProgress + '?' + params.toString())
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var done = n === 6 ? data.has_contenido : data.has_question;
+                if (done) setNextButton('Continuar', function () { wizardCtrl.goNext(); });
+            })
+            .catch(function () {});
+    }
+
+    function configureBottomAction(n) {
+        if (n === 8) {
+            // El paso final usa #wizSubmitBtn ("Terminar"), ya manejado por
+            // wizard_engine.js — este botón propio no aplica ahí.
+            if (nextBtn) nextBtn.classList.add('d-none');
+            return;
+        }
+        if (n >= 1 && n <= 4) {
+            var cfgStep = CATALOG_STEPS[n - 1];
+            var handler = catalogHandlersRef[n - 1];
+            var st = STATE[cfgStep.key];
+            if (st && !st.skipped) setNextButton('Continuar', handler.advanceOnly);
+            else setNextButton('Saltear', handler.requestSkip);
+        } else if (n === 5) {
+            setNextButton('Continuar', outcomesHandlerRef.continueClick);
+        } else if (n === 6 || n === 7) {
+            configureHandoffBottomAction(n);
+        }
     }
 
     function refreshHandoffLinks() {
@@ -453,9 +521,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        var catalogHandlers = CATALOG_STEPS.map(setupCatalogStep);
-        var outcomesHandler = setupOutcomesStep();
-        [6, 7, 8].forEach(setupHandoffStep);
+        catalogHandlersRef = CATALOG_STEPS.map(setupCatalogStep);
+        outcomesHandlerRef = setupOutcomesStep();
         wireExamButton();
 
         wizardCtrl = window.EducaAppWizard.init({
@@ -466,16 +533,37 @@
 
         // Vuelve a cargar la lista de "usar existente" cada vez que se
         // entra a un paso 1-5 (por si el padre cambió, o para refrescar
-        // tras volver de una pestaña donde se cargó algo nuevo).
-        var ORIGINAL = { goNext: wizardCtrl.goNext, goBack: wizardCtrl.goBack, goToStep: wizardCtrl.goToStep };
+        // tras volver de una pestaña donde se cargó algo nuevo), y
+        // reconfigura el botón inferior compartido para el paso actual.
+        var ORIGINAL_NEXT = wizardCtrl.goNext;
         function onEnterStep(n) {
-            if (n >= 1 && n <= 4) catalogHandlers[n - 1].onEnter();
-            else if (n === 5) outcomesHandler.onEnter();
+            if (n >= 1 && n <= 4) catalogHandlersRef[n - 1].onEnter();
+            else if (n === 5) outcomesHandlerRef.onEnter();
             else if (n === 6 || n === 7 || n === 8) refreshHandoffLinks();
+            configureBottomAction(n);
         }
-        wizardCtrl.goNext = function () { ORIGINAL.goNext(); onEnterStep(wizardCtrl.current()); };
-        wizardCtrl.goBack = function () { ORIGINAL.goBack(); onEnterStep(wizardCtrl.current()); };
-        wizardCtrl.goToStep = function (n) { ORIGINAL.goToStep(n); onEnterStep(wizardCtrl.current()); };
+        // wizardCtrl.goNext SÍ se puede envolver así porque este archivo lo
+        // llama siempre por la propiedad (advance(), continueClick(),
+        // requestSkip(), etc.) — nunca desde un listener nativo del engine.
+        wizardCtrl.goNext = function () { ORIGINAL_NEXT(); onEnterStep(wizardCtrl.current()); };
+        // goBack y goToStep NO se pueden envolver de la misma forma: el
+        // engine ata #wizBackBtn y cada pill del stepper directo sobre sus
+        // funciones internas (ver wizard_engine.js), no sobre wizardCtrl.*,
+        // así que reasignar wizardCtrl.goBack/goToStep nunca intercepta esos
+        // clicks — bug real que quedó invisible mientras el botón de avance
+        // no dependía de refrescarse al volver, y que ahora sí importa
+        // (Saltear/Continuar tiene que quedar bien al volver a un paso ya
+        // resuelto). Se agrega un listener extra sobre los mismos
+        // elementos, registrado DESPUÉS del init() de arriba: como el
+        // engine ya registró el suyo primero sobre el mismo nodo, el click
+        // nativo mueve el paso primero (showStep) y recién después dispara
+        // este, que ya lee el paso actual correcto.
+        function reactAfterNativeNav() { onEnterStep(wizardCtrl.current()); }
+        var backBtnEl = document.getElementById('wizBackBtn');
+        if (backBtnEl) backBtnEl.addEventListener('click', reactAfterNativeNav);
+        document.querySelectorAll('.wiz-step-pill').forEach(function (pill) {
+            pill.addEventListener('click', reactAfterNativeNav);
+        });
 
         // Restaurar borrador (sessionStorage) si lo hay — solo el estado ya
         // resuelto de esta pestaña, no reemplaza lo persistido en la base.

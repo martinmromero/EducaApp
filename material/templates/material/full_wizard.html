@@ -42,7 +42,7 @@
             <div class="fw-chip-list mb-3" data-role="chip-list"></div>
 
             <div class="row g-2 align-items-end">
-                <div class="col-md-7">
+                <div class="col-md-9">
                     <label class="form-label small text-muted mb-1" data-role="search-label">¿No está en la lista? Buscar o escribir un nombre nuevo</label>
                     <input type="text" class="form-control fw-search-input" data-role="search-input" autocomplete="off">
                     <div class="fw-suggest-box d-none" data-role="suggest-box"></div>
@@ -50,11 +50,6 @@
                 <div class="col-md-3">
                     <button type="button" class="btn btn-primary w-100" data-role="create-btn" disabled>
                         <i class="bi bi-plus-circle me-1"></i>Crear nueva
-                    </button>
-                </div>
-                <div class="col-md-2">
-                    <button type="button" class="btn btn-outline-secondary w-100" data-role="skip-btn">
-                        Saltear
                     </button>
                 </div>
             </div>
@@ -75,11 +70,7 @@
             <a id="fwStep6Link" href="#" target="_blank" rel="noopener" class="btn btn-primary mb-2">
                 <i class="bi bi-upload me-1"></i>Subir contenido
             </a>
-            <p class="text-muted small">Se abre en una pestaña nueva — al volver a esta, el asistente sigue donde estaba.</p>
-            <div class="d-flex gap-2 mt-3">
-                <button type="button" class="btn btn-outline-secondary" data-role="step-skip">Saltear</button>
-                <button type="button" class="btn btn-primary" data-role="step-continue">Siguiente<i class="bi bi-arrow-right ms-1"></i></button>
-            </div>
+            <p class="text-muted small mb-0">Se abre en una pestaña nueva — al volver a esta, el asistente sigue donde estaba.</p>
         </div>
     </div>
 
@@ -99,10 +90,6 @@
                 <a id="fwStep7ManualLink" href="#" target="_blank" rel="noopener" class="btn btn-outline-primary">
                     <i class="bi bi-pencil-square me-1"></i>Cargar a mano
                 </a>
-            </div>
-            <div class="d-flex gap-2 mt-3">
-                <button type="button" class="btn btn-outline-secondary" data-role="step-skip">Saltear</button>
-                <button type="button" class="btn btn-primary" data-role="step-continue">Siguiente<i class="bi bi-arrow-right ms-1"></i></button>
             </div>
         </div>
     </div>
@@ -126,8 +113,19 @@
         <button type="button" class="btn btn-outline-secondary" id="wizBackBtn">
             <i class="bi bi-arrow-left me-1"></i>Atrás
         </button>
-        <a href="{% url 'material:full_wizard' %}" class="text-muted small">Empezar de nuevo</a>
-        <button type="button" class="btn btn-primary" id="wizNextBtn">
+        <div class="fw-nav-links">
+            <a href="{% url 'material:full_wizard' %}">Empezar de nuevo</a>
+            <span class="fw-nav-sep">·</span>
+            <a href="{% url 'material:index' %}" title="Lo ya cargado en este recorrido queda guardado igual">Salir</a>
+        </div>
+        <!-- id propio (no wizNextBtn): este wizard decide de forma asíncrona
+             (POST, modal de confirmación) si el paso siguiente corresponde,
+             algo que el "Siguiente" genérico del engine no soporta — si
+             usara wizNextBtn, el listener propio del engine (goNext directo,
+             sin esperar nada) quedaría pegado al lado del nuestro y los dos
+             dispararían con el mismo click. wizSubmitBtn sí se deja intacto,
+             el engine ya lo maneja bien para el paso final. -->
+        <button type="button" class="btn btn-primary" id="fwActionBtn">
             Siguiente<i class="bi bi-arrow-right ms-1"></i>
         </button>
         <a href="{% url 'material:index' %}" class="btn btn-success d-none" id="wizSubmitBtn">
@@ -147,6 +145,7 @@ window.EducaAppFullWizardConfig = {
         carrerasByFacultadBase: "/get-careers-by-faculty/",
         materiasByCarreraBase: "/get-subjects-by-career/",
         outcomesByCareerSubject: "{% url 'material:get_learning_outcomes_by_career_subject' %}",
+        subjectProgress: "{% url 'material:full_wizard_subject_progress' %}",
         uploadContenido: "{% url 'material:upload_contenido' %}",
         docProcessor: "{% url 'material:document_processor_dashboard' %}",
         uploadQuestions: "{% url 'material:upload_questions' %}",
