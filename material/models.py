@@ -1057,13 +1057,12 @@ class Profile(models.Model):
 
     VISUAL_THEME_CHOICES = [
         ('default', 'EducaApp'),
-        ('slack', 'Slack'),
         ('linear', 'Linear'),
         ('figma', 'Figma'),
-        ('miro', 'Miro'),
-        ('pinterest', 'Pinterest'),
         ('replicate', 'Replicate'),
         ('starbucks', 'Starbucks'),
+        ('uai', 'UAI'),
+        ('lapiz_rojo', 'Lápiz rojo'),
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)

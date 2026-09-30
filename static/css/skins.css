@@ -1,7 +1,7 @@
 /*
- * Skins de "tema visual" — inspirados en Slack, Linear, Figma, Miro,
- * Pinterest, Replicate y Starbucks (ver DESIGN-*.md). Se activan poniendo
- * data-visual-theme="slack|linear|figma|miro|pinterest|replicate|starbucks"
+ * Skins de "tema visual" — inspirados en Linear, Figma,
+ * Replicate, Starbucks, UAI y Lápiz rojo (ver DESIGN-*.md). Se activan poniendo
+ * data-visual-theme="linear|figma|replicate|starbucks|uai|lapiz_rojo"
  * en <html> (ver base.html / material:set_visual_theme).
  *
  * No tocan --bs-body-bg/--edu-sidebar-bg/--edu-topbar-bg salvo cuando el
@@ -22,54 +22,6 @@
  * (no la propiedad font-family directo) para que el cambio de tipografía
  * realmente se vea.
  */
-
-/* ---------- Slack: aubergine, links azules, pills bien redondeados ---------- */
-[data-visual-theme="slack"] {
-  --bs-primary: #4a154b;
-  --bs-primary-rgb: 74, 21, 75;
-  --bs-link-color: #1264a3;
-  --bs-link-color-rgb: 18, 100, 163;
-  --bs-link-hover-color: #3860be;
-  --bs-border-radius: 1rem;
-  --bs-border-radius-sm: 0.5rem;
-  --bs-border-radius-lg: 1.25rem;
-  --edu-accent-soft-bg: #f9f0ff;
-  --edu-accent-soft-border: #e6cdf2;
-  --edu-accent-soft-text: #4a154b;
-  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
-  --bs-body-font-weight: 400;
-}
-[data-visual-theme="slack"]:not([data-bs-theme="dark"]) {
-  --bs-body-bg: #f9f5ef;
-  --edu-sidebar-bg: #f3e0f5;
-  --edu-topbar-bg: #f6eaf7;
-}
-[data-visual-theme="slack"] h1, [data-visual-theme="slack"] h2,
-[data-visual-theme="slack"] h3, [data-visual-theme="slack"] h4,
-[data-visual-theme="slack"] h5, [data-visual-theme="slack"] h6 {
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-[data-visual-theme="slack"] .btn { border-radius: 999px; }
-[data-visual-theme="slack"] .btn-primary {
-  --bs-btn-bg: #4a154b;
-  --bs-btn-border-color: #4a154b;
-  --bs-btn-hover-bg: #611f69;
-  --bs-btn-hover-border-color: #611f69;
-  --bs-btn-active-bg: #611f69;
-  --bs-btn-active-border-color: #611f69;
-  --bs-btn-disabled-bg: #4a154b;
-  --bs-btn-disabled-border-color: #4a154b;
-  --bs-btn-focus-shadow-rgb: 74, 21, 75;
-}
-[data-visual-theme="slack"] .btn-outline-primary {
-  --bs-btn-color: #4a154b;
-  --bs-btn-border-color: #4a154b;
-  --bs-btn-hover-bg: #4a154b;
-  --bs-btn-hover-border-color: #4a154b;
-  --bs-btn-active-bg: #4a154b;
-  --bs-btn-active-border-color: #4a154b;
-}
 
 /* ---------- Linear: lavanda-azul, radios chicos, tracking negativo ---------- */
 [data-visual-theme="linear"] {
@@ -108,7 +60,7 @@
   --bs-btn-focus-shadow-rgb: 94, 106, 210;
 }
 [data-visual-theme="linear"] .btn-outline-primary {
-  --bs-btn-color: #5e6ad2;
+  --bs-btn-color: #4a55bd;
   --bs-btn-border-color: #5e6ad2;
   --bs-btn-hover-bg: #5e6ad2;
   --bs-btn-hover-border-color: #5e6ad2;
@@ -157,109 +109,19 @@
   --bs-btn-hover-border-color: #000000;
 }
 
-/* ---------- Miro: negro dominante + pills, amarillo solo en acentos ---------- */
-[data-visual-theme="miro"] {
-  --bs-primary: #1c1c1e;
-  --bs-primary-rgb: 28, 28, 30;
-  --bs-link-color: #4262ff;
-  --bs-link-color-rgb: 66, 98, 255;
-  --bs-link-hover-color: #5b76fe;
-  --bs-border-radius: 1rem;
-  --bs-border-radius-sm: 0.75rem;
-  --bs-border-radius-lg: 1.75rem;
-  --edu-accent-soft-bg: #fff8e0;
-  --edu-accent-soft-border: #fff4c4;
-  --edu-accent-soft-text: #746019;
-  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
-  --bs-body-font-weight: 400;
-}
-[data-visual-theme="miro"]:not([data-bs-theme="dark"]) {
-  --edu-sidebar-bg: #fff4c4;
-  --edu-topbar-bg: #fff8e0;
-}
-[data-visual-theme="miro"] h1, [data-visual-theme="miro"] h2,
-[data-visual-theme="miro"] h3, [data-visual-theme="miro"] h4,
-[data-visual-theme="miro"] h5, [data-visual-theme="miro"] h6 {
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
-[data-visual-theme="miro"] .btn { border-radius: 999px; }
-[data-visual-theme="miro"] .btn-primary {
-  --bs-btn-bg: #1c1c1e;
-  --bs-btn-border-color: #1c1c1e;
-  --bs-btn-hover-bg: #2c2c34;
-  --bs-btn-hover-border-color: #2c2c34;
-  --bs-btn-active-bg: #2c2c34;
-  --bs-btn-active-border-color: #2c2c34;
-  --bs-btn-focus-shadow-rgb: 28, 28, 30;
-}
-[data-visual-theme="miro"] .btn-outline-primary {
-  --bs-btn-color: #1c1c1e;
-  --bs-btn-border-color: #1c1c1e;
-  --bs-btn-hover-bg: #1c1c1e;
-  --bs-btn-hover-border-color: #1c1c1e;
-}
-
-/* ---------- Pinterest: rojo único, chrome cálido, botones NO pill (16px) ---------- */
-[data-visual-theme="pinterest"] {
-  --bs-primary: #e60023;
-  --bs-primary-rgb: 230, 0, 35;
-  --bs-link-color: #211922;
-  --bs-link-color-rgb: 33, 25, 34;
-  --bs-link-hover-color: #000000;
-  --bs-border-radius: 1rem;
-  --bs-border-radius-sm: 0.5rem;
-  --bs-border-radius-lg: 2rem;
-  --edu-accent-soft-bg: #f6f6f3;
-  --edu-accent-soft-border: #dadad3;
-  --edu-accent-soft-text: #33332e;
-  --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
-  --bs-body-font-weight: 400;
-}
-[data-visual-theme="pinterest"]:not([data-bs-theme="dark"]) {
-  --bs-body-bg: #fbfbf9;
-  --edu-sidebar-bg: #f6f6f3;
-  --edu-topbar-bg: #f8f8f5;
-}
-[data-visual-theme="pinterest"] h1, [data-visual-theme="pinterest"] h2,
-[data-visual-theme="pinterest"] h3, [data-visual-theme="pinterest"] h4,
-[data-visual-theme="pinterest"] h5, [data-visual-theme="pinterest"] h6 {
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-/* A diferencia de los demás skins, Pinterest NO usa pill en botones — su
-   propio sistema reserva el pill para search bar/chips/avatares, no para
-   button-primary (rounded.md = 16px). Ver DESIGN-pinterest.md. */
-[data-visual-theme="pinterest"] .btn { border-radius: 1rem; }
-[data-visual-theme="pinterest"] .btn-primary {
-  --bs-btn-bg: #e60023;
-  --bs-btn-border-color: #e60023;
-  --bs-btn-hover-bg: #cc001f;
-  --bs-btn-hover-border-color: #cc001f;
-  --bs-btn-active-bg: #cc001f;
-  --bs-btn-active-border-color: #cc001f;
-  --bs-btn-focus-shadow-rgb: 230, 0, 35;
-}
-[data-visual-theme="pinterest"] .btn-outline-primary {
-  --bs-btn-color: #e60023;
-  --bs-btn-border-color: #e60023;
-  --bs-btn-hover-bg: #e60023;
-  --bs-btn-hover-border-color: #e60023;
-}
-
-/* ---------- Replicate: naranja sobre cream, pills, radios chicos en cards ---------- */
+/* ---------- Replicate: rojo ladrillo tenue sobre cream, pills, radios chicos en cards ---------- */
 [data-visual-theme="replicate"] {
-  --bs-primary: #ea2804;
-  --bs-primary-rgb: 234, 40, 4;
-  --bs-link-color: #ea2804;
-  --bs-link-color-rgb: 234, 40, 4;
-  --bs-link-hover-color: #c01f00;
+  --bs-primary: #b5402f;
+  --bs-primary-rgb: 181, 64, 47;
+  --bs-link-color: #b5402f;
+  --bs-link-color-rgb: 181, 64, 47;
+  --bs-link-hover-color: #9a3527;
   --bs-border-radius: 0.625rem;
   --bs-border-radius-sm: 0.375rem;
   --bs-border-radius-lg: 1rem;
-  --edu-accent-soft-bg: #f9f7f3;
-  --edu-accent-soft-border: #dedcd4;
-  --edu-accent-soft-text: #202020;
+  --edu-accent-soft-bg: #f8ece8;
+  --edu-accent-soft-border: #e6cdc6;
+  --edu-accent-soft-text: #7a2a20;
   --bs-body-font-family: "Inter", system-ui, -apple-system, sans-serif;
   --bs-body-font-weight: 400;
 }
@@ -276,19 +138,19 @@
 }
 [data-visual-theme="replicate"] .btn { border-radius: 999px; }
 [data-visual-theme="replicate"] .btn-primary {
-  --bs-btn-bg: #ea2804;
-  --bs-btn-border-color: #ea2804;
-  --bs-btn-hover-bg: #c01f00;
-  --bs-btn-hover-border-color: #c01f00;
-  --bs-btn-active-bg: #c01f00;
-  --bs-btn-active-border-color: #c01f00;
-  --bs-btn-focus-shadow-rgb: 234, 40, 4;
+  --bs-btn-bg: #b5402f;
+  --bs-btn-border-color: #b5402f;
+  --bs-btn-hover-bg: #9a3527;
+  --bs-btn-hover-border-color: #9a3527;
+  --bs-btn-active-bg: #9a3527;
+  --bs-btn-active-border-color: #9a3527;
+  --bs-btn-focus-shadow-rgb: 181, 64, 47;
 }
 [data-visual-theme="replicate"] .btn-outline-primary {
-  --bs-btn-color: #ea2804;
-  --bs-btn-border-color: #ea2804;
-  --bs-btn-hover-bg: #ea2804;
-  --bs-btn-hover-border-color: #ea2804;
+  --bs-btn-color: #b5402f;
+  --bs-btn-border-color: #b5402f;
+  --bs-btn-hover-bg: #b5402f;
+  --bs-btn-hover-border-color: #b5402f;
 }
 
 /* ---------- Starbucks: verde cálido sobre cream, pills, títulos en verde marca ---------- */
@@ -348,6 +210,118 @@
   --bs-btn-hover-border-color: #00754a;
 }
 
+/* ---------- UAI: bordó institucional, dorado de acento, Montserrat (Manual de Marca UAI v2) ---------- */
+[data-visual-theme="uai"] {
+  --bs-primary: #881230;
+  --bs-primary-rgb: 136, 18, 48;
+  --bs-link-color: #881230;
+  --bs-link-color-rgb: 136, 18, 48;
+  --bs-link-hover-color: #661125;
+  --bs-border-radius: 0.5rem;
+  --bs-border-radius-sm: 0.375rem;
+  --bs-border-radius-lg: 0.75rem;
+  --edu-accent-soft-bg: #f7f1f0;
+  --edu-accent-soft-border: #e6d9d7;
+  --edu-accent-soft-text: #661125;
+  --bs-body-font-family: "Montserrat", system-ui, -apple-system, sans-serif;
+  --bs-body-font-weight: 400;
+}
+[data-visual-theme="uai"]:not([data-bs-theme="dark"]) {
+  --edu-sidebar-bg: #f7f1f0;
+  --edu-topbar-bg: #fbf7f6;
+}
+[data-visual-theme="uai"] h1, [data-visual-theme="uai"] h2,
+[data-visual-theme="uai"] h3, [data-visual-theme="uai"] h4,
+[data-visual-theme="uai"] h5, [data-visual-theme="uai"] h6 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+/* Títulos en bordó solo en modo claro: sobre fondo oscuro pierde contraste
+   (mismo criterio que los títulos de Starbucks). */
+[data-visual-theme="uai"]:not([data-bs-theme="dark"]) h1,
+[data-visual-theme="uai"]:not([data-bs-theme="dark"]) h2,
+[data-visual-theme="uai"]:not([data-bs-theme="dark"]) h3,
+[data-visual-theme="uai"]:not([data-bs-theme="dark"]) h4,
+[data-visual-theme="uai"]:not([data-bs-theme="dark"]) h5,
+[data-visual-theme="uai"]:not([data-bs-theme="dark"]) h6 {
+  color: #881230;
+}
+[data-visual-theme="uai"] .btn-primary {
+  --bs-btn-bg: #881230;
+  --bs-btn-border-color: #881230;
+  --bs-btn-hover-bg: #661125;
+  --bs-btn-hover-border-color: #661125;
+  --bs-btn-active-bg: #661125;
+  --bs-btn-active-border-color: #661125;
+  --bs-btn-disabled-bg: #881230;
+  --bs-btn-disabled-border-color: #881230;
+  --bs-btn-focus-shadow-rgb: 136, 18, 48;
+}
+[data-visual-theme="uai"] .btn-outline-primary {
+  --bs-btn-color: #881230;
+  --bs-btn-border-color: #881230;
+  --bs-btn-hover-bg: #881230;
+  --bs-btn-hover-border-color: #881230;
+  --bs-btn-active-bg: #881230;
+  --bs-btn-active-border-color: #881230;
+}
+
+/* ---------- Lápiz rojo: tinta azul marino, resaltador amarillo para destacados, tipografía de cuaderno ---------- */
+[data-visual-theme="lapiz_rojo"] {
+  --bs-primary: #1f3a5f;
+  --bs-primary-rgb: 31, 58, 95;
+  --bs-link-color: #1f3a5f;
+  --bs-link-color-rgb: 31, 58, 95;
+  --bs-link-hover-color: #162b47;
+  --bs-border-radius: 0.375rem;
+  --bs-border-radius-sm: 0.25rem;
+  --bs-border-radius-lg: 0.5rem;
+  --edu-accent-soft-bg: #fbf3c4;
+  --edu-accent-soft-border: #efe08a;
+  --edu-accent-soft-text: #4d4210;
+  --bs-body-font-family: "Public Sans", system-ui, -apple-system, sans-serif;
+  --bs-body-font-weight: 400;
+}
+[data-visual-theme="lapiz_rojo"]:not([data-bs-theme="dark"]) {
+  --bs-body-bg: #f7f8fa;
+  --edu-sidebar-bg: #e9edf3;
+  --edu-topbar-bg: #f0f3f7;
+}
+[data-visual-theme="lapiz_rojo"] h1, [data-visual-theme="lapiz_rojo"] h2,
+[data-visual-theme="lapiz_rojo"] h3, [data-visual-theme="lapiz_rojo"] h4,
+[data-visual-theme="lapiz_rojo"] h5, [data-visual-theme="lapiz_rojo"] h6 {
+  font-family: "Bricolage Grotesque", "Public Sans", system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+[data-visual-theme="lapiz_rojo"]:not([data-bs-theme="dark"]) h1,
+[data-visual-theme="lapiz_rojo"]:not([data-bs-theme="dark"]) h2,
+[data-visual-theme="lapiz_rojo"]:not([data-bs-theme="dark"]) h3,
+[data-visual-theme="lapiz_rojo"]:not([data-bs-theme="dark"]) h4,
+[data-visual-theme="lapiz_rojo"]:not([data-bs-theme="dark"]) h5,
+[data-visual-theme="lapiz_rojo"]:not([data-bs-theme="dark"]) h6 {
+  color: #1f3a5f;
+}
+[data-visual-theme="lapiz_rojo"] .btn-primary {
+  --bs-btn-bg: #1f3a5f;
+  --bs-btn-border-color: #1f3a5f;
+  --bs-btn-hover-bg: #162b47;
+  --bs-btn-hover-border-color: #162b47;
+  --bs-btn-active-bg: #162b47;
+  --bs-btn-active-border-color: #162b47;
+  --bs-btn-disabled-bg: #1f3a5f;
+  --bs-btn-disabled-border-color: #1f3a5f;
+  --bs-btn-focus-shadow-rgb: 31, 58, 95;
+}
+[data-visual-theme="lapiz_rojo"] .btn-outline-primary {
+  --bs-btn-color: #1f3a5f;
+  --bs-btn-border-color: #1f3a5f;
+  --bs-btn-hover-bg: #1f3a5f;
+  --bs-btn-hover-border-color: #1f3a5f;
+  --bs-btn-active-bg: #1f3a5f;
+  --bs-btn-active-border-color: #1f3a5f;
+}
+
 /* Modo oscuro + cualquier tema visual: los --bs-link-color de marca de
    arriba se pensaron sobre fondo claro y varios quedan invisibles o casi
    (figma #000000, pinterest #211922) o de bajísimo contraste (slack
@@ -364,4 +338,121 @@
   --bs-link-color-rgb: 110, 168, 254;
   --bs-link-hover-color: #8bb9fe;
   --bs-link-hover-color-rgb: 139, 185, 254;
+}
+
+/* Modo oscuro (con o sin tema visual): los botones outline-primary usan el color de
+   marca, que sobre fondo oscuro pierde contraste (bordó, azul marino...).
+   Se aclara mezclándolo con blanco; el hover vuelve al color pleno. */
+[data-bs-theme="dark"] .btn-outline-primary {
+  --bs-btn-color: color-mix(in srgb, var(--bs-primary) 45%, white);
+  --bs-btn-border-color: color-mix(in srgb, var(--bs-primary) 45%, white);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--bs-primary);
+  --bs-btn-hover-border-color: var(--bs-primary);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--bs-primary);
+}
+/* Lápiz rojo: el azul marino de marca es casi tan oscuro como el fondo. */
+[data-visual-theme="lapiz_rojo"][data-bs-theme="dark"] .btn-primary {
+  --bs-btn-bg: #3f6fb3;
+  --bs-btn-border-color: #3f6fb3;
+  --bs-btn-hover-bg: #5384c6;
+  --bs-btn-hover-border-color: #5384c6;
+  --bs-btn-active-bg: #5384c6;
+  --bs-btn-active-border-color: #5384c6;
+  --bs-btn-disabled-bg: #3f6fb3;
+  --bs-btn-disabled-border-color: #3f6fb3;
+}
+
+/* Figma en oscuro: el primario negro desaparece sobre fondo oscuro, así que
+   se invierte (botón claro con texto negro), como hace el propio sistema de
+   Figma. */
+[data-visual-theme="figma"][data-bs-theme="dark"] {
+  --bs-primary: #f2f2f2;
+  --bs-primary-rgb: 242, 242, 242;
+}
+[data-visual-theme="figma"][data-bs-theme="dark"] .btn-primary {
+  --bs-btn-color: #000;
+  --bs-btn-bg: #f2f2f2;
+  --bs-btn-border-color: #f2f2f2;
+  --bs-btn-hover-color: #000;
+  --bs-btn-hover-bg: #d9d9d9;
+  --bs-btn-hover-border-color: #d9d9d9;
+  --bs-btn-active-color: #000;
+  --bs-btn-active-bg: #d9d9d9;
+  --bs-btn-active-border-color: #d9d9d9;
+  --bs-btn-disabled-color: #000;
+  --bs-btn-disabled-bg: #f2f2f2;
+  --bs-btn-disabled-border-color: #f2f2f2;
+  --bs-btn-focus-shadow-rgb: 242, 242, 242;
+}
+[data-visual-theme="figma"][data-bs-theme="dark"] .btn-outline-primary {
+  --bs-btn-color: #f2f2f2;
+  --bs-btn-border-color: #f2f2f2;
+  --bs-btn-hover-color: #000;
+  --bs-btn-hover-bg: #f2f2f2;
+  --bs-btn-hover-border-color: #f2f2f2;
+  --bs-btn-active-color: #000;
+  --bs-btn-active-bg: #f2f2f2;
+}
+
+/* Tema por defecto en claro: el azul estándar de Bootstrap (#0d6efd) da 4,3:1
+   sobre la barra superior gris; #0a58ca llega a >6:1. */
+:root:not([data-visual-theme]):not([data-bs-theme="dark"]) .btn-outline-primary {
+  --bs-btn-color: #0a58ca;
+  --bs-btn-border-color: #0a58ca;
+}
+
+/* Modo oscuro: .text-primary / .border-primary usan el color de marca tal
+   cual, que sobre fondo oscuro da contraste de 1,3 a 2,6 según el tema. Se
+   aclara igual que los botones outline. */
+[data-bs-theme="dark"] .text-primary,
+[data-bs-theme="dark"] .link-primary {
+  color: color-mix(in srgb, var(--bs-primary) 45%, white) !important;
+}
+[data-bs-theme="dark"] .border-primary {
+  border-color: color-mix(in srgb, var(--bs-primary) 45%, white) !important;
+}
+/* Figma en oscuro: el primario es casi blanco, así que lo que lleva
+   bg-primary + text-white (badges, círculos de paso) se veía blanco sobre
+   blanco; el texto pasa a negro. */
+[data-visual-theme="figma"][data-bs-theme="dark"] .bg-primary:not([class*="bg-opacity"]),
+[data-visual-theme="figma"][data-bs-theme="dark"] .bg-primary.text-white:not([class*="bg-opacity"]),
+[data-visual-theme="figma"][data-bs-theme="dark"] .badge.bg-primary:not([class*="bg-opacity"]),
+[data-visual-theme="figma"][data-bs-theme="dark"] .text-bg-primary {
+  color: #000 !important;
+}
+/* Componentes propios con texto fijo #fff sobre el primario (en Figma oscuro el
+   primario es casi blanco). */
+[data-visual-theme="figma"][data-bs-theme="dark"] .wiz-step-pill.is-active .wiz-step-num {
+  color: #000;
+}
+
+/* Componentes propios con texto fijo #fff sobre el primario, Figma oscuro. */
+[data-visual-theme="figma"][data-bs-theme="dark"] .exam-area-num {
+  color: #000;
+}
+
+/* Modo oscuro: Bootstrap 5.3 no aclara los outline de estado; el rojo, verde,
+   amarillo y celeste base dan 2,5:1 a 3,5:1 sobre fondo oscuro. */
+[data-bs-theme="dark"] .btn-outline-danger  { --bs-btn-color: #ea868f; --bs-btn-border-color: #ea868f; --bs-btn-hover-color: #000; --bs-btn-hover-bg: #ea868f; --bs-btn-hover-border-color: #ea868f; --bs-btn-active-color: #000; --bs-btn-active-bg: #ea868f; }
+[data-bs-theme="dark"] .btn-outline-success { --bs-btn-color: #75b798; --bs-btn-border-color: #75b798; --bs-btn-hover-color: #000; --bs-btn-hover-bg: #75b798; --bs-btn-hover-border-color: #75b798; --bs-btn-active-color: #000; --bs-btn-active-bg: #75b798; }
+[data-bs-theme="dark"] .btn-outline-warning { --bs-btn-color: #ffda6a; --bs-btn-border-color: #ffda6a; }
+[data-bs-theme="dark"] .btn-outline-info    { --bs-btn-color: #6edff6; --bs-btn-border-color: #6edff6; }
+
+/* Modo oscuro con tema visual: cada skin define --edu-accent-soft-* con tintes
+   CLAROS, que ganaban sobre el override oscuro de theme.css (misma
+   especificidad, skins.css carga después) y dejaban superficies casi blancas
+   (encabezados de tabla, tarjetas de onboarding). Se derivan del primario. */
+[data-visual-theme][data-bs-theme="dark"] {
+  --edu-accent-soft-bg: color-mix(in srgb, var(--bs-primary) 22%, transparent);
+  --edu-accent-soft-border: color-mix(in srgb, var(--bs-primary) 45%, transparent);
+  --edu-accent-soft-text: color-mix(in srgb, var(--bs-primary) 45%, white);
+}
+
+/* Los títulos de marca de los skins (UAI, Starbucks, Lápiz rojo) no deben
+   aplicarse dentro de superficies de color sólido (ej. card-header bg-primary
+   text-white): quedaba el título del mismo color que su fondo (contraste 1,0). */
+[data-visual-theme] :is(.bg-primary, .text-bg-primary, .bg-dark, .bg-success, .bg-danger, .bg-secondary, .bg-info, .bg-warning) :is(h1, h2, h3, h4, h5, h6) {
+  color: inherit !important;
 }
