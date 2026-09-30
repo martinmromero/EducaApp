@@ -10,9 +10,9 @@
     top: 20px;
     left: 20px;
     z-index: 2000;
-    background-color: #f8f9fa;
-    color: #495057;
-    border: 1px solid #dee2e6;
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    border: 1px solid var(--bs-border-color);
     border-radius: 6px;
     width: 41px;
     height: 41px;
@@ -30,7 +30,7 @@
 }
 
 .sidebar-toggle-external:hover {
-    background-color: #e9ecef;
+    background-color: var(--bs-secondary-bg);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -106,7 +106,7 @@ body.offcanvas-open .sidebar-toggle-external {
     display: flex;
     align-items: center;
     padding: 0 15px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--bs-border-color);
     margin-bottom: 10px;
     box-sizing: border-box;
 }
@@ -116,7 +116,7 @@ body.offcanvas-open .sidebar-toggle-external {
     align-items: center;
     width: 100%;
     text-decoration: none;
-    color: #333;
+    color: var(--bs-body-color);
     font-weight: bold;
     font-size: 1.2em;
     /* .sidebar a (regla genérica de los links del menú) le suma otro
@@ -141,28 +141,28 @@ body.offcanvas-open .sidebar-toggle-external {
     padding: 10px 15px;
     text-decoration: none;
     font-size: 18px;
-    color: #333;
+    color: var(--bs-body-color);
     display: block;
 }
 .sidebar a:hover {
-    background-color: #ddd;
+    background-color: var(--bs-border-color);
 }
 .sidebar .user-info {
     padding: 10px 15px;
     font-size: 18px;
     font-weight: bold;
-    color: #333;
-    border-bottom: 1px solid #ddd;
+    color: var(--bs-body-color);
+    border-bottom: 1px solid var(--bs-border-color);
 }
 .sidebar .bottom-links {
     margin-top: auto;
-    border-top: 1px solid #ddd;
+    border-top: 1px solid var(--bs-border-color);
     padding: 10px 0;
 }
 .sidebar .bottom-links .logout-button {
     padding: 10px 15px;
     font-size: 18px;
-    color: #333;
+    color: var(--bs-body-color);
     text-align: left;
     width: 100%;
     background: none;
@@ -170,7 +170,7 @@ body.offcanvas-open .sidebar-toggle-external {
     cursor: pointer;
 }
 .sidebar .bottom-links .logout-button:hover {
-    background-color: #ddd;
+    background-color: var(--bs-border-color);
 }
 .main-content {
     margin-left: 250px;
@@ -250,7 +250,7 @@ body.offcanvas-open .sidebar-toggle-external {
 }
 .test-panel-header {
     padding: 14px 16px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--bs-border-color);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -266,7 +266,7 @@ body.offcanvas-open .sidebar-toggle-external {
     right: 340px;
     width: 34px;
     height: 44px;
-    background-color: #0d6efd;
+    background-color: var(--bs-primary);
     color: #fff;
     border: none;
     border-radius: 8px 0 0 8px;
@@ -287,7 +287,7 @@ body.offcanvas-open .sidebar-toggle-external {
 }
 .test-panel-footer {
     padding: 12px 16px;
-    border-top: 1px solid #ddd;
+    border-top: 1px solid var(--bs-border-color);
     display: flex;
     justify-content: space-between;
     gap: 8px;
@@ -300,13 +300,13 @@ body.offcanvas-open .sidebar-toggle-external {
     border-bottom: 1px solid #badbcc;
 }
 #testPanelOverviewBtn.active {
-    background-color: #0d6efd;
+    background-color: var(--bs-primary);
     color: #fff;
 }
 .test-panel-overview {
     max-height: 260px;
     overflow-y: auto;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--bs-border-color);
     padding: 8px 0;
 }
 .test-overview-area {
@@ -314,7 +314,7 @@ body.offcanvas-open .sidebar-toggle-external {
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: .03em;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     font-weight: 600;
 }
 .test-overview-item {
@@ -505,7 +505,7 @@ body.offcanvas-open .sidebar-toggle-external {
     border-bottom-color: #145c3a;
 }
 [data-bs-theme="dark"] .test-overview-area {
-    color: #adb5bd;
+    color: var(--bs-secondary-color);
 }
 [data-bs-theme="dark"] .test-overview-item {
     color: #fff;
@@ -563,12 +563,12 @@ body.offcanvas-open .sidebar-toggle-external {
 .sidebar .menu-item {
     padding: 10px 15px;
     font-size: 18px;
-    color: #333;
+    color: var(--bs-body-color);
     display: block;
     cursor: pointer;
 }
 .sidebar .menu-item:hover {
-    background-color: #ddd;
+    background-color: var(--bs-border-color);
 }
 .sidebar .submenu {
     padding-left: 20px;
@@ -703,7 +703,7 @@ body.offcanvas-open .sidebar-toggle-external {
 .preview-logo-cell {
     width: 15%;
     text-align: center;
-    color: #999;
+    color: var(--bs-secondary-color);
 }
 .preview-year-cell {
     width: 18%;

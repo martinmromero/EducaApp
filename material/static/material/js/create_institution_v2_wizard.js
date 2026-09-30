@@ -89,11 +89,11 @@ _onDomReady(function () {
     function validateStep(n) {
         if (n === 1) {
             if (!nameInput.value.trim() || nameInput.value.trim().length < 2) {
-                nameInput.reportValidity ? nameInput.reportValidity() : alert('El nombre debe tener al menos 2 caracteres.');
+                nameInput.reportValidity ? nameInput.reportValidity() : window.EducaAppToast.show('El nombre debe tener al menos 2 caracteres.', { variant: 'warning' });
                 return false;
             }
             if (logoInput.classList.contains('is-invalid')) {
-                alert('Corregí el logo antes de continuar, o quitalo.');
+                window.EducaAppToast.show('Corregir el logo antes de continuar, o quitarlo.', { variant: 'warning' });
                 return false;
             }
         }

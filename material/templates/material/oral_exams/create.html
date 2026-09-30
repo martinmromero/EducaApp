@@ -76,7 +76,7 @@
                         <!-- Panel de información de validación -->
                         <div class="mb-3" id="validation-panel" style="display: none;">
                             <div class="alert alert-info">
-                                <h6><i class="fas fa-info-circle"></i> Información de Validación</h6>
+                                <h6><i class="bi bi-info-circle-fill"></i> Información de Validación</h6>
                                 <div id="validation-info"></div>
                             </div>
                         </div>
@@ -91,10 +91,10 @@
                                 <label class="form-label">{{ form.topics.label }}</label>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <button type="button" class="btn btn-outline-primary" id="select-all-topics">
-                                        <i class="fas fa-check-square"></i> Todo
+                                        <i class="bi bi-check-square-fill"></i> Todo
                                     </button>
                                     <button type="button" class="btn btn-outline-secondary" id="deselect-all-topics">
-                                        <i class="fas fa-square"></i> Ninguno
+                                        <i class="bi bi-square-fill"></i> Ninguno
                                     </button>
                                 </div>
                             </div>
@@ -136,10 +136,10 @@
                 
                 <div class="mt-4">
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Crear Cuestionario Oral
+                        <i class="bi bi-plus-lg"></i> Crear Cuestionario Oral
                     </button>
                     <a href="{% url 'material:list_oral_exams' %}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Volver a la lista
+                        <i class="bi bi-arrow-left"></i> Volver a la lista
                     </a>
                 </div>
             </form>
@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const submitBtn = oralExamForm.querySelector('button[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creando...';
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Creando...';
             }
         });
     }
@@ -451,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (calculationStatus && !numGroupsField.value && !studentsPerGroupField.value) {
             calculationStatus.innerHTML = `
                 <div class="alert alert-secondary mt-2">
-                    <i class="fas fa-hand-point-right"></i>
+                    <i class="bi bi-hand-index"></i>
                     Ingresá la cantidad de <strong>grupos</strong> o de <strong>estudiantes por grupo</strong>;
                     el otro valor se calcula automáticamente.
                 </div>
@@ -596,11 +596,11 @@ document.addEventListener('DOMContentLoaded', function() {
         infoDiv.innerHTML = `
             <div class="row">
                 <div class="col-md-6">
-                    <p><i class="fas fa-question-circle text-primary"></i> <strong>Preguntas disponibles:</strong> ${info.total_questions}</p>
-                    <p><i class="fas fa-list text-info"></i> <strong>Sub-tópicos disponibles:</strong> ${info.total_subtopics}</p>
+                    <p><i class="bi bi-question-circle-fill text-primary"></i> <strong>Preguntas disponibles:</strong> ${info.total_questions}</p>
+                    <p><i class="bi bi-list text-info"></i> <strong>Sub-tópicos disponibles:</strong> ${info.total_subtopics}</p>
                 </div>
                 <div class="col-md-6">
-                    <p><i class="fas fa-users text-success"></i> <strong>Máximo por grupo:</strong> ${info.max_students_per_group || 'No definido'} estudiantes</p>
+                    <p><i class="bi bi-people-fill text-success"></i> <strong>Máximo por grupo:</strong> ${info.max_students_per_group || 'No definido'} estudiantes</p>
                 </div>
             </div>
             <div id="calculation-status"></div>
@@ -621,7 +621,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="alert alert-success mt-2">
                 <div class="row">
                     <div class="col-md-8">
-                        <i class="fas fa-check-circle"></i> <strong>Configuración actual:</strong><br>
+                        <i class="bi bi-check-circle-fill"></i> <strong>Configuración actual:</strong><br>
                         ${groups} grupos × ${perGroup} estudiantes = ${calculated} espacios totales<br>
                         <small class="text-muted">
                             ${total} estudiantes asignados (${efficiencyPercentage}% de ocupación)
@@ -630,7 +630,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="col-md-4">
                         <small class="text-info">
-                            <i class="fas fa-lightbulb"></i> <strong>Ajuste dinámico:</strong><br>
+                            <i class="bi bi-lightbulb"></i> <strong>Ajuste dinámico:</strong><br>
                             • Cambia grupos → Recalcula estudiantes/grupo<br>
                             • Cambia estudiantes/grupo → Recalcula grupos
                         </small>
@@ -646,7 +646,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reemplazar completamente el contenido (no acumular)
         calculationStatus.innerHTML = `
             <div class="alert alert-danger mt-2">
-                <i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong> ${message}
+                <i class="bi bi-exclamation-triangle-fill"></i> <strong>Error:</strong> ${message}
             </div>
         `;
     }
@@ -657,7 +657,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reemplazar completamente el contenido (no acumular)
         calculationStatus.innerHTML = `
             <div class="alert alert-warning mt-2">
-                <i class="fas fa-exclamation-circle"></i> <strong>Advertencia:</strong> ${message}
+                <i class="bi bi-exclamation-circle-fill"></i> <strong>Advertencia:</strong> ${message}
             </div>
         `;
     }

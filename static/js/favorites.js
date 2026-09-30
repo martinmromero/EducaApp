@@ -26,7 +26,7 @@
 
   function renderStar(btn, isActive) {
     btn.dataset.active = isActive ? '1' : '0';
-    btn.innerHTML = isActive ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
+    btn.innerHTML = isActive ? '<i class="bi bi-star-fill"></i>' : '<i class="bi bi-star"></i>';
     btn.classList.toggle('btn-warning', isActive);
     btn.classList.toggle('btn-outline-warning', !isActive);
     btn.title = isActive ? 'Quitar de favoritos' : 'Agregar a favoritos';

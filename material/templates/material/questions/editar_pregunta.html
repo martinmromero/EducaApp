@@ -7,13 +7,13 @@
   <!-- Encabezado -->
   <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
     <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm">
-      <i class="fas fa-arrow-left me-1"></i> Volver
+      <i class="bi bi-arrow-left me-1"></i> Volver
     </a>
     <h2 class="mb-0 fs-4 fw-bold">
-      <i class="fas fa-edit me-2 text-warning"></i>Editar pregunta
+      <i class="bi bi-pencil-square me-2 text-warning"></i>Editar pregunta
     </h2>
     {% if pregunta.generated_by_ai %}
-      <span class="badge bg-info text-dark"><i class="fas fa-robot me-1"></i>Generada por IA</span>
+      <span class="badge bg-info text-dark"><i class="bi bi-robot me-1"></i>Generada por IA</span>
     {% endif %}
     {% if pregunta.question_type %}
       <span class="badge bg-secondary">{{ pregunta.get_question_type_display }}</span>
@@ -46,7 +46,7 @@
         <!-- Card: Tipo + Texto de pregunta -->
         <div class="card shadow-sm mb-4">
           <div class="card-header bg-primary text-white d-flex align-items-center gap-2">
-            <i class="fas fa-question-circle"></i>
+            <i class="bi bi-question-circle-fill"></i>
             <span class="fw-semibold">Pregunta</span>
           </div>
           <div class="card-body">
@@ -67,7 +67,7 @@
                   <img src="{{ pregunta.question_image_b64 }}" class="img-thumbnail" style="max-height:140px;display:block" alt="imagen pregunta" id="qImgPreview">
                   <button type="button" class="btn btn-sm btn-danger mt-1" id="qImgClearBtn"
                     onclick="clearImage('question_image','qImgPreviewWrap','clear_question_image')">
-                    <i class="fas fa-trash-alt me-1"></i>Eliminar imagen
+                    <i class="bi bi-trash me-1"></i>Eliminar imagen
                   </button>
                 </div>
               {% else %}
@@ -80,7 +80,7 @@
               {% if pregunta.question_image_b64 %}
               <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="qImgChangeBtn"
                 onclick="document.getElementById('qImgNewBlock').style.display='';this.style.display='none'">
-                <i class="fas fa-exchange-alt me-1"></i>Cambiar imagen
+                <i class="bi bi-arrow-left-right me-1"></i>Cambiar imagen
               </button>
               {% endif %}
             </div>
@@ -90,7 +90,7 @@
         <!-- Card: Opciones múltiples (visible solo para opcion_multiple) -->
         <div class="card shadow-sm mb-4" id="optionsCard" style="display:none">
           <div class="card-header bg-info text-white d-flex align-items-center gap-2">
-            <i class="fas fa-list-ul"></i>
+            <i class="bi bi-list-ul"></i>
             <span class="fw-semibold">Opciones</span>
             <small class="ms-auto">A, B, C, D</small>
           </div>
@@ -128,7 +128,7 @@
         <!-- Card: Respuesta -->
         <div class="card shadow-sm mb-4">
           <div class="card-header bg-success text-white d-flex align-items-center gap-2">
-            <i class="fas fa-check-circle"></i>
+            <i class="bi bi-check-circle-fill"></i>
             <span class="fw-semibold" id="answerCardTitle">Respuesta correcta</span>
           </div>
           <div class="card-body">
@@ -144,7 +144,7 @@
                   <img src="{{ pregunta.answer_image_b64 }}" class="img-thumbnail" style="max-height:140px;display:block" alt="imagen respuesta" id="aImgPreview">
                   <button type="button" class="btn btn-sm btn-danger mt-1"
                     onclick="clearImage('answer_image','aImgPreviewWrap','clear_answer_image')">
-                    <i class="fas fa-trash-alt me-1"></i>Eliminar imagen
+                    <i class="bi bi-trash me-1"></i>Eliminar imagen
                   </button>
                 </div>
               {% else %}
@@ -157,7 +157,7 @@
               {% if pregunta.answer_image_b64 %}
               <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="aImgChangeBtn"
                 onclick="document.getElementById('aImgNewBlock').style.display='';this.style.display='none'">
-                <i class="fas fa-exchange-alt me-1"></i>Cambiar imagen
+                <i class="bi bi-arrow-left-right me-1"></i>Cambiar imagen
               </button>
               {% endif %}
             </div>
@@ -172,7 +172,7 @@
         <!-- Card: Dificultad + Bloom -->
         <div class="card shadow-sm mb-4">
           <div class="card-header bg-warning text-dark d-flex align-items-center gap-2">
-            <i class="fas fa-sliders-h"></i>
+            <i class="bi bi-sliders"></i>
             <span class="fw-semibold">Clasificación</span>
           </div>
           <div class="card-body">
@@ -190,7 +190,7 @@
         <!-- Card: Materia, Tema, Subtema -->
         <div class="card shadow-sm mb-4">
           <div class="card-header d-flex align-items-center gap-2">
-            <i class="fas fa-book text-primary"></i>
+            <i class="bi bi-book text-primary"></i>
             <span class="fw-semibold">Materia y tópico</span>
           </div>
           <div class="card-body">
@@ -209,12 +209,12 @@
                 {{ form.topic }}
                 <span id="topicSpinner" class="spinner-border spinner-border-sm text-secondary ms-1" style="display:none!important" role="status"></span>
                 <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" id="addTopicBtn" title="Crear nuevo tópico">
-                  <i class="fas fa-plus"></i>
+                  <i class="bi bi-plus-lg"></i>
                 </button>
               </div>
               <div class="input-group input-group-sm mt-2" id="newTopicContainer" style="display:none">
                 <input type="text" class="form-control" id="new_topic" placeholder="Nombre del nuevo tópico">
-                <button type="button" class="btn btn-success" id="saveNewTopic">Guardar</button>
+                <button type="button" class="btn btn-primary" id="saveNewTopic">Guardar</button>
                 <button type="button" class="btn btn-secondary" id="cancelNewTopic">Cancelar</button>
               </div>
               {% if form.topic.errors %}
@@ -227,12 +227,12 @@
               <div class="d-flex gap-1 align-items-center">
                 {{ form.subtopic }}
                 <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" id="addSubtopicBtn" title="Crear nuevo sub-tópico">
-                  <i class="fas fa-plus"></i>
+                  <i class="bi bi-plus-lg"></i>
                 </button>
               </div>
               <div class="input-group input-group-sm mt-2" id="newSubtopicContainer" style="display:none">
                 <input type="text" class="form-control" id="new_subtopic" placeholder="Nombre del nuevo sub-tópico">
-                <button type="button" class="btn btn-success" id="saveNewSubtopic">Guardar</button>
+                <button type="button" class="btn btn-primary" id="saveNewSubtopic">Guardar</button>
                 <button type="button" class="btn btn-secondary" id="cancelNewSubtopic">Cancelar</button>
               </div>
             </div>
@@ -243,7 +243,7 @@
         <!-- Card: Fuente -->
         <div class="card shadow-sm mb-4">
           <div class="card-header d-flex align-items-center gap-2">
-            <i class="fas fa-file-alt text-secondary"></i>
+            <i class="bi bi-file-earmark-text text-secondary"></i>
             <span class="fw-semibold">Fuente del documento</span>
           </div>
           <div class="card-body">
@@ -262,7 +262,7 @@
         <!-- Botones de acción -->
         <div class="d-grid gap-2">
           <button type="submit" class="btn btn-primary btn-lg">
-            <i class="fas fa-save me-2"></i>Guardar cambios
+            <i class="bi bi-save me-2"></i>Guardar cambios
           </button>
           <a href="{{ back_url }}" class="btn btn-outline-secondary">
             Cancelar

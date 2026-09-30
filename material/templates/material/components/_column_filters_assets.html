@@ -17,16 +17,16 @@ Convenciones que debe respetar la página que lo incluye:
     .column-filter-toggle {
         border: none;
         background: transparent;
-        color: #6c757d;
+        color: var(--bs-secondary-color);
         padding: .1rem .35rem;
         line-height: 1;
     }
     .column-filter-toggle:hover,
     .column-filter-toggle:focus {
-        color: #0d6efd;
+        color: var(--edu-primary-text);
     }
     .column-filter-toggle.active {
-        color: #0d6efd;
+        color: var(--edu-primary-text);
     }
     .column-filter-menu {
         min-width: 220px;
@@ -267,8 +267,8 @@ Convenciones que debe respetar la página que lo incluye:
         const visible = table.classList.toggle('filters-visible');
         btn.classList.toggle('active', visible);
         btn.innerHTML = visible
-            ? '<i class="fas fa-filter"></i> Ocultar filtros'
-            : '<i class="fas fa-filter"></i> Filtros';
+            ? '<i class="bi bi-funnel"></i> Ocultar filtros'
+            : '<i class="bi bi-funnel"></i> Filtros';
     }
 
     // La tabla vive dentro de .table-responsive (overflow-x:auto para el scroll

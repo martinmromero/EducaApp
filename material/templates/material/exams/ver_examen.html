@@ -14,7 +14,7 @@
     style="width:100%;display:flex;justify-content:space-between;align-items:center;
            background:none;border:none;cursor:pointer;padding:0;margin:0">
     <span class="bloom-sidebar-title" style="margin:0">Distribución Cognitiva &middot; Bloom</span>
-    <span id="bloomToggleIcon" style="font-size:1.1rem;color:#9b59b6">&#9660;</span>
+    <span id="bloomToggleIcon" style="font-size:1.1rem;color:var(--edu-bloom-crear-text,#7d3c98)">&#9660;</span>
   </button>
 
   <div id="bloomContent" style="display:none;margin-top:12px">
@@ -39,7 +39,7 @@
     <div style="margin-top:14px;text-align:center">
       <a href="{% url 'material:bloom_taxonomy' %}?popup=1"
          onclick="window.open(this.href,'_bloom_ref','width=880,height=720,scrollbars=yes,resizable=yes');return false;"
-         style="font-size:0.8rem;color:#9b59b6;text-decoration:underline">
+         style="font-size:0.8rem;color:var(--edu-bloom-crear-text,#7d3c98);text-decoration:underline">
         &#128214; Ver pirámide completa con definiciones y verbos
       </a>
     </div>
@@ -74,19 +74,19 @@ function toggleBloom() {
     </a>
     <a href="{{ back_url }}">
         <button class="secondary">
-            <i class="fas fa-arrow-left"></i> Volver
+            <i class="bi bi-arrow-left"></i> Volver
         </button>
     </a>
 </div>
 
 <div class="option-panels-row">
 <div class="option-panel option-panel-view">
-    <h4 class="option-panel-title"><i class="fas fa-desktop"></i> Ver en pantalla</h4>
+    <h4 class="option-panel-title"><i class="bi bi-display"></i> Ver en pantalla</h4>
     <div class="view-toggles">
         <label class="view-toggle">
             <input type="checkbox" id="viewShowAnswers" onchange="onViewToggleChange()">
             <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            <span class="toggle-label"><i class="fas fa-eye"></i> Mostrar respuestas</span>
+            <span class="toggle-label"><i class="bi bi-eye"></i> Mostrar respuestas</span>
         </label>
         {% if has_rubrics %}
         <label class="view-toggle">
@@ -99,7 +99,7 @@ function toggleBloom() {
 </div>
 
 <div class="option-panel option-panel-export">
-    <h4 class="option-panel-title"><i class="fas fa-file-export"></i> Imprimir / Descargar</h4>
+    <h4 class="option-panel-title"><i class="bi bi-file-earmark-arrow-down"></i> Imprimir / Descargar</h4>
     <div class="export-checkboxes">
         <label>
             <input type="checkbox" id="exportIncludeAnswers"> Incluir respuestas
@@ -112,13 +112,13 @@ function toggleBloom() {
     </div>
     <div class="action-buttons-row">
         <button onclick="doPrint()" class="btn-accent-green">
-            <i class="fas fa-print"></i> Imprimir
+            <i class="bi bi-printer"></i> Imprimir
         </button>
         <button onclick="doDownload('pdf')" class="btn-accent-red">
-            <i class="fas fa-file-pdf"></i> Descargar PDF
+            <i class="bi bi-file-earmark-pdf"></i> Descargar PDF
         </button>
         <button onclick="doDownload('docx')" class="btn-accent-indigo">
-            <i class="fas fa-file-word"></i> Descargar DOCX
+            <i class="bi bi-file-earmark-word"></i> Descargar DOCX
         </button>
     </div>
 </div>

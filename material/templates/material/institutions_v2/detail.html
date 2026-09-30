@@ -24,7 +24,7 @@
                 <a href="{% url 'material:toggle_favorite_institution' institution.pk %}?next={{ request.get_full_path|urlencode }}"
                    class="btn {% if is_favorite %}btn-warning{% else %}btn-outline-warning{% endif %} institution-favorite-star"
                    title="{% if is_favorite %}Quitar de favoritos{% else %}Agregar a favoritos{% endif %}">
-                    <i class="{% if is_favorite %}fas{% else %}far{% endif %} fa-star me-1"></i>Favorito
+                    <i class="{% if is_favorite %}bi bi-star-fill{% else %}bi bi-star{% endif %} me-1"></i>Favorito
                 </a>
                 {% if is_admin %}
                 <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-outline-primary">

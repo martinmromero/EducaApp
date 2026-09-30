@@ -94,7 +94,7 @@
     style="width:100%;display:flex;justify-content:space-between;align-items:center;
            background:none;border:none;cursor:pointer;padding:0;margin:0">
     <span class="bloom-sidebar-title" style="margin:0">Distribución Cognitiva &middot; Bloom</span>
-    <span id="bloomToggleIcon" style="font-size:1.1rem;color:#9b59b6">&#9660;</span>
+    <span id="bloomToggleIcon" style="font-size:1.1rem;color:var(--edu-bloom-crear-text,#7d3c98)">&#9660;</span>
   </button>
 
   <!-- Contenido colapsable -->
@@ -123,7 +123,7 @@
     <div style="margin-top:14px;text-align:center">
       <a href="{% url 'material:bloom_taxonomy' %}?popup=1"
          onclick="window.open(this.href,'_bloom_ref','width=880,height=720,scrollbars=yes,resizable=yes');return false;"
-         style="font-size:0.8rem;color:#9b59b6;text-decoration:underline">
+         style="font-size:0.8rem;color:var(--edu-bloom-crear-text,#7d3c98);text-decoration:underline">
         &#128214; Ver pirámide completa con definiciones y verbos
       </a>
     </div>
@@ -151,35 +151,35 @@ function toggleBloom() {
 
 {% block action_buttons %}
 <button onclick="window.print()" id="examPrintBtn">
-    <i class="fas fa-print"></i> Imprimir examen
+    <i class="bi bi-printer"></i> Imprimir examen
 </button>
 <button onclick="toggleAnswers()" id="toggleAnswersBtn" style="background:#6c757d;">
-    <i class="fas fa-eye"></i> Mostrar respuestas
+    <i class="bi bi-eye"></i> Mostrar respuestas
 </button>
 <button onclick="printWithAnswers()" style="background:#17a2b8;">
-    <i class="fas fa-print"></i> Imprimir con respuestas
+    <i class="bi bi-printer"></i> Imprimir con respuestas
 </button>
 {% if is_demo %}
 <button style="background:#28a745;" onclick="simulateSaveExam(this)" id="examSaveBtn">
-    <i class="fas fa-save"></i> Guardar Examen
+    <i class="bi bi-save"></i> Guardar Examen
 </button>
 <a href="{% url 'material:onboarding_v2_demo_recap' %}" class="secondary">
-    <i class="fas fa-arrow-left"></i> Volver
+    <i class="bi bi-arrow-left"></i> Volver
 </a>
 {% else %}
 <button style="background:#28a745;" onclick="saveExamAndShowModal(this)" id="examSaveBtn">
-    <i class="fas fa-save"></i> Guardar Examen
+    <i class="bi bi-save"></i> Guardar Examen
 </button>
 {% if is_editing_exam %}
 <button style="background:#0d6efd;" onclick="openSaveAsNewModal()" id="saveAsNewBtn">
-    <i class="fas fa-copy"></i> Guardar como nuevo examen
+    <i class="bi bi-files"></i> Guardar como nuevo examen
 </button>
 {% endif %}
 <button onclick="history.back()" class="secondary">
-  <i class="fas fa-edit"></i> Editar
+  <i class="bi bi-pencil-square"></i> Editar
 </button>
 <button onclick="history.back()" class="secondary">
-    <i class="fas fa-arrow-left"></i> Volver
+    <i class="bi bi-arrow-left"></i> Volver
 </button>
 {% endif %}
 {% endblock %}

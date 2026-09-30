@@ -122,18 +122,18 @@ window.EducaAppLoadTemplateDependents = loadDependents;
             // Modo "Nuevo" - Mostrar campo de entrada
             if (inputField.style.display === 'none' || inputField.style.display === '') {
                 inputField.style.display = 'block';
-                this.innerHTML = '<i class="fas fa-save"></i> Guardar';
+                this.innerHTML = '<i class="bi bi-save"></i> Guardar';
                 this.classList.replace('btn-outline-secondary', 'btn-success');
                 
                 // Crear botón de cancelar si no existe
                 if (!cancelBtn) {
                     const newCancelBtn = document.createElement('button');
                     newCancelBtn.className = 'btn btn-sm btn-danger dynamic-cancel-btn ml-2';
-                    newCancelBtn.innerHTML = '<i class="fas fa-times"></i> Cancelar';
+                    newCancelBtn.innerHTML = '<i class="bi bi-x-lg"></i> Cancelar';
                     newCancelBtn.onclick = () => {
                         inputField.value = '';
                         inputField.style.display = 'none';
-                        this.innerHTML = '<i class="fas fa-plus"></i> Nuevo';
+                        this.innerHTML = '<i class="bi bi-plus-lg"></i> Nuevo';
                         this.classList.replace('btn-success', 'btn-outline-secondary');
                         if (selectField) selectField.disabled = false;
                         newCancelBtn.remove();
@@ -189,7 +189,7 @@ window.EducaAppLoadTemplateDependents = loadDependents;
                 // Resetear campos
                 inputField.value = '';
                 inputField.style.display = 'none';
-                this.innerHTML = '<i class="fas fa-plus"></i> Nuevo';
+                this.innerHTML = '<i class="bi bi-plus-lg"></i> Nuevo';
                 this.classList.replace('btn-success', 'btn-outline-secondary');
                 
                 // Eliminar botón cancelar
@@ -322,7 +322,7 @@ function setupLearningOutcomesChecklist() {
                 // Mostrar indicador de carga
                 learningOutcomesContainer.innerHTML = `
                     <div class="text-center py-3">
-                        <i class="fas fa-spinner fa-spin"></i> Cargando resultados...
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Cargando resultados...
                     </div>`;
 
                 fetch(`/get-learning-outcomes/?subject_id=${subjectId}`)
@@ -373,7 +373,7 @@ function setupLearningOutcomesChecklist() {
                         } else {
                             learningOutcomesContainer.innerHTML = `
                                 <div class="alert alert-info">
-                                    <i class="fas fa-info-circle"></i> 
+                                    <i class="bi bi-info-circle-fill"></i> 
                                     No se encontraron resultados de aprendizaje definidos para esta materia.
                                 </div>`;
                         }
@@ -382,14 +382,14 @@ function setupLearningOutcomesChecklist() {
                         console.error('Error al cargar learning outcomes:', error);
                         learningOutcomesContainer.innerHTML = `
                             <div class="alert alert-danger">
-                                <i class="fas fa-exclamation-triangle"></i> 
+                                <i class="bi bi-exclamation-triangle-fill"></i> 
                                 Error al cargar los resultados: ${error.message}
                             </div>`;
                     });
             } else {
                 learningOutcomesContainer.innerHTML = `
                     <p class="text-muted">
-                        <i class="fas fa-info-circle"></i> 
+                        <i class="bi bi-info-circle-fill"></i> 
                         Seleccione una materia para ver los resultados de aprendizaje
                     </p>`;
                 hiddenInput.value = '';
@@ -418,7 +418,7 @@ function previewExamTemplate() {
         !form.elements['faculty'].value ||
         !form.elements['career'].value ||
         !form.elements['subject'].value) {
-        alert('Complete los campos requeridos');
+        window.EducaAppToast.show('Complete los campos requeridos', { variant: 'warning' });
         return;
     }
 
@@ -458,7 +458,7 @@ function previewExamTemplate() {
     const windowName = 'examTemplatePreview_' + Date.now();
     const previewWindow = window.open('', windowName);
     if (!previewWindow) {
-        alert('El navegador bloqueó la ventana de previsualización. Habilitá las ventanas emergentes para este sitio e intentá de nuevo.');
+        window.EducaAppToast.show('El navegador bloqueó la ventana de previsualización. Habilitar las ventanas emergentes para este sitio e intentar de nuevo.', { variant: 'warning' });
         return;
     }
 
@@ -483,7 +483,7 @@ function previewExamTemplate() {
     // no hay una promesa que esperar como con fetch).
     const btn = document.querySelector('button[onclick="previewExamTemplate()"]');
     const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-check"></i> Abierto en pestaña nueva';
+    btn.innerHTML = '<i class="bi bi-check-lg"></i> Abierto en pestaña nueva';
     btn.disabled = true;
     setTimeout(() => {
         btn.innerHTML = originalText;
@@ -548,7 +548,7 @@ function setupSaveTemplate() {
 
         // Estado de carga
         const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Guardando...';
         btn.disabled = true;
         if (saveAsCopyBtn) saveAsCopyBtn.disabled = true;
         saveBtn.disabled = true;

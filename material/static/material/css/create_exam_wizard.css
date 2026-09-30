@@ -35,7 +35,7 @@
    onb2-from-wizard en _onb2_banner.html), reutilizado acá para "vino de la
    plantilla". */
 .wiz-from-template {
-    border-color: #198754 !important;
+    border-color: var(--bs-success) !important;
     background-color: var(--bs-success-bg-subtle) !important;
     box-shadow: 0 0 0 .15rem rgba(25, 135, 84, .15);
 }

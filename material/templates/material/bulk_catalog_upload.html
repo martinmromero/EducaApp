@@ -118,7 +118,7 @@
                 <input type="hidden" name="confirmar" value="1">
                 <input type="hidden" name="institucion_id" value="{{ preview.institucion.pk }}">
                 <textarea name="csv_text" hidden>{{ preview.csv_text }}</textarea>
-                <button type="submit" class="btn btn-success" {% if not preview.filas_ok %}disabled{% endif %}>
+                <button type="submit" class="btn btn-primary" {% if not preview.filas_ok %}disabled{% endif %}>
                     <i class="bi bi-check-lg me-1"></i>Confirmar y guardar
                 </button>
             </form>

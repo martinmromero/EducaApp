@@ -10,7 +10,7 @@
                 <i class="bi bi-arrow-left me-1"></i>Mis grupos
             </a>
             <form method="post" action="{% url 'material:grupo_salir' group.id %}"
-                  onsubmit="return confirm('¿Salir de este grupo? Lo que compartís ahí dejará de estar visible para el resto.');">
+                  onsubmit="return eduConfirmSubmit(event, '¿Salir de este grupo? Lo que se comparte ahí dejará de estar visible para el resto.', { title: 'Salir del grupo', variant: 'danger', okLabel: 'Salir' });">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-outline-danger btn-sm">
                     <i class="bi bi-box-arrow-left me-1"></i>Salir del grupo
@@ -41,7 +41,7 @@
                             {% endif %}
                             {% if group.created_by_id == request.user.id and m.user_id != request.user.id %}
                             <form method="post" action="{% url 'material:grupo_remover_miembro' group.id m.user_id %}"
-                                  onsubmit="return confirm('¿Remover a {{ m.user.username }} del grupo?');">
+                                  onsubmit="return eduConfirmSubmit(event, '¿Remover a {{ m.user.username|escapejs }} del grupo?', { title: 'Remover del grupo', variant: 'danger', okLabel: 'Remover' });">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Remover del grupo">
                                     <i class="bi bi-person-x"></i>

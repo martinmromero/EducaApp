@@ -25,7 +25,7 @@ _onDomReady(function () {
         if (n === 2) {
             var subject = document.getElementById('id_subject');
             if (subject && !subject.value) {
-                subject.reportValidity ? subject.reportValidity() : alert('Falta seleccionar una materia para continuar.');
+                subject.reportValidity ? subject.reportValidity() : window.EducaAppToast.show('Falta seleccionar una materia para continuar.', { variant: 'warning' });
                 return false;
             }
         }
@@ -39,7 +39,7 @@ _onDomReady(function () {
             var hayTopicos = document.querySelectorAll('#wizTopicsList input[type="checkbox"]:checked').length > 0;
             var hayPreguntas = document.querySelectorAll('#wizQuestionsGroups input[type="checkbox"]:checked').length > 0;
             if (!hayTopicos && !hayPreguntas) {
-                alert('Elegí al menos un tópico o una pregunta puntual para continuar.');
+                window.EducaAppToast.show('Elegir al menos un tópico o una pregunta puntual para continuar.', { variant: 'warning' });
                 return false;
             }
         }

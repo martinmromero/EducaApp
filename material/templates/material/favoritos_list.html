@@ -63,32 +63,32 @@
                             <td data-label="Acciones">
                                 <div class="btn-group" role="group">
                                 {% if item.kind == 'institucion' %}
-                                    <a href="{% url 'material:toggle_favorite_institution' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-warning" title="Quitar de favoritos"><i class="fas fa-star"></i></a>
+                                    <a href="{% url 'material:toggle_favorite_institution' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-warning" title="Quitar de favoritos"><i class="bi bi-star-fill"></i></a>
                                 {% else %}
                                     <button type="button" class="btn btn-sm btn-warning favorite-star"
                                             data-model="{{ item.kind }}" data-id="{{ item.object.pk }}"
                                             data-active="1" title="Quitar de favoritos"></button>
                                 {% endif %}
                                 {% if item.kind == 'exam' %}
-                                    <a href="{% url 'material:ver_examen' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver examen"><i class="fas fa-eye"></i></a>
-                                    <a href="{% url 'material:editar_examen' item.object.pk %}" class="btn btn-sm btn-success" title="Editar examen"><i class="fas fa-edit"></i></a>
-                                    <button type="submit" form="deleteFav_exam_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar examen"><i class="fas fa-trash"></i></button>
+                                    <a href="{% url 'material:ver_examen' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver examen"><i class="bi bi-eye"></i></a>
+                                    <a href="{% url 'material:editar_examen' item.object.pk %}" class="btn btn-sm btn-success" title="Editar examen"><i class="bi bi-pencil-square"></i></a>
+                                    <button type="submit" form="deleteFav_exam_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar examen"><i class="bi bi-trash"></i></button>
                                 {% elif item.kind == 'examtemplate' %}
-                                    <a href="{% url 'material:view_exam_template' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver plantilla"><i class="fas fa-eye"></i></a>
-                                    <a href="{% url 'material:edit_exam_template' item.object.pk %}" class="btn btn-sm btn-success" title="Editar plantilla"><i class="fas fa-edit"></i></a>
-                                    <button type="submit" form="deleteFav_examtemplate_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar plantilla"><i class="fas fa-trash"></i></button>
+                                    <a href="{% url 'material:view_exam_template' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver plantilla"><i class="bi bi-eye"></i></a>
+                                    <a href="{% url 'material:edit_exam_template' item.object.pk %}" class="btn btn-sm btn-success" title="Editar plantilla"><i class="bi bi-pencil-square"></i></a>
+                                    <button type="submit" form="deleteFav_examtemplate_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar plantilla"><i class="bi bi-trash"></i></button>
                                 {% elif item.kind == 'subject' %}
-                                    <a href="{% url 'material:subject_detail' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver materia"><i class="fas fa-eye"></i></a>
-                                    <a href="{% url 'material:edit_subject' pk=item.object.pk %}" class="btn btn-sm btn-success" title="Editar materia"><i class="fas fa-edit"></i></a>
-                                    <a href="{% url 'material:delete_subject' pk=item.object.pk %}" class="btn btn-sm btn-danger" title="Eliminar materia"><i class="fas fa-trash"></i></a>
+                                    <a href="{% url 'material:subject_detail' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver materia"><i class="bi bi-eye"></i></a>
+                                    <a href="{% url 'material:edit_subject' pk=item.object.pk %}" class="btn btn-sm btn-success" title="Editar materia"><i class="bi bi-pencil-square"></i></a>
+                                    <a href="{% url 'material:delete_subject' pk=item.object.pk %}" class="btn btn-sm btn-danger" title="Eliminar materia"><i class="bi bi-trash"></i></a>
                                 {% elif item.kind == 'batch' %}
-                                    <a href="{% url 'material:view_exam_batch' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver lote"><i class="fas fa-eye"></i></a>
-                                    <button type="submit" form="deleteFav_batch_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar lote"><i class="fas fa-trash"></i></button>
+                                    <a href="{% url 'material:view_exam_batch' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver lote"><i class="bi bi-eye"></i></a>
+                                    <button type="submit" form="deleteFav_batch_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar lote"><i class="bi bi-trash"></i></button>
                                 {% elif item.kind == 'oral' %}
-                                    <a href="{% url 'material:view_oral_exam' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver cuestionario"><i class="fas fa-eye"></i></a>
-                                    <button type="submit" form="deleteFav_oral_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar cuestionario"><i class="fas fa-trash"></i></button>
+                                    <a href="{% url 'material:view_oral_exam' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver cuestionario"><i class="bi bi-eye"></i></a>
+                                    <button type="submit" form="deleteFav_oral_{{ item.object.pk }}" class="btn btn-sm btn-danger" title="Eliminar cuestionario"><i class="bi bi-trash"></i></button>
                                 {% elif item.kind == 'institucion' %}
-                                    <a href="{% url 'material:institution_v2_detail' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver institución"><i class="fas fa-eye"></i></a>
+                                    <a href="{% url 'material:institution_v2_detail' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-info" title="Ver institución"><i class="bi bi-eye"></i></a>
                                 {% endif %}
                                 </div>
                             </td>
@@ -130,7 +130,7 @@
             {% endfor %}
             {% else %}
             <div class="text-center py-5">
-                <i class="fas fa-star fa-3x text-muted mb-3"></i>
+                <i class="bi bi-star-fill fs-1 text-muted mb-3"></i>
                 <h5>Todavía no hay favoritos marcados</h5>
                 <p class="text-muted">Tocar la estrella en Exámenes, Plantillas, Materias o Lotes para verlos aquí.</p>
             </div>

@@ -13,20 +13,21 @@
                 {% elif message.level_tag == 'warning' %}alert-warning
                 {% elif message.level_tag == 'info' %}alert-info
                 {% else %}alert-success{% endif %}
-                alert-dismissible fade show" role="alert">
+                alert-dismissible fade show"
+                role="{% if message.level_tag == 'error' or message.level_tag == 'danger' or message.level_tag == 'warning' %}alert{% else %}status{% endif %}">
                 <strong>
                     {% if message.level_tag == 'error' or message.level_tag == 'danger' %}
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>
                     {% elif message.level_tag == 'warning' %}
-                        <i class="bi bi-exclamation-circle-fill me-2"></i>
+                        <i class="bi bi-exclamation-circle-fill me-2" aria-hidden="true"></i>
                     {% elif message.level_tag == 'info' %}
-                        <i class="bi bi-info-circle-fill me-2"></i>
+                        <i class="bi bi-info-circle-fill me-2" aria-hidden="true"></i>
                     {% else %}
-                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <i class="bi bi-check-circle-fill me-2" aria-hidden="true"></i>
                     {% endif %}
                 </strong>
                 {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
             </div>
         {% endfor %}
     </div>

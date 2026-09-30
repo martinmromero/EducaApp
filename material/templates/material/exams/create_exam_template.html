@@ -3,7 +3,6 @@
 {% block body_extra_attrs %}data-tour-page="exam_template"{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 <link rel="stylesheet" href="{% static 'material/css/create_exam_template.css' %}">
 <script src="{% static 'js/page_tours/exam_template_tour.js' %}"></script>
 
@@ -58,7 +57,7 @@
                         {{ form.institution }}
                         <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn"
                                 data-target="institution" data-field="id_institution">
-                            <i class="fas fa-plus"></i> Nuevo
+                            <i class="bi bi-plus-lg"></i> Nuevo
                         </button>
                     </div>
                     <input type="text" class="form-control dynamic-input" id="new_institution" placeholder="Nombre de la Institución">
@@ -74,7 +73,7 @@
                         {{ form.faculty }}
                         <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn"
                                 data-target="faculty" data-field="id_faculty" data-parent="id_institution">
-                            <i class="fas fa-plus"></i> Nuevo
+                            <i class="bi bi-plus-lg"></i> Nuevo
                         </button>
                     </div>
                     <input type="text" class="form-control dynamic-input" id="new_faculty" placeholder="Nombre de la Facultad">
@@ -94,7 +93,7 @@
                         {{ form.career }}
                         <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn"
                                 data-target="career" data-field="id_career">
-                            <i class="fas fa-plus"></i> Nuevo
+                            <i class="bi bi-plus-lg"></i> Nuevo
                         </button>
                     </div>
                     <input type="text" class="form-control dynamic-input" id="new_career" placeholder="Nombre de la Carrera">
@@ -110,7 +109,7 @@
                         {{ form.subject }}
                         <button type="button" class="btn btn-sm btn-outline-secondary dynamic-add-btn"
                                 data-target="subject" data-field="id_subject">
-                            <i class="fas fa-plus"></i> Nuevo
+                            <i class="bi bi-plus-lg"></i> Nuevo
                         </button>
                     </div>
                     <input type="text" class="form-control dynamic-input" id="new_subject" placeholder="Nombre de la Materia">
@@ -160,7 +159,7 @@
                         {{ form.print_format }}
                         <a href="{% url 'material:formato_impresion_create' %}" target="_blank" rel="noopener"
                            class="btn btn-sm btn-outline-secondary" title="Crear un formato de impresión nuevo en otra pestaña">
-                            <i class="fas fa-plus"></i> Nuevo
+                            <i class="bi bi-plus-lg"></i> Nuevo
                         </a>
                     </div>
                     <small class="form-text text-muted">Si no se elige uno, se usa el formato predeterminado de la institución o de la cuenta.</small>
@@ -192,14 +191,14 @@
                                 </div>
                             {% empty %}
                                 <p class="text-muted">
-                                    <i class="fas fa-info-circle"></i> 
+                                    <i class="bi bi-info-circle-fill"></i> 
                                     No hay resultados de aprendizaje definidos para esta materia
                                 </p>
                             {% endfor %}
                         </div>
                     {% else %}
                         <p class="text-muted">
-                            <i class="fas fa-info-circle"></i> 
+                            <i class="bi bi-info-circle-fill"></i> 
                             Seleccione una materia para cargar los resultados
                         </p>
                     {% endif %}
@@ -229,7 +228,7 @@
                         </div>
                     {% else %}
                         <p class="text-muted">
-                            <i class="fas fa-info-circle"></i>
+                            <i class="bi bi-info-circle-fill"></i>
                             Todavía no creaste ninguna rúbrica. <a href="{% url 'material:rubric_create' %}" target="_blank" rel="noopener">Crear una</a>
                         </p>
                     {% endif %}
@@ -246,16 +245,16 @@
 
     <div class="form-actions">
         <button type="button" id="save-template-btn" class="btn btn-primary" data-save-mode="{% if edit_mode %}update{% else %}copy{% endif %}">
-            <i class="fas fa-save"></i>
+            <i class="bi bi-save"></i>
             {% if edit_mode %}Guardar{% else %}Guardar Plantilla{% endif %}
         </button>
         {% if edit_mode %}
         <button type="button" id="save-as-copy-btn" class="btn btn-outline-primary" data-save-mode="copy">
-            <i class="fas fa-copy"></i> Guardar como copia
+            <i class="bi bi-files"></i> Guardar como copia
         </button>
         {% endif %}
         <button type="button" onclick="previewExamTemplate()" class="btn btn-secondary">
-            <i class="fas fa-eye"></i> Previsualizar
+            <i class="bi bi-eye"></i> Previsualizar
         </button>
     </div>
 </form>
@@ -281,7 +280,7 @@
     max-height: 200px;
     overflow-y: auto;
     padding: 10px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--bs-border-color);
     border-radius: 5px;
 }
 </style>

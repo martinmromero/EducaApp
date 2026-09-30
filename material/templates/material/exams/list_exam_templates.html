@@ -32,18 +32,18 @@
                 <div class="d-flex align-items-center gap-2" id="listControlDefault">
                     <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" title="Filtros"
                             data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
-                        <i class="fas fa-filter{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
+                        <i class="bi bi-funnel{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
                     </button>
                     <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if favorites_toggle_querystring %}&{{ favorites_toggle_querystring }}{% endif %}"
                        class="btn btn-sm list-toolbar-btn {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
                        title="Mostrar solo favoritas" id="templateFavoritosBtn">
-                        <i class="fas fa-star"></i> <span class="d-none d-sm-inline">Favoritas</span>
+                        <i class="bi bi-star-fill"></i> <span class="d-none d-sm-inline">Favoritas</span>
                     </a>
                 </div>
                 <div class="d-none align-items-center gap-2" id="listSelectionBar">
                     <span class="fw-semibold" id="listSelectionCount"></span>
                     <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete()">
-                        <i class="fas fa-trash-alt"></i> Eliminar
+                        <i class="bi bi-trash"></i> Eliminar
                     </button>
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="listSelectionCancelBtn">Cancelar</button>
                 </div>
@@ -92,19 +92,19 @@
                                                 title="Marcar la plantilla como favorita"></button>
                                         <a href="{% url 'material:view_exam_template' template.id %}"
                                            class="btn btn-sm btn-info" title="Ver plantilla" target="_blank">
-                                            <i class="fas fa-eye"></i>
+                                            <i class="bi bi-eye"></i>
                                         </a>
                                         <a href="{% url 'material:edit_exam_template' template.id %}"
                                            class="btn btn-sm btn-success" title="Editar plantilla">
-                                            <i class="fas fa-edit"></i>
+                                            <i class="bi bi-pencil-square"></i>
                                         </a>
                                         <a href="{% url 'material:create_exam' %}?plantilla_id={{ template.id }}"
                                            class="btn btn-sm btn-primary" title="Crear examen con esta plantilla">
-                                            <i class="fas fa-plus"></i>
+                                            <i class="bi bi-plus-lg"></i>
                                         </a>
                                         <button type="submit" form="deleteRowForm_{{ template.id }}"
                                                 class="btn btn-sm btn-danger" title="Eliminar plantilla">
-                                            <i class="fas fa-trash"></i>
+                                            <i class="bi bi-trash"></i>
                                         </button>
                                     </div>
                                 </td>

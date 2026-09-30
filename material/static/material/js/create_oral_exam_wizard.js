@@ -209,11 +209,11 @@ _onDomReady(function () {
     function validateStep(n) {
         if (n === 1) {
             if (!subjectSelect.value) {
-                subjectSelect.reportValidity ? subjectSelect.reportValidity() : alert('Falta seleccionar una materia.');
+                subjectSelect.reportValidity ? subjectSelect.reportValidity() : window.EducaAppToast.show('Falta seleccionar una materia.', { variant: 'warning' });
                 return false;
             }
             if (!getSelectedTopicIds().length) {
-                alert('Elegí al menos un tópico para continuar.');
+                window.EducaAppToast.show('Elegir al menos un tópico para continuar.', { variant: 'warning' });
                 return false;
             }
         }
@@ -222,11 +222,11 @@ _onDomReady(function () {
             var numGroups = parseInt(numGroupsInput.value, 10) || 0;
             var questionsPerStudent = parseInt(questionsPerStudentInput.value, 10) || 0;
             if (!totalStudents || !numGroups || !questionsPerStudent) {
-                alert('Completá alumnos, grupos y preguntas por alumno para continuar.');
+                window.EducaAppToast.show('Completar alumnos, grupos y preguntas por alumno para continuar.', { variant: 'warning' });
                 return false;
             }
             if (numGroups > totalStudents) {
-                alert('No puede haber más grupos que alumnos.');
+                window.EducaAppToast.show('No puede haber más grupos que alumnos.', { variant: 'warning' });
                 return false;
             }
         }

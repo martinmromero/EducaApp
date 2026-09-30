@@ -111,7 +111,7 @@ _onDomReady(function () {
         saveBtn.addEventListener('click', function () {
             var name = input.value.trim();
             if (!name) { input.focus(); return; }
-            if (!institutionSelect.value) { alert('Elegí una institución primero.'); return; }
+            if (!institutionSelect.value) { window.EducaAppToast.show('Elegir una institución primero.', { variant: 'warning' }); return; }
             saveBtn.disabled = true;
             fetch(CFG.urls.createRelatedElement, {
                 method: 'POST',
@@ -135,7 +135,7 @@ _onDomReady(function () {
                     input.value = '';
                     row.classList.add('d-none');
                 })
-                .catch(function (err) { alert(err.message); })
+                .catch(function (err) { window.EducaAppToast.show(err.message, { variant: 'danger' }); })
                 .finally(function () { saveBtn.disabled = false; });
         });
     })();
@@ -278,14 +278,14 @@ _onDomReady(function () {
     function validateStep(n) {
         if (n === 1) {
             if (!institutionSelect.value || !facultySelect.value || !careerSelect.value) {
-                alert('Elegí institución, facultad y carrera para continuar.');
+                window.EducaAppToast.show('Elegir institución, facultad y carrera para continuar.', { variant: 'warning' });
                 return false;
             }
             reorderSubjectsByCareer(careerSelect.value);
         }
         if (n === 2) {
             if (!subjectSelect.value) {
-                subjectSelect.reportValidity ? subjectSelect.reportValidity() : alert('Falta seleccionar una materia.');
+                subjectSelect.reportValidity ? subjectSelect.reportValidity() : window.EducaAppToast.show('Falta seleccionar una materia.', { variant: 'warning' });
                 return false;
             }
         }
@@ -380,7 +380,7 @@ _onDomReady(function () {
                 window.location.href = CFG.urls.listExamTemplates;
             })
             .catch(function (err) {
-                alert(err.message);
+                window.EducaAppToast.show(err.message, { variant: 'danger' });
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalText;
             });

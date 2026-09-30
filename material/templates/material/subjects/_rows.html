@@ -31,23 +31,23 @@
                     data-active="{% if subject.pk in favorite_ids %}1{% else %}0{% endif %}"
                     title="Marcar la materia como favorita"></button>
             <a href="{% url 'material:subject_detail' pk=subject.pk %}" class="btn btn-sm btn-info" title="Ver materia">
-                <i class="fas fa-eye"></i>
+                <i class="bi bi-eye"></i>
             </a>
             {% if is_admin %}
             <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-success" title="Editar materia">
-                <i class="fas fa-edit"></i>
+                <i class="bi bi-pencil-square"></i>
             </a>
             <a href="{% url 'material:delete_subject' pk=subject.pk %}"
                class="btn btn-sm btn-danger" title="Eliminar materia">
-                <i class="fas fa-trash"></i>
+                <i class="bi bi-trash"></i>
             </a>
             {% elif subject.created_by_id == user.id and not subject.es_catalogo_institucional %}
             <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-sm btn-outline-success" title="Editar materia">
-                <i class="fas fa-edit"></i>
+                <i class="bi bi-pencil-square"></i>
             </a>
             <a href="{% url 'material:eliminar_espacio_personal' 'materia' subject.pk %}?next={{ request.get_full_path|urlencode }}"
                class="btn btn-sm btn-outline-danger" title="Borrar del espacio personal">
-                <i class="fas fa-trash"></i>
+                <i class="bi bi-trash"></i>
             </a>
             {% endif %}
         </div>

@@ -31,34 +31,34 @@
                 <span class="list-control-info" id="subjectsCountText">{{ subjects.paginator.count }} materia{{ subjects.paginator.count|pluralize }}</span>
                 <div class="d-flex flex-wrap align-items-center gap-2 flex-grow-1 justify-content-end" id="listControlDefault">
                     <div class="input-group input-group-sm" style="max-width: 280px;">
-                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
                         <input type="text" class="form-control" name="q" value="{{ search_query }}" autocomplete="off"
                                placeholder="Buscar materia por nombre..." form="templateFiltersForm" id="subjectSearchQ">
                         <button type="button" class="btn btn-outline-secondary" title="Limpiar búsqueda" id="subjectSearchClear"
                                 style="{% if not search_query %}display:none;{% endif %}">
-                            <i class="fas fa-times"></i>
+                            <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
                     <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" title="Filtros"
                             data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
-                        <i class="fas fa-filter{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
+                        <i class="bi bi-funnel{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
                     </button>
                     <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if favorites_toggle_querystring %}&{{ favorites_toggle_querystring }}{% endif %}"
                        class="btn btn-sm list-toolbar-btn {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
                        title="Mostrar solo favoritas">
-                        <i class="fas fa-star"></i> <span class="d-none d-sm-inline">Favoritas</span>
+                        <i class="bi bi-star-fill"></i> <span class="d-none d-sm-inline">Favoritas</span>
                     </a>
                     <a href="?personal={% if only_personal %}0{% else %}1{% endif %}{% if personal_toggle_querystring %}&{{ personal_toggle_querystring }}{% endif %}"
                        class="btn btn-sm list-toolbar-btn {% if only_personal %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
                        title="Mostrar solo lo que está en el espacio personal propio, todavía no sumado al catálogo institucional">
-                        <i class="fas fa-id-badge"></i> <span class="d-none d-sm-inline">Personal</span>
+                        <i class="bi bi-person-badge"></i> <span class="d-none d-sm-inline">Personal</span>
                     </a>
                 </div>
             </div>
             <div class="d-none align-items-center gap-2" id="listSelectionBar">
                 <span class="fw-semibold" id="listSelectionCount"></span>
                 <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete()">
-                    <i class="fas fa-trash-alt"></i> Eliminar
+                    <i class="bi bi-trash"></i> Eliminar
                 </button>
                 <button type="button" class="btn btn-outline-secondary btn-sm" id="listSelectionCancelBtn">Cancelar</button>
             </div>

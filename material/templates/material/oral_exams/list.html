@@ -32,18 +32,18 @@
                 <div class="d-flex align-items-center gap-2" id="listControlDefault">
                     <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" title="Filtros"
                             data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
-                        <i class="fas fa-filter{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
+                        <i class="bi bi-funnel{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
                     </button>
                     <a href="?favoritos={% if only_favorites %}0{% else %}1{% endif %}{% if favorites_toggle_querystring %}&{{ favorites_toggle_querystring }}{% endif %}"
                        class="btn btn-sm list-toolbar-btn {% if only_favorites %}btn-warning{% else %}btn-outline-warning{% endif %}"
                        title="Mostrar solo favoritos" id="oralFavoritosBtn">
-                        <i class="fas fa-star"></i> <span class="d-none d-sm-inline">Favoritos</span>
+                        <i class="bi bi-star-fill"></i> <span class="d-none d-sm-inline">Favoritos</span>
                     </a>
                 </div>
                 <div class="d-none align-items-center gap-2" id="listSelectionBar">
                     <span class="fw-semibold" id="listSelectionCount"></span>
                     <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete()">
-                        <i class="fas fa-trash-alt"></i> Eliminar
+                        <i class="bi bi-trash"></i> Eliminar
                     </button>
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="listSelectionCancelBtn">Cancelar</button>
                 </div>
@@ -87,12 +87,12 @@
                                             <a href="{% url 'material:view_oral_exam' exam.id %}"
                                                class="btn btn-sm btn-info"
                                                title="Ver cuestionario">
-                                                <i class="fas fa-eye"></i>
+                                                <i class="bi bi-eye"></i>
                                             </a>
                                             <button type="submit" form="deleteRowForm_{{ exam.id }}"
                                                     class="btn btn-sm btn-danger"
                                                     title="Eliminar cuestionario">
-                                                <i class="fas fa-trash"></i>
+                                                <i class="bi bi-trash"></i>
                                             </button>
                                         </div>
                                     </td>
@@ -105,11 +105,11 @@
                     <p class="text-muted mb-0">Ningún cuestionario oral coincide con los filtros aplicados.</p>
                 {% else %}
                     <div class="text-center py-5">
-                        <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                        <i class="bi bi-clipboard-check fs-1 text-muted mb-3"></i>
                         <h5>No hay cuestionarios orales creados</h5>
                         <p class="text-muted">Crear el primer cuestionario oral haciendo clic en el botón de arriba</p>
                         <a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> Crear Mi Primer Cuestionario
+                            <i class="bi bi-plus-lg"></i> Crear Mi Primer Cuestionario
                         </a>
                     </div>
                 {% endif %}

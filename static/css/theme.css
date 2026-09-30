@@ -38,12 +38,91 @@
   --edu-accent-soft-bg: #eaf2ff;
   --edu-accent-soft-border: #cfe2ff;
   --edu-accent-soft-text: var(--bs-primary);
+  /* Color de marca para TEXTO: el primario tal cual en claro, aclarado en oscuro
+     (sobre fondo oscuro los primarios de marca dan contraste de 1,3 a 3). */
+  --edu-primary-text: var(--bs-primary);
+
+  /* Colores categóricos de la taxonomía de Bloom (pirámide, leyendas, popups).
+     Son datos, no marca: no cambian con los temas visuales. */
+  --edu-bloom-recordar: #e74c3c;
+  --edu-bloom-comprender: #e67e22;
+  --edu-bloom-aplicar: #f39c12;
+  --edu-bloom-analizar: #27ae60;
+  --edu-bloom-evaluar: #3498db;
+  --edu-bloom-crear: #9b59b6;
+  /* Versiones para TEXTO de los colores de Bloom: en claro, tonos más oscuros (los
+     colores de relleno dan 2,2 a 3:1 sobre blanco); en oscuro, los originales. */
+  --edu-bloom-recordar-text: #b03a2e;
+  --edu-bloom-comprender-text: #a04000;
+  --edu-bloom-aplicar-text: #8a5a00;
+  --edu-bloom-analizar-text: #1e7b43;
+  --edu-bloom-evaluar-text: #21618c;
+  --edu-bloom-crear-text: #7d3c98;
 }
 
 [data-bs-theme="dark"] {
+  --edu-primary-text: color-mix(in srgb, var(--bs-primary) 45%, white);
+  --edu-bloom-recordar-text: #e74c3c;
+  --edu-bloom-comprender-text: #e67e22;
+  --edu-bloom-aplicar-text: #f39c12;
+  --edu-bloom-analizar-text: #27ae60;
+  --edu-bloom-evaluar-text: #3498db;
+  --edu-bloom-crear-text: #9b59b6;
   --edu-accent-soft-bg: rgba(13, 110, 253, 0.15);
   --edu-accent-soft-border: rgba(13, 110, 253, 0.35);
   --edu-accent-soft-text: #6ea8fe;
+}
+
+/*
+ * Convención de botones:
+ *  - btn-primary  la acción principal de la pantalla (una sola): guardar, crear, enviar.
+ *  - Acciones de fila con color propio, ya reconocido por quienes usan la app:
+ *    Ver = btn-info, Editar = btn-success, Borrar = btn-danger.
+ *  - btn-outline-secondary para lo secundario: "Cancelar", filtros, atajos.
+ */
+
+/* btn-outline-secondary en claro: el #6c757d de Bootstrap da ~4,1:1 sobre los
+   fondos crema/tintados de los temas; #5c636a llega a >6:1 sobre blanco. */
+.btn-outline-secondary {
+  --bs-btn-color: #5c636a;
+}
+
+/* Bootstrap 5.3 deja btn-outline-secondary en #6c757d también en modo
+   oscuro (contraste ~3:1 sobre el fondo): se aclara solo ahí. */
+[data-bs-theme="dark"] .btn-outline-secondary {
+  --bs-btn-color: #adb5bd;
+  --bs-btn-border-color: #6c757d;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #6c757d;
+  --bs-btn-hover-border-color: #6c757d;
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #6c757d;
+}
+
+/* Badges/encabezados con bg-info o bg-warning y text-white: blanco sobre amarillo o
+   celeste da 1,6:1 a 2:1; se fuerza texto oscuro (en claro y en oscuro). */
+.bg-info.text-white, .bg-warning.text-white {
+  color: #212529 !important;
+}
+
+/* Texto y outline amarillo/celeste: #ffc107 y #0dcaf0 dan 1,4 a 2:1 sobre blanco.
+   Se usan los tonos de énfasis de Bootstrap (que ya se adaptan al modo oscuro);
+   los íconos (<i>) conservan el color vivo. */
+.text-info:not(i) { color: var(--bs-info-text-emphasis) !important; }
+.text-warning:not(i) { color: var(--bs-warning-text-emphasis) !important; }
+.btn-outline-warning { --bs-btn-color: #8a6500; }
+.btn-outline-info { --bs-btn-color: #087990; }
+
+/* Botón de cerrar de los globos del recorrido guiado (driver.js): el #d2d2d2 por
+   defecto da 1,5:1 sobre el globo blanco, que es blanco también en oscuro. */
+.driver-popover .driver-popover-close-btn { color: #5c636a; }
+.driver-popover .driver-popover-close-btn:hover, .driver-popover .driver-popover-close-btn:focus { color: #212529; }
+
+/* Foco visible para navegación por teclado en el sidebar */
+.sidebar .menu-item:focus-visible,
+.sidebar .submenu a:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
 }
 
 /*

@@ -71,18 +71,18 @@
       </div>
       <div class="d-flex gap-2 flex-wrap">
         <a class="btn btn-outline-primary" href="{% url 'material:preview_exam' %}?print=1">
-          <i class="fas fa-print"></i> Vista previa de impresión
+          <i class="bi bi-printer"></i> Vista previa de impresión
         </a>
-        <button type="button" class="btn btn-success" id="saveExamVersionsBtn">
-          <i class="fas fa-save"></i> Guardar examen
+        <button type="button" class="btn btn-primary" id="saveExamVersionsBtn">
+          <i class="bi bi-save"></i> Guardar examen
         </button>
         {% if is_editing_exam %}
         <button type="button" class="btn btn-primary" id="saveAsNewVersionsBtn">
-          <i class="fas fa-copy"></i> Guardar como nuevo examen
+          <i class="bi bi-files"></i> Guardar como nuevo examen
         </button>
         {% endif %}
         <button type="button" class="btn btn-secondary" onclick="history.back()">
-          <i class="fas fa-arrow-left"></i> Editar selección
+          <i class="bi bi-arrow-left"></i> Editar selección
         </button>
       </div>
     </div>
@@ -147,7 +147,7 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header bg-success text-white">
-        <h5 class="modal-title" id="examVersionsSavedModalLabel"><i class="fas fa-check-circle"></i> Examen guardado</h5>
+        <h5 class="modal-title" id="examVersionsSavedModalLabel"><i class="bi bi-check-circle-fill"></i> Examen guardado</h5>
       </div>
       <div class="modal-body">
         <p class="mb-0" id="examVersionsSavedModalMessage">El examen se guardó correctamente.</p>
@@ -164,7 +164,7 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="examVersionsSaveAsNewModalLabel"><i class="fas fa-copy"></i> Guardar como nuevo examen</h5>
+        <h5 class="modal-title" id="examVersionsSaveAsNewModalLabel"><i class="bi bi-files"></i> Guardar como nuevo examen</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">

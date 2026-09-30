@@ -4,16 +4,16 @@
 
 {% block action_buttons %}
 <button onclick="window.print()">
-    <i class="fas fa-print"></i> Imprimir Examen
+    <i class="bi bi-printer"></i> Imprimir Examen
 </button>
 {% if template_id %}
 <a href="{% url 'material:create_exam' %}?plantilla_id={{ template_id }}">
     <button class="secondary">
-        <i class="fas fa-file-circle-plus"></i> Crear examen con esta plantilla
+        <i class="bi bi-file-earmark-plus"></i> Crear examen con esta plantilla
     </button>
 </a>
 {% endif %}
 <button onclick="examPreviewGoBack('{{ back_url|escapejs }}')" class="secondary">
-    <i class="fas fa-arrow-left"></i> Volver
+    <i class="bi bi-arrow-left"></i> Volver
 </button>
 {% endblock %}

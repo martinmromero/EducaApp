@@ -50,22 +50,22 @@ Geometría SVG (viewBox 300×490):
            role="img" aria-label="Pirámide de Bloom con 6 niveles cognitivos">
         <!-- L6 Crear — triángulo. Pendiente: 40/80 = 0.5 igual que el resto -->
         <polygon points="240,5 280,85 200,85"
-                 fill="#9b59b6" stroke="white" stroke-width="2.5"/>
+                 style="fill:var(--edu-bloom-crear,#9b59b6)" stroke="white" stroke-width="2.5"/>
         <!-- L5 Evaluar -->
         <polygon points="200,85 280,85 320,165 160,165"
-                 fill="#3498db" stroke="white" stroke-width="2.5"/>
+                 style="fill:var(--edu-bloom-evaluar,#3498db)" stroke="white" stroke-width="2.5"/>
         <!-- L4 Analizar -->
         <polygon points="160,165 320,165 360,245 120,245"
-                 fill="#27ae60" stroke="white" stroke-width="2.5"/>
+                 style="fill:var(--edu-bloom-analizar,#27ae60)" stroke="white" stroke-width="2.5"/>
         <!-- L3 Aplicar -->
         <polygon points="120,245 360,245 400,325 80,325"
-                 fill="#f39c12" stroke="white" stroke-width="2.5"/>
+                 style="fill:var(--edu-bloom-aplicar,#f39c12)" stroke="white" stroke-width="2.5"/>
         <!-- L2 Comprender -->
         <polygon points="80,325 400,325 440,405 40,405"
-                 fill="#e67e22" stroke="white" stroke-width="2.5"/>
+                 style="fill:var(--edu-bloom-comprender,#e67e22)" stroke="white" stroke-width="2.5"/>
         <!-- L1 Recordar — base -->
         <polygon points="40,405 440,405 480,485 0,485"
-                 fill="#e74c3c" stroke="white" stroke-width="2.5"/>
+                 style="fill:var(--edu-bloom-recordar,#e74c3c)" stroke="white" stroke-width="2.5"/>
       </svg>
     </div>
 
@@ -81,16 +81,16 @@ Geometría SVG (viewBox 300×490):
         {% for item in bloom_display %}
         <div style="height:44px;display:flex;align-items:center;gap:8px;
                     border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
-          <span style="background:{{ item.color }};color:white;border-radius:50%;
+          <span style="background:{{ item.color }};color:{% if item.level == 2 or item.level == 3 or item.level == 4 %}#1b1b1b{% else %}white{% endif %};border-radius:50%;
                        width:22px;height:22px;display:inline-flex;align-items:center;
                        justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">
             {{ item.level }}
           </span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:{{ item.color }};font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ item.name }}</div>
+            <div style="font-weight:700;color:var(--edu-bloom-{{ item.name|lower }}-text,{{ item.color }});font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ item.name }}</div>
             <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ item.verbs }}</div>
           </div>
-          <span style="font-weight:700;font-size:15px;color:{{ item.color }};flex-shrink:0;min-width:24px;text-align:right">{{ item.count }}</span>
+          <span style="font-weight:700;font-size:15px;color:var(--edu-bloom-{{ item.name|lower }}-text,{{ item.color }});flex-shrink:0;min-width:24px;text-align:right">{{ item.count }}</span>
         </div>
         {% endfor %}
 
@@ -98,44 +98,44 @@ Geometría SVG (viewBox 300×490):
 
         <!-- Modo referencia — sin conteos, 6 filas hardcodeadas -->
         <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
-          <span style="background:#9b59b6;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">6</span>
+          <span style="background:var(--edu-bloom-crear,#9b59b6);color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">6</span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#9b59b6;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Crear</div>
+            <div style="font-weight:700;color:var(--edu-bloom-crear-text,#7d3c98);font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Crear</div>
             <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">diseñar, construir, planificar, producir</div>
           </div>
         </div>
         <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
-          <span style="background:#3498db;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">5</span>
+          <span style="background:var(--edu-bloom-evaluar,#3498db);color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">5</span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#3498db;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Evaluar</div>
+            <div style="font-weight:700;color:var(--edu-bloom-evaluar-text,#21618c);font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Evaluar</div>
             <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">juzgar, criticar, valorar, argumentar</div>
           </div>
         </div>
         <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
-          <span style="background:#27ae60;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">4</span>
+          <span style="background:var(--edu-bloom-analizar,#27ae60);color:#1b1b1b;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">4</span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#27ae60;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Analizar</div>
+            <div style="font-weight:700;color:var(--edu-bloom-analizar-text,#1e7b43);font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Analizar</div>
             <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">diferenciar, comparar, organizar, atribuir</div>
           </div>
         </div>
         <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
-          <span style="background:#f39c12;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">3</span>
+          <span style="background:var(--edu-bloom-aplicar,#f39c12);color:#1b1b1b;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">3</span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#f39c12;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Aplicar</div>
+            <div style="font-weight:700;color:var(--edu-bloom-aplicar-text,#8a5a00);font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Aplicar</div>
             <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ejecutar, implementar, usar, resolver</div>
           </div>
         </div>
         <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
-          <span style="background:#e67e22;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">2</span>
+          <span style="background:var(--edu-bloom-comprender,#e67e22);color:#1b1b1b;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">2</span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#e67e22;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Comprender</div>
+            <div style="font-weight:700;color:var(--edu-bloom-comprender-text,#a04000);font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Comprender</div>
             <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">interpretar, ejemplificar, resumir, inferir</div>
           </div>
         </div>
         <div style="height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bs-border-color);box-sizing:border-box;overflow:hidden">
-          <span style="background:#e74c3c;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">1</span>
+          <span style="background:var(--edu-bloom-recordar,#e74c3c);color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0">1</span>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;color:#e74c3c;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Recordar</div>
+            <div style="font-weight:700;color:var(--edu-bloom-recordar-text,#b03a2e);font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Recordar</div>
             <div style="color:var(--bs-secondary-color);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">reconocer, listar, identificar, nombrar</div>
           </div>
         </div>
@@ -153,14 +153,14 @@ Geometría SVG (viewBox 300×490):
     </p>
     {% for item in bloom_display %}
     <div style="display:flex;align-items:center;margin-bottom:4px;gap:6px">
-      <span style="width:88px;font-size:11px;font-weight:600;color:{{ item.color }};text-align:right;flex-shrink:0">
+      <span style="width:88px;font-size:11px;font-weight:600;color:var(--edu-bloom-{{ item.name|lower }}-text,{{ item.color }});text-align:right;flex-shrink:0">
         {{ item.name }}
       </span>
       <div style="flex:1;background:var(--bs-secondary-bg);border-radius:3px;height:14px;overflow:hidden">
         <div style="width:{{ item.pct }}%;height:100%;background:{{ item.color }};
                     display:flex;align-items:center;justify-content:flex-end;
                     padding-right:4px;box-sizing:border-box;min-width:{% if item.count %}14px{% else %}0{% endif %}">
-          {% if item.count %}<span style="font-size:9px;color:white;font-weight:bold">{{ item.count }}</span>{% endif %}
+          {% if item.count %}<span style="font-size:9px;color:{% if item.level == 2 or item.level == 3 or item.level == 4 %}#1b1b1b{% else %}white{% endif %};font-weight:bold">{{ item.count }}</span>{% endif %}
         </div>
       </div>
     </div>

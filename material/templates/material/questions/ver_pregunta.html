@@ -6,13 +6,13 @@
   <!-- Encabezado -->
   <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
     <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm">
-      <i class="fas fa-arrow-left me-1"></i> Volver
+      <i class="bi bi-arrow-left me-1"></i> Volver
     </a>
     <h2 class="mb-0 fs-4 fw-bold">
-      <i class="fas fa-eye me-2 text-info"></i>Ver pregunta
+      <i class="bi bi-eye me-2 text-info"></i>Ver pregunta
     </h2>
     {% if pregunta.generated_by_ai %}
-      <span class="badge bg-info text-dark"><i class="fas fa-robot me-1"></i>Generada por IA</span>
+      <span class="badge bg-info text-dark"><i class="bi bi-robot me-1"></i>Generada por IA</span>
     {% endif %}
     {% if pregunta.question_type %}
       <span class="badge bg-secondary">{{ pregunta.get_question_type_display }}</span>
@@ -27,7 +27,7 @@
       <!-- Card: Pregunta -->
       <div class="card shadow-sm mb-4">
         <div class="card-header bg-primary text-white d-flex align-items-center gap-2">
-          <i class="fas fa-question-circle"></i>
+          <i class="bi bi-question-circle-fill"></i>
           <span class="fw-semibold">Pregunta</span>
         </div>
         <div class="card-body">
@@ -42,7 +42,7 @@
       {% if pregunta.question_type == 'opcion_multiple' and pregunta.options %}
       <div class="card shadow-sm mb-4">
         <div class="card-header bg-info text-white d-flex align-items-center gap-2">
-          <i class="fas fa-list-ul"></i>
+          <i class="bi bi-list-ul"></i>
           <span class="fw-semibold">Opciones</span>
         </div>
         <div class="card-body">
@@ -61,7 +61,7 @@
       <!-- Card: Respuesta -->
       <div class="card shadow-sm mb-4">
         <div class="card-header bg-success text-white d-flex align-items-center gap-2">
-          <i class="fas fa-check-circle"></i>
+          <i class="bi bi-check-circle-fill"></i>
           <span class="fw-semibold">Respuesta correcta</span>
         </div>
         <div class="card-body">
@@ -83,12 +83,12 @@
            dejaba una franja enorme vacía debajo del texto principal. -->
       <div class="card shadow-sm mb-4">
         <div class="card-body">
-          <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="fas fa-sliders-h me-1"></i>Clasificación</h6>
+          <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="bi bi-sliders me-1"></i>Clasificación</h6>
           <p class="mb-1"><span class="fw-semibold">Dificultad:</span> {{ pregunta.difficulty }}/5</p>
           <p class="mb-0"><span class="fw-semibold">Nivel de Bloom:</span> {{ pregunta.get_bloom_level_display|default:"—" }}</p>
 
           <hr>
-          <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="fas fa-book me-1"></i>Materia y tópico</h6>
+          <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="bi bi-book me-1"></i>Materia y tópico</h6>
           <p class="mb-1"><span class="fw-semibold">Materia(s):</span>
             {% for materia in pregunta.subjects.all %}{{ materia.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
           </p>
@@ -96,7 +96,7 @@
           <p class="mb-0"><span class="fw-semibold">Sub-tópico:</span> {{ pregunta.subtopic|default:"—" }}</p>
 
           <hr>
-          <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="fas fa-file-alt me-1"></i>Fuente del documento</h6>
+          <h6 class="text-uppercase text-muted small fw-bold mb-2"><i class="bi bi-file-earmark-text me-1"></i>Fuente del documento</h6>
           {% if pregunta.bibliographic_reference %}
             <p class="mb-1"><span class="fw-semibold">Referencia:</span> {{ pregunta.bibliographic_reference }}</p>
           {% else %}
@@ -111,7 +111,7 @@
       <div class="d-grid gap-2">
         {% if pregunta.user_id == request.user.id %}
         <a href="{% url 'material:editar_pregunta' pregunta.pk %}" class="btn btn-success">
-          <i class="fas fa-edit me-2"></i>Editar
+          <i class="bi bi-pencil-square me-2"></i>Editar
         </a>
         {% else %}
         <p class="text-muted small mb-0">

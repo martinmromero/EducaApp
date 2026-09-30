@@ -52,13 +52,13 @@
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="viewMode" id="roundRobinMode" value="roundRobin" checked>
                         <label class="form-check-label" for="roundRobinMode">
-                            <i class="fas fa-sync-alt"></i> Round Robin (1 pregunta por vuelta)
+                            <i class="bi bi-arrow-repeat"></i> Round Robin (1 pregunta por vuelta)
                         </label>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="viewMode" id="listMode" value="list">
                         <label class="form-check-label" for="listMode">
-                            <i class="fas fa-list"></i> Listar todas las preguntas por estudiante
+                            <i class="bi bi-list"></i> Listar todas las preguntas por estudiante
                         </label>
                     </div>
                 </div>
@@ -71,7 +71,7 @@
             <div class="row mt-3">
                 <div class="col-12">
                     <div class="alert alert-warning">
-                        <h6><i class="fas fa-users"></i> Asignación de Nombres de Estudiantes</h6>
+                        <h6><i class="bi bi-people-fill"></i> Asignación de Nombres de Estudiantes</h6>
                         <div class="row">
                             <div class="col-md-8">
                                 <label for="studentNames" class="form-label">
@@ -85,7 +85,7 @@
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
                                 <button type="button" class="btn btn-primary btn-block" id="assignNamesBtn">
-                                    <i class="fas fa-random"></i> Asignar Nombres Aleatoriamente
+                                    <i class="bi bi-shuffle"></i> Asignar Nombres Aleatoriamente
                                 </button>
                             </div>
                         </div>
@@ -98,26 +98,26 @@
             <div class="row mt-3">
                 <div class="col-12">
                     <div class="alert alert-info">
-                        <h6><i class="fas fa-chart-bar"></i> Resumen de Evaluaciones</h6>
+                        <h6><i class="bi bi-bar-chart"></i> Resumen de Evaluaciones</h6>
                         <div class="row text-center g-2">
                             <div class="col-6 col-sm-3">
                                 <span class="badge text-bg-success rounded-pill w-100 py-2 text-nowrap" style="font-size: clamp(0.75rem, 3vw, 1rem);">
-                                    <i class="fas fa-check"></i> Bien: <span id="goodCount">0</span>
+                                    <i class="bi bi-check-lg"></i> Bien: <span id="goodCount">0</span>
                                 </span>
                             </div>
                             <div class="col-6 col-sm-3">
                                 <span class="badge text-bg-warning rounded-pill w-100 py-2 text-nowrap" style="font-size: clamp(0.75rem, 3vw, 1rem);">
-                                    <i class="fas fa-minus"></i> Regular: <span id="regularCount">0</span>
+                                    <i class="bi bi-dash-lg"></i> Regular: <span id="regularCount">0</span>
                                 </span>
                             </div>
                             <div class="col-6 col-sm-3">
                                 <span class="badge text-bg-danger rounded-pill w-100 py-2 text-nowrap" style="font-size: clamp(0.75rem, 3vw, 1rem);">
-                                    <i class="fas fa-times"></i> Mal: <span id="badCount">0</span>
+                                    <i class="bi bi-x-lg"></i> Mal: <span id="badCount">0</span>
                                 </span>
                             </div>
                             <div class="col-6 col-sm-3">
                                 <span class="badge text-bg-secondary rounded-pill w-100 py-2 text-nowrap" style="font-size: clamp(0.75rem, 3vw, 1rem);">
-                                    <i class="fas fa-clock"></i> Pendientes: <span id="pendingCount">{{ total_questions }}</span>
+                                    <i class="bi bi-clock"></i> Pendientes: <span id="pendingCount">{{ total_questions }}</span>
                                 </span>
                             </div>
                         </div>
@@ -133,7 +133,7 @@
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
             <h6 class="m-0 font-weight-bold text-primary">Grupo {{ group.group_number }}</h6>
             <button class="btn btn-sm btn-info" onclick="printGroup({{ group.group_number }})">
-                <i class="fas fa-print"></i> Imprimir Grupo
+                <i class="bi bi-printer"></i> Imprimir Grupo
             </button>
         </div>
         <div class="card-body">
@@ -195,7 +195,7 @@
                                                 <img src="{{ sq.question.answer_image_b64 }}" class="img-fluid mt-2" style="max-width: 200px;" alt="Imagen de la respuesta">
                                             {% endif %}
                                             {% if sq.question.bibliographic_reference %}
-                                                <small class="text-muted d-block mt-2"><i class="fas fa-book"></i> Fuente: {{ sq.question.bibliographic_reference }}</small>
+                                                <small class="text-muted d-block mt-2"><i class="bi bi-book"></i> Fuente: {{ sq.question.bibliographic_reference }}</small>
                                             {% endif %}
                                         </div>
                                     </details>
@@ -204,7 +204,7 @@
                                             data-group-id="{{ student.group.id }}"
                                             data-current-question-id="{{ sq.question.id }}"
                                             title="Cambiar esta pregunta por otra">
-                                        <i class="fas fa-exchange-alt"></i> Cambiar pregunta
+                                        <i class="bi bi-arrow-left-right"></i> Cambiar pregunta
                                     </button>
                                 </div>
 
@@ -225,19 +225,19 @@
                                     <div class="eval-btn-group" role="group">
                                         <button type="button" class="btn btn-sm {% if sq.evaluation == 'bien' %}btn-success{% else %}btn-outline-success{% endif %} eval-btn"
                                                 data-evaluation="bien" data-student-question-id="{{ sq.id }}">
-                                            <i class="fas fa-check"></i> Bien
+                                            <i class="bi bi-check-lg"></i> Bien
                                         </button>
                                         <button type="button" class="btn btn-sm {% if sq.evaluation == 'regular' %}btn-warning{% else %}btn-outline-warning{% endif %} eval-btn"
                                                 data-evaluation="regular" data-student-question-id="{{ sq.id }}">
-                                            <i class="fas fa-minus"></i> Regular
+                                            <i class="bi bi-dash-lg"></i> Regular
                                         </button>
                                         <button type="button" class="btn btn-sm {% if sq.evaluation == 'mal' %}btn-danger{% else %}btn-outline-danger{% endif %} eval-btn"
                                                 data-evaluation="mal" data-student-question-id="{{ sq.id }}">
-                                            <i class="fas fa-times"></i> Mal
+                                            <i class="bi bi-x-lg"></i> Mal
                                         </button>
                                         <button type="button" class="btn btn-sm {% if sq.evaluation == 'pendiente' %}btn-secondary{% else %}btn-outline-secondary{% endif %} eval-btn"
                                                 data-evaluation="pendiente" data-student-question-id="{{ sq.id }}">
-                                            <i class="fas fa-clock"></i> Pendiente
+                                            <i class="bi bi-clock"></i> Pendiente
                                         </button>
                                     </div>
                                     <div class="mt-2 note-edit-group">
@@ -246,7 +246,7 @@
                                                   data-student-question-id="{{ sq.id }}">{{ sq.notes }}</textarea>
                                         <button type="button" class="btn btn-sm btn-outline-secondary mt-1 save-note-btn"
                                                 data-student-question-id="{{ sq.id }}">
-                                            <i class="fas fa-save"></i> Guardar nota
+                                            <i class="bi bi-save"></i> Guardar nota
                                         </button>
                                     </div>
                                 </div>
@@ -267,7 +267,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <button type="button" class="btn btn-outline-primary" id="prevQuestion">
-                        <i class="fas fa-chevron-left"></i> Anterior
+                        <i class="bi bi-chevron-left"></i> Anterior
                     </button>
                     
                     <div class="text-center">
@@ -276,7 +276,7 @@
                     </div>
                     
                     <button type="button" class="btn btn-outline-primary" id="nextQuestion">
-                        Siguiente <i class="fas fa-chevron-right"></i>
+                        Siguiente <i class="bi bi-chevron-right"></i>
                     </button>
                 </div>
             </div>
@@ -285,13 +285,13 @@
     
     <div class="mt-4">
         <button class="btn btn-success" onclick="printAll()">
-            <i class="fas fa-print"></i> Imprimir Todo
+            <i class="bi bi-printer"></i> Imprimir Todo
         </button>
         <a href="{{ back_url }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Volver a la lista
+            <i class="bi bi-arrow-left"></i> Volver a la lista
         </a>
         <a href="{% url 'material:create_oral_exam' %}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Crear Otro Cuestionario
+            <i class="bi bi-plus-lg"></i> Crear Otro Cuestionario
         </a>
     </div>
 </div>
@@ -302,7 +302,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="changeQuestionModalLabel">
-                    <i class="fas fa-exchange-alt"></i> Cambiar Pregunta
+                    <i class="bi bi-arrow-left-right"></i> Cambiar Pregunta
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -327,7 +327,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="confirmExchangeBtn" disabled>
-                    <i class="fas fa-check"></i> Confirmar Cambio
+                    <i class="bi bi-check-lg"></i> Confirmar Cambio
                 </button>
             </div>
         </div>
@@ -838,7 +838,7 @@ function saveNote(studentQuestionId, currentEvaluation, notes, btn) {
 
     const originalHtml = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Guardando...';
 
     fetch(URLS.evaluateQuestion, {
         method: 'POST',
@@ -848,7 +848,7 @@ function saveNote(studentQuestionId, currentEvaluation, notes, btn) {
     .then(data => {
         btn.disabled = false;
         if (data.success) {
-            btn.innerHTML = '<i class="fas fa-check"></i> Guardado';
+            btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardado';
             setTimeout(() => { btn.innerHTML = originalHtml; }, 1500);
         } else {
             btn.innerHTML = originalHtml;
@@ -879,7 +879,7 @@ function assignStudentNames(studentNames) {
         if (data.success) {
             resultDiv.innerHTML = `
                 <div class="alert alert-success alert-dismissible fade show">
-                    <i class="fas fa-check"></i> ${data.message}
+                    <i class="bi bi-check-lg"></i> ${data.message}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
@@ -888,7 +888,7 @@ function assignStudentNames(studentNames) {
         } else {
             resultDiv.innerHTML = `
                 <div class="alert alert-danger alert-dismissible fade show">
-                    <i class="fas fa-exclamation-triangle"></i> ${data.error}
+                    <i class="bi bi-exclamation-triangle-fill"></i> ${data.error}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
@@ -1052,7 +1052,7 @@ function loadAvailableQuestions(groupId, currentQuestionId) {
             } else {
                 container.innerHTML = `
                     <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle"></i> 
+                        <i class="bi bi-exclamation-triangle-fill"></i> 
                         Error al cargar preguntas: ${data.error}
                     </div>
                 `;
@@ -1062,7 +1062,7 @@ function loadAvailableQuestions(groupId, currentQuestionId) {
             console.error('Error:', error);
             container.innerHTML = `
                 <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle"></i> 
+                    <i class="bi bi-exclamation-triangle-fill"></i> 
                     Error de conexión al cargar preguntas.
                 </div>
             `;
@@ -1075,7 +1075,7 @@ function displayAvailableQuestions(questions) {
     if (questions.length === 0) {
         container.innerHTML = `
             <div class="alert alert-warning">
-                <i class="fas fa-info-circle"></i> 
+                <i class="bi bi-info-circle-fill"></i> 
                 No hay preguntas disponibles para intercambio en este grupo.
             </div>
         `;
@@ -1094,7 +1094,7 @@ function displayAvailableQuestions(questions) {
                             <strong>${question.question_text}</strong>
                         </div>
                         <small class="text-muted">
-                            <i class="fas fa-tag"></i> ${question.topic_name}
+                            <i class="bi bi-tag"></i> ${question.topic_name}
                             ${question.difficulty ? ' | ' + question.difficulty : ''}
                         </small>
                     </div>
@@ -1132,7 +1132,7 @@ function exchangeQuestion(studentQuestionId, newQuestionId) {
     // Deshabilitar botón durante el proceso
     const confirmBtn = document.getElementById('confirmExchangeBtn');
     confirmBtn.disabled = true;
-    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cambiando...';
+    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Cambiando...';
     
     console.log('Sending POST to:', URLS.exchangeQuestion);
     
@@ -1156,7 +1156,7 @@ function exchangeQuestion(studentQuestionId, newQuestionId) {
             // Mostrar mensaje de éxito
             const alertHtml = `
                 <div class="alert alert-success alert-dismissible fade show">
-                    <i class="fas fa-check"></i> ${data.message}
+                    <i class="bi bi-check-lg"></i> ${data.message}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
@@ -1195,14 +1195,14 @@ function exchangeQuestion(studentQuestionId, newQuestionId) {
             // Mostrar error
             const errorHtml = `
                 <div class="alert alert-danger mt-3">
-                    <i class="fas fa-exclamation-triangle"></i> ${data.error}
+                    <i class="bi bi-exclamation-triangle-fill"></i> ${data.error}
                 </div>
             `;
             document.getElementById('availableQuestionsContainer').insertAdjacentHTML('afterend', errorHtml);
             
             // Rehabilitar botón
             confirmBtn.disabled = false;
-            confirmBtn.innerHTML = '<i class="fas fa-check"></i> Confirmar Cambio';
+            confirmBtn.innerHTML = '<i class="bi bi-check-lg"></i> Confirmar Cambio';
         }
     })
     .catch(error => {
@@ -1219,7 +1219,7 @@ function exchangeQuestion(studentQuestionId, newQuestionId) {
         // También mostrar en el modal si está abierto
         const errorDiv = document.createElement('div');
         errorDiv.className = 'alert alert-danger mt-3';
-        errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${errorMessage}`;
+        errorDiv.innerHTML = `<i class="bi bi-exclamation-triangle-fill"></i> ${errorMessage}`;
         
         const container = document.getElementById('availableQuestionsContainer');
         if (container) {
@@ -1229,7 +1229,7 @@ function exchangeQuestion(studentQuestionId, newQuestionId) {
         
         // Rehabilitar botón
         confirmBtn.disabled = false;
-        confirmBtn.innerHTML = '<i class="fas fa-check"></i> Confirmar Cambio';
+        confirmBtn.innerHTML = '<i class="bi bi-check-lg"></i> Confirmar Cambio';
     });
 }
 

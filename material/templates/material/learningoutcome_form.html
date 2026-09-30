@@ -8,7 +8,7 @@
             <div class="card">
                 <div class="card-header bg-success text-white">
                     <h3 class="mb-0">
-                        <i class="fas fa-bullseye me-2"></i>
+                        <i class="bi bi-bullseye me-2"></i>
                         {% if object %}
                             Editar Resultado de Aprendizaje
                         {% else %}
@@ -48,21 +48,21 @@
                             {% if career_subject %}
                                 <!-- Para crear nuevo outcome -->
                                 <a href="{% url 'material:subject_detail' pk=career_subject.subject_id %}" class="btn btn-secondary">
-                                    <i class="fas fa-arrow-left me-1"></i> Cancelar
+                                    <i class="bi bi-arrow-left me-1"></i> Cancelar
                                 </a>
                             {% elif object.career_subject %}
                                 <!-- Para editar outcome existente -->
                                 <a href="{% url 'material:subject_detail' pk=object.career_subject.subject_id %}" class="btn btn-secondary">
-                                    <i class="fas fa-arrow-left me-1"></i> Cancelar
+                                    <i class="bi bi-arrow-left me-1"></i> Cancelar
                                 </a>
                             {% else %}
                                 <!-- Fallback -->
                                 <a href="{% url 'material:subject_list' %}" class="btn btn-secondary">
-                                    <i class="fas fa-arrow-left me-1"></i> Cancelar
+                                    <i class="bi bi-arrow-left me-1"></i> Cancelar
                                 </a>
                             {% endif %}
-                            <button type="submit" class="btn btn-success">
-                                <i class="fas fa-save me-1"></i> Guardar Resultado
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-1"></i> Guardar Resultado
                             </button>
                         </div>
                     </form>

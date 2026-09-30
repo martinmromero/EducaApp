@@ -15,10 +15,10 @@
             <form method="post">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-danger" {% if preview.can_delete == False %}disabled{% endif %}>
-                    <i class="fas fa-trash"></i> Confirmar Eliminación
+                    <i class="bi bi-trash"></i> Confirmar Eliminación
                 </button>
                 <a href="{% url 'material:career_detail' pk=career.pk %}" class="btn btn-secondary">
-                    <i class="fas fa-times"></i> Cancelar
+                    <i class="bi bi-x-lg"></i> Cancelar
                 </a>
             </form>
         </div>

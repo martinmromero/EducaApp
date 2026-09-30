@@ -236,7 +236,7 @@
                     </div>
                   </div>
                   <label class="form-label small mb-1">Materia(s)</label>
-                  <div id="onb2OtherSubjectList" style="max-height:200px;overflow-y:auto;border:1px solid #dee2e6;border-radius:.375rem;padding:.5rem">
+                  <div id="onb2OtherSubjectList" style="max-height:200px;overflow-y:auto;border:1px solid var(--bs-border-color);border-radius:.375rem;padding:.5rem">
                     <p class="text-muted mb-0" style="font-size:.8rem">Elegir facultad y carrera para ver sus materias.</p>
                   </div>
                 </div>
@@ -267,7 +267,7 @@
                 <p class="text-muted mt-2 mb-1" style="font-size:.8rem">
                   <i class="bi bi-info-circle me-1"></i>Los archivos se borran automáticamente después de unos días; si el archivo buscado ya no está, volver a subirlo.
                 </p>
-                <div id="onb2ContentsList" class="mt-2" style="max-height:220px;overflow-y:auto;border:1px solid #dee2e6;border-radius:.375rem;padding:.25rem"></div>
+                <div id="onb2ContentsList" class="mt-2" style="max-height:220px;overflow-y:auto;border:1px solid var(--bs-border-color);border-radius:.375rem;padding:.25rem"></div>
               </details>
             </div>
           </div>
@@ -278,7 +278,7 @@
             <p class="text-muted mb-3">Se abre el procesador de IA real para generar preguntas, revisarlas y elegir cuáles guardar.</p>
 
             <div id="onb2AiChecking" class="text-center py-4">
-              <div class="spinner-border text-primary" role="status"></div>
+              <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando…</span></div>
               <p class="text-muted mt-3">Verificando conexión con la IA…</p>
             </div>
 
@@ -375,8 +375,8 @@
   width: 36px; height: 36px; border-radius: 50%; background: var(--bs-secondary-bg); color: var(--bs-secondary-color);
   display: flex; align-items: center; justify-content: center; font-weight: 600; flex-shrink: 0;
 }
-.onb2-step-item.onb2-active .onb2-step-dot { background: #0d6efd; color: #fff; }
-.onb2-step-item.onb2-done .onb2-step-dot { background: #198754; color: #fff; }
+.onb2-step-item.onb2-active .onb2-step-dot { background: var(--bs-primary); color: #fff; }
+.onb2-step-item.onb2-done .onb2-step-dot { background: var(--bs-success); color: #fff; }
 .onb2-contenido-item.onb2-selected { background: var(--edu-accent-soft-bg); }
 .onb2-toggle-summary { cursor: pointer; font-size: .9rem; }
 .onb2-card-grid { display: flex; flex-wrap: wrap; gap: .75rem; }
@@ -385,8 +385,8 @@
   cursor: pointer; font-weight: 600; font-size: 1.05rem; transition: .15s;
   display: flex; align-items: center; gap: .5rem; background: var(--bs-body-bg); color: var(--bs-body-color);
 }
-.onb2-pick-card:hover { border-color: #adb5bd; }
-.onb2-pick-card.onb2-picked { border-color: #0d6efd; background: var(--edu-accent-soft-bg); color: var(--edu-accent-soft-text); }
+.onb2-pick-card:hover { border-color: var(--bs-border-color); }
+.onb2-pick-card.onb2-picked { border-color: var(--bs-primary); background: var(--edu-accent-soft-bg); color: var(--edu-accent-soft-text); }
 .onb2-pick-card-badge {
   font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em;
   padding: .1rem .4rem; border-radius: .35rem; background: var(--bs-secondary-bg); color: var(--bs-secondary-color);

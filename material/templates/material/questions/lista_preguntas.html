@@ -49,7 +49,7 @@
             <div class="card border-left-primary shadow h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
-                        <i class="fas fa-question-circle text-primary me-2"></i>
+                        <i class="bi bi-question-circle-fill text-primary me-2"></i>
                         <div>
                             <div class="text-uppercase text-primary font-weight-bold mb-0 stat-label">Preguntas</div>
                             <div class="mb-0 font-weight-bold text-gray-800 stat-value">{{ preguntas.paginator.count }}</div>
@@ -62,7 +62,7 @@
             <div class="card border-left-info shadow h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
-                        <i class="fas fa-book text-info me-2"></i>
+                        <i class="bi bi-book text-info me-2"></i>
                         <div>
                             <div class="text-uppercase text-info font-weight-bold mb-0 stat-label">Materias</div>
                             <div class="mb-0 font-weight-bold text-gray-800 stat-value">{{ materias_count }}</div>
@@ -75,7 +75,7 @@
             <div class="card border-left-success shadow h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
-                        <i class="fas fa-folder text-success me-2"></i>
+                        <i class="bi bi-folder text-success me-2"></i>
                         <div>
                             <div class="text-uppercase text-success font-weight-bold mb-0 stat-label">Tópicos</div>
                             <div class="mb-0 font-weight-bold text-gray-800 stat-value">{{ temas_count }}</div>
@@ -89,7 +89,7 @@
             <div class="card border-left-secondary shadow h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
-                        <i class="fas fa-folder-open text-secondary me-2"></i>
+                        <i class="bi bi-folder2-open text-secondary me-2"></i>
                         <div>
                             <div class="text-uppercase text-secondary font-weight-bold mb-0 stat-label">Sub-tópicos</div>
                             <div class="mb-0 font-weight-bold text-gray-800 stat-value">{{ subtemas_count }}</div>
@@ -103,7 +103,7 @@
             <div class="card border-left-warning shadow h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
-                        <i class="fas fa-robot text-warning me-2"></i>
+                        <i class="bi bi-robot text-warning me-2"></i>
                         <div>
                             <div class="text-uppercase text-warning font-weight-bold mb-0 stat-label">Generadas por IA</div>
                             <div class="mb-0 font-weight-bold text-gray-800 stat-value">{{ ia_generadas_count }}</div>
@@ -128,19 +128,19 @@
             <div class="d-flex align-items-center gap-2" id="listControlDefault">
                 <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" title="Filtros"
                         data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
-                    <i class="fas fa-filter{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
+                    <i class="bi bi-funnel{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
                 </button>
             </div>
             <div class="d-none align-items-center gap-2 flex-wrap" id="listSelectionBar">
                 <span class="fw-semibold" id="listSelectionCount"></span>
                 <button type="submit" formaction="{% url 'material:exportar_preguntas' %}?formato=csv" form="bulk-delete-form" class="btn btn-success btn-sm">
-                    <i class="fas fa-file-csv"></i> <span class="d-none d-sm-inline">CSV</span>
+                    <i class="bi bi-file-earmark-spreadsheet"></i> <span class="d-none d-sm-inline">CSV</span>
                 </button>
                 <button type="submit" formaction="{% url 'material:exportar_preguntas' %}?formato=txt" form="bulk-delete-form" class="btn btn-success btn-sm">
-                    <i class="fas fa-file-alt"></i> <span class="d-none d-sm-inline">TXT</span>
+                    <i class="bi bi-file-earmark-text"></i> <span class="d-none d-sm-inline">TXT</span>
                 </button>
                 <button type="button" id="bulk-delete-btn" class="btn btn-danger btn-sm">
-                    <i class="fas fa-trash"></i> Eliminar
+                    <i class="bi bi-trash"></i> Eliminar
                 </button>
                 <button type="button" class="btn btn-outline-secondary btn-sm" id="listSelectionCancelBtn">Cancelar</button>
             </div>
@@ -160,7 +160,7 @@
                     <thead>
                         <tr>
                             <th style="width:40px;">
-                                <input type="checkbox" id="select-all" title="Seleccionar todas para exportar o eliminar en conjunto">
+                                <input type="checkbox" id="select-all" aria-label="Seleccionar todas las preguntas" title="Seleccionar todas para exportar o eliminar en conjunto">
                             </th>
                             <th>Materia</th>
                             <th>Tópico</th>
@@ -176,7 +176,7 @@
                         {% for pregunta in preguntas %}
                         <tr>
                             <td class="rt-card-select">
-                                <input type="checkbox" name="pregunta_ids" value="{{ pregunta.pk }}" class="pregunta-checkbox" title="Seleccionar para exportar o eliminar en conjunto">
+                                <input type="checkbox" name="pregunta_ids" value="{{ pregunta.pk }}" class="pregunta-checkbox" aria-label="Seleccionar esta pregunta" title="Seleccionar para exportar o eliminar en conjunto">
                             </td>
                             <td data-label="Materia">{% for s in pregunta.subjects.all %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
                             <td data-label="Tópico">{{ pregunta.topic.name|default:"-" }}</td>
@@ -186,8 +186,8 @@
                                 {% if pregunta.bloom_level %}
                                     {% if pregunta.bloom_level == 1 %}<span class="badge" style="background:#e3f2fd;color:#1565c0;">N1 Recordar</span>
                                     {% elif pregunta.bloom_level == 2 %}<span class="badge" style="background:#e8f5e9;color:#2e7d32;">N2 Comprender</span>
-                                    {% elif pregunta.bloom_level == 3 %}<span class="badge" style="background:#fff9c4;color:#f57f17;">N3 Aplicar</span>
-                                    {% elif pregunta.bloom_level == 4 %}<span class="badge" style="background:#fff3e0;color:#e65100;">N4 Analizar</span>
+                                    {% elif pregunta.bloom_level == 3 %}<span class="badge" style="background:#fff9c4;color:#8a4b00;">N3 Aplicar</span>
+                                    {% elif pregunta.bloom_level == 4 %}<span class="badge" style="background:#fff3e0;color:#a63c00;">N4 Analizar</span>
                                     {% elif pregunta.bloom_level == 5 %}<span class="badge" style="background:#fce4ec;color:#880e4f;">N5 Evaluar</span>
                                     {% elif pregunta.bloom_level == 6 %}<span class="badge" style="background:#f3e5f5;color:#4a148c;">N6 Crear</span>
                                     {% endif %}
@@ -221,16 +221,16 @@
                                 <div class="btn-group" role="group">
                                     <a href="{% url 'material:ver_pregunta' pregunta.pk %}?next={{ request.get_full_path|urlencode }}"
                                        class="btn btn-sm btn-info" title="Ver pregunta">
-                                        <i class="fas fa-eye"></i>
+                                        <i class="bi bi-eye"></i>
                                     </a>
                                     {% if pregunta.user_id == request.user.id %}
                                     <a href="{% url 'material:editar_pregunta' pregunta.pk %}?next={{ request.get_full_path|urlencode }}"
                                        class="btn btn-sm btn-success" title="Editar pregunta">
-                                        <i class="fas fa-edit"></i>
+                                        <i class="bi bi-pencil-square"></i>
                                     </a>
                                     <a href="{% url 'material:eliminar_pregunta' pregunta.pk %}"
                                        class="btn btn-sm btn-danger" title="Eliminar pregunta">
-                                        <i class="fas fa-trash"></i>
+                                        <i class="bi bi-trash"></i>
                                     </a>
                                     {% endif %}
                                 </div>

@@ -180,11 +180,11 @@
                 </div>
                 {% if has_api_key and config.source == 'byok' %}
                   <div class="form-text text-success d-flex align-items-center flex-wrap gap-2 mt-1">
-                    <span><i class="bi bi-shield-lock me-1"></i>Key guardada y cifrada — solo vos podés verla o eliminarla, nadie más (ni otro usuario, ni un administrador) puede leerla. Dejar el campo vacío para mantenerla.</span>
+                    <span><i class="bi bi-shield-lock me-1"></i>Key guardada y cifrada — solo se puede ver o eliminar desde esta cuenta, nadie más (ni otro usuario, ni un administrador) puede leerla. Dejar el campo vacío para mantenerla.</span>
                   </div>
                   <button type="submit" name="action" value="clear_api_key"
                           class="btn btn-sm btn-outline-danger py-0 px-2 mt-1"
-                          onclick="return confirm('¿Eliminar la API Key guardada? No se puede deshacer.');">
+                          onclick="return eduConfirmSubmit(event, '¿Eliminar la API Key guardada? No se puede deshacer.', { title: 'Eliminar clave', variant: 'danger', okLabel: 'Eliminar' });">
                     <i class="bi bi-trash me-1"></i>Eliminar clave guardada
                   </button>
                 {% endif %}
@@ -247,7 +247,7 @@
 
     <div class="d-flex gap-2">
       <button type="submit" class="btn btn-primary">
-        <i class="bi bi-floppy me-1"></i>Guardar configuración
+        <i class="bi bi-save me-1"></i>Guardar configuración
       </button>
       <a href="{% url 'material:index' %}" class="btn btn-outline-secondary"
         onclick="if (window.history.length > 1) { window.history.back(); return false; }">Cancelar</a>
