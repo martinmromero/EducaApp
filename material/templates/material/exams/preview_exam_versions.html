@@ -265,7 +265,13 @@
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'list-group-item list-group-item-action';
-          button.innerHTML = `<div><strong>#${q.id}</strong></div><div>${q.text}</div>`;
+          const idLine = document.createElement('div');
+          const idStrong = document.createElement('strong');
+          idStrong.textContent = '#' + q.id;
+          idLine.appendChild(idStrong);
+          const textLine = document.createElement('div');
+          textLine.textContent = q.text;
+          button.append(idLine, textLine);
           button.addEventListener('click', function () {
             submitReplace({
               version_number: currentVersion,

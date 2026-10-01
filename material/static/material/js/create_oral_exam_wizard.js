@@ -68,8 +68,8 @@ _onDomReady(function () {
                     var row = document.createElement('div');
                     row.className = 'form-check';
                     row.innerHTML =
-                        '<input class="form-check-input" type="checkbox" name="topics" value="' + topic.id + '" id="oral_topic_' + topic.id + '">' +
-                        '<label class="form-check-label" for="oral_topic_' + topic.id + '">' + topic.name + '</label>';
+                        '<input class="form-check-input" type="checkbox" name="topics" value="' + window.EducaAppEscape(topic.id) + '" id="oral_topic_' + window.EducaAppEscape(topic.id) + '">' +
+                        '<label class="form-check-label" for="oral_topic_' + window.EducaAppEscape(topic.id) + '">' + window.EducaAppEscape(topic.name) + '</label>';
                     topicsList.appendChild(row);
                 });
                 topicsEmpty.classList.add('d-none');
@@ -241,7 +241,7 @@ _onDomReady(function () {
         var topicsCount = getSelectedTopicIds().length;
         box.innerHTML =
             '<dl class="row mb-0">' +
-            '<dt class="col-sm-4">Materia</dt><dd class="col-sm-8">' + subjectLabel + '</dd>' +
+            '<dt class="col-sm-4">Materia</dt><dd class="col-sm-8">' + window.EducaAppEscape(subjectLabel) + '</dd>' +
             '<dt class="col-sm-4">Tópicos</dt><dd class="col-sm-8">' + topicsCount + ' seleccionado(s)</dd>' +
             '<dt class="col-sm-4">Alumnos</dt><dd class="col-sm-8">' + (totalStudentsInput.value || '-') + '</dd>' +
             '<dt class="col-sm-4">Grupos</dt><dd class="col-sm-8">' + (numGroupsInput.value || '-') + ' (hasta ' + (studentsPerGroupHidden.value || '-') + ' alumno(s) c/u)</dd>' +

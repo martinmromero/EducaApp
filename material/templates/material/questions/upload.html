@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const row = document.createElement('button');
                         row.type = 'button';
                         row.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
-                        row.innerHTML = '<span>' + m.name + '</span><span class="badge bg-secondary-subtle text-secondary-emphasis border">' +
+                        row.innerHTML = '<span>' + window.EducaAppEscape(m.name) + '</span><span class="badge bg-secondary-subtle text-secondary-emphasis border">' +
                             (m.es_catalogo_institucional ? 'Institucional' : 'Espacio personal') + '</span>';
                         row.addEventListener('click', function () {
                             let opt = subjectSelect.querySelector('option[value="' + m.id + '"]');

@@ -1,5 +1,6 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load filter_tags %}
 
 {% block content %}
 <div class="container-lg py-4">
@@ -278,7 +279,7 @@
 <script>
 (function () {
   // ── Datos iniciales desde el servidor ──────────────────────────────────
-  const initialOptionsJson = {{ pregunta.options_json|default:"null"|safe }};
+  const initialOptionsJson = {{ pregunta.options_json|default:"null"|json_embed }};
   const initialType        = '{{ pregunta.question_type|default:"" }}';
 
   // ── Referencias DOM ────────────────────────────────────────────────────

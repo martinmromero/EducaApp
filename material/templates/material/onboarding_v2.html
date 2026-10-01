@@ -1,5 +1,6 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load filter_tags %}
 {% block title %}Asistente de configuración - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-magic me-2"></i>Asistente de configuración{% endblock %}
 
@@ -404,7 +405,7 @@
   const STEPS = 7;
   let currentStep = 1;
   const csrfToken = '{{ csrf_token }}';
-  const ONB_DATA = {{ onb_data_json|safe }};
+  const ONB_DATA = {{ onb_data_json|json_embed }};
 
   const saveUrl = '{% url "material:onboarding_save_step" %}';
   const uploadAndProcessUrl = '{% url "material:upload_and_process_document" %}';
@@ -516,7 +517,7 @@
     const card = document.createElement('div');
     card.className = 'onb2-pick-card onb2-picked';
     card.dataset.id = id;
-    card.innerHTML = '<i class="bi bi-buildings"></i>' + name + '<span class="onb2-pick-card-badge">Personal</span>';
+    card.innerHTML = '<i class="bi bi-buildings"></i>' + window.EducaAppEscape(name) + '<span class="onb2-pick-card-badge">Personal</span>';
     cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
     card.addEventListener('click', function () {
       cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
@@ -534,7 +535,7 @@
     const card = document.createElement('div');
     card.className = 'onb2-pick-card onb2-picked';
     card.dataset.id = id;
-    card.innerHTML = '<i class="bi bi-book"></i>' + name + '<span class="onb2-pick-card-badge">Personal</span>';
+    card.innerHTML = '<i class="bi bi-book"></i>' + window.EducaAppEscape(name) + '<span class="onb2-pick-card-badge">Personal</span>';
     cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
     card.addEventListener('click', function () {
       cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
@@ -570,8 +571,8 @@
     cardsEl.innerHTML = sorted.map(function (item) {
       const badge = ownIds.has(item.id) ? '<span class="onb2-pick-card-badge">Personal</span>' : '';
       const picked = item.id === defaultItem.id ? ' onb2-picked' : '';
-      return '<div class="onb2-pick-card' + picked + '" data-id="' + item.id + '">' +
-        iconHtml + item.name + badge + '</div>';
+      return '<div class="onb2-pick-card' + picked + '" data-id="' + window.EducaAppEscape(item.id) + '">' +
+        iconHtml + window.EducaAppEscape(item.name) + badge + '</div>';
     }).join('');
     cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (card) {
       card.addEventListener('click', function () {
@@ -625,7 +626,7 @@
     const card = document.createElement('div');
     card.className = 'onb2-pick-card onb2-picked';
     card.dataset.id = id;
-    card.innerHTML = '<i class="bi bi-diagram-3"></i>' + name + '<span class="onb2-pick-card-badge">Personal</span>';
+    card.innerHTML = '<i class="bi bi-diagram-3"></i>' + window.EducaAppEscape(name) + '<span class="onb2-pick-card-badge">Personal</span>';
     cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
     card.addEventListener('click', function () {
       cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
@@ -664,7 +665,7 @@
     const card = document.createElement('div');
     card.className = 'onb2-pick-card onb2-picked';
     card.dataset.id = id;
-    card.innerHTML = '<i class="bi bi-signpost-split"></i>' + name + '<span class="onb2-pick-card-badge">Personal</span>';
+    card.innerHTML = '<i class="bi bi-signpost-split"></i>' + window.EducaAppEscape(name) + '<span class="onb2-pick-card-badge">Personal</span>';
     cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
     card.addEventListener('click', function () {
       cardsEl.querySelectorAll('.onb2-pick-card').forEach(function (c) { c.classList.remove('onb2-picked'); });
@@ -716,11 +717,11 @@
       return a.name.localeCompare(b.name, 'es');
     });
     facSel.innerHTML = '<option value="">— seleccionar —</option>' + faculties.map(function (f) {
-      return '<option value="' + f.id + '">' + f.name + '</option>';
+      return '<option value="' + window.EducaAppEscape(f.id) + '">' + window.EducaAppEscape(f.name) + '</option>';
     }).join('');
 
     function renderEmptyList(msg) {
-      listEl.innerHTML = '<p class="text-muted mb-0" style="font-size:.8rem">' + msg + '</p>';
+      listEl.innerHTML = '<p class="text-muted mb-0" style="font-size:.8rem">' + window.EducaAppEscape(msg) + '</p>';
     }
 
     facSel.addEventListener('change', function () {
@@ -753,8 +754,8 @@
         return;
       }
       listEl.innerHTML = subjects.map(function (s) {
-        return '<div class="form-check"><input class="form-check-input" type="checkbox" value="' + s.id + '" id="onb2OtherSubject_' + s.id + '">' +
-          '<label class="form-check-label" for="onb2OtherSubject_' + s.id + '">' + s.name + '</label></div>';
+        return '<div class="form-check"><input class="form-check-input" type="checkbox" value="' + window.EducaAppEscape(s.id) + '" id="onb2OtherSubject_' + window.EducaAppEscape(s.id) + '">' +
+          '<label class="form-check-label" for="onb2OtherSubject_' + window.EducaAppEscape(s.id) + '">' + window.EducaAppEscape(s.name) + '</label></div>';
       }).join('');
     });
   }
@@ -766,10 +767,10 @@
     document.getElementById('onb2PrevContentsBlock').style.display = 'block';
     const container = document.getElementById('onb2ContentsList');
     container.innerHTML = list.map(function (c) {
-      return '<div class="onb2-contenido-item d-flex align-items-center gap-2 py-1 px-2 border-bottom" data-id="' + c.id + '" data-title="' + c.title.replace(/"/g, '&quot;') + '" style="cursor:pointer">' +
+      return '<div class="onb2-contenido-item d-flex align-items-center gap-2 py-1 px-2 border-bottom" data-id="' + window.EducaAppEscape(c.id) + '" data-title="' + window.EducaAppEscape(c.title) + '" style="cursor:pointer">' +
         '<i class="bi bi-file-earmark-text text-primary"></i>' +
-        '<div class="flex-grow-1"><div style="font-size:.85rem">' + c.title + '</div>' +
-        '<div class="text-muted" style="font-size:.75rem">' + c.uploaded_at + '</div></div></div>';
+        '<div class="flex-grow-1"><div style="font-size:.85rem">' + window.EducaAppEscape(c.title) + '</div>' +
+        '<div class="text-muted" style="font-size:.75rem">' + window.EducaAppEscape(c.uploaded_at) + '</div></div></div>';
     }).join('');
     container.querySelectorAll('.onb2-contenido-item').forEach(function (el) {
       el.addEventListener('click', function () {
@@ -1057,10 +1058,10 @@
     const demoUrl = '{% url "material:onboarding_v2_demo_scheme" %}';
     cardsEl.innerHTML = list.map(function (s) {
       const institLabel = s.institution_name
-        ? ' <span class="text-muted" style="font-weight:400">(' + s.institution_name + ')</span>'
+        ? ' <span class="text-muted" style="font-weight:400">(' + window.EducaAppEscape(s.institution_name) + ')</span>'
         : '';
       return '<a class="onb2-pick-card" href="' + demoUrl + '?subject_id=' + s.id + '" style="text-decoration:none">' +
-        '<i class="bi bi-book"></i>' + s.name + institLabel + '</a>';
+        '<i class="bi bi-book"></i>' + window.EducaAppEscape(s.name) + institLabel + '</a>';
     }).join('');
   })();
 

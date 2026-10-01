@@ -493,17 +493,17 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderSuggest(chip, matches, q) {
         let html = '';
         matches.forEach(function (m) {
-            const tag = chip.nivel === 'institucion' && m.sigla ? '<span class="catreq-suggest-tag">' + m.sigla + '</span>' : '';
+            const tag = chip.nivel === 'institucion' && m.sigla ? '<span class="catreq-suggest-tag">' + window.EducaAppEscape(m.sigla) + '</span>' : '';
             const badgeTxt = m.es_catalogo_institucional ? 'Institucional' : 'Espacio personal';
-            html += '<div class="catreq-suggest-item" data-id="' + m.id + '" data-name="' + m.name.replace(/"/g, '&quot;') + '">' +
+            html += '<div class="catreq-suggest-item" data-id="' + window.EducaAppEscape(m.id) + '" data-name="' + window.EducaAppEscape(m.name) + '">' +
                 '<div class="catreq-suggest-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-9"/></svg></div>' +
-                '<div><span class="catreq-suggest-name">' + m.name + '</span>' + tag + '</div>' +
+                '<div><span class="catreq-suggest-name">' + window.EducaAppEscape(m.name) + '</span>' + tag + '</div>' +
                 '<span class="catreq-suggest-badge">' + badgeTxt + '</span></div>';
         });
         if (!chip.soloExistente && q && q.trim().length >= 2) {
             html += '<div class="catreq-suggest-create" data-crear="1">' +
                 '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>' +
-                '<span>Crear "' + q.trim() + '" como ' + (TIPO_LABELS[chip.nivel] || chip.nivel).toLowerCase() + ' nueva</span></div>';
+                '<span>Crear "' + window.EducaAppEscape(q.trim()) + '" como ' + (TIPO_LABELS[chip.nivel] || chip.nivel).toLowerCase() + ' nueva</span></div>';
         }
         chip.suggestBox.innerHTML = html;
 
@@ -685,11 +685,11 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderSuggestFinal(matches) {
         if (!matches.length) { sugerenciasFinal.innerHTML = ''; return; }
         const html = matches.map(function (m) {
-            const tag = tipoSelect.value === 'institucion' && m.sigla ? '<span class="catreq-suggest-tag">' + m.sigla + '</span>' : '';
+            const tag = tipoSelect.value === 'institucion' && m.sigla ? '<span class="catreq-suggest-tag">' + window.EducaAppEscape(m.sigla) + '</span>' : '';
             const badgeTxt = m.es_catalogo_institucional ? 'Institucional' : 'Espacio personal';
-            return '<div class="catreq-suggest-item" data-name="' + m.name.replace(/"/g, '&quot;') + '" data-institucional="' + (m.es_catalogo_institucional ? '1' : '0') + '">' +
+            return '<div class="catreq-suggest-item" data-name="' + window.EducaAppEscape(m.name) + '" data-institucional="' + (m.es_catalogo_institucional ? '1' : '0') + '">' +
                 '<div class="catreq-suggest-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-9"/></svg></div>' +
-                '<div><span class="catreq-suggest-name">' + m.name + '</span>' + tag + '</div>' +
+                '<div><span class="catreq-suggest-name">' + window.EducaAppEscape(m.name) + '</span>' + tag + '</div>' +
                 '<span class="catreq-suggest-badge">' + badgeTxt + '</span></div>';
         }).join('');
         sugerenciasFinal.innerHTML = html;
