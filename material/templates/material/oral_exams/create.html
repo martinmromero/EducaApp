@@ -315,9 +315,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     const isChecked = selected.includes(String(topic.id));
                     div.innerHTML = `
                         <input class="form-check-input" type="checkbox"
-                               name="topics" value="${topic.id}" id="topic_${topic.id}"${isChecked ? ' checked' : ''}>
-                        <label class="form-check-label" for="topic_${topic.id}">
-                            ${topic.name}
+                               name="topics" value="${EducaAppEscape(topic.id)}" id="topic_${EducaAppEscape(topic.id)}"${isChecked ? ' checked' : ''}>
+                        <label class="form-check-label" for="topic_${EducaAppEscape(topic.id)}">
+                            ${EducaAppEscape(topic.name)}
                         </label>
                     `;
                     topicsContainer.appendChild(div);
@@ -596,11 +596,11 @@ document.addEventListener('DOMContentLoaded', function() {
         infoDiv.innerHTML = `
             <div class="row">
                 <div class="col-md-6">
-                    <p><i class="bi bi-question-circle-fill text-primary"></i> <strong>Preguntas disponibles:</strong> ${info.total_questions}</p>
-                    <p><i class="bi bi-list text-info"></i> <strong>Sub-tópicos disponibles:</strong> ${info.total_subtopics}</p>
+                    <p><i class="bi bi-question-circle-fill text-primary"></i> <strong>Preguntas disponibles:</strong> ${EducaAppEscape(info.total_questions)}</p>
+                    <p><i class="bi bi-list text-info"></i> <strong>Sub-tópicos disponibles:</strong> ${EducaAppEscape(info.total_subtopics)}</p>
                 </div>
                 <div class="col-md-6">
-                    <p><i class="bi bi-people-fill text-success"></i> <strong>Máximo por grupo:</strong> ${info.max_students_per_group || 'No definido'} estudiantes</p>
+                    <p><i class="bi bi-people-fill text-success"></i> <strong>Máximo por grupo:</strong> ${EducaAppEscape(info.max_students_per_group) || 'No definido'} estudiantes</p>
                 </div>
             </div>
             <div id="calculation-status"></div>
@@ -646,7 +646,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reemplazar completamente el contenido (no acumular)
         calculationStatus.innerHTML = `
             <div class="alert alert-danger mt-2">
-                <i class="bi bi-exclamation-triangle-fill"></i> <strong>Error:</strong> ${message}
+                <i class="bi bi-exclamation-triangle-fill"></i> <strong>Error:</strong> ${EducaAppEscape(message)}
             </div>
         `;
     }
@@ -657,7 +657,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reemplazar completamente el contenido (no acumular)
         calculationStatus.innerHTML = `
             <div class="alert alert-warning mt-2">
-                <i class="bi bi-exclamation-circle-fill"></i> <strong>Advertencia:</strong> ${message}
+                <i class="bi bi-exclamation-circle-fill"></i> <strong>Advertencia:</strong> ${EducaAppEscape(message)}
             </div>
         `;
     }

@@ -1,6 +1,7 @@
 
 {% extends 'material/base.html' %}
 {% load static %}
+{% load filter_tags %}
 {% block body_extra_attrs %}data-tour-page="create_exam"{% endblock %}
 {% block title %}Nuevo Examen - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-plus-circle me-2"></i>Nuevo Examen{% endblock %}
@@ -549,8 +550,8 @@
 
 {% if prefill_data_json %}
 <script>
-var EXAM_PREFILL = {{ prefill_data_json|safe }};
-var WIZARD_PREFILL_FIELDS = {{ wizard_prefill_fields_json|default:"[]"|safe }};
+var EXAM_PREFILL = {{ prefill_data_json|json_embed }};
+var WIZARD_PREFILL_FIELDS = {{ wizard_prefill_fields_json|default:"[]"|json_embed }};
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {

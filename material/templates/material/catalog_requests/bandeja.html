@@ -170,15 +170,15 @@ document.addEventListener('DOMContentLoaded', function () {
                         return;
                     }
                     sugerencias.innerHTML = matches.map(function (m) {
-                        return '<button type="button" class="btn btn-outline-secondary btn-sm me-1 mb-1 fusion-opcion" data-id="' + m.id + '" data-name="' + m.name.replace(/"/g, '&quot;') + '">' +
-                            '<i class="bi bi-check2"></i> ' + m.name + '</button>';
+                        return '<button type="button" class="btn btn-outline-secondary btn-sm me-1 mb-1 fusion-opcion" data-id="' + window.EducaAppEscape(m.id) + '" data-name="' + window.EducaAppEscape(m.name) + '">' +
+                            '<i class="bi bi-check2"></i> ' + window.EducaAppEscape(m.name) + '</button>';
                     }).join('');
                     sugerencias.querySelectorAll('.fusion-opcion').forEach(function (opt) {
                         opt.addEventListener('click', function () {
                             destinoInput.value = opt.dataset.id;
                             input.value = opt.dataset.name;
                             confirmarBtn.disabled = false;
-                            sugerencias.innerHTML = '<div class="text-success"><i class="bi bi-check-circle"></i> Se va a fusionar con "' + opt.dataset.name + '".</div>';
+                            sugerencias.innerHTML = '<div class="text-success"><i class="bi bi-check-circle"></i> Se va a fusionar con "' + window.EducaAppEscape(opt.dataset.name) + '".</div>';
                         });
                     });
                 })

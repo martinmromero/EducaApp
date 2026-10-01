@@ -1,5 +1,6 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load filter_tags %}
 {% block body_extra_attrs %}data-tour-page="rubric_form"{% endblock %}
 {% block title %}{{ action }} Rúbrica - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-card-checklist me-2"></i>{{ action }} Rúbrica{% endblock %}
@@ -62,8 +63,8 @@
 
 <script>
 (function () {
-    var levels   = {{ levels_json|safe }};
-    var criteria = {{ criteria_json|safe }};
+    var levels   = {{ levels_json|json_embed }};
+    var criteria = {{ criteria_json|json_embed }};
 
     function esc(str) {
         return String(str == null ? '' : str)

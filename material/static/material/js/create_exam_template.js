@@ -359,8 +359,8 @@ function setupLearningOutcomesChecklist() {
                                 
                                 // Mostrar código y descripción si están disponibles
                                 const description = outcome.code ? 
-                                    `<strong>${outcome.code}:</strong> ${outcome.description}` : 
-                                    outcome.description;
+                                    `<strong>${window.EducaAppEscape(outcome.code)}:</strong> ${window.EducaAppEscape(outcome.description)}` : 
+                                    window.EducaAppEscape(outcome.description);
                                 
                                 label.innerHTML = description;
                                 
@@ -383,7 +383,7 @@ function setupLearningOutcomesChecklist() {
                         learningOutcomesContainer.innerHTML = `
                             <div class="alert alert-danger">
                                 <i class="bi bi-exclamation-triangle-fill"></i> 
-                                Error al cargar los resultados: ${error.message}
+                                Error al cargar los resultados: ${window.EducaAppEscape(error.message)}
                             </div>`;
                     });
             } else {

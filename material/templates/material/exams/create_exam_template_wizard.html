@@ -1,5 +1,6 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load filter_tags %}
 {% block body_extra_attrs %}data-tour-page="create_exam_template_wizard"{% endblock %}
 {% block title %}Asistente: Plantilla de examen - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-magic me-2"></i>Asistente: Plantilla de examen{% endblock %}
@@ -188,7 +189,7 @@ window.EducaAppTemplateWizardConfig = {
         createRelatedElement: "/api/create-related-element/",
         subjectDetailBase: "/subjects/"
     },
-    ownSubjectIds: {{ own_subject_ids_json|safe }}
+    ownSubjectIds: {{ own_subject_ids_json|json_embed }}
 };
 </script>
 <script src="{% static 'material/js/wizard_engine.js' %}"></script>

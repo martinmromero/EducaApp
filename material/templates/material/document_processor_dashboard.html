@@ -892,7 +892,7 @@ document.getElementById('uploadDocumentForm').addEventListener('submit', async f
             resultCard.style.display = 'block';
             collapseUploadForm(data.filename);
         } else {
-            showAiNoticeBanner(data.error, { title: 'No se pudo procesar el documento', variant: 'danger' });
+            showAiNoticeBanner(window.EducaAppEscape(data.error), { title: 'No se pudo procesar el documento', variant: 'danger' });
         }
     } catch (error) {
         progressDiv.style.display = 'none';
@@ -993,7 +993,7 @@ function renderChapterCardsHTML(chapters) {
                        data-tokens="${chapter.tokens || 0}" id="chapterCheck${index}" ${checkedAttr}
                        onchange="updateGenerateButton()">
                 <div class="rt-chapter-head d-flex justify-content-between align-items-start gap-2">
-                    <span class="rt-chapter-title">${chapter.title}</span>
+                    <span class="rt-chapter-title">${window.EducaAppEscape(chapter.title)}</span>
                     <span class="rt-chapter-check-icon"><i class="bi bi-check-lg"></i></span>
                 </div>
                 <div class="rt-chapter-meter"><span class="rt-chapter-meter-fill ${info.colorClass}" style="width:${Math.min(100, info.pct)}%"></span></div>
@@ -1014,7 +1014,7 @@ function displayDocumentResult(data) {
     // tiempo (ver bug report — "ocupan demasiado espacio" incluso en web).
     const dupAlert = data.duplicate_message
         ? `<div class="alert alert-warning alert-dismissible py-2 mb-2">
-               <i class="bi bi-exclamation-triangle me-1"></i>${data.duplicate_message}
+               <i class="bi bi-exclamation-triangle me-1"></i>${window.EducaAppEscape(data.duplicate_message)}
                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
            </div>`
         : '';
@@ -1060,7 +1060,7 @@ function displayDocumentResult(data) {
         <div class="rt-doc-top-sticky">
             ${extensiveAlert}
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
-                <h5 class="mb-0">${data.filename}
+                <h5 class="mb-0">${window.EducaAppEscape(data.filename)}
                     ${data.contenido_id ? `<a id="contenidoSavedBadge" href="{% url 'material:mis_contenidos' %}" class="badge bg-success ms-2 text-decoration-none"><i class="bi bi-check-lg"></i> Guardado en Mis Contenidos</a>` : ''}
                 </h5>
                 <button class="btn btn-outline-primary btn-sm flex-shrink-0" onclick="openPagePreview()">
@@ -1282,7 +1282,7 @@ async function loadLocalModels() {
             let html = `
                 <div class="alert alert-info mb-3">
                     <i class="bi bi-check-circle-fill"></i> 
-                    <strong>Modelo activo:</strong> <code>${currentModel}</code>
+                    <strong>Modelo activo:</strong> <code>${window.EducaAppEscape(currentModel)}</code>
                     <br><small>Haz clic en "Activar" para cambiar de modelo</small>
                 </div>
                 <table class="table table-hover">
@@ -1306,17 +1306,17 @@ async function loadLocalModels() {
                 html += `
                     <tr class="${isActive ? 'table-success' : ''}">
                         <td>
-                            <strong>${model.name || model.model}</strong>
+                            <strong>${window.EducaAppEscape(model.name || model.model)}</strong>
                             ${isActive ? '<span class="badge bg-success ms-2"><i class="bi bi-check-lg"></i> Activo</span>' : ''}
                             ${isRecommended && !isActive ? '<span class="badge bg-info ms-2">⭐ Recomendado</span>' : ''}
-                            <br><small class="text-muted">${model.model}</small>
+                            <br><small class="text-muted">${window.EducaAppEscape(model.model)}</small>
                         </td>
                         <td>${sizeGB} GB</td>
                         <td><small>${modifiedDate}</small></td>
                         <td class="text-center">
                             ${isActive ? 
                                 '<span class="text-success"><i class="bi bi-check-circle-fill"></i> En uso</span>' : 
-                                `<button class="btn btn-sm btn-primary" onclick="setActiveModel('${model.name}')">
+                                `<button class="btn btn-sm btn-primary" data-model="${window.EducaAppEscape(model.name)}" onclick="setActiveModel(this.dataset.model)">
                                     <i class="bi bi-power"></i> Activar
                                 </button>`
                             }
@@ -1561,7 +1561,7 @@ function showAiNoticeBanner(message, { title = 'Atención', variant = 'warning' 
         <div class="alert alert-${variant} alert-dismissible fade show d-flex align-items-start gap-2 mt-2" role="alert">
             <i class="bi bi-exclamation-triangle-fill mt-1"></i>
             <div class="flex-grow-1">
-                <strong>${title}</strong>
+                <strong>${window.EducaAppEscape(title)}</strong>
                 <div>${message}</div>
             </div>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
@@ -1586,7 +1586,7 @@ async function generateQuestionsFromSelected() {
         if (!statusData.connected) {
             const providerMsg = statusData.provider || statusData.backend || 'IA';
             showAiNoticeBanner(
-                `Verificar la configuración en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a> antes de generar preguntas. Proveedor activo: <strong>${providerMsg}</strong>.`,
+                `Verificar la configuración en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a> antes de generar preguntas. Proveedor activo: <strong>${window.EducaAppEscape(providerMsg)}</strong>.`,
                 { title: 'Proveedor de IA no disponible' }
             );
             return;
@@ -1636,14 +1636,14 @@ function showPreflightModal(indices, chapters) {
         // número, así que se muestran en una sola línea en vez de repetirlo.
         const chunks = Math.ceil((chapters[0].tokens || 500) / 3000);
         chapHtml += `
-            <strong>${chapters[0].title}</strong> — ${relativeSizeBadge(chapters[0].tokens)}, ~${chunks} fragmento(s)
+            <strong>${window.EducaAppEscape(chapters[0].title)}</strong> — ${relativeSizeBadge(chapters[0].tokens)}, ~${chunks} fragmento(s)
             · Tiempo estimado: ${timeLabel}
         `;
     } else {
         chapHtml += `<strong>Capítulos seleccionados:</strong><ul class="mb-1 mt-1">`;
         chapters.forEach(ch => {
             const chunks = Math.ceil((ch.tokens || 500) / 3000);
-            chapHtml += `<li>${ch.title} — <span class="text-muted">${relativeSizeBadge(ch.tokens)}, ~${chunks} fragmento(s)</span></li>`;
+            chapHtml += `<li>${window.EducaAppEscape(ch.title)} — <span class="text-muted">${relativeSizeBadge(ch.tokens)}, ~${chunks} fragmento(s)</span></li>`;
         });
         chapHtml += `</ul>
             <strong>Total:</strong> <span title="${totalTokens.toLocaleString()} — referencia interna de tamaño">${totalPct}% de una tanda</span> · ${totalChunksEst} fragmento(s) · Tiempo estimado: ${timeLabel}
@@ -1775,7 +1775,7 @@ async function generateStreaming() {
     } catch (err) {
         document.getElementById('questionsLoadingIndicator').style.display = 'none';
         document.getElementById('questionsContent').innerHTML = `
-            <div class="alert alert-danger"><i class="bi bi-x-circle-fill"></i> ${err.message}</div>`;
+            <div class="alert alert-danger"><i class="bi bi-x-circle-fill"></i> ${window.EducaAppEscape(err.message)}</div>`;
         _resetGenerationButton();
         return;
     }
@@ -1984,7 +1984,7 @@ async function generateStreaming() {
                 failed.forEach(f => {
                     const key = f.message || 'La IA no devolvió un resultado utilizable para esa parte.';
                     if (!groups.has(key)) groups.set(key, []);
-                    groups.get(key).push(`«${f.chapter}» (fragmento ${f.chunk}/${f.total_chunks})`);
+                    groups.get(key).push(`«${window.EducaAppEscape(f.chapter)}» (fragmento ${f.chunk}/${f.total_chunks})`);
                 });
                 const detailHtml = Array.from(groups.entries()).map(([message, items]) => `
                     <div class="mt-1"><strong>${items.join(', ')}:</strong> ${_escapeHtml(message)}</div>
@@ -2084,7 +2084,7 @@ async function generateStreaming() {
             es.close();
             window._activeEventSource = null;
             document.getElementById('questionsContent').innerHTML =
-                `<div class="alert alert-danger"><i class="bi bi-x-circle-fill"></i> ${msg.message}</div>`;
+                `<div class="alert alert-danger"><i class="bi bi-x-circle-fill"></i> ${window.EducaAppEscape(msg.message)}</div>`;
             backupGeneratedQuestions();
             _resetGenerationButton();
 
@@ -2161,7 +2161,7 @@ function sourceReferenceHTML(q) {
 
     const label = [q.source_file || '', chapterParts].filter(Boolean).join(', ');
     if (!label) return '';
-    return `<div class="mt-2"><small class="text-muted"><i class="bi bi-book"></i> Fuente: ${label}</small></div>`;
+    return `<div class="mt-2"><small class="text-muted"><i class="bi bi-book"></i> Fuente: ${window.EducaAppEscape(label)}</small></div>`;
 }
 
 function questionBodyHTML(q) {
@@ -2169,14 +2169,14 @@ function questionBodyHTML(q) {
     const sourceHTML = sourceReferenceHTML(q);
     if (tipo === 'opcion_multiple') {
         const optionsHTML = q.opciones ? q.opciones.map((opt, i) =>
-            `<li class="${i === q.respuesta_correcta_index ? 'text-success fw-bold' : ''}">${opt}</li>`
+            `<li class="${i === q.respuesta_correcta_index ? 'text-success fw-bold' : ''}">${window.EducaAppEscape(opt)}</li>`
         ).join('') : '';
         return `
-            <p class="fw-bold mb-3">${q.pregunta}</p>
+            <p class="fw-bold mb-3">${window.EducaAppEscape(q.pregunta)}</p>
             ${optionsHTML ? `<ul class="mb-3">${optionsHTML}</ul>` : ''}
             <div class="alert alert-light mb-0">
-                <strong>Respuesta correcta:</strong> ${q.respuesta}<br>
-                ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
+                <strong>Respuesta correcta:</strong> ${window.EducaAppEscape(q.respuesta)}<br>
+                ${q.explicacion ? `<small class="text-muted">${window.EducaAppEscape(q.explicacion)}</small>` : ''}
             </div>
             ${sourceHTML}`;
     }
@@ -2186,39 +2186,39 @@ function questionBodyHTML(q) {
             ? '<span class="badge bg-success fs-6">✔ Verdadero</span>'
             : '<span class="badge bg-danger fs-6">✘ Falso</span>';
         return `
-            <p class="fw-bold mb-3">${q.pregunta}</p>
+            <p class="fw-bold mb-3">${window.EducaAppEscape(q.pregunta)}</p>
             <div class="alert alert-light mb-0">
                 <strong>Respuesta:</strong> ${badge}<br>
-                ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
+                ${q.explicacion ? `<small class="text-muted">${window.EducaAppEscape(q.explicacion)}</small>` : ''}
             </div>
             ${sourceHTML}`;
     }
     if (tipo === 'completar_blank') {
-        const highlighted = (q.pregunta || '').replace(/\[___\]/g, '<span class="badge bg-warning text-dark fs-6">[___]</span>');
+        const highlighted = window.EducaAppEscape(q.pregunta || '').replace(/\[___\]/g, '<span class="badge bg-warning text-dark fs-6">[___]</span>');
         return `
             <p class="fw-bold mb-3">${highlighted}</p>
             <div class="alert alert-light mb-0">
-                <strong>Respuesta:</strong> <em>${q.respuesta || ''}</em><br>
-                ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
+                <strong>Respuesta:</strong> <em>${window.EducaAppEscape(q.respuesta || '')}</em><br>
+                ${q.explicacion ? `<small class="text-muted">${window.EducaAppEscape(q.explicacion)}</small>` : ''}
             </div>
             ${sourceHTML}`;
     }
     if (tipo === 'desarrollo') {
         return `
-            <p class="fw-bold mb-3">${q.pregunta}</p>
+            <p class="fw-bold mb-3">${window.EducaAppEscape(q.pregunta)}</p>
             <div class="alert alert-secondary mb-0">
                 <small class="text-muted"><i class="bi bi-person-workspace"></i> Solo docente:</small><br>
-                <strong>Respuesta de referencia:</strong> ${q.respuesta || ''}<br>
-                ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
+                <strong>Respuesta de referencia:</strong> ${window.EducaAppEscape(q.respuesta || '')}<br>
+                ${q.explicacion ? `<small class="text-muted">${window.EducaAppEscape(q.explicacion)}</small>` : ''}
             </div>
             ${sourceHTML}`;
     }
     // Fallback genérico
     return `
-        <p class="fw-bold mb-3">${q.pregunta}</p>
+        <p class="fw-bold mb-3">${window.EducaAppEscape(q.pregunta)}</p>
         <div class="alert alert-light mb-0">
-            <strong>Respuesta:</strong> ${q.respuesta || ''}<br>
-            ${q.explicacion ? `<small class="text-muted">${q.explicacion}</small>` : ''}
+            <strong>Respuesta:</strong> ${window.EducaAppEscape(q.respuesta || '')}<br>
+            ${q.explicacion ? `<small class="text-muted">${window.EducaAppEscape(q.explicacion)}</small>` : ''}
         </div>
         ${sourceHTML}`;
 }
@@ -2231,7 +2231,7 @@ function tipoBadge(tipo) {
         'desarrollo': ['secondary', 'Desarrollo'],
     };
     const [color, label] = map[tipo] || ['info', tipo || 'Desconocido'];
-    return `<span class="badge bg-${color}">${label}</span>`;
+    return `<span class="badge bg-${color}">${window.EducaAppEscape(label)}</span>`;
 }
 
 function appendGeneratedQuestions(questions) {
@@ -2345,7 +2345,7 @@ function editQuestion(index) {
             div.className = 'input-group mb-1';
             div.innerHTML = `
                 <span class="input-group-text">${['A','B','C','D'][i] || i}</span>
-                <input type="text" class="form-control form-control-sm edit-option-input" data-opt-idx="${i}" value="${opt.replace(/^[A-D]\)\s*/,'').replace(/"/g,'&quot;')}">`;
+                <input type="text" class="form-control form-control-sm edit-option-input" data-opt-idx="${i}" value="${window.EducaAppEscape(opt.replace(/^[A-D]\)\s*/,''))}">`;
             list.appendChild(div);
         });
         document.getElementById('editCorrectIndex').value = q.respuesta_correcta_index ?? 0;
@@ -2477,7 +2477,7 @@ function _spBuscarSubjects(q) {
                 const row = document.createElement('button');
                 row.type = 'button';
                 row.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
-                row.innerHTML = '<span>' + m.name + '</span><span class="badge bg-secondary-subtle text-secondary-emphasis border">' +
+                row.innerHTML = '<span>' + window.EducaAppEscape(m.name) + '</span><span class="badge bg-secondary-subtle text-secondary-emphasis border">' +
                     (m.es_catalogo_institucional ? 'Institucional' : 'Espacio personal') + '</span>';
                 row.addEventListener('click', function () {
                     _spAddSubject(m.id, m.name);
@@ -3006,13 +3006,13 @@ async function openPagePreview() {
     meta = await resp.json();
   } catch (e) {
     document.getElementById('previewLoadingIndicator').innerHTML =
-      `<div class="alert alert-danger">Error al obtener el documento: ${e.message}</div>`;
+      `<div class="alert alert-danger">Error al obtener el documento: ${window.EducaAppEscape(e.message)}</div>`;
     return;
   }
 
   if (!meta.success) {
     document.getElementById('previewLoadingIndicator').innerHTML =
-      `<div class="alert alert-danger">${meta.error}</div>`;
+      `<div class="alert alert-danger">${window.EducaAppEscape(meta.error)}</div>`;
     return;
   }
 
@@ -3072,7 +3072,7 @@ async function _renderPdf(fileUrl, totalPages, allowedPages) {
   try {
     pdfDoc = await pdfjsLib.getDocument(fileUrl).promise;
   } catch (e) {
-    grid.innerHTML = `<div class="col-12"><div class="alert alert-danger">No se pudo cargar el PDF: ${e.message}</div></div>`;
+    grid.innerHTML = `<div class="col-12"><div class="alert alert-danger">No se pudo cargar el PDF: ${window.EducaAppEscape(e.message)}</div></div>`;
     return;
   }
   window._previewState.pdfDoc = pdfDoc;
@@ -3439,7 +3439,7 @@ async function generateFromPageSelection() {
     if (!statusData.connected) {
       const providerMsg = statusData.provider || statusData.backend || 'IA';
       showAiNoticeBanner(
-        `Verificar la configuración en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a> antes de generar preguntas. Proveedor activo: <strong>${providerMsg}</strong>.`,
+        `Verificar la configuración en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a> antes de generar preguntas. Proveedor activo: <strong>${window.EducaAppEscape(providerMsg)}</strong>.`,
         { title: 'Proveedor de IA no disponible' }
       );
       return;

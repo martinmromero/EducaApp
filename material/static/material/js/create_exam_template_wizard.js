@@ -176,8 +176,8 @@ _onDomReady(function () {
                     row.className = 'form-check';
                     var checked = (checkedIds || []).includes(String(outcome.id));
                     row.innerHTML =
-                        '<input class="form-check-input outcome-checkbox" type="checkbox" value="' + outcome.id + '" id="outcome_' + outcome.id + '"' + (checked ? ' checked' : '') + '>' +
-                        '<label class="form-check-label" for="outcome_' + outcome.id + '">' + outcome.description + '</label>';
+                        '<input class="form-check-input outcome-checkbox" type="checkbox" value="' + window.EducaAppEscape(outcome.id) + '" id="outcome_' + window.EducaAppEscape(outcome.id) + '"' + (checked ? ' checked' : '') + '>' +
+                        '<label class="form-check-label" for="outcome_' + window.EducaAppEscape(outcome.id) + '">' + window.EducaAppEscape(outcome.description) + '</label>';
                     outcomesList.appendChild(row);
                 });
                 outcomesEmpty.classList.add('d-none');
@@ -207,8 +207,8 @@ _onDomReady(function () {
                     row.className = 'form-check';
                     var checked = (checkedIds || []).includes(String(r.id));
                     row.innerHTML =
-                        '<input class="form-check-input rubric-checkbox" type="checkbox" value="' + r.id + '" id="rubric_cb_' + r.id + '"' + (checked ? ' checked' : '') + '>' +
-                        '<label class="form-check-label" for="rubric_cb_' + r.id + '">' + r.title + '</label>';
+                        '<input class="form-check-input rubric-checkbox" type="checkbox" value="' + window.EducaAppEscape(r.id) + '" id="rubric_cb_' + window.EducaAppEscape(r.id) + '"' + (checked ? ' checked' : '') + '>' +
+                        '<label class="form-check-label" for="rubric_cb_' + window.EducaAppEscape(r.id) + '">' + window.EducaAppEscape(r.title) + '</label>';
                     rubricsList.appendChild(row);
                 });
                 rubricsEmpty.classList.toggle('d-none', rubrics.length > 0);
@@ -310,14 +310,14 @@ _onDomReady(function () {
         var notesVal = notesInput && notesInput.value.trim() ? notesInput.value.trim() : '-';
         box.innerHTML =
             '<dl class="row mb-0">' +
-            '<dt class="col-sm-4">Institución</dt><dd class="col-sm-8">' + label(institutionSelect) + '</dd>' +
-            '<dt class="col-sm-4">Facultad / Carrera</dt><dd class="col-sm-8">' + label(facultySelect) + ' / ' + label(careerSelect) + '</dd>' +
-            '<dt class="col-sm-4">Materia</dt><dd class="col-sm-8">' + label(subjectSelect) + '</dd>' +
-            '<dt class="col-sm-4">Docente</dt><dd class="col-sm-8">' + label(document.getElementById('id_professor')) + '</dd>' +
-            '<dt class="col-sm-4">Cátedra</dt><dd class="col-sm-8">' + catedraVal + '</dd>' +
+            '<dt class="col-sm-4">Institución</dt><dd class="col-sm-8">' + window.EducaAppEscape(label(institutionSelect)) + '</dd>' +
+            '<dt class="col-sm-4">Facultad / Carrera</dt><dd class="col-sm-8">' + window.EducaAppEscape(label(facultySelect)) + ' / ' + window.EducaAppEscape(label(careerSelect)) + '</dd>' +
+            '<dt class="col-sm-4">Materia</dt><dd class="col-sm-8">' + window.EducaAppEscape(label(subjectSelect)) + '</dd>' +
+            '<dt class="col-sm-4">Docente</dt><dd class="col-sm-8">' + window.EducaAppEscape(label(document.getElementById('id_professor'))) + '</dd>' +
+            '<dt class="col-sm-4">Cátedra</dt><dd class="col-sm-8">' + window.EducaAppEscape(catedraVal) + '</dd>' +
             '<dt class="col-sm-4">Resultados de aprendizaje</dt><dd class="col-sm-8">' + outcomesCount + ' seleccionado(s)</dd>' +
             '<dt class="col-sm-4">Rúbricas</dt><dd class="col-sm-8">' + rubricsCount + ' seleccionada(s)</dd>' +
-            '<dt class="col-sm-4">Notas y recomendaciones</dt><dd class="col-sm-8">' + notesVal + '</dd>' +
+            '<dt class="col-sm-4">Notas y recomendaciones</dt><dd class="col-sm-8">' + window.EducaAppEscape(notesVal) + '</dd>' +
             '</dl>';
     }
 

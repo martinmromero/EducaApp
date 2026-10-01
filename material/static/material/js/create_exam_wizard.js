@@ -68,10 +68,10 @@ _onDomReady(function () {
         var versions = document.getElementById('num_versions').value || '1';
         box.innerHTML =
             '<dl class="row mb-0">' +
-            '<dt class="col-sm-4">Materia</dt><dd class="col-sm-8">' + subjectLabel + '</dd>' +
+            '<dt class="col-sm-4">Materia</dt><dd class="col-sm-8">' + window.EducaAppEscape(subjectLabel) + '</dd>' +
             '<dt class="col-sm-4">Tópicos elegidos</dt><dd class="col-sm-8">' + topicsCount + '</dd>' +
             '<dt class="col-sm-4">Preguntas elegidas</dt><dd class="col-sm-8">' + questionsCount + '</dd>' +
-            '<dt class="col-sm-4">Fecha</dt><dd class="col-sm-8">' + fecha + '</dd>' +
+            '<dt class="col-sm-4">Fecha</dt><dd class="col-sm-8">' + window.EducaAppEscape(fecha) + '</dd>' +
             '<dt class="col-sm-4">Temas a generar</dt><dd class="col-sm-8">' + versions + '</dd>' +
             '</dl>';
     }

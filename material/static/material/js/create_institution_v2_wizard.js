@@ -38,7 +38,7 @@ _onDomReady(function () {
         });
     }
     function showLogoError(message) {
-        logoErrorBox.innerHTML = '<div class="alert alert-danger py-2 px-3 mb-0 small mt-2">' + message + '</div>';
+        logoErrorBox.innerHTML = '<div class="alert alert-danger py-2 px-3 mb-0 small mt-2">' + window.EducaAppEscape(message) + '</div>';
         logoInput.classList.add('is-invalid');
     }
 
@@ -113,11 +113,11 @@ _onDomReady(function () {
         var faculties = nonEmptyValues('wizFacultyContainer');
         box.innerHTML =
             '<dl class="row mb-0">' +
-            '<dt class="col-sm-4">Nombre</dt><dd class="col-sm-8">' + (nameInput.value.trim() || '-') + '</dd>' +
-            '<dt class="col-sm-4">Sigla</dt><dd class="col-sm-8">' + (siglaInput.value.trim() || '-') + '</dd>' +
-            '<dt class="col-sm-4">Logo</dt><dd class="col-sm-8">' + (logoInput.files[0] ? logoInput.files[0].name : 'sin logo') + '</dd>' +
-            '<dt class="col-sm-4">Sedes</dt><dd class="col-sm-8">' + (campuses.length ? campuses.join(', ') : 'ninguna') + '</dd>' +
-            '<dt class="col-sm-4">Facultades</dt><dd class="col-sm-8">' + (faculties.length ? faculties.join(', ') : 'ninguna') + '</dd>' +
+            '<dt class="col-sm-4">Nombre</dt><dd class="col-sm-8">' + window.EducaAppEscape(nameInput.value.trim() || '-') + '</dd>' +
+            '<dt class="col-sm-4">Sigla</dt><dd class="col-sm-8">' + window.EducaAppEscape(siglaInput.value.trim() || '-') + '</dd>' +
+            '<dt class="col-sm-4">Logo</dt><dd class="col-sm-8">' + window.EducaAppEscape(logoInput.files[0] ? logoInput.files[0].name : 'sin logo') + '</dd>' +
+            '<dt class="col-sm-4">Sedes</dt><dd class="col-sm-8">' + window.EducaAppEscape(campuses.length ? campuses.join(', ') : 'ninguna') + '</dd>' +
+            '<dt class="col-sm-4">Facultades</dt><dd class="col-sm-8">' + window.EducaAppEscape(faculties.length ? faculties.join(', ') : 'ninguna') + '</dd>' +
             '</dl>';
     }
 

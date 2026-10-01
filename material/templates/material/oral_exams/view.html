@@ -879,7 +879,7 @@ function assignStudentNames(studentNames) {
         if (data.success) {
             resultDiv.innerHTML = `
                 <div class="alert alert-success alert-dismissible fade show">
-                    <i class="bi bi-check-lg"></i> ${data.message}
+                    <i class="bi bi-check-lg"></i> ${EducaAppEscape(data.message)}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
@@ -888,7 +888,7 @@ function assignStudentNames(studentNames) {
         } else {
             resultDiv.innerHTML = `
                 <div class="alert alert-danger alert-dismissible fade show">
-                    <i class="bi bi-exclamation-triangle-fill"></i> ${data.error}
+                    <i class="bi bi-exclamation-triangle-fill"></i> ${EducaAppEscape(data.error)}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
@@ -1053,7 +1053,7 @@ function loadAvailableQuestions(groupId, currentQuestionId) {
                 container.innerHTML = `
                     <div class="alert alert-danger">
                         <i class="bi bi-exclamation-triangle-fill"></i> 
-                        Error al cargar preguntas: ${data.error}
+                        Error al cargar preguntas: ${EducaAppEscape(data.error)}
                     </div>
                 `;
             }
@@ -1088,14 +1088,14 @@ function displayAvailableQuestions(questions) {
         html += `
             <label class="list-group-item list-group-item-action" style="cursor: pointer;">
                 <div class="d-flex align-items-start">
-                    <input type="radio" name="newQuestionRadio" value="${question.id}" class="mr-3 mt-1">
+                    <input type="radio" name="newQuestionRadio" value="${EducaAppEscape(question.id)}" class="mr-3 mt-1">
                     <div class="flex-grow-1">
                         <div class="mb-1">
-                            <strong>${question.question_text}</strong>
+                            <strong>${EducaAppEscape(question.question_text)}</strong>
                         </div>
                         <small class="text-muted">
-                            <i class="bi bi-tag"></i> ${question.topic_name}
-                            ${question.difficulty ? ' | ' + question.difficulty : ''}
+                            <i class="bi bi-tag"></i> ${EducaAppEscape(question.topic_name)}
+                            ${question.difficulty ? ' | ' + EducaAppEscape(question.difficulty) : ''}
                         </small>
                     </div>
                 </div>
@@ -1156,7 +1156,7 @@ function exchangeQuestion(studentQuestionId, newQuestionId) {
             // Mostrar mensaje de éxito
             const alertHtml = `
                 <div class="alert alert-success alert-dismissible fade show">
-                    <i class="bi bi-check-lg"></i> ${data.message}
+                    <i class="bi bi-check-lg"></i> ${EducaAppEscape(data.message)}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
@@ -1195,7 +1195,7 @@ function exchangeQuestion(studentQuestionId, newQuestionId) {
             // Mostrar error
             const errorHtml = `
                 <div class="alert alert-danger mt-3">
-                    <i class="bi bi-exclamation-triangle-fill"></i> ${data.error}
+                    <i class="bi bi-exclamation-triangle-fill"></i> ${EducaAppEscape(data.error)}
                 </div>
             `;
             document.getElementById('availableQuestionsContainer').insertAdjacentHTML('afterend', errorHtml);
@@ -1219,7 +1219,7 @@ function exchangeQuestion(studentQuestionId, newQuestionId) {
         // También mostrar en el modal si está abierto
         const errorDiv = document.createElement('div');
         errorDiv.className = 'alert alert-danger mt-3';
-        errorDiv.innerHTML = `<i class="bi bi-exclamation-triangle-fill"></i> ${errorMessage}`;
+        errorDiv.innerHTML = `<i class="bi bi-exclamation-triangle-fill"></i> ${EducaAppEscape(errorMessage)}`;
         
         const container = document.getElementById('availableQuestionsContainer');
         if (container) {

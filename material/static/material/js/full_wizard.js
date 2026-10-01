@@ -74,7 +74,7 @@
             if (v.skipped) {
                 parts.push('<span class="fw-crumb fw-crumb-skip">' + LABELS[key] + ': salteado</span>');
             } else {
-                parts.push('<span class="fw-crumb"><i class="bi bi-check-circle-fill text-success me-1"></i>' + v.name + '</span>');
+                parts.push('<span class="fw-crumb"><i class="bi bi-check-circle-fill text-success me-1"></i>' + window.EducaAppEscape(v.name) + '</span>');
             }
         });
         if (STATE.outcomes.length) {
@@ -592,7 +592,7 @@
         ['institucion', 'facultad', 'carrera', 'materia'].forEach(function (key) {
             var v = STATE[key];
             var valor = v === null ? '—' : (v.skipped ? 'salteado' : v.name);
-            rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">' + LABELS[key] + '</span><span>' + valor + '</span></div>');
+            rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">' + LABELS[key] + '</span><span>' + window.EducaAppEscape(valor) + '</span></div>');
         });
         rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">Resultados de aprendizaje</span><span>' + STATE.outcomes.length + '</span></div>');
         el.innerHTML = rows.join('');
