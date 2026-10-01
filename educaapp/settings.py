@@ -177,7 +177,23 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # Custom user model (opcional, si en el futuro necesitas personalizar)
 # AUTH_USER_MODEL = 'material.CustomUser'
 
+# Caché en memoria del proceso. SUPUESTO: gunicorn corre con 1 solo worker
+# (ver render.yaml / Procfile). Con varios workers cada uno tendría su propia
+# copia y las sesiones cacheadas podrían quedar desactualizadas entre procesos:
+# si algún día se sube --workers, cambiar a un caché compartido (Redis) o volver
+# SESSION_ENGINE a backends.db.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'educaapp',
+    }
+}
+
 # Session settings
+# cached_db: escribe en la base (sigue siendo la fuente de verdad, y
+# cleanup.py / wipe_production_content siguen leyendo la tabla), pero lee desde
+# el caché → ahorra un SELECT a Neon por cada request autenticado.
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 SESSION_COOKIE_AGE = 1209600  # 2 semanas en segundos
 # False (default de Django): un request que solo LEE la sesión (ej. cualquier
 # vista con @login_required, que ya toca la sesión para resolver request.user)

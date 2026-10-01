@@ -141,11 +141,19 @@ def cleanup_files_for_inactive_sessions():
         return 0
 
     try:
-        # IDs de usuarios con al menos una sesión activa
-        active_sessions = Session.objects.filter(expire_date__gt=timezone.now())
+        # IDs de usuarios con al menos una sesión activa. Se traen solo las
+        # columnas session_data (sin instanciar el modelo por fila) y se
+        # decodifican con el mismo codec que usa Django.
+        from django.contrib.sessions.backends.db import SessionStore
+
+        decode = SessionStore().decode
         active_user_ids = set()
-        for session in active_sessions:
-            data = session.get_decoded()
+        for session_data in (
+            Session.objects.filter(expire_date__gt=timezone.now())
+            .values_list('session_data', flat=True)
+            .iterator()
+        ):
+            data = decode(session_data)
             uid = data.get('_auth_user_id')
             if uid:
                 active_user_ids.add(int(uid))

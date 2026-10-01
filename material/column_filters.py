@@ -156,24 +156,16 @@ def _scoped_querysets(querysets, fields, selected_filters, exclude_field):
     return scoped
 
 
-def _has_empty_rows(scoped_querysets, field):
-    """True si, en cascada, queda al menos una fila con el campo vacio (NULL)."""
-    return any(
-        qs.filter(**{f'{field.value_field}__isnull': True}).exists()
-        for qs in scoped_querysets
-    )
-
-
 def _field_options(scoped_querysets, field):
-    none_option = (
-        [{'value': NONE_VALUE, 'label': f'Sin {field.label}'}]
-        if _has_empty_rows(scoped_querysets, field) else []
-    )
+    # Una sola consulta DISTINCT por columna (y por queryset) en lugar de un
+    # .exists() aparte para "¿hay filas vacías?" más la consulta de valores:
+    # los NULL se traen en la misma consulta y se separan acá en Python. Cada
+    # consulta evitada es un viaje de red menos a Neon en cada carga de lista.
+    has_empty = False
 
     if field.choices is not None:
         present = set()
         for qs in scoped_querysets:
-            qs = qs.exclude(**{f'{field.value_field}__isnull': True})
             try:
                 # Descarta '' ademas de NULL para choices de texto (p.ej.
                 # exam_type). En choices numericos (p.ej. bloom_level,
@@ -182,7 +174,14 @@ def _field_options(scoped_querysets, field):
                 qs = qs.exclude(**{field.value_field: ''})
             except (ValueError, TypeError):
                 pass
-            present.update(qs.values_list(field.value_field, flat=True).distinct())
+            for v in qs.values_list(field.value_field, flat=True).distinct():
+                if v is None:
+                    has_empty = True
+                else:
+                    present.add(v)
+        none_option = (
+            [{'value': NONE_VALUE, 'label': f'Sin {field.label}'}] if has_empty else []
+        )
         labels = dict(field.choices)
         return none_option + sorted(
             # 'value' se castea a str: los filtros seleccionados llegan como
@@ -196,8 +195,11 @@ def _field_options(scoped_querysets, field):
     value_keys = [field.value_field] + (field.label_fields or ([field.label_field] if field.label_field else []))
     seen = {}
     for qs in scoped_querysets:
-        rows = qs.exclude(**{f'{field.value_field}__isnull': True}).values(*value_keys).distinct()
+        rows = qs.values(*value_keys).distinct()
         for row in rows:
+            if row[field.value_field] is None:
+                has_empty = True
+                continue
             value = str(row[field.value_field])
             if value in seen:
                 continue
@@ -208,6 +210,9 @@ def _field_options(scoped_querysets, field):
             else:
                 label = str(row[field.value_field])
             seen[value] = label or f"{field.label} #{value}"
+    none_option = (
+        [{'value': NONE_VALUE, 'label': f'Sin {field.label}'}] if has_empty else []
+    )
     return none_option + sorted(({'value': v, 'label': l} for v, l in seen.items()), key=lambda o: o['label'])
 
 

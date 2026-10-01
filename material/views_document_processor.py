@@ -19,10 +19,8 @@ import tempfile
 import threading
 import time
 import logging
-try:
-    import fitz  # PyMuPDF
-except ImportError:
-    fitz = None
+# fitz (PyMuPDF) se importa dentro de las dos vistas que lo usan (ver
+# document_processor.py: cargarlo al arrancar sumaba tiempo a cada arranque en frío).
 
 # In-memory job store for SSE streaming jobs (job_id → params)
 _jobs = {}
@@ -1614,6 +1612,7 @@ def document_page_preview(request):
 
     try:
         if ext == '.pdf':
+            import fitz
             doc = fitz.open(file_path)
             total_pages = doc.page_count
             doc.close()
@@ -1834,6 +1833,7 @@ def get_pages_text(request):
             selected_pages = [int(p) for p in data.get('pages', [])]
             if not selected_pages:
                 return JsonResponse({'success': False, 'error': 'No se enviaron páginas.'}, status=400)
+            import fitz
             doc = fitz.open(file_path)
             for page_num in sorted(selected_pages):
                 if 1 <= page_num <= doc.page_count:
@@ -2075,72 +2075,59 @@ def save_generated_questions(request):
         )
         skipped_duplicates = 0
 
-        # Guardar preguntas aprobadas
-        for q_data in approved:
-            question_text = (q_data.get('pregunta') or '').strip()
-            if question_text and question_text in existing_question_texts:
-                skipped_duplicates += 1
-                continue
-            question = Question(
-                topic=default_topic,
-                subtopic=default_subtopic,
-                question_type=q_data.get('tipo', 'opcion_multiple'),
-                question_text=q_data.get('pregunta', ''),
-                answer_text=q_data.get('respuesta', ''),
-                difficulty=q_data.get('dificultad', 3),
-                bloom_level=q_data.get('bloom_nivel') or None,
-                user=request.user,
-                generated_by_ai=True,
-                ai_approved=True,
-                contenido=contenido_origen
-            )
+        # Se arman todas las preguntas en memoria y se guardan juntas al final
+        # (bulk_create): antes eran 3 viajes a la base por pregunta (INSERT +
+        # SELECT + INSERT del .set()), que con ~20 preguntas contra Neon son
+        # ~60 round-trips bloqueando uno de los 4 threads de gunicorn. Question
+        # no tiene save() propio ni señales, así que bulk_create es equivalente.
+        new_questions = []
 
-            # Guardar opciones si existen
-            if 'opciones' in q_data:
-                question.options = q_data['opciones']
+        # Preguntas aprobadas, después rechazadas (para registro)
+        for is_approved, items in ((True, approved), (False, rejected)):
+            for q_data in items:
+                question_text = (q_data.get('pregunta') or '').strip()
+                if question_text and question_text in existing_question_texts:
+                    skipped_duplicates += 1
+                    continue
+                question = Question(
+                    topic=default_topic,
+                    subtopic=default_subtopic,
+                    question_type=q_data.get('tipo', 'opcion_multiple'),
+                    question_text=q_data.get('pregunta', ''),
+                    answer_text=q_data.get('respuesta', ''),
+                    difficulty=q_data.get('dificultad', 3),
+                    bloom_level=q_data.get('bloom_nivel') or None,
+                    user=request.user,
+                    generated_by_ai=True,
+                    ai_approved=is_approved,
+                    contenido=contenido_origen
+                )
 
-            # Guardar información de capítulos fuente
-            if 'source_chapters' in q_data:
-                question.source_chapters = q_data['source_chapters']
-                question.source_page = _first_source_page(q_data['source_chapters'])
+                # Guardar opciones si existen
+                if 'opciones' in q_data:
+                    question.options = q_data['opciones']
 
-            question.save()
-            question.subjects.set(selected_subjects)
-            saved_count += 1
-            if question_text:
-                existing_question_texts.add(question_text)
+                # Guardar información de capítulos fuente
+                if 'source_chapters' in q_data:
+                    question.source_chapters = q_data['source_chapters']
+                    question.source_page = _first_source_page(q_data['source_chapters'])
 
-        # Guardar preguntas rechazadas (para registro)
-        for q_data in rejected:
-            question_text = (q_data.get('pregunta') or '').strip()
-            if question_text and question_text in existing_question_texts:
-                skipped_duplicates += 1
-                continue
-            question = Question(
-                topic=default_topic,
-                subtopic=default_subtopic,
-                question_type=q_data.get('tipo', 'opcion_multiple'),
-                question_text=q_data.get('pregunta', ''),
-                answer_text=q_data.get('respuesta', ''),
-                difficulty=q_data.get('dificultad', 3),
-                bloom_level=q_data.get('bloom_nivel') or None,
-                user=request.user,
-                generated_by_ai=True,
-                ai_approved=False,
-                contenido=contenido_origen
-            )
+                new_questions.append(question)
+                if is_approved:
+                    saved_count += 1
+                if question_text:
+                    existing_question_texts.add(question_text)
 
-            if 'opciones' in q_data:
-                question.options = q_data['opciones']
-
-            if 'source_chapters' in q_data:
-                question.source_chapters = q_data['source_chapters']
-                question.source_page = _first_source_page(q_data['source_chapters'])
-
-            question.save()
-            question.subjects.set(selected_subjects)
-            if question_text:
-                existing_question_texts.add(question_text)
+        if new_questions:
+            from django.db import transaction
+            SubjectLink = Question.subjects.through
+            with transaction.atomic():
+                Question.objects.bulk_create(new_questions)
+                SubjectLink.objects.bulk_create([
+                    SubjectLink(question_id=q.pk, subject_id=s.pk)
+                    for q in new_questions
+                    for s in selected_subjects
+                ])
 
         return JsonResponse({
             'success': True,

@@ -10,16 +10,22 @@ Autor: EducaApp
 Fecha: 29 octubre 2025
 """
 
-import fitz  # PyMuPDF
-import tiktoken
-from markdownify import markdownify as md
-from docx import Document
-from pptx import Presentation
-from typing import Dict, List, Tuple, Optional
+# Las anotaciones se guardan como texto (no se evalúan al definir la función):
+# permite anotar con `fitz.Document` sin importar PyMuPDF al arrancar la app.
+from __future__ import annotations
+
+# fitz (PyMuPDF), docx, pptx y pdf_inspector se importan DENTRO de las
+# funciones que los usan, no acá: sumaban ~0,4 s al arranque (varios segundos
+# en el plan gratuito de Render, con poca CPU) en cada arranque en frío,
+# aunque casi ningún request procesa documentos. `markdownify` se importaba
+# sin usarse y se eliminó.
+from typing import TYPE_CHECKING, Dict, List, Tuple, Optional
 import re
 from collections import Counter
 import json
-import pdf_inspector
+
+if TYPE_CHECKING:
+    import fitz
 
 
 class DocumentProcessor:
@@ -35,7 +41,8 @@ class DocumentProcessor:
         Args:
             encoding_name: Nombre del encoding de tiktoken (ej: "cl100k_base" para GPT-4)
         """
-        self.encoding = tiktoken.get_encoding(encoding_name)
+        self._encoding_name = encoding_name
+        self._encoding = None
         self.stats = {
             'total_pages': 0,
             'total_tokens': 0,
@@ -43,7 +50,21 @@ class DocumentProcessor:
             'removed_headers': 0,
             'removed_footers': 0
         }
-    
+
+    @property
+    def encoding(self):
+        """Encoding de tiktoken, cargado en el primer uso.
+
+        tiktoken.get_encoding() descarga el archivo BPE por red la primera vez
+        (el disco de Render es efímero, así que se repite en cada arranque en
+        frío). Cargarlo acá, y no en __init__, evita que el arranque de la app
+        dependa de la red: solo lo paga quien realmente cuenta tokens.
+        """
+        if self._encoding is None:
+            import tiktoken
+            self._encoding = tiktoken.get_encoding(self._encoding_name)
+        return self._encoding
+
     # ========================================================================
     # PDF PROCESSING (PyMuPDF)
     # ========================================================================
@@ -92,6 +113,7 @@ class DocumentProcessor:
         }
 
         # Abrir PDF con PyMuPDF
+        import fitz
         doc = fitz.open(file_path)
 
         if max_pages and doc.page_count > max_pages:
@@ -208,6 +230,7 @@ class DocumentProcessor:
         si este chequeo no existiera.
         """
         try:
+            import pdf_inspector
             detection = pdf_inspector.detect_pdf(file_path)
             return sorted(detection.pages_needing_ocr)
         except Exception:
@@ -548,6 +571,7 @@ class DocumentProcessor:
             'stats': {}
         }
         
+        from docx import Document
         doc = Document(file_path)
         
         # Extraer metadata
@@ -629,6 +653,7 @@ class DocumentProcessor:
             'stats': {}
         }
         
+        from pptx import Presentation
         prs = Presentation(file_path)
         
         result['metadata'] = {

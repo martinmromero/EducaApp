@@ -6,9 +6,8 @@ Mantiene retrocompatibilidad con funciones existentes.
 """
 
 # from transformers import pipeline
-import fitz  # PyMuPDF (reemplaza a PyPDF2)
-from docx import Document
-from pptx import Presentation
+# fitz (PyMuPDF), docx y pptx se importan dentro de cada función que los usa:
+# cargarlos acá sumaba ~0,4 s a cada arranque en frío (ver document_processor.py).
 import os
 import re
 import sys
@@ -39,6 +38,7 @@ def extract_text_from_file(file_path):
 
     if file_extension == '.pdf':
         # Usar PyMuPDF (fitz) en vez de PyPDF2
+        import fitz
         doc = fitz.open(file_path)
         for i, page in enumerate(doc):
             page_text = page.get_text()
@@ -47,11 +47,13 @@ def extract_text_from_file(file_path):
         doc.close()
         
     elif file_extension == '.docx':
+        from docx import Document
         doc = Document(file_path)
         for paragraph in doc.paragraphs:
             text += paragraph.text + "\n"
             
     elif file_extension == '.pptx':
+        from pptx import Presentation
         ppt = Presentation(file_path)
         for i, slide in enumerate(ppt.slides, 1):
             text += f"\n[Slide {i}]\n"
@@ -99,6 +101,7 @@ def extract_page_images(file_path, pages=None, max_images=4, min_bytes=4000):
 
     results = []
     try:
+        import fitz
         doc = fitz.open(file_path)
         try:
             page_range = range(len(doc)) if not pages else [p - 1 for p in pages if 0 < p <= len(doc)]
@@ -259,6 +262,7 @@ def extract_book_metadata(file_path):
         return metadata
     
     try:
+        import fitz
         doc = fitz.open(file_path)
         
         # 1. Metadata del PDF (título, autor, fecha)

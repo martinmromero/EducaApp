@@ -89,8 +89,8 @@
                                         {% endif %}
                                     </td>
                                     <td data-col="logo" class="align-middle lc-col-fit" data-label="Logo">
-                                        {% if institution.logo_src %}
-                                            <img src="{{ institution.logo_src }}" alt="Logo" class="img-thumbnail" style="max-height: 50px; min-height: 50px;">
+                                        {% if institution.has_logo == 'yes' %}
+                                            <img src="{% url 'material:institution_v2_logo' institution.pk %}" loading="lazy" alt="Logo" class="img-thumbnail" style="max-height: 50px; min-height: 50px;">
                                         {% else %}
                                             <div style="height: 50px; display: flex; align-items: center;">
                                                 <span class="text-muted no-logo-text">Sin logo</span>

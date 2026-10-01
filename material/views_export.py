@@ -5,6 +5,7 @@ Exportación de exámenes a DOCX y PDF mediante builder + renderers unificados.
 Todas las respuestas se sirven como descarga HTTP; no se escribe a disco.
 """
 
+import functools
 import logging
 
 from django.contrib.auth.decorators import login_required
@@ -17,12 +18,9 @@ from .document_builder import build_document_payload
 from .exam_labels import get_exam_mode_label, get_exam_type_label
 from .models import Exam, ExamVersionBatch
 from .print_format_utils import get_print_style_context, resolve_print_format_for_exam
-from .renderers import (
-    render_exam_batch_payloads_to_docx,
-    render_exam_batch_payloads_to_pdf,
-    render_exam_payload_to_docx,
-    render_exam_payload_to_pdf,
-)
+# Los renderers (reportlab, python-docx) se importan dentro de cada vista de
+# exportación, no acá: cargarlos al arrancar sumaba ~0,15 s a cada arranque en
+# frío aunque la mayoría de los requests no exporta nada.
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +36,10 @@ def _as_bool_param(raw_value, default=False):
     return str(raw_value).strip().lower() in {'1', 'true', 'yes', 'si', 'on'}
 
 
+@functools.lru_cache(maxsize=8)
 def _get_table_columns(table_name):
+    # Cacheado: el esquema no cambia durante la vida del proceso, y sin esto
+    # cada export de PDF/DOCX introspeccionaba la base (un viaje extra a Neon).
     try:
         with connection.cursor() as cursor:
             return {
@@ -209,6 +210,7 @@ def exportar_examen_docx(request, pk):
         include_rubrics=include_rubrics,
     )
     try:
+        from .renderers import render_exam_payload_to_docx
         content = render_exam_payload_to_docx(payload, formato)
     except Exception:
         # Antes sin try/except: si python-docx fallaba, el usuario veía un
@@ -258,6 +260,7 @@ def exportar_examen_pdf(request, pk):
             con_respuestas=con_respuestas,
             include_rubrics=include_rubrics,
         )
+        from .renderers import render_exam_payload_to_pdf
         content = render_exam_payload_to_pdf(payload, formato)
     except Exception:
         # Antes devolvía str(render_error) crudo al usuario — mensaje
@@ -299,6 +302,7 @@ def exportar_lote_docx(request, batch_id):
         })
 
     try:
+        from .renderers import render_exam_batch_payloads_to_docx
         content = render_exam_batch_payloads_to_docx(exam_documents)
     except Exception:
         logger.exception("Error al generar DOCX del lote %s", batch_id)
@@ -338,6 +342,7 @@ def exportar_lote_pdf(request, batch_id):
         })
 
     try:
+        from .renderers import render_exam_batch_payloads_to_pdf
         content = render_exam_batch_payloads_to_pdf(exam_documents)
     except Exception:
         logger.exception("Error al generar PDF del lote %s", batch_id)

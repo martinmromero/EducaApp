@@ -10,7 +10,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Count, Q
 from .column_filters import (
     ColumnFilterField,
     apply_column_filters,
@@ -235,6 +235,13 @@ def preview_exam(request):
                 include_no_topic=include_no_topic,
                 include_seed=include_seed,
             )
+
+    # bibliographic_reference lee q.contenido: sin esto era una consulta a
+    # Contenido por pregunta. Una sola consulta cubre todas las versiones.
+    from django.db.models import prefetch_related_objects
+    prefetch_related_objects(
+        [q for q_list in generated_versions for q in q_list], 'contenido'
+    )
 
     versions_preview = []
     preview_ids = []
@@ -3870,7 +3877,12 @@ def ver_examen(request, pk):
         'logo_url': (institution_obj.logo.url if institution_obj and getattr(institution_obj, 'logo', None) else ''),
     }
     questions_texts = []
-    for q in examen.questions.all():
+    # prefetch_related('contenido'): bibliographic_reference lee q.contenido, y
+    # sin esto era una consulta por pregunta (76 en un examen de ~75 preguntas
+    # → ~94 consultas por carga). Con prefetch es una sola consulta con los
+    # libros distintos, sin repetir filas de Contenido por cada pregunta.
+    exam_questions = list(examen.questions.prefetch_related('contenido'))
+    for q in exam_questions:
         questions_texts.append({
             'text': q.question_text,
             'type': q.question_type,
@@ -3883,7 +3895,7 @@ def ver_examen(request, pk):
     outcomes_texts = [o.description for o in examen.learning_outcomes.all()]
     topics_texts = [t.name for t in examen.topics.all()]
     bloom_display = _compute_bloom_display(examen.questions.all())
-    total_exam_questions = examen.questions.count()
+    total_exam_questions = len(exam_questions)
 
     exam_type_display = get_exam_type_label(examen.exam_type) or '-'
     exam_mode_display = get_exam_mode_label(examen.exam_group) or '-'
@@ -4052,13 +4064,27 @@ def lista_preguntas(request):
     preguntas = _aplicar_filtros_preguntas(base_preguntas, request.GET)
 
     # Contadores dinámicos sobre el total filtrado (no solo la página actual)
-    materias_count = preguntas.exclude(subjects__isnull=True).values('subjects').distinct().count()
-    temas_count = preguntas.exclude(topic__isnull=True).values('topic').distinct().count()
-    subtemas_count = preguntas.exclude(subtopic__isnull=True).values('subtopic').distinct().count()
-    ia_generadas_count = preguntas.filter(generated_by_ai=True).count()
-    ia_aprobadas_count = preguntas.filter(generated_by_ai=True, ai_approved=True).count()
-    ia_rechazadas_count = preguntas.filter(generated_by_ai=True, ai_approved=False).count()
-    ia_sin_revisar_count = preguntas.filter(generated_by_ai=True, ai_approved__isnull=True).count()
+    # Una sola consulta en vez de siete COUNT sueltos (cada uno era un viaje a
+    # Neon que volvía a recorrer el mismo filtro de visibilidad). Se agrega
+    # sobre pk__in=<ids> y no directo sobre `preguntas`: ese queryset es
+    # distinct() y Django lo envolvería en una subconsulta que pierde el JOIN
+    # con materias, rompiendo materias_count.
+    counts = Question.objects.filter(pk__in=preguntas.values('pk')).aggregate(
+        materias=Count('subjects', distinct=True),
+        temas=Count('topic', distinct=True),
+        subtemas=Count('subtopic', distinct=True),
+        ia_generadas=Count('pk', distinct=True, filter=Q(generated_by_ai=True)),
+        ia_aprobadas=Count('pk', distinct=True, filter=Q(generated_by_ai=True, ai_approved=True)),
+        ia_rechazadas=Count('pk', distinct=True, filter=Q(generated_by_ai=True, ai_approved=False)),
+        ia_sin_revisar=Count('pk', distinct=True, filter=Q(generated_by_ai=True, ai_approved__isnull=True)),
+    )
+    materias_count = counts['materias']
+    temas_count = counts['temas']
+    subtemas_count = counts['subtemas']
+    ia_generadas_count = counts['ia_generadas']
+    ia_aprobadas_count = counts['ia_aprobadas']
+    ia_rechazadas_count = counts['ia_rechazadas']
+    ia_sin_revisar_count = counts['ia_sin_revisar']
 
     paginator = Paginator(preguntas, 25)
     page_number = request.GET.get('page')
@@ -4787,6 +4813,9 @@ def process_csv_file(file, contenido, user, subject):
     questions_created = 0
     errors = []
     row_number = 1  # Para seguimiento de filas
+    pending = []  # [(etiqueta de fila, Question sin guardar)] → bulk al final
+    topic_cache = {}
+    subtopic_cache = {}
 
     for row in reader:
         row_number += 1
@@ -4808,27 +4837,22 @@ def process_csv_file(file, contenido, user, subject):
                 logger.warning(error_msg)
                 continue
 
-            # Obtener o crear el tema
-            topic, _ = Topic.objects.get_or_create(
-                name=row.get('tema', 'General'),
-                subject=subject
-            )
-            
+            # Obtener o crear el tema (cacheado: un CSV repite los mismos
+            # tópicos en cientos de filas, y cada get_or_create era un viaje a Neon)
+            topic = _get_or_create_topic_cached(topic_cache, row.get('tema', 'General'), subject)
+
             # Obtener subtema solo si se proporciona
             subtopic = None
             if row.get('subtema') and row.get('subtema').strip():
-                subtopic, _ = Subtopic.objects.get_or_create(
-                    name=row.get('subtema'),
-                    topic=topic
-                )
-            
-            # Crear la pregunta solo con campos que existen en el modelo
+                subtopic = _get_or_create_subtopic_cached(subtopic_cache, row.get('subtema'), topic)
+
+            # Armar la pregunta solo con campos que existen en el modelo
             q_type = _normalize_question_type(row.get('tipo'))
             answer_text = row['respuesta']
             if q_type == 'verdadero_falso':
                 answer_text = _normalize_true_false_answer(answer_text)
 
-            q = Question.objects.create(
+            pending.append((f"Fila {row_number}", Question(
                 contenido=contenido,
                 question_text=row['pregunta'],
                 answer_text=answer_text,
@@ -4840,14 +4864,14 @@ def process_csv_file(file, contenido, user, subject):
                 difficulty=_normalize_difficulty(row.get('dificultad')),
                 bloom_level=_normalize_bloom_level(row.get('nivel_bloom')),
                 user=user
-            )
-            q.subjects.add(subject)
-            questions_created += 1
+            )))
         except Exception as e:
             error_msg = f"Fila {row_number}: {str(e)}"
             errors.append(error_msg)
             logger.error(f"Error creando pregunta desde CSV - {error_msg}")
             continue
+
+    questions_created = _save_imported_questions(pending, subject, errors)
 
     # Si hay errores, lanzar excepción con detalles
     if errors and questions_created == 0:
@@ -4874,15 +4898,18 @@ def process_txt_file(file, contenido, user, subject):
     if lines is None:
         raise Exception("No se pudo leer el archivo. Formatos soportados: UTF-8, Latin1, Windows-1252, ISO-8859-1, UTF-16.")
     question_data = {}
-    questions_created = 0
     errors = []
     block_number = 0
+    pending = []  # [(etiqueta de bloque, Question sin guardar)] → bulk al final
+    topic_cache = {}
+    subtopic_cache = {}
 
     def _procesar_bloque(data):
-        nonlocal questions_created
         try:
-            create_question_from_dict(data, contenido, user, subject)
-            questions_created += 1
+            pending.append((
+                f"Bloque {block_number}",
+                build_question_from_dict(data, contenido, user, subject, topic_cache, subtopic_cache),
+            ))
         except ValueError as e:
             errors.append(f"Bloque {block_number}: {e}")
             logger.warning(f"Error creando pregunta desde TXT - Bloque {block_number}: {e}")
@@ -4902,6 +4929,8 @@ def process_txt_file(file, contenido, user, subject):
         block_number += 1
         _procesar_bloque(question_data)
 
+    questions_created = _save_imported_questions(pending, subject, errors)
+
     if errors and questions_created == 0:
         raise Exception("No se pudo crear ninguna pregunta. Errores encontrados:\n" + "\n".join(errors[:5]))
     elif errors:
@@ -4909,33 +4938,92 @@ def process_txt_file(file, contenido, user, subject):
 
     return questions_created, errors
 
-def create_question_from_dict(data, contenido, user, subject):
-    from .models import Subject, Topic, Subtopic, Question
+
+def _get_or_create_topic_cached(cache, name, subject):
+    from .models import Topic
+    if name not in cache:
+        cache[name], _ = Topic.objects.get_or_create(name=name, subject=subject)
+    return cache[name]
+
+
+def _get_or_create_subtopic_cached(cache, name, topic):
+    from .models import Subtopic
+    key = (topic.pk, name)
+    if key not in cache:
+        cache[key], _ = Subtopic.objects.get_or_create(name=name, topic=topic)
+    return cache[key]
+
+
+def _save_imported_questions(pending, subject, errors):
+    """Guarda las preguntas armadas por la carga masiva (CSV/TXT) y devuelve
+    cuántas quedaron guardadas.
+
+    `pending` es una lista de (etiqueta, Question sin guardar). Primero se
+    intenta todo junto (bulk_create + una sola inserción de las filas de la
+    tabla intermedia de materias): antes eran ~3 viajes a Neon por pregunta.
+    Question no tiene save() propio ni señales, así que es equivalente. Si el
+    guardado masivo falla (p. ej. una fila inválida contra la base), se revierte
+    y se reintenta fila por fila para no perder el reporte de errores por fila
+    que ya existía.
+    """
+    from django.db import transaction
+    from .models import Question
+
+    if not pending:
+        return 0
+
+    questions = [q for _, q in pending]
+    SubjectLink = Question.subjects.through
+    try:
+        with transaction.atomic():
+            Question.objects.bulk_create(questions)
+            SubjectLink.objects.bulk_create([
+                SubjectLink(question_id=q.pk, subject_id=subject.pk) for q in questions
+            ])
+        return len(questions)
+    except Exception as exc:
+        logger.warning("Carga masiva: falló el guardado en bloque (%s); reintentando fila por fila.", exc)
+
+    saved = 0
+    for label, q in pending:
+        try:
+            with transaction.atomic():
+                q.pk = None
+                q._state.adding = True
+                q.save()
+                q.subjects.add(subject)
+            saved += 1
+        except Exception as e:
+            errors.append(f"{label}: {e}")
+            logger.error(f"Error creando pregunta desde carga masiva - {label}: {e}")
+    return saved
+
+
+def build_question_from_dict(data, contenido, user, subject, topic_cache=None, subtopic_cache=None):
+    """Arma (sin guardar) la Question de un bloque del TXT; resuelve/crea el
+    Topic y Subtopic, cacheados cuando se pasan los dicts."""
+    from .models import Question
     # La materia ya no es por bloque (línea "materia:" del archivo): se
     # elige una sola vez para todo el archivo, en el paso 1 (ver
     # upload_questions).
+    topic_cache = {} if topic_cache is None else topic_cache
+    subtopic_cache = {} if subtopic_cache is None else subtopic_cache
 
     # Obtener o crear Topic
-    topic, _ = Topic.objects.get_or_create(
-        name=data.get('tema', 'General'),
-        subject=subject
-    )
-    
+    topic = _get_or_create_topic_cached(topic_cache, data.get('tema', 'General'), subject)
+
     # Obtener subtopic solo si existe en los datos
     subtopic = None
     if data.get('subtema'):
-        subtopic, _ = Subtopic.objects.get_or_create(
-            name=data.get('subtema'),
-            topic=topic
-        )
-    
-    # Crear la pregunta solo con campos que existen en el modelo
+        subtopic = _get_or_create_subtopic_cached(subtopic_cache, data.get('subtema'), topic)
+
+    # Armar la pregunta solo con campos que existen en el modelo
     q_type = _normalize_question_type(data.get('tipo'))
     answer_text = data.get('respuesta', '')
     if q_type == 'verdadero_falso':
         answer_text = _normalize_true_false_answer(answer_text)
 
-    q = Question.objects.create(
+    return Question(
         contenido=contenido,
         question_text=data.get('pregunta', ''),
         answer_text=answer_text,
@@ -4948,7 +5036,6 @@ def create_question_from_dict(data, contenido, user, subject):
         bloom_level=_normalize_bloom_level(data.get('nivel_bloom')),
         user=user
     )
-    q.subjects.add(subject)
 
 
 def download_template(request, format):
@@ -5119,7 +5206,10 @@ INSTITUTION_V2_FILTER_FIELDS = [
 INSTITUTION_V2_FILTER_COLUMNS = [{'field': f.name, 'label': f.label} for f in INSTITUTION_V2_FILTER_FIELDS]
 
 
+@functools.lru_cache(maxsize=1)
 def _ensure_institution_v2_logo_b64_column():
+    # Cacheado: una vez que la columna existe (o se la creó) no hace falta
+    # volver a introspeccionar la base en cada carga de la lista de instituciones.
     from django.db import connection
     table_name = 'material_institutionv2'
     column_name = 'logo_b64'
@@ -5208,6 +5298,88 @@ def institution_v2_list_filtros(request):
     return JsonResponse(filter_options)
 
 
+def _decode_data_uri_image(data_uri):
+    """(bytes, mime) a partir de un data-URI guardado en logo_b64 (o None si
+    no se puede decodificar). El mime se detecta por los bytes y no por lo
+    declarado en el data-URI: ya hay logos reales con un JPEG etiquetado como
+    image/png."""
+    import base64
+    from urllib.parse import unquote_to_bytes
+
+    header, sep, payload = data_uri.partition(',')
+    if not sep:
+        header, payload = 'data:image/png;base64', data_uri
+    try:
+        if ';base64' in header:
+            raw = base64.b64decode(payload, validate=False)
+        else:
+            raw = unquote_to_bytes(payload)
+    except Exception:
+        return None
+    declared = header[5:].split(';')[0] if header.startswith('data:') else ''
+    if raw[:2] == b'\xff\xd8':
+        mime = 'image/jpeg'
+    elif raw[:4] == b'\x89PNG':
+        mime = 'image/png'
+    elif raw[:4] == b'GIF8':
+        mime = 'image/gif'
+    elif raw[:4] == b'RIFF' and raw[8:12] == b'WEBP':
+        mime = 'image/webp'
+    elif raw.lstrip()[:4] in (b'<svg', b'<?xm') or declared == 'image/svg+xml':
+        mime = 'image/svg+xml'
+    else:
+        mime = declared or 'image/png'
+    return raw, mime
+
+
+@login_required
+def institution_v2_logo(request, pk):
+    """Sirve el logo de una institución como imagen cacheable.
+
+    Antes la lista de instituciones incrustaba cada logo como data-URI de
+    base64 (dos veces por fila: tabla de escritorio y tarjetas mobile), lo
+    que llevaba el HTML a ~500 KB. Como imagen aparte el navegador la baja una
+    vez, la cachea y la pide recién al hacer scroll (loading="lazy").
+    """
+    import hashlib
+    from django.http import HttpResponse, HttpResponseNotModified
+    from django.shortcuts import redirect
+
+    # Mismo universo que la lista (catálogo institucional + espacio personal
+    # propio); no filtra is_seed_demo a propósito: el logo de una institución
+    # semilla también se muestra en el demo del asistente.
+    institution = get_object_or_404(
+        InstitutionV2.objects.filter(
+            Q(es_catalogo_institucional=True) | Q(created_by=request.user)
+        ).only('id', 'logo', 'logo_b64'),
+        pk=pk,
+    )
+
+    decoded = _decode_data_uri_image(institution.logo_b64) if institution.logo_b64 else None
+    if decoded is None:
+        # Sin copia en base64: puede quedar el archivo subido (en disco local).
+        try:
+            if institution.logo:
+                return redirect(institution.logo.url)
+        except Exception:
+            pass
+        raise Http404('Esta institución no tiene logo.')
+
+    raw, mime = decoded
+    etag = '"%s"' % hashlib.md5(raw).hexdigest()
+    if request.headers.get('If-None-Match') == etag:
+        response = HttpResponseNotModified()
+    else:
+        response = HttpResponse(raw, content_type=mime)
+    response['ETag'] = etag
+    # private: la URL requiere login. max-age corto: si se cambia el logo se
+    # ve en minutos, y pasado ese tiempo el ETag evita volver a bajar los bytes.
+    response['Cache-Control'] = 'private, max-age=300'
+    # Un SVG abierto directo en esta URL no puede ejecutar scripts.
+    response['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+    return response
+
+
 @login_required
 def institution_v2_list(request):
     name_query = request.GET.get('name', '')
@@ -5224,10 +5396,13 @@ def institution_v2_list(request):
         filter_options = get_filter_options(institutions, INSTITUTION_V2_FILTER_FIELDS, selected_filters)
         institutions = apply_column_filters(request, institutions, INSTITUTION_V2_FILTER_FIELDS)
 
+        # defer('logo_b64'): el listado ya sabe si hay logo (anotación
+        # has_logo) y lo pide como imagen aparte (institution_v2_logo); traer
+        # el base64 de cada fila era transferencia de Neon sin usarla.
         institutions = institutions.prefetch_related(
             'campusv2_set',
             'facultyv2_set'
-        ).distinct()
+        ).defer('logo_b64').distinct()
 
         favorite_ids = set(UserInstitution.objects.filter(
             user=request.user, is_favorite=True,

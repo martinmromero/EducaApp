@@ -8,15 +8,24 @@ class MaterialConfig(AppConfig):
         # Importar las señales para asegurar que se registren
         from . import signals
 
+        import os
+        from django.conf import settings
+
         # Arrancar el hilo de warmup/keepalive de Ollama en background.
         # El hilo es daemon, así que se detiene automáticamente al cerrar el proceso.
         # Se importa aquí (no en el módulo) para evitar imports circulares en startup.
-        try:
-            from .local_ai_client import local_ai
-            local_ai.start_keepalive()
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"No se pudo iniciar keepalive de Ollama: {e}")
+        #
+        # Solo en desarrollo o con OLLAMA_KEEPALIVE=1: el servidor Ollama vive en
+        # una IP de red local (ver local_ai_client.py) que Render no puede
+        # alcanzar, así que en producción el hilo solo gastaría un socket y un
+        # thread pingeando a un host inalcanzable cada 4 minutos.
+        if settings.DEBUG or os.environ.get('OLLAMA_KEEPALIVE') == '1':
+            try:
+                from .local_ai_client import local_ai
+                local_ai.start_keepalive()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"No se pudo iniciar keepalive de Ollama: {e}")
 
         # Limpieza al inicio: elimina archivos de Contenido cuyos usuarios
         # no tienen ninguna sesión activa (p. ej. archivos que quedaron
@@ -31,11 +40,15 @@ class MaterialConfig(AppConfig):
         # hubiera cerrado sesión ni la app hubiera crasheado — ver reporte de
         # usuario: un documento subido "hace un rato" ya no estaba disponible
         # para la vista previa de páginas, con cualquier archivo/tamaño.
-        from django.conf import settings
         if not settings.DEBUG:
             import threading
+            import time
 
             def _run_cleanup():
+                # Esperar antes de tocar la base: en un arranque en frío Neon
+                # todavía está despertando y migrate / la primera request ya
+                # compiten por esa conexión.
+                time.sleep(60)
                 try:
                     from .cleanup import cleanup_files_for_inactive_sessions
                     cleanup_files_for_inactive_sessions()
