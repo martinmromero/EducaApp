@@ -21,6 +21,10 @@
         carrera: null,
         materia: null,
         outcomes: [], // [{id, description}]
+        // Paso 6/7 (Contenido/Preguntas): true si se avanzó con "Saltear", false
+        // si con "Continuar" (había algo cargado) — solo para el ícono de la
+        // pastilla, el motor del stepper no distingue hecho de salteado.
+        handoffSkipped: { 6: false, 7: false },
     };
 
     // Asignados en DOMContentLoaded, leídos por configureBottomAction() —
@@ -86,6 +90,38 @@
 
     var wizardCtrl = null;
 
+    // Marca como "salteada" (ícono skip-forward, gris punteado) a toda pastilla
+    // que el motor ya dio por pasada (.is-done) pero donde no se hizo nada.
+    // wizard_engine.js solo sabe de "pasado", no de "hecho vs salteado", así
+    // que se reaplica después de cada cambio de paso (ver onEnterStep).
+    function isPillSkipped(n) {
+        if (n >= 1 && n <= 4) {
+            var st = STATE[CATALOG_STEPS[n - 1].key];
+            return !!(st && st.skipped);
+        }
+        if (n === 5) return STATE.outcomes.length === 0;
+        if (n === 6 || n === 7) return !!STATE.handoffSkipped[n];
+        return false;
+    }
+
+    function refreshPills() {
+        document.querySelectorAll('.wiz-step-pill').forEach(function (pill) {
+            var n = parseInt(pill.dataset.stepPill, 10);
+            var skipped = pill.classList.contains('is-done') && isPillSkipped(n);
+            var num = pill.querySelector('.wiz-step-num');
+            var wasSkipped = pill.classList.contains('is-skipped');
+            pill.classList.toggle('is-skipped', skipped);
+            if (skipped === wasSkipped) return;
+            if (skipped) {
+                num.innerHTML = '<i class="bi bi-skip-forward-fill"></i>';
+                pill.title = 'Salteado — se puede volver y completarlo';
+            } else {
+                num.innerHTML = '<span>' + n + '</span>';
+                pill.removeAttribute('title');
+            }
+        });
+    }
+
     // ---- Pasos 1-4: Institución / Facultad / Carrera / Materia ----------
     // hint: explica, ANTES de elegir, qué efecto tiene saltear este paso en
     // los pasos siguientes — pedido explícito del usuario ("entendiendo cómo
@@ -95,7 +131,7 @@
             n: 1, key: 'institucion', label: 'Institución', parentKey: null, hardParent: false,
             listKey: 'institutions',
             loadUrl: function () { return CFG.urls.listInstituciones; },
-            hint: 'Si se saltea este paso, tampoco va a poder cargarse una Facultad nueva en el paso siguiente (necesita una Institución elegida acá) — ese paso también quedaría salteado.',
+            hint: 'Si se saltea este paso, tampoco se puede cargar una Facultad (necesita una Institución elegida acá), así que el asistente salta directo a Carrera.',
         },
         {
             n: 2, key: 'facultad', label: 'Facultad', parentKey: 'institucion', hardParent: true,
@@ -107,13 +143,13 @@
             n: 3, key: 'carrera', label: 'Carrera', parentKey: 'facultad', hardParent: false,
             listKey: 'careers',
             loadUrl: function (parentId) { return CFG.urls.carrerasByFacultadBase + parentId + '/'; },
-            hint: 'Si se saltea este paso, la Materia del paso siguiente se puede crear igual, pero sin esta Carrera asociada.',
+            hint: 'Si se saltea este paso, la Materia del paso siguiente se puede crear igual, pero sin esta Carrera asociada — y el paso de Resultados de aprendizaje (necesita Carrera y Materia) también se saltea.',
         },
         {
             n: 4, key: 'materia', label: 'Materia', parentKey: 'carrera', hardParent: false,
             listKey: 'subjects',
             loadUrl: function (parentId) { return CFG.urls.materiasByCarreraBase + parentId + '/'; },
-            hint: 'Importante: los pasos siguientes (Contenido, Preguntas y Examen) usan la materia elegida acá. Si se saltea este paso, va a ser necesario elegirla o crearla de nuevo en cada pantalla siguiente.',
+            hint: 'Importante: los pasos siguientes (Contenido, Preguntas y Examen) usan la materia elegida acá. Si se saltea este paso, va a ser necesario elegirla o crearla de nuevo en cada pantalla siguiente. Tampoco se van a poder cargar Resultados de aprendizaje (necesitan una Materia), así que ese paso también se saltea.',
         },
     ];
 
@@ -154,10 +190,19 @@
             searchInput.disabled = busy;
         }
 
+        // Resultados de aprendizaje (paso 5) necesita Carrera Y Materia reales
+        // vinculadas entre sí (ver full_wizard_save_step): si después del paso
+        // 4 no se cumple, ese paso no tiene nada que hacer y se lo saltea acá
+        // mismo, igual que Facultad cuando se saltea Institución.
+        function extraSkipAfter() {
+            return cfgStep.n === 4 && !outcomesHandlerRef.elegible() ? 1 : 0;
+        }
+
         function advance() {
             renderBreadcrumb();
             saveDraft();
             wizardCtrl.goNext();
+            if (extraSkipAfter()) wizardCtrl.goNext();
         }
 
         function confirmExisting(id, name) {
@@ -220,7 +265,7 @@
 
             if (!parentId) {
                 if (cfgStep.hardParent) {
-                    parentMsgEl.textContent = 'No se puede cargar ' + cfgStep.label.toLowerCase() + ' sin ' + LABELS[cfgStep.parentKey].toLowerCase() + ' — saltear este paso.';
+                    parentMsgEl.textContent = 'No se puede cargar ' + cfgStep.label.toLowerCase() + ' sin ' + LABELS[cfgStep.parentKey].toLowerCase() + ' (se salteó en el paso anterior) — continuar sin este paso.';
                     chipListEl.innerHTML = '';
                     listEmptyEl.style.display = 'none';
                     searchInput.disabled = true;
@@ -291,10 +336,28 @@
                 .catch(function () { setBusy(false); showError('Error de red — reintentar.'); });
         });
 
+        // Un paso con hardParent (Facultad) no tiene nada que hacer si su padre
+        // quedó salteado: mostrarlo igual obligaba a un segundo "Saltear" con
+        // otro modal sobre una decisión ya tomada. Por eso saltear un nivel
+        // cascadea al hijo duro y avanza directo al siguiente paso útil.
+        function skipNow() {
+            STATE[cfgStep.key] = { id: null, name: null, skipped: true };
+        }
+
         function requestSkip() {
             function doSkip() {
-                STATE[cfgStep.key] = { id: null, name: null, skipped: true };
-                advance();
+                skipNow();
+                var steps = 1;
+                CATALOG_STEPS.forEach(function (child) {
+                    if (child.hardParent && child.parentKey === cfgStep.key) {
+                        STATE[child.key] = { id: null, name: null, skipped: true };
+                        steps += 1;
+                    }
+                });
+                steps += extraSkipAfter();
+                renderBreadcrumb();
+                saveDraft();
+                for (var i = 0; i < steps; i++) { wizardCtrl.goNext(); }
             }
             if (!cfgStep.hint) { doSkip(); return; }
             window.EducaAppModal.confirm(cfgStep.hint, {
@@ -304,7 +367,11 @@
             }).then(function (ok) { if (ok) doSkip(); });
         }
 
-        return { onEnter: loadList, requestSkip: requestSkip, advanceOnly: advance };
+        // Sin modal: el padre ya se salteó, así que no hay decisión nueva que
+        // confirmar (se usa al volver a un paso que quedó salteado en cascada).
+        function skipSilently() { skipNow(); advance(); }
+
+        return { onEnter: loadList, requestSkip: requestSkip, advanceOnly: advance, skipSilently: skipSilently };
     }
 
     // ---- Paso 5: Resultados de aprendizaje -------------------------------
@@ -352,7 +419,7 @@
             searchInput.value = '';
             createBtn.disabled = true;
             if (!elegible()) {
-                parentMsgEl.textContent = 'Hace falta una Carrera y una Materia vinculadas entre sí para cargar resultados de aprendizaje acá — se puede saltear este paso.';
+                parentMsgEl.textContent = 'Hace falta una Carrera y una Materia vinculadas entre sí para cargar resultados de aprendizaje acá (alguna se salteó en un paso anterior) — continuar sin este paso.';
                 searchInput.disabled = true;
                 return;
             }
@@ -399,7 +466,7 @@
             wizardCtrl.goNext();
         }
 
-        return { onEnter: loadExisting, continueClick: continueClick };
+        return { onEnter: loadExisting, continueClick: continueClick, elegible: elegible };
     }
 
     // ---- Barra inferior compartida (#wizNextBtn) --------------------------
@@ -425,7 +492,11 @@
 
     function requestSkipHandoff(n) {
         var hint = HANDOFF_HINTS[n];
-        function doSkip() { wizardCtrl.goNext(); }
+        function doSkip() {
+            STATE.handoffSkipped[n] = true;
+            saveDraft();
+            wizardCtrl.goNext();
+        }
         if (!hint) { doSkip(); return; }
         window.EducaAppModal.confirm(hint, {
             title: 'Saltear ' + HANDOFF_LABELS[n],
@@ -443,7 +514,11 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 var done = n === 6 ? data.has_contenido : data.has_question;
-                if (done) setNextButton('Continuar', function () { wizardCtrl.goNext(); });
+                if (done) setNextButton('Continuar', function () {
+                    STATE.handoffSkipped[n] = false;
+                    saveDraft();
+                    wizardCtrl.goNext();
+                });
             })
             .catch(function () {});
     }
@@ -459,7 +534,10 @@
             var cfgStep = CATALOG_STEPS[n - 1];
             var handler = catalogHandlersRef[n - 1];
             var st = STATE[cfgStep.key];
+            var parentSt = cfgStep.parentKey ? STATE[cfgStep.parentKey] : null;
+            var parentMissing = cfgStep.hardParent && (!parentSt || parentSt.skipped);
             if (st && !st.skipped) setNextButton('Continuar', handler.advanceOnly);
+            else if (parentMissing) setNextButton('Continuar', handler.skipSilently);
             else setNextButton('Saltear', handler.requestSkip);
         } else if (n === 5) {
             setNextButton('Continuar', outcomesHandlerRef.continueClick);
@@ -541,6 +619,7 @@
             else if (n === 5) outcomesHandlerRef.onEnter();
             else if (n === 6 || n === 7 || n === 8) refreshHandoffLinks();
             configureBottomAction(n);
+            refreshPills();
         }
         // wizardCtrl.goNext SÍ se puede envolver así porque este archivo lo
         // llama siempre por la propiedad (advance(), continueClick(),

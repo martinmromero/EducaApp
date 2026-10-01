@@ -99,3 +99,13 @@
 .fw-nav-sep {
     color: var(--bs-border-color, #dee2e6);
 }
+
+/* Pastilla de un paso salteado (full_wizard.js le suma .is-skipped a las
+   que ya tienen .is-done): círculo gris neutro con ícono skip-forward —
+   "no se hizo", sin leerse como error. */
+.wiz-step-pill.is-skipped .wiz-step-num {
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+}
+.wiz-step-pill.is-skipped .wiz-step-num::before { content: none; }
+.wiz-step-pill.is-skipped .wiz-step-num i { font-size: 1.05em; line-height: 1; }
