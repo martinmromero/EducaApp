@@ -1,5 +1,6 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load list_view_tags %}
 {% block body_extra_attrs %}data-tour-page="mis_examenes"{% endblock %}
 {% block title %}Mis Exámenes - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-list-ul me-2"></i>Mis Exámenes{% endblock %}
@@ -17,6 +18,8 @@
 <div class="container-fluid">
 
     {% include 'material/components/_column_filters_assets.html' %}
+    {% list_view_config 'mis_examenes' as lv %}
+    {% include 'material/components/_list_columns_head.html' %}
 
     <form method="get" action="{% url 'material:mis_examenes' %}" id="templateFiltersForm"></form>
 
@@ -35,6 +38,7 @@
                        title="Mostrar solo favoritos (exámenes y lotes)" id="examFavoritosBtn">
                         <i class="bi bi-star-fill"></i> <span class="d-none d-sm-inline">Favoritos</span>
                     </a>
+                    {% include 'material/components/_list_columns_button.html' %}
                 </div>
                 <div class="d-none align-items-center gap-2" id="listSelectionBar">
                     <span class="fw-semibold" id="listSelectionCount"></span>
@@ -47,29 +51,29 @@
             <div class="card-body">
                 {% if items %}
                 <div class="table-responsive">
-                    <table class="table table-striped column-filter-table">
+                    <table class="table table-striped column-filter-table lc-table">
                         <thead>
                             <tr>
-                                <th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar exámenes o lotes para eliminarlos en conjunto"></th>
-                                <th>Nombre</th>
-                                <th>Materia</th>
-                                <th id="examColTipo">Tipo</th>
-                                <th>Creado</th>
-                                <th>Acciones</th>
+                                <th style="width:40px;" data-col-fixed="first"><input type="checkbox" id="selectAll" title="Seleccionar exámenes o lotes para eliminarlos en conjunto"></th>
+                                <th data-col="nombre" class="lc-col-wide">Nombre</th>
+                                <th data-col="materia" class="lc-col-text">Materia</th>
+                                <th data-col="tipo" class="lc-col-fit" id="examColTipo">Tipo</th>
+                                <th data-col="creado" class="lc-col-fit">Creado</th>
+                                <th data-col-fixed="last">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for item in items %}
                             {% if item.kind == 'batch' %}
                             <tr>
-                                <td class="rt-card-select">
+                                <td class="rt-card-select" data-col-fixed="first">
                                     <input type="checkbox" name="item_ids" value="batch:{{ item.batch.id }}" title="Seleccionar para eliminar en conjunto">
                                 </td>
-                                <td class="rt-card-title" data-label="Nombre"><strong>{{ item.batch.name }}</strong></td>
-                                <td data-label="Materia">{{ item.batch.subject.name|default:'-' }}</td>
-                                <td data-label="Tipo"><span class="badge bg-info text-white">Lote &middot; {{ item.batch.version_count }} temas</span></td>
-                                <td data-label="Creado">{{ item.batch.created_at|date:"d/m/Y H:i" }}</td>
-                                <td data-label="Acciones">
+                                <td data-col="nombre" class="rt-card-title lc-col-wide" data-label="Nombre"><strong>{{ item.batch.name }}</strong></td>
+                                <td data-col="materia" class="lc-col-text" data-label="Materia">{{ item.batch.subject.name|default:'-' }}</td>
+                                <td data-col="tipo" class="lc-col-fit" data-label="Tipo"><span class="badge bg-info text-white">Lote &middot; {{ item.batch.version_count }} temas</span></td>
+                                <td data-col="creado" class="lc-col-fit" data-label="Creado">{{ item.batch.created_at|date:"d/m/Y H:i" }}</td>
+                                <td data-col-fixed="last" data-label="Acciones">
                                     <div class="btn-group" role="group">
                                         <button type="button" class="btn btn-sm {% if item.batch.id in batch_favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} favorite-star"
                                                 data-model="batch" data-id="{{ item.batch.id }}"
@@ -92,14 +96,14 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td class="rt-card-select">
+                                <td class="rt-card-select" data-col-fixed="first">
                                     <input type="checkbox" name="item_ids" value="exam:{{ item.examen.pk }}" title="Seleccionar para eliminar en conjunto">
                                 </td>
-                                <td class="rt-card-title" data-label="Nombre">{{ item.examen.title }}</td>
-                                <td data-label="Materia">{{ item.examen.subject.name|default:'-' }}</td>
-                                <td data-label="Tipo"><span class="badge bg-secondary text-white">Individual</span></td>
-                                <td data-label="Creado">{{ item.examen.created_at|date:"d/m/Y H:i" }}</td>
-                                <td data-label="Acciones">
+                                <td data-col="nombre" class="rt-card-title lc-col-wide" data-label="Nombre">{{ item.examen.title }}</td>
+                                <td data-col="materia" class="lc-col-text" data-label="Materia">{{ item.examen.subject.name|default:'-' }}</td>
+                                <td data-col="tipo" class="lc-col-fit" data-label="Tipo"><span class="badge bg-secondary text-white">Individual</span></td>
+                                <td data-col="creado" class="lc-col-fit" data-label="Creado">{{ item.examen.created_at|date:"d/m/Y H:i" }}</td>
+                                <td data-col-fixed="last" data-label="Acciones">
                                     <div class="btn-group" role="group">
                                         <button type="button" class="btn btn-sm {% if item.examen.pk in favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} favorite-star"
                                                 data-model="exam" data-id="{{ item.examen.pk }}"
@@ -151,6 +155,9 @@
 
     {% url 'material:mis_examenes_filtros' as mis_examenes_filtros_url %}
     {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns ajax_url=mis_examenes_filtros_url %}
+
+    {% url 'material:save_list_view' 'mis_examenes' as save_url %}
+    {% include 'material/components/_list_columns_script.html' %}
 </div>
 
 <script src="{% static 'js/list_control_row.js' %}"></script>

@@ -1,0 +1,29 @@
+{% comment %}
+Vista configurable de listados, parte 2: el botón "Columnas" y su panel.
+Va dentro de #listControlDefault, junto al botón de Filtros.
+{% endcomment %}
+<div class="dropdown">
+    <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" id="listColumnsBtn" title="Elegir columnas y su orden"
+            data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+        <i class="bi bi-layout-three-columns"></i> <span class="d-none d-sm-inline">Columnas</span>
+    </button>
+    <div class="dropdown-menu dropdown-menu-end p-3 list-columns-menu" id="listColumnsMenu">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-semibold">Columnas de este listado</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="listColumnsReset">
+                <i class="bi bi-arrow-counterclockwise"></i> Restablecer
+            </button>
+        </div>
+        <div id="listColumnsList"></div>
+        <div class="d-none align-items-center gap-2 mt-3 flex-wrap" id="listColumnsLinesWrap">
+            <span class="small">Líneas del texto largo</span>
+            <div class="btn-group btn-group-sm" role="group" id="listColumnsLines" aria-label="Líneas del texto largo">
+                <button type="button" class="btn btn-outline-secondary" data-lines="1">1</button>
+                <button type="button" class="btn btn-outline-secondary" data-lines="2">2</button>
+                <button type="button" class="btn btn-outline-secondary" data-lines="3">3</button>
+                <button type="button" class="btn btn-outline-secondary" data-lines="0">Completo</button>
+            </div>
+        </div>
+        <p class="small text-body-secondary mt-3 mb-0">Los cambios se aplican al instante y quedan guardados en su cuenta, solo para este listado. Se reordenan arrastrando o con las flechas.</p>
+    </div>
+</div>

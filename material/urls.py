@@ -4,6 +4,7 @@ from . import views_document_processor as doc_views  # Importar vistas del proce
 from . import views_export as export_views  # Exportación DOCX / PDF
 from . import training_views  # Área de Pruebas
 from . import testing_panel_views  # Modo Testing (panel de UAT)
+from . import list_columns  # Vista configurable de listados (columnas y orden)
 
 app_name = 'material'
 
@@ -114,6 +115,7 @@ urlpatterns = [
     path('instituciones-v2/eliminar-bulk/', material_views.bulk_eliminar_instituciones_v2, name='bulk_eliminar_instituciones_v2'),
     path('instituciones-v2/favorito/<int:pk>/', material_views.toggle_favorite_institution, name='toggle_favorite_institution'),
     path('tema-visual/', material_views.set_visual_theme, name='set_visual_theme'),
+    path('preferencias-listado/<str:list_key>/', list_columns.save_list_view, name='save_list_view'),
     path('instituciones-v2/detalle/<int:pk>/', material_views.institution_v2_detail, name='institution_v2_detail'),
     path('instituciones-v2/logs/<int:pk>/', material_views.institution_v2_logs, name='institution_v2_logs'),
 # linea siguiente comentada para ser borrada:

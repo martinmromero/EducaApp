@@ -1,0 +1,7 @@
+{% comment %}
+Vista configurable de listados, parte 1: va ANTES de la tabla. Oculta de
+entrada las columnas que el usuario apagó, para que no se vean un instante
+antes de que corra list_columns.js (que después retira este <style>).
+Requiere `lv` (tag list_view_config).
+{% endcomment %}
+{% if lv.hidden_css %}<style id="lcPreStyle">{{ lv.hidden_css|safe }}</style>{% endif %}

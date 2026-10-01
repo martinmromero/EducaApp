@@ -762,3 +762,41 @@ body.offcanvas-open .sidebar-toggle-external {
 .preview-option {
     padding-left: 1em;
 }
+
+/* ── Vista configurable de listados (columnas y orden por usuario) ────────
+   Ver material/list_columns.py y static/js/list_columns.js. La tabla lleva
+   la clase lc-table y cada celda un data-col; el texto largo va en
+   .lc-text, que se recorta por líneas (en vez de truncarlo en el servidor)
+   y se expande con un clic. En escritorio, las columnas "fit" miden lo que
+   su contenido, las "text" se acotan y la "wide" absorbe todo el sobrante. */
+.lc-hidden { display: none !important; }
+.lc-table .lc-text { overflow-wrap: anywhere; }
+.lc-table.lc-lines-1 .lc-text:not(.lc-expanded),
+.lc-table.lc-lines-2 .lc-text:not(.lc-expanded),
+.lc-table.lc-lines-3 .lc-text:not(.lc-expanded) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.lc-table.lc-lines-1 .lc-text:not(.lc-expanded) { -webkit-line-clamp: 1; line-clamp: 1; }
+.lc-table.lc-lines-2 .lc-text:not(.lc-expanded) { -webkit-line-clamp: 2; line-clamp: 2; }
+.lc-table.lc-lines-3 .lc-text:not(.lc-expanded) { -webkit-line-clamp: 3; line-clamp: 3; }
+.lc-table .lc-text.lc-more,
+.lc-table .lc-text.lc-expanded { cursor: pointer; }
+.lc-table .lc-text.lc-more:hover { color: var(--bs-emphasis-color); }
+@media (min-width: 768px) {
+    .lc-table td.lc-col-fit, .lc-table th.lc-col-fit { white-space: nowrap; width: 1%; }
+    .lc-table td.lc-col-text, .lc-table th.lc-col-text { min-width: 7rem; max-width: 14rem; }
+    .lc-table td.lc-col-wide, .lc-table th.lc-col-wide { width: 100%; min-width: 16rem; }
+}
+
+.list-columns-menu { width: 21rem; max-width: calc(100vw - 2rem); }
+.list-columns-menu .lc-row {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .3rem .25rem; border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+.list-columns-menu .lc-row:last-child { border-bottom: 0; }
+.list-columns-menu .lc-row-fixed { color: var(--bs-secondary-color); }
+.list-columns-menu .lc-grip { width: 1.4rem; text-align: center; color: var(--bs-secondary-color); }
+.list-columns-menu .lc-drag { cursor: grab; }
+.list-columns-menu .lc-ib { width: 1.9rem; height: 1.9rem; padding: 0; line-height: 1; }

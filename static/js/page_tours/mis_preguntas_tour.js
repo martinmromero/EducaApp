@@ -26,6 +26,14 @@
         },
       },
       {
+        element: '#listColumnsBtn',
+        popover: {
+          title: 'Columnas',
+          description: 'Permite elegir qué columnas se ven y en qué orden (se arrastran o se mueven con las flechas), y cuántas líneas ocupa el texto de cada pregunta, hasta mostrarlo completo. La vista queda guardada en la cuenta y es propia de este listado. Un clic sobre un texto recortado lo expande.',
+          side: 'bottom',
+        },
+      },
+      {
         element: '#select-all',
         popover: {
           title: 'Selección múltiple',
@@ -50,7 +58,11 @@
         },
       },
     ];
-    return steps.filter(function (s) { return document.querySelector(s.element); });
+    return steps.filter(function (s) {
+      return window.EducaAppTour && window.EducaAppTour.isVisible
+        ? window.EducaAppTour.isVisible(s.element)
+        : document.querySelector(s.element);
+    });
   }
 
   function start() {
