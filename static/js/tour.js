@@ -282,5 +282,15 @@
     return key ? (pageTours[key] || null) : null;
   }
 
-  window.EducaAppTour = { start, startIfFirstVisit, registerPageTour, getCurrentPageTour };
+  // Un paso de recorrido solo tiene sentido si su elemento se ve: una
+  // columna que el usuario ocultó desde "Columnas" sigue en el DOM (con
+  // display:none) y driver.js la resaltaría como un recuadro vacío. Los
+  // recorridos de listados filtran sus pasos con esto en vez de con un
+  // querySelector pelado.
+  function isVisible(selector) {
+    const el = document.querySelector(selector);
+    return !!el && el.getClientRects().length > 0;
+  }
+
+  window.EducaAppTour = { start, startIfFirstVisit, registerPageTour, getCurrentPageTour, isVisible };
 })();

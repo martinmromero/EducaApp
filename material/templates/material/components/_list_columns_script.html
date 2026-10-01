@@ -1,0 +1,8 @@
+{% comment %}
+Vista configurable de listados, parte 3: va DESPUÉS de la tabla (al final
+del contenido). Requiere `lv` (tag list_view_config) y `save_url`.
+{% endcomment %}
+{% load static %}
+{{ lv|json_script:"lcCfg" }}
+<script src="{% static 'js/list_columns.js' %}"></script>
+<script>EducaAppListColumns.init({ url: '{{ save_url }}' });</script>

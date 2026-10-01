@@ -1087,6 +1087,15 @@ class Profile(models.Model):
         verbose_name='Tema visual',
         help_text='Skin de colores/tipografía elegido por el usuario para la interfaz.',
     )
+    # Vista elegida por el usuario para cada listado (columnas visibles, su
+    # orden y líneas del texto largo). Una entrada por clave de listado, ver
+    # list_columns.py: {"preguntas": {"order": [...], "visible": [...], "lines": 3}}.
+    list_view_prefs = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name='Vistas de listados',
+        help_text='Columnas y orden elegidos por el usuario en cada listado. Se edita desde el botón Columnas de cada listado.',
+    )
     SECURITY_QUESTION_CHOICES = [
         ('primera_mascota', 'Nombre de la primera mascota'),
         ('apellido_soltera_materno', 'Apellido de soltera materno'),

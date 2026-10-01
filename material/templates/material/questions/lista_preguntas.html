@@ -1,6 +1,7 @@
 {% extends 'material/base.html' %}
 {% load static %}
 {% load message_tags %}
+{% load list_view_tags %}
 {% block body_extra_attrs %}data-tour-page="mis_preguntas"{% endblock %}
 {% block title %}Mis Preguntas - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-list-check me-2"></i>Mis Preguntas{% endblock %}
@@ -118,6 +119,8 @@
     </div>
 
     {% include 'material/components/_column_filters_assets.html' %}
+    {% list_view_config 'preguntas' as lv %}
+    {% include 'material/components/_list_columns_head.html' %}
 
     <form method="get" action="{% url 'material:lista_preguntas' %}" id="templateFiltersForm"></form>
 
@@ -130,6 +133,7 @@
                         data-bs-toggle="offcanvas" data-bs-target="#templateFiltersOffcanvas">
                     <i class="bi bi-funnel{% if active_filter_count %} text-primary{% endif %}"></i> <span class="d-none d-sm-inline{% if active_filter_count %} fw-bold{% endif %}">Filtros</span>
                 </button>
+                {% include 'material/components/_list_columns_button.html' %}
             </div>
             <div class="d-none align-items-center gap-2 flex-wrap" id="listSelectionBar">
                 <span class="fw-semibold" id="listSelectionCount"></span>
@@ -156,33 +160,35 @@
                 <input type="hidden" name="all_filtered_selected" id="all-filtered-selected" value="0">
 
             <div class="table-responsive">
-                <table class="table table-striped column-filter-table">
+                <table class="table table-striped column-filter-table lc-table">
                     <thead>
                         <tr>
-                            <th style="width:40px;">
+                            <th style="width:40px;" data-col-fixed="first">
                                 <input type="checkbox" id="select-all" aria-label="Seleccionar todas las preguntas" title="Seleccionar todas para exportar o eliminar en conjunto">
                             </th>
-                            <th>Materia</th>
-                            <th>Tópico</th>
-                            {% if subtemas_count > 0 %}<th>Sub-tópico</th>{% endif %}
-                            <th>Pregunta</th>
-                            <th>Bloom</th>
-                            <th id="questionColEstadoIA">Estado IA</th>
-                            <th id="questionColOrigen">Origen</th>
-                            <th>Acciones</th>
+                            <th data-col="materia" class="lc-col-text">Materia</th>
+                            <th data-col="topico" class="lc-col-text">Tópico</th>
+                            {% if subtemas_count > 0 %}<th data-col="subtopico" class="lc-col-text">Sub-tópico</th>{% endif %}
+                            <th data-col="pregunta" class="lc-col-wide">Pregunta</th>
+                            <th data-col="bloom" class="lc-col-fit">Bloom</th>
+                            <th data-col="estado" class="lc-col-fit" id="questionColEstadoIA">Estado IA</th>
+                            <th data-col="origen" class="lc-col-fit" id="questionColOrigen">Origen</th>
+                            <th data-col="tipo" class="lc-col-fit">Tipo</th>
+                            <th data-col="creada" class="lc-col-fit">Creada</th>
+                            <th data-col-fixed="last">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for pregunta in preguntas %}
                         <tr>
-                            <td class="rt-card-select">
+                            <td class="rt-card-select" data-col-fixed="first">
                                 <input type="checkbox" name="pregunta_ids" value="{{ pregunta.pk }}" class="pregunta-checkbox" aria-label="Seleccionar esta pregunta" title="Seleccionar para exportar o eliminar en conjunto">
                             </td>
-                            <td data-label="Materia">{% for s in pregunta.subjects.all %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
-                            <td data-label="Tópico">{{ pregunta.topic.name|default:"-" }}</td>
-                            {% if subtemas_count > 0 %}<td data-label="Sub-tópico">{{ pregunta.subtopic.name|default:"-" }}</td>{% endif %}
-                            <td class="rt-card-title" data-label="Pregunta">{{ pregunta.question_text|truncatechars:100 }}</td>
-                            <td data-label="Bloom">
+                            <td data-col="materia" class="lc-col-text" data-label="Materia">{% for s in pregunta.subjects.all %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+                            <td data-col="topico" class="lc-col-text" data-label="Tópico">{{ pregunta.topic.name|default:"-" }}</td>
+                            {% if subtemas_count > 0 %}<td data-col="subtopico" class="lc-col-text" data-label="Sub-tópico">{{ pregunta.subtopic.name|default:"-" }}</td>{% endif %}
+                            <td data-col="pregunta" class="rt-card-title lc-col-wide" data-label="Pregunta"><div class="lc-text">{{ pregunta.question_text }}</div></td>
+                            <td data-col="bloom" class="lc-col-fit" data-label="Bloom">
                                 {% if pregunta.bloom_level %}
                                     {% if pregunta.bloom_level == 1 %}<span class="badge" style="background:#e3f2fd;color:#1565c0;">N1 Recordar</span>
                                     {% elif pregunta.bloom_level == 2 %}<span class="badge" style="background:#e8f5e9;color:#2e7d32;">N2 Comprender</span>
@@ -195,7 +201,7 @@
                                     <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
-                            <td data-label="Estado IA">
+                            <td data-col="estado" class="lc-col-fit" data-label="Estado IA">
                                 {% if pregunta.generated_by_ai %}
                                     {% if pregunta.ai_approved is None %}
                                         <span class="badge text-bg-warning">⏳ Sin revisar</span>
@@ -208,7 +214,7 @@
                                     <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
-                            <td data-label="Origen">
+                            <td data-col="origen" class="lc-col-fit" data-label="Origen">
                                 {% if pregunta.user_id == request.user.id %}
                                     <span class="badge bg-primary">Propia</span>
                                 {% else %}
@@ -217,7 +223,9 @@
                                     </span>
                                 {% endif %}
                             </td>
-                            <td data-label="Acciones">
+                            <td data-col="tipo" class="lc-col-fit" data-label="Tipo">{{ pregunta.get_question_type_display }}</td>
+                            <td data-col="creada" class="lc-col-fit" data-label="Creada">{{ pregunta.created_at|date:"d/m/Y" }}</td>
+                            <td data-col-fixed="last" data-label="Acciones">
                                 <div class="btn-group" role="group">
                                     <a href="{% url 'material:ver_pregunta' pregunta.pk %}?next={{ request.get_full_path|urlencode }}"
                                        class="btn btn-sm btn-info" title="Ver pregunta">
@@ -238,7 +246,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="{% if subtemas_count > 0 %}9{% else %}8{% endif %}" class="text-center">No hay preguntas disponibles</td>
+                            <td colspan="11" class="text-center">No hay preguntas disponibles</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -275,6 +283,9 @@
 
     {% url 'material:lista_preguntas_filtros' as lista_preguntas_filtros_url %}
     {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns ajax_url=lista_preguntas_filtros_url %}
+
+    {% url 'material:save_list_view' 'preguntas' as save_url %}
+    {% include 'material/components/_list_columns_script.html' %}
 </div>
 
 {% endblock %}

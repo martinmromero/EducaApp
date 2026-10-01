@@ -1,0 +1,366 @@
+"""Vista configurable de listados (columnas, orden y líneas del texto largo
+por usuario): resolución de la configuración, validación y endpoint de
+guardado, y que los templates registrados marquen todas sus columnas con
+data-col y manden el texto de la pregunta completo."""
+import json
+import re
+
+from django.test import TestCase, Client
+from django.urls import reverse
+
+from .list_columns import LIST_REGISTRY, resolve_config, sanitize
+from .models import Question, Subject, Topic
+from .tests_catalogo_qa import make_user
+
+
+def _ready(user):
+    """Un usuario que ya pasó el onboarding, para que el middleware no lo
+    redirija y los listados rindan 200."""
+    profile = user.profile
+    profile.onboarding_completed = True
+    profile.security_question = 'primera_mascota'
+    profile.security_answer = 'x'
+    profile.save()
+    return user
+
+
+class ResolveConfigTests(TestCase):
+    def test_sin_preferencias_usa_defaults_del_registro(self):
+        user = make_user('lc_defaults')
+        cfg = resolve_config(user.profile, 'preguntas')
+        keys = [c['key'] for c in cfg['columns']]
+        self.assertEqual(keys, [c['key'] for c in LIST_REGISTRY['preguntas']['columns']])
+        visibles = {c['key'] for c in cfg['columns'] if c['visible']}
+        self.assertIn('pregunta', visibles)
+        self.assertNotIn('tipo', visibles)
+        self.assertEqual(cfg['lines'], 3)
+
+    def test_respeta_orden_y_visibilidad_guardados(self):
+        user = make_user('lc_saved')
+        user.profile.list_view_prefs = {'preguntas': {
+            'order': ['pregunta', 'materia', 'topico', 'subtopico', 'bloom', 'estado', 'origen', 'tipo', 'creada'],
+            'visible': ['pregunta', 'tipo'],
+            'lines': 0,
+        }}
+        cfg = resolve_config(user.profile, 'preguntas')
+        self.assertEqual(cfg['columns'][0]['key'], 'pregunta')
+        self.assertEqual({c['key'] for c in cfg['columns'] if c['visible']}, {'pregunta', 'tipo'})
+        self.assertEqual(cfg['lines'], 0)
+        self.assertIn('[data-col="materia"]{display:none}', cfg['hidden_css'])
+        self.assertNotIn('[data-col="pregunta"]', cfg['hidden_css'])
+
+    def test_columna_nueva_va_al_final_con_su_default(self):
+        user = make_user('lc_new_col')
+        # El usuario guardó antes de que existieran 'tipo' y 'creada'.
+        user.profile.list_view_prefs = {'preguntas': {
+            'order': ['pregunta', 'materia'], 'visible': ['pregunta'], 'lines': 2,
+        }}
+        cfg = resolve_config(user.profile, 'preguntas')
+        keys = [c['key'] for c in cfg['columns']]
+        self.assertEqual(keys[:2], ['pregunta', 'materia'])
+        self.assertEqual(len(keys), len(LIST_REGISTRY['preguntas']['columns']))
+        by_key = {c['key']: c['visible'] for c in cfg['columns']}
+        self.assertFalse(by_key['materia'])   # la apagó a propósito
+        self.assertTrue(by_key['bloom'])      # nunca la vio: default visible
+        self.assertFalse(by_key['tipo'])      # nunca la vio: default oculta
+
+    def test_claves_desconocidas_guardadas_se_ignoran(self):
+        user = make_user('lc_stale')
+        user.profile.list_view_prefs = {'preguntas': {
+            'order': ['borrada', 'pregunta'], 'visible': ['borrada', 'pregunta'], 'lines': 99,
+        }}
+        cfg = resolve_config(user.profile, 'preguntas')
+        self.assertNotIn('borrada', [c['key'] for c in cfg['columns']])
+        self.assertEqual(cfg['lines'], 3)  # valor inválido: vuelve al default
+
+
+class SanitizeTests(TestCase):
+    def test_rechaza_columna_inventada(self):
+        with self.assertRaises(ValueError):
+            sanitize('preguntas', {'order': ['pregunta', 'hack'], 'visible': ['pregunta']})
+
+    def test_rechaza_sin_columnas_visibles(self):
+        with self.assertRaises(ValueError):
+            sanitize('preguntas', {'order': ['pregunta'], 'visible': []})
+
+    def test_rechaza_lineas_invalidas(self):
+        for bad in (4, -1, '3', True):
+            with self.assertRaises(ValueError):
+                sanitize('preguntas', {'order': ['pregunta'], 'visible': ['pregunta'], 'lines': bad})
+
+    def test_listado_sin_texto_largo_ignora_lineas(self):
+        clean = sanitize('mis_examenes', {'order': ['nombre'], 'visible': ['nombre'], 'lines': 2})
+        self.assertNotIn('lines', clean)
+
+    def test_quita_duplicados(self):
+        clean = sanitize('preguntas', {'order': ['pregunta', 'pregunta', 'materia'], 'visible': ['pregunta']})
+        self.assertEqual(clean['order'], ['pregunta', 'materia'])
+
+
+class SaveListViewEndpointTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = _ready(make_user('lc_user'))
+        cls.other = _ready(make_user('lc_other'))
+
+    def setUp(self):
+        self.client = Client()
+        self.client.login(username='lc_user', password='testpass123')
+        self.url = reverse('material:save_list_view', args=['preguntas'])
+
+    def post(self, body, url=None):
+        return self.client.post(url or self.url, data=json.dumps(body), content_type='application/json')
+
+    def test_requiere_login(self):
+        resp = Client().post(self.url, data='{}', content_type='application/json')
+        self.assertEqual(resp.status_code, 302)
+
+    def test_solo_acepta_post(self):
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+
+    def test_listado_desconocido_da_404(self):
+        resp = self.post({}, reverse('material:save_list_view', args=['inexistente']))
+        self.assertEqual(resp.status_code, 404)
+
+    def test_guarda_y_devuelve_configuracion_efectiva(self):
+        resp = self.post({'order': ['pregunta', 'bloom'], 'visible': ['pregunta'], 'lines': 1})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['ok'])
+        self.assertEqual(data['config']['lines'], 1)
+        self.assertNotIn('hidden_css', data['config'])
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.list_view_prefs['preguntas']['visible'], ['pregunta'])
+
+    def test_datos_invalidos_dan_400_y_no_guardan(self):
+        for body in ({'order': ['x'], 'visible': ['x']}, {'order': ['pregunta'], 'visible': []}):
+            self.assertEqual(self.post(body).status_code, 400)
+        resp = self.client.post(self.url, data='no es json', content_type='application/json')
+        self.assertEqual(resp.status_code, 400)
+        resp = self.client.post(self.url, data='[1,2]', content_type='application/json')
+        self.assertEqual(resp.status_code, 400)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.list_view_prefs, {})
+
+    def test_cada_usuario_y_cada_listado_son_independientes(self):
+        self.post({'order': ['pregunta'], 'visible': ['pregunta'], 'lines': 2})
+        self.post({'order': ['nombre'], 'visible': ['nombre']},
+                  reverse('material:save_list_view', args=['mis_examenes']))
+        self.user.profile.refresh_from_db()
+        self.other.profile.refresh_from_db()
+        self.assertEqual(set(self.user.profile.list_view_prefs), {'preguntas', 'mis_examenes'})
+        self.assertEqual(self.other.profile.list_view_prefs, {})
+
+    def test_reset_borra_solo_ese_listado(self):
+        self.post({'order': ['pregunta'], 'visible': ['pregunta'], 'lines': 2})
+        self.post({'order': ['nombre'], 'visible': ['nombre']},
+                  reverse('material:save_list_view', args=['mis_examenes']))
+        resp = self.post({'reset': True})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['config']['lines'], 3)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(set(self.user.profile.list_view_prefs), {'mis_examenes'})
+
+
+class ListadosRenderTests(TestCase):
+    """Los listados registrados tienen que marcar cada columna del registro
+    con data-col (si no, el panel Columnas no la encuentra) y mandar el texto
+    de la pregunta completo, sin cortarlo en el servidor."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = _ready(make_user('lc_render'))
+        cls.subject = Subject.objects.create(name='Materia LC', created_by=cls.user, es_catalogo_institucional=False)
+        cls.topic = Topic.objects.create(name='Tópico LC', subject=cls.subject)
+        cls.texto_largo = 'Explique detalladamente ' + ('el proceso completo y sus consecuencias ' * 6) + 'FIN-DEL-TEXTO'
+        cls.pregunta = Question.objects.create(
+            user=cls.user, topic=cls.topic, question_text=cls.texto_largo, answer_text='r',
+        )
+        cls.pregunta.subjects.add(cls.subject)
+
+    def setUp(self):
+        self.client = Client()
+        self.client.login(username='lc_render', password='testpass123')
+
+    def test_preguntas_marca_columnas_y_no_trunca_el_texto(self):
+        resp = self.client.get(reverse('material:lista_preguntas'))
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('FIN-DEL-TEXTO', html)
+        head = re.search(r'<thead>(.*?)</thead>', html, re.S).group(1)
+        marcadas = set(re.findall(r'data-col="(\w+)"', head))
+        esperadas = {c['key'] for c in LIST_REGISTRY['preguntas']['columns']}
+        # Sub-tópico solo aparece si hay subtópicos cargados.
+        self.assertEqual(marcadas, esperadas - {'subtopico'})
+        self.assertIn('id="lcCfg"', html)
+        self.assertIn('id="listColumnsBtn"', html)
+
+    def test_columna_oculta_sale_en_el_css_inicial(self):
+        self.client.post(
+            reverse('material:save_list_view', args=['preguntas']),
+            data=json.dumps({'order': ['pregunta', 'materia'], 'visible': ['pregunta']}),
+            content_type='application/json',
+        )
+        html = self.client.get(reverse('material:lista_preguntas')).content.decode()
+        self.assertIn('.lc-table [data-col="materia"]{display:none}', html)
+        self.assertNotIn('.lc-table [data-col="pregunta"]{display:none}', html)
+
+    def test_mis_examenes_marca_columnas(self):
+        from .models import Exam
+        Exam.objects.create(created_by=self.user, title='Parcial LC', subject=self.subject)
+        resp = self.client.get(reverse('material:mis_examenes'))
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        head = re.search(r'<thead>(.*?)</thead>', html, re.S).group(1)
+        marcadas = set(re.findall(r'data-col="(\w+)"', head))
+        self.assertEqual(marcadas, {c['key'] for c in LIST_REGISTRY['mis_examenes']['columns']})
+
+
+class ListadosFase2RenderTests(TestCase):
+    """Fase 2: plantillas, orales, instituciones, materias y carreras marcan
+    cada columna del registro con data-col, y el panel Columnas aparece."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from .models import (
+            InstitutionV2, FacultyV2, Career, CareerSubject, ExamTemplate, OralExamSet,
+        )
+        cls.user = _ready(make_user('lc_f2_user'))
+        cls.admin = _ready(make_user('lc_f2_admin', role='admin'))
+        cls.institucion = InstitutionV2.objects.create(
+            name='Institución LC', created_by=cls.user, es_catalogo_institucional=False,
+        )
+        cls.facultad = FacultyV2.objects.create(
+            name='Facultad LC', institution=cls.institucion,
+            created_by=cls.user, es_catalogo_institucional=False,
+        )
+        cls.carrera = Career.objects.create(name='Carrera LC', created_by=cls.user, es_catalogo_institucional=False)
+        cls.carrera.faculties.add(cls.facultad)
+        cls.materia = Subject.objects.create(name='Materia F2', created_by=cls.user, es_catalogo_institucional=False)
+        CareerSubject.objects.create(career=cls.carrera, subject=cls.materia)
+        # El admin solo ve el catálogo institucional y lo propio.
+        Career.objects.create(name='Carrera admin LC', created_by=cls.admin, es_catalogo_institucional=True)
+        ExamTemplate.objects.create(
+            created_by=cls.user, institution=cls.institucion, faculty=cls.facultad,
+            career=cls.carrera, subject=cls.materia,
+        )
+        OralExamSet.objects.create(
+            user=cls.user, name='Oral LC', subject=cls.materia,
+            num_groups=2, students_per_group=3, questions_per_student=2, total_students=6,
+        )
+
+    LISTADOS = [
+        ('plantillas', 'material:list_exam_templates'),
+        ('orales', 'material:list_oral_exams'),
+        ('instituciones', 'material:institution_v2_list'),
+        ('materias', 'material:subject_list'),
+        ('carreras', 'material:career_list'),
+    ]
+
+    def _head_cols(self, client, url_name):
+        resp = client.get(reverse(url_name))
+        self.assertEqual(resp.status_code, 200, url_name)
+        html = resp.content.decode()
+        found = re.search(r'<thead[^>]*>(.*?)</thead>', html, re.S)
+        self.assertIsNotNone(found, 'sin tabla en %s' % url_name)
+        return html, set(re.findall(r'data-col="(\w+)"', found.group(1)))
+
+    def test_cada_listado_marca_todas_sus_columnas(self):
+        for username in ('lc_f2_user', 'lc_f2_admin'):
+            client = Client()
+            client.login(username=username, password='testpass123')
+            for key, url_name in self.LISTADOS:
+                # Plantillas y orales son solo del dueño: el admin no tiene.
+                if username == 'lc_f2_admin' and key in ('plantillas', 'orales'):
+                    continue
+                html, marcadas = self._head_cols(client, url_name)
+                esperadas = {c['key'] for c in LIST_REGISTRY[key]['columns']}
+                self.assertEqual(marcadas, esperadas, '%s (%s)' % (key, username))
+                self.assertIn('id="listColumnsBtn"', html, key)
+                self.assertIn('id="lcCfg"', html, key)
+                self.assertIn('/preferencias-listado/%s/' % key, html, key)
+
+    def test_filas_marcan_las_mismas_columnas_que_el_encabezado(self):
+        client = Client()
+        client.login(username='lc_f2_user', password='testpass123')
+        for key, url_name in self.LISTADOS:
+            html, _ = self._head_cols(client, url_name)
+            body = re.search(r'<tbody[^>]*>(.*?)</tbody>', html, re.S).group(1)
+            fila = re.search(r'<tr[^>]*>(.*?)</tr>', body, re.S).group(1)
+            en_fila = set(re.findall(r'data-col="(\w+)"', fila))
+            esperadas = {c['key'] for c in LIST_REGISTRY[key]['columns']}
+            self.assertEqual(en_fila, esperadas, key)
+
+    def test_materias_ajax_devuelve_filas_con_data_col(self):
+        client = Client()
+        client.login(username='lc_f2_user', password='testpass123')
+        resp = client.get(reverse('material:subject_list'), HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(resp.status_code, 200)
+        rows = resp.json()['rows_html']
+        self.assertIn('data-col="nombre"', rows)
+        self.assertIn('data-col="resultados"', rows)
+
+
+class ListadosFase3RenderTests(TestCase):
+    """Fase 3: favoritos, rúbricas, formatos, contenidos (vigentes), espacio
+    personal y usuarios marcan cada columna del registro con data-col."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.contenttypes.models import ContentType
+        from .models import Favorite, FormatoImpresion, InstitutionV2, Rubric
+        cls.user = _ready(make_user('lc_f3_user'))
+        cls.admin = _ready(make_user('lc_f3_admin', role='admin'))
+        cls.materia = Subject.objects.create(name='Materia F3', created_by=cls.user, es_catalogo_institucional=False)
+        Favorite.objects.create(
+            user=cls.user, content_type=ContentType.objects.get_for_model(Subject), object_id=cls.materia.pk,
+        )
+        Rubric.objects.create(title='Rúbrica LC', created_by=cls.user)
+        FormatoImpresion.objects.create(nombre='Formato LC', user=cls.user)
+        # Espacio personal: la materia ya es propia y no institucional.
+        InstitutionV2.objects.create(name='Institución F3', created_by=cls.user, es_catalogo_institucional=False)
+
+    def _client(self, username):
+        client = Client()
+        client.login(username=username, password='testpass123')
+        return client
+
+    def _check(self, client, key, url_name):
+        resp = client.get(reverse(url_name))
+        self.assertEqual(resp.status_code, 200, key)
+        html = resp.content.decode()
+        tablas = re.findall(r'<table[^>]*lc-table[^>]*>(.*?)</table>', html, re.S)
+        self.assertEqual(len(tablas), 1, 'tabla lc-table en %s' % key)
+        tabla = tablas[0]
+        head = re.search(r'<thead[^>]*>(.*?)</thead>', tabla, re.S).group(1)
+        esperadas = {c['key'] for c in LIST_REGISTRY[key]['columns']}
+        self.assertEqual(set(re.findall(r'data-col="(\w+)"', head)), esperadas, key)
+        fila = re.search(r'<tbody[^>]*>\s*<tr[^>]*>(.*?)</tr>', tabla, re.S).group(1)
+        self.assertEqual(set(re.findall(r'data-col="(\w+)"', fila)), esperadas, key + ' (fila)')
+        self.assertIn('id="listColumnsBtn"', html, key)
+        self.assertIn('/preferencias-listado/%s/' % key, html, key)
+
+    def test_listados_de_usuario(self):
+        client = self._client('lc_f3_user')
+        for key, url_name in (
+            ('favoritos', 'material:favoritos_list'),
+            ('rubricas', 'material:rubric_list'),
+            ('formatos', 'material:formato_impresion_list'),
+            ('espacio_personal', 'material:espacio_personal_list'),
+        ):
+            self._check(client, key, url_name)
+
+    def test_usuarios_admin(self):
+        self._check(self._client('lc_f3_admin'), 'usuarios', 'material:user_list')
+
+    def test_contenidos_vigentes(self):
+        import tempfile
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test import override_settings
+        from .models import Contenido
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            Contenido.objects.create(
+                title='Contenido LC', uploaded_by=self.user,
+                file=SimpleUploadedFile('libro.pdf', b'%PDF-1.4 contenido'),
+            )
+            self._check(self._client('lc_f3_user'), 'contenidos', 'material:mis_contenidos')

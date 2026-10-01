@@ -1,6 +1,7 @@
 {% extends 'material/base.html' %}
 {% load static %}
 {% load message_tags %}
+{% load list_view_tags %}
 {% block body_extra_attrs %}data-tour-page="mis_contenidos"{% endblock %}
 {% block title %}Mis Contenidos - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-collection me-2"></i>Mis Contenidos{% endblock %}
@@ -13,6 +14,8 @@
 {% block content %}
 <script src="{% static 'js/page_tours/mis_contenidos_tour.js' %}"></script>
 {% include 'material/components/_mobile_card_table.html' %}
+{% list_view_config 'contenidos' as lv %}
+{% include 'material/components/_list_columns_head.html' %}
 <div class="container">
 
     <!-- Mensajes específicos de contenidos -->
@@ -28,39 +31,42 @@
     </div>
 
     <!-- Vigentes -->
-    <h2 class="h4 mt-4">Vigentes</h2>
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <h2 class="h4 mb-0">Vigentes</h2>
+        {% include 'material/components/_list_columns_button.html' %}
+    </div>
     <p class="text-muted small mb-2">Seleccionar uno o más contenidos y usar "Borrar seleccionados" para eliminar sus archivos.</p>
     <form method="post" action="{% url 'material:delete_contenido' %}" id="deleteFormVigentes">
         {% csrf_token %}
         <div class="table-responsive">
-            <table class="table table-striped mobile-card-table">
+            <table class="table table-striped mobile-card-table lc-table">
                 <thead>
                     <tr>
-                        <th>Seleccionar</th>
-                        <th>Título</th>
-                        <th>Archivo</th>
-                        <th>Fecha de subida</th>
-                        <th>Estado del archivo</th>
-                        <th>Acciones</th>
+                        <th data-col-fixed="first">Seleccionar</th>
+                        <th data-col="titulo" class="lc-col-wide">Título</th>
+                        <th data-col="archivo" class="lc-col-name">Archivo</th>
+                        <th data-col="fecha" class="lc-col-fit">Fecha de subida</th>
+                        <th data-col="estado" class="lc-col-fit">Estado del archivo</th>
+                        <th data-col-fixed="last">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for contenido in vigentes_page %}
                     <tr>
-                        <td class="rt-card-select">
+                        <td class="rt-card-select" data-col-fixed="first">
                             <input type="checkbox" name="contenido_ids" value="{{ contenido.id }}" title="Seleccionar para borrar el archivo">
                         </td>
-                        <td class="rt-card-title" data-label="Título">{{ contenido.title }}</td>
-                        <td data-label="Archivo">
+                        <td data-col="titulo" class="rt-card-title lc-col-wide" data-label="Título">{{ contenido.title }}</td>
+                        <td data-col="archivo" class="lc-col-name" data-label="Archivo">
                             <span class="text-success"><i class="bi bi-file-earmark-check me-1"></i>{{ contenido.file.name }}</span>
                         </td>
-                        <td data-label="Fecha de subida">{{ contenido.uploaded_at|date:"d/m/Y H:i" }}</td>
-                        <td data-label="Estado del archivo">
+                        <td data-col="fecha" class="lc-col-fit" data-label="Fecha de subida">{{ contenido.uploaded_at|date:"d/m/Y H:i" }}</td>
+                        <td data-col="estado" class="lc-col-fit" data-label="Estado del archivo">
                             <span class="badge bg-warning text-dark">
                                 <i class="bi bi-clock me-1"></i>Se elimina al cerrar sesión
                             </span>
                         </td>
-                        <td data-label="Acciones">
+                        <td data-col-fixed="last" data-label="Acciones">
                             <a href="{% url 'material:document_processor_dashboard' %}?contenido_id={{ contenido.id }}"
                                class="btn btn-sm btn-primary">
                                 Analizar con IA
@@ -183,6 +189,9 @@
     <div class="alert alert-info mt-3">
         <strong>Nota:</strong> Sólo se puede analizar por IA de a un documento por vez.
     </div>
+
+    {% url 'material:save_list_view' 'contenidos' as save_url %}
+    {% include 'material/components/_list_columns_script.html' %}
 </div>
 
 <!-- Script para manejar la confirmación de borrado y expandir el acordeón si hay filtros/página activos -->
