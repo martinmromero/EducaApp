@@ -113,6 +113,72 @@ LIST_REGISTRY = {
         'text_column': None,
         'default_lines': 0,
     },
+    'favoritos': {
+        'columns': [
+            _col('tipo', 'Tipo'),
+            _col('nombre', 'Nombre'),
+            _col('detalle', 'Detalle'),
+            _col('favoriteado', 'Favoriteado'),
+        ],
+        'text_column': None,
+        'default_lines': 0,
+    },
+    'rubricas': {
+        'columns': [
+            _col('titulo', 'Título'),
+            _col('origen', 'Origen'),
+            _col('niveles', 'Niveles'),
+            _col('criterios', 'Criterios'),
+            _col('modificada', 'Modificada'),
+        ],
+        'text_column': None,
+        'default_lines': 0,
+    },
+    'formatos': {
+        'columns': [
+            _col('nombre', 'Nombre'),
+            _col('alcance', 'Alcance'),
+            _col('fuente', 'Fuente'),
+            _col('tamano', 'Tamaño'),
+            _col('predeterminado', 'Predeterminado'),
+        ],
+        'text_column': None,
+        'default_lines': 0,
+    },
+    'contenidos': {
+        'columns': [
+            _col('titulo', 'Título'),
+            _col('archivo', 'Archivo'),
+            _col('fecha', 'Fecha de subida'),
+            _col('estado', 'Estado del archivo'),
+        ],
+        'text_column': None,
+        'default_lines': 0,
+    },
+    'espacio_personal': {
+        'columns': [
+            _col('tipo', 'Tipo'),
+            _col('nombre', 'Nombre'),
+        ],
+        'text_column': None,
+        'default_lines': 0,
+    },
+    'usuarios': {
+        'columns': [
+            _col('id', 'ID'),
+            _col('usuario', 'Nombre de usuario'),
+            _col('nombre', 'Nombre'),
+            _col('apellido', 'Apellido'),
+            _col('email', 'Email'),
+            _col('rol', 'Rol'),
+            _col('estado', 'Estado'),
+            _col('ultima_conexion', 'Última conexión'),
+            _col('registro', 'Fecha de registro'),
+            _col('area_pruebas', 'Área de Pruebas'),
+        ],
+        'text_column': None,
+        'default_lines': 0,
+    },
 }
 
 

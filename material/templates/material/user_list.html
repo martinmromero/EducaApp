@@ -1,5 +1,6 @@
 {% extends 'material/base.html' %}
 {% load message_tags %}
+{% load list_view_tags %}
 {% block title %}Usuarios - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-people-fill me-2"></i>Usuarios{% endblock %}
 {% block page_actions %}
@@ -10,49 +11,52 @@
 
 {% block content %}
 {% include 'material/components/_mobile_card_table.html' %}
+{% list_view_config 'usuarios' as lv %}
+{% include 'material/components/_list_columns_head.html' %}
 <div class="container-fluid">
     {% show_messages "usuarios" %}
     <div class="card shadow mb-4">
-        <div class="card-header py-2">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
             <span class="list-control-info">{{ users|length }} usuario{{ users|length|pluralize }}</span>
+            {% include 'material/components/_list_columns_button.html' %}
         </div>
         <div class="card-body">
     <div class="table-responsive">
-    <table class="table table-striped mobile-card-table">
+    <table class="table table-striped mobile-card-table lc-table">
         <thead>
             <tr>
-                <th>ID</th>
-                <th>Nombre de Usuario</th>
-                <th>Nombre</th>
-                <th>Apellido</th>
-                <th>Email</th>
-                <th>Rol</th>
-                <th>Estado</th>
-                <th>Última Conexión</th>
-                <th>Fecha de Registro</th>
-                <th>Área de Pruebas</th>
-                <th>Acciones</th>
+                <th data-col="id" class="lc-col-fit">ID</th>
+                <th data-col="usuario" class="lc-col-name">Nombre de Usuario</th>
+                <th data-col="nombre" class="lc-col-text">Nombre</th>
+                <th data-col="apellido" class="lc-col-text">Apellido</th>
+                <th data-col="email" class="lc-col-name">Email</th>
+                <th data-col="rol" class="lc-col-fit">Rol</th>
+                <th data-col="estado" class="lc-col-fit">Estado</th>
+                <th data-col="ultima_conexion" class="lc-col-text">Última Conexión</th>
+                <th data-col="registro" class="lc-col-text">Fecha de Registro</th>
+                <th data-col="area_pruebas" class="lc-col-text">Área de Pruebas</th>
+                <th data-col-fixed="last">Acciones</th>
             </tr>
         </thead>
         <tbody>
             {% for user in users %}
             <tr>
-                <td data-label="ID">{{ user.id }}</td>
-                <td class="rt-card-title" data-label="Usuario">{{ user.username }}</td>
-                <td data-label="Nombre">{{ user.first_name }}</td>
-                <td data-label="Apellido">{{ user.last_name }}</td>
-                <td data-label="Email">{{ user.email }}</td>
-                <td data-label="Rol">{{ user.profile.get_role_display }}</td>
-                <td data-label="Estado">
+                <td data-col="id" class="lc-col-fit" data-label="ID">{{ user.id }}</td>
+                <td data-col="usuario" class="rt-card-title lc-col-name" data-label="Usuario">{{ user.username }}</td>
+                <td data-col="nombre" class="lc-col-text" data-label="Nombre">{{ user.first_name }}</td>
+                <td data-col="apellido" class="lc-col-text" data-label="Apellido">{{ user.last_name }}</td>
+                <td data-col="email" class="lc-col-name" data-label="Email">{{ user.email }}</td>
+                <td data-col="rol" class="lc-col-fit" data-label="Rol">{{ user.profile.get_role_display }}</td>
+                <td data-col="estado" class="lc-col-fit" data-label="Estado">
                     {% if user.is_active %}
                         <span class="badge bg-success">Activo</span>
                     {% else %}
                         <span class="badge bg-danger">Inactivo</span>
                     {% endif %}
                 </td>
-                <td data-label="Última conexión">{{ user.last_login|default:"Nunca" }}</td>
-                <td data-label="Fecha de registro">{{ user.date_joined }}</td>
-                <td data-label="Área de Pruebas">
+                <td data-col="ultima_conexion" class="lc-col-text" data-label="Última conexión">{{ user.last_login|default:"Nunca" }}</td>
+                <td data-col="registro" class="lc-col-text" data-label="Fecha de registro">{{ user.date_joined }}</td>
+                <td data-col="area_pruebas" class="lc-col-text" data-label="Área de Pruebas">
                     {% if user.training_link %}
                         <span class="text-muted small d-block">Creada el {{ user.training_link.created_at|date:"d/m/Y" }}</span>
                         <form method="post" action="{% url 'material:admin_restablecer_area_pruebas' user.id %}"
@@ -64,7 +68,7 @@
                         <span class="text-muted small">Sin área de pruebas creada</span>
                     {% endif %}
                 </td>
-                <td data-label="Acciones">
+                <td data-col-fixed="last" data-label="Acciones">
                     <a href="{% url 'material:edit_user' user.id %}" class="btn btn-sm btn-primary">Editar</a>
                     <a href="{% url 'material:delete_user' user.id %}" class="btn btn-sm btn-danger">Eliminar</a>
                 </td>
@@ -75,5 +79,7 @@
     </div>
         </div>
     </div>
+    {% url 'material:save_list_view' 'usuarios' as save_url %}
+    {% include 'material/components/_list_columns_script.html' %}
 </div>
 {% endblock %}

@@ -1,5 +1,6 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load list_view_tags %}
 {% block body_extra_attrs %}data-tour-page="formato_impresion_list"{% endblock %}
 {% block title %}Formatos de Impresión - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-printer me-2"></i>Formatos de Impresión{% endblock %}
@@ -13,36 +14,39 @@
 <script src="{% static 'js/page_tours/formato_impresion_list_tour.js' %}"></script>
 <script src="{% static 'js/print_format_preview.js' %}"></script>
 {% include 'material/components/_mobile_card_table.html' %}
+{% list_view_config 'formatos' as lv %}
+{% include 'material/components/_list_columns_head.html' %}
 <div class="container-fluid">
     <div class="card shadow mb-4">
-        <div class="card-header py-2">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
             <span class="list-control-info">{{ formatos|length }} formato{{ formatos|length|pluralize }}</span>
+            {% include 'material/components/_list_columns_button.html' %}
         </div>
         <div class="card-body">
     <div class="table-responsive">
-        <table class="table table-striped mobile-card-table">
+        <table class="table table-striped mobile-card-table lc-table">
             <thead>
                 <tr>
-                    <th>Nombre</th>
-                    <th id="formatoColAlcance">Alcance</th>
-                    <th>Fuente</th>
-                    <th>Tamaño</th>
-                    <th id="formatoColDefault" class="text-center">Predeterminado</th>
-                    <th>Acciones</th>
+                    <th data-col="nombre" class="lc-col-wide">Nombre</th>
+                    <th data-col="alcance" class="lc-col-text" id="formatoColAlcance">Alcance</th>
+                    <th data-col="fuente" class="lc-col-text">Fuente</th>
+                    <th data-col="tamano" class="lc-col-fit">Tamaño</th>
+                    <th data-col="predeterminado" id="formatoColDefault" class="text-center lc-col-fit">Predeterminado</th>
+                    <th data-col-fixed="last">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 {% for formato in formatos %}
                 <tr>
-                    <td class="rt-card-title" data-label="Nombre">{{ formato.nombre }}</td>
-                    <td data-label="Alcance">
+                    <td data-col="nombre" class="rt-card-title lc-col-wide" data-label="Nombre">{{ formato.nombre }}</td>
+                    <td data-col="alcance" class="lc-col-text" data-label="Alcance">
                         {% if formato.user_id %}Usuario
                         {% elif formato.institution_id %}{{ formato.institution.name }}
                         {% else %}Global{% endif %}
                     </td>
-                    <td data-label="Fuente">{{ formato.fuente }}</td>
-                    <td data-label="Tamaño">{{ formato.tamano_fuente }} pt</td>
-                    <td data-label="Predeterminado" class="text-center">
+                    <td data-col="fuente" class="lc-col-text" data-label="Fuente">{{ formato.fuente }}</td>
+                    <td data-col="tamano" class="lc-col-fit" data-label="Tamaño">{{ formato.tamano_fuente }} pt</td>
+                    <td data-col="predeterminado" data-label="Predeterminado" class="text-center lc-col-fit">
                         <form method="post" action="{% url 'material:formato_impresion_set_default' formato.pk %}" class="d-inline">
                             {% csrf_token %}
                             <input type="radio" class="form-check-input" name="es_default"
@@ -52,7 +56,7 @@
                                    title="Marcar como predeterminado">
                         </form>
                     </td>
-                    <td data-label="Acciones">
+                    <td data-col-fixed="last" data-label="Acciones">
                         <div class="btn-group btn-group-sm" role="group">
                             <button type="button" class="btn btn-info" title="Ver vista previa"
                                     data-bs-toggle="modal" data-bs-target="#printPreviewModal"
@@ -87,6 +91,9 @@
         </div>
     </div>
 </div>
+
+{% url 'material:save_list_view' 'formatos' as save_url %}
+{% include 'material/components/_list_columns_script.html' %}
 
 {% for formato in formatos %}
 <form method="post" action="{% url 'material:formato_impresion_delete' formato.pk %}" id="formatoDeleteForm_{{ formato.pk }}"

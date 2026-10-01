@@ -1,32 +1,36 @@
 {% extends 'material/base.html' %}
+{% load list_view_tags %}
 {% block title %}Favoritos - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-star-fill me-2"></i>Favoritos{% endblock %}
 
 {% block content %}
 {% include 'material/components/_mobile_card_table.html' %}
+{% list_view_config 'favoritos' as lv %}
+{% include 'material/components/_list_columns_head.html' %}
 {% url 'material:favoritos_list' as favoritos_url %}
 <div class="container-fluid">
     <div class="card shadow mb-4">
-        <div class="card-header py-2">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
             <span class="list-control-info" id="favoritesCountLabel">{{ items|length }} favorito{{ items|length|pluralize }}</span>
+            {% include 'material/components/_list_columns_button.html' %}
         </div>
         <div class="card-body">
             {% if items %}
             <div class="table-responsive">
-                <table class="table table-striped mobile-card-table" id="favoritosTable">
+                <table class="table table-striped mobile-card-table lc-table" id="favoritosTable">
                     <thead>
                         <tr>
-                            <th>Tipo</th>
-                            <th>Nombre</th>
-                            <th>Detalle</th>
-                            <th>Favoriteado</th>
-                            <th>Acciones</th>
+                            <th data-col="tipo" class="lc-col-fit">Tipo</th>
+                            <th data-col="nombre" class="lc-col-wide">Nombre</th>
+                            <th data-col="detalle" class="lc-col-text">Detalle</th>
+                            <th data-col="favoriteado" class="lc-col-fit">Favoriteado</th>
+                            <th data-col-fixed="last">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in items %}
                         <tr data-favorite-row data-model="{{ item.kind }}" data-id="{{ item.object.pk }}">
-                            <td data-label="Tipo">
+                            <td data-col="tipo" class="lc-col-fit" data-label="Tipo">
                                 {% if item.kind == 'exam' %}
                                     <span class="badge bg-success">Examen</span>
                                 {% elif item.kind == 'examtemplate' %}
@@ -41,7 +45,7 @@
                                     <span class="badge bg-dark">Institución</span>
                                 {% endif %}
                             </td>
-                            <td class="rt-card-title" data-label="Nombre">
+                            <td data-col="nombre" class="rt-card-title lc-col-wide" data-label="Nombre">
                                 {% if item.kind == 'exam' %}{{ item.object.title }}
                                 {% elif item.kind == 'examtemplate' %}{{ item.object.subject_name_snapshot|default:item.object.subject.name }}
                                 {% elif item.kind == 'subject' %}{{ item.object.name }}
@@ -50,7 +54,7 @@
                                 {% elif item.kind == 'institucion' %}{{ item.object.name }}
                                 {% endif %}
                             </td>
-                            <td data-label="Detalle">
+                            <td data-col="detalle" class="lc-col-text" data-label="Detalle">
                                 {% if item.kind == 'exam' %}{{ item.object.subject.name|default:'—' }}
                                 {% elif item.kind == 'examtemplate' %}{{ item.object.institution_name_snapshot|default:'—' }}
                                 {% elif item.kind == 'subject' %}{{ item.object.careers.all|join:', '|default:'—' }}
@@ -59,8 +63,8 @@
                                 {% elif item.kind == 'institucion' %}{{ item.object.sigla|default:'—' }}
                                 {% endif %}
                             </td>
-                            <td data-label="Favoriteado">{{ item.favorited_at|date:"d/m/Y" }}</td>
-                            <td data-label="Acciones">
+                            <td data-col="favoriteado" class="lc-col-fit" data-label="Favoriteado">{{ item.favorited_at|date:"d/m/Y" }}</td>
+                            <td data-col-fixed="last" data-label="Acciones">
                                 <div class="btn-group" role="group">
                                 {% if item.kind == 'institucion' %}
                                     <a href="{% url 'material:toggle_favorite_institution' item.object.pk %}?next={{ favoritos_url|urlencode }}" class="btn btn-sm btn-warning" title="Quitar de favoritos"><i class="bi bi-star-fill"></i></a>
@@ -137,6 +141,8 @@
             {% endif %}
         </div>
     </div>
+    {% url 'material:save_list_view' 'favoritos' as save_url %}
+    {% include 'material/components/_list_columns_script.html' %}
 </div>
 
 <script>

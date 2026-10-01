@@ -299,3 +299,68 @@ class ListadosFase2RenderTests(TestCase):
         rows = resp.json()['rows_html']
         self.assertIn('data-col="nombre"', rows)
         self.assertIn('data-col="resultados"', rows)
+
+
+class ListadosFase3RenderTests(TestCase):
+    """Fase 3: favoritos, rúbricas, formatos, contenidos (vigentes), espacio
+    personal y usuarios marcan cada columna del registro con data-col."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.contenttypes.models import ContentType
+        from .models import Favorite, FormatoImpresion, InstitutionV2, Rubric
+        cls.user = _ready(make_user('lc_f3_user'))
+        cls.admin = _ready(make_user('lc_f3_admin', role='admin'))
+        cls.materia = Subject.objects.create(name='Materia F3', created_by=cls.user, es_catalogo_institucional=False)
+        Favorite.objects.create(
+            user=cls.user, content_type=ContentType.objects.get_for_model(Subject), object_id=cls.materia.pk,
+        )
+        Rubric.objects.create(title='Rúbrica LC', created_by=cls.user)
+        FormatoImpresion.objects.create(nombre='Formato LC', user=cls.user)
+        # Espacio personal: la materia ya es propia y no institucional.
+        InstitutionV2.objects.create(name='Institución F3', created_by=cls.user, es_catalogo_institucional=False)
+
+    def _client(self, username):
+        client = Client()
+        client.login(username=username, password='testpass123')
+        return client
+
+    def _check(self, client, key, url_name):
+        resp = client.get(reverse(url_name))
+        self.assertEqual(resp.status_code, 200, key)
+        html = resp.content.decode()
+        tablas = re.findall(r'<table[^>]*lc-table[^>]*>(.*?)</table>', html, re.S)
+        self.assertEqual(len(tablas), 1, 'tabla lc-table en %s' % key)
+        tabla = tablas[0]
+        head = re.search(r'<thead[^>]*>(.*?)</thead>', tabla, re.S).group(1)
+        esperadas = {c['key'] for c in LIST_REGISTRY[key]['columns']}
+        self.assertEqual(set(re.findall(r'data-col="(\w+)"', head)), esperadas, key)
+        fila = re.search(r'<tbody[^>]*>\s*<tr[^>]*>(.*?)</tr>', tabla, re.S).group(1)
+        self.assertEqual(set(re.findall(r'data-col="(\w+)"', fila)), esperadas, key + ' (fila)')
+        self.assertIn('id="listColumnsBtn"', html, key)
+        self.assertIn('/preferencias-listado/%s/' % key, html, key)
+
+    def test_listados_de_usuario(self):
+        client = self._client('lc_f3_user')
+        for key, url_name in (
+            ('favoritos', 'material:favoritos_list'),
+            ('rubricas', 'material:rubric_list'),
+            ('formatos', 'material:formato_impresion_list'),
+            ('espacio_personal', 'material:espacio_personal_list'),
+        ):
+            self._check(client, key, url_name)
+
+    def test_usuarios_admin(self):
+        self._check(self._client('lc_f3_admin'), 'usuarios', 'material:user_list')
+
+    def test_contenidos_vigentes(self):
+        import tempfile
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test import override_settings
+        from .models import Contenido
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            Contenido.objects.create(
+                title='Contenido LC', uploaded_by=self.user,
+                file=SimpleUploadedFile('libro.pdf', b'%PDF-1.4 contenido'),
+            )
+            self._check(self._client('lc_f3_user'), 'contenidos', 'material:mis_contenidos')

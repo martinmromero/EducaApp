@@ -788,6 +788,7 @@ body.offcanvas-open .sidebar-toggle-external {
     .lc-table td.lc-col-fit { white-space: nowrap; width: 1%; }
     .lc-table th.lc-col-fit { width: 1%; }
     .lc-table td.lc-col-text, .lc-table th.lc-col-text { min-width: 5rem; max-width: 14rem; }
+    .lc-table td.lc-col-text, .lc-table td.lc-col-name { overflow-wrap: anywhere; }
     .lc-table td.lc-col-name, .lc-table th.lc-col-name { min-width: 8rem; max-width: 22rem; }
     .lc-table td.lc-col-wide, .lc-table th.lc-col-wide { width: 100%; min-width: 12rem; }
 }
@@ -798,7 +799,6 @@ body.offcanvas-open .sidebar-toggle-external {
     padding: .3rem .25rem; border-bottom: 1px solid var(--bs-border-color-translucent);
 }
 .list-columns-menu .lc-row:last-child { border-bottom: 0; }
-.list-columns-menu .lc-row-fixed { color: var(--bs-secondary-color); }
 .list-columns-menu .lc-grip { width: 1.4rem; text-align: center; color: var(--bs-secondary-color); }
 .list-columns-menu .lc-drag { cursor: grab; }
 .list-columns-menu .lc-ib { width: 1.9rem; height: 1.9rem; padding: 0; line-height: 1; }

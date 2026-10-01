@@ -102,17 +102,6 @@
     }
 
     /* ── Panel ─────────────────────────────────────────────────────────── */
-    function fixedRow(text, hint) {
-      var li = document.createElement('div');
-      li.className = 'lc-row lc-row-fixed';
-      li.innerHTML = '<span class="lc-grip"><i class="bi bi-lock" aria-hidden="true"></i></span>' +
-        '<input type="checkbox" class="form-check-input" checked disabled aria-label="' + text + ' (fija)">' +
-        '<span class="flex-grow-1"></span><span class="small text-body-secondary"></span>';
-      li.children[2].textContent = text;
-      li.children[3].textContent = hint;
-      return li;
-    }
-
     function move(i, d) {
       var j = i + d;
       var shown = state.order.filter(function (k) { return presentKeys[k]; });
@@ -129,7 +118,6 @@
     function renderPanel() {
       var shown = state.order.filter(function (k) { return presentKeys[k]; });
       listEl.innerHTML = '';
-      listEl.appendChild(fixedRow('Casilla de selección', 'siempre primera'));
       shown.forEach(function (k, i) {
         var row = document.createElement('div');
         row.className = 'lc-row';
@@ -150,7 +138,6 @@
         up.dataset.pos = down.dataset.pos = i;
         listEl.appendChild(row);
       });
-      listEl.appendChild(fixedRow('Acciones', 'siempre última'));
 
       if (linesWrap) {
         linesWrap.classList.toggle('d-none', !cfg.text_column);

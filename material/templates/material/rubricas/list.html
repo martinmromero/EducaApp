@@ -1,5 +1,6 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load list_view_tags %}
 {% block body_extra_attrs %}data-tour-page="rubric_list"{% endblock %}
 {% block title %}Rúbricas - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-card-checklist me-2"></i>Rúbricas{% endblock %}
@@ -12,6 +13,8 @@
 {% block content %}
 <script src="{% static 'js/page_tours/rubric_list_tour.js' %}"></script>
 {% include 'material/components/_mobile_card_table.html' %}
+{% list_view_config 'rubricas' as lv %}
+{% include 'material/components/_list_columns_head.html' %}
 {% comment %}
 Mensajes: los muestra base.html (show_messages "general") — este loop
 crudo quedaba de antes de adoptar ese tag y duplicaba cada mensaje
@@ -22,28 +25,29 @@ crudo quedaba de antes de adoptar ese tag y duplicaba cada mensaje
     <div class="card shadow mb-4">
         <div class="card-header py-2 d-flex justify-content-between align-items-center">
             <span class="small fw-semibold text-secondary">{{ rubricas|length }} rúbrica{{ rubricas|length|pluralize }}</span>
+            {% include 'material/components/_list_columns_button.html' %}
         </div>
         <div class="card-body">
             {% if rubricas %}
             <div class="table-responsive">
-                <table class="table table-hover align-middle mobile-card-table">
+                <table class="table table-hover align-middle mobile-card-table lc-table">
                     <thead class="table-secondary">
                         <tr>
-                            <th>Título</th>
-                            <th id="rubricColOrigen">Origen</th>
-                            <th class="text-center" id="rubricColStructure">Niveles</th>
-                            <th class="text-center">Criterios</th>
-                            <th>Modificada</th>
-                            <th class="text-end">Acciones</th>
+                            <th data-col="titulo" class="lc-col-wide">Título</th>
+                            <th data-col="origen" class="lc-col-fit" id="rubricColOrigen">Origen</th>
+                            <th data-col="niveles" class="text-center lc-col-fit" id="rubricColStructure">Niveles</th>
+                            <th data-col="criterios" class="text-center lc-col-fit">Criterios</th>
+                            <th data-col="modificada" class="lc-col-fit">Modificada</th>
+                            <th data-col-fixed="last" class="text-end">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for rubrica in rubricas %}
                         <tr>
-                            <td class="rt-card-title" data-label="Título">
+                            <td data-col="titulo" class="rt-card-title lc-col-wide" data-label="Título">
                                 <a href="{% url 'material:rubric_view' rubrica.pk %}"><strong>{{ rubrica.title }}</strong></a>
                             </td>
-                            <td data-label="Origen">
+                            <td data-col="origen" class="lc-col-fit" data-label="Origen">
                                 {% if rubrica.created_by_id == request.user.id %}
                                     <span class="badge bg-secondary">Mía</span>
                                 {% else %}
@@ -52,22 +56,22 @@ crudo quedaba de antes de adoptar ese tag y duplicaba cada mensaje
                                     </span>
                                 {% endif %}
                             </td>
-                            <td class="text-center" data-label="Niveles">
+                            <td data-col="niveles" class="text-center lc-col-fit" data-label="Niveles">
                                 {% if rubrica.level_count %}
                                     <span class="badge bg-primary">{{ rubrica.level_count }}</span>
                                 {% else %}
                                     <span class="text-muted small">—</span>
                                 {% endif %}
                             </td>
-                            <td class="text-center" data-label="Criterios">
+                            <td data-col="criterios" class="text-center lc-col-fit" data-label="Criterios">
                                 {% if rubrica.criterion_count %}
                                     <span class="badge bg-success">{{ rubrica.criterion_count }}</span>
                                 {% else %}
                                     <span class="text-muted small">—</span>
                                 {% endif %}
                             </td>
-                            <td class="text-nowrap text-muted small" data-label="Modificada">{{ rubrica.updated_at|date:"d/m/Y H:i" }}</td>
-                            <td class="text-end text-nowrap" data-label="Acciones">
+                            <td data-col="modificada" class="text-nowrap text-muted small lc-col-fit" data-label="Modificada">{{ rubrica.updated_at|date:"d/m/Y H:i" }}</td>
+                            <td data-col-fixed="last" class="text-end text-nowrap" data-label="Acciones">
                                 <div class="btn-group" role="group">
                                 {% if rubrica.created_by_id == request.user.id %}
                                 <a href="{% url 'material:rubric_view' rubrica.pk %}" class="btn btn-sm btn-info" title="Ver rúbrica">
@@ -110,5 +114,8 @@ crudo quedaba de antes de adoptar ese tag y duplicaba cada mensaje
     </form>
     {% endif %}
     {% endfor %}
+
+    {% url 'material:save_list_view' 'rubricas' as save_url %}
+    {% include 'material/components/_list_columns_script.html' %}
 </div>
 {% endblock %}
