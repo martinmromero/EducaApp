@@ -1,6 +1,7 @@
 {% extends "material/base.html" %}
 {% load static %}
 {% load message_tags %}
+{% load list_view_tags %}
 {% block title %}Instituciones - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-buildings me-2"></i>Instituciones{% endblock %}
 {% block page_actions %}
@@ -23,6 +24,8 @@
     {% show_messages "instituciones" %}
 
     {% include 'material/components/_column_filters_assets.html' %}
+    {% list_view_config 'instituciones' as lv %}
+    {% include 'material/components/_list_columns_head.html' %}
 
     <form method="get" action="{% url 'material:institution_v2_list' %}" id="templateFiltersForm"></form>
 
@@ -46,6 +49,7 @@
                        title="Mostrar solo favoritas">
                         <i class="bi bi-star-fill"></i> <span class="d-none d-sm-inline">Favoritas{% if favorite_count %} ({{ favorite_count }}){% endif %}</span>
                     </a>
+                    {% include 'material/components/_list_columns_button.html' %}
                 </div>
                 <div class="d-none align-items-center gap-2" id="listSelectionBar">
                     <span class="fw-semibold" id="listSelectionCount"></span>
@@ -57,27 +61,26 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover mb-0 column-filter-table">
+                    <table class="table table-striped table-hover mb-0 column-filter-table lc-table">
                         <thead class="institutions-thead">
                             <tr>
-                                {% if is_admin %}<th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>{% endif %}
-                                <th>Nombre</th>
-                                <th style="width: 140px">Logo</th>
-                                <th>Sedes</th>
-                                <th>Facultades</th>
-                                <th style="width: 100px">Acciones</th>
+                                {% if is_admin %}<th style="width:40px;" data-col-fixed="first"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>{% endif %}
+                                <th data-col="nombre" class="lc-col-wide">Nombre</th>
+                                <th data-col="logo" class="lc-col-fit">Logo</th>
+                                <th data-col="sedes" class="lc-col-text">Sedes</th>
+                                <th data-col="facultades" class="lc-col-text">Facultades</th>
+                                <th data-col-fixed="last">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for institution in institutions %}
                                 <tr class="position-relative">
                                     {% if is_admin %}
-                                    <td class="rt-card-select align-middle">
+                                    <td class="rt-card-select align-middle" data-col-fixed="first">
                                         <input type="checkbox" name="institution_ids" value="{{ institution.pk }}">
                                     </td>
                                     {% endif %}
-                                    <!-- Versión desktop -->
-                                    <td class="align-middle d-none d-md-table-cell">
+                                    <td data-col="nombre" class="align-middle rt-card-title lc-col-wide" data-label="Nombre">
                                         <a href="{% url 'material:institution_v2_detail' institution.pk %}" class="text-decoration-none text-dark fw-bold institution-name">
                                             {{ institution.name }}
                                         </a>
@@ -85,7 +88,7 @@
                                             <span class="badge badge-espacio-personal bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
                                         {% endif %}
                                     </td>
-                                    <td class="align-middle d-none d-md-table-cell">
+                                    <td data-col="logo" class="align-middle lc-col-fit" data-label="Logo">
                                         {% if institution.logo_src %}
                                             <img src="{{ institution.logo_src }}" alt="Logo" class="img-thumbnail" style="max-height: 50px; min-height: 50px;">
                                         {% else %}
@@ -94,7 +97,7 @@
                                             </div>
                                         {% endif %}
                                     </td>
-                                    <td class="align-middle d-none d-md-table-cell">
+                                    <td data-col="sedes" class="align-middle lc-col-text" data-label="Sedes">
                                         {% if institution.campusv2_set.all %}
                                             <div class="d-flex flex-wrap gap-1 align-items-center">
                                                 {% for campus in institution.campusv2_set.all|slice:":3" %}
@@ -108,7 +111,7 @@
                                             <span class="text-muted no-campus-text">Sin sedes</span>
                                         {% endif %}
                                     </td>
-                                    <td class="align-middle d-none d-md-table-cell">
+                                    <td data-col="facultades" class="align-middle lc-col-text" data-label="Facultades">
                                         {% if institution.facultyv2_set.all %}
                                             <div class="d-flex flex-wrap gap-1 align-items-center">
                                                 {% for faculty in institution.facultyv2_set.all|slice:":3" %}
@@ -122,7 +125,7 @@
                                             <span class="text-muted no-faculty-text">Sin facultades</span>
                                         {% endif %}
                                     </td>
-                                    <td class="align-middle d-none d-md-table-cell">
+                                    <td data-col-fixed="last" class="align-middle" data-label="Acciones">
                                         <div class="btn-group btn-group-sm" role="group">
                                             <a href="{% url 'material:toggle_favorite_institution' institution.pk %}?next={{ request.get_full_path|urlencode }}"
                                                class="btn btn-sm {% if institution.pk in favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} institution-favorite-star"
@@ -149,68 +152,6 @@
                                             {% endif %}
                                         </div>
                                     </td>
-
-                                    <!-- Versión móvil: esta tarjeta ya arma su propio layout a mano
-                                         (nombre, logo, badges), así que se marca rt-card-title solo
-                                         para que la etiqueta automática de la tarjeta mobile (ver
-                                         _column_filters_assets.html) no le agregue un "prefijo: "
-                                         vacío delante — no es para heredar su estilo de título. -->
-                                    <td class="align-middle d-md-none rt-card-title">
-                                        <div class="d-flex flex-column gap-2 p-2">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <a href="{% url 'material:institution_v2_detail' institution.pk %}" class="text-decoration-none text-dark fw-bold institution-name">
-                                                    {{ institution.name }}
-                                                    {% if not institution.es_catalogo_institucional %}
-                                                        <span class="badge badge-espacio-personal bg-secondary-subtle text-secondary-emphasis border ms-1">Espacio personal</span>
-                                                    {% endif %}
-                                                </a>
-                                                <div class="btn-group btn-group-sm" role="group">
-                                                    <a href="{% url 'material:toggle_favorite_institution' institution.pk %}?next={{ request.get_full_path|urlencode }}"
-                                                       class="btn btn-sm {% if institution.pk in favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} institution-favorite-star"
-                                                       title="{% if institution.pk in favorite_ids %}Quitar de favoritos{% else %}Agregar a favoritos{% endif %}">
-                                                        <i class="{% if institution.pk in favorite_ids %}bi bi-star-fill{% else %}bi bi-star{% endif %}"></i>
-                                                    </a>
-                                                    <a href="{% url 'material:institution_v2_detail' institution.pk %}" class="btn btn-sm btn-info" title="Ver institución">
-                                                        <i class="bi bi-eye"></i>
-                                                    </a>
-                                                    {% if is_admin %}
-                                                    <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-sm btn-success" title="Editar institución">
-                                                        <i class="bi bi-pencil-square"></i>
-                                                    </a>
-                                                    <a href="{% url 'material:delete_institution_v2' institution.pk %}" class="btn btn-sm btn-danger" title="Eliminar institución">
-                                                        <i class="bi bi-trash"></i>
-                                                    </a>
-                                                    {% elif institution.created_by_id == user.id and not institution.es_catalogo_institucional %}
-                                                    <a href="{% url 'material:edit_institution_v2' institution.pk %}" class="btn btn-sm btn-success" title="Editar">
-                                                        <i class="bi bi-pencil-square"></i>
-                                                    </a>
-                                                    <a href="{% url 'material:eliminar_espacio_personal' 'institucion' institution.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-danger" title="Borrar del espacio personal">
-                                                        <i class="bi bi-trash"></i>
-                                                    </a>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-
-                                            <div class="d-flex align-items-center gap-2">
-                                                {% if institution.logo_src %}
-                                                    <img src="{{ institution.logo_src }}" alt="Logo" class="img-thumbnail" style="max-height: 50px; min-height: 50px;">
-                                                {% else %}
-                                                    <span class="text-muted no-logo-text">Sin logo</span>
-                                                {% endif %}
-                                            </div>
-
-                                            <div class="d-flex flex-wrap gap-1">
-                                                <span class="badge bg-secondary text-white">
-                                                    <i class="bi bi-geo-alt me-1"></i>
-                                                    {{ institution.campusv2_set.count }} sedes
-                                                </span>
-                                                <span class="badge bg-secondary text-white">
-                                                    <i class="bi bi-building me-1"></i>
-                                                    {{ institution.facultyv2_set.count }} facultades
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </td>
                                 </tr>
                             {% empty %}
                                 <tr>
@@ -228,6 +169,9 @@
 
     {% url 'material:institution_v2_list_filtros' as institution_v2_list_filtros_url %}
     {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns ajax_url=institution_v2_list_filtros_url %}
+
+    {% url 'material:save_list_view' 'instituciones' as save_url %}
+    {% include 'material/components/_list_columns_script.html' %}
 
     {% if institutions.paginator.num_pages > 1 %}
     <nav aria-label="Page navigation">

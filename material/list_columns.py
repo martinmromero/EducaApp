@@ -58,6 +58,61 @@ LIST_REGISTRY = {
         'text_column': None,
         'default_lines': 0,
     },
+    'plantillas': {
+        'columns': [
+            _col('nombre', 'Nombre'),
+            _col('institucion', 'Institución'),
+            _col('facultad', 'Facultad'),
+            _col('carrera', 'Carrera'),
+            _col('materia', 'Materia'),
+            _col('docente', 'Docente'),
+            _col('anio', 'Año'),
+            _col('creada', 'Creada', default=False),
+        ],
+        'text_column': None,
+        'default_lines': 0,
+    },
+    'orales': {
+        'columns': [
+            _col('nombre', 'Nombre'),
+            _col('materia', 'Materia'),
+            _col('grupos', 'Grupos'),
+            _col('est_grupo', 'Estudiantes por grupo'),
+            _col('preg_est', 'Preguntas por estudiante'),
+            _col('total', 'Total de estudiantes'),
+            _col('creado', 'Creado'),
+        ],
+        'text_column': None,
+        'default_lines': 0,
+    },
+    'instituciones': {
+        'columns': [
+            _col('nombre', 'Nombre'),
+            _col('logo', 'Logo'),
+            _col('sedes', 'Sedes'),
+            _col('facultades', 'Facultades'),
+        ],
+        'text_column': None,
+        'default_lines': 0,
+    },
+    'materias': {
+        'columns': [
+            _col('nombre', 'Nombre'),
+            _col('resultados', 'Resultados de aprendizaje'),
+        ],
+        'text_column': 'resultados',
+        'default_lines': 0,
+    },
+    'carreras': {
+        'columns': [
+            _col('nombre', 'Nombre'),
+            _col('facultades', 'Facultades'),
+            _col('campus', 'Campus'),
+            _col('materias', 'Materias'),
+        ],
+        'text_column': None,
+        'default_lines': 0,
+    },
 }
 
 

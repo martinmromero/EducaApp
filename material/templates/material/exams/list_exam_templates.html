@@ -1,6 +1,7 @@
 {% extends 'material/base.html' %}
 {% load static %}
 {% load message_tags %}
+{% load list_view_tags %}
 {% block body_extra_attrs %}data-tour-page="exam_template_list"{% endblock %}
 {% block title %}Plantillas de Examen - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-file-earmark-ruled me-2"></i>Plantillas{% endblock %}
@@ -21,6 +22,8 @@
     {% show_messages "plantillas" %}
 
     {% include 'material/components/_column_filters_assets.html' %}
+    {% list_view_config 'plantillas' as lv %}
+    {% include 'material/components/_list_columns_head.html' %}
 
     <form method="get" action="{% url 'material:list_exam_templates' %}" id="templateFiltersForm"></form>
 
@@ -39,6 +42,7 @@
                        title="Mostrar solo favoritas" id="templateFavoritosBtn">
                         <i class="bi bi-star-fill"></i> <span class="d-none d-sm-inline">Favoritas</span>
                     </a>
+                    {% include 'material/components/_list_columns_button.html' %}
                 </div>
                 <div class="d-none align-items-center gap-2" id="listSelectionBar">
                     <span class="fw-semibold" id="listSelectionCount"></span>
@@ -51,40 +55,42 @@
             <div class="card-body">
                 {% if exam_templates %}
                 <div class="table-responsive">
-                    <table class="table table-striped column-filter-table">
+                    <table class="table table-striped column-filter-table lc-table">
                         <thead>
                             <tr>
-                                <th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar plantillas para eliminarlas en conjunto"></th>
-                                <th>Nombre</th>
-                                <th id="templateColInstitution">Institución</th>
-                                <th>Facultad</th>
-                                <th>Carrera</th>
-                                <th>Materia</th>
-                                <th>Docente</th>
-                                <th>Año</th>
-                                <th id="templateColActions">Acciones</th>
+                                <th style="width:40px;" data-col-fixed="first"><input type="checkbox" id="selectAll" title="Seleccionar plantillas para eliminarlas en conjunto"></th>
+                                <th data-col="nombre" class="lc-col-wide">Nombre</th>
+                                <th data-col="institucion" class="lc-col-text" id="templateColInstitution">Institución</th>
+                                <th data-col="facultad" class="lc-col-text">Facultad</th>
+                                <th data-col="carrera" class="lc-col-text">Carrera</th>
+                                <th data-col="materia" class="lc-col-text">Materia</th>
+                                <th data-col="docente" class="lc-col-text">Docente</th>
+                                <th data-col="anio" class="lc-col-fit">Año</th>
+                                <th data-col="creada" class="lc-col-fit">Creada</th>
+                                <th data-col-fixed="last" id="templateColActions">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for template in exam_templates %}
                             <tr>
-                                <td class="rt-card-select">
+                                <td class="rt-card-select" data-col-fixed="first">
                                     <input type="checkbox" name="template_ids" value="{{ template.id }}" title="Seleccionar para eliminar en conjunto">
                                 </td>
-                                <td class="rt-card-title" data-label="Nombre">{{ template.name|default:template }}</td>
-                                <td data-label="Institución">{% if template.institution_name_snapshot %}{{ template.institution_name_snapshot }}{% else %}{{ template.institution.name|default:"-" }}{% endif %}</td>
-                                <td data-label="Facultad">{% if template.faculty_name_snapshot %}{{ template.faculty_name_snapshot }}{% else %}{{ template.faculty.name|default:"-" }}{% endif %}</td>
-                                <td data-label="Carrera">{{ template.career_name_snapshot|default:template.career.name|default:"-" }}</td>
-                                <td data-label="Materia">{% if template.subject_name_snapshot %}{{ template.subject_name_snapshot }}{% else %}{{ template.subject.name|default:"-" }}{% endif %}</td>
-                                <td data-label="Docente">
+                                <td data-col="nombre" class="rt-card-title lc-col-wide" data-label="Nombre">{{ template.name|default:template }}</td>
+                                <td data-col="institucion" class="lc-col-text" data-label="Institución">{% if template.institution_name_snapshot %}{{ template.institution_name_snapshot }}{% else %}{{ template.institution.name|default:"-" }}{% endif %}</td>
+                                <td data-col="facultad" class="lc-col-text" data-label="Facultad">{% if template.faculty_name_snapshot %}{{ template.faculty_name_snapshot }}{% else %}{{ template.faculty.name|default:"-" }}{% endif %}</td>
+                                <td data-col="carrera" class="lc-col-text" data-label="Carrera">{{ template.career_name_snapshot|default:template.career.name|default:"-" }}</td>
+                                <td data-col="materia" class="lc-col-text" data-label="Materia">{% if template.subject_name_snapshot %}{{ template.subject_name_snapshot }}{% else %}{{ template.subject.name|default:"-" }}{% endif %}</td>
+                                <td data-col="docente" class="lc-col-text" data-label="Docente">
                                     {% if template.professor %}
                                         {{ template.professor.get_full_name }}
                                     {% else %}
                                         -
                                     {% endif %}
                                 </td>
-                                <td data-label="Año">{{ template.year }}</td>
-                                <td data-label="Acciones">
+                                <td data-col="anio" class="lc-col-fit" data-label="Año">{{ template.year }}</td>
+                                <td data-col="creada" class="lc-col-fit" data-label="Creada">{{ template.created_at|date:"d/m/Y" }}</td>
+                                <td data-col-fixed="last" data-label="Acciones">
                                     <div class="btn-group" role="group">
                                         <button type="button" class="btn btn-sm {% if template.id in favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} favorite-star"
                                                 data-model="examtemplate" data-id="{{ template.id }}"
@@ -111,7 +117,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="9" class="text-center py-4">
+                                <td colspan="10" class="text-center py-4">
                                     <div class="alert alert-info mb-0">
                                         No hay plantillas guardadas.
                                         <a href="{% url 'material:create_exam_template' %}" class="alert-link">
@@ -170,6 +176,9 @@
 
     {% url 'material:list_exam_templates_filtros' as list_exam_templates_filtros_url %}
     {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns ajax_url=list_exam_templates_filtros_url %}
+
+    {% url 'material:save_list_view' 'plantillas' as save_url %}
+    {% include 'material/components/_list_columns_script.html' %}
 </div>
 
 <!-- Scripts -->

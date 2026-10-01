@@ -1,6 +1,7 @@
 {% extends "material/base.html" %}
 {% load static %}
 {% load message_tags %}
+{% load list_view_tags %}
 {% block title %}Materias - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-book me-2"></i>Materias{% endblock %}
 {% block page_actions %}
@@ -20,6 +21,8 @@
 {% show_messages "materias" %}
 
 {% include 'material/components/_column_filters_assets.html' %}
+{% list_view_config 'materias' as lv %}
+{% include 'material/components/_list_columns_head.html' %}
 
 <form method="get" action="{% url 'material:subject_list' %}" id="templateFiltersForm"></form>
 
@@ -53,6 +56,7 @@
                        title="Mostrar solo lo que está en el espacio personal propio, todavía no sumado al catálogo institucional">
                         <i class="bi bi-person-badge"></i> <span class="d-none d-sm-inline">Personal</span>
                     </a>
+                    {% include 'material/components/_list_columns_button.html' %}
                 </div>
             </div>
             <div class="d-none align-items-center gap-2" id="listSelectionBar">
@@ -65,13 +69,13 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover mobile-card-table column-filter-table">
+                <table class="table table-hover mobile-card-table column-filter-table lc-table">
                     <thead>
                         <tr>
-                            {% if is_admin %}<th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>{% endif %}
-                            <th>Nombre</th>
-                            <th>Resultados de Aprendizaje</th>
-                            <th>Acciones</th>
+                            {% if is_admin %}<th style="width:40px;" data-col-fixed="first"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>{% endif %}
+                            <th data-col="nombre" class="lc-col-name">Nombre</th>
+                            <th data-col="resultados" class="lc-col-wide">Resultados de Aprendizaje</th>
+                            <th data-col-fixed="last">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="subjectsTableBody">
@@ -90,6 +94,9 @@
 
 {% url 'material:subject_list_filtros' as subject_list_filtros_url %}
 {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns ajax_url=subject_list_filtros_url %}
+
+{% url 'material:save_list_view' 'materias' as save_url %}
+{% include 'material/components/_list_columns_script.html' %}
 </div>
 
 <script src="{% static 'js/list_control_row.js' %}"></script>
@@ -124,6 +131,7 @@
                     if (seq !== requestSeq) return; // llegó una respuesta más nueva mientras tanto
                     tbody.innerHTML = data.rows_html;
                     pagination.innerHTML = data.pagination_html;
+                    if (window.EducaAppListColumns) window.EducaAppListColumns.reapply();
                     countText.textContent = data.count + (data.count === 1 ? ' materia' : ' materias');
                     history.replaceState(null, '', url);
                     if (window.EducaAppFavorites) window.EducaAppFavorites.init();

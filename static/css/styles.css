@@ -785,9 +785,11 @@ body.offcanvas-open .sidebar-toggle-external {
 .lc-table .lc-text.lc-expanded { cursor: pointer; }
 .lc-table .lc-text.lc-more:hover { color: var(--bs-emphasis-color); }
 @media (min-width: 768px) {
-    .lc-table td.lc-col-fit, .lc-table th.lc-col-fit { white-space: nowrap; width: 1%; }
-    .lc-table td.lc-col-text, .lc-table th.lc-col-text { min-width: 7rem; max-width: 14rem; }
-    .lc-table td.lc-col-wide, .lc-table th.lc-col-wide { width: 100%; min-width: 16rem; }
+    .lc-table td.lc-col-fit { white-space: nowrap; width: 1%; }
+    .lc-table th.lc-col-fit { width: 1%; }
+    .lc-table td.lc-col-text, .lc-table th.lc-col-text { min-width: 5rem; max-width: 14rem; }
+    .lc-table td.lc-col-name, .lc-table th.lc-col-name { min-width: 8rem; max-width: 22rem; }
+    .lc-table td.lc-col-wide, .lc-table th.lc-col-wide { width: 100%; min-width: 12rem; }
 }
 
 .list-columns-menu { width: 21rem; max-width: calc(100vw - 2rem); }

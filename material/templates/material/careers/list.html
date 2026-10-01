@@ -2,6 +2,7 @@
 {% load static %}
 {% load crispy_forms_tags %}
 {% load message_tags %}
+{% load list_view_tags %}
 {% block title %}Carreras - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-mortarboard-fill me-2"></i>Carreras{% endblock %}
 {% block page_actions %}
@@ -22,6 +23,8 @@
     {% show_messages "carreras" %}
 
     {% include 'material/components/_column_filters_assets.html' %}
+    {% list_view_config 'carreras' as lv %}
+    {% include 'material/components/_list_columns_head.html' %}
 
     <form method="get" action="{% url 'material:career_list' %}" id="templateFiltersForm"></form>
 
@@ -40,6 +43,7 @@
                        title="Mostrar solo lo que está en el espacio personal propio, todavía no sumado al catálogo institucional">
                         <i class="bi bi-person-badge"></i> <span class="d-none d-sm-inline">Personal</span>
                     </a>
+                    {% include 'material/components/_list_columns_button.html' %}
                 </div>
                 <div class="d-none align-items-center gap-2" id="listSelectionBar">
                     <span class="fw-semibold" id="listSelectionCount"></span>
@@ -52,46 +56,46 @@
             <div class="card-body">
                 {% if careers %}
                 <div class="table-responsive">
-                    <table class="table table-striped column-filter-table">
+                    <table class="table table-striped column-filter-table lc-table">
                         <thead>
                             <tr>
-                                {% if is_admin %}<th style="width:40px;"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>{% endif %}
-                                <th>Nombre</th>
-                                <th>Facultades</th>
-                                <th>Campus</th>
-                                <th>Materias</th>
-                                <th>Acciones</th>
+                                {% if is_admin %}<th style="width:40px;" data-col-fixed="first"><input type="checkbox" id="selectAll" title="Seleccionar todo"></th>{% endif %}
+                                <th data-col="nombre" class="lc-col-wide">Nombre</th>
+                                <th data-col="facultades" class="lc-col-text">Facultades</th>
+                                <th data-col="campus" class="lc-col-text">Campus</th>
+                                <th data-col="materias" class="lc-col-fit">Materias</th>
+                                <th data-col-fixed="last">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for career in careers %}
                             <tr>
                                 {% if is_admin %}
-                                <td class="rt-card-select">
+                                <td class="rt-card-select" data-col-fixed="first">
                                     <input type="checkbox" name="career_ids" value="{{ career.pk }}">
                                 </td>
                                 {% endif %}
-                                <td class="rt-card-title" data-label="Nombre">
+                                <td data-col="nombre" class="rt-card-title lc-col-wide" data-label="Nombre">
                                     {{ career.name }}
                                     {% if not career.es_catalogo_institucional %}
                                         <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
                                     {% endif %}
                                 </td>
-                                <td data-label="Facultades">
+                                <td data-col="facultades" class="lc-col-text" data-label="Facultades">
                                     {% for faculty in career.faculties.all %}
                                     <span class="badge bg-secondary">{{ faculty.name }}</span>
                                     {% empty %}
                                     <span class="text-muted">Sin asignar</span>
                                     {% endfor %}
                                 </td>
-                                <td data-label="Campus">
+                                <td data-col="campus" class="lc-col-text" data-label="Campus">
                                     {% for campus in career.campus.all %}
                                     <span class="badge bg-info">{{ campus.name }}</span>
                                     {% empty %}
                                     <span class="text-muted">Sin asignar</span>
                                     {% endfor %}
                                 </td>
-                                <td data-label="Materias">
+                                <td data-col="materias" class="lc-col-fit" data-label="Materias">
                                     {% with cantidad=career.subjects.all|length %}
                                     {% if cantidad %}
                                     <a href="{% url 'material:career_detail' pk=career.pk %}" class="badge bg-success text-decoration-none">
@@ -102,7 +106,7 @@
                                     {% endif %}
                                     {% endwith %}
                                 </td>
-                                <td data-label="Acciones">
+                                <td data-col-fixed="last" data-label="Acciones">
                                     <div class="btn-group" role="group">
                                         <a href="{% url 'material:career_detail' pk=career.pk %}"
                                            class="btn btn-sm btn-info" title="Ver detalles">
@@ -180,6 +184,9 @@
 
     {% url 'material:career_list_filtros' as career_list_filtros_url %}
     {% include 'material/components/_column_filters_offcanvas.html' with columns=filter_columns ajax_url=career_list_filtros_url %}
+
+    {% url 'material:save_list_view' 'carreras' as save_url %}
+    {% include 'material/components/_list_columns_script.html' %}
 </div>
 
 <!-- Scripts -->

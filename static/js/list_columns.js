@@ -32,12 +32,12 @@
     var btn = document.getElementById('listColumnsBtn');
     var cfgEl = document.getElementById('lcCfg');
     var preStyle = document.getElementById('lcPreStyle');
-    if (!cfgEl) return;
+    if (!cfgEl) return null;
     if (!table) {
       // Sin filas no hay nada que configurar (listado vacío o con filtros
       // que no devuelven nada).
       if (btn) btn.classList.add('d-none');
-      return;
+      return null;
     }
 
     var cfg = JSON.parse(cfgEl.textContent);
@@ -294,7 +294,15 @@
     // Ya con las clases lc-hidden puestas, el CSS provisorio del servidor
     // (que evitaba el parpadeo) sobra.
     if (preStyle) preStyle.remove();
+    return applyTable;
   }
 
-  window.EducaAppListColumns = { init: init };
+  // Listados que repintan sus filas por AJAX (ej. materias) tienen que volver
+  // a aplicar la vista sobre las filas nuevas: EducaAppListColumns.reapply().
+  var current = null;
+
+  window.EducaAppListColumns = {
+    init: function (opts) { current = init(opts) || null; },
+    reapply: function () { if (current) current(); },
+  };
 })();

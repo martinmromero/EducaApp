@@ -1,30 +1,32 @@
 {% for subject in subjects %}
 <tr>
     {% if is_admin %}
-    <td class="rt-card-select">
+    <td class="rt-card-select" data-col-fixed="first">
         <input type="checkbox" name="subject_ids" value="{{ subject.pk }}">
     </td>
     {% endif %}
-    <td class="rt-card-title" data-label="Nombre">
+    <td data-col="nombre" class="rt-card-title lc-col-name" data-label="Nombre">
         {{ subject.name }}
         {% if not subject.es_catalogo_institucional %}
             <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
         {% endif %}
     </td>
-    <td data-label="Resultados de aprendizaje">
+    <td data-col="resultados" class="lc-col-wide" data-label="Resultados de aprendizaje">
         {% with outcomes=subject.get_all_outcomes %}
             {% if outcomes %}
-                <ul class="mb-0 ps-3">
-                    {% for outcome in outcomes %}
-                        <li>{{ outcome.description }}</li>
-                    {% endfor %}
-                </ul>
+                <div class="lc-text">
+                    <ul class="mb-0 ps-3">
+                        {% for outcome in outcomes %}
+                            <li>{{ outcome.description }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
             {% else %}
                 <span class="text-muted">No hay resultados registrados.</span>
             {% endif %}
         {% endwith %}
     </td>
-    <td data-label="Acciones">
+    <td data-col-fixed="last" data-label="Acciones">
         <div class="btn-group">
             <button type="button" class="btn btn-sm {% if subject.pk in favorite_ids %}btn-warning{% else %}btn-outline-warning{% endif %} favorite-star"
                     data-model="subject" data-id="{{ subject.pk }}"

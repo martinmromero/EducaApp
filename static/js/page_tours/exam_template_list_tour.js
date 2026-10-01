@@ -35,6 +35,14 @@
         },
       },
       {
+        element: '#listColumnsBtn',
+        popover: {
+          title: 'Columnas',
+          description: 'Permite elegir qué columnas se ven y en qué orden. La vista queda guardada en la cuenta y es propia de este listado.',
+          side: 'bottom',
+        },
+      },
+      {
         element: '#selectAll',
         popover: {
           title: 'Selección múltiple',
@@ -59,7 +67,11 @@
         },
       },
     ];
-    return steps.filter(function (s) { return document.querySelector(s.element); });
+    return steps.filter(function (s) {
+      return window.EducaAppTour && window.EducaAppTour.isVisible
+        ? window.EducaAppTour.isVisible(s.element)
+        : document.querySelector(s.element);
+    });
   }
 
   function start() {

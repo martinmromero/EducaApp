@@ -214,3 +214,88 @@ class ListadosRenderTests(TestCase):
         head = re.search(r'<thead>(.*?)</thead>', html, re.S).group(1)
         marcadas = set(re.findall(r'data-col="(\w+)"', head))
         self.assertEqual(marcadas, {c['key'] for c in LIST_REGISTRY['mis_examenes']['columns']})
+
+
+class ListadosFase2RenderTests(TestCase):
+    """Fase 2: plantillas, orales, instituciones, materias y carreras marcan
+    cada columna del registro con data-col, y el panel Columnas aparece."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from .models import (
+            InstitutionV2, FacultyV2, Career, CareerSubject, ExamTemplate, OralExamSet,
+        )
+        cls.user = _ready(make_user('lc_f2_user'))
+        cls.admin = _ready(make_user('lc_f2_admin', role='admin'))
+        cls.institucion = InstitutionV2.objects.create(
+            name='Institución LC', created_by=cls.user, es_catalogo_institucional=False,
+        )
+        cls.facultad = FacultyV2.objects.create(
+            name='Facultad LC', institution=cls.institucion,
+            created_by=cls.user, es_catalogo_institucional=False,
+        )
+        cls.carrera = Career.objects.create(name='Carrera LC', created_by=cls.user, es_catalogo_institucional=False)
+        cls.carrera.faculties.add(cls.facultad)
+        cls.materia = Subject.objects.create(name='Materia F2', created_by=cls.user, es_catalogo_institucional=False)
+        CareerSubject.objects.create(career=cls.carrera, subject=cls.materia)
+        # El admin solo ve el catálogo institucional y lo propio.
+        Career.objects.create(name='Carrera admin LC', created_by=cls.admin, es_catalogo_institucional=True)
+        ExamTemplate.objects.create(
+            created_by=cls.user, institution=cls.institucion, faculty=cls.facultad,
+            career=cls.carrera, subject=cls.materia,
+        )
+        OralExamSet.objects.create(
+            user=cls.user, name='Oral LC', subject=cls.materia,
+            num_groups=2, students_per_group=3, questions_per_student=2, total_students=6,
+        )
+
+    LISTADOS = [
+        ('plantillas', 'material:list_exam_templates'),
+        ('orales', 'material:list_oral_exams'),
+        ('instituciones', 'material:institution_v2_list'),
+        ('materias', 'material:subject_list'),
+        ('carreras', 'material:career_list'),
+    ]
+
+    def _head_cols(self, client, url_name):
+        resp = client.get(reverse(url_name))
+        self.assertEqual(resp.status_code, 200, url_name)
+        html = resp.content.decode()
+        found = re.search(r'<thead[^>]*>(.*?)</thead>', html, re.S)
+        self.assertIsNotNone(found, 'sin tabla en %s' % url_name)
+        return html, set(re.findall(r'data-col="(\w+)"', found.group(1)))
+
+    def test_cada_listado_marca_todas_sus_columnas(self):
+        for username in ('lc_f2_user', 'lc_f2_admin'):
+            client = Client()
+            client.login(username=username, password='testpass123')
+            for key, url_name in self.LISTADOS:
+                # Plantillas y orales son solo del dueño: el admin no tiene.
+                if username == 'lc_f2_admin' and key in ('plantillas', 'orales'):
+                    continue
+                html, marcadas = self._head_cols(client, url_name)
+                esperadas = {c['key'] for c in LIST_REGISTRY[key]['columns']}
+                self.assertEqual(marcadas, esperadas, '%s (%s)' % (key, username))
+                self.assertIn('id="listColumnsBtn"', html, key)
+                self.assertIn('id="lcCfg"', html, key)
+                self.assertIn('/preferencias-listado/%s/' % key, html, key)
+
+    def test_filas_marcan_las_mismas_columnas_que_el_encabezado(self):
+        client = Client()
+        client.login(username='lc_f2_user', password='testpass123')
+        for key, url_name in self.LISTADOS:
+            html, _ = self._head_cols(client, url_name)
+            body = re.search(r'<tbody[^>]*>(.*?)</tbody>', html, re.S).group(1)
+            fila = re.search(r'<tr[^>]*>(.*?)</tr>', body, re.S).group(1)
+            en_fila = set(re.findall(r'data-col="(\w+)"', fila))
+            esperadas = {c['key'] for c in LIST_REGISTRY[key]['columns']}
+            self.assertEqual(en_fila, esperadas, key)
+
+    def test_materias_ajax_devuelve_filas_con_data_col(self):
+        client = Client()
+        client.login(username='lc_f2_user', password='testpass123')
+        resp = client.get(reverse('material:subject_list'), HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(resp.status_code, 200)
+        rows = resp.json()['rows_html']
+        self.assertIn('data-col="nombre"', rows)
+        self.assertIn('data-col="resultados"', rows)
