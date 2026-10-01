@@ -3,7 +3,7 @@
 [![Django](https://img.shields.io/badge/Django-4.2.20-092E20?style=flat&logo=django&logoColor=white)](https://djangoproject.com/)
 [![Python](https://img.shields.io/badge/Python-3.13+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org/)
 [![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3.0-7952B3?style=flat&logo=bootstrap&logoColor=white)](https://getbootstrap.com/)
-[![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat&logo=sqlite&logoColor=white)](https://sqlite.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 
 ## 📖 Descripción
 
@@ -79,7 +79,7 @@ cd EducaApp
 > El entorno virtual **no es portable** entre máquinas (contiene rutas absolutas al Python local).
 > Debe crearse una vez en cada equipo y **no sincronizarse via OneDrive**.
 > En OneDrive → click derecho sobre la carpeta `venv_local` → "No sincronizar este elemento".
-> El código, `requirements.txt` y `db.sqlite3` sí se sincronizan normalmente.
+> El código y `requirements.txt` sí se sincronizan normalmente. La base de datos no: vive en el PostgreSQL de cada equipo (ver "Configurar Base de Datos").
 
 ```bash
 # Crear entorno virtual (solo la primera vez en cada equipo)
@@ -96,8 +96,18 @@ pip install -r requirements.txt
 ```
 
 ### Configurar Base de Datos
+EducaApp usa **solo PostgreSQL** (local y en producción con Neon). SQLite ya no es un backend soportado: sin `DATABASE_URL` la app no arranca.
+
+1. Tener un PostgreSQL local corriendo (ej. PostgreSQL 17) y crear una base vacía, ej. `educaapp`.
+2. Crear un archivo `.env` en la raíz del proyecto (no se sube a git) con:
+
 ```bash
-# Aplicar migraciones (necesario cuando llegan migraciones nuevas desde git/OneDrive)
+DATABASE_URL=postgres://usuario:clave@127.0.0.1:5432/educaapp
+```
+
+3. Aplicar migraciones (necesario cuando llegan migraciones nuevas desde git/OneDrive):
+
+```bash
 python manage.py migrate
 ```
 
@@ -189,10 +199,10 @@ educaapp/
 ## 🔧 Configuración Avanzada
 
 ### Variables de Entorno
-El proyecto usa configuración directa en `settings.py`. Para producción, considere usar django-environ para variables de entorno.
+La configuración sensible se lee de variables de entorno (o del archivo `.env` local, vía python-dotenv). La obligatoria es `DATABASE_URL`.
 
 ### Base de Datos
-Por defecto usa SQLite. Para producción, configure PostgreSQL o MySQL en `settings.py`.
+Solo PostgreSQL, siempre vía `DATABASE_URL` (`postgres://usuario:clave@host:puerto/base`). Local apunta a un PostgreSQL propio; producción apunta a Neon.
 
 ### Archivos Estáticos
 ```bash
@@ -232,7 +242,7 @@ python manage.py test material.tests
 
 ### Imágenes en Preguntas — Almacenamiento Base64 Persistente
 - **Sin dependencia del filesystem**: Las imágenes se codifican en Base64 y se guardan directamente en la BD como `TextField`
-- **Compatible con Render + Neon**: No se pierden al reiniciar dynos ni al rotar workers; funciona idéntico en SQLite local y PostgreSQL en producción
+- **Compatible con Render + Neon**: No se pierden al reiniciar dynos ni al rotar workers; funciona idéntico en PostgreSQL local y en Neon (producción)
 - **Campos dedicados**: `question_image_b64` y `answer_image_b64` en el modelo `Question`
 - **Editor visual**: Preview inline de la imagen existente, botón "Eliminar imagen", botón "Cambiar imagen" y preview live al seleccionar un archivo nuevo
 - **Vista de examen**: Las imágenes de preguntas se muestran automáticamente en la vista previa e impresión

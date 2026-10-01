@@ -197,7 +197,7 @@ class QuestionForm(forms.ModelForm):
         """
         Convierte los uploads de imagen a Base64 antes de persistir.
         Nunca escribe archivos al filesystem, por lo que funciona igual en
-        local (SQLite + disco efímero de Render) y en producción (Neon/PostgreSQL).
+        local (PostgreSQL + disco efímero de Render) y en producción (Neon/PostgreSQL).
         """
         import base64
         from django.core.files.uploadedfile import UploadedFile

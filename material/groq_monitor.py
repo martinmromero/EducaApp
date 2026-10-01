@@ -147,7 +147,7 @@ _run_lock = threading.Lock()
 _vision_run_lock = threading.Lock()
 
 # --- Buffer local ("tabla en la app") para las corridas automáticas --------
-# JSON Lines en vez de un modelo Django/SQLite aparte: no necesita migración
+# JSON Lines en vez de un modelo Django/Postgres aparte: no necesita migración
 # ni conexión propia, y alcanza para lo que es (unas pocas filas efímeras
 # entre un tick y el siguiente).
 BUFFER_PATH = Path(settings.BASE_DIR) / 'var' / 'groq_monitor_buffer.jsonl'

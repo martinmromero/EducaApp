@@ -97,12 +97,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'educaapp.wsgi.application'
 
-# Database — usa PostgreSQL (DATABASE_URL) en producción, SQLite en desarrollo
+# Database — solo PostgreSQL (local y Neon en producción), siempre vía
+# DATABASE_URL. SQLite ya no se usa: sin DATABASE_URL falla a propósito en vez
+# de crear una base vacía sin avisar.
 import dj_database_url
+
+if not os.environ.get('DATABASE_URL'):
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "Falta DATABASE_URL (postgres://usuario:clave@host:puerto/base). "
+        "SQLite ya no es un backend soportado."
+    )
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
         conn_health_checks=True,
     )
