@@ -464,7 +464,11 @@ def get_questions_by_topics(request):
     # ejemplo del asistente (cuyas preguntas son todas del bot de contenido
     # semilla, no del usuario) siempre devolvía cero preguntas por tópico.
     include_seed = bool(request.session.get('onb2_include_seed'))
-    base_qs = get_visible_questions(request.user, subject=subject_arg, include_seed=include_seed)
+    # Solo se devuelven id/texto/tópico/bloom: no hace falta traer las
+    # imágenes Base64 de cada pregunta.
+    base_qs = get_visible_questions(
+        request.user, subject=subject_arg, include_seed=include_seed
+    ).defer('question_image_b64', 'answer_image_b64')
     review_filter = EXAM_ELIGIBLE_Q
     questions = Question.objects.none()
     if all_topics and subject_id:
@@ -4033,7 +4037,15 @@ def lista_preguntas_filtros(request):
 @login_required
 def lista_preguntas(request):
     from .content_visibility import get_visible_questions
-    base_preguntas = get_visible_questions(request.user).prefetch_related('subjects').select_related('topic', 'subtopic', 'contenido', 'user')
+    # defer de las imágenes Base64: el listado no las muestra (solo
+    # ver_pregunta / editar / vista previa de examen), y traerlas en cada
+    # fila de cada página es transferencia de red de Neon sin usarla.
+    base_preguntas = (
+        get_visible_questions(request.user)
+        .prefetch_related('subjects')
+        .select_related('topic', 'subtopic', 'contenido', 'user')
+        .defer('question_image_b64', 'answer_image_b64')
+    )
 
     selected_filters, filter_options = _compute_question_filter_options(request, base_preguntas)
 
@@ -5940,6 +5952,21 @@ def subject_list(request):
 
     paginator = Paginator(subjects, 25)
     page_obj = paginator.get_page(request.GET.get('page'))
+
+    # Los RA de toda la página en UNA consulta (antes: una por fila vía
+    # Subject.get_all_outcomes en el template — 25 consultas por página, cada
+    # una un viaje de red a Neon).
+    page_subjects = list(page_obj.object_list)
+    outcomes_by_subject = {s.pk: [] for s in page_subjects}
+    for row in LearningOutcome.objects.filter(
+        career_subject__subject_id__in=outcomes_by_subject
+    ).values('id', 'description', 'career_subject__subject_id'):
+        outcomes_by_subject[row['career_subject__subject_id']].append(
+            {'id': row['id'], 'description': row['description']}
+        )
+    for s in page_subjects:
+        s._outcomes_cache = outcomes_by_subject[s.pk]
+    page_obj.object_list = page_subjects
 
     only_personal = request.GET.get('personal') == '1'
     context = {

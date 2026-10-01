@@ -337,7 +337,14 @@ class Subject(models.Model):
         """Resultados de aprendizaje de TODAS las carreras que usan esta
         materia (LearningOutcome cuelga de CareerSubject, no de Subject
         directo — ver informe de rediseño). Para el detalle por carrera, ver
-        SubjectDetailView."""
+        SubjectDetailView.
+
+        Si la vista ya precargó los RA de toda la página de materias en
+        `_outcomes_cache` (ver subject_list), se usa eso en vez de hacer una
+        consulta por materia."""
+        cached = getattr(self, '_outcomes_cache', None)
+        if cached is not None:
+            return cached
         return list(
             LearningOutcome.objects.filter(career_subject__subject=self)
             .values('id', 'description')
@@ -670,8 +677,8 @@ class Question(models.Model):
         blank=True,
         verbose_name='Imagen de la respuesta (opcional)'
     )
-    # Imágenes codificadas en Base64 — compatibles con SQLite (dev) y
-    # PostgreSQL/Neon (prod) sin depender del filesystem del servidor.
+    # Imágenes codificadas en Base64 — compatibles con PostgreSQL (local) y
+    # Neon (prod) sin depender del filesystem del servidor.
     # El campo ImageField equivalente se vacía siempre tras la conversión.
     question_image_b64 = models.TextField(
         null=True,

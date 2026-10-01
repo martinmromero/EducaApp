@@ -1,6 +1,9 @@
 # ONBOARDING WIZARD — ROLLBACK: eliminar este archivo y quitar su entrada de settings.py TEMPLATES
 import json as _json
 from django.conf import settings
+from django.contrib.auth.models import User
+from django.db.models import Count, Subquery, Value
+from django.db.models.functions import Coalesce
 from .models import (
     InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic, Contenido,
     InstitutionSubject, GroupMembership, CatalogRequest, Career, CareerSubject,
@@ -30,28 +33,50 @@ def onboarding_context(request):
     except Exception:
         return {}
 
-    pending_invites_count = GroupMembership.objects.filter(
-        user=request.user, status='pending'
-    ).count()
     is_admin_user = _is_admin(request.user)
-    # Badge del link "Solicitudes de catálogo" en Administración — solo se
-    # consulta para admins, no tiene sentido para el resto.
-    pending_catalog_requests_count = (
-        CatalogRequest.objects.filter(estado='pendiente').count() if is_admin_user else 0
+    # Los 4 contadores de badges en UNA sola consulta (subconsultas escalares)
+    # en vez de 4 viajes a la base — esto corre en CADA navegación y en Neon
+    # cada consulta es un viaje de red.
+    #  - invitaciones pendientes a grupos.
+    #  - solicitudes de catálogo pendientes: badge del link "Solicitudes de
+    #    catálogo" en Administración, solo se calcula para admins.
+    #  - "Mis solicitudes": aviso al propio solicitante de que una suya se
+    #    resolvió y todavía no la vio (se apaga al entrar a esa pantalla, ver
+    #    mis_solicitudes_catalogo).
+    #  - "Preguntas borradas": aviso a quien es dueño de un examen o
+    #    cuestionario oral cuando OTRO usuario borró una pregunta compartida
+    #    que ese examen/cuestionario venía usando (ver QuestionDeletionNotice
+    #    y _avisar_borrado_pregunta_a_duenos en views.py).
+    def _count(qs):
+        return Coalesce(
+            Subquery(qs.order_by().annotate(_k=Value(1)).values('_k').annotate(c=Count('pk')).values('c')),
+            0,
+        )
+
+    counts = (
+        User.objects.filter(pk=request.user.pk)
+        .annotate(
+            invites=_count(GroupMembership.objects.filter(user=request.user, status='pending')),
+            catalog_pending=(
+                _count(CatalogRequest.objects.filter(estado='pendiente'))
+                if is_admin_user else Value(0)
+            ),
+            catalog_notifs=_count(
+                CatalogRequest.objects.filter(
+                    solicitado_por=request.user, visto_por_solicitante=False,
+                ).exclude(estado='pendiente')
+            ),
+            deletion_notices=_count(
+                QuestionDeletionNotice.objects.filter(recipient=request.user, visto=False)
+            ),
+        )
+        .values('invites', 'catalog_pending', 'catalog_notifs', 'deletion_notices')
+        .get()
     )
-    # Badge de "Mis solicitudes" — aviso al propio solicitante de que una
-    # suya se resolvió y todavía no la vio (se apaga al entrar a esa
-    # pantalla, ver mis_solicitudes_catalogo).
-    pending_catalog_notifications_count = CatalogRequest.objects.filter(
-        solicitado_por=request.user, visto_por_solicitante=False,
-    ).exclude(estado='pendiente').count()
-    # Badge de "Preguntas borradas" — aviso a quien es dueño de un examen o
-    # cuestionario oral cuando OTRO usuario borró una pregunta compartida
-    # que ese examen/cuestionario venía usando (ver QuestionDeletionNotice
-    # y _avisar_borrado_pregunta_a_duenos en views.py).
-    pending_question_deletion_notices_count = QuestionDeletionNotice.objects.filter(
-        recipient=request.user, visto=False,
-    ).count()
+    pending_invites_count = counts['invites']
+    pending_catalog_requests_count = counts['catalog_pending']
+    pending_catalog_notifications_count = counts['catalog_notifs']
+    pending_question_deletion_notices_count = counts['deletion_notices']
 
     base_ctx = {
         'onboarding_institutions': [],
