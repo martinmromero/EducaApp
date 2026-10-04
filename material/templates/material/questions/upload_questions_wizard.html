@@ -1,0 +1,36 @@
+{% extends 'material/base.html' %}
+{% load static %}
+{% block body_extra_attrs %}data-tour-page="upload_questions_wizard"{% endblock %}
+{% block title %}Asistente: Subir preguntas - EducaApp{% endblock %}
+{% block page_title %}<i class="bi bi-magic me-2"></i>Asistente: Subir preguntas{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'material/css/question_upload_wizard.css' %}">
+
+<div class="uqw-page">
+    <p class="text-muted mb-3">
+        Un paso a la vez para cargar preguntas, de a una o por lote. Se puede volver atrás en cualquier momento.
+        <a href="{% url 'material:upload_questions' %}" class="ms-1">Usar el formulario completo de siempre</a>
+    </p>
+
+    {% include 'material/questions/_upload_wizard.html' %}
+</div>
+
+<script src="{% static 'material/js/wizard_draft.js' %}"></script>
+<script src="{% static 'material/js/question_upload_wizard.js' %}"></script>
+<script>
+(function () {
+    function start() {
+        var root = document.querySelector('[data-uqw]');
+        window.EducaAppQuestionUpload.mount(root, {
+            {% if uqw_initial_subject %}subject: { id: {{ uqw_initial_subject.pk }}, name: "{{ uqw_initial_subject.name|escapejs }}" },{% endif %}
+            navLinksHtml: '<a href="{% url "material:upload_questions" %}" class="text-muted small">Formulario completo</a>',
+            finishLabel: 'Ver mis preguntas',
+            onFinished: function () { window.location.href = window.EducaAppQuestionUploadUrls.questionList; }
+        });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+    else start();
+})();
+</script>
+<script src="{% static 'js/page_tours/upload_questions_wizard_tour.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,152 @@
+/* question_upload_wizard.css — Asistente "Subir preguntas".
+   Pensado para embeberse dentro de otro asistente (el Asistente completo):
+   por eso NO reutiliza las clases .wiz-step / .wiz-step-pill de
+   wizard_common.css — wizard_engine.js las busca con
+   document.querySelectorAll y un asistente anidado le pisaría el estado de
+   sus propios pasos al host. Todo lo de acá cuelga de .uqw y de clases
+   propias (.uqw-*); el aspecto copia el de wizard_common.css a propósito. */
+
+.uqw-page { max-width: 960px; margin: 0 auto; }
+.uqw { width: 100%; }
+
+/* ── Stepper ─────────────────────────────────────────────────────────── */
+.uqw-stepper { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.5rem; }
+.uqw-pill {
+    display: flex; align-items: center; gap: .5rem;
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+    border-radius: 2rem;
+    padding: .35rem .9rem .35rem .4rem;
+    font-size: .85rem;
+    color: var(--bs-secondary-color);
+    cursor: default;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.uqw-pill.is-reachable { cursor: pointer; }
+.uqw-pill-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.6em; height: 1.6em; border-radius: 50%;
+    background: var(--bs-tertiary-bg); color: var(--bs-secondary-color);
+    font-size: .8em; flex-shrink: 0;
+}
+.uqw-pill-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.uqw-pill.is-active {
+    border-color: var(--bs-primary);
+    background: var(--edu-accent-soft-bg);
+    color: var(--edu-accent-soft-text);
+    font-weight: 600;
+}
+.uqw-pill.is-active .uqw-pill-num { background: var(--bs-primary); color: #fff; }
+.uqw-pill.is-done .uqw-pill-num { background: var(--bs-success); color: #fff; }
+@media (max-width: 767px) {
+    .uqw-pill-label { display: none; }
+    .uqw-pill { flex: 0 0 auto; padding: .35rem; }
+}
+
+/* ── Pasos ───────────────────────────────────────────────────────────── */
+.uqw-step { display: none; }
+.uqw-step.is-active { display: block; }
+.uqw-card {
+    border: 1px solid var(--bs-border-color);
+    border-radius: .75rem;
+    padding: 1.5rem;
+    background: var(--bs-body-bg);
+    margin-bottom: 1.25rem;
+}
+.uqw-intro { color: var(--bs-secondary-color); font-size: .92rem; margin-bottom: 1.25rem; }
+.uqw-toggle-more {
+    background: none; border: none; padding: 0;
+    color: var(--edu-primary-text); font-size: .88rem;
+}
+
+/* ── Chips (materias, tópicos, sub-tópicos) ──────────────────────────── */
+.uqw-chip-list { display: flex; flex-wrap: wrap; gap: .5rem; max-height: 220px; overflow-y: auto; }
+.uqw-chip {
+    display: inline-flex; align-items: center; gap: .4rem;
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    border-radius: 2rem;
+    padding: .3rem .85rem;
+    font-size: .88rem;
+    cursor: pointer;
+}
+.uqw-chip:hover { border-color: var(--bs-primary); }
+.uqw-chip.is-selected {
+    border-color: var(--bs-primary);
+    background: var(--edu-accent-soft-bg);
+    color: var(--edu-accent-soft-text);
+    font-weight: 600;
+}
+.uqw-chip .badge { font-size: .65rem; }
+
+/* ── Modo (una / lote) ───────────────────────────────────────────────── */
+.uqw-mode-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+.uqw-mode-card {
+    display: flex; flex-direction: column; align-items: flex-start; gap: .35rem;
+    text-align: left;
+    border: 2px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    border-radius: .75rem;
+    padding: 1.25rem;
+}
+.uqw-mode-card i { font-size: 1.8rem; color: var(--bs-primary); }
+.uqw-mode-card span { color: var(--bs-secondary-color); font-size: .88rem; }
+.uqw-mode-card:hover, .uqw-mode-card.is-selected { border-color: var(--bs-primary); }
+
+/* ── Radios en forma de pastilla (tipo de pregunta, V/F) ─────────────── */
+.uqw-radio-row { display: flex; flex-wrap: wrap; gap: .5rem; }
+.uqw-radio-pill { margin: 0; cursor: pointer; }
+.uqw-radio-pill input { position: absolute; opacity: 0; pointer-events: none; }
+.uqw-radio-pill span {
+    display: inline-block;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 2rem;
+    padding: .3rem .95rem;
+    font-size: .88rem;
+}
+.uqw-radio-pill input:checked + span {
+    border-color: var(--bs-primary);
+    background: var(--edu-accent-soft-bg);
+    color: var(--edu-accent-soft-text);
+    font-weight: 600;
+}
+.uqw-radio-pill input:focus-visible + span { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+
+/* ── Archivo ─────────────────────────────────────────────────────────── */
+.uqw-dropzone {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem;
+    border: 2px dashed var(--bs-border-color);
+    border-radius: .75rem;
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--bs-secondary-color);
+    cursor: pointer;
+    margin: 0;
+}
+.uqw-dropzone i { font-size: 2rem; color: var(--bs-primary); }
+.uqw-dropzone:hover, .uqw-dropzone.is-over { border-color: var(--bs-primary); }
+.uqw-dropzone.has-file { border-style: solid; color: var(--bs-body-color); }
+.uqw-img-preview img { max-width: 100%; max-height: 160px; object-fit: contain; border-radius: .375rem; border: 1px solid var(--bs-border-color); }
+
+/* ── Resumen / revisión ──────────────────────────────────────────────── */
+.uqw-summary {
+    background: var(--bs-tertiary-bg);
+    border-radius: .5rem;
+    padding: 1rem 1.25rem;
+    font-size: .9rem;
+}
+.uqw-row { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--bs-border-color); padding: .35rem 0; }
+.uqw-row:last-child { border-bottom: none; }
+.uqw-row > span:first-child { color: var(--bs-secondary-color); flex-shrink: 0; }
+.uqw-row > span:last-child { text-align: right; overflow-wrap: anywhere; }
+.uqw-sample { width: 100%; font-size: .82rem; }
+.uqw-sample td, .uqw-sample th { padding: .3rem .5rem; border-bottom: 1px solid var(--bs-border-color); vertical-align: top; }
+.uqw-issues { margin: .5rem 0 0; padding-left: 1.1rem; font-size: .85rem; }
+.uqw-done-icon { font-size: 3rem; color: var(--bs-success); line-height: 1; margin-bottom: .5rem; }
+
+/* ── Navegación inferior ─────────────────────────────────────────────── */
+.uqw-nav { display: flex; justify-content: space-between; align-items: center; gap: .75rem; margin-top: 1rem; }
+.uqw-nav.is-hidden { display: none; }

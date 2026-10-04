@@ -18,6 +18,14 @@
         },
       },
       {
+        element: '#questionWizardBtn',
+        popover: {
+          title: 'Asistente para subir preguntas',
+          description: 'Alternativa guiada, paso a paso: se elige la materia y se carga una pregunta sola o un lote completo desde un archivo CSV/TXT, con una vista previa antes de importar.',
+          side: 'bottom',
+        },
+      },
+      {
         element: '#questionStatsRow',
         popover: {
           title: 'Contadores',

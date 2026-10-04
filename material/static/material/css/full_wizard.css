@@ -109,3 +109,16 @@
 }
 .wiz-step-pill.is-skipped .wiz-step-num::before { content: none; }
 .wiz-step-pill.is-skipped .wiz-step-num i { font-size: 1.05em; line-height: 1; }
+
+/* Paso Preguntas: las dos formas de conseguirlas, como tarjetas grandes. */
+.fw-q-options { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.fw-q-option {
+    display: flex; align-items: flex-start; gap: .75rem; text-align: left;
+    padding: 1rem; border: 1px solid var(--bs-border-color); border-radius: .75rem;
+    background: var(--bs-body-bg); color: var(--bs-body-color); text-decoration: none;
+    cursor: pointer;
+}
+.fw-q-option:hover { border-color: var(--bs-primary); background: var(--edu-accent-soft-bg); color: var(--bs-body-color); }
+.fw-q-option > i { font-size: 1.5rem; color: var(--bs-primary); line-height: 1.2; }
+.fw-q-option strong { display: block; }
+.fw-q-option small { display: block; color: var(--bs-secondary-color); margin-top: .15rem; }

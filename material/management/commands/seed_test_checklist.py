@@ -54,6 +54,8 @@ ITEMS = [
     (4, "Banco de Preguntas", "Descargar la plantilla CSV/TXT e importar preguntas en bloque", "upload_questions", False, 1),
     (4, "Banco de Preguntas", "Exportar el banco de preguntas", "lista_preguntas", False, 1),
     (4, "Banco de Preguntas", "Filtrar el listado, abrir una pregunta (Ver o Editar) y volver con \"Volver\" — confirmar que respeta el filtro y la página en la que estabas", "lista_preguntas", False, 1),
+    (4, "Banco de Preguntas", "Probar el asistente guiado para subir una pregunta suelta (materia, tipo, clasificación, revisión) y usar \"Cargar otra pregunta\"", "upload_questions_wizard", False, 1),
+    (4, "Banco de Preguntas", "Probar el asistente guiado con un lote CSV/TXT: revisar la vista previa (filas con problemas, tópicos nuevos, duplicadas) antes de importar", "upload_questions_wizard", False, 1),
 
     (5, "Mis Exámenes", "Crear un examen nuevo (\"Crear Examen\" / \"Nuevo Examen\" — no el asistente nuevo)", "create_exam", False, 2),
     (5, "Mis Exámenes", "Ver, editar y eliminar un examen existente", "mis_examenes", False, 2),
@@ -96,9 +98,10 @@ ITEMS = [
     (10, "Mi Espacio Académico", "Confirmar que los filtros en cascada (institución→sede→facultad→carrera→materia) funcionan", "institution_v2_list", False, 3),
     (10, "Mi Espacio Académico", "Probar el asistente guiado (paso a paso) para crear una institución", "create_institution_v2_wizard", False, 3),
     (10, "Mi Espacio Académico", "Como docente NO admin, agregar un resultado de aprendizaje en una materia PERSONAL tuya (no del catálogo institucional) — confirmar que se puede cargar y queda usable de inmediato", "subject_list", False, 3),
-    (10, "Mi Espacio Académico", "Probar el \"Asistente completo\" (botón nuevo): recorrer institución → facultad → carrera → materia → resultados de aprendizaje → contenido → preguntas → examen en un solo flujo", "full_wizard", False, 3),
+    (10, "Mi Espacio Académico", "Probar el \"Asistente completo\" (botón nuevo): recorrer institución → facultad → carrera → materia → resultados de aprendizaje → preguntas → examen en un solo flujo", "full_wizard", False, 3),
     (10, "Mi Espacio Académico", "En el Asistente completo, elegir una institución con facultades ya cargadas y confirmar que el paso siguiente las muestra de entrada (sin tener que tipear para buscar)", "full_wizard", False, 3),
-    (10, "Mi Espacio Académico", "En el Asistente completo, saltear algún paso (por ejemplo Contenido) y confirmar que el asistente sigue avanzando en vez de terminar", "full_wizard", False, 3),
+    (10, "Mi Espacio Académico", "En el Asistente completo, saltear algún paso (por ejemplo Resultados de aprendizaje) y confirmar que el asistente sigue avanzando en vez de terminar", "full_wizard", False, 3),
+    (10, "Mi Espacio Académico", "En el Asistente completo, paso Preguntas: elegir \"Cargar a mano\", guardar una pregunta con el asistente que se abre ahí mismo y confirmar que al terminar sigue al paso Examen (y que \"Elegir otra opción\" vuelve a las dos tarjetas)", "full_wizard", False, 3),
 
     (11, "Grupos de Confianza", "Crear un grupo", "grupo_crear", False, 3),
     (11, "Grupos de Confianza", "Invitar a otro tester (usuario/email real)", "grupos_list", False, 3),

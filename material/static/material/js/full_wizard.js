@@ -1,5 +1,5 @@
 // full_wizard.js — Asistente completo (institución -> facultad -> carrera ->
-// materia -> resultados de aprendizaje -> contenidos -> preguntas -> examen).
+// materia -> resultados de aprendizaje -> preguntas -> examen).
 // A diferencia de los otros 4 wizards (Examen/Oral/Plantilla/Institución),
 // cada paso persiste de inmediato contra el servidor (full_wizard_save_step,
 // mismo motor que Solicitar Alta) en vez de juntar todo para un submit final
@@ -21,10 +21,10 @@
         carrera: null,
         materia: null,
         outcomes: [], // [{id, description}]
-        // Paso 6/7 (Contenido/Preguntas): true si se avanzó con "Saltear", false
-        // si con "Continuar" (había algo cargado) — solo para el ícono de la
+        // Paso 6 (Preguntas): true si se avanzó con "Saltear", false si con
+        // "Continuar" (había algo cargado) — solo para el ícono de la
         // pastilla, el motor del stepper no distingue hecho de salteado.
-        handoffSkipped: { 6: false, 7: false },
+        questionsSkipped: false,
     };
 
     // Asignados en DOMContentLoaded, leídos por configureBottomAction() —
@@ -100,7 +100,7 @@
             return !!(st && st.skipped);
         }
         if (n === 5) return STATE.outcomes.length === 0;
-        if (n === 6 || n === 7) return !!STATE.handoffSkipped[n];
+        if (n === 6) return !!STATE.questionsSkipped;
         return false;
     }
 
@@ -149,7 +149,7 @@
             n: 4, key: 'materia', label: 'Materia', parentKey: 'carrera', hardParent: false,
             listKey: 'subjects',
             loadUrl: function (parentId) { return CFG.urls.materiasByCarreraBase + parentId + '/'; },
-            hint: 'Importante: los pasos siguientes (Contenido, Preguntas y Examen) usan la materia elegida acá. Si se saltea este paso, va a ser necesario elegirla o crearla de nuevo en cada pantalla siguiente. Tampoco se van a poder cargar Resultados de aprendizaje (necesitan una Materia), así que ese paso también se saltea.',
+            hint: 'Importante: los pasos siguientes (Preguntas y Examen) usan la materia elegida acá. Si se saltea este paso, va a ser necesario elegirla o crearla de nuevo en cada pantalla siguiente. Tampoco se van a poder cargar Resultados de aprendizaje (necesitan una Materia), así que ese paso también se saltea.',
         },
     ];
 
@@ -389,7 +389,7 @@
         var searchLabel = role(panel, 'search-label');
 
         titleEl.textContent = 'Resultados de aprendizaje';
-        hintEl.textContent = 'Es opcional: no hace falta para subir contenido, generar preguntas ni armar el examen.';
+        hintEl.textContent = 'Es opcional: no hace falta para cargar preguntas ni armar el examen.';
         hintEl.style.display = 'block';
         searchLabel.textContent = 'Agregar un resultado de aprendizaje nuevo (texto libre)';
         suggestBox.style.display = 'none';
@@ -470,17 +470,13 @@
     }
 
     // ---- Barra inferior compartida (#wizNextBtn) --------------------------
-    // Un solo botón para los 8 pasos: "Saltear" (con confirmación, si el
+    // Un solo botón para los 7 pasos: "Saltear" (con confirmación, si el
     // paso tiene algo pendiente de aviso) cuando todavía no se hizo nada en
     // ese nivel, "Continuar" cuando ya hay algo elegido/creado/subido — ver
     // pedido explícito del usuario de unificar el criterio entre pasos, que
     // antes variaba (columna propia en 1-5, fila propia en 6-7).
     var nextBtn = document.getElementById('fwActionBtn');
-    var HANDOFF_HINTS = {
-        6: 'Importante: este contenido es la base para generar preguntas con IA en el paso siguiente. Si se prefiere cargar las preguntas a mano, se puede saltear este paso sin problema.',
-        7: 'Importante: para poder armar un examen en el paso siguiente, la materia elegida necesita tener al menos una pregunta ya aprobada. No saltear este paso si todavía no se cargó ninguna.',
-    };
-    var HANDOFF_LABELS = { 6: 'Contenido', 7: 'Preguntas' };
+    var QUESTIONS_HINT = 'Importante: para poder armar un examen en el paso siguiente, la materia elegida necesita tener al menos una pregunta ya aprobada. No saltear este paso si todavía no se cargó ninguna.';
 
     function setNextButton(label, handler) {
         if (!nextBtn) return;
@@ -490,32 +486,110 @@
         nextBtn.onclick = handler;
     }
 
-    function requestSkipHandoff(n) {
-        var hint = HANDOFF_HINTS[n];
+    // ---- Paso 6: Preguntas -------------------------------------------------
+    // Antes eran dos pasos (Contenido y Preguntas) que se pisaban: el
+    // generador con IA ya pide el documento por su cuenta, así que subir
+    // contenido aparte era un rodeo. Ahora hay UNA pantalla con dos
+    // caminos: generar con IA (pestaña nueva) o cargar acá mismo con el
+    // asistente "Subir preguntas" embebido (question_upload_wizard.js, ver
+    // el contrato de mount() en su encabezado). El embebido trae su propia
+    // barra de navegación, así que mientras está abierto se oculta el botón
+    // inferior compartido.
+    var embed = { root: null, pristine: null, mounted: false, mountedFor: null, active: false };
+
+    function currentSubjectId() {
+        return STATE.materia && !STATE.materia.skipped ? STATE.materia.id : null;
+    }
+
+    // Solo el DOM (sin tocar la barra inferior): onEnterStep ya llama a
+    // configureBottomAction() después, no hay que duplicar el fetch.
+    function applyQuestionsView(showEmbed) {
+        embed.active = showEmbed;
+        var hub = document.getElementById('fwQHub');
+        var box = document.getElementById('fwQEmbed');
+        if (hub) hub.classList.toggle('d-none', showEmbed);
+        if (box) box.classList.toggle('d-none', !showEmbed);
+    }
+
+    function setQuestionsView(showEmbed) {
+        applyQuestionsView(showEmbed);
+        configureBottomAction(6);
+    }
+
+    function mountQuestionsEmbed() {
+        var sid = currentSubjectId();
+        if (embed.mounted && embed.mountedFor === sid) return;
+        // El asistente embebido ata sus listeners al nodo raíz: para
+        // volver a montarlo (la materia cambió volviendo atrás) hace falta
+        // un nodo nuevo, no el ya usado.
+        if (embed.mounted) {
+            var fresh = embed.pristine.cloneNode(true);
+            embed.root.parentNode.replaceChild(fresh, embed.root);
+            embed.root = fresh;
+        }
+        window.EducaAppQuestionUpload.mount(embed.root, {
+            subject: sid ? { id: sid, name: STATE.materia.name } : undefined,
+            lockSubject: !!sid,
+            draftKey: 'full_wizard_uqw_draft_v1',
+            finishLabel: 'Continuar',
+            onCreated: function (r) {
+                STATE.questionsSkipped = false;
+                // Si se salteó la Materia, la que se eligió/creó acá pasa a
+                // ser la del recorrido (la usa el paso Examen para precargar).
+                if (!sid && r.subject) {
+                    STATE.materia = { id: r.subject.id, name: r.subject.name, skipped: false };
+                    embed.mountedFor = r.subject.id;
+                    renderBreadcrumb();
+                }
+                saveDraft();
+            },
+            onFinished: function () {
+                embed.active = false;
+                wizardCtrl.goNext();
+            },
+        });
+        embed.mounted = true;
+        embed.mountedFor = sid;
+    }
+
+    function openQuestionsEmbed() {
+        mountQuestionsEmbed();
+        setQuestionsView(true);
+    }
+
+    function requestSkipQuestions() {
         function doSkip() {
-            STATE.handoffSkipped[n] = true;
+            STATE.questionsSkipped = true;
             saveDraft();
             wizardCtrl.goNext();
         }
-        if (!hint) { doSkip(); return; }
-        window.EducaAppModal.confirm(hint, {
-            title: 'Saltear ' + HANDOFF_LABELS[n],
+        window.EducaAppModal.confirm(QUESTIONS_HINT, {
+            title: 'Saltear Preguntas',
             variant: 'warning',
             okLabel: 'Saltear',
         }).then(function (ok) { if (ok) doSkip(); });
     }
 
-    function configureHandoffBottomAction(n) {
-        var subjectOk = STATE.materia && !STATE.materia.skipped;
-        setNextButton('Saltear', function () { requestSkipHandoff(n); });
-        if (!subjectOk) return;
-        var params = new URLSearchParams({ subject_id: STATE.materia.id });
+    function configureQuestionsBottomAction() {
+        var status = document.getElementById('fwQStatus');
+        if (status) status.classList.add('d-none');
+        if (embed.active) {
+            if (nextBtn) nextBtn.classList.add('d-none');
+            return;
+        }
+        setNextButton('Saltear', requestSkipQuestions);
+        var sid = currentSubjectId();
+        if (!sid) return;
+        var params = new URLSearchParams({ subject_id: sid });
         fetch(CFG.urls.subjectProgress + '?' + params.toString())
             .then(function (r) { return r.json(); })
             .then(function (data) {
-                var done = n === 6 ? data.has_contenido : data.has_question;
-                if (done) setNextButton('Continuar', function () {
-                    STATE.handoffSkipped[n] = false;
+                // La respuesta puede llegar tarde: si en el medio se cambió
+                // de paso o se abrió el asistente embebido, no se pisa nada.
+                if (!data.has_question || embed.active || wizardCtrl.current() !== 6) return;
+                if (status) status.classList.remove('d-none');
+                setNextButton('Continuar', function () {
+                    STATE.questionsSkipped = false;
                     saveDraft();
                     wizardCtrl.goNext();
                 });
@@ -524,7 +598,7 @@
     }
 
     function configureBottomAction(n) {
-        if (n === 8) {
+        if (n === 7) {
             // El paso final usa #wizSubmitBtn ("Terminar"), ya manejado por
             // wizard_engine.js — este botón propio no aplica ahí.
             if (nextBtn) nextBtn.classList.add('d-none');
@@ -541,23 +615,18 @@
             else setNextButton('Saltear', handler.requestSkip);
         } else if (n === 5) {
             setNextButton('Continuar', outcomesHandlerRef.continueClick);
-        } else if (n === 6 || n === 7) {
-            configureHandoffBottomAction(n);
+        } else if (n === 6) {
+            configureQuestionsBottomAction();
         }
     }
 
-    function refreshHandoffLinks() {
-        var subjectOk = STATE.materia && !STATE.materia.skipped;
+    function refreshQuestionsLinks() {
         var msg = document.getElementById('fwStep6Msg');
-        if (msg && !subjectOk) {
-            msg.textContent = 'No se eligió ninguna Materia en este recorrido — al subir el contenido, elegí o creá una materia en esa misma pantalla.';
+        if (msg && !currentSubjectId()) {
+            msg.textContent = 'No se eligió ninguna Materia en este recorrido — al cargar o generar preguntas, hay que elegir o crear una materia en esa misma pantalla.';
         }
-        var step6Link = document.getElementById('fwStep6Link');
-        if (step6Link) step6Link.href = CFG.urls.uploadContenido;
-        var genLink = document.getElementById('fwStep7GenLink');
+        var genLink = document.getElementById('fwQGenLink');
         if (genLink) genLink.href = CFG.urls.docProcessor;
-        var manualLink = document.getElementById('fwStep7ManualLink');
-        if (manualLink) manualLink.href = CFG.urls.uploadQuestions;
     }
 
     // Precarga institución/facultad/carrera/materia/RA ya resueltos en el
@@ -566,7 +635,7 @@
     // repetir todo lo ya elegido acá (pedido explícito del usuario).
     var examBtnWired = false;
     function wireExamButton() {
-        var btn = document.getElementById('fwStep8Btn');
+        var btn = document.getElementById('fwStep7Btn');
         if (!btn || examBtnWired) return;
         examBtnWired = true;
         btn.addEventListener('click', function () {
@@ -595,6 +664,7 @@
             rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">' + LABELS[key] + '</span><span>' + window.EducaAppEscape(valor) + '</span></div>');
         });
         rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">Resultados de aprendizaje</span><span>' + STATE.outcomes.length + '</span></div>');
+        rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">Preguntas</span><span>' + (STATE.questionsSkipped ? 'salteado' : 'listas') + '</span></div>');
         el.innerHTML = rows.join('');
     }
 
@@ -603,10 +673,20 @@
         outcomesHandlerRef = setupOutcomesStep();
         wireExamButton();
 
+        var embedRoot = document.querySelector('#fwQEmbed [data-uqw]');
+        if (embedRoot) {
+            embed.root = embedRoot;
+            embed.pristine = embedRoot.cloneNode(true);
+        }
+        var manualBtn = document.getElementById('fwQManualBtn');
+        if (manualBtn) manualBtn.addEventListener('click', openQuestionsEmbed);
+        var embedBack = document.getElementById('fwQEmbedBack');
+        if (embedBack) embedBack.addEventListener('click', function () { setQuestionsView(false); });
+
         wizardCtrl = window.EducaAppWizard.init({
-            totalSteps: 8,
+            totalSteps: 7,
             onValidateStep: function () { return true; },
-            onEnterFinalStep: function () { refreshHandoffLinks(); renderSummary(); },
+            onEnterFinalStep: function () { renderSummary(); },
         });
 
         // Vuelve a cargar la lista de "usar existente" cada vez que se
@@ -617,7 +697,7 @@
         function onEnterStep(n) {
             if (n >= 1 && n <= 4) catalogHandlersRef[n - 1].onEnter();
             else if (n === 5) outcomesHandlerRef.onEnter();
-            else if (n === 6 || n === 7 || n === 8) refreshHandoffLinks();
+            else if (n === 6) { refreshQuestionsLinks(); applyQuestionsView(false); }
             configureBottomAction(n);
             refreshPills();
         }
@@ -653,9 +733,15 @@
             ['institucion', 'facultad', 'carrera', 'materia'].forEach(function (key, idx) {
                 if (STATE[key] !== null) lastResolvedStep = idx + 1;
             });
-            var target = Math.min(lastResolvedStep + 1, 8);
+            var target = Math.min(lastResolvedStep + 1, 7);
             for (var i = 1; i < target; i++) { wizardCtrl.goNext(); }
         }
+
+        // Tras generar preguntas con IA en la otra pestaña, al volver a esta
+        // el botón inferior tiene que pasar de "Saltear" a "Continuar".
+        window.addEventListener('focus', function () {
+            if (wizardCtrl.current() === 6 && !embed.active) configureBottomAction(6);
+        });
 
         if (draft) {
             var saved = draft.load();

@@ -6,10 +6,11 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'material/css/wizard_common.css' %}">
 <link rel="stylesheet" href="{% static 'material/css/full_wizard.css' %}">
+<link rel="stylesheet" href="{% static 'material/css/question_upload_wizard.css' %}">
 
 <div class="wiz-wrap">
     <p class="text-muted mb-3">
-        Institución, facultad, carrera, materia, resultados de aprendizaje, contenidos, preguntas y examen — todo en un
+        Institución, facultad, carrera, materia, resultados de aprendizaje, preguntas y examen — todo en un
         recorrido. En cada paso se puede usar algo ya cargado, crear algo nuevo, o saltear el paso. Lo que se crea acá
         queda usable de inmediato en el espacio personal; un administrador decide después si lo suma al catálogo
         institucional.
@@ -21,9 +22,8 @@
         <div class="wiz-step-pill" data-step-pill="3"><span class="wiz-step-num"><span>3</span></span><span class="wiz-step-label">Carrera</span></div>
         <div class="wiz-step-pill" data-step-pill="4"><span class="wiz-step-num"><span>4</span></span><span class="wiz-step-label">Materia</span></div>
         <div class="wiz-step-pill" data-step-pill="5"><span class="wiz-step-num"><span>5</span></span><span class="wiz-step-label">Res. de aprendizaje</span></div>
-        <div class="wiz-step-pill" data-step-pill="6"><span class="wiz-step-num"><span>6</span></span><span class="wiz-step-label">Contenido</span></div>
-        <div class="wiz-step-pill" data-step-pill="7"><span class="wiz-step-num"><span>7</span></span><span class="wiz-step-label">Preguntas</span></div>
-        <div class="wiz-step-pill" data-step-pill="8"><span class="wiz-step-num"><span>8</span></span><span class="wiz-step-label">Examen</span></div>
+        <div class="wiz-step-pill" data-step-pill="6"><span class="wiz-step-num"><span>6</span></span><span class="wiz-step-label">Preguntas</span></div>
+        <div class="wiz-step-pill" data-step-pill="7"><span class="wiz-step-num"><span>7</span></span><span class="wiz-step-label">Examen</span></div>
     </nav>
 
     <div id="fwBreadcrumb" class="fw-breadcrumb mb-3"></div>
@@ -58,54 +58,51 @@
     </div>
     {% endfor %}
 
-    <!-- PASO 6: Contenido -->
+    <!-- PASO 6: Preguntas (antes eran dos pasos, Contenido y Preguntas) -->
     <div class="wiz-step" data-step="6">
-        <div class="wiz-step-card">
-            <h4>Contenido</h4>
-            <p class="fw-step-hint mb-2">
-                Importante: este contenido es la base para generar preguntas con IA en el paso siguiente. Si se
-                prefiere cargar las preguntas a mano, se puede saltear este paso sin problema.
-            </p>
-            <p class="wiz-step-intro" id="fwStep6Msg">Se sube un documento (PDF/DOCX/PPTX) para la materia elegida — de ahí sale la base para generar preguntas con IA.</p>
-            <a id="fwStep6Link" href="#" target="_blank" rel="noopener" class="btn btn-primary mb-2">
-                <i class="bi bi-upload me-1"></i>Subir contenido
-            </a>
-            <p class="text-muted small mb-0">Se abre en una pestaña nueva — al volver a esta, el asistente sigue donde estaba.</p>
-        </div>
-    </div>
-
-    <!-- PASO 7: Preguntas -->
-    <div class="wiz-step" data-step="7">
-        <div class="wiz-step-card">
+        <div class="wiz-step-card" id="fwQHub">
             <h4>Preguntas</h4>
-            <p class="fw-step-hint mb-2">
-                Importante: para poder armar un examen en el paso siguiente, la materia elegida necesita tener al
-                menos una pregunta ya aprobada. No saltear este paso si todavía no se cargó ninguna.
-            </p>
-            <p class="wiz-step-intro">Generar preguntas con IA a partir del contenido subido, o cargarlas a mano.</p>
-            <div class="d-flex gap-2 flex-wrap mb-3">
-                <a id="fwStep7GenLink" href="#" target="_blank" rel="noopener" class="btn btn-primary">
-                    <i class="bi bi-cpu me-1"></i>Generar con IA
+            <p class="wiz-step-intro" id="fwStep6Msg">Un examen se arma con preguntas ya aprobadas de la materia. Se pueden generar con IA a partir de un documento, o cargar a mano — de a una o por lote.</p>
+            <div class="alert alert-success py-2 d-none" id="fwQStatus">
+                <i class="bi bi-check-circle-fill me-1"></i>Ya hay preguntas aprobadas propias en esta materia — se puede continuar, o sumar más.
+            </div>
+            <div class="fw-q-options">
+                <a id="fwQGenLink" href="#" target="_blank" rel="noopener" class="fw-q-option">
+                    <i class="bi bi-cpu"></i>
+                    <span><strong>Generar con IA</strong>
+                    <small>Se sube un documento (PDF, DOCX o PPTX) y la IA propone las preguntas. Se abre en una pestaña nueva — al volver a esta, el asistente sigue donde estaba.</small></span>
                 </a>
-                <a id="fwStep7ManualLink" href="#" target="_blank" rel="noopener" class="btn btn-outline-primary">
-                    <i class="bi bi-pencil-square me-1"></i>Cargar a mano
-                </a>
+                <button type="button" id="fwQManualBtn" class="fw-q-option">
+                    <i class="bi bi-pencil-square"></i>
+                    <span><strong>Cargar a mano</strong>
+                    <small>Una pregunta por vez, o un archivo CSV/TXT con muchas juntas.</small></span>
+                </button>
             </div>
         </div>
+        <!-- Asistente "Subir preguntas" embebido (ver question_upload_wizard.js).
+             Una sola instancia por página: sus radios son globales al documento. -->
+        <div id="fwQEmbed" class="d-none">
+            <button type="button" id="fwQEmbedBack" class="btn btn-link px-0 mb-2">
+                <i class="bi bi-arrow-left me-1"></i>Elegir otra opción
+            </button>
+            {% include 'material/questions/_upload_wizard.html' %}
+        </div>
     </div>
 
-    <!-- PASO 8: Examen (resumen final) -->
-    <div class="wiz-step" data-step="8">
+    <!-- PASO 7: Examen (resumen final) -->
+    <div class="wiz-step" data-step="7">
         <div class="wiz-step-card">
             <h4>Examen</h4>
             <p class="wiz-step-intro">
                 Con lo cargado en este recorrido, ya se puede armar un examen — institución, facultad, carrera, materia
                 y resultados de aprendizaje ya elegidos acá van a aparecer precargados en el formulario.
             </p>
-            <button type="button" id="fwStep8Btn" class="btn btn-primary mb-3">
-                <i class="bi bi-file-earmark-check me-1"></i>Crear examen
-            </button>
             <div class="wiz-summary" id="wizSummary"></div>
+            <div class="d-flex justify-content-end mt-3">
+                <button type="button" id="fwStep7Btn" class="btn btn-primary">
+                    <i class="bi bi-file-earmark-check me-1"></i>Crear examen
+                </button>
+            </div>
         </div>
     </div>
 
@@ -146,14 +143,13 @@ window.EducaAppFullWizardConfig = {
         materiasByCarreraBase: "/get-subjects-by-career/",
         outcomesByCareerSubject: "{% url 'material:get_learning_outcomes_by_career_subject' %}",
         subjectProgress: "{% url 'material:full_wizard_subject_progress' %}",
-        uploadContenido: "{% url 'material:upload_contenido' %}",
         docProcessor: "{% url 'material:document_processor_dashboard' %}",
-        uploadQuestions: "{% url 'material:upload_questions' %}",
         createExam: "{% url 'material:create_exam' %}",
     }
 };
 </script>
 <script src="{% static 'material/js/wizard_engine.js' %}"></script>
 <script src="{% static 'material/js/wizard_draft.js' %}"></script>
+<script src="{% static 'material/js/question_upload_wizard.js' %}"></script>
 <script src="{% static 'material/js/full_wizard.js' %}"></script>
 {% endblock %}
