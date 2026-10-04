@@ -509,6 +509,10 @@
         var box = document.getElementById('fwQEmbed');
         if (hub) hub.classList.toggle('d-none', showEmbed);
         if (box) box.classList.toggle('d-none', !showEmbed);
+        // El asistente embebido trae su propia barra (Atrás / Siguiente):
+        // con la del host a la vista quedaban dos "Atrás" apilados.
+        var hostNav = document.querySelector('.wiz-nav');
+        if (hostNav) hostNav.classList.toggle('d-none', showEmbed);
     }
 
     function setQuestionsView(showEmbed) {
@@ -532,6 +536,10 @@
             lockSubject: !!sid,
             draftKey: 'full_wizard_uqw_draft_v1',
             finishLabel: 'Continuar',
+            // "Atrás" en el primer paso del embebido vuelve a las dos
+            // tarjetas; los enlaces de la barra del host viajan con él.
+            onExit: function () { setQuestionsView(false); },
+            navLinksHtml: hostNavLinksHtml(),
             onCreated: function (r) {
                 STATE.questionsSkipped = false;
                 // Si se salteó la Materia, la que se eligió/creó acá pasa a
@@ -550,6 +558,11 @@
         });
         embed.mounted = true;
         embed.mountedFor = sid;
+    }
+
+    function hostNavLinksHtml() {
+        var links = document.querySelector('.fw-nav-links');
+        return links ? '<div class="fw-nav-links">' + links.innerHTML + '</div>' : '';
     }
 
     function openQuestionsEmbed() {
@@ -680,8 +693,6 @@
         }
         var manualBtn = document.getElementById('fwQManualBtn');
         if (manualBtn) manualBtn.addEventListener('click', openQuestionsEmbed);
-        var embedBack = document.getElementById('fwQEmbedBack');
-        if (embedBack) embedBack.addEventListener('click', function () { setQuestionsView(false); });
 
         wizardCtrl = window.EducaAppWizard.init({
             totalSteps: 7,
@@ -695,9 +706,12 @@
         // reconfigura el botón inferior compartido para el paso actual.
         var ORIGINAL_NEXT = wizardCtrl.goNext;
         function onEnterStep(n) {
+            // Entrar a cualquier paso (también por una pastilla del stepper)
+            // cierra el asistente de preguntas embebido y repone la barra del host.
+            applyQuestionsView(false);
             if (n >= 1 && n <= 4) catalogHandlersRef[n - 1].onEnter();
             else if (n === 5) outcomesHandlerRef.onEnter();
-            else if (n === 6) { refreshQuestionsLinks(); applyQuestionsView(false); }
+            else if (n === 6) refreshQuestionsLinks();
             configureBottomAction(n);
             refreshPills();
         }
