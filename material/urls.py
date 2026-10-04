@@ -168,6 +168,12 @@ path('add-subtopic/', material_views.add_subtopic, name='add_subtopic'),
 
 path('upload/', material_views.upload_contenido, name='upload_contenido'),  # Para contenido tradicional
 path('upload-questions/', material_views.upload_questions, name='upload_questions'),  # Nueva vista mejorada
+    path('upload-questions/asistente/', material_views.upload_questions_wizard, name='upload_questions_wizard'),
+    path('upload-questions/asistente/materias/', material_views.upload_questions_wizard_subjects, name='upload_questions_wizard_subjects'),
+    path('upload-questions/asistente/contenidos/', material_views.upload_questions_wizard_contenidos, name='upload_questions_wizard_contenidos'),
+    path('upload-questions/asistente/guardar/', material_views.upload_questions_wizard_save, name='upload_questions_wizard_save'),
+    path('upload-questions/asistente/vista-previa/', material_views.upload_questions_wizard_preview, name='upload_questions_wizard_preview'),
+    path('upload-questions/asistente/importar/', material_views.upload_questions_wizard_import, name='upload_questions_wizard_import'),
 
 path('get-questions-by-topics/', material_views.get_questions_by_topics, name='get_questions_by_topics'),
 path('get-careers-by-faculty/<int:faculty_id>/', material_views.get_careers_by_faculty, name='get_careers_by_faculty'),

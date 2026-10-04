@@ -4719,6 +4719,245 @@ def upload_questions(request):
 
     return render(request, 'material/questions/upload_questions.html', context)
 
+
+# ── Asistente "Subir preguntas" (/upload-questions/asistente/) ──────────────
+# El asistente está pensado para embeberse más adelante en el Asistente
+# completo (/asistente-completo/, paso 7): toda la lógica de pantalla vive en
+# static/material/js/question_upload_wizard.js (mount(root, opciones)) y el
+# HTML en questions/_upload_wizard.html; esta página solo es uno de sus
+# hosts posibles. Cualquier otro host reutiliza upload_wizard_context() para
+# armar el contexto que ese partial necesita. Estos endpoints son JSON
+# puro, sin nada atado a la página que los llama.
+
+UPLOAD_WIZARD_MAX_FILE_BYTES = 5 * 1024 * 1024
+
+
+def upload_wizard_context(user, initial_subject_id=None):
+    """Contexto que necesita questions/_upload_wizard.html, para cualquier
+    página que lo incluya (hoy /upload-questions/asistente/; mañana el paso
+    "Preguntas" del Asistente completo)."""
+    from .content_visibility import get_visible_subjects
+    initial_subject = None
+    if str(initial_subject_id or '').isdigit():
+        initial_subject = get_visible_subjects(user).filter(pk=int(initial_subject_id)).first()
+    return {
+        'uqw_types': Question.QUESTION_TYPE_CHOICES,
+        'uqw_bloom_levels': Question.BLOOM_LEVEL_CHOICES,
+        'uqw_initial_subject': initial_subject,
+    }
+
+
+@login_required
+def upload_questions_wizard(request):
+    """Asistente paso a paso para cargar preguntas (una sola o por lote).
+    Página nueva e independiente de upload_questions (no la reemplaza —
+    mismo patrón que los demás asistentes: el modo clásico sigue intacto)."""
+    context = upload_wizard_context(request.user, request.GET.get('materia'))
+    return render(request, 'material/questions/upload_questions_wizard.html', context)
+
+
+@login_required
+def upload_questions_wizard_subjects(request):
+    """Materias visibles para el usuario, para el paso "Materia" del
+    asistente. Sin `q` devuelve las propias (favoritas o con preguntas
+    cargadas — mismo criterio que el formulario clásico, ver
+    order_subjects_by_relevance); con `q` busca por nombre en todas las
+    visibles, sin acentos ni mayúsculas."""
+    from .content_visibility import (
+        get_visible_subjects, order_subjects_by_relevance, count_relevant_subjects,
+    )
+    visibles = get_visible_subjects(request.user)
+    q = (request.GET.get('q') or '').strip()
+    if q:
+        wanted = _normalizar_para_busqueda(q)
+        pairs = [(s, _normalizar_para_busqueda(s.name)) for s in visibles.only('id', 'name', 'es_catalogo_institucional')]
+        matches = [s for s, norm in pairs if wanted in norm]
+        # Las propias primero, el resto por orden alfabético.
+        propias = set(order_subjects_by_relevance(request.user, visibles)
+                      .filter(Q(_is_favorite=True) | Q(_has_content=True))
+                      .values_list('pk', flat=True))
+        matches.sort(key=lambda s: (s.pk not in propias, s.name.lower()))
+        items = matches[:20]
+        relevantes = propias
+    else:
+        n = count_relevant_subjects(request.user, visibles)
+        items = list(order_subjects_by_relevance(request.user, visibles)[:min(n, 20)])
+        relevantes = {s.pk for s in items}
+    return JsonResponse({
+        'subjects': [
+            {
+                'id': s.pk, 'name': s.name,
+                'personal': not s.es_catalogo_institucional,
+                'relevant': s.pk in relevantes,
+            }
+            for s in items
+        ],
+    })
+
+
+@login_required
+def upload_questions_wizard_contenidos(request):
+    """Contenidos propios vinculados a una materia, para el campo opcional
+    "Contenido/Referencia" del asistente."""
+    subject_id = request.GET.get('subject_id', '')
+    if not subject_id.isdigit():
+        return JsonResponse({'contenidos': []})
+    contenidos = Contenido.objects.filter(
+        uploaded_by=request.user, subjects__id=int(subject_id)
+    ).distinct().order_by('title').values('id', 'title')[:100]
+    return JsonResponse({'contenidos': list(contenidos)})
+
+
+@login_required
+@require_POST
+def upload_questions_wizard_save(request):
+    """Guarda UNA pregunta desde el asistente. Mismo QuestionForm y mismas
+    reglas que el formulario clásico de upload_questions (incluida la
+    conversión de imágenes a Base64), pero responde JSON en vez de redirigir
+    — el asistente necesita saber si se guardó para decidir qué mostrar."""
+    form = QuestionForm(request.POST, request.FILES, current_user=request.user)
+    if not form.is_valid():
+        errors = {
+            name: [str(e) for e in errs] for name, errs in form.errors.items()
+        }
+        resumen = []
+        for name, errs in errors.items():
+            label = form.fields[name].label if name in form.fields else name
+            resumen.extend(f"{label}: {e}" for e in errs)
+        return JsonResponse({'ok': False, 'errors': errors, 'error': ' | '.join(resumen)}, status=400)
+    try:
+        question = form.save(commit=False)
+        question.user = request.user
+        question.contenido = form.cleaned_data['contenido'] or None
+        question.save()
+        form.save_m2m()
+    except Exception as e:
+        logger.error(f"Error al guardar pregunta desde el asistente: {e}", exc_info=True)
+        return JsonResponse({'ok': False, 'error': 'No se pudo guardar la pregunta. Reintentar en unos instantes.'}, status=500)
+    return JsonResponse({'ok': True, 'id': question.pk})
+
+
+def _batch_upload_from_request(request):
+    """Valida lo común de la vista previa y la importación: archivo con
+    extensión soportada, tamaño razonable y materia visible para el
+    usuario. Devuelve (file, extension, materia, None) o (..., JsonResponse
+    de error)."""
+    from .content_visibility import get_visible_subjects
+    upload = request.FILES.get('file')
+    if not upload:
+        return None, None, None, JsonResponse({'ok': False, 'error': 'Falta elegir el archivo.'}, status=400)
+    extension = os.path.splitext(upload.name)[1].lower()
+    if extension not in _BATCH_REQUIRED_FIELDS:
+        return None, None, None, JsonResponse({'ok': False, 'error': 'Formato de archivo no soportado. Usar CSV o TXT.'}, status=400)
+    if upload.size > UPLOAD_WIZARD_MAX_FILE_BYTES:
+        mb = UPLOAD_WIZARD_MAX_FILE_BYTES // (1024 * 1024)
+        return None, None, None, JsonResponse({'ok': False, 'error': f'El archivo supera el máximo de {mb}MB.'}, status=400)
+    subject_id = request.POST.get('subject_id', '')
+    materia = get_visible_subjects(request.user).filter(pk=int(subject_id)).first() if subject_id.isdigit() else None
+    if not materia:
+        return None, None, None, JsonResponse({'ok': False, 'error': 'Falta elegir la materia.'}, status=400)
+    return upload, extension, materia, None
+
+
+@login_required
+@require_POST
+def upload_questions_wizard_preview(request):
+    """Vista previa de un lote SIN guardar nada: cuántas preguntas válidas
+    hay, cuáles filas fallan y por qué, qué tópicos se crearían y cuántas
+    ya existen en la materia. Usa el mismo parseo que la importación real
+    (_collect_batch_rows), así lo que se ve acá es lo que después entra."""
+    upload, extension, materia, error = _batch_upload_from_request(request)
+    if error:
+        return error
+    try:
+        rows, errors = _collect_batch_rows(upload, extension)
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+
+    existing_topics = {
+        name.strip().lower() for name in Topic.objects.filter(subject=materia).values_list('name', flat=True)
+    }
+    texts = [d['pregunta'].strip() for _, d in rows]
+    # `__in` sobre textos largos de un lote entero: se parte en tandas para
+    # no armar una consulta gigante con archivos de cientos de filas.
+    duplicated = set()
+    for i in range(0, len(texts), 200):
+        duplicated.update(
+            Question.objects.filter(
+                user=request.user, subjects=materia, question_text__in=texts[i:i + 200]
+            ).values_list('question_text', flat=True)
+        )
+
+    type_counts = {}
+    topics = {}
+    warnings = []
+    for label, data in rows:
+        q_type = _normalize_question_type(data.get('tipo'))
+        type_counts[q_type] = type_counts.get(q_type, 0) + 1
+        topic_name = (data.get('tema') or '').strip() or 'General'
+        topics[topic_name] = topics.get(topic_name, 0) + 1
+        if q_type == 'opcion_multiple' and not _parse_options_json(data.get('opciones')):
+            warnings.append(f"{label}: es de opción múltiple pero no trae opciones.")
+        if q_type == 'verdadero_falso' and _normalize_true_false_answer(data.get('respuesta')) not in ('Verdadero', 'Falso'):
+            warnings.append(f"{label}: es verdadero/falso pero la respuesta no es Verdadero ni Falso.")
+
+    labels = dict(Question.QUESTION_TYPE_CHOICES)
+    return JsonResponse({
+        'ok': True,
+        'subject': materia.name,
+        'valid': len(rows),
+        'error_count': len(errors),
+        'errors': errors[:30],
+        'warnings': warnings[:30],
+        'warning_count': len(warnings),
+        'duplicates': sum(1 for t in texts if t in duplicated),
+        'types': [{'label': labels[k], 'count': v} for k, v in type_counts.items()],
+        'topics': [
+            {'name': name, 'count': count, 'is_new': name.lower() not in existing_topics}
+            for name, count in sorted(topics.items(), key=lambda kv: -kv[1])
+        ],
+        'sample': [
+            {
+                'label': label,
+                'question': d['pregunta'].strip()[:160],
+                'answer': d['respuesta'].strip()[:80],
+                'type': labels[_normalize_question_type(d.get('tipo'))],
+                'topic': (d.get('tema') or '').strip() or 'General',
+            }
+            for label, d in rows[:5]
+        ],
+    })
+
+
+@login_required
+@require_POST
+def upload_questions_wizard_import(request):
+    """Importa el lote. Con skip_duplicates=1 omite las preguntas cuyo
+    enunciado ya existe (propias, en esa materia)."""
+    upload, extension, materia, error = _batch_upload_from_request(request)
+    if error:
+        return error
+    skip_texts = None
+    if request.POST.get('skip_duplicates') == '1':
+        skip_texts = set(
+            Question.objects.filter(user=request.user, subjects=materia).values_list('question_text', flat=True)
+        )
+    try:
+        created, errors, skipped = _import_batch(upload, extension, None, request.user, materia, skip_texts)
+    except Exception as e:
+        # Caso esperado (archivo sin filas válidas, codificación ilegible): se
+        # le explica a la persona, no es un error del servidor.
+        logger.warning(f"Importación desde el asistente sin resultado: {e}")
+        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+    return JsonResponse({
+        'ok': True,
+        'created': created,
+        'skipped': skipped,
+        'error_count': len(errors),
+        'errors': errors[:10],
+        'subject': materia.name,
+    })
+
 # Funciones auxiliares para procesamiento de archivos
 def _normalize_question_type(raw_value):
     raw = (raw_value or '').strip().lower()
@@ -4786,157 +5025,123 @@ def _parse_options_json(raw_options):
     return ''
 
 
-def process_csv_file(file, contenido, user, subject):
-    from .models import Subject, Topic, Subtopic, Question
+# Codificaciones que se prueban, en este orden, al leer un CSV/TXT subido.
+_UPLOAD_ENCODINGS = ['utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
 
-    # Intentar múltiples codificaciones
-    encodings = ['utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
-    decoded_file = None
-    
-    for encoding in encodings:
-        try:
-            file.seek(0)  # Volver al inicio del archivo
-            decoded_file = file.read().decode(encoding).splitlines()
-            logger.info(f"Archivo CSV leído exitosamente con codificación: {encoding}")
-            break
-        except UnicodeDecodeError:
-            continue
-    
-    if decoded_file is None:
-        raise Exception("No se pudo leer el archivo. Formatos soportados: UTF-8, Latin1, Windows-1252, ISO-8859-1, UTF-16.")
-    
-    try:
-        reader = csv.DictReader(decoded_file)
-    except Exception as e:
-        raise Exception(f"Error al procesar el CSV: {str(e)}")
-    
-    questions_created = 0
-    errors = []
-    row_number = 1  # Para seguimiento de filas
-    pending = []  # [(etiqueta de fila, Question sin guardar)] → bulk al final
-    topic_cache = {}
-    subtopic_cache = {}
+# Campos obligatorios por formato. El TXT nunca exigió "tema" (cae a
+# "General", ver build_question_from_dict) — se conserva ese comportamiento.
+_BATCH_REQUIRED_FIELDS = {
+    '.csv': ('pregunta', 'respuesta', 'tema'),
+    '.txt': ('pregunta', 'respuesta'),
+}
 
-    for row in reader:
-        row_number += 1
-        try:
-            # Validar campos requeridos — la materia ya no es por fila
-            # (columna "materia" del archivo): se elige una sola vez para
-            # todo el archivo, en el paso 1 (ver upload_questions).
-            missing_fields = []
-            if not row.get('pregunta'):
-                missing_fields.append('pregunta')
-            if not row.get('respuesta'):
-                missing_fields.append('respuesta')
-            if not row.get('tema'):
-                missing_fields.append('tema')
 
-            if missing_fields:
-                error_msg = f"Fila {row_number}: faltan campos requeridos: {', '.join(missing_fields)}"
-                errors.append(error_msg)
-                logger.warning(error_msg)
-                continue
-
-            # Obtener o crear el tema (cacheado: un CSV repite los mismos
-            # tópicos en cientos de filas, y cada get_or_create era un viaje a Neon)
-            topic = _get_or_create_topic_cached(topic_cache, row.get('tema', 'General'), subject)
-
-            # Obtener subtema solo si se proporciona
-            subtopic = None
-            if row.get('subtema') and row.get('subtema').strip():
-                subtopic = _get_or_create_subtopic_cached(subtopic_cache, row.get('subtema'), topic)
-
-            # Armar la pregunta solo con campos que existen en el modelo
-            q_type = _normalize_question_type(row.get('tipo'))
-            answer_text = row['respuesta']
-            if q_type == 'verdadero_falso':
-                answer_text = _normalize_true_false_answer(answer_text)
-
-            pending.append((f"Fila {row_number}", Question(
-                contenido=contenido,
-                question_text=row['pregunta'],
-                answer_text=answer_text,
-                topic=topic,
-                subtopic=subtopic,
-                question_type=q_type,
-                options_json=_parse_options_json(row.get('opciones')) if q_type == 'opcion_multiple' else None,
-                source_page=int(row['pagina']) if row.get('pagina') and row.get('pagina').strip().isdigit() else None,
-                difficulty=_normalize_difficulty(row.get('dificultad')),
-                bloom_level=_normalize_bloom_level(row.get('nivel_bloom')),
-                user=user
-            )))
-        except Exception as e:
-            error_msg = f"Fila {row_number}: {str(e)}"
-            errors.append(error_msg)
-            logger.error(f"Error creando pregunta desde CSV - {error_msg}")
-            continue
-
-    questions_created = _save_imported_questions(pending, subject, errors)
-
-    # Si hay errores, lanzar excepción con detalles
-    if errors and questions_created == 0:
-        raise Exception(f"No se pudo crear ninguna pregunta. Errores encontrados:\n" + "\n".join(errors[:5]))
-    elif errors:
-        logger.warning(f"Se crearon {questions_created} preguntas con {len(errors)} errores: {errors[:3]}")
-
-    return questions_created, errors
-
-def process_txt_file(file, contenido, user, subject):
-    # Intentar múltiples codificaciones
-    encodings = ['utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
-    lines = None
-
-    for encoding in encodings:
+def _read_upload_lines(file):
+    """Decodifica un archivo subido (CSV/TXT) a lista de líneas, probando
+    varias codificaciones."""
+    for encoding in _UPLOAD_ENCODINGS:
         try:
             file.seek(0)  # Volver al inicio del archivo
             lines = file.read().decode(encoding).splitlines()
-            logger.info(f"Archivo TXT leído exitosamente con codificación: {encoding}")
-            break
+            logger.info(f"Archivo leído exitosamente con codificación: {encoding}")
+            return lines
         except UnicodeDecodeError:
             continue
+    raise Exception("No se pudo leer el archivo. Formatos soportados: UTF-8, Latin1, Windows-1252, ISO-8859-1, UTF-16.")
 
-    if lines is None:
-        raise Exception("No se pudo leer el archivo. Formatos soportados: UTF-8, Latin1, Windows-1252, ISO-8859-1, UTF-16.")
-    question_data = {}
-    errors = []
-    block_number = 0
-    pending = []  # [(etiqueta de bloque, Question sin guardar)] → bulk al final
-    topic_cache = {}
-    subtopic_cache = {}
 
-    def _procesar_bloque(data):
-        try:
-            pending.append((
-                f"Bloque {block_number}",
-                build_question_from_dict(data, contenido, user, subject, topic_cache, subtopic_cache),
-            ))
-        except ValueError as e:
-            errors.append(f"Bloque {block_number}: {e}")
-            logger.warning(f"Error creando pregunta desde TXT - Bloque {block_number}: {e}")
+def _iter_csv_rows(lines):
+    """Filas del CSV como (etiqueta, dict con claves en minúscula). La
+    primera fila de datos es la "Fila 2" (la 1 es el encabezado)."""
+    try:
+        reader = csv.DictReader(lines)
+        for number, row in enumerate(reader, start=2):
+            # Una fila con más celdas que el encabezado deja la clave None.
+            yield f"Fila {number}", {
+                (k or '').strip().lower(): (v or '')
+                for k, v in row.items() if k is not None
+            }
+    except csv.Error as e:
+        raise Exception(f"Error al procesar el CSV: {str(e)}")
 
+
+def _iter_txt_blocks(lines):
+    """Bloques "clave: valor" del TXT, separados por línea en blanco."""
+    data = {}
+    number = 0
     for line in lines:
         if line.strip():
             if ':' in line:
                 key, value = line.split(':', 1)
-                question_data[key.strip().lower()] = value.strip()
-        else:
-            if question_data:
-                block_number += 1
-                _procesar_bloque(question_data)
-                question_data = {}
+                data[key.strip().lower()] = value.strip()
+        elif data:
+            number += 1
+            yield f"Bloque {number}", data
+            data = {}
+    if data:
+        number += 1
+        yield f"Bloque {number}", data
 
-    if question_data:
-        block_number += 1
-        _procesar_bloque(question_data)
+
+def _collect_batch_rows(file, extension):
+    """Lee el archivo y separa las filas utilizables de las que no.
+
+    Devuelve ([(etiqueta, dict)], [mensaje de error]). Lo usan tanto la
+    importación real como la vista previa del asistente, para que lo que se
+    muestra antes de importar sea exactamente lo que después se importa."""
+    lines = _read_upload_lines(file)
+    iterator = _iter_csv_rows(lines) if extension == '.csv' else _iter_txt_blocks(lines)
+    required = _BATCH_REQUIRED_FIELDS[extension]
+    rows, errors = [], []
+    for label, data in iterator:
+        missing = [f for f in required if not (data.get(f) or '').strip()]
+        if missing:
+            msg = f"{label}: faltan campos requeridos: {', '.join(missing)}"
+            errors.append(msg)
+            logger.warning(msg)
+            continue
+        rows.append((label, data))
+    return rows, errors
+
+
+def _import_batch(file, extension, contenido, user, subject, skip_texts=None):
+    rows, errors = _collect_batch_rows(file, extension)
+    pending = []  # [(etiqueta, Question sin guardar)] → bulk al final
+    topic_cache = {}
+    subtopic_cache = {}
+    skipped = 0
+
+    for label, data in rows:
+        if skip_texts and data.get('pregunta', '').strip() in skip_texts:
+            skipped += 1
+            continue
+        try:
+            pending.append((
+                label,
+                build_question_from_dict(data, contenido, user, subject, topic_cache, subtopic_cache),
+            ))
+        except Exception as e:
+            errors.append(f"{label}: {e}")
+            logger.error(f"Error creando pregunta desde carga masiva - {label}: {e}")
 
     questions_created = _save_imported_questions(pending, subject, errors)
 
-    if errors and questions_created == 0:
+    if errors and questions_created == 0 and not skipped:
         raise Exception("No se pudo crear ninguna pregunta. Errores encontrados:\n" + "\n".join(errors[:5]))
     elif errors:
         logger.warning(f"Se crearon {questions_created} preguntas con {len(errors)} errores: {errors[:3]}")
 
-    return questions_created, errors
+    return questions_created, errors, skipped
+
+
+def process_csv_file(file, contenido, user, subject):
+    created, errors, _skipped = _import_batch(file, '.csv', contenido, user, subject)
+    return created, errors
+
+
+def process_txt_file(file, contenido, user, subject):
+    created, errors, _skipped = _import_batch(file, '.txt', contenido, user, subject)
+    return created, errors
 
 
 def _get_or_create_topic_cached(cache, name, subject):
@@ -5010,12 +5215,14 @@ def build_question_from_dict(data, contenido, user, subject, topic_cache=None, s
     subtopic_cache = {} if subtopic_cache is None else subtopic_cache
 
     # Obtener o crear Topic
-    topic = _get_or_create_topic_cached(topic_cache, data.get('tema', 'General'), subject)
+    # "tema:" presente pero vacío también cae a General (antes creaba un
+    # tópico de nombre vacío).
+    topic = _get_or_create_topic_cached(topic_cache, (data.get('tema') or '').strip() or 'General', subject)
 
     # Obtener subtopic solo si existe en los datos
     subtopic = None
-    if data.get('subtema'):
-        subtopic = _get_or_create_subtopic_cached(subtopic_cache, data.get('subtema'), topic)
+    if (data.get('subtema') or '').strip():
+        subtopic = _get_or_create_subtopic_cached(subtopic_cache, data.get('subtema').strip(), topic)
 
     # Armar la pregunta solo con campos que existen en el modelo
     q_type = _normalize_question_type(data.get('tipo'))
@@ -9323,7 +9530,7 @@ def full_wizard_page(request):
     dispara desde el JS la carga de instituciones visibles para el paso 1
     (ver get_visible_institutions_json) — el resto de los pasos se resuelven
     en cascada a medida que se avanza."""
-    return render(request, 'material/full_wizard.html', {})
+    return render(request, 'material/full_wizard.html', upload_wizard_context(request.user))
 
 
 @login_required

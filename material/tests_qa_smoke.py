@@ -24,6 +24,7 @@ NOMBRES_MATERIAL_SIN_PARAM = [
     'entrar_area_pruebas', 'salir_area_pruebas', 'restablecer_area_pruebas',
     'mis_datos', 'formato_impresion_list', 'formato_impresion_create',
     'mis_examenes', 'lista_preguntas', 'mis_contenidos', 'upload_questions',
+    'upload_questions_wizard',
     'document_processor_dashboard', 'institution_v2_list',
     'create_institution_v2', 'subject_list', 'favoritos_list',
     'espacio_personal_list', 'create_subject', 'career_list',

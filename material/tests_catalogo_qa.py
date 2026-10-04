@@ -927,6 +927,18 @@ class FullWizardSaveStepTests(TestCase):
         resp = self.client.get(reverse('material:full_wizard'))
         self.assertEqual(resp.status_code, 200)
 
+    def test_pagina_tiene_7_pasos_y_el_asistente_de_preguntas_embebido(self):
+        """Contenido y Preguntas se fusionaron en un solo paso 6: el stepper
+        tiene 7 pastillas y el paso incluye el asistente "Subir preguntas"
+        (una sola instancia: sus radios son globales al documento)."""
+        resp = self.client.get(reverse('material:full_wizard'))
+        html = resp.content.decode()
+        self.assertEqual(html.count('data-step-pill='), 7)
+        self.assertNotIn('data-step="8"', html)
+        self.assertEqual(html.count('data-uqw>'), 1)
+        self.assertIn('id="fwQEmbed"', html)
+        self.assertIn('value="opcion_multiple"', html)
+
     def test_saltear_no_llama_al_motor_y_devuelve_skipped(self):
         resp = self._post({'step': 'institucion', 'action': 'saltear'})
         self.assertEqual(resp.status_code, 200)

@@ -1,0 +1,303 @@
+{% comment %}
+Asistente "Subir preguntas" — marcado reutilizable.
+
+Se incluye con {% include 'material/questions/_upload_wizard.html' %} desde cualquier
+página (hoy /upload-questions/asistente/; más adelante, el paso "Preguntas" del
+Asistente completo). El host necesita:
+  - el contexto de upload_wizard_context() (views.py),
+  - cargar wizard_draft.js + question_upload_wizard.css/js,
+  - llamar EducaAppQuestionUpload.mount(<este .uqw>, opciones) — ver el
+    encabezado de question_upload_wizard.js para las opciones.
+Nada acá usa ids globales ni las clases .wiz-step/.wiz-step-pill del motor
+wizard_engine.js (ese motor las busca con document.querySelectorAll y un
+asistente anidado le rompería los pasos al host): todo se resuelve con
+data-role / data-uqw-step dentro de este contenedor.
+{% endcomment %}
+{% load static %}
+<script>
+window.EducaAppQuestionUploadUrls = {
+    subjects: "{% url 'material:upload_questions_wizard_subjects' %}",
+    contenidos: "{% url 'material:upload_questions_wizard_contenidos' %}",
+    save: "{% url 'material:upload_questions_wizard_save' %}",
+    preview: "{% url 'material:upload_questions_wizard_preview' %}",
+    importBatch: "{% url 'material:upload_questions_wizard_import' %}",
+    saveCatalogStep: "{% url 'material:full_wizard_save_step' %}",
+    getTopics: "{% url 'material:get_topics' %}",
+    getSubtopics: "{% url 'material:get_subtopics' %}",
+    addTopic: "{% url 'material:add_topic' %}",
+    addSubtopic: "{% url 'material:add_subtopic' %}",
+    questionList: "{% url 'material:lista_preguntas' %}"
+};
+</script>
+
+<div class="uqw" data-uqw>
+    <nav class="uqw-stepper" data-role="stepper" aria-label="Pasos para subir preguntas"></nav>
+    <div class="uqw-context text-muted small mb-3" data-role="context" style="display:none"></div>
+
+    <!-- PASO: Materia -->
+    <section class="uqw-step" data-uqw-step="subject">
+        <div class="uqw-card">
+            <h4>¿En qué materia se cargan las preguntas?</h4>
+            <p class="uqw-intro">Todas las preguntas de esta carga quedan asociadas a la materia elegida.</p>
+
+            <div class="uqw-chip-list mb-2" data-role="subject-chips"></div>
+            <p class="text-muted small mb-3" data-role="subject-empty" style="display:none">
+                Todavía no hay materias propias — buscar una abajo o crear una nueva.
+            </p>
+
+            <div class="row g-2 align-items-end">
+                <div class="col-md-9">
+                    <label class="form-label small text-muted mb-1">¿No está en la lista? Buscar por nombre, o escribir uno nuevo</label>
+                    <input type="text" class="form-control" data-role="subject-search" autocomplete="off" placeholder="Ej: Matemática I">
+                </div>
+                <div class="col-md-3">
+                    <button type="button" class="btn btn-outline-primary w-100" data-role="subject-create" disabled>
+                        <i class="bi bi-plus-circle me-1"></i>Crear materia
+                    </button>
+                </div>
+            </div>
+            <p class="text-muted small mt-2 mb-0">
+                Una materia nueva queda usable de inmediato en el espacio personal; un administrador decide después si la suma al catálogo institucional.
+            </p>
+            <div class="text-danger small mt-2" data-role="subject-error" style="display:none"></div>
+        </div>
+    </section>
+
+    <!-- PASO: Modo -->
+    <section class="uqw-step" data-uqw-step="mode">
+        <div class="uqw-card">
+            <h4>¿Cuántas preguntas se van a cargar?</h4>
+            <p class="uqw-intro">Se puede cargar una sola pregunta a mano, o muchas de una vez desde un archivo.</p>
+            <div class="uqw-mode-grid">
+                <button type="button" class="uqw-mode-card" data-role="mode-card" data-mode="single">
+                    <i class="bi bi-pencil-square"></i>
+                    <strong>Una pregunta</strong>
+                    <span>Escribirla a mano: enunciado, respuesta, tópico y dificultad.</span>
+                </button>
+                <button type="button" class="uqw-mode-card" data-role="mode-card" data-mode="batch">
+                    <i class="bi bi-file-earmark-spreadsheet"></i>
+                    <strong>Un lote (CSV o TXT)</strong>
+                    <span>Subir un archivo con varias preguntas; antes de importar se muestra una vista previa.</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- PASO (una pregunta): Pregunta y respuesta -->
+    <section class="uqw-step" data-uqw-step="question">
+        <div class="uqw-card">
+            <h4>La pregunta y su respuesta</h4>
+
+            <label class="form-label">Tipo de pregunta</label>
+            <div class="uqw-radio-row mb-3" data-role="type-row">
+                {% for value, label in uqw_types %}
+                <label class="uqw-radio-pill">
+                    <input type="radio" name="uqw_type" value="{{ value }}" {% if forloop.first %}checked{% endif %}>
+                    <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <label class="form-label">Enunciado</label>
+            <textarea class="form-control mb-1" rows="4" data-role="question-text" placeholder="Escribir la pregunta"></textarea>
+            <p class="text-muted small mb-3" data-role="question-hint"></p>
+
+            <!-- Opción múltiple -->
+            <div data-role="mc-box" style="display:none">
+                <label class="form-label">Opciones <span class="text-muted small">(marcar la correcta)</span></label>
+                {% for letter in "ABCD" %}
+                <div class="input-group mb-2">
+                    <span class="input-group-text">
+                        <input type="radio" class="form-check-input mt-0" name="uqw_correct" value="{{ forloop.counter0 }}" aria-label="Opción {{ letter }} es la correcta">
+                    </span>
+                    <span class="input-group-text">{{ letter }}</span>
+                    <input type="text" class="form-control" data-role="mc-option" placeholder="Opción {{ letter }}">
+                </div>
+                {% endfor %}
+                <p class="text-muted small mb-0">Las opciones vacías se descartan; hacen falta al menos dos.</p>
+            </div>
+
+            <!-- Verdadero / Falso -->
+            <div data-role="tf-box" style="display:none">
+                <label class="form-label">Respuesta correcta</label>
+                <div class="uqw-radio-row">
+                    <label class="uqw-radio-pill"><input type="radio" name="uqw_tf" value="Verdadero"><span>Verdadero</span></label>
+                    <label class="uqw-radio-pill"><input type="radio" name="uqw_tf" value="Falso"><span>Falso</span></label>
+                </div>
+            </div>
+
+            <!-- Desarrollo / completar -->
+            <div data-role="answer-box">
+                <label class="form-label" data-role="answer-label">Respuesta esperada</label>
+                <textarea class="form-control" rows="3" data-role="answer-text"></textarea>
+            </div>
+
+            <div class="text-danger small mt-3" data-role="question-error" style="display:none"></div>
+        </div>
+    </section>
+
+    <!-- PASO (una pregunta): Clasificación -->
+    <section class="uqw-step" data-uqw-step="classify">
+        <div class="uqw-card">
+            <h4>Clasificación</h4>
+            <p class="uqw-intro">El tópico permite después armar exámenes por tema. Es opcional, pero conviene completarlo.</p>
+
+            <label class="form-label">Tópico</label>
+            <div class="uqw-chip-list mb-2" data-role="topic-chips"></div>
+            <div class="input-group input-group-sm mb-3 uqw-inline-create">
+                <input type="text" class="form-control" data-role="topic-new" placeholder="Nuevo tópico (nombre)">
+                <button type="button" class="btn btn-outline-secondary" data-role="topic-create"><i class="bi bi-plus-lg"></i> Agregar</button>
+            </div>
+
+            <div data-role="subtopic-box" style="display:none">
+                <label class="form-label">Sub-tópico <span class="text-muted small">(opcional)</span></label>
+                <div class="uqw-chip-list mb-2" data-role="subtopic-chips"></div>
+                <div class="input-group input-group-sm mb-3 uqw-inline-create">
+                    <input type="text" class="form-control" data-role="subtopic-new" placeholder="Nuevo sub-tópico (nombre)">
+                    <button type="button" class="btn btn-outline-secondary" data-role="subtopic-create"><i class="bi bi-plus-lg"></i> Agregar</button>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <label class="form-label">Dificultad</label>
+                    <select class="form-select" data-role="difficulty">
+                        <option value="1">1 — Muy fácil</option>
+                        <option value="2">2 — Fácil</option>
+                        <option value="3">3 — Media</option>
+                        <option value="4">4 — Difícil</option>
+                        <option value="5">5 — Muy difícil</option>
+                    </select>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label">Nivel de Bloom <span class="text-muted small">(opcional)</span></label>
+                    <select class="form-select" data-role="bloom">
+                        <option value="">Sin definir</option>
+                        {% for value, label in uqw_bloom_levels %}
+                        <option value="{{ value }}">{{ value }} — {{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">Anderson &amp; Krathwohl, 2001 — <a href="{% url 'material:bloom_taxonomy' %}" target="_blank" rel="noopener">ver escala</a></small>
+                </div>
+            </div>
+
+            <div class="wiz-subsection-like mt-4">
+                <button type="button" class="uqw-toggle-more" data-role="extras-toggle">
+                    <i class="bi bi-chevron-down me-1"></i>Detalles opcionales (imágenes, contenido de origen, página)
+                </button>
+                <div data-role="extras-box" style="display:none" class="mt-3">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Imagen de la pregunta</label>
+                            <input type="file" class="form-control" accept="image/*" data-role="question-image">
+                            <div class="uqw-img-preview mt-2" data-role="question-image-preview"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Imagen de la respuesta</label>
+                            <input type="file" class="form-control" accept="image/*" data-role="answer-image">
+                            <div class="uqw-img-preview mt-2" data-role="answer-image-preview"></div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Contenido de origen</label>
+                            <select class="form-select" data-role="contenido">
+                                <option value="">Ninguno</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Página</label>
+                            <input type="number" min="1" class="form-control" data-role="source-page">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="text-danger small mt-3" data-role="classify-error" style="display:none"></div>
+        </div>
+    </section>
+
+    <!-- PASO (lote): Archivo -->
+    <section class="uqw-step" data-uqw-step="file">
+        <div class="uqw-card">
+            <h4>Archivo con las preguntas</h4>
+            <p class="uqw-intro">CSV o TXT. Al elegirlo se revisa de inmediato, sin guardar nada todavía.</p>
+
+            <label class="uqw-dropzone" data-role="dropzone">
+                <i class="bi bi-cloud-arrow-up"></i>
+                <span data-role="file-name">Elegir un archivo .csv o .txt (o arrastrarlo hasta acá)</span>
+                <input type="file" accept=".csv,.txt" data-role="file-input" hidden>
+            </label>
+
+            <div class="mt-3 d-flex flex-wrap gap-2">
+                <a href="{% static 'material/ejemplo_batch_preguntas.csv' %}" class="btn btn-outline-secondary btn-sm" download>
+                    <i class="bi bi-download me-1"></i>Descargar ejemplo CSV
+                </a>
+                <a href="{% static 'material/ejemplo_batch_preguntas.txt' %}" class="btn btn-outline-secondary btn-sm" download>
+                    <i class="bi bi-download me-1"></i>Descargar ejemplo TXT
+                </a>
+            </div>
+
+            <div class="mt-3" data-role="file-status"></div>
+
+            <details class="mt-3">
+                <summary class="text-muted" style="cursor:pointer">Ver el formato esperado del archivo</summary>
+                <div class="alert alert-info mt-2 small mb-0">
+                    <strong>CSV</strong> — primera fila con los nombres de columna:<br>
+                    <code>pregunta,respuesta,tema,subtema,pagina,tipo,opciones,dificultad,nivel_bloom</code><br>
+                    <em>Obligatorios: pregunta, respuesta, tema. El resto es opcional.</em><br>
+                    <em>tipo: desarrollo | opcion_multiple | completar_blank | verdadero_falso</em><br>
+                    <em>opciones: solo para opción múltiple, separadas por "|" (ej: A|B|C|D)</em><br>
+                    <em>dificultad: 1 a 5 (por defecto 1) — nivel_bloom: 1 a 6 (1 = Recordar … 6 = Crear)</em><br>
+                    <code>¿Cuánto es 2+2?,4,Álgebra,,12,opcion_multiple,"1|2|3|4",2,1</code>
+                    <hr class="my-2">
+                    <strong>TXT</strong> — un bloque por pregunta, separados por una línea en blanco:
+                    <pre class="mb-0" style="white-space: pre-line;">pregunta: ¿Cuánto es 2+2?
+respuesta: 4
+tema: Álgebra
+tipo: opcion_multiple
+opciones: 1|2|3|4
+dificultad: 2</pre>
+                    <em>Obligatorios: pregunta y respuesta (sin tema, se usa "General").</em>
+                </div>
+            </details>
+        </div>
+    </section>
+
+    <!-- PASO: Revisión (una pregunta o lote) -->
+    <section class="uqw-step" data-uqw-step="review">
+        <div class="uqw-card">
+            <h4 data-role="review-title">Revisión</h4>
+            <p class="uqw-intro" data-role="review-intro"></p>
+            <div class="uqw-summary" data-role="review-body"></div>
+            <div class="form-check mt-3" data-role="skip-dup-box" style="display:none">
+                <label class="form-check-label">
+                    <input type="checkbox" class="form-check-input" data-role="skip-dup" checked>
+                    <span data-role="skip-dup-label"></span>
+                </label>
+            </div>
+            <div class="text-danger small mt-3" data-role="review-error" style="display:none"></div>
+        </div>
+    </section>
+
+    <!-- Resultado -->
+    <section class="uqw-step" data-uqw-step="done">
+        <div class="uqw-card text-center">
+            <div class="uqw-done-icon"><i class="bi bi-check-circle-fill"></i></div>
+            <h4 data-role="done-title"></h4>
+            <p class="uqw-intro mb-3" data-role="done-body"></p>
+            <div class="uqw-summary text-start mb-3" data-role="done-warnings" style="display:none"></div>
+            <div class="d-flex flex-wrap gap-2 justify-content-center">
+                <button type="button" class="btn btn-outline-primary" data-role="done-again"></button>
+                <button type="button" class="btn btn-primary" data-role="done-finish"></button>
+            </div>
+        </div>
+    </section>
+
+    <div class="uqw-nav" data-role="nav">
+        <button type="button" class="btn btn-outline-secondary" data-role="back">
+            <i class="bi bi-arrow-left me-1"></i>Atrás
+        </button>
+        <div class="uqw-nav-links" data-role="nav-links"></div>
+        <button type="button" class="btn btn-primary" data-role="action">
+            Siguiente<i class="bi bi-arrow-right ms-1"></i>
+        </button>
+    </div>
+</div>

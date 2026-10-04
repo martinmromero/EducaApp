@@ -43,6 +43,11 @@ document.addEventListener('DOMContentLoaded', function() {
     <!-- Mensajes específicos de preguntas -->
     {% show_messages "preguntas" %}
 
+    <div class="alert alert-info d-flex align-items-center gap-2 py-2 mb-3" id="uploadWizardHint">
+        <i class="bi bi-magic"></i>
+        <span>¿Se prefiere ir paso a paso? El <a href="{% url 'material:upload_questions_wizard' %}" class="alert-link">asistente para subir preguntas</a> guía la carga, de a una o por lote, con vista previa antes de importar.</span>
+    </div>
+
     <!-- Pestañas -->
     <ul class="nav nav-tabs mb-4" id="uploadTabs" role="tablist">
         <li class="nav-item">
