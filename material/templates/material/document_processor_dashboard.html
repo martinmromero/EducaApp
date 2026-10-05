@@ -10,6 +10,24 @@
 <script src="{% static 'js/page_tours/doc_processor_tour.js' %}"></script>
 {% endif %}
 <div class="container-fluid mt-2 mt-md-4" id="docProcessorPage">
+    {% if fw_active %}
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-3 py-2 mb-3 rounded"
+                 style="background:var(--edu-accent-soft-bg);border:1px solid var(--edu-accent-soft-border);">
+                <div class="d-flex align-items-center gap-2" style="font-size:.92rem">
+                    <i class="bi bi-magic text-primary"></i>
+                    <span class="fw-semibold">Asistente completo</span>
+                    <span class="text-muted">— Paso 6 de 7 · Preguntas{% if preselected_subject_name %} · Materia: <strong>{{ preselected_subject_name }}</strong>{% endif %}</span>
+                </div>
+                <a href="{% url 'material:full_wizard' %}?retomar=1" class="text-muted small text-decoration-none" id="fwBackLink">
+                    <i class="bi bi-arrow-left me-1"></i>Volver al asistente
+                </a>
+            </div>
+            <div id="fwSaveCta" class="alert alert-success d-none d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3"></div>
+        </div>
+    </div>
+    {% endif %}
     {% if wizard_active %}
     <div class="row">
         <div class="col-12">
@@ -399,11 +417,11 @@
 
                 <!-- ── Paso 1: Materias ───────────────────────────────── -->
                 <h6 class="fw-bold mb-1"><i class="bi bi-book-half text-primary"></i> Materia(s)</h6>
-                <p class="text-muted small mb-2">Buscar por nombre una o más materias a las que asignar las preguntas:</p>
+                <p class="text-muted small mb-2" id="spSubjectHint">Buscar por nombre una o más materias a las que asignar las preguntas:</p>
 
                 <div id="spSubjectChips" class="d-flex flex-wrap gap-2 mb-2"></div>
 
-                <div class="position-relative">
+                <div class="position-relative" id="spSubjectSearchWrap">
                     <input type="text" class="form-control" id="spSubjectSearchInput"
                            placeholder="Escribir el nombre de una materia...">
                     <div id="spSubjectSuggest" class="list-group position-absolute w-100 shadow-sm" style="z-index:2000; display:none; max-height:260px; overflow-y:auto;"></div>
@@ -729,6 +747,9 @@
 
 <script>
 const WIZARD_ACTIVE = {{ wizard_active|yesno:"true,false" }};
+// Asistente completo (ver view): al guardar vuelve a /asistente-completo/.
+const FW_ACTIVE = {{ fw_active|yesno:"true,false" }};
+const FW_RETURN_URL = "{% url 'material:full_wizard' %}?retomar=1";
 
 // Colapsa la card de "Subir Documento" a una barra compacta una vez que ya
 // hay un resultado para mostrar (ver comentario en el HTML de uploadFormCol)
@@ -2419,6 +2440,20 @@ function _spRenderChips() {
     });
 }
 
+// Asistente completo: las preguntas se guardan en la materia que ya eligió el
+// asistente, no en cualquier otra — si no, el paso Examen no encontraría
+// nada para armar. Sin materia en el asistente (se salteó), el buscador
+// queda abierto y la elegida se la lleva de vuelta al asistente.
+function _fwLockSubjectPicker() {
+    const locked = FW_ACTIVE && !!'{{ preselected_subject_id }}' && _spContainer().querySelector('.subject-picker-cb') !== null;
+    document.getElementById('spSubjectSearchWrap').classList.toggle('d-none', locked);
+    document.getElementById('spSubjectNoMatch').classList.toggle('d-none', locked);
+    document.getElementById('spSubjectHint').textContent = locked
+        ? 'Las preguntas se guardan en la materia del asistente:'
+        : 'Buscar por nombre una o más materias a las que asignar las preguntas:';
+    document.querySelectorAll('#spSubjectChips .btn-close').forEach(function (b) { b.classList.toggle('d-none', locked); });
+}
+
 // Reconstruye el contenedor desde cero (usado al abrir el modal), sin
 // disparar carga de tópicos todavía — eso lo hace _initSubjectPicker justo
 // después, una sola vez.
@@ -2693,6 +2728,7 @@ async function saveGeneratedQuestions() {
 
         // ── Inicializar estado del picker ────────────────────────────────
         _initSubjectPicker();
+        _fwLockSubjectPicker();
 
         document.getElementById('confirmSaveWithSubjectsBtn').onclick = async function() {
             const subjectIds = Array.from(
@@ -2852,6 +2888,20 @@ async function doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, ne
                 if (sid) backUrl += '&subject_id=' + encodeURIComponent(sid);
                 window.location.href = backUrl;
             }, 1300);
+            {% elif fw_active %}
+            // Asistente completo: se avisa y se vuelve solo al asistente (que
+            // sigue en el paso Preguntas, con "Continuar" ya habilitado). Se
+            // le pasa la materia usada por si el asistente no tenía ninguna.
+            const fwCta = document.getElementById('fwSaveCta');
+            fwCta.innerHTML = '<span><i class="bi bi-check-circle-fill"></i> ' + data.saved_count +
+                ' pregunta(s) guardada(s). Volviendo al asistente…</span>' +
+                '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Cargando…</span></div>';
+            fwCta.classList.remove('d-none');
+            fwCta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            const fwSubjectCb = document.querySelector('.subject-picker-cb[value="' + subjectIds[0] + '"]');
+            const fwBackUrl = FW_RETURN_URL + '&materia_id=' + encodeURIComponent(subjectIds[0]) +
+                '&materia_nombre=' + encodeURIComponent((fwSubjectCb && fwSubjectCb.dataset.name) || '');
+            setTimeout(function () { window.location.href = fwBackUrl; }, 1300);
             {% else %}
             showSaveResultModal(true, '¡Listo!', `${data.saved_count} pregunta(s) guardada(s) correctamente.`);
             {% endif %}

@@ -387,6 +387,13 @@ def document_processor_dashboard(request):
         request.session.pop('onb2_wizard_active', None)
     wizard_active = request.session.get('onb2_wizard_active', False)
 
+    # ASISTENTE COMPLETO (/asistente-completo/, paso Preguntas): ?fw=1 deja la
+    # pantalla normal (con su subida de documento) pero con un banner de
+    # "seguís en el asistente" y, al guardar las preguntas, vuelve solo al
+    # asistente — ver FW_ACTIVE en el template. No es wizard_active (ese es
+    # el asistente de configuración inicial, con otro flujo y otra sesión).
+    fw_active = request.GET.get('fw') == '1'
+
     preselected_subject_id = request.GET.get('subject_id', '')
     preselected_subject_name = ''
     if preselected_subject_id.isdigit():
@@ -412,6 +419,7 @@ def document_processor_dashboard(request):
         'preselected_subject_id': preselected_subject_id,
         'preselected_subject_name': preselected_subject_name,
         'wizard_active': wizard_active,
+        'fw_active': fw_active,
         'using_shared_fallback': using_shared_fallback,
         'demo_quota': demo_quota,
         'demo_quota_low_tokens': demo_quota_low_tokens,
