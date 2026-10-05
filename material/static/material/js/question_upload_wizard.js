@@ -31,6 +31,10 @@
 //                 su "¿ya hay preguntas?" sin esperar al botón final.
 //   navLinksHtml  HTML (del host, no de usuarios) para el centro de la barra
 //                 inferior.
+//   onExit        function() — si se pasa, "Atrás" también se muestra en el
+//                 primer paso y llama a esto (el host vuelve a lo que había
+//                 antes de abrir el asistente). Así el host puede ocultar su
+//                 propia barra inferior y quedar un solo "Atrás".
 //
 // Devuelve {goTo(id), getState(), setSubject({id,name})}.
 window.EducaAppQuestionUpload = (function () {
@@ -173,6 +177,7 @@ window.EducaAppQuestionUpload = (function () {
             var list = stepsList();
             var i = indexOfStep(current);
             if (i > 0) goTo(list[i - 1].id);
+            else if (options.onExit) options.onExit();
         }
 
         // Barra inferior: un solo botón de acción cuyo texto/estado/handler
@@ -193,7 +198,7 @@ window.EducaAppQuestionUpload = (function () {
         function configureNav() {
             var nav = $('nav');
             nav.classList.toggle('is-hidden', current === 'done');
-            $('back').style.visibility = indexOfStep(current) > 0 ? 'visible' : 'hidden';
+            $('back').style.visibility = (indexOfStep(current) > 0 || options.onExit) ? 'visible' : 'hidden';
             if (current === 'subject') setAction('Siguiente', !!STATE.subject, next);
             else if (current === 'mode') setAction(STATE.mode ? 'Siguiente' : '', !!STATE.mode, next);
             else if (current === 'question') setAction('Siguiente', true, function () { if (validateQuestion()) next(); });

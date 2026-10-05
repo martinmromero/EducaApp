@@ -25,6 +25,9 @@
         // "Continuar" (había algo cargado) — solo para el ícono de la
         // pastilla, el motor del stepper no distingue hecho de salteado.
         questionsSkipped: false,
+        // Último paso visible: permite volver exactamente ahí tras salir a
+        // otra pantalla (el generador con IA) y regresar con ?retomar=1.
+        currentStep: 1,
     };
 
     // Asignados en DOMContentLoaded, leídos por configureBottomAction() —
@@ -509,6 +512,10 @@
         var box = document.getElementById('fwQEmbed');
         if (hub) hub.classList.toggle('d-none', showEmbed);
         if (box) box.classList.toggle('d-none', !showEmbed);
+        // El asistente embebido trae su propia barra (Atrás / Siguiente):
+        // con la del host a la vista quedaban dos "Atrás" apilados.
+        var hostNav = document.querySelector('.wiz-nav');
+        if (hostNav) hostNav.classList.toggle('d-none', showEmbed);
     }
 
     function setQuestionsView(showEmbed) {
@@ -532,6 +539,10 @@
             lockSubject: !!sid,
             draftKey: 'full_wizard_uqw_draft_v1',
             finishLabel: 'Continuar',
+            // "Atrás" en el primer paso del embebido vuelve a las dos
+            // tarjetas; los enlaces de la barra del host viajan con él.
+            onExit: function () { setQuestionsView(false); },
+            navLinksHtml: hostNavLinksHtml(),
             onCreated: function (r) {
                 STATE.questionsSkipped = false;
                 // Si se salteó la Materia, la que se eligió/creó acá pasa a
@@ -550,6 +561,11 @@
         });
         embed.mounted = true;
         embed.mountedFor = sid;
+    }
+
+    function hostNavLinksHtml() {
+        var links = document.querySelector('.fw-nav-links');
+        return links ? '<div class="fw-nav-links">' + links.innerHTML + '</div>' : '';
     }
 
     function openQuestionsEmbed() {
@@ -625,8 +641,14 @@
         if (msg && !currentSubjectId()) {
             msg.textContent = 'No se eligió ninguna Materia en este recorrido — al cargar o generar preguntas, hay que elegir o crear una materia en esa misma pantalla.';
         }
+        // Misma pestaña (no una nueva): el generador con IA es una pantalla
+        // completa que vuelve sola al asistente al guardar (?fw=1), y el
+        // progreso queda en el borrador de sessionStorage hasta entonces.
         var genLink = document.getElementById('fwQGenLink');
-        if (genLink) genLink.href = CFG.urls.docProcessor;
+        if (genLink) {
+            var sid = currentSubjectId();
+            genLink.href = CFG.urls.docProcessor + '?fw=1' + (sid ? '&subject_id=' + encodeURIComponent(sid) : '');
+        }
     }
 
     // Precarga institución/facultad/carrera/materia/RA ya resueltos en el
@@ -678,10 +700,10 @@
             embed.root = embedRoot;
             embed.pristine = embedRoot.cloneNode(true);
         }
+        var genLinkEl = document.getElementById('fwQGenLink');
+        if (genLinkEl) genLinkEl.addEventListener('click', function () { STATE.currentStep = 6; saveDraft(); });
         var manualBtn = document.getElementById('fwQManualBtn');
         if (manualBtn) manualBtn.addEventListener('click', openQuestionsEmbed);
-        var embedBack = document.getElementById('fwQEmbedBack');
-        if (embedBack) embedBack.addEventListener('click', function () { setQuestionsView(false); });
 
         wizardCtrl = window.EducaAppWizard.init({
             totalSteps: 7,
@@ -695,9 +717,14 @@
         // reconfigura el botón inferior compartido para el paso actual.
         var ORIGINAL_NEXT = wizardCtrl.goNext;
         function onEnterStep(n) {
+            // Entrar a cualquier paso (también por una pastilla del stepper)
+            // cierra el asistente de preguntas embebido y repone la barra del host.
+            applyQuestionsView(false);
+            STATE.currentStep = n;
+            saveDraft();
             if (n >= 1 && n <= 4) catalogHandlersRef[n - 1].onEnter();
             else if (n === 5) outcomesHandlerRef.onEnter();
-            else if (n === 6) { refreshQuestionsLinks(); applyQuestionsView(false); }
+            else if (n === 6) refreshQuestionsLinks();
             configureBottomAction(n);
             refreshPills();
         }
@@ -726,14 +753,17 @@
 
         // Restaurar borrador (sessionStorage) si lo hay — solo el estado ya
         // resuelto de esta pestaña, no reemplaza lo persistido en la base.
-        function restoreFromDraft(saved) {
+        function restoreFromDraft(saved, extra) {
             Object.assign(STATE, saved);
+            // Materia elegida en el generador con IA cuando el asistente no
+            // tenía ninguna: se adopta antes de llegar al paso Preguntas.
+            if (extra && extra.materia) STATE.materia = extra.materia;
             renderBreadcrumb();
             var lastResolvedStep = 0;
             ['institucion', 'facultad', 'carrera', 'materia'].forEach(function (key, idx) {
                 if (STATE[key] !== null) lastResolvedStep = idx + 1;
             });
-            var target = Math.min(lastResolvedStep + 1, 7);
+            var target = Math.min(saved.currentStep || (lastResolvedStep + 1), 7);
             for (var i = 1; i < target; i++) { wizardCtrl.goNext(); }
         }
 
@@ -742,6 +772,24 @@
         window.addEventListener('focus', function () {
             if (wizardCtrl.current() === 6 && !embed.active) configureBottomAction(6);
         });
+
+        // Vuelta desde el generador con IA (?retomar=1): se retoma sin
+        // preguntar, justo donde se había salido.
+        var urlParams = new URLSearchParams(window.location.search);
+        if (draft && urlParams.get('retomar') === '1') {
+            var back = draft.load();
+            if (back) {
+                var mid = urlParams.get('materia_id');
+                var extra = null;
+                if (mid && /^\d+$/.test(mid) && !(back.materia && !back.materia.skipped)) {
+                    extra = { materia: { id: parseInt(mid, 10), name: urlParams.get('materia_nombre') || 'Materia', skipped: false } };
+                }
+                restoreFromDraft(back, extra);
+                saveDraft();
+                window.history.replaceState(null, '', window.location.pathname);
+                return;
+            }
+        }
 
         if (draft) {
             var saved = draft.load();

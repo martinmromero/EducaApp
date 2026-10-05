@@ -939,6 +939,22 @@ class FullWizardSaveStepTests(TestCase):
         self.assertIn('id="fwQEmbed"', html)
         self.assertIn('value="opcion_multiple"', html)
 
+    def test_generador_ia_en_modo_asistente_vuelve_al_asistente(self):
+        """?fw=1 en el generador con IA: banner con "Volver al asistente",
+        retorno automático al guardar y materia preseleccionada (la del
+        asistente); sin ?fw=1 nada de eso aparece."""
+        from material.models import Subject
+        materia = Subject.objects.create(name='Materia FW IA', created_by=self.user, es_catalogo_institucional=False)
+        url = reverse('material:document_processor_dashboard')
+        html = self.client.get(url, {'fw': '1', 'subject_id': materia.pk}).content.decode()
+        self.assertIn('id="fwSaveCta"', html)
+        self.assertIn('const FW_ACTIVE = true;', html)
+        self.assertIn(reverse('material:full_wizard') + '?retomar=1', html)
+        self.assertIn('Materia FW IA', html)
+        plain = self.client.get(url).content.decode()
+        self.assertNotIn('id="fwSaveCta"', plain)
+        self.assertIn('const FW_ACTIVE = false;', plain)
+
     def test_saltear_no_llama_al_motor_y_devuelve_skipped(self):
         resp = self._post({'step': 'institucion', 'action': 'saltear'})
         self.assertEqual(resp.status_code, 200)
