@@ -518,6 +518,23 @@
         if (hostNav) hostNav.classList.toggle('d-none', showEmbed);
     }
 
+    // Cuántas preguntas puede usar Crear examen en la materia elegida
+    // (full_wizard_subject_progress): se muestra en el paso Preguntas, en la
+    // pantalla final del asistente embebido y en el resumen del paso Examen.
+    function fetchProgress(sid) {
+        var params = new URLSearchParams({ subject_id: sid });
+        return fetch(CFG.urls.subjectProgress + '?' + params.toString()).then(function (r) { return r.json(); });
+    }
+
+    function questionCountText(data) {
+        var n = data.question_count || 0;
+        if (!n) return 'Esta materia todavía no tiene preguntas disponibles para armar un examen.';
+        var own = data.own_question_count || 0;
+        var txt = 'Esta materia tiene ' + n + (n === 1 ? ' pregunta disponible' : ' preguntas disponibles') + ' para armar un examen';
+        if (own !== n) txt += ' (' + own + (own === 1 ? ' propia' : ' propias') + ', el resto compartidas por tus grupos)';
+        return txt + '.';
+    }
+
     function setQuestionsView(showEmbed) {
         applyQuestionsView(showEmbed);
         configureBottomAction(6);
@@ -538,7 +555,13 @@
             subject: sid ? { id: sid, name: STATE.materia.name } : undefined,
             lockSubject: !!sid,
             draftKey: 'full_wizard_uqw_draft_v1',
-            finishLabel: 'Continuar',
+            finishLabel: 'Continuar con el examen',
+            // Pantalla final del asistente embebido: cuántas preguntas quedan
+            // disponibles en la materia después de cargar.
+            doneNote: function (r) {
+                if (!r.subject) return null;
+                return fetchProgress(r.subject.id).then(questionCountText);
+            },
             // "Atrás" en el primer paso del embebido vuelve a las dos
             // tarjetas; los enlaces de la barra del host viajan con él.
             onExit: function () { setQuestionsView(false); },
@@ -588,7 +611,7 @@
 
     function configureQuestionsBottomAction() {
         var status = document.getElementById('fwQStatus');
-        if (status) status.classList.add('d-none');
+        if (status) { status.classList.add('d-none'); status.textContent = ''; }
         if (embed.active) {
             if (nextBtn) nextBtn.classList.add('d-none');
             return;
@@ -596,14 +619,17 @@
         setNextButton('Saltear', requestSkipQuestions);
         var sid = currentSubjectId();
         if (!sid) return;
-        var params = new URLSearchParams({ subject_id: sid });
-        fetch(CFG.urls.subjectProgress + '?' + params.toString())
-            .then(function (r) { return r.json(); })
+        fetchProgress(sid)
             .then(function (data) {
                 // La respuesta puede llegar tarde: si en el medio se cambió
                 // de paso o se abrió el asistente embebido, no se pisa nada.
-                if (!data.has_question || embed.active || wizardCtrl.current() !== 6) return;
-                if (status) status.classList.remove('d-none');
+                if (embed.active || wizardCtrl.current() !== 6) return;
+                var n = data.question_count || 0;
+                if (status) {
+                    status.textContent = questionCountText(data);
+                    status.className = 'alert py-2 ' + (n ? 'alert-success' : 'alert-warning');
+                }
+                if (!n) return;
                 setNextButton('Continuar', function () {
                     STATE.questionsSkipped = false;
                     saveDraft();
@@ -686,8 +712,21 @@
             rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">' + LABELS[key] + '</span><span>' + window.EducaAppEscape(valor) + '</span></div>');
         });
         rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">Resultados de aprendizaje</span><span>' + STATE.outcomes.length + '</span></div>');
-        rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">Preguntas</span><span>' + (STATE.questionsSkipped ? 'salteado' : 'listas') + '</span></div>');
+        rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">Preguntas disponibles</span><span id="wizSummaryQuestions">' + (currentSubjectId() ? '…' : '—') + '</span></div>');
         el.innerHTML = rows.join('');
+        var sid = currentSubjectId();
+        if (sid) {
+            fetchProgress(sid).then(function (data) {
+                var cell = document.getElementById('wizSummaryQuestions');
+                if (!cell) return;
+                var n = data.question_count || 0;
+                cell.textContent = n ? String(n) : '0 — no hay preguntas para elegir en el examen';
+                cell.className = n ? '' : 'text-danger';
+            }).catch(function () {
+                var cell = document.getElementById('wizSummaryQuestions');
+                if (cell) cell.textContent = '—';
+            });
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function () {

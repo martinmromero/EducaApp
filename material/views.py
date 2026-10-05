@@ -9751,15 +9751,28 @@ def full_wizard_subject_progress(request):
     algo en esa materia)."""
     subject_id = request.GET.get('subject_id', '')
     if not subject_id.isdigit():
-        return JsonResponse({'has_contenido': False, 'has_question': False})
-    from .content_visibility import EXAM_ELIGIBLE_Q
+        return JsonResponse({'has_contenido': False, 'has_question': False, 'question_count': 0, 'own_question_count': 0})
+    from .content_visibility import EXAM_ELIGIBLE_Q, get_visible_questions, get_visible_subjects
     has_contenido = Contenido.objects.filter(
         uploaded_by=request.user, subjects__id=int(subject_id)
     ).exists()
     has_question = Question.objects.filter(
         EXAM_ELIGIBLE_Q, user=request.user, subjects__id=int(subject_id)
     ).distinct().exists()
-    return JsonResponse({'has_contenido': has_contenido, 'has_question': has_question})
+    # Preguntas que Crear examen puede usar en esa materia (propias + las
+    # compartidas por grupos de confianza, mismo pool que get_visible_questions).
+    # Solo de una materia visible para el usuario: no se filtra el conteo de
+    # una materia ajena por adivinar el id.
+    question_count = own_question_count = 0
+    subject = get_visible_subjects(request.user).filter(pk=int(subject_id)).first()
+    if subject is not None:
+        usable = get_visible_questions(request.user, subject=subject).filter(EXAM_ELIGIBLE_Q)
+        question_count = usable.count()
+        own_question_count = usable.filter(user=request.user).count()
+    return JsonResponse({
+        'has_contenido': has_contenido, 'has_question': has_question,
+        'question_count': question_count, 'own_question_count': own_question_count,
+    })
 
 
 def _normalizar_para_busqueda(texto):

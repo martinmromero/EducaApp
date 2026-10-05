@@ -31,6 +31,9 @@
 //                 su "¿ya hay preguntas?" sin esperar al botón final.
 //   navLinksHtml  HTML (del host, no de usuarios) para el centro de la barra
 //                 inferior.
+//   doneNote      function(resultado) -> Promise<string|null>: texto extra
+//                 para la pantalla final (ej. "la materia ya tiene N
+//                 preguntas"). Lo arma el host; acá solo se muestra.
 //   onExit        function() — si se pasa, "Atrás" también se muestra en el
 //                 primer paso y llama a esto (el host vuelve a lo que había
 //                 antes de abrir el asistente). Así el host puede ocultar su
@@ -751,6 +754,16 @@ window.EducaAppQuestionUpload = (function () {
             }
             $('done-again').textContent = r.kind === 'single' ? 'Cargar otra pregunta' : 'Cargar otro archivo';
             $('done-finish').textContent = options.finishLabel || 'Terminar';
+            var note = $('done-note');
+            if (note) {
+                note.style.display = 'none';
+                note.textContent = '';
+                if (options.doneNote) {
+                    Promise.resolve(options.doneNote(r)).then(function (text) {
+                        if (text && current === 'done') { note.textContent = text; note.style.display = ''; }
+                    }).catch(function () {});
+                }
+            }
             goTo('done');
         }
 

@@ -955,6 +955,28 @@ class FullWizardSaveStepTests(TestCase):
         self.assertNotIn('id="fwSaveCta"', plain)
         self.assertIn('const FW_ACTIVE = false;', plain)
 
+    def test_progreso_de_materia_cuenta_preguntas_utilizables(self):
+        """full_wizard_subject_progress informa cuántas preguntas puede usar
+        Crear examen en la materia (las generadas por IA sin aprobar no
+        cuentan) y no revela el conteo de una materia que el usuario no ve."""
+        from material.models import Subject, Question
+        materia = Subject.objects.create(name='Materia Conteo FW', created_by=self.user, es_catalogo_institucional=False)
+        for texto, ia, aprobada in (('a', False, False), ('b', True, True), ('c', True, False)):
+            q = Question.objects.create(user=self.user, question_text=texto, answer_text='r',
+                                        generated_by_ai=ia, ai_approved=aprobada)
+            q.subjects.add(materia)
+        url = reverse('material:full_wizard_subject_progress')
+        data = self.client.get(url, {'subject_id': materia.pk}).json()
+        self.assertEqual(data['question_count'], 2)
+        self.assertEqual(data['own_question_count'], 2)
+        self.assertTrue(data['has_question'])
+        ajena = Subject.objects.create(name='Materia Ajena FW', created_by=self.otro, es_catalogo_institucional=False)
+        qa = Question.objects.create(user=self.otro, question_text='z', answer_text='r')
+        qa.subjects.add(ajena)
+        data = self.client.get(url, {'subject_id': ajena.pk}).json()
+        self.assertEqual(data['question_count'], 0)
+        self.assertEqual(self.client.get(url).json()['question_count'], 0)
+
     def test_saltear_no_llama_al_motor_y_devuelve_skipped(self):
         resp = self._post({'step': 'institucion', 'action': 'saltear'})
         self.assertEqual(resp.status_code, 200)
