@@ -102,6 +102,7 @@ ITEMS = [
     (10, "Mi Espacio Académico", "En el Asistente completo, elegir una institución con facultades ya cargadas y confirmar que el paso siguiente las muestra de entrada (sin tener que tipear para buscar)", "full_wizard", False, 3),
     (10, "Mi Espacio Académico", "En el Asistente completo, saltear algún paso (por ejemplo Resultados de aprendizaje) y confirmar que el asistente sigue avanzando en vez de terminar", "full_wizard", False, 3),
     (10, "Mi Espacio Académico", "En el Asistente completo, paso Preguntas: elegir \"Cargar a mano\", guardar una pregunta con el asistente que se abre ahí mismo y confirmar que al terminar sigue al paso Examen (y que \"Elegir otra opción\" vuelve a las dos tarjetas)", "full_wizard", False, 3),
+    (10, "Mi Espacio Académico", "En el Asistente completo, paso Examen: confirmar que el asistente de examen se abre ahí mismo con materia, institución, facultad, carrera y resultados de aprendizaje ya cargados, armar el examen, ver la vista previa, guardarlo y comprobar que nunca se sale del Asistente completo", "full_wizard", False, 3),
 
     (11, "Grupos de Confianza", "Crear un grupo", "grupo_crear", False, 3),
     (11, "Grupos de Confianza", "Invitar a otro tester (usuario/email real)", "grupos_list", False, 3),

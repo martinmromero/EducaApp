@@ -327,6 +327,11 @@
       .then(function (data) {
         btn.disabled = false;
         if (data.success) {
+          // Dentro del Asistente completo (<iframe>): el host muestra su
+          // propia pantalla final, no este modal ni la redirección.
+          if (window.EducaAppEmbed && window.EducaAppEmbed.notify('educaapp:exam-saved', {
+            message: data.message, createdExamIds: data.created_exam_ids, viewUrl: data.view_url, listUrl: data.redirect_url,
+          })) return;
           if (data.redirect_url) postSaveRedirectUrl = data.redirect_url;
           document.getElementById('examVersionsSavedModalMessage').textContent = data.message || 'El examen se guardó correctamente.';
           getSavedModal().show();

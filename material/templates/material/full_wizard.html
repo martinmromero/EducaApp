@@ -11,7 +11,7 @@
 <div class="wiz-wrap">
     <p class="text-muted mb-3">
         Institución, facultad, carrera, materia, resultados de aprendizaje, preguntas y examen — todo en un
-        recorrido. En cada paso se puede usar algo ya cargado, crear algo nuevo, o saltear el paso. Lo que se crea acá
+        recorrido, sin salir de acá. En cada paso se puede usar algo ya cargado, crear algo nuevo, o saltear el paso. Lo que se crea acá
         queda usable de inmediato en el espacio personal; un administrador decide después si lo suma al catálogo
         institucional.
     </p>
@@ -84,19 +84,43 @@
         </div>
     </div>
 
-    <!-- PASO 7: Examen (resumen final) -->
+    <!-- PASO 7: Examen. Monta el asistente "Nuevo examen" (y su vista previa y
+         guardado) en un <iframe> same-origin con lo ya elegido acá precargado:
+         ver full_wizard.js (mountExamFrame) y create_exam_wizard.js (fw=1). -->
     <div class="wiz-step" data-step="7">
-        <div class="wiz-step-card">
-            <h4>Examen</h4>
-            <p class="wiz-step-intro">
-                Con lo cargado en este recorrido, ya se puede armar un examen — institución, facultad, carrera, materia
-                y resultados de aprendizaje ya elegidos acá van a aparecer precargados en el formulario.
-            </p>
-            <div class="wiz-summary" id="wizSummary"></div>
-            <div class="d-flex justify-content-end mt-3">
-                <button type="button" id="fwStep7Btn" class="btn btn-primary">
-                    <i class="bi bi-file-earmark-check me-1"></i>Crear examen
+        <div class="wiz-step-card fw-exam-card">
+            <!-- Sin preguntas disponibles en la materia: no tiene sentido abrir
+                 el asistente de examen (su paso de preguntas quedaría vacío). -->
+            <div id="fwExamBlocked" class="d-none">
+                <h4>Examen</h4>
+                <div class="alert alert-warning mb-3" id="fwExamBlockedMsg"></div>
+                <button type="button" class="btn btn-primary" id="fwExamBlockedBtn">
+                    <i class="bi bi-arrow-left me-1"></i>Volver a Preguntas
                 </button>
+            </div>
+
+            <div id="fwExamStage" class="d-none">
+                <div class="fw-exam-loading" id="fwExamLoading">
+                    <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
+                    Preparando el examen con lo ya elegido…
+                </div>
+                <iframe id="fwExamFrame" name="educaapp-embed-exam" class="fw-exam-frame d-none"
+                        title="Asistente para armar el examen"></iframe>
+            </div>
+
+            <!-- Examen guardado -->
+            <div id="fwExamDone" class="d-none text-center py-3">
+                <div class="fw-exam-done-icon"><i class="bi bi-check-circle-fill"></i></div>
+                <h4 id="fwExamDoneTitle">Examen guardado</h4>
+                <p class="wiz-step-intro mb-3" id="fwExamDoneMsg"></p>
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    <a href="#" class="btn btn-primary" id="fwExamDoneView">
+                        <i class="bi bi-eye me-1"></i>Ver el examen
+                    </a>
+                    <button type="button" class="btn btn-outline-primary" id="fwExamDoneAnother">
+                        <i class="bi bi-plus-lg me-1"></i>Armar otro examen
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -130,7 +154,6 @@
 window.EducaAppFullWizardConfig = {
     urls: {
         saveStep: "{% url 'material:full_wizard_save_step' %}",
-        prefillExam: "{% url 'material:full_wizard_prefill_exam' %}",
         checkCatalogDuplicate: "{% url 'material:check_catalog_duplicate' %}",
         listInstituciones: "{% url 'material:get_visible_institutions_json' %}",
         facultadesByInstitucionBase: "/get_faculties_by_institution/",
@@ -139,7 +162,8 @@ window.EducaAppFullWizardConfig = {
         outcomesByCareerSubject: "{% url 'material:get_learning_outcomes_by_career_subject' %}",
         subjectProgress: "{% url 'material:full_wizard_subject_progress' %}",
         docProcessor: "{% url 'material:document_processor_dashboard' %}",
-        createExam: "{% url 'material:create_exam' %}",
+        createExamWizard: "{% url 'material:create_exam_wizard' %}",
+        misExamenes: "{% url 'material:mis_examenes' %}",
     }
 };
 </script>

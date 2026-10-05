@@ -191,6 +191,23 @@ body.offcanvas-open .sidebar-toggle-external {
     margin-right: 10px;
 }
 
+/* Pantalla dentro del <iframe> del Asistente completo (ver static/js/embed.js):
+   sin menú lateral, barra superior ni panel de testing — el host ya los tiene. */
+html.embed-mode #sidebar,
+html.embed-mode #sidebarOverlay,
+html.embed-mode #externalToggle,
+html.embed-mode .edu-topbar,
+html.embed-mode #testPanel,
+html.embed-mode #testPanelTab {
+    display: none !important;
+}
+html.embed-mode .main-content,
+html.embed-mode .main-content.test-panel-open {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 12px 4px !important;
+}
+
 /* Materias: CheckboxSelectMultiple en esta versión de Django renderiza un
    <div id="id_subjects"> con un <div> por cada checkbox+label adentro (no
    <ul>/<li>) — se convierte en una grilla de checks estilo Bootstrap con

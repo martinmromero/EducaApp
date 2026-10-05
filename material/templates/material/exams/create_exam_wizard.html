@@ -15,12 +15,14 @@
     <a href="{% url 'material:create_exam' %}?demo_peek=1" class="btn btn-sm btn-outline-primary text-nowrap">Ver como formulario clásico</a>
 </div>
 {% endif %}
-<div class="wiz-wrap">
+<div class="wiz-wrap{% if is_embedded %} is-embedded{% endif %}">
+    {% if not is_embedded %}
     <p class="text-muted mb-3">
         Un paso a la vez para armar un examen con material propio. Se puede volver atrás en cualquier momento;
         nada se guarda hasta llegar a "Ver vista previa" al final.
         {% if not is_demo_peek %}<a href="{% url 'material:create_exam' %}" class="ms-1">Usar la pantalla completa de siempre</a>{% endif %}
     </p>
+    {% endif %}
 
     <nav class="wiz-stepper" id="wizStepper" aria-label="Pasos del asistente">
         <div class="wiz-step-pill is-active" data-step-pill="1"><span class="wiz-step-num"><span>1</span></span><span class="wiz-step-label">Plantilla</span></div>
@@ -74,7 +76,7 @@
         <div class="wiz-step" data-step="2">
             <div class="wiz-step-card">
                 <h4>¿Qué materia se va a evaluar?</h4>
-                <p class="wiz-step-intro">Seleccionar la materia. Los resultados de aprendizaje (si la materia tiene) aparecen abajo.</p>
+                <p class="wiz-step-intro">{% if is_embedded and fw_subject_id %}La materia ya se eligió en el asistente completo. Acá se pueden ajustar los resultados de aprendizaje (si la materia tiene).{% else %}Seleccionar la materia. Los resultados de aprendizaje (si la materia tiene) aparecen abajo.{% endif %}</p>
                 <select class="form-select" name="subject" id="id_subject" required>
                     <option value="">Seleccionar materia</option>
                     {% for materia in materias %}
@@ -379,7 +381,7 @@
             <button type="button" class="btn btn-outline-secondary" id="wizBackBtn">
                 <i class="bi bi-arrow-left me-1"></i>Atrás
             </button>
-            <a href="{% url 'material:create_exam_wizard' %}?limpiar=1" class="text-muted small">Empezar de nuevo</a>
+            {% if is_embedded %}<span></span>{% else %}<a href="{% url 'material:create_exam_wizard' %}?limpiar=1" class="text-muted small">Empezar de nuevo</a>{% endif %}
             <button type="button" class="btn btn-primary" id="wizNextBtn">
                 Siguiente<i class="bi bi-arrow-right ms-1"></i>
             </button>
@@ -404,12 +406,16 @@ window.EducaAppWizardConfig = {
         getCatalogTreeForSubjectBase: "/get_catalog_tree_for_subject/"
     },
     isDemoPeek: {{ is_demo_peek|yesno:"true,false" }},
-    demoPrefill: {{ demo_prefill_json|json_embed }}
+    demoPrefill: {{ demo_prefill_json|json_embed }},
+    // Embebido en el Asistente completo (<iframe name="educaapp-embed-exam">):
+    // ver create_exam_wizard.js y full_wizard.js.
+    isEmbedded: {{ is_embedded|yesno:"true,false" }},
+    fwPrefill: {{ fw_prefill_json|json_embed }}
 };
 </script>
 <script src="{% static 'material/js/wizard_engine.js' %}"></script>
 <script src="{% static 'material/js/wizard_catalog_search.js' %}"></script>
 <script src="{% static 'material/js/wizard_draft.js' %}"></script>
 <script src="{% static 'material/js/create_exam_wizard.js' %}"></script>
-<script src="{% static 'js/page_tours/create_exam_wizard_tour.js' %}"></script>
+{% if not is_embedded %}<script src="{% static 'js/page_tours/create_exam_wizard_tour.js' %}"></script>{% endif %}
 {% endblock %}

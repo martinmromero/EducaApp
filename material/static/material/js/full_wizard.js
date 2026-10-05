@@ -1,5 +1,6 @@
 // full_wizard.js — Asistente completo (institución -> facultad -> carrera ->
-// materia -> resultados de aprendizaje -> preguntas -> examen).
+// materia -> resultados de aprendizaje -> preguntas -> examen). El paso Examen
+// monta el asistente "Nuevo examen" en un <iframe> (ver mountExamFrame).
 // A diferencia de los otros 4 wizards (Examen/Oral/Plantilla/Institución),
 // cada paso persiste de inmediato contra el servidor (full_wizard_save_step,
 // mismo motor que Solicitar Alta) en vez de juntar todo para un submit final
@@ -123,6 +124,10 @@
                 pill.removeAttribute('title');
             }
         });
+        // El último paso nunca queda "pasado" para el motor del stepper: con el
+        // examen ya guardado se marca hecho a mano.
+        var last = document.querySelector('.wiz-step-pill[data-step-pill="7"]');
+        if (last) last.classList.toggle('is-done', !!(exam && exam.saved));
     }
 
     // ---- Pasos 1-4: Institución / Facultad / Carrera / Materia ----------
@@ -531,7 +536,7 @@
         if (!n) return 'Esta materia todavía no tiene preguntas disponibles para armar un examen.';
         var own = data.own_question_count || 0;
         var txt = 'Esta materia tiene ' + n + (n === 1 ? ' pregunta disponible' : ' preguntas disponibles') + ' para armar un examen';
-        if (own !== n) txt += ' (' + own + (own === 1 ? ' propia' : ' propias') + ', el resto compartidas por tus grupos)';
+        if (own !== n) txt += ' (' + own + (own === 1 ? ' propia' : ' propias') + ', el resto compartidas por grupos de confianza)';
         return txt + '.';
     }
 
@@ -677,62 +682,125 @@
         }
     }
 
-    // Precarga institución/facultad/carrera/materia/RA ya resueltos en el
-    // wizard antes de abrir Crear Examen (ver full_wizard_prefill_exam) —
-    // sin esto, "Crear examen" abría un formulario en blanco que obligaba a
-    // repetir todo lo ya elegido acá (pedido explícito del usuario).
-    var examBtnWired = false;
-    function wireExamButton() {
-        var btn = document.getElementById('fwStep7Btn');
-        if (!btn || examBtnWired) return;
-        examBtnWired = true;
-        btn.addEventListener('click', function () {
-            btn.disabled = true;
-            var payload = Object.assign(
-                { outcome_ids: STATE.outcomes.map(function (o) { return o.id; }) },
-                contextPayload()
-            );
-            fetch(CFG.urls.prefillExam, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-                body: JSON.stringify(payload),
-            })
-                .then(function () { window.location.href = CFG.urls.createExam; })
-                .catch(function () { window.location.href = CFG.urls.createExam; });
-        });
+    // ---- Paso 7: Examen ----------------------------------------------------
+    // Monta el asistente "Nuevo examen" (create_exam_wizard, modo ?fw=1) en un
+    // <iframe> same-origin, para que todo el recorrido — incluida la vista
+    // previa y el guardado, que son pantallas aparte — ocurra sin salir de
+    // este asistente. Lo ya elegido acá viaja por query string y el asistente
+    // de examen lo precarga y saltea los pasos que ya no tienen nada que
+    // decidir (ver applyFwPrefill en create_exam_wizard.js). El iframe se
+    // llama "educaapp-embed-exam": es lo que activa el modo sin menú
+    // (static/js/embed.js) y los avisos por postMessage de abajo.
+    var EXAM_DRAFT_KEY = 'educaapp_exam_wizard_draft_fw';
+    var exam = { url: null, saved: false };
+
+    function examEl(id) { return document.getElementById(id); }
+
+    function clearExamDraft() {
+        try { sessionStorage.removeItem(EXAM_DRAFT_KEY); } catch (e) { /* sin sessionStorage */ }
     }
 
-    function renderSummary() {
-        var el = document.getElementById('wizSummary');
-        if (!el) return;
-        var rows = [];
-        ['institucion', 'facultad', 'carrera', 'materia'].forEach(function (key) {
-            var v = STATE[key];
-            var valor = v === null ? '—' : (v.skipped ? 'salteado' : v.name);
-            rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">' + LABELS[key] + '</span><span>' + window.EducaAppEscape(valor) + '</span></div>');
-        });
-        rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">Resultados de aprendizaje</span><span>' + STATE.outcomes.length + '</span></div>');
-        rows.push('<div class="d-flex justify-content-between border-bottom py-1"><span class="text-muted">Preguntas disponibles</span><span id="wizSummaryQuestions">' + (currentSubjectId() ? '…' : '—') + '</span></div>');
-        el.innerHTML = rows.join('');
+    // 'blocked' | 'stage' | 'done'. Con el asistente de examen abierto
+    // ('stage') la barra inferior del host se oculta: el iframe trae la suya
+    // (mismo criterio que el asistente de preguntas embebido en el paso 6).
+    function showExamPanel(which) {
+        examEl('fwExamBlocked').classList.toggle('d-none', which !== 'blocked');
+        examEl('fwExamStage').classList.toggle('d-none', which !== 'stage');
+        examEl('fwExamDone').classList.toggle('d-none', which !== 'done');
+        var hostNav = document.querySelector('.wiz-nav');
+        if (hostNav) hostNav.classList.toggle('d-none', which === 'stage');
+    }
+
+    function examFrameUrl() {
+        var params = new URLSearchParams({ fw: '1' });
+        var ctx = contextPayload();
+        if (ctx.materia_id) params.set('subject_id', ctx.materia_id);
+        if (ctx.institucion_id) params.set('institucion_id', ctx.institucion_id);
+        if (ctx.facultad_id) params.set('facultad_id', ctx.facultad_id);
+        if (ctx.carrera_id) params.set('carrera_id', ctx.carrera_id);
+        if (STATE.outcomes.length) params.set('outcome_ids', STATE.outcomes.map(function (o) { return o.id; }).join(','));
+        return CFG.urls.createExamWizard + '?' + params.toString();
+    }
+
+    function mountExamFrame() {
+        showExamPanel('stage');
+        var url = examFrameUrl();
+        // Misma materia/elecciones que la última vez (ej. se salió a Preguntas
+        // y se volvió): no se recarga, así no se pierde lo ya armado.
+        if (exam.url === url) return;
+        // Cambió algo de lo elegido antes: el borrador del asistente de examen
+        // (otra materia, otros resultados de aprendizaje) ya no sirve.
+        clearExamDraft();
+        exam.url = url;
+        examEl('fwExamLoading').classList.remove('d-none');
+        examEl('fwExamFrame').classList.add('d-none');
+        examEl('fwExamFrame').src = url;
+    }
+
+    function enterExamStep() {
+        if (exam.saved) { showExamPanel('done'); return; }
         var sid = currentSubjectId();
-        if (sid) {
-            fetchProgress(sid).then(function (data) {
-                var cell = document.getElementById('wizSummaryQuestions');
-                if (!cell) return;
-                var n = data.question_count || 0;
-                cell.textContent = n ? String(n) : '0 — no hay preguntas para elegir en el examen';
-                cell.className = n ? '' : 'text-danger';
-            }).catch(function () {
-                var cell = document.getElementById('wizSummaryQuestions');
-                if (cell) cell.textContent = '—';
-            });
-        }
+        if (!sid) { mountExamFrame(); return; }
+        fetchProgress(sid)
+            .then(function (data) {
+                if (wizardCtrl.current() !== 7) return;
+                if (!(data.question_count > 0)) {
+                    examEl('fwExamBlockedMsg').textContent = questionCountText(data) + ' Hace falta al menos una: se pueden cargar o generar en el paso anterior.';
+                    showExamPanel('blocked');
+                    return;
+                }
+                mountExamFrame();
+            })
+            .catch(function () { if (wizardCtrl.current() === 7) mountExamFrame(); });
+    }
+
+    function onExamSaved(d) {
+        exam.saved = true;
+        clearExamDraft();
+        // El recorrido terminó: no tiene sentido ofrecer "retomarlo" después.
+        if (draft) draft.clear();
+        examEl('fwExamDoneMsg').textContent = d.message || 'El examen se guardó correctamente.';
+        examEl('fwExamDoneView').href = d.viewUrl || CFG.urls.misExamenes;
+        showExamPanel('done');
+        refreshPills();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function wireExamStep() {
+        var frame = examEl('fwExamFrame');
+        if (!frame) return;
+        // Cada carga del iframe (el formulario, y también la vista previa tras
+        // enviarlo) lo deja a la vista; el aviso de "cargando" es solo para la
+        // primera.
+        frame.addEventListener('load', function () {
+            if (!exam.url) return;
+            examEl('fwExamLoading').classList.add('d-none');
+            frame.classList.remove('d-none');
+        });
+        window.addEventListener('message', function (e) {
+            if (e.origin !== window.location.origin || e.source !== frame.contentWindow) return;
+            var d = e.data || {};
+            // "Atrás" en el primer paso del asistente de examen: vuelve al
+            // paso Preguntas del host (el progreso del examen queda en el iframe).
+            if (d.type === 'educaapp:exam-exit') examEl('wizBackBtn').click();
+            else if (d.type === 'educaapp:exam-saved') onExamSaved(d);
+        });
+        examEl('fwExamBlockedBtn').addEventListener('click', function () { examEl('wizBackBtn').click(); });
+        examEl('fwExamDoneAnother').addEventListener('click', function () {
+            exam.saved = false;
+            exam.url = null;
+            clearExamDraft();
+            mountExamFrame();
+            refreshPills();
+        });
+        var finish = examEl('wizSubmitBtn');
+        if (finish && draft) finish.addEventListener('click', function () { draft.clear(); });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
         catalogHandlersRef = CATALOG_STEPS.map(setupCatalogStep);
         outcomesHandlerRef = setupOutcomesStep();
-        wireExamButton();
+        wireExamStep();
 
         var embedRoot = document.querySelector('#fwQEmbed [data-uqw]');
         if (embedRoot) {
@@ -747,7 +815,6 @@
         wizardCtrl = window.EducaAppWizard.init({
             totalSteps: 7,
             onValidateStep: function () { return true; },
-            onEnterFinalStep: function () { renderSummary(); },
         });
 
         // Vuelve a cargar la lista de "usar existente" cada vez que se
@@ -764,6 +831,7 @@
             if (n >= 1 && n <= 4) catalogHandlersRef[n - 1].onEnter();
             else if (n === 5) outcomesHandlerRef.onEnter();
             else if (n === 6) refreshQuestionsLinks();
+            else if (n === 7) enterExamStep();
             configureBottomAction(n);
             refreshPills();
         }

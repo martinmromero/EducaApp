@@ -21,6 +21,10 @@ window.EducaAppWizard = (function () {
         var totalSteps = config.totalSteps;
         var onValidateStep = config.onValidateStep || function () { return true; };
         var onEnterFinalStep = config.onEnterFinalStep || function () {};
+        // Para un asistente embebido en otro (Asistente completo): "Atrás" en
+        // el primer paso no desaparece, sale hacia el host (onBackFromFirst).
+        var keepBackOnFirst = !!config.keepBackOnFirst;
+        var onBackFromFirst = config.onBackFromFirst || function () {};
         var currentStep = 1;
         var maxStepReached = 1;
 
@@ -39,7 +43,7 @@ window.EducaAppWizard = (function () {
                 pill.classList.toggle('is-done', pn < maxStepReached);
                 pill.classList.toggle('is-reachable', pn <= maxStepReached && pn !== n);
             });
-            if (backBtn) backBtn.classList.toggle('d-none', n === 1);
+            if (backBtn) backBtn.classList.toggle('d-none', n === 1 && !keepBackOnFirst);
             if (nextBtn) nextBtn.classList.toggle('d-none', n === totalSteps);
             if (submitBtn) submitBtn.classList.toggle('d-none', n !== totalSteps);
             currentStep = n;
@@ -54,6 +58,7 @@ window.EducaAppWizard = (function () {
             showStep(next);
         }
         function goBack() {
+            if (currentStep === 1 && keepBackOnFirst) { onBackFromFirst(); return; }
             showStep(Math.max(currentStep - 1, 1));
         }
         function goToStep(n) {
