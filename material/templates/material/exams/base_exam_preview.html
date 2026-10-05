@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Previsualización de Examen{% endblock %} - {{ institution.name|default:"EducaApp" }}</title>
     <link rel="stylesheet" href="{% static 'css/vendor/driver.css' %}">
+    <script src="{% static 'js/embed.js' %}"></script>
     <style>
         :root {
             --exam-font-family: {{ print_style.font_family|default:'Arial' }};
@@ -979,6 +980,11 @@ function examPreviewGoBack(fallbackUrl) {
             .then(function (data) {
                 btn.disabled = false;
                 if (data.success) {
+                    // Dentro del Asistente completo (<iframe>): el host muestra
+                    // su propia pantalla final, no este modal ni la redirección.
+                    if (window.EducaAppEmbed && window.EducaAppEmbed.notify('educaapp:exam-saved', {
+                        message: data.message, createdExamIds: data.created_exam_ids, viewUrl: data.view_url, listUrl: data.redirect_url,
+                    })) return;
                     if (data.redirect_url) postSaveRedirectUrl = data.redirect_url;
                     document.getElementById('examSavedMessage').textContent = data.message || 'El examen se guardó correctamente.';
                     document.getElementById('examSavedBackdrop').classList.add('show');

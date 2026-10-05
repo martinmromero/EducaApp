@@ -9,6 +9,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.decorators.http import require_POST
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.utils import timezone
 from django.db.models import Count, Q
 from .column_filters import (
@@ -84,6 +85,7 @@ def bloom_taxonomy(request):
 
 
 @login_required
+@xframe_options_sameorigin
 def preview_exam(request):
     raw_exam = request.session.get('preview_exam')
     if not raw_exam:
@@ -1740,6 +1742,7 @@ def create_exam(request):
 
 
 @login_required
+@xframe_options_sameorigin
 def create_exam_wizard(request):
     """Asistente paso a paso para armar un examen con contenido propio.
 
@@ -1800,6 +1803,20 @@ def create_exam_wizard(request):
         ).values_list('subjects__id', flat=True).distinct()
         materias = Subject.objects.filter(is_seed_demo=False, id__in=visible_subject_ids)
 
+    # Embebido en el Asistente completo (paso Examen, ?fw=1): la materia,
+    # institución, facultad, carrera y resultados de aprendizaje ya elegidos
+    # allá llegan por query string y precargan este asistente, así no hay
+    # que repetirlos (ver full_wizard.js, que lo monta en un <iframe>).
+    is_embedded = request.GET.get('fw') == '1' and not is_demo_peek
+    fw_prefill = _parse_fw_exam_prefill(request) if is_embedded else {}
+    if fw_prefill.get('subject_id'):
+        # Con la materia ya elegida no se ofrece otra: sería salirse del
+        # recorrido (las preguntas, los resultados de aprendizaje y el resto
+        # de lo cargado son de ESTA materia). Las plantillas se acotan igual
+        # — una de otra materia pisaría la elegida.
+        materias = materias.filter(pk=fw_prefill['subject_id'])
+        templates = templates.filter(subject_id=fw_prefill['subject_id'])
+
     demo_prefill = {}
     if is_demo_peek:
         exam_session = request.session.get('preview_exam') or {}
@@ -1821,8 +1838,48 @@ def create_exam_wizard(request):
         'is_demo_peek': is_demo_peek,
         'demo_subject_id': demo_prefill.get('subject_id', ''),
         'demo_prefill_json': _json.dumps(demo_prefill),
+        'is_embedded': is_embedded,
+        'fw_prefill_json': _json.dumps(fw_prefill),
+        'fw_subject_id': str(fw_prefill.get('subject_id', '')),
     }
     return render(request, 'material/exams/create_exam_wizard.html', context)
+
+
+def _parse_fw_exam_prefill(request):
+    """Lo ya elegido en el Asistente completo, validado: cada id tiene que
+    ser visible para este usuario (catálogo o su espacio personal), igual que
+    en cualquier otro endpoint que recibe un id por GET/POST — un id ajeno
+    o inventado simplemente no precarga nada.
+
+    Query string: subject_id, institucion_id, facultad_id, carrera_id,
+    outcome_ids (separados por coma)."""
+    from .content_visibility import (
+        get_visible_institutions, get_visible_faculties, get_visible_careers,
+        get_visible_subjects, get_visible_learning_outcomes,
+    )
+
+    def _visible(qs_fn, key):
+        raw = request.GET.get(key, '')
+        return qs_fn(request.user).filter(pk=int(raw)).first() if raw.isdigit() else None
+
+    prefill = {}
+    subject = _visible(get_visible_subjects, 'subject_id')
+    if subject:
+        prefill['subject_id'] = subject.pk
+    for key, qs_fn in (('institucion', get_visible_institutions),
+                       ('facultad', get_visible_faculties),
+                       ('carrera', get_visible_careers)):
+        obj = _visible(qs_fn, key + '_id')
+        if obj:
+            prefill[key + '_id'] = obj.pk
+            prefill[key + '_name'] = obj.name
+    raw_ids = [int(i) for i in request.GET.get('outcome_ids', '').split(',') if i.strip().isdigit()]
+    visible_outcomes = list(
+        get_visible_learning_outcomes(request.user).filter(pk__in=raw_ids).values_list('pk', flat=True)
+    ) if raw_ids else []
+    if visible_outcomes:
+        prefill['outcome_ids'] = visible_outcomes
+    return prefill
 
 
 @login_required
@@ -2291,6 +2348,15 @@ def save_exam_from_session(request):
             'message': success_message,
             'redirect_url': reverse('material:onboarding_v2_finish') if wizard_finished else reverse('material:mis_examenes'),
             'created_exam_ids': [e.pk for e in created_exams],
+            # Para el Asistente completo, que muestra su propia pantalla
+            # final en vez de saltar a otra página: a dónde lleva "Ver el
+            # examen" (el lote si hay varios temas, el examen si es uno).
+            'view_url': (
+                reverse('material:view_exam_batch', kwargs={'batch_id': batch.id}) if batch is not None
+                else reverse('material:view_exam_batch', kwargs={'batch_id': editing_batch.id}) if editing_batch is not None
+                else reverse('material:ver_examen', kwargs={'pk': created_exams[0].pk}) if created_exams
+                else reverse('material:mis_examenes')
+            ),
         })
 
     messages.success(request, success_message, extra_tags='examenes')
@@ -9682,62 +9748,6 @@ def full_wizard_save_step(request):
         return JsonResponse({'ok': False, 'error': 'No se pudo crear.'}, status=400)
     nombre_final = entidad.description if step == 'resultado_aprendizaje' else entidad.name
     return JsonResponse({'ok': True, 'id': entidad.pk, 'name': nombre_final, 'created': bool(filas)})
-
-
-@login_required
-@require_POST
-def full_wizard_prefill_exam(request):
-    """Al llegar al paso 8 (Examen) del Asistente completo, vuelca lo ya
-    resuelto en los pasos anteriores (institución/facultad/carrera/materia/
-    resultados de aprendizaje) a request.session['preview_exam'] — el mismo
-    diccionario que ya lee create_exam() para precargar sus campos (ver
-    EXAM_PREFILL en create_exam.html: institucion_dropdown/facultad_dropdown/
-    carrera_dropdown/id_subject/learning_outcomes_container ya saben leer
-    justo estas claves, con el id crudo como string). Así "Crear examen"
-    abre la pantalla real con todo lo elegido en el wizard, en vez de un
-    formulario en blanco que obliga a repetirlo todo.
-
-    A diferencia de onboarding_save_step (que arma un prefill parecido pero
-    solo para institución+materia, vía UserInstitution — el primer
-    UserInstitution del usuario, no necesariamente el de ESTE recorrido),
-    acá se usa exactamente lo que el usuario fue resolviendo en este wizard,
-    institución incluida."""
-    import json as _json
-    from .content_visibility import (
-        get_visible_institutions, get_visible_faculties, get_visible_careers,
-        get_visible_subjects, get_visible_learning_outcomes,
-    )
-
-    try:
-        body = _json.loads(request.body)
-    except _json.JSONDecodeError:
-        return JsonResponse({'ok': False, 'error': 'JSON inválido.'}, status=400)
-
-    def _id_visible(nivel_qs_fn, id_valor):
-        if not id_valor:
-            return ''
-        if nivel_qs_fn(request.user).filter(pk=id_valor).exists():
-            return str(id_valor)
-        return ''
-
-    preview_exam = {
-        'institucion': _id_visible(get_visible_institutions, body.get('institucion_id')),
-        'facultad': _id_visible(get_visible_faculties, body.get('facultad_id')),
-        'carrera': _id_visible(get_visible_careers, body.get('carrera_id')),
-        'subject': _id_visible(get_visible_subjects, body.get('materia_id')),
-    }
-    outcome_ids = body.get('outcome_ids') or []
-    if isinstance(outcome_ids, list) and outcome_ids:
-        visibles = set(get_visible_learning_outcomes(request.user).filter(
-            pk__in=outcome_ids
-        ).values_list('pk', flat=True))
-        preview_exam['learning_outcomes'] = [str(i) for i in outcome_ids if i in visibles]
-
-    request.session['preview_exam'] = preview_exam
-    request.session.pop('editing_exam_id', None)
-    request.session.pop('editing_batch_id', None)
-    request.session.pop('preview_generated_versions_ids', None)
-    return JsonResponse({'ok': True})
 
 
 @login_required

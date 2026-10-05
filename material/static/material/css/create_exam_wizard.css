@@ -141,3 +141,11 @@
 @media (min-width: 576px) {
     .resolucion-grid-wiz { column-count: 2; }
 }
+
+/* Embebido en el Asistente completo (?fw=1, dentro de un <iframe>): el
+   stepper propio queda como una fila de números con solo el paso activo
+   nombrado — el del host ya ocupa el ancho y las 8 etiquetas no entran. */
+.wiz-wrap.is-embedded .wiz-step-pill { flex: 0 0 auto; padding: .35rem .5rem; }
+.wiz-wrap.is-embedded .wiz-step-pill:not(.is-active) .wiz-step-label { display: none; }
+.wiz-wrap.is-embedded .wiz-step-pill.is-active { padding-right: .9rem; }
+.wiz-wrap.is-embedded .wiz-stepper { gap: .4rem; }

@@ -122,3 +122,25 @@
 .fw-q-option > i { font-size: 1.5rem; color: var(--bs-primary); line-height: 1.2; }
 .fw-q-option strong { display: block; }
 .fw-q-option small { display: block; color: var(--bs-secondary-color); margin-top: .15rem; }
+
+
+/* Paso Examen: el asistente "Nuevo examen" va en un <iframe> same-origin
+   (ver full_wizard.js, mountExamFrame). Alto fijo con scroll propio: así sus
+   diálogos (que se centran en el viewport del iframe) quedan siempre a la
+   vista, sin tener que medir el contenido. */
+.fw-exam-card { padding: 0; overflow: hidden; }
+.fw-exam-card > #fwExamBlocked,
+.fw-exam-card > #fwExamDone { padding: 1.5rem; }
+.fw-exam-frame {
+    display: block;
+    width: 100%;
+    height: clamp(560px, 80vh, 960px);
+    border: 0;
+    background: var(--bs-body-bg);
+}
+.fw-exam-loading {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 220px;
+    color: var(--bs-secondary-color);
+}
+.fw-exam-done-icon { font-size: 3rem; color: var(--bs-success); line-height: 1; margin-bottom: .5rem; }

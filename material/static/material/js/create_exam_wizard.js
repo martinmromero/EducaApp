@@ -46,10 +46,19 @@ _onDomReady(function () {
         return true;
     }
 
+    // Embebido en el Asistente completo (full_wizard.js lo monta en un
+    // <iframe>): el host escucha estos mensajes. Mismo origen, así que el
+    // targetOrigin es el propio.
+    function postToHost(type, payload) {
+        try { window.parent.postMessage(Object.assign({ type: type }, payload || {}), window.location.origin); } catch (e) { /* sin host */ }
+    }
+
     var wizardCtrl = window.EducaAppWizard.init({
         totalSteps: 8,
         onValidateStep: validateStep,
         onEnterFinalStep: function () { renderSummary(); },
+        keepBackOnFirst: !!CFG.isEmbedded,
+        onBackFromFirst: function () { postToHost('educaapp:exam-exit'); },
     });
     // Expuesto para que el recorrido de demo (create_exam_wizard_tour.js,
     // función startDemo) pueda avanzar los pasos del asistente en sincro con
@@ -883,7 +892,10 @@ _onDomReady(function () {
     // la plantilla elegida en sí (paso 1): se guarda el resultado ya
     // aplicado en los pasos siguientes, así el restore no depende de
     // volver a resolver la plantilla contra el servidor. ─────────────────
-    var draft = window.EducaAppWizardDraft.init('educaapp_exam_wizard_draft');
+    // Embebido usa su propia clave (no pisa el borrador del asistente
+    // suelto) y NO se borra al enviar: "Editar" en la vista previa vuelve a
+    // este formulario y tiene que encontrarlo con todo lo ya cargado.
+    var draft = window.EducaAppWizardDraft.init(CFG.isEmbedded ? 'educaapp_exam_wizard_draft_fw' : 'educaapp_exam_wizard_draft');
 
     function checkedValues(containerId, selector) {
         var container = document.getElementById(containerId);
@@ -944,7 +956,10 @@ _onDomReady(function () {
         var saved = draft.load();
         if (!saved || !saved.subject) return;
 
-        draft.confirmRestore('Encontramos un examen sin terminar de una sesión anterior. ¿Querés recuperarlo?').then(function (quiere) {
+        var ask = CFG.isEmbedded
+            ? Promise.resolve(true)
+            : draft.confirmRestore('Encontramos un examen sin terminar de una sesión anterior. ¿Recuperarlo?');
+        ask.then(function (quiere) {
             if (!quiere) { draft.clear(); return; }
 
             subjectSelect.value = saved.subject;
@@ -1013,10 +1028,52 @@ _onDomReady(function () {
         });
     }
 
-    wizForm.addEventListener('submit', function () { draft.clear(); });
+    if (!CFG.isEmbedded) wizForm.addEventListener('submit', function () { draft.clear(); });
     var startOverLink = document.querySelector('a[href*="limpiar=1"]');
     if (startOverLink) startOverLink.addEventListener('click', function () { draft.clear(); });
 
+    // ── Embebido en el Asistente completo ────────────────────────────────
+    // Materia, institución, facultad, carrera y resultados de aprendizaje ya
+    // se eligieron allá: llegan en CFG.fwPrefill (validados por el servidor,
+    // ver _parse_fw_exam_prefill) y se aplican con las mismas funciones que
+    // usan la plantilla y el borrador. Después se saltean los pasos que ya no
+    // tienen nada que decidir (Plantilla y Materia) y se arranca en Tópicos.
+    function applyFwPrefill() {
+        var p = CFG.fwPrefill || {};
+        if (!p.subject_id) return Promise.resolve();
+        subjectSelect.value = String(p.subject_id);
+        return Promise.all([
+            loadSubjectDependents(p.subject_id, [], []),
+            loadCatalogTree(),
+        ]).then(function () {
+            (p.outcome_ids || []).forEach(function (id) {
+                var cb = document.getElementById('wiz_outcome_' + id);
+                if (cb) cb.checked = true;
+            });
+            if (p.institucion_id) return applyInstitucionSelection(p.institucion_id, p.institucion_name);
+        }).then(function () {
+            if (p.facultad_id) applyFacultadSelection(p.facultad_id, p.facultad_name);
+            if (p.carrera_id) applyCarreraSelection(p.carrera_id, p.carrera_name);
+            updateSuggestedBatchName();
+        });
+    }
+
+    function startEmbedded() {
+        var saved = draft.load();
+        var fwSubject = String((CFG.fwPrefill || {}).subject_id || '');
+        // Volver desde la vista previa ("Editar"): se retoma el borrador, sin
+        // preguntar. Si es de otra materia, no sirve.
+        if (saved && saved.subject && (!fwSubject || String(saved.subject) === fwSubject)) {
+            restoreDraft();
+            return;
+        }
+        draft.clear();
+        applyFwPrefill().then(function () {
+            if (subjectSelect.value) { wizardCtrl.goNext(); wizardCtrl.goNext(); }
+        });
+    }
+
     wizardCtrl.goToStep(1);
-    if (!CFG.isDemoPeek) restoreDraft();
+    if (CFG.isEmbedded) startEmbedded();
+    else if (!CFG.isDemoPeek) restoreDraft();
 });
