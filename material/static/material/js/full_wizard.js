@@ -251,6 +251,13 @@
             });
         }
 
+        // Mientras llega la lista no se deja el espacio vacío: un clic apurado
+        // caía sobre lo que aparecía después (y movía el layout).
+        function showListLoading() {
+            listEmptyEl.style.display = 'none';
+            chipListEl.innerHTML = '<span class="text-muted small fw-chip-loading"><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Cargando…</span>';
+        }
+
         function loadList() {
             showError('');
             suggestBox.classList.add('d-none');
@@ -261,6 +268,7 @@
             if (!cfgStep.parentKey) {
                 parentMsgEl.textContent = '';
                 searchInput.disabled = false;
+                showListLoading();
                 fetch(cfgStep.loadUrl())
                     .then(function (r) { return r.json(); })
                     .then(function (data) { renderChips(data[cfgStep.listKey] || []); })
@@ -287,6 +295,7 @@
 
             parentMsgEl.textContent = '';
             searchInput.disabled = false;
+            showListLoading();
             fetch(cfgStep.loadUrl(parentId))
                 .then(function (r) { return r.json(); })
                 .then(function (data) { renderChips(data[cfgStep.listKey] || []); })
@@ -573,6 +582,9 @@
             navLinksHtml: hostNavLinksHtml(),
             onCreated: function (r) {
                 STATE.questionsSkipped = false;
+                // Sin esto la pastilla seguía con el ícono de "salteada" aunque
+                // ya se hubiera cargado una pregunta en este mismo paso.
+                refreshPills();
                 // Si se salteó la Materia, la que se eligió/creó acá pasa a
                 // ser la del recorrido (la usa el paso Examen para precargar).
                 if (!sid && r.subject) {
@@ -692,7 +704,7 @@
     // llama "educaapp-embed-exam": es lo que activa el modo sin menú
     // (static/js/embed.js) y los avisos por postMessage de abajo.
     var EXAM_DRAFT_KEY = 'educaapp_exam_wizard_draft_fw';
-    var exam = { url: null, saved: false };
+    var exam = { url: null, saved: false, readySeen: false };
 
     function examEl(id) { return document.getElementById(id); }
 
@@ -722,7 +734,9 @@
         return CFG.urls.createExamWizard + '?' + params.toString();
     }
 
-    function mountExamFrame() {
+    // retry: se reintenta tras una pantalla que no cargó. Conserva el borrador
+    // del asistente de examen y arma un <iframe> nuevo (ver replaceExamFrame).
+    function mountExamFrame(retry) {
         showExamPanel('stage');
         var url = examFrameUrl();
         // Misma materia/elecciones que la última vez (ej. se salió a Preguntas
@@ -730,11 +744,13 @@
         if (exam.url === url) return;
         // Cambió algo de lo elegido antes: el borrador del asistente de examen
         // (otra materia, otros resultados de aprendizaje) ya no sirve.
-        clearExamDraft();
+        if (!retry) clearExamDraft();
         exam.url = url;
+        exam.readySeen = false;
         examEl('fwExamLoading').classList.remove('d-none');
-        examEl('fwExamFrame').classList.add('d-none');
-        examEl('fwExamFrame').src = url;
+        var frame = retry ? replaceExamFrame() : examEl('fwExamFrame');
+        frame.classList.add('d-none');
+        frame.src = url;
     }
 
     function enterExamStep() {
@@ -754,6 +770,17 @@
             .catch(function () { if (wizardCtrl.current() === 7) mountExamFrame(); });
     }
 
+    // Panel de salida del iframe (ver wireExamStep): reemplaza al iframe mientras
+    // dura el problema; la barra del host sigue oculta, así que los tres botones
+    // del panel son la única salida y por eso no pueden faltar.
+    function showExamFallback(show) {
+        var panel = examEl('fwExamFallback');
+        if (!panel) return;
+        panel.classList.toggle('d-none', !show);
+        examEl('fwExamFrame').classList.toggle('d-none', !!show);
+        if (show) examEl('fwExamLoading').classList.add('d-none');
+    }
+
     function onExamSaved(d) {
         exam.saved = true;
         clearExamDraft();
@@ -766,26 +793,71 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // Cada carga del iframe (el formulario, y también la vista previa tras
+    // enviarlo) lo deja a la vista; el aviso de "cargando" es solo para la
+    // primera.
+    function onExamFrameLoad() {
+        if (!exam.url) return;
+        examEl('fwExamLoading').classList.add('d-none');
+        examEl('fwExamFrame').classList.remove('d-none');
+        // Toda pantalla propia avisa 'educaapp:embed-ready' (embed.js) antes
+        // de que dispare 'load'. Si no llegó, lo que cargó es otra cosa (una
+        // pantalla no enmarcable, el login por sesión vencida, un error del
+        // servidor): se ofrece una salida en vez de dejar el recuadro en blanco.
+        var seen = exam.readySeen;
+        exam.readySeen = false;
+        setTimeout(function () {
+            if (!seen && !exam.readySeen) showExamFallback(true);
+        }, 800);
+    }
+
+    // Tras una pantalla bloqueada el navegador no siempre deja volver a navegar
+    // el mismo <iframe> (cambiar su src no hace ninguna petición): para
+    // reintentar se lo reemplaza por uno nuevo.
+    function replaceExamFrame() {
+        var old = examEl('fwExamFrame');
+        var fresh = document.createElement('iframe');
+        fresh.id = 'fwExamFrame';
+        fresh.name = 'educaapp-embed-exam';
+        fresh.className = old.className;
+        fresh.title = old.title;
+        fresh.addEventListener('load', onExamFrameLoad);
+        old.parentNode.replaceChild(fresh, old);
+        return fresh;
+    }
+
     function wireExamStep() {
-        var frame = examEl('fwExamFrame');
-        if (!frame) return;
-        // Cada carga del iframe (el formulario, y también la vista previa tras
-        // enviarlo) lo deja a la vista; el aviso de "cargando" es solo para la
-        // primera.
-        frame.addEventListener('load', function () {
-            if (!exam.url) return;
-            examEl('fwExamLoading').classList.add('d-none');
-            frame.classList.remove('d-none');
-        });
+        var firstFrame = examEl('fwExamFrame');
+        if (!firstFrame) return;
+        firstFrame.addEventListener('load', onExamFrameLoad);
+        // Una pantalla que el navegador bloquea (X-Frame-Options) no siempre
+        // dispara 'load': por eso, además, se vigila que el iframe siga siendo
+        // de este origen. Si pasó a ser de otro (la pantalla de error del
+        // navegador), no es una pantalla nuestra y se ofrece la salida.
+        setInterval(function () {
+            if (!exam.url || exam.saved) return;
+            if (examEl('fwExamStage').classList.contains('d-none')) return;
+            var frame = examEl('fwExamFrame');
+            if (frame.classList.contains('d-none')) return;
+            try { void frame.contentWindow.location.href; } catch (e) { showExamFallback(true); }
+        }, 1500);
         window.addEventListener('message', function (e) {
-            if (e.origin !== window.location.origin || e.source !== frame.contentWindow) return;
+            if (e.origin !== window.location.origin || e.source !== examEl('fwExamFrame').contentWindow) return;
             var d = e.data || {};
+            if (d.type === 'educaapp:embed-ready') { exam.readySeen = true; showExamFallback(false); }
             // "Atrás" en el primer paso del asistente de examen: vuelve al
             // paso Preguntas del host (el progreso del examen queda en el iframe).
             if (d.type === 'educaapp:exam-exit') examEl('wizBackBtn').click();
             else if (d.type === 'educaapp:exam-saved') onExamSaved(d);
         });
         examEl('fwExamBlockedBtn').addEventListener('click', function () { examEl('wizBackBtn').click(); });
+        examEl('fwExamFallbackRetry').addEventListener('click', function () {
+            exam.url = null;
+            showExamFallback(false);
+            mountExamFrame(true);
+        });
+        examEl('fwExamFallbackReload').addEventListener('click', function () { window.location.reload(); });
+        examEl('fwExamFallbackBack').addEventListener('click', function () { examEl('wizBackBtn').click(); });
         examEl('fwExamDoneAnother').addEventListener('click', function () {
             exam.saved = false;
             exam.url = null;
@@ -828,6 +900,14 @@
             applyQuestionsView(false);
             STATE.currentStep = n;
             saveDraft();
+            // La introducción solo ayuda en el primer paso; desde el Preguntas
+            // en adelante, en pantallas angostas, tampoco se muestran las migas
+            // (empujaban el contenido útil fuera de la primera pantalla).
+            var wrap = document.querySelector('.wiz-wrap');
+            if (wrap) {
+                wrap.classList.toggle('fw-past-first', n > 1);
+                wrap.classList.toggle('fw-late', n >= 6);
+            }
             if (n >= 1 && n <= 4) catalogHandlersRef[n - 1].onEnter();
             else if (n === 5) outcomesHandlerRef.onEnter();
             else if (n === 6) refreshQuestionsLinks();

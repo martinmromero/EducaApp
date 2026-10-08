@@ -22,4 +22,14 @@
             return true;
         },
     };
+    // Toda pantalla propia que cargue este script avisa que "llegó". Si el
+    // host no recibe este aviso tras cargar el <iframe>, sabe que lo que se
+    // ve es otra cosa (una pantalla que no se puede enmarcar, el login por
+    // sesión vencida, un error del servidor) y ofrece una salida en vez de
+    // dejar un recuadro en blanco.
+    if (embedded) {
+        var announce = function () { window.EducaAppEmbed.notify('educaapp:embed-ready'); };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', announce);
+        else announce();
+    }
 })();

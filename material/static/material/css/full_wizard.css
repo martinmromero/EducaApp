@@ -41,6 +41,29 @@
 }
 .fw-chip .badge {
     font-size: .65rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.fw-chip-list { min-height: 2.4rem; }
+.fw-chip-loading { display: inline-flex; align-items: center; padding: .35rem 0; }
+
+/* Menos "chrome" a medida que se avanza (ver onEnterStep en full_wizard.js). */
+.wiz-wrap.fw-past-first > #fwIntro { display: none; }
+@media (max-width: 575.98px) {
+    .wiz-wrap.fw-late #fwBreadcrumb { display: none; }
+}
+
+/* Las 7 pastillas con nombre no entran en una fila con el menú lateral abierto
+   (< 1200 px): se nombra solo la activa, como en el asistente de examen
+   embebido (ver create_exam_wizard.css, .is-embedded). */
+@media (min-width: 768px) {
+    #wizStepper { gap: .35rem; }
+    #wizStepper .wiz-step-pill { padding: .3rem .55rem; font-size: .82rem; }
+}
+@media (max-width: 1199.98px) {
+    #wizStepper { flex-wrap: nowrap; }
+    #wizStepper .wiz-step-pill { flex: 0 0 auto; }
+    #wizStepper .wiz-step-pill:not(.is-active) .wiz-step-label { display: none; }
 }
 
 .fw-suggest-box {

@@ -1028,8 +1028,11 @@
     showStep(step >= 1 && step <= 7 ? step : 1);
   }
 
+  // "Cargar mi propia información" lleva al Asistente completo (el recorrido
+  // vigente: institución → examen). El asistente de 7 pasos de más abajo sigue
+  // existiendo, pero solo se entra por ?step=N (retornos de IA/contenido).
   document.getElementById('onb2GatewayOwnBtn').addEventListener('click', function () {
-    enterOwnFlow(1);
+    window.location.href = '{% url "material:full_wizard" %}';
   });
 
   document.getElementById('onb2GatewayDemoBtn').addEventListener('click', function () {

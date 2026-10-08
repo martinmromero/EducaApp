@@ -75,11 +75,20 @@ _onDomReady(function () {
         var questionsCount = document.querySelectorAll('#wizQuestionsGroups input[type="checkbox"]:checked').length;
         var fecha = document.getElementById('fecha').value || 'sin definir';
         var versions = document.getElementById('num_versions').value || '1';
+        var perVersion = (document.getElementById('questions_per_version').value || '').trim();
+        // "Elegidas a mano" solo si se tildaron preguntas puntuales; si no, el
+        // servidor arma cada tema con las de los tópicos (ver
+        // _default_questions_per_version) y decir "0" confundía.
+        var questionsLabel = questionsCount
+            ? questionsCount + (questionsCount === 1 ? ' elegida a mano' : ' elegidas a mano')
+            : (perVersion
+                ? perVersion + ' por tema, de los tópicos elegidos'
+                : 'todas las de los tópicos elegidos, repartidas entre los temas');
         box.innerHTML =
             '<dl class="row mb-0">' +
             '<dt class="col-sm-4">Materia</dt><dd class="col-sm-8">' + window.EducaAppEscape(subjectLabel) + '</dd>' +
             '<dt class="col-sm-4">Tópicos elegidos</dt><dd class="col-sm-8">' + topicsCount + '</dd>' +
-            '<dt class="col-sm-4">Preguntas elegidas</dt><dd class="col-sm-8">' + questionsCount + '</dd>' +
+            '<dt class="col-sm-4">Preguntas</dt><dd class="col-sm-8">' + questionsLabel + '</dd>' +
             '<dt class="col-sm-4">Fecha</dt><dd class="col-sm-8">' + window.EducaAppEscape(fecha) + '</dd>' +
             '<dt class="col-sm-4">Temas a generar</dt><dd class="col-sm-8">' + versions + '</dd>' +
             '</dl>';
