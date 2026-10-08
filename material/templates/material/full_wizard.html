@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="{% static 'material/css/question_upload_wizard.css' %}">
 
 <div class="wiz-wrap">
-    <p class="text-muted mb-3">
+    <p class="text-muted mb-3" id="fwIntro">
         Institución, facultad, carrera, materia, resultados de aprendizaje, preguntas y examen — todo en un
         recorrido, sin salir de acá. En cada paso se puede usar algo ya cargado, crear algo nuevo, o saltear el paso. Lo que se crea acá
         queda usable de inmediato en el espacio personal; un administrador decide después si lo suma al catálogo
@@ -106,6 +106,17 @@
                 </div>
                 <iframe id="fwExamFrame" name="educaapp-embed-exam" class="fw-exam-frame d-none"
                         title="Asistente para armar el examen"></iframe>
+                <!-- Salida cuando el iframe no mostró una pantalla propia (sesión
+                     vencida, error del servidor): ver watchExamFrame en full_wizard.js. -->
+                <div id="fwExamFallback" class="d-none p-4" role="alert">
+                    <h5 class="mb-2">No se pudo mostrar el armado del examen</h5>
+                    <p class="text-muted mb-3">Puede haber vencido la sesión o haber ocurrido un error. Lo ya cargado en el asistente no se pierde.</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-primary" id="fwExamFallbackRetry"><i class="bi bi-arrow-repeat me-1"></i>Reintentar</button>
+                        <button type="button" class="btn btn-outline-primary" id="fwExamFallbackReload"><i class="bi bi-box-arrow-in-right me-1"></i>Recargar la página</button>
+                        <button type="button" class="btn btn-outline-secondary" id="fwExamFallbackBack"><i class="bi bi-arrow-left me-1"></i>Volver a Preguntas</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Examen guardado -->

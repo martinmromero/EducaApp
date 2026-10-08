@@ -84,13 +84,27 @@ def bloom_taxonomy(request):
     return render(request, 'material/bloom_taxonomy.html', context)
 
 
+def _redirect_to_exam_form(request):
+    """Vuelve al armado del examen cuando la vista previa no tiene nada que mostrar.
+
+    Dentro del <iframe> del Asistente completo (el navegador manda
+    Sec-Fetch-Dest: iframe) hay que volver al asistente de examen, que sí se
+    puede enmarcar: el formulario clásico responde X-Frame-Options: DENY y el
+    recuadro quedaba en blanco, sin salida. El borrador del asistente (en
+    sessionStorage) repone lo ya cargado.
+    """
+    if request.headers.get('Sec-Fetch-Dest') == 'iframe':
+        return redirect(reverse('material:create_exam_wizard') + '?fw=1')
+    return redirect('material:create_exam')
+
+
 @login_required
 @xframe_options_sameorigin
 def preview_exam(request):
     raw_exam = request.session.get('preview_exam')
     if not raw_exam:
         messages.error(request, 'No hay datos para mostrar el preview.', extra_tags='general')
-        return redirect('material:create_exam')
+        return _redirect_to_exam_form(request)
 
     exam = dict(raw_exam)
     from .models import Subject, InstitutionV2, FacultyV2, Career, CampusV2, User, Question, Topic, LearningOutcome
@@ -181,12 +195,14 @@ def preview_exam(request):
     except (TypeError, ValueError):
         questions_per_version = 0
 
+    include_seed = bool(exam.get('include_seed'))
     if questions_per_version <= 0:
-        topics_count = selected_topics.count() + (1 if include_no_topic else 0)
-        questions_per_version = len(manual_question_ids) if manual_question_ids else max(1, topics_count)
+        questions_per_version = _default_questions_per_version(
+            request.user, subject_obj, selected_topics, include_no_topic,
+            include_seed, versions_count, manual_question_ids,
+        )
 
     from .content_visibility import get_visible_questions, EXAM_ELIGIBLE_Q
-    include_seed = bool(exam.get('include_seed'))
 
     # Si ya hay una selección confirmada en esta sesión de preview (por
     # ejemplo, el usuario reemplazó una pregunta puntual con "Cambiar
@@ -285,7 +301,7 @@ def preview_exam(request):
             f'{reason} Elegir al menos un tópico (o preguntas puntuales) antes de generar el examen.',
             extra_tags='general',
         )
-        return redirect('material:create_exam')
+        return _redirect_to_exam_form(request)
 
     # A diferencia del caso "cero preguntas" de arriba, acá SÍ hay preguntas
     # — pero puede haber menos de las pedidas por versión (banco de
@@ -1118,6 +1134,32 @@ def _arrange_questions_avoiding_same_topic_consecutive(question_list):
         if not items:
             grouped.pop(topic_id, None)
     return result
+
+
+def _default_questions_per_version(user, subject, selected_topics, include_no_topic,
+                                   include_seed, versions_count, manual_question_ids=None):
+    """Cuántas preguntas lleva cada tema cuando el formulario no lo indicó.
+
+    Con preguntas elegidas a mano son esas. Si no, son TODAS las preguntas
+    elegibles de los tópicos elegidos, repartidas entre los temas. Antes era
+    "una por tópico" (max(1, cantidad de tópicos)): un docente que tildaba un
+    tópico de 20 preguntas y dejaba el campo vacío obtenía un examen de una
+    sola pregunta, sin ningún aviso.
+    """
+    if manual_question_ids:
+        return len(manual_question_ids)
+    topics_count = selected_topics.count() + (1 if include_no_topic else 0)
+    if subject is None:
+        return max(1, topics_count)
+
+    from .content_visibility import get_visible_questions, EXAM_ELIGIBLE_Q
+    topic_filter = Q(topic__in=selected_topics)
+    if include_no_topic:
+        topic_filter |= Q(topic__isnull=True)
+    available = get_visible_questions(
+        user, subject=subject, include_seed=include_seed,
+    ).filter(EXAM_ELIGIBLE_Q).filter(topic_filter).distinct().count()
+    return max(1, available // max(1, versions_count))
 
 
 def _pick_questions_for_versions(subject, selected_topics, user, versions_count, questions_per_version, balance_by_topic=True, allowed_question_ids=None, include_seed=False, include_no_topic=False):
@@ -2056,8 +2098,10 @@ def save_exam_from_session(request):
         pass
 
     if questions_per_version is None:
-        topics_count = selected_topics.count() + (1 if include_no_topic else 0)
-        questions_per_version = len(q_ids) if q_ids else max(1, topics_count)
+        questions_per_version = _default_questions_per_version(
+            request.user, subject, selected_topics, include_no_topic,
+            bool(exam_data.get('include_seed')), versions_count, q_ids,
+        )
 
     if selected_topics.count() == 0 and not include_no_topic:
         return _error('Debe seleccionar al menos un tópico para generar temas.')
@@ -9595,7 +9639,16 @@ def full_wizard_page(request):
     """Página completa del Asistente combinado. GET-only: arma el shell y
     dispara desde el JS la carga de instituciones visibles para el paso 1
     (ver get_visible_institutions_json) — el resto de los pasos se resuelven
-    en cascada a medida que se avanza."""
+    en cascada a medida que se avanza.
+
+    Entrar acá cuenta como haber hecho el recorrido inicial: marca
+    onboarding_completed (ver OnboardingGateMiddleware). Sin esto, quien
+    terminaba el Asistente completo y volvía a Inicio rebotaba al asistente
+    viejo (/comenzar/), porque solo ése marcaba la bandera."""
+    profile = getattr(request.user, 'profile', None)
+    if profile is not None and not profile.onboarding_completed:
+        profile.onboarding_completed = True
+        profile.save(update_fields=['onboarding_completed'])
     return render(request, 'material/full_wizard.html', upload_wizard_context(request.user))
 
 

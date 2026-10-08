@@ -149,3 +149,10 @@
 .wiz-wrap.is-embedded .wiz-step-pill:not(.is-active) .wiz-step-label { display: none; }
 .wiz-wrap.is-embedded .wiz-step-pill.is-active { padding-right: .9rem; }
 .wiz-wrap.is-embedded .wiz-stepper { gap: .4rem; }
+
+/* Celular: las 8 pastillas numeradas del asistente embebido entran en una fila. */
+@media (max-width: 575.98px) {
+    .wiz-wrap.is-embedded .wiz-stepper { gap: .25rem; }
+    .wiz-wrap.is-embedded .wiz-step-pill { padding: .25rem .3rem; }
+    .wiz-wrap.is-embedded .wiz-step-pill.is-active { padding-right: .3rem; }
+}
