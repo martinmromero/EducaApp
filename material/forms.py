@@ -180,18 +180,45 @@ class QuestionForm(forms.ModelForm):
                 subject_ids = self.data.getlist('subjects')
                 if subject_ids:
                     subject_id = int(subject_ids[0])
-                    self.fields['topic'].queryset = Topic.objects.filter(subject_id=subject_id)
+                    self.fields['topic'].queryset = self._topics_for(subject_id=subject_id)
 
                 if self.data.get('topic'):
                     topic_id = int(self.data.get('topic'))
-                    self.fields['subtopic'].queryset = Subtopic.objects.filter(topic_id=topic_id)
+                    self.fields['subtopic'].queryset = self._subtopics_for(topic_id=topic_id)
             except (ValueError, TypeError):
                 pass
         elif self.instance.pk and self.instance.subjects.exists():
             first_subject = self.instance.subjects.first()
-            self.fields['topic'].queryset = Topic.objects.filter(subject=first_subject)
+            self.fields['topic'].queryset = self._topics_for(subject=first_subject)
             if self.instance.topic:
-                self.fields['subtopic'].queryset = Subtopic.objects.filter(topic=self.instance.topic)
+                self.fields['subtopic'].queryset = self._subtopics_for(topic=self.instance.topic)
+
+    def _subtopics_for(self, **filtros):
+        """Igual que _topics_for, para sub-tópicos (ver get_visible_subtopics)."""
+        if not self.current_user:
+            return Subtopic.objects.filter(**filtros)
+        from .content_visibility import get_visible_subtopics
+        visibles = get_visible_subtopics(self.current_user).filter(**filtros)
+        if self.instance.pk and self.instance.subtopic_id:
+            visibles = Subtopic.objects.filter(
+                Q(pk__in=visibles.values('pk')) | Q(pk=self.instance.subtopic_id), **filtros,
+            )
+        return visibles
+
+    def _topics_for(self, **filtros):
+        """Tópicos de la materia que este usuario puede ver (ver
+        content_visibility.get_visible_topics); sin usuario conocido, todos los
+        de la materia como antes. El tópico ya guardado en la pregunta se
+        conserva siempre, así editar una pregunta vieja no lo hace desaparecer."""
+        if not self.current_user:
+            return Topic.objects.filter(**filtros)
+        from .content_visibility import get_visible_topics
+        visibles = get_visible_topics(self.current_user).filter(**filtros)
+        if self.instance.pk and self.instance.topic_id:
+            visibles = Topic.objects.filter(
+                Q(pk__in=visibles.values('pk')) | Q(pk=self.instance.topic_id), **filtros,
+            )
+        return visibles
 
     def save(self, commit=True):
         """
@@ -855,6 +882,9 @@ class CatalogRequestForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        # 'topico' no se pide por este formulario: se propone desde la ficha de la
+        # materia (ver views_topics.topic_propose), sobre un tópico ya creado.
+        self.fields['tipo'].choices = [c for c in self.fields['tipo'].choices if c[0] != 'topico']
         # Catálogo institucional, más el espacio personal del propio
         # usuario — puede encadenar sobre lo que él mismo ya creó y todavía
         # no fue sumado al catálogo institucional (ver informe de rediseño
@@ -1003,8 +1033,9 @@ class OralExamForm(forms.ModelForm):
 
         # Filtrar materias por usuario
         if self.user:
+            from .content_visibility import get_visible_questions
             user_subjects = Subject.objects.filter(
-                questions__user=self.user
+                questions__in=get_visible_questions(self.user)
             ).distinct()
             self.fields['subject'].queryset = user_subjects
         
@@ -1012,7 +1043,11 @@ class OralExamForm(forms.ModelForm):
         if 'subject' in self.data:
             try:
                 subject_id = int(self.data.get('subject'))
-                self.fields['topics'].queryset = Topic.objects.filter(subject_id=subject_id)
+                if self.user:
+                    from .content_visibility import get_visible_topics
+                    self.fields['topics'].queryset = get_visible_topics(self.user).filter(subject_id=subject_id)
+                else:
+                    self.fields['topics'].queryset = Topic.objects.filter(subject_id=subject_id)
             except (ValueError, TypeError):
                 pass
         elif self.instance.pk:
@@ -1073,10 +1108,10 @@ class OralExamForm(forms.ModelForm):
         topic_filter = Q(topic__in=topics)
         if include_no_topic:
             topic_filter |= Q(topic__isnull=True)
-        available_questions = Question.objects.filter(
-            subjects__id=subject.id,
-            user=user
-        ).filter(topic_filter).select_related('topic', 'subtopic')
+        from .content_visibility import get_oral_questions
+        available_questions = get_oral_questions(user, subject).filter(
+            topic_filter
+        ).select_related('topic', 'subtopic')
 
         if not available_questions.exists():
             raise ValidationError('No hay preguntas disponibles para los tópicos seleccionados')

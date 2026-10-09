@@ -1,0 +1,109 @@
+{# Tópicos de UNA carrera-materia (o los "sin carrera asignada"). Parámetros: titulo, topics, career_subject, sin_carrera. #}
+<div class="mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <strong>{{ titulo }}</strong>
+        <form method="post" action="{% url 'material:topic_create' subject.pk %}" class="d-flex gap-2">
+            {% csrf_token %}
+            {% if career_subject %}<input type="hidden" name="career_subject_id" value="{{ career_subject.pk }}">{% endif %}
+            <input type="text" name="name" class="form-control form-control-sm" placeholder="Nuevo tópico" maxlength="255" required aria-label="Nombre del nuevo tópico">
+            <button type="submit" class="btn btn-primary btn-sm text-nowrap"><i class="bi bi-plus-circle"></i> Agregar</button>
+        </form>
+    </div>
+
+    {% if topics %}
+    <div class="list-group">
+        {% for topic in topics %}
+        <div class="list-group-item">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                <div>
+                    <span class="fw-semibold">{{ topic.name }}</span>
+                    {% if not topic.es_catalogo_institucional %}
+                        <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Solo lo ve quien lo creó, hasta que se sume al catálogo">Espacio personal</span>
+                    {% endif %}
+                    {% if topic.propuesto %}
+                        <span class="badge align-middle text-bg-warning ms-1">Propuesto al catálogo</span>
+                    {% endif %}
+                </div>
+                <div class="d-flex flex-wrap gap-1">
+                    {% if topic.puede_proponer %}
+                    <form method="post" action="{% url 'material:topic_propose' topic.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-primary" title="Pedir que un administrador lo sume al catálogo">
+                            <i class="bi bi-send"></i> Proponer al catálogo
+                        </button>
+                    </form>
+                    {% endif %}
+                    {% if topic.puede_editar %}
+                    <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="collapse" data-bs-target="#editar-topico-{{ topic.pk }}" aria-expanded="false">
+                        <i class="bi bi-pencil"></i> Editar
+                    </button>
+                    <form method="post" action="{% url 'material:topic_delete' topic.pk %}"
+                          data-confirm="Se elimina el tópico «{{ topic.name }}» con sus sub-tópicos. Las preguntas que lo usan quedan sin tópico.">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Eliminar el tópico {{ topic.name }}"><i class="bi bi-trash"></i></button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if topic.puede_editar %}
+            <div class="collapse mt-2" id="editar-topico-{{ topic.pk }}">
+                <form method="post" action="{% url 'material:topic_update' topic.pk %}" class="row g-2 align-items-end">
+                    {% csrf_token %}
+                    <div class="col-12 col-md-5">
+                        <label class="form-label small mb-1" for="nombre-topico-{{ topic.pk }}">Nombre</label>
+                        <input type="text" id="nombre-topico-{{ topic.pk }}" name="name" class="form-control form-control-sm" value="{{ topic.name }}" maxlength="255" required>
+                    </div>
+                    {% if topicos_por_carrera %}
+                    <div class="col-12 col-md-5">
+                        <label class="form-label small mb-1" for="carrera-topico-{{ topic.pk }}">Carrera</label>
+                        <select id="carrera-topico-{{ topic.pk }}" name="career_subject_id" class="form-select form-select-sm">
+                            <option value="">Sin carrera asignada (todas)</option>
+                            {% for bloque in topicos_por_carrera %}
+                                <option value="{{ bloque.career_subject.pk }}" {% if topic.career_subject_id == bloque.career_subject.pk %}selected{% endif %}>{{ bloque.career_subject.career.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="col-12 col-md-2">
+                        <button type="submit" class="btn btn-sm btn-success w-100">Guardar</button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            <div class="mt-2 ps-3 border-start">
+                {% for sub in topic.subs %}
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 py-1">
+                    <span class="small">{{ sub.name }}
+                        {% if not sub.es_catalogo_institucional %}<span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1">Espacio personal</span>{% endif %}
+                    </span>
+                    {% if sub.puede_editar %}
+                    <div class="d-flex gap-1">
+                        <form method="post" action="{% url 'material:subtopic_update' sub.pk %}" class="d-flex gap-1">
+                            {% csrf_token %}
+                            <input type="text" name="name" value="{{ sub.name }}" class="form-control form-control-sm" maxlength="255" required aria-label="Renombrar el sub-tópico {{ sub.name }}">
+                            <button type="submit" class="btn btn-sm btn-outline-success" aria-label="Guardar el nombre del sub-tópico"><i class="bi bi-check2"></i></button>
+                        </form>
+                        <form method="post" action="{% url 'material:subtopic_delete' sub.pk %}"
+                              data-confirm="Se elimina el sub-tópico «{{ sub.name }}». Las preguntas que lo usan quedan sin sub-tópico.">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Eliminar el sub-tópico {{ sub.name }}"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                <form method="post" action="{% url 'material:subtopic_create' topic.pk %}" class="d-flex gap-2 mt-1">
+                    {% csrf_token %}
+                    <input type="text" name="name" class="form-control form-control-sm" placeholder="Nuevo sub-tópico" maxlength="255" required aria-label="Nombre del nuevo sub-tópico en {{ topic.name }}">
+                    <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap"><i class="bi bi-plus"></i> Agregar</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        <div class="alert alert-info mb-0">No hay tópicos cargados {% if sin_carrera %}sin carrera asignada{% else %}para esta carrera{% endif %}.</div>
+    {% endif %}
+</div>

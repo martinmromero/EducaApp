@@ -523,6 +523,27 @@ class Topic(models.Model):
         Unidad, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='topics', verbose_name="Unidad",
     )
+    # Un tópico es de la asociación carrera-materia, no de la materia en
+    # abstracto: "Inglés I" de Arquitectura no es el de Sistemas, así que sus
+    # tópicos varían (mismo criterio que LearningOutcome.career_subject).
+    # Vacío significa "sin carrera asignada": materia sin carrera, o un tópico
+    # anterior a este campo en una materia que está en varias carreras —
+    # se ve en todas hasta que se lo asigne a una. SET_NULL (no CASCADE) a
+    # propósito: desvincular una materia de una carrera no debe borrar tópicos
+    # que tienen preguntas colgando.
+    career_subject = models.ForeignKey(
+        'CareerSubject', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='topics', verbose_name="Materia en la carrera",
+    )
+    # Mismo mecanismo de espacio personal vs. catálogo que Institución/
+    # Facultad/Carrera/Materia/Resultado de aprendizaje: uno del catálogo
+    # (unificado, lo administra un admin) lo ven todos los docentes de esa
+    # carrera-materia; uno personal solo quien lo creó, hasta que un admin lo
+    # sume al catálogo o lo fusione con uno existente. default=True: los
+    # tópicos anteriores a este campo ya eran visibles para todos.
+    es_catalogo_institucional = models.BooleanField(
+        default=True, verbose_name="En el catálogo institucional",
+    )
 
     def __str__(self):
         return f"{self.subject.name} - {self.name}"
@@ -530,7 +551,7 @@ class Topic(models.Model):
     class Meta:
         verbose_name = "Tópico"
         verbose_name_plural = "Tópicos"
-        unique_together = ('name', 'subject', 'created_by')
+        unique_together = ('name', 'subject', 'career_subject', 'created_by')
 
 class Subtopic(models.Model):
     name = models.CharField(max_length=255, verbose_name="Nombre del Sub-tópico")
@@ -538,6 +559,16 @@ class Subtopic(models.Model):
         Topic,
         on_delete=models.CASCADE,
         verbose_name="Tópico relacionado"
+    )
+    # Mismo alcance que el tópico (ver Topic.es_catalogo_institucional): uno
+    # personal lo ve solo quien lo creó; uno del catálogo, todos. Un docente
+    # que agrega un sub-tópico a un tópico del catálogo crea uno personal.
+    es_catalogo_institucional = models.BooleanField(
+        default=True, verbose_name="En el catálogo institucional",
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='owned_subtopics', verbose_name="Creado por",
     )
 
     def __str__(self):
@@ -1468,6 +1499,7 @@ class CatalogRequest(models.Model):
         ('carrera', 'Carrera'),
         ('materia', 'Materia'),
         ('resultado_aprendizaje', 'Resultado de aprendizaje'),
+        ('topico', 'Tópico'),
     ]
     ESTADO_CHOICES = [
         ('pendiente', 'Pendiente'),
@@ -1549,6 +1581,13 @@ class CatalogRequest(models.Model):
         'LearningOutcome', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='catalog_requests', verbose_name="Resultado de aprendizaje",
     )
+    # Tópico personal que un docente propone sumar al catálogo (se crea desde la
+    # ficha de la materia, no por el formulario de "Solicitar alta": no hay
+    # variante "_nueva", el tópico ya existe en el espacio personal).
+    topico = models.ForeignKey(
+        'Topic', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='catalog_requests', verbose_name="Tópico",
+    )
 
     # Solo tiene efecto cuando la solicitud da de alta una institución nueva
     # (tipo='institucion' o institucion_nueva completado en un nivel más
@@ -1591,7 +1630,7 @@ class CatalogRequest(models.Model):
     # femeninos — usado por resultado_mensaje() para el artículo correcto.
     _ARTICULO_POR_TIPO = {
         'institucion': 'la', 'facultad': 'la', 'carrera': 'la', 'materia': 'la',
-        'resultado_aprendizaje': 'el',
+        'resultado_aprendizaje': 'el', 'topico': 'el',
     }
 
     def entidad_propia(self):
@@ -1606,6 +1645,7 @@ class CatalogRequest(models.Model):
             'carrera': self.carrera,
             'materia': self.materia,
             'resultado_aprendizaje': self.resultado_aprendizaje,
+            'topico': self.topico,
         }.get(self.tipo)
 
     def contexto_display(self):
@@ -2472,8 +2512,8 @@ class InstitutionAIConfig(models.Model):
 # ---------------------------------------------------------------------------
 class UserAIConfig(models.Model):
     SOURCE_CHOICES = [
-        ('shared_demo', 'IA de prueba gratuita de EducaApp (limitada)'),
-        ('ollama_local', 'IA Local (Ollama)'),
+        ('shared_demo', 'IA pública gratuita de EducaApp (limitada)'),
+        ('ollama_local', 'Servidor de IA propio (Ollama)'),
         ('byok', 'Mi propia API Key (BYOK)'),
         ('institutional', 'Configuración de la Institución'),
     ]
@@ -2496,7 +2536,7 @@ class UserAIConfig(models.Model):
     source = models.CharField(
         max_length=20,
         choices=SOURCE_CHOICES,
-        default='ollama_local',
+        default='shared_demo',
         verbose_name="Fuente de IA",
     )
     # Campos BYOK

@@ -91,7 +91,8 @@
                                         <label class="form-label small text-muted mb-1">Fusionar con una fila ya institucional:</label>
                                         <input type="text" class="form-control form-control-sm fusion-buscar"
                                                data-nivel="{{ s.tipo }}" data-institucion-id="{{ s.institucion_id|default_if_none:'' }}"
-                                               data-career-subject-id="{% if s.tipo == 'resultado_aprendizaje' %}{{ s.resultado_aprendizaje.career_subject_id|default_if_none:'' }}{% endif %}"
+                                               data-career-subject-id="{% if s.tipo == 'resultado_aprendizaje' %}{{ s.resultado_aprendizaje.career_subject_id|default_if_none:'' }}{% elif s.tipo == 'topico' %}{{ s.topico.career_subject_id|default_if_none:'' }}{% endif %}"
+                                               data-materia-id="{% if s.tipo == 'topico' %}{{ s.materia_id|default_if_none:'' }}{% endif %}"
                                                placeholder="Buscar por nombre...">
                                         <div class="fusion-sugerencias small mt-1"></div>
                                         <form method="post" class="fusion-form mt-2">
@@ -158,8 +159,11 @@ document.addEventListener('DOMContentLoaded', function () {
             if (nivel === 'facultad' && input.dataset.institucionId) {
                 paramsObj.institucion_id = input.dataset.institucionId;
             }
-            if (nivel === 'resultado_aprendizaje' && input.dataset.careerSubjectId) {
+            if ((nivel === 'resultado_aprendizaje' || nivel === 'topico') && input.dataset.careerSubjectId) {
                 paramsObj.career_subject_id = input.dataset.careerSubjectId;
+            }
+            if (nivel === 'topico' && input.dataset.materiaId) {
+                paramsObj.materia_id = input.dataset.materiaId;
             }
             const params = new URLSearchParams(paramsObj);
             fetch(BUSCAR_DESTINO_URL + '?' + params.toString())

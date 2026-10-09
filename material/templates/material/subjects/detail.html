@@ -94,6 +94,46 @@
             </div>
         </div>
 
+        <!-- Tópicos y sub-tópicos: de cada carrera-materia (igual que los
+             resultados de aprendizaje). Los del catálogo los administra un
+             admin; un docente agrega los suyos (personales) y puede
+             proponerlos al catálogo. Ver views_topics. -->
+        <div class="row mb-2" id="topicos">
+            <div class="col-md-12">
+                <h6 class="mb-1">Tópicos y sub-tópicos</h6>
+                <p class="text-muted small mb-3">
+                    Los tópicos son de cada carrera: la misma materia puede tener otros temas en otra carrera.
+                    {% if subject.es_catalogo_institucional %}
+                        Los del catálogo los administra un administrador; los marcados como <em>Espacio personal</em> solo los ve quien los creó y se pueden proponer al catálogo.
+                    {% else %}
+                        Esta materia es personal: sus tópicos son solo de quien la creó.
+                    {% endif %}
+                </p>
+
+                {% for bloque in topicos_por_carrera %}
+                    {% include "material/subjects/_topicos_bloque.html" with titulo=bloque.career_subject.career.name topics=bloque.topics career_subject=bloque.career_subject %}
+                {% endfor %}
+
+                {% if topicos_sin_carrera or not topicos_por_carrera %}
+                    {% include "material/subjects/_topicos_bloque.html" with titulo="Sin carrera asignada" topics=topicos_sin_carrera career_subject=None sin_carrera=True %}
+                {% endif %}
+            </div>
+        </div>
+
+<script>
+// Borrados con confirmación (mismo diálogo que el resto de la app).
+document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+    form.addEventListener('submit', async function (ev) {
+        if (form.dataset.confirmed) return;
+        ev.preventDefault();
+        const ok = await window.EducaAppModal.confirm(form.dataset.confirm, {
+            title: 'Eliminar', variant: 'warning', okLabel: 'Eliminar',
+        });
+        if (ok) { form.dataset.confirmed = '1'; form.submit(); }
+    });
+});
+</script>
+
     </div>
 </div>
 {% endblock %}

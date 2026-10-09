@@ -206,7 +206,8 @@ def onboarding_context(request):
         outcomes_by_subj.setdefault(lo['career_subject__subject_id'], []).append({'id': lo['id'], 'text': lo['description']})
 
     topics_by_subj = {}
-    for t in Topic.objects.filter(subject_id__in=visible_subject_ids).values('id', 'subject_id', 'name'):
+    from .content_visibility import get_visible_topics
+    for t in get_visible_topics(request.user).filter(subject_id__in=visible_subject_ids).values('id', 'subject_id', 'name'):
         topics_by_subj.setdefault(t['subject_id'], []).append({'id': t['id'], 'text': t['name']})
 
     all_subjects = [

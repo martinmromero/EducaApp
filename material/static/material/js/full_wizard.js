@@ -568,6 +568,7 @@
         window.EducaAppQuestionUpload.mount(embed.root, {
             subject: sid ? { id: sid, name: STATE.materia.name } : undefined,
             lockSubject: !!sid,
+            careerId: STATE.carrera && !STATE.carrera.skipped ? STATE.carrera.id : '',
             draftKey: 'full_wizard_uqw_draft_v1',
             finishLabel: 'Continuar con el examen',
             // Pantalla final del asistente embebido: cuántas preguntas quedan
@@ -679,7 +680,45 @@
         }
     }
 
+    // Estado de la IA antes de ofrecer "Generar con IA": lista, sin cupo o no
+    // disponible. "Cargar a mano" no depende de esto y queda siempre a mano.
+    function refreshAIStatus() {
+        var el = document.getElementById('fwAIStatus');
+        if (!el || !CFG.urls.aiStatus) return;
+        fetch(CFG.urls.aiStatus)
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                var problema = !d.connected || d.quota_exhausted;
+                el.className = 'alert py-2 small mt-3 mb-0 ' + (problema ? 'alert-warning' : 'alert-success');
+                el.textContent = '';
+                var texto = document.createElement('span');
+                if (problema) {
+                    texto.textContent = d.message || d.error || 'La IA no está disponible ahora mismo.';
+                    el.appendChild(texto);
+                    el.appendChild(document.createTextNode(' '));
+                    var link = document.createElement('a');
+                    link.href = CFG.urls.aiConfig;
+                    link.className = 'alert-link';
+                    link.textContent = 'Abrir Proveedor de IA';
+                    el.appendChild(link);
+                    el.appendChild(document.createTextNode('. Mientras tanto, "Cargar a mano" sigue disponible.'));
+                } else if (d.using_shared_fallback) {
+                    var q = d.demo_quota;
+                    var cupo = q && q.remaining_requests != null && q.limit_requests
+                        ? ' Cupo compartido restante hoy: ' + q.remaining_requests + ' de ' + q.limit_requests + ' solicitudes.'
+                        : '';
+                    texto.textContent = 'IA pública gratuita lista.' + cupo;
+                    el.appendChild(texto);
+                } else {
+                    texto.textContent = 'IA conectada' + (d.model ? ' (' + d.model + ')' : '') + '.';
+                    el.appendChild(texto);
+                }
+            })
+            .catch(function () { el.className = 'd-none'; });
+    }
+
     function refreshQuestionsLinks() {
+        refreshAIStatus();
         var msg = document.getElementById('fwStep6Msg');
         if (msg && !currentSubjectId()) {
             msg.textContent = 'No se eligió ninguna Materia en este recorrido — al cargar o generar preguntas, hay que elegir o crear una materia en esa misma pantalla.';

@@ -414,7 +414,7 @@ def document_processor_dashboard(request):
         'local_ai_ready': ai_status.get('ready_for_generation', ai_status.get('connected', False)),
         'selected_model': ai_status.get('selected_model', ai_status.get('model', 'N/A')),
         'default_model': ai_status.get('default_model', ai_status.get('model', 'N/A')),
-        'backend_type': ai_status.get('backend', 'ollama_local'),
+        'backend_type': ai_status.get('backend', 'shared_demo'),
         'preselected_contenido_id': request.GET.get('contenido_id', ''),
         'preselected_subject_id': preselected_subject_id,
         'preselected_subject_name': preselected_subject_name,
@@ -516,7 +516,7 @@ def process_contenido_by_id(request, contenido_id):
         logger.exception("Error en process_contenido_by_id")
         return JsonResponse({
             'success': False,
-            'error': 'Ocurrió un error inesperado al procesar el documento. Volvé a intentarlo o contactá al administrador si persiste.',
+            'error': 'Ocurrió un error inesperado al procesar el documento. Volver a intentarlo o contactar al administrador si persiste.',
         }, status=500)
 
 
@@ -679,13 +679,15 @@ def generate_questions_from_chapters(request):
         _ai_backend = get_backend_for_user(request.user)
         _status = _ai_backend.get_status()
         if not _status.get('connected'):
-            backend_type = _status.get('backend', 'ollama_local')
+            backend_type = _status.get('backend', 'shared_demo')
             if backend_type == 'ollama_local':
                 error_msg = (
-                    'Servidor Ollama no disponible. '
-                    'Para usar el generador de IA en producción, configurar un proveedor '
-                    'en "Proveedor de IA" (BYOK con OpenAI, Anthropic, etc.).'
+                    'El servidor Ollama configurado no responde. Verificar su dirección en '
+                    '"Proveedor de IA", o volver a la IA pública gratuita desde esa misma pantalla.'
                 )
+            elif backend_type == 'shared_demo':
+                from .ai_router import SHARED_UNAVAILABLE_MESSAGE
+                error_msg = _status.get('error') or SHARED_UNAVAILABLE_MESSAGE
             else:
                 error_msg = f'Proveedor de IA ({backend_type}) no disponible. Verificar la configuración y la API key.'
             return JsonResponse({
@@ -908,7 +910,7 @@ def generate_questions_from_chapters(request):
         logger.exception("Error en generate_questions_from_chapters")
         return JsonResponse({
             'success': False,
-            'error': 'Ocurrió un error inesperado generando las preguntas. Volvé a intentarlo o contactá al administrador si persiste.',
+            'error': 'Ocurrió un error inesperado generando las preguntas. Volver a intentarlo o contactar al administrador si persiste.',
         }, status=500)
 
 
@@ -1778,7 +1780,7 @@ def document_page_preview(request):
         logger.exception("Error en document_page_preview")
         return JsonResponse({
             'success': False,
-            'error': 'No se pudo generar la vista previa de esa página. Volvé a intentarlo o contactá al administrador si persiste.',
+            'error': 'No se pudo generar la vista previa de esa página. Volver a intentarlo o contactar al administrador si persiste.',
         }, status=500)
 
 
@@ -1959,7 +1961,7 @@ def get_pages_text(request):
         logger.exception("Error en get_pages_text")
         return JsonResponse({
             'success': False,
-            'error': 'No se pudo extraer el texto de ese documento. Volvé a intentarlo o contactá al administrador si persiste.',
+            'error': 'No se pudo extraer el texto de ese documento. Volver a intentarlo o contactar al administrador si persiste.',
         }, status=500)
 
 
@@ -2039,33 +2041,35 @@ def save_generated_questions(request):
         default_topic = None
         if topic_id:
             try:
-                default_topic = Topic.objects.get(id=topic_id, subject=default_subject)
+                from material.content_visibility import get_visible_topics
+                default_topic = get_visible_topics(request.user, subject=default_subject).get(id=topic_id)
             except Topic.DoesNotExist:
                 pass
         if not default_topic and new_topic_name:
-            default_topic, _ = Topic.objects.get_or_create(
-                name=new_topic_name,
-                subject=default_subject
+            from material.content_visibility import get_or_create_topic, resolve_career_subject
+            default_topic, _ = get_or_create_topic(
+                request.user, default_subject, new_topic_name,
+                career_subject=resolve_career_subject(default_subject),
             )
         if not default_topic:
             # Fallback automático
-            default_topic, _ = Topic.objects.get_or_create(
-                name=f"Preguntas de {filename}",
-                subject=default_subject
+            from material.content_visibility import get_or_create_topic, resolve_career_subject
+            default_topic, _ = get_or_create_topic(
+                request.user, default_subject, f"Preguntas de {filename}",
+                career_subject=resolve_career_subject(default_subject),
             )
 
         # Resolver subtema
         default_subtopic = None
         if subtopic_id:
             try:
-                default_subtopic = Subtopic.objects.get(id=subtopic_id, topic=default_topic)
+                from material.content_visibility import get_visible_subtopics
+                default_subtopic = get_visible_subtopics(request.user, topic=default_topic).get(id=subtopic_id)
             except Subtopic.DoesNotExist:
                 pass
         if not default_subtopic and new_subtopic_name:
-            default_subtopic, _ = Subtopic.objects.get_or_create(
-                name=new_subtopic_name,
-                topic=default_topic
-            )
+            from material.content_visibility import get_or_create_subtopic
+            default_subtopic, _ = get_or_create_subtopic(request.user, default_topic, new_subtopic_name)
 
         # Idempotencia: un reintento de red o un doble envío (ver Fix B en el
         # frontend, botón de generar) puede mandar este POST más de una vez
@@ -2157,14 +2161,19 @@ def save_generated_questions(request):
 @require_http_methods(["GET"])
 def get_topics_by_subject(request, subject_id):
     """Retorna temas y subtemas para una materia — usado por el modal de guardado."""
-    from material.models import Topic
+    from material.models import Subject, Topic
     try:
+        from django.db.models import Prefetch
+        from material.content_visibility import get_visible_subtopics, get_visible_topics, resolve_career_subject
+        subject_obj = Subject.objects.filter(pk=subject_id).first()
         topics = (
-            Topic.objects
-            .filter(subject_id=subject_id)
+            get_visible_topics(
+                request.user, subject=subject_obj,
+                career_subject=resolve_career_subject(subject_obj, request.GET.get('career_id')) if subject_obj else None,
+            )
             .order_by('name')
-            .prefetch_related('subtopic_set')
-        )
+            .prefetch_related(Prefetch('subtopic_set', queryset=get_visible_subtopics(request.user)))
+        ) if subject_obj else Topic.objects.none()
         result = [
             {
                 'id': t.id,
@@ -2181,7 +2190,7 @@ def get_topics_by_subject(request, subject_id):
         logger.exception("Error en get_topics_by_subject")
         return JsonResponse({
             'success': False,
-            'error': 'No se pudieron cargar los tópicos de esa materia. Volvé a intentarlo o contactá al administrador si persiste.',
+            'error': 'No se pudieron cargar los tópicos de esa materia. Volver a intentarlo o contactar al administrador si persiste.',
         }, status=500)
 
 

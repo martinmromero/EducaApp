@@ -232,7 +232,7 @@ def clone_seed_content_into(training_user):
         for topic in Topic.objects.filter(subject=seed_subject):
             topic_map[topic.id] = Topic.objects.create(
                 subject=subject, name=topic.name, importance=topic.importance,
-                created_by=training_user,
+                created_by=training_user, es_catalogo_institucional=False,
             )
         topics_list = list(topic_map.values())
 
