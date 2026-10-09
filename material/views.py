@@ -6194,6 +6194,27 @@ def set_visual_theme(request):
     return JsonResponse({'success': True, 'theme': theme})
 
 @login_required
+@require_POST
+def set_interface_mode(request):
+    """Cambia entre modo simple y modo avanzado y vuelve a donde se estaba."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+    destino = request.POST.get('next') or ''
+    if not url_has_allowed_host_and_scheme(
+        destino, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        destino = reverse('material:index')
+    mode = request.POST.get('mode')
+    if mode not in {choice for choice, _ in Profile.INTERFACE_MODE_CHOICES}:
+        messages.error(request, 'Modo inválido.', extra_tags='general')
+        return redirect(destino)
+    profile = request.user.profile
+    if profile.interface_mode != mode:
+        profile.interface_mode = mode
+        profile.save(update_fields=['interface_mode'])
+    return redirect(destino)
+
+
+@login_required
 def delete_institution_logo_v2(request, pk):
     institution = get_object_or_404(InstitutionV2, pk=pk)
     # Mismo criterio que edit_institution_v2 (donde se sube el logo): admin,

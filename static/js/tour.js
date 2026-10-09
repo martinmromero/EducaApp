@@ -75,6 +75,16 @@
       onDeselected: unhighlightHelpBtn,
     },
     {
+      // Solo está en el menú del modo simple (en el avanzado vive dentro de "Mi espacio académico").
+      element: '#tourMenuAsistente',
+      popover: {
+        title: 'Asistente completo',
+        description: 'El recorrido paso a paso: institución, carrera, materia, preguntas y examen, todo en un mismo lugar. Es el punto de partida del modo simple.',
+        side: 'right',
+      },
+      onHighlightStarted: () => expandMenu('tourMenuAsistente'),
+    },
+    {
       element: '#tourMenuGenerarIA',
       popover: {
         title: 'Generar con IA',
@@ -109,6 +119,16 @@
         side: 'right',
       },
       onHighlightStarted: () => expandMenu('tourMenuExamenes'),
+    },
+    {
+      // En el modo simple reemplaza a "Mi espacio académico": el estado de lo propuesto al catálogo.
+      element: '#tourMenuAgregados',
+      popover: {
+        title: 'Mis agregados',
+        description: 'Lo que se propuso al catálogo (materias, carreras, tópicos...) y si ya fue aprobado.',
+        side: 'right',
+      },
+      onHighlightStarted: () => expandMenu('tourMenuAgregados'),
     },
     {
       element: '#tourMenuAcademico',
@@ -159,6 +179,14 @@
       popover: {
         title: 'Modo claro / oscuro',
         description: 'Y aquí se alterna entre modo claro y oscuro, según preferencia.',
+        side: 'top',
+      },
+    },
+    {
+      element: '#tourModeToggle',
+      popover: {
+        title: 'Modo simple o avanzado',
+        description: 'El modo simple muestra solo lo esencial y arma todo con asistentes. El avanzado suma el menú completo (contenidos, instituciones, carreras, materias, plantillas, rúbricas, grupos) y los formularios de siempre. Se puede cambiar cuando se quiera.',
         side: 'top',
       },
     },

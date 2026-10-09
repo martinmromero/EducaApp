@@ -191,15 +191,24 @@
             </div>
         {% endif %}
 
+        {% if ui_simple %}
+        <!-- Modo simple: el recorrido completo (institución → examen) es la puerta de entrada -->
+        <a href="{% url 'material:full_wizard' %}" class="menu-item" id="tourMenuAsistente" style="text-decoration:none;">
+            <i class="bi bi-magic me-2"></i> Asistente completo
+        </a>
+        {% endif %}
+
         <!-- Generar con IA: función core, un solo click, sin submenú -->
         <a href="{% url 'material:document_processor_dashboard' %}" class="menu-item" id="tourMenuGenerarIA" style="text-decoration:none;">
             <i class="bi bi-magic me-2"></i> Generar con IA
         </a>
 
         <!-- Contenidos: biblioteca de material subido (el botón "Subir" vive en la propia lista) -->
+        {% if not ui_simple %}
         <a href="{% url 'material:mis_contenidos' %}" class="menu-item" id="tourMenuContenidos" style="text-decoration:none;">
             <i class="bi bi-folder-fill me-2"></i> Contenidos
         </a>
+        {% endif %}
 
         <!-- Preguntas: banco propio (el botón "Nueva pregunta" vive en la propia lista) -->
         <a href="{% url 'material:lista_preguntas' %}" class="menu-item" id="tourMenuPreguntas" style="text-decoration:none;">
@@ -222,6 +231,13 @@
             </div>
         </div>
 
+        {% if ui_simple %}
+        <!-- Modo simple: de todo "Mi espacio académico" queda solo el estado de lo que se propuso al catálogo -->
+        <a href="{% url 'material:mis_solicitudes_catalogo' %}" class="menu-item" id="tourMenuAgregados" style="text-decoration:none;">
+            <i class="bi bi-list-check me-2"></i> Mis agregados
+            {% if pending_catalog_notifications_count %}<span class="badge bg-danger ms-1">{{ pending_catalog_notifications_count }}</span>{% endif %}
+        </a>
+        {% else %}
         <!-- Mi espacio académico: estructura (institución/carrera/materia) + plantillas de examen, todo de baja frecuencia -->
         <div class="menu-item" id="tourMenuAcademico" onclick="toggleSubmenu(this)">
             <i class="bi bi-diagram-3-fill me-2"></i> Mi espacio académico
@@ -247,6 +263,7 @@
             <span class="badge bg-danger ms-1">{{ pending_invites_count }}</span>
             {% endif %}
         </a>
+        {% endif %}
 
         <!-- Menú de Administración (solo para administradores) -->
         {% if is_admin %}
@@ -273,6 +290,16 @@
         <div class="bottom-links">
             {% if user.is_authenticated %}
                 <a href="{% url 'material:ai_config' %}"><i class="bi bi-cpu me-2"></i>Proveedor de IA</a>
+                <!-- Interruptor Simple / Avanzado (ver Profile.interface_mode) -->
+                <form method="post" action="{% url 'material:set_interface_mode' %}" id="tourModeToggle" class="interface-mode-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <input type="hidden" name="mode" value="{% if ui_simple %}avanzado{% else %}simple{% endif %}">
+                    <button type="submit" class="logout-button"
+                            title="{% if ui_simple %}Mostrar el menú completo y los formularios de siempre{% else %}Mostrar solo lo esencial y armar todo con asistentes{% endif %}">
+                        <i class="bi bi-sliders me-2"></i>{% if ui_simple %}Pasar a modo avanzado{% else %}Pasar a modo simple{% endif %}
+                    </button>
+                </form>
             {% endif %}
             <div class="d-flex justify-content-between align-items-center">
                 <a href="{% url 'material:mis_datos' %}" id="tourMisDatos"><i class="bi bi-person-lines-fill me-2"></i>Mis datos</a>
