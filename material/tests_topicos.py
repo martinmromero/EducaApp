@@ -284,7 +284,7 @@ class PropuestaAlCatalogoTests(BaseTopicos):
 
 class MigracionTests(TestCase):
     def test_relleno_de_alcance(self):
-        migracion = importlib.import_module('material.migrations.0103_topico_por_carrera_materia')
+        migracion = importlib.import_module('material.migrations.0106_asignar_alcance_topicos')
         dueno = make_user('mig_dueno')
         personal = Subject.objects.create(name='Personal', created_by=dueno, es_catalogo_institucional=False)
         una = Subject.objects.create(name='Una carrera', es_catalogo_institucional=True)

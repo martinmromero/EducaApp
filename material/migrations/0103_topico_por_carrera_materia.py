@@ -5,42 +5,6 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
-def asignar_alcance_a_topicos(apps, schema_editor):
-    """Rellena los campos nuevos de los tópicos y sub-tópicos que ya existían.
-
-    - Materia personal (no del catálogo): sus tópicos y sub-tópicos pasan a ser
-      personales y del dueño de la materia.
-    - Materia del catálogo con UNA sola carrera: el tópico queda asignado a esa
-      carrera-materia.
-    - Materia del catálogo en varias carreras: el tópico queda sin carrera
-      asignada (se ve en todas) hasta que se lo asigne a una desde la ficha de
-      la materia. No se duplican tópicos: las preguntas ya cargadas no se pueden
-      repartir sin saber a qué carrera pertenecen.
-    Neon todavía no es producción, por eso alcanza con un relleno razonable.
-    """
-    Topic = apps.get_model('material', 'Topic')
-    Subtopic = apps.get_model('material', 'Subtopic')
-    CareerSubject = apps.get_model('material', 'CareerSubject')
-    for topic in Topic.objects.select_related('subject').iterator():
-        subject = topic.subject
-        campos = []
-        if not subject.es_catalogo_institucional:
-            topic.es_catalogo_institucional = False
-            campos.append('es_catalogo_institucional')
-            if topic.created_by_id is None and subject.created_by_id:
-                topic.created_by_id = subject.created_by_id
-                campos.append('created_by')
-            Subtopic.objects.filter(topic_id=topic.pk).update(
-                es_catalogo_institucional=False, created_by_id=topic.created_by_id,
-            )
-        carreras = list(CareerSubject.objects.filter(subject_id=subject.pk).values_list('pk', flat=True)[:2])
-        if len(carreras) == 1:
-            topic.career_subject_id = carreras[0]
-            campos.append('career_subject')
-        if campos:
-            topic.save(update_fields=campos)
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -73,7 +37,6 @@ class Migration(migrations.Migration):
             name='es_catalogo_institucional',
             field=models.BooleanField(default=True, verbose_name='En el catálogo institucional'),
         ),
-        migrations.RunPython(asignar_alcance_a_topicos, migrations.RunPython.noop),
         migrations.AlterUniqueTogether(
             name='topic',
             unique_together={('name', 'subject', 'career_subject', 'created_by')},
