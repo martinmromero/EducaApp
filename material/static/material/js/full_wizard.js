@@ -29,6 +29,9 @@
         // Último paso visible: permite volver exactamente ahí tras salir a
         // otra pantalla (el generador con IA) y regresar con ?retomar=1.
         currentStep: 1,
+        // Plantilla con la que se arrancó (ver setupTemplateBox): viaja al examen
+        // embebido para que aplique el resto (docente, sede, formato, rúbricas...).
+        templateId: null,
     };
 
     // Asignados en DOMContentLoaded, leídos por configureBottomAction() —
@@ -717,6 +720,73 @@
             .catch(function () { el.className = 'd-none'; });
     }
 
+    // ---- Partir de una plantilla -------------------------------------------
+    // Una plantilla (ExamTemplate) guarda institución, facultad, carrera, materia
+    // y resultados de aprendizaje: elegirla completa los pasos 1 a 5 de una vez
+    // y lleva a Preguntas (o directo a Examen si la materia ya tiene preguntas).
+    var templatesAvailable = false;
+
+    function toggleTemplateBox(n) {
+        var box = document.getElementById('fwTemplateBox');
+        if (box) box.classList.toggle('d-none', !(templatesAvailable && n === 1));
+    }
+
+    function setupTemplateBox() {
+        var select = document.getElementById('fwTemplateSelect');
+        var useBtn = document.getElementById('fwTemplateUse');
+        var errEl = document.getElementById('fwTemplateError');
+        if (!select || !useBtn || !CFG.urls.templates) return;
+
+        function showError(msg) {
+            errEl.textContent = msg || '';
+            errEl.classList.toggle('d-none', !msg);
+        }
+
+        fetch(CFG.urls.templates)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var list = data.templates || [];
+                if (!list.length) return;
+                list.forEach(function (t) {
+                    var opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.name + (t.subject ? ' — ' + t.subject : '') + (t.career ? ' (' + t.career + ')' : '');
+                    select.appendChild(opt);
+                });
+                templatesAvailable = true;
+                toggleTemplateBox(wizardCtrl ? wizardCtrl.current() : 1);
+            })
+            .catch(function () { /* sin plantillas no hay nada que ofrecer */ });
+
+        useBtn.addEventListener('click', function () {
+            if (!select.value) return;
+            showError('');
+            useBtn.disabled = true;
+            fetch(CFG.urls.templateContextBase + encodeURIComponent(select.value) + '/')
+                .then(function (r) { return r.json().then(function (data) { return { status: r.status, data: data }; }); })
+                .then(function (res) {
+                    useBtn.disabled = false;
+                    var d = res.data;
+                    if (!d.ok) { showError(d.error || 'No se pudo usar la plantilla.'); return; }
+                    ['institucion', 'facultad', 'carrera', 'materia'].forEach(function (key) {
+                        STATE[key] = { id: d.chain[key].id, name: d.chain[key].name, skipped: false };
+                    });
+                    STATE.outcomes = d.outcomes || [];
+                    STATE.templateId = d.template.id;
+                    STATE.questionsSkipped = false;
+                    exam.saved = false;
+                    renderBreadcrumb();
+                    saveDraft();
+                    // El motor solo deja avanzar de a un paso: se recorren los
+                    // intermedios (ya resueltos) hasta Preguntas o Examen.
+                    var destino = d.question_count > 0 ? 7 : 6;
+                    var pasos = destino - wizardCtrl.current();
+                    for (var i = 0; i < pasos; i++) wizardCtrl.goNext();
+                })
+                .catch(function () { useBtn.disabled = false; showError('Error de red: reintentar.'); });
+        });
+    }
+
     function refreshQuestionsLinks() {
         refreshAIStatus();
         var msg = document.getElementById('fwStep6Msg');
@@ -770,6 +840,7 @@
         if (ctx.facultad_id) params.set('facultad_id', ctx.facultad_id);
         if (ctx.carrera_id) params.set('carrera_id', ctx.carrera_id);
         if (STATE.outcomes.length) params.set('outcome_ids', STATE.outcomes.map(function (o) { return o.id; }).join(','));
+        if (STATE.templateId) params.set('plantilla_id', STATE.templateId);
         return CFG.urls.createExamWizard + '?' + params.toString();
     }
 
@@ -912,6 +983,7 @@
         catalogHandlersRef = CATALOG_STEPS.map(setupCatalogStep);
         outcomesHandlerRef = setupOutcomesStep();
         wireExamStep();
+        setupTemplateBox();
 
         var embedRoot = document.querySelector('#fwQEmbed [data-uqw]');
         if (embedRoot) {
@@ -942,6 +1014,7 @@
             // La introducción solo ayuda en el primer paso; desde el Preguntas
             // en adelante, en pantallas angostas, tampoco se muestran las migas
             // (empujaban el contenido útil fuera de la primera pantalla).
+            toggleTemplateBox(n);
             var wrap = document.querySelector('.wiz-wrap');
             if (wrap) {
                 wrap.classList.toggle('fw-past-first', n > 1);

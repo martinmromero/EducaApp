@@ -1933,6 +1933,16 @@ def _parse_fw_exam_prefill(request):
         if obj:
             prefill[key + '_id'] = obj.pk
             prefill[key + '_name'] = obj.name
+    # Plantilla elegida al comienzo del Asistente completo: solo si es visible y de
+    # la misma materia que se precargó (si no, se ignora y sigue el camino normal).
+    from .content_visibility import get_visible_templates
+    plantilla_raw = request.GET.get('plantilla_id', '')
+    if plantilla_raw.isdigit() and prefill.get('subject_id'):
+        plantilla = get_visible_templates(request.user).filter(
+            pk=int(plantilla_raw), subject_id=prefill['subject_id'],
+        ).first()
+        if plantilla:
+            prefill['plantilla_id'] = plantilla.pk
     raw_ids = [int(i) for i in request.GET.get('outcome_ids', '').split(',') if i.strip().isdigit()]
     visible_outcomes = list(
         get_visible_learning_outcomes(request.user).filter(pk__in=raw_ids).values_list('pk', flat=True)
@@ -9896,6 +9906,63 @@ def full_wizard_subject_progress(request):
     return JsonResponse({
         'has_contenido': has_contenido, 'has_question': has_question,
         'question_count': question_count, 'own_question_count': own_question_count,
+    })
+
+
+@login_required
+def full_wizard_templates(request):
+    """Plantillas de examen que el usuario puede usar (propias o compartidas por
+    un grupo), para ofrecer "Partir de una plantilla" al comienzo del Asistente
+    completo. Una plantilla ya trae institución, facultad, carrera, materia y
+    resultados de aprendizaje: elegirla completa de una vez los pasos 1 a 5."""
+    from .content_visibility import get_visible_templates
+    plantillas = get_visible_templates(request.user).select_related('subject', 'career').order_by('-created_at')
+    return JsonResponse({'templates': [
+        {
+            'id': t.pk, 'name': t.name,
+            'subject': t.subject.name if t.subject_id else '',
+            'career': t.career.name if t.career_id else '',
+        }
+        for t in plantillas
+    ]})
+
+
+@login_required
+def full_wizard_template_context(request, template_id):
+    """Lo que el Asistente completo necesita para arrancar desde una plantilla:
+    la cadena institución / facultad / carrera / materia y los resultados de
+    aprendizaje, cada uno validado como visible para este usuario (una
+    plantilla compartida por otro docente puede apoyarse en algo de su espacio
+    personal que acá no se ve: en ese caso no se la puede usar)."""
+    from .content_visibility import (
+        EXAM_ELIGIBLE_Q, get_visible_careers, get_visible_faculties, get_visible_institutions,
+        get_visible_learning_outcomes, get_visible_questions, get_visible_subjects, get_visible_templates,
+    )
+    plantilla = get_object_or_404(get_visible_templates(request.user), pk=template_id)
+
+    cadena = {}
+    for clave, qs_fn, obj in (
+        ('institucion', get_visible_institutions, plantilla.institution),
+        ('facultad', get_visible_faculties, plantilla.faculty),
+        ('carrera', get_visible_careers, plantilla.career),
+        ('materia', get_visible_subjects, plantilla.subject),
+    ):
+        if obj is None or not qs_fn(request.user).filter(pk=obj.pk).exists():
+            etiqueta = {'institucion': 'la institución', 'facultad': 'la facultad', 'carrera': 'la carrera', 'materia': 'la materia'}[clave]
+            return JsonResponse({
+                'ok': False,
+                'error': f'Esta plantilla usa {etiqueta}, que no está disponible en esta cuenta.',
+            }, status=409)
+        cadena[clave] = {'id': obj.pk, 'name': obj.name}
+
+    resultados = [
+        {'id': o.pk, 'description': o.description}
+        for o in get_visible_learning_outcomes(request.user).filter(pk__in=plantilla.learning_outcomes.values('pk'))
+    ]
+    preguntas = get_visible_questions(request.user, subject=plantilla.subject).filter(EXAM_ELIGIBLE_Q).count()
+    return JsonResponse({
+        'ok': True, 'template': {'id': plantilla.pk, 'name': plantilla.name},
+        'chain': cadena, 'outcomes': resultados, 'question_count': preguntas,
     })
 
 

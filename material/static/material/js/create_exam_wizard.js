@@ -734,8 +734,10 @@ _onDomReady(function () {
         }
     }
 
-    document.getElementById('plantilla').addEventListener('change', async function () {
-        var plantillaId = this.value;
+    // Se puede aplicar tanto al elegirla en el paso 1 como desde el Asistente
+    // completo (plantilla elegida al comienzo, ver startEmbedded): por eso es
+    // una función con nombre que devuelve una promesa.
+    async function applyTemplate(plantillaId) {
         if (!plantillaId) return;
 
         var response = await fetch(CFG.urls.getExamTemplateBase + plantillaId + '/');
@@ -824,6 +826,10 @@ _onDomReady(function () {
         }
 
         updateSuggestedBatchName();
+    }
+
+    document.getElementById('plantilla').addEventListener('change', function () {
+        if (this.value) applyTemplate(this.value);
     });
 
     // ── Modo demo (?demo_peek=1) ──────────────────────────────────────────
@@ -1082,6 +1088,14 @@ _onDomReady(function () {
         }
         draft.clear();
         applyFwPrefill().then(function () {
+            // Plantilla elegida al comienzo del Asistente completo: se aplica
+            // acá (docente, sede, formato, rúbricas, notas...) y el paso 1
+            // queda resuelto igual que si se la hubiera elegido a mano.
+            var plantillaId = (CFG.fwPrefill || {}).plantilla_id;
+            if (!plantillaId) return;
+            document.getElementById('plantilla').value = String(plantillaId);
+            return applyTemplate(plantillaId);
+        }).then(function () {
             if (subjectSelect.value) { wizardCtrl.goNext(); wizardCtrl.goNext(); }
         });
     }

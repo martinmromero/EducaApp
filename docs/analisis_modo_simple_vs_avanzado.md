@@ -151,7 +151,7 @@ Todo en la rama `feat/ia-publica-principal`, sin commitear. 210 tests en verde (
 | IA pública como principal (default, mensajes, estado en el paso Preguntas, "Servidor de IA propio (Ollama)") | Hecho y probado en el navegador |
 | Tópicos por carrera-materia con espacio personal / catálogo | Hecho: `Topic.career_subject` y `es_catalogo_institucional` (también en sub-tópicos), `get_visible_topics`, ABM en la ficha de la materia, proponer al catálogo, aprobar / rechazar / fusionar en la bandeja. Probado en el navegador con un docente y un admin |
 | Oral con preguntas compartidas (y sus tópicos y sub-tópicos) | Hecho: `get_oral_questions` en los siete lugares, solo aprobadas, igual que el examen escrito |
-| Plantilla al comienzo del asistente | Pendiente |
+| Plantilla al comienzo del asistente | Hecho en la rama `feat/plantilla-al-comienzo` (sin commitear): "¿Partir de una plantilla?" en el paso 1 completa los pasos 1 a 5 y lleva a Preguntas (o directo a Examen si la materia ya tiene preguntas); el examen embebido recibe `plantilla_id` y aplica docente, sede, cátedra, formato, rúbricas y notas. Probado en el navegador de punta a punta. |
 | Oral dentro del Asistente completo | Pendiente |
 | Interruptor Simple/Avanzado | Pendiente |
 
