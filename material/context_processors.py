@@ -86,6 +86,10 @@ def onboarding_context(request):
         'pending_catalog_notifications_count': pending_catalog_notifications_count,
         'pending_question_deletion_notices_count': pending_question_deletion_notices_count,
         'is_admin': is_admin_user,
+        # Modo de la interfaz (ver Profile.interface_mode): lo leen base.html, Inicio y
+        # los listados para mostrar el menú reducido y mandar los "Nuevo" al asistente.
+        'ui_mode': profile.interface_mode,
+        'ui_simple': profile.interface_mode == 'simple',
         'visual_theme': profile.visual_theme,
         'visual_theme_choices': profile.VISUAL_THEME_CHOICES,
         # Área de Pruebas: la marca de sesión (ver training_views.py) es lo

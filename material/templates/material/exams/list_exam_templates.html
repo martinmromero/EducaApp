@@ -6,12 +6,18 @@
 {% block title %}Plantillas de Examen - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-file-earmark-ruled me-2"></i>Plantillas{% endblock %}
 {% block page_actions %}
+{% if ui_simple %}
+<a href="{% url 'material:create_exam_template_wizard' %}" class="btn btn-primary" id="templateNewBtn">
+    <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nueva Plantilla</span>
+</a>
+{% else %}
 <a href="{% url 'material:create_exam_template' %}" class="btn btn-primary" id="templateNewBtn">
     <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nueva Plantilla</span>
 </a>
 <a href="{% url 'material:create_exam_template_wizard' %}" class="btn btn-outline-primary" id="templateWizardBtn">
     <i class="bi bi-magic me-1"></i><span class="d-none d-sm-inline">Asistente</span>
 </a>
+{% endif %}
 {% endblock %}
 
 {% block content %}

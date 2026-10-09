@@ -1111,6 +1111,21 @@ class Profile(models.Model):
         verbose_name='Onboarding completado',
         help_text='Indica si el usuario completó o saltó el wizard de configuración inicial.',
     )
+    # Modo de la interfaz: "simple" (menú reducido y todo el armado por asistentes,
+    # pensado para empezar a usar la app) o "avanzado" (el menú completo y los
+    # formularios de siempre). Es una preferencia por usuario; las pantallas
+    # avanzadas siguen siendo accesibles desde el modo simple por su dirección.
+    INTERFACE_MODE_CHOICES = [
+        ('simple', 'Modo simple'),
+        ('avanzado', 'Modo avanzado'),
+    ]
+    interface_mode = models.CharField(
+        max_length=10,
+        choices=INTERFACE_MODE_CHOICES,
+        default='simple',
+        verbose_name='Modo de la interfaz',
+        help_text='Simple: menú reducido y asistentes. Avanzado: el menú completo y los formularios de siempre.',
+    )
     visual_theme = models.CharField(
         max_length=20,
         choices=VISUAL_THEME_CHOICES,

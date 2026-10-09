@@ -6,6 +6,18 @@
     <h1 class="h2">¿Por dónde empezar?</h1>
     <p class="text-muted">Subir material, generar preguntas con IA y armar exámenes.</p>
 
+    {% if ui_simple %}
+    <!-- Modo simple: una sola puerta principal, el recorrido completo paso a paso. -->
+    <div class="d-grid gap-2 d-md-flex flex-wrap my-3">
+        <a href="{% url 'material:full_wizard' %}" class="btn btn-primary btn-lg" id="homeAsistenteBtn"><i class="bi bi-magic me-2"></i>Empezar paso a paso</a>
+        <a href="{% url 'material:document_processor_dashboard' %}" class="btn btn-outline-secondary btn-lg"><i class="bi bi-stars me-2"></i>Generar preguntas con IA</a>
+        <a href="{% url 'material:create_exam_wizard' %}" class="btn btn-outline-secondary btn-lg"><i class="bi bi-file-earmark-text me-2"></i>Armar un examen</a>
+    </div>
+    <p class="small mb-4">
+        <a href="{% url 'material:onboarding_v2_page' %}" class="me-3"><i class="bi bi-compass me-1"></i>Probar con un ejemplo</a>
+        <span class="text-muted">¿Hace falta el menú completo y los formularios de siempre? Se activa con "Pasar a modo avanzado", abajo en el menú lateral.</span>
+    </p>
+    {% else %}
     <!-- Una sola acción principal por pantalla; el resto va en outline. Los
          asistentes (guiado/completo) son atajos de baja frecuencia: enlaces
          secundarios debajo, no botones compitiendo con las acciones reales. -->
@@ -18,6 +30,7 @@
         <a href="{% url 'material:full_wizard' %}" class="me-3"><i class="bi bi-magic me-1"></i>Asistente completo</a>
         <a href="{% url 'material:onboarding_v2_page' %}"><i class="bi bi-compass me-1"></i>Probar con un ejemplo</a>
     </p>
+    {% endif %}
 
     <style>
         .index-stat-tab .card-body { padding: 0.75rem 1rem; }

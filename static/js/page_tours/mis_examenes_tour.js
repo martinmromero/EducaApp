@@ -15,7 +15,7 @@
         element: '#examNewBtn',
         popover: {
           title: 'Nuevo examen',
-          description: 'Abre el formulario de armado: institución, materia, tópicos y preguntas.',
+          description: 'Arma un examen nuevo: institución, materia, tópicos y preguntas. En el modo simple lo pide paso a paso; en el avanzado abre el formulario completo.',
           side: 'bottom',
         },
       },

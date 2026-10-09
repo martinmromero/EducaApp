@@ -6,12 +6,18 @@
 {% block title %}Mis Preguntas - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-list-check me-2"></i>Mis Preguntas{% endblock %}
 {% block page_actions %}
+{% if ui_simple %}
+<a href="{% url 'material:upload_questions_wizard' %}" class="btn btn-primary" id="questionNewBtn">
+    <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nueva Pregunta</span>
+</a>
+{% else %}
 <a href="{% url 'material:upload_questions' %}" class="btn btn-primary" id="questionNewBtn">
     <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nueva Pregunta</span>
 </a>
 <a href="{% url 'material:upload_questions_wizard' %}" class="btn btn-outline-primary" id="questionWizardBtn">
     <i class="bi bi-magic me-1"></i><span class="d-none d-sm-inline">Asistente</span>
 </a>
+{% endif %}
 {% endblock %}
 
 {% block content %}

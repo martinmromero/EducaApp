@@ -161,6 +161,17 @@ ITEMS = [
     (17, "Catálogo Académico compartido", "En \"Mis agregados\", confirmar que una solicitud rechazada deja claro que NO se borró lo que cargaste, solo que no se sumó al catálogo compartido", "mis_solicitudes_catalogo", False, 3),
 
     (18, "Contenido compartido y sus avisos", "Verificar que le llega un aviso al dueño de un examen/oral cuando otro integrante del grupo borra una pregunta compartida que usaba", "mis_avisos_preguntas_borradas", False, 3),
+
+    # Área 19: modo simple/avanzado y lo que se sumó al Asistente completo. Área nueva,
+    # no ítems intercalados en las existentes (ver el comentario de las áreas 17 y 18).
+    (19, "Modo simple y asistentes", "Con una cuenta nueva el menú lateral es el reducido (Asistente completo, Generar con IA, Preguntas, Exámenes, Mis agregados). Pasar a modo avanzado desde el pie del menú y comprobar que aparece el menú completo", "index", False, None),
+    (19, "Modo simple y asistentes", "En modo simple, los botones \"Nuevo ...\" de Mis Exámenes, Cuestionarios Orales y Preguntas abren el asistente; en modo avanzado abren el formulario completo", "mis_examenes", False, None),
+    (19, "Modo simple y asistentes", "Proveedor de IA: en una cuenta nueva viene elegida la IA pública gratuita, y el paso Preguntas del Asistente completo muestra su estado antes de Generar con IA", "ai_config", False, None),
+    (19, "Modo simple y asistentes", "Asistente completo: elegir \"¿Partir de una plantilla?\" en el paso 1 y comprobar que completa los pasos hasta Preguntas o Examen", "full_wizard", False, None),
+    (19, "Modo simple y asistentes", "Asistente completo, último paso: cambiar entre Examen escrito y Cuestionario oral, armar y guardar un cuestionario oral", "full_wizard", False, None),
+    (19, "Modo simple y asistentes", "Ficha de una materia: agregar tópicos y sub-tópicos dentro de una carrera, editarlos, borrarlos y proponer uno al catálogo", "subject_list", False, None),
+    (19, "Modo simple y asistentes", "Cuestionario oral con una materia compartida por un grupo de confianza: se ofrecen sus preguntas, tópicos y sub-tópicos", "create_oral_exam_wizard", False, None),
+    (19, "Modo simple y asistentes", "Bandeja de solicitudes: aprobar, rechazar y fusionar la propuesta de un tópico", "catalog_requests_bandeja", True, None),
 ]
 
 
