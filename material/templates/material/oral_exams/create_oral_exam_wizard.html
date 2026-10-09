@@ -1,17 +1,33 @@
 {% extends 'material/base.html' %}
 {% load static %}
+{% load filter_tags %}
 {% block body_extra_attrs %}data-tour-page="create_oral_exam_wizard"{% endblock %}
 {% block title %}Asistente: Cuestionario oral - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-magic me-2"></i>Asistente: Cuestionario oral{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'material/css/wizard_common.css' %}">
 
-<div class="wiz-wrap">
+<div class="wiz-wrap{% if is_embedded %} is-embedded{% endif %}">
+    {% if not is_embedded %}
     <p class="text-muted mb-3">
         Un paso a la vez para armar un cuestionario oral. Se puede volver atrás en cualquier momento;
         nada se guarda hasta el último paso.
         <a href="{% url 'material:create_oral_exam' %}" class="ms-1">Usar la pantalla completa de siempre</a>
     </p>
+    {% endif %}
+
+    {% if oral_saved %}
+    <!-- Cuestionario guardado (solo dentro del Asistente completo): el host muestra su propia
+         pantalla final al recibir el aviso; esto queda por si el aviso no llega. -->
+    <div class="wiz-step-card text-center py-4" id="oralSavedCard">
+        <h4>Cuestionario oral guardado</h4>
+        <p class="wiz-step-intro mb-2">{{ oral_saved.name }}</p>
+        {% for aviso in oral_saved.warnings %}
+        <div class="alert alert-warning py-2 px-3 small text-start">{{ aviso }}</div>
+        {% endfor %}
+        <a href="{{ oral_saved.view_url }}" target="_top" class="btn btn-primary">Ver el cuestionario</a>
+    </div>
+    {% else %}
 
     <nav class="wiz-stepper" id="wizStepper" aria-label="Pasos del asistente">
         <div class="wiz-step-pill is-active" data-step-pill="1"><span class="wiz-step-num"><span>1</span></span><span class="wiz-step-label">Materia y tópicos</span></div>
@@ -19,13 +35,23 @@
         <div class="wiz-step-pill" data-step-pill="3"><span class="wiz-step-num"><span>3</span></span><span class="wiz-step-label">Nombre y revisión</span></div>
     </nav>
 
+    {% if oral_fw_error %}
+    <div class="alert alert-danger py-2 px-3 small" role="alert">{{ oral_fw_error }}</div>
+    {% endif %}
+
     <form method="post" action="{% url 'material:create_oral_exam' %}" id="oralWizardForm">
         {% csrf_token %}
         <input type="hidden" name="students_per_group" id="id_students_per_group">
+        {% if is_embedded %}<input type="hidden" name="fw" value="1">{% endif %}
 
         <!-- PASO 1: Materia y tópicos -->
         <div class="wiz-step is-active" data-step="1">
             <div class="wiz-step-card">
+                {% if fw_subject %}
+                <h4>¿Qué tópicos se van a tomar?</h4>
+                <p class="wiz-step-intro">Materia: <strong>{{ fw_subject.name }}</strong> (la elegida en el asistente). Seleccionar los tópicos a evaluar.</p>
+                <input type="hidden" name="subject" id="id_subject" value="{{ fw_subject.id }}" data-label="{{ fw_subject.name }}">
+                {% else %}
                 <h4>¿Qué materia se va a tomar?</h4>
                 <p class="wiz-step-intro">Seleccionar la materia y los tópicos a evaluar.</p>
                 <select class="form-select mb-3" name="subject" id="id_subject" required>
@@ -34,6 +60,7 @@
                         <option value="{{ materia.id }}">{{ materia.name }}</option>
                     {% endfor %}
                 </select>
+                {% endif %}
                 {% if not materias %}
                 <p class="text-muted small mt-2 mb-3">
                     Todavía no hay preguntas propias en ninguna materia.
@@ -98,7 +125,7 @@
             <button type="button" class="btn btn-outline-secondary" id="wizBackBtn">
                 <i class="bi bi-arrow-left me-1"></i>Atrás
             </button>
-            <a href="{% url 'material:create_oral_exam_wizard' %}" class="text-muted small">Empezar de nuevo</a>
+            {% if is_embedded %}<span></span>{% else %}<a href="{% url 'material:create_oral_exam_wizard' %}" class="text-muted small">Empezar de nuevo</a>{% endif %}
             <button type="button" class="btn btn-primary" id="wizNextBtn">
                 Siguiente<i class="bi bi-arrow-right ms-1"></i>
             </button>
@@ -107,6 +134,7 @@
             </button>
         </div>
     </form>
+    {% endif %}
 </div>
 
 <script>
@@ -114,11 +142,15 @@ window.EducaAppOralWizardConfig = {
     urls: {
         getTopics: "{% url 'material:get_topics' %}",
         validateOralExam: "{% url 'material:validate_oral_exam' %}"
-    }
+    },
+    // Embebido en el Asistente completo (<iframe name="educaapp-embed-exam">): ver full_wizard.js.
+    isEmbedded: {{ is_embedded|yesno:"true,false" }},
+    fwSubjectId: "{{ fw_subject.id|default:'' }}",
+    saved: {{ oral_saved_json|json_embed }}
 };
 </script>
 <script src="{% static 'material/js/wizard_engine.js' %}"></script>
 <script src="{% static 'material/js/wizard_draft.js' %}"></script>
 <script src="{% static 'material/js/create_oral_exam_wizard.js' %}"></script>
-<script src="{% static 'js/page_tours/create_oral_exam_wizard_tour.js' %}"></script>
+{% if not is_embedded %}<script src="{% static 'js/page_tours/create_oral_exam_wizard_tour.js' %}"></script>{% endif %}
 {% endblock %}

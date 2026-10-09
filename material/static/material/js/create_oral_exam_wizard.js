@@ -20,6 +20,21 @@ function _onDomReady(fn) {
 _onDomReady(function () {
     var CFG = window.EducaAppOralWizardConfig || { urls: {} };
 
+    // Embebido en el Asistente completo (<iframe>, ver full_wizard.js): avisos al
+    // host por postMessage de mismo origen.
+    function postToHost(type, payload) {
+        try { window.parent.postMessage(Object.assign({ type: type }, payload || {}), window.location.origin); } catch (e) { /* sin host */ }
+    }
+
+    // Pantalla de "guardado": no hay formulario, solo se le avisa al host.
+    if (CFG.saved) {
+        postToHost('educaapp:oral-saved', {
+            name: CFG.saved.name, viewUrl: CFG.saved.view_url, warnings: CFG.saved.warnings || [],
+        });
+        try { sessionStorage.removeItem('educaapp_oral_wizard_draft_fw'); } catch (e) { /* sin sessionStorage */ }
+        return;
+    }
+
     var subjectSelect = document.getElementById('id_subject');
     var topicsEmpty = document.getElementById('wizOralTopicsEmpty');
     var topicsWrap = document.getElementById('wizOralTopicsWrap');
@@ -30,6 +45,13 @@ _onDomReady(function () {
     var studentsPerGroupHidden = document.getElementById('id_students_per_group');
     var validationBox = document.getElementById('wizOralValidation');
     var nameInput = document.getElementById('id_name');
+
+    // La materia es un <select>, o un <input hidden> con data-label cuando viene fijada
+    // desde el Asistente completo.
+    function subjectLabel() {
+        if (subjectSelect.selectedOptions && subjectSelect.selectedOptions[0]) return subjectSelect.selectedOptions[0].textContent;
+        return subjectSelect.dataset.label || 'sin elegir';
+    }
 
     function debounce(fn, wait) {
         var t;
@@ -237,11 +259,11 @@ _onDomReady(function () {
     function renderSummary() {
         var box = document.getElementById('wizSummary');
         if (!box) return;
-        var subjectLabel = subjectSelect.selectedOptions[0] ? subjectSelect.selectedOptions[0].textContent : 'sin elegir';
+        var materiaTexto = subjectLabel();
         var topicsCount = getSelectedTopicIds().length;
         box.innerHTML =
             '<dl class="row mb-0">' +
-            '<dt class="col-sm-4">Materia</dt><dd class="col-sm-8">' + window.EducaAppEscape(subjectLabel) + '</dd>' +
+            '<dt class="col-sm-4">Materia</dt><dd class="col-sm-8">' + window.EducaAppEscape(materiaTexto) + '</dd>' +
             '<dt class="col-sm-4">Tópicos</dt><dd class="col-sm-8">' + topicsCount + ' seleccionado(s)</dd>' +
             '<dt class="col-sm-4">Alumnos</dt><dd class="col-sm-8">' + (totalStudentsInput.value || '-') + '</dd>' +
             '<dt class="col-sm-4">Grupos</dt><dd class="col-sm-8">' + (numGroupsInput.value || '-') + ' (hasta ' + (studentsPerGroupHidden.value || '-') + ' alumno(s) c/u)</dd>' +
@@ -253,12 +275,16 @@ _onDomReady(function () {
         totalSteps: 3,
         onValidateStep: validateStep,
         onEnterFinalStep: renderSummary,
+        keepBackOnFirst: !!CFG.isEmbedded,
+        onBackFromFirst: function () { postToHost('educaapp:oral-exit'); },
     });
 
     // ── Backup a sessionStorage (mismo motor que Plantilla de Examen y
     // Generar con IA, ver wizard_draft.js) — antes un F5 a mitad de elegir
     // tópicos/alumnos perdía todo, sin ningún respaldo. ──────────────────
-    var draft = window.EducaAppWizardDraft.init('educaapp_oral_wizard_draft');
+    // Embebido usa su propia clave y NO se borra al enviar: si el servidor rechaza la
+    // configuración, el asistente vuelve con el error y tiene que reponer lo ya cargado.
+    var draft = window.EducaAppWizardDraft.init(CFG.isEmbedded ? 'educaapp_oral_wizard_draft_fw' : 'educaapp_oral_wizard_draft');
     var oralForm = document.getElementById('oralWizardForm');
 
     function saveDraft() {
@@ -277,8 +303,13 @@ _onDomReady(function () {
     function restoreDraft() {
         var saved = draft.load();
         if (!saved || !saved.subject) return;
+        // Dentro del Asistente completo la materia ya está fijada: un borrador de otra materia no sirve.
+        if (CFG.isEmbedded && CFG.fwSubjectId && String(saved.subject) !== String(CFG.fwSubjectId)) { draft.clear(); return; }
 
-        draft.confirmRestore('Encontramos un cuestionario oral sin terminar de una sesión anterior. ¿Querés recuperarlo?').then(function (quiere) {
+        var ask = CFG.isEmbedded
+            ? Promise.resolve(true)
+            : draft.confirmRestore('Encontramos un cuestionario oral sin terminar de una sesión anterior. ¿Recuperarlo?');
+        ask.then(function (quiere) {
             if (!quiere) { draft.clear(); return; }
 
             subjectSelect.value = saved.subject;
@@ -303,11 +334,16 @@ _onDomReady(function () {
 
     document.getElementById('oralWizardForm').addEventListener('submit', function () {
         if (!nameInput.value.trim()) {
-            nameInput.value = 'Examen Oral - ' + (subjectSelect.selectedOptions[0] ? subjectSelect.selectedOptions[0].textContent : '');
+            nameInput.value = 'Examen Oral - ' + (subjectLabel() === 'sin elegir' ? '' : subjectLabel());
         }
-        draft.clear();
+        if (!CFG.isEmbedded) draft.clear();
     });
 
     wizardCtrl.goToStep(1);
-    restoreDraft();
+    if (CFG.isEmbedded && CFG.fwSubjectId) {
+        // Materia fijada por el Asistente completo: se cargan sus tópicos de entrada.
+        loadTopicsForSubject(CFG.fwSubjectId).then(restoreDraft);
+    } else {
+        restoreDraft();
+    }
 });

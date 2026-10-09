@@ -166,4 +166,5 @@
     min-height: 220px;
     color: var(--bs-secondary-color);
 }
+.fw-kind-bar { background: var(--bs-tertiary-bg, #f8f9fa); }
 .fw-exam-done-icon { font-size: 3rem; color: var(--bs-success); line-height: 1; margin-bottom: .5rem; }

@@ -7781,6 +7781,7 @@ def validate_oral_exam(request):
         return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required
+@xframe_options_sameorigin
 def create_oral_exam_wizard(request):
     """Asistente paso a paso para armar un cuestionario oral.
 
@@ -7802,8 +7803,38 @@ def create_oral_exam_wizard(request):
     from .content_visibility import get_visible_questions
     materias = Subject.objects.filter(questions__in=get_visible_questions(request.user)).distinct()
 
+    # Embebido en el Asistente completo (paso Examen, ?fw=1, en un <iframe>):
+    # la materia ya se eligió allá, así que se fija y se saltea esa elección.
+    # El guardado y los errores vuelven a esta misma pantalla (ver
+    # create_oral_exam) porque el formulario clásico y la vista del cuestionario
+    # no se pueden enmarcar.
+    is_embedded = request.GET.get('fw') == '1'
+    fw_subject = None
+    if is_embedded:
+        raw_subject = request.GET.get('subject_id', '')
+        if raw_subject.isdigit():
+            fw_subject = materias.filter(pk=int(raw_subject)).first()
+        if fw_subject is not None:
+            materias = materias.filter(pk=fw_subject.pk)
+
+    oral_saved = None
+    saved_raw = request.GET.get('guardado', '')
+    if is_embedded and saved_raw.isdigit():
+        guardado = OralExamSet.objects.filter(pk=int(saved_raw), user=request.user).first()
+        if guardado is not None:
+            oral_saved = {
+                'name': guardado.name,
+                'view_url': reverse('material:view_oral_exam', kwargs={'exam_id': guardado.pk}),
+                'warnings': request.session.pop('oral_fw_warnings', []),
+            }
+
     context = {
         'materias': materias,
+        'is_embedded': is_embedded,
+        'fw_subject': fw_subject,
+        'oral_saved': oral_saved,
+        'oral_fw_error': request.session.pop('oral_fw_error', '') if is_embedded else '',
+        'oral_saved_json': json.dumps(oral_saved) if oral_saved else 'null',
     }
     return render(request, 'material/oral_exams/create_oral_exam_wizard.html', context)
 
@@ -7851,7 +7882,13 @@ def create_oral_exam(request):
             # Generar las preguntas para cada grupo y estudiante
             generation_stats = generate_oral_exam_questions(oral_exam)
 
-            messages.success(request, 'Cuestionario oral creado exitosamente', extra_tags='cuestionarios_orales')
+            # Dentro del Asistente completo (<iframe>, campo oculto fw=1) los avisos
+            # no se encolan como mensajes (aparecerían después en otra pantalla):
+            # se guardan en la sesión y los muestra la pantalla de "guardado".
+            desde_asistente = request.POST.get('fw') == '1'
+            avisos = []
+            if not desde_asistente:
+                messages.success(request, 'Cuestionario oral creado exitosamente', extra_tags='cuestionarios_orales')
 
             # Advertir si no había sub-tópicos suficientes para evitar
             # repeticiones (form.clean() ya lo detecta de antemano) y/o si el
@@ -7860,20 +7897,23 @@ def create_oral_exam(request):
             # bloquea la creación, solo se le avisa al docente para que revise.
             subtopic_warning = form.cleaned_data.get('_validation_info', {}).get('subtopic_warning')
             if subtopic_warning:
-                messages.warning(request, subtopic_warning, extra_tags='cuestionarios_orales')
+                avisos.append(subtopic_warning)
             repeated_groups = generation_stats.get('groups_with_repeated_questions') if generation_stats else None
             if repeated_groups:
                 grupos_txt = ', '.join(str(g) for g in repeated_groups)
-                messages.warning(
-                    request,
+                avisos.append(
                     f'Por falta de preguntas/sub-tópicos disponibles, el grupo {grupos_txt} '
-                    f'repitió alguna pregunta exacta entre sus estudiantes. Revisá el cuestionario antes de usarlo.'
+                    f'repitió alguna pregunta exacta entre sus estudiantes. Revisar el cuestionario antes de usarlo.'
                     if len(repeated_groups) == 1 else
                     f'Por falta de preguntas/sub-tópicos disponibles, los grupos {grupos_txt} '
-                    f'repitieron alguna pregunta exacta entre sus estudiantes. Revisá el cuestionario antes de usarlo.',
-                    extra_tags='cuestionarios_orales'
+                    f'repitieron alguna pregunta exacta entre sus estudiantes. Revisar el cuestionario antes de usarlo.'
                 )
 
+            if desde_asistente:
+                request.session['oral_fw_warnings'] = avisos
+                return redirect(reverse('material:create_oral_exam_wizard') + f'?fw=1&guardado={oral_exam.id}')
+            for aviso in avisos:
+                messages.warning(request, aviso, extra_tags='cuestionarios_orales')
             return redirect('material:view_oral_exam', exam_id=oral_exam.id)
         else:
             # El mensaje genérico no decía QUÉ estaba mal — reportado desde
@@ -7894,14 +7934,19 @@ def create_oral_exam(request):
                 label = form.fields.get(field_name).label if field_name in form.fields else field_name
                 for err in errors:
                     field_errors.append(f"{label}: {err}")
-            if field_errors:
-                messages.error(
-                    request,
-                    'Por favor corrija los errores en el formulario: ' + ' | '.join(field_errors),
-                    extra_tags='cuestionarios_orales'
-                )
-            else:
-                messages.error(request, 'Por favor corrija los errores en el formulario', extra_tags='cuestionarios_orales')
+            texto_error = (
+                'Por favor corrija los errores en el formulario: ' + ' | '.join(field_errors)
+                if field_errors else 'Por favor corrija los errores en el formulario'
+            )
+            if request.POST.get('fw') == '1':
+                # El formulario clásico no se puede enmarcar: se vuelve al
+                # asistente, que muestra el error y repone lo ya cargado.
+                request.session['oral_fw_error'] = texto_error
+                destino = reverse('material:create_oral_exam_wizard') + '?fw=1'
+                if (request.POST.get('subject') or '').isdigit():
+                    destino += f"&subject_id={request.POST['subject']}"
+                return redirect(destino)
+            messages.error(request, texto_error, extra_tags='cuestionarios_orales')
     else:
         form = OralExamForm(user=request.user)
     
@@ -9897,15 +9942,23 @@ def full_wizard_subject_progress(request):
     # compartidas por grupos de confianza, mismo pool que get_visible_questions).
     # Solo de una materia visible para el usuario: no se filtra el conteo de
     # una materia ajena por adivinar el id.
-    question_count = own_question_count = 0
+    question_count = own_question_count = oral_units = 0
     subject = get_visible_subjects(request.user).filter(pk=int(subject_id)).first()
     if subject is not None:
+        from .content_visibility import get_oral_questions
         usable = get_visible_questions(request.user, subject=subject).filter(EXAM_ELIGIBLE_Q)
         question_count = usable.count()
         own_question_count = usable.filter(user=request.user).count()
+        # El cuestionario oral reparte las preguntas por sub-tópico (o por tópico
+        # si no hay sub-tópicos): cuántas "unidades" distintas hay en la materia.
+        oral_units = len({
+            ('s', sub) if sub else ('t', top) if top else ('n', 0)
+            for sub, top in get_oral_questions(request.user, subject).values_list('subtopic_id', 'topic_id')
+        })
     return JsonResponse({
         'has_contenido': has_contenido, 'has_question': has_question,
         'question_count': question_count, 'own_question_count': own_question_count,
+        'oral_units': oral_units,
     })
 
 
