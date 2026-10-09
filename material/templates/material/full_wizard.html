@@ -28,6 +28,27 @@
 
     <div id="fwBreadcrumb" class="fw-breadcrumb mb-3"></div>
 
+    <!-- "Partir de una plantilla": una plantilla ya trae institución, facultad,
+         carrera, materia y resultados de aprendizaje, así que elegirla completa
+         los pasos 1 a 5 de una vez. Solo se ve en el paso 1 y solo si hay
+         plantillas (ver setupTemplateBox en full_wizard.js). -->
+    <div id="fwTemplateBox" class="card border-primary-subtle mb-3 d-none">
+        <div class="card-body py-3">
+            <div class="fw-semibold mb-1"><i class="bi bi-file-earmark-ruled me-1"></i>¿Partir de una plantilla?</div>
+            <p class="small text-muted mb-2">Una plantilla ya trae la institución, la carrera, la materia y los resultados de aprendizaje: se saltean los primeros pasos.</p>
+            <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-9">
+                    <label class="form-label small mb-1" for="fwTemplateSelect">Plantilla</label>
+                    <select id="fwTemplateSelect" class="form-select"></select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <button type="button" class="btn btn-primary w-100" id="fwTemplateUse">Usar esta plantilla</button>
+                </div>
+            </div>
+            <div class="text-danger small mt-2 d-none" id="fwTemplateError" role="alert"></div>
+        </div>
+    </div>
+
     <!-- PASOS 1-5: Institución / Facultad / Carrera / Materia / RA -->
     {% for cfg in "12345" %}
     <div class="wiz-step {% if cfg == '1' %}is-active{% endif %}" data-step="{{ cfg }}">
@@ -174,6 +195,8 @@ window.EducaAppFullWizardConfig = {
         materiasByCarreraBase: "/get-subjects-by-career/",
         outcomesByCareerSubject: "{% url 'material:get_learning_outcomes_by_career_subject' %}",
         subjectProgress: "{% url 'material:full_wizard_subject_progress' %}",
+        templates: "{% url 'material:full_wizard_templates' %}",
+        templateContextBase: "/asistente-completo/plantillas/",
         aiStatus: "{% url 'material:ai_config_status' %}",
         aiConfig: "{% url 'material:ai_config' %}",
         docProcessor: "{% url 'material:document_processor_dashboard' %}",
