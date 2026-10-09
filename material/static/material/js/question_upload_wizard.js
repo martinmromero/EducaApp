@@ -69,6 +69,9 @@ window.EducaAppQuestionUpload = (function () {
         var URLS = options.urls || window.EducaAppQuestionUploadUrls || {};
         var DRAFT_KEY = options.draftKey || 'educaapp_question_upload_wizard_draft_v1';
         var lockSubject = !!(options.lockSubject && options.subject);
+        // Carrera ya elegida por el host (Asistente completo): los tópicos son de
+        // cada carrera-materia, así que se listan y se crean dentro de esa carrera.
+        var CAREER_ID = options.careerId ? String(options.careerId) : '';
 
         function $(name) { return root.querySelector('[data-role="' + name + '"]'); }
         function $$(name) { return Array.prototype.slice.call(root.querySelectorAll('[data-role="' + name + '"]')); }
@@ -416,7 +419,8 @@ window.EducaAppQuestionUpload = (function () {
 
         function loadTopics() {
             if (topicsLoadedFor === STATE.subject.id) { renderTopicChips(); loadSubtopics(); return; }
-            fetch(URLS.getTopics + '?subject_id=' + encodeURIComponent(STATE.subject.id))
+            fetch(URLS.getTopics + '?subject_id=' + encodeURIComponent(STATE.subject.id)
+                + (CAREER_ID ? '&career_id=' + encodeURIComponent(CAREER_ID) : ''))
                 .then(function (r) { return r.json(); })
                 .then(function (data) { topicItems = data || []; topicsLoadedFor = STATE.subject.id; renderTopicChips(); loadSubtopics(); })
                 .catch(function () { topicItems = []; renderTopicChips(); });
@@ -459,6 +463,7 @@ window.EducaAppQuestionUpload = (function () {
             var fd = new FormData();
             fd.append('name', name);
             fd.append('subject_id', STATE.subject.id);
+            if (CAREER_ID) fd.append('career_id', CAREER_ID);
             postForm(URLS.addTopic, fd).then(function (res) {
                 if (!res.data.success) { setMsg('classify-error', res.data.error || 'No se pudo crear el tópico.'); return; }
                 var t = res.data.topic;

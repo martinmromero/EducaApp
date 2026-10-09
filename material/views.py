@@ -165,10 +165,11 @@ def preview_exam(request):
     # falló) NO hay que armar el examen igual con todos los tópicos — eso arma
     # un examen con preguntas que el usuario nunca eligió, sin avisarle.
     topics_is_all_sentinel = 'all' in raw_topics
+    from .content_visibility import get_visible_topics
     if topics_is_all_sentinel:
-        selected_topics = Topic.objects.filter(subject=subject_obj) if subject_obj else Topic.objects.none()
+        selected_topics = get_visible_topics(request.user, subject=subject_obj) if subject_obj else Topic.objects.none()
     elif topic_ids:
-        selected_topics = Topic.objects.filter(pk__in=topic_ids)
+        selected_topics = get_visible_topics(request.user).filter(pk__in=topic_ids)
     else:
         selected_topics = Topic.objects.none()
     # 'sin_topico' es otro sentinel explícito (checkbox "Sin tópico definido"
@@ -677,9 +678,16 @@ logger = logging.getLogger(__name__)
 
 
 
+@login_required
 def get_topics(request):
     """
-    Materia y Tópico son globales por nombre (Subject/Topic no están
+    Los tópicos ahora son de cada carrera-materia y siguen el mismo criterio de
+    espacio personal vs. catálogo que el resto (ver content_visibility.
+    get_visible_topics): este endpoint devuelve solo los que el usuario puede
+    ver, y con `career_id` (opcional) solo los de esa carrera más los que
+    todavía no tienen carrera asignada.
+
+    Historia (antes de esa regla): Materia y Tópico son globales por nombre (Subject/Topic no están
     scopeados por usuario) — cualquier docente que use el mismo nombre de
     materia comparte el mismo Subject, y ve los tópicos que OTROS docentes
     hayan creado ahí (ej. el nombre de un documento que subieron). Pero las
@@ -709,8 +717,15 @@ def get_topics(request):
     'sin_topico'"), 500 real reportado en producción. El soporte de "sin
     tópico" para cuestionarios orales queda pendiente si se pide más adelante.
     """
+    from .content_visibility import get_visible_topics, resolve_career_subject
     subject_id = request.GET.get('subject_id')
-    topics_qs = Topic.objects.filter(subject_id=subject_id).distinct()
+    subject_for_scope = Subject.objects.filter(pk=subject_id).first() if str(subject_id).isdigit() else None
+    if subject_for_scope is None:
+        return JsonResponse([], safe=False)
+    topics_qs = get_visible_topics(
+        request.user, subject=subject_for_scope,
+        career_subject=resolve_career_subject(subject_for_scope, request.GET.get('career_id')),
+    )
     include_no_topic_option = False
 
     if request.GET.get('for_exam') == '1' and request.user.is_authenticated:
@@ -737,14 +752,17 @@ def get_topics(request):
             if request.GET.get('include_no_topic') == '1':
                 include_no_topic_option = visible_questions.filter(topic__isnull=True).exists()
 
-    topics = list(topics_qs.values('id', 'name'))
+    topics = list(topics_qs.order_by('name').values('id', 'name', 'es_catalogo_institucional', 'career_subject_id'))
     if include_no_topic_option:
         topics.append({'id': 'sin_topico', 'name': 'Sin tópico definido'})
     return JsonResponse(topics, safe=False)
 
+@login_required
 def get_subtopics(request):
+    from .content_visibility import get_visible_topics
     topic_id = request.GET.get('topic_id')
-    subtopics = Subtopic.objects.filter(topic_id=topic_id).values('id', 'name')
+    from .content_visibility import get_visible_subtopics
+    subtopics = get_visible_subtopics(request.user).filter(topic_id=topic_id).values('id', 'name')
     return JsonResponse(list(subtopics), safe=False)
 
 
@@ -2063,10 +2081,11 @@ def save_exam_from_session(request):
 
     raw_topics_list = [str(v) for v in exam_data.get('topics', [])]
     t_ids = _ids('topics')
+    from .content_visibility import get_visible_topics
     if t_ids and 'all' not in raw_topics_list:
-        selected_topics = Topic.objects.filter(pk__in=t_ids)
+        selected_topics = get_visible_topics(request.user).filter(pk__in=t_ids)
     else:
-        selected_topics = Topic.objects.filter(subject=subject)
+        selected_topics = get_visible_topics(request.user, subject=subject)
     # Ver _pick_questions_for_versions: preguntas con topic_id NULL no
     # matchean topic__in, así que necesitan sumarse aparte con este flag.
     include_no_topic = 'all' in raw_topics_list or 'sin_topico' in raw_topics_list
@@ -4984,8 +5003,10 @@ def upload_questions_wizard_preview(request):
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=400)
 
+    from .content_visibility import get_visible_topics
     existing_topics = {
-        name.strip().lower() for name in Topic.objects.filter(subject=materia).values_list('name', flat=True)
+        name.strip().lower()
+        for name in get_visible_topics(request.user, subject=materia).values_list('name', flat=True)
     }
     texts = [d['pregunta'].strip() for _, d in rows]
     # `__in` sobre textos largos de un lote entero: se parte en tandas para
@@ -5254,18 +5275,24 @@ def process_txt_file(file, contenido, user, subject):
     return created, errors
 
 
-def _get_or_create_topic_cached(cache, name, subject):
-    from .models import Topic
+def _get_or_create_topic_cached(cache, name, subject, user):
+    """El tópico `name` que `user` ya ve en `subject`, o uno nuevo según su
+    alcance (personal salvo admin sobre materia del catálogo) — ver
+    content_visibility.get_or_create_topic. Ya no reutiliza el tópico de
+    cualquier otro docente con el mismo nombre."""
+    from .content_visibility import get_or_create_topic, resolve_career_subject
     if name not in cache:
-        cache[name], _ = Topic.objects.get_or_create(name=name, subject=subject)
+        cache[name], _ = get_or_create_topic(
+            user, subject, name, career_subject=resolve_career_subject(subject),
+        )
     return cache[name]
 
 
-def _get_or_create_subtopic_cached(cache, name, topic):
-    from .models import Subtopic
+def _get_or_create_subtopic_cached(cache, name, topic, user):
+    from .content_visibility import get_or_create_subtopic
     key = (topic.pk, name)
     if key not in cache:
-        cache[key], _ = Subtopic.objects.get_or_create(name=name, topic=topic)
+        cache[key], _ = get_or_create_subtopic(user, topic, name)
     return cache[key]
 
 
@@ -5327,12 +5354,12 @@ def build_question_from_dict(data, contenido, user, subject, topic_cache=None, s
     # Obtener o crear Topic
     # "tema:" presente pero vacío también cae a General (antes creaba un
     # tópico de nombre vacío).
-    topic = _get_or_create_topic_cached(topic_cache, (data.get('tema') or '').strip() or 'General', subject)
+    topic = _get_or_create_topic_cached(topic_cache, (data.get('tema') or '').strip() or 'General', subject, user)
 
     # Obtener subtopic solo si existe en los datos
     subtopic = None
     if (data.get('subtema') or '').strip():
-        subtopic = _get_or_create_subtopic_cached(subtopic_cache, data.get('subtema').strip(), topic)
+        subtopic = _get_or_create_subtopic_cached(subtopic_cache, data.get('subtema').strip(), topic, user)
 
     # Armar la pregunta solo con campos que existen en el modelo
     q_type = _normalize_question_type(data.get('tipo'))
@@ -6534,6 +6561,7 @@ def _clonar_subject_para(subject, nuevo_dueno):
             subject=clone,
             importance=topic.importance,
             created_by=nuevo_dueno,
+            es_catalogo_institucional=False,
         )
     return clone, topic_clone_map
 
@@ -6809,6 +6837,11 @@ class SubjectDetailView(LoginRequiredMixin, DetailView):
         ).select_related('career').prefetch_related(
             Prefetch('outcome_relations', queryset=get_visible_learning_outcomes(self.request.user))
         ).order_by('career__name')
+        # Tópicos y sub-tópicos por carrera-materia (ver views_topics).
+        from .views_topics import topicos_para_ficha
+        context['topicos_por_carrera'], context['topicos_sin_carrera'] = topicos_para_ficha(
+            self.request.user, self.object, list(context['career_subjects']),
+        )
         context['back_url'] = _safe_next_url(self.request, reverse('material:subject_list'))
         # Mismo criterio que LearningOutcomeCreateView/_puede_editar_catalogo:
         # admin, o dueño de esta materia todavía no sumada al catálogo.
@@ -7528,7 +7561,9 @@ def add_topic(request):
                 'error': 'Debe seleccionar una materia'
             }, status=400)
             
-        from .content_visibility import get_visible_subjects
+        from .content_visibility import (
+            get_visible_subjects, get_visible_topics, resolve_career_subject, topic_creation_scope,
+        )
         try:
             subject = get_visible_subjects(request.user).get(id=subject_id)
         except Subject.DoesNotExist:
@@ -7537,29 +7572,42 @@ def add_topic(request):
                 'error': 'Materia no encontrada'
             }, status=404)
 
-        # Verificar duplicados (case insensitive)
-        if Topic.objects.filter(name__iexact=name, subject=subject).exists():
+        # Carrera-materia a la que pertenece el tópico (ver Topic.career_subject).
+        # Sin carrera indicada y con la materia en varias carreras, queda sin
+        # carrera asignada (se ve en todas).
+        career_subject = resolve_career_subject(subject, request.POST.get('career_id'))
+
+        # Duplicados (case insensitive) dentro de lo que este usuario ya ve.
+        if get_visible_topics(request.user, subject=subject, career_subject=career_subject).filter(
+            name__iexact=name,
+        ).exists():
             return JsonResponse({
                 'success': False,
                 'error': 'Ya existe un tópico con este nombre en esta materia'
             }, status=400)
-            
-        # Crear el tema
+
+        # Del catálogo si lo crea un admin sobre una materia del catálogo;
+        # personal en cualquier otro caso (ver topic_creation_scope).
+        es_catalogo, creador = topic_creation_scope(request.user, subject)
         topic = Topic.objects.create(
             name=name,
             subject=subject,
-            importance=3  # Valor por defecto
+            career_subject=career_subject,
+            importance=3,  # Valor por defecto
+            es_catalogo_institucional=es_catalogo,
+            created_by=creador,
         )
-        
+
         return JsonResponse({
             'success': True,
             'topic': {
                 'id': topic.id,
                 'name': topic.name,
-                'subject_id': subject.id
+                'subject_id': subject.id,
+                'es_catalogo': topic.es_catalogo_institucional,
             }
         })
-        
+
     except Exception as e:
         logger.error(f"Error al agregar tema: {str(e)}", exc_info=True)
         return JsonResponse({
@@ -7589,9 +7637,9 @@ def add_subtopic(request):
                 'error': 'Debe seleccionar un tópico principal'
             }, status=400)
             
-        from .content_visibility import get_visible_subjects
+        from .content_visibility import get_visible_topics
         try:
-            topic = Topic.objects.get(id=topic_id, subject__in=get_visible_subjects(request.user))
+            topic = get_visible_topics(request.user).get(id=topic_id)
         except Topic.DoesNotExist:
             return JsonResponse({
                 'success': False,
@@ -7599,18 +7647,22 @@ def add_subtopic(request):
             }, status=404)
 
         # Verificar duplicados
-        if Subtopic.objects.filter(name__iexact=name, topic=topic).exists():
+        from .content_visibility import get_visible_subtopics, subtopic_creation_scope
+        if get_visible_subtopics(request.user, topic=topic).filter(name__iexact=name).exists():
             return JsonResponse({
                 'success': False,
                 'error': 'Ya existe un sub-tópico con este nombre en este tópico'
             }, status=400)
             
         # Crear el subtema
+        es_catalogo, creador = subtopic_creation_scope(request.user, topic)
         subtopic = Subtopic.objects.create(
             name=name,
-            topic=topic
+            topic=topic,
+            es_catalogo_institucional=es_catalogo,
+            created_by=creador,
         )
-        
+
         # Registrar acción
         logger.info(f"Usuario {request.user} creó subtema {subtopic.id} en tema {topic.id}")
         
@@ -7667,9 +7719,10 @@ def validate_oral_exam(request):
         topic_filter = Q(topic_id__in=topic_ids)
         if include_no_topic:
             topic_filter |= Q(topic__isnull=True)
-        available_questions = Question.objects.filter(
-            subjects__id=subject_id,
-            user=request.user
+        from .content_visibility import get_oral_questions
+        subject_for_oral = Subject.objects.filter(pk=subject_id).first() if str(subject_id).isdigit() else None
+        available_questions = (
+            get_oral_questions(request.user, subject_for_oral) if subject_for_oral else Question.objects.none()
         ).filter(topic_filter).select_related('topic', 'subtopic')
 
         if not available_questions.exists():
@@ -7736,7 +7789,8 @@ def create_oral_exam_wizard(request):
     # a propósito, para no ofrecer una materia en el asistente que el form
     # clásico (al que este asistente postea) después rechazaría por no estar
     # en su queryset.
-    materias = Subject.objects.filter(questions__user=request.user).distinct()
+    from .content_visibility import get_visible_questions
+    materias = Subject.objects.filter(questions__in=get_visible_questions(request.user)).distinct()
 
     context = {
         'materias': materias,
@@ -7939,10 +7993,10 @@ def generate_oral_exam_questions(oral_exam):
     topic_filter = Q(topic__in=oral_exam.topics.all())
     if oral_exam.include_no_topic:
         topic_filter |= Q(topic__isnull=True)
-    available_questions = Question.objects.filter(
-        subjects__id=oral_exam.subject.id,
-        user=oral_exam.user
-    ).filter(topic_filter).select_related('topic', 'subtopic')
+    from .content_visibility import get_oral_questions
+    available_questions = get_oral_questions(oral_exam.user, oral_exam.subject).filter(
+        topic_filter
+    ).select_related('topic', 'subtopic')
 
     if not available_questions.exists():
         raise ValueError("No hay preguntas disponibles para los tópicos seleccionados")
@@ -8271,22 +8325,19 @@ def get_available_questions(request):
         
         # Obtener preguntas disponibles (no usadas en el grupo) 
         # FILTRADAS POR LOS TEMAS SELECCIONADOS en el examen
-        available_questions = Question.objects.filter(
-            user=request.user,
-            subjects=subject,
+        from .content_visibility import get_oral_questions
+        pool = get_oral_questions(request.user, subject).filter(
             topic__in=selected_topics  # Solo preguntas de los temas seleccionados
-        ).exclude(
-            id__in=used_questions
-        ).select_related('topic')
+        )
+        available_questions = pool.exclude(id__in=used_questions).select_related('topic')
         
         # Si hay una pregunta actual, también incluirla como opción
         if current_question_id:
             try:
                 # Usar Q objects para incluir la pregunta actual
                 from django.db.models import Q
-                available_questions = Question.objects.filter(
-                    Q(user=request.user, subjects=subject, topic__in=selected_topics) & 
-                    (Q(id=current_question_id) | ~Q(id__in=used_questions))
+                available_questions = pool.filter(
+                    Q(id=current_question_id) | ~Q(id__in=used_questions)
                 ).select_related('topic')
             except Question.DoesNotExist:
                 pass
@@ -8355,11 +8406,12 @@ def exchange_question(request):
             student__group__exam_set__user=request.user
         )
         
-        # Verificar que la nueva pregunta pertenece al usuario
+        # Verificar que la nueva pregunta la puede usar este cuestionario:
+        # propia o compartida, de la misma materia (antes: solo propia).
+        from .content_visibility import get_oral_questions
         new_question = get_object_or_404(
-            Question,
+            get_oral_questions(request.user, student_question.student.group.exam_set.subject),
             id=new_question_id,
-            user=request.user
         )
         
         # Verificar que la nueva pregunta no está siendo usada en el mismo grupo
@@ -8631,11 +8683,13 @@ def onboarding_save_step(request):
                     for tn in body.get('add_topics', []):
                         tn = tn.strip()
                         if tn:
-                            Topic.objects.get_or_create(name=tn, subject=subj, defaults={'importance': 3})
+                            from .content_visibility import get_or_create_topic, resolve_career_subject
+                            get_or_create_topic(request.user, subj, tn, career_subject=resolve_career_subject(subj))
                     # Eliminar temas
                     remove_topic_ids = [int(x) for x in body.get('remove_topic_ids', []) if str(x).isdigit()]
                     if remove_topic_ids:
-                        Topic.objects.filter(pk__in=remove_topic_ids, subject=subj).delete()
+                        # Solo los propios: un tópico del catálogo o de otro docente no se borra desde acá.
+                        Topic.objects.filter(pk__in=remove_topic_ids, subject=subj, created_by=request.user).delete()
                 except Subject.DoesNotExist:
                     pass
             elif existing_subject_id:
@@ -8658,8 +8712,9 @@ def onboarding_save_step(request):
                 for topic_name in body.get('topics', []):
                     topic_name = topic_name.strip()
                     if topic_name:
-                        Topic.objects.get_or_create(name=topic_name, subject=subject,
-                                                    defaults={'importance': 3})
+                        from .content_visibility import get_or_create_topic, resolve_career_subject
+                        get_or_create_topic(request.user, subject, topic_name,
+                                            career_subject=resolve_career_subject(subject))
 
             _link_institution_subject(extra.get('subject_id'))
             _link_career_subjects(extra.get('subject_id'))
@@ -9382,10 +9437,10 @@ def ai_config_view(request):
             if config.source == 'byok':
                 config.source = 'shared_demo'
             config.save()
-            messages.success(request, 'Se eliminó la API Key guardada. Mientras no cargues una nueva, se usa la IA de prueba gratuita.')
+            messages.success(request, 'Se eliminó la API Key guardada. Mientras no se cargue una nueva, se usa la IA pública gratuita.')
             return redirect('material:ai_config')
 
-        source = request.POST.get('source', 'ollama_local')
+        source = request.POST.get('source', 'shared_demo')
         config.source = source
 
         if source == 'ollama_local':
@@ -9496,6 +9551,12 @@ def ai_config_status(request):
                 'remaining_tokens': quota['remaining_tokens'],
                 'limit_tokens': quota['limit_tokens'],
             }
+            # Cupo compartido agotado: el asistente y la pantalla de IA lo
+            # muestran con el mismo texto (qué pasó y qué se puede hacer).
+            if quota['remaining_requests'] is not None and quota['remaining_requests'] <= 0:
+                from .ai_router import SHARED_QUOTA_EXHAUSTED_MESSAGE
+                status['quota_exhausted'] = True
+                status['message'] = SHARED_QUOTA_EXHAUSTED_MESSAGE
     return JsonResponse(status)
 
 
@@ -10006,6 +10067,16 @@ def buscar_destino_fusion(request):
         qs = Career.objects.filter(is_seed_demo=False, es_catalogo_institucional=True)
     elif nivel == 'materia':
         qs = Subject.objects.filter(is_seed_demo=False, es_catalogo_institucional=True)
+    elif nivel == 'topico':
+        # Solo contra tópicos del catálogo de la MISMA materia (y de la misma
+        # carrera-materia o sin carrera asignada).
+        materia_id = request.GET.get('materia_id', '')
+        if not materia_id.isdigit():
+            return JsonResponse([], safe=False)
+        qs = Topic.objects.filter(subject_id=materia_id, es_catalogo_institucional=True)
+        career_subject_id = request.GET.get('career_subject_id', '')
+        if career_subject_id.isdigit():
+            qs = qs.filter(Q(career_subject_id=career_subject_id) | Q(career_subject__isnull=True))
     elif nivel == 'resultado_aprendizaje':
         # Un RA no tiene "name" (es una oración larga en `description`, ver
         # LearningOutcome) y solo tiene sentido fusionarlo dentro del MISMO
@@ -10082,6 +10153,7 @@ _NIVEL_MODELO_ESPACIO_PERSONAL = {
     'carrera': Career,
     'materia': Subject,
     'resultado_aprendizaje': LearningOutcome,
+    'topico': Topic,
 }
 
 
@@ -10216,6 +10288,7 @@ def _fusionar_en_destino(tipo, origen, destino):
                     },
                 )
                 LearningOutcome.objects.filter(career_subject=cs_origen).update(career_subject=cs_destino)
+                Topic.objects.filter(career_subject=cs_origen).update(career_subject=cs_destino)
                 cs_origen.delete()
             ContentShare.objects.filter(kind='materia', subject=origen).update(subject=destino)
         elif tipo == 'carrera':
@@ -10229,6 +10302,7 @@ def _fusionar_en_destino(tipo, origen, destino):
                     },
                 )
                 LearningOutcome.objects.filter(career_subject=cs_origen).update(career_subject=cs_destino)
+                Topic.objects.filter(career_subject=cs_origen).update(career_subject=cs_destino)
                 cs_origen.delete()
             destino.faculties.add(*origen.faculties.all())
         elif tipo == 'facultad':
@@ -10242,6 +10316,26 @@ def _fusionar_en_destino(tipo, origen, destino):
                     user=ui.user, institution=destino, defaults={'is_favorite': ui.is_favorite},
                 )
                 ui.delete()
+        elif tipo == 'topico':
+            # Las preguntas, los exámenes y los cuestionarios orales que usaban
+            # el tópico personal pasan al del catálogo. Sus sub-tópicos se
+            # unen por nombre con los del destino (o se mudan si no existe).
+            from .models import OralExamSet, Subtopic
+            for sub in Subtopic.objects.filter(topic=origen):
+                igual = Subtopic.objects.filter(topic=destino, name__iexact=sub.name).first()
+                if igual is not None:
+                    Question.objects.filter(subtopic=sub).update(subtopic=igual)
+                    sub.delete()
+                else:
+                    sub.topic = destino
+                    sub.save(update_fields=['topic'])
+            Question.objects.filter(topic=origen).update(topic=destino)
+            for exam in Exam.objects.filter(topics=origen):
+                exam.topics.remove(origen)
+                exam.topics.add(destino)
+            for oral in OralExamSet.objects.filter(topics=origen):
+                oral.topics.remove(origen)
+                oral.topics.add(destino)
         elif tipo == 'resultado_aprendizaje':
             # No tiene nada colgando DEBAJO (es la hoja del árbol) — solo
             # hay que re-apuntar lo que lo usa: exámenes/plantillas que ya
@@ -10345,6 +10439,12 @@ def resolve_catalog_request(solicitud, *, admin_user, aprobar, nota_admin=''):
     if entidad is not None and not entidad.es_catalogo_institucional:
         entidad.es_catalogo_institucional = True
         entidad.save(update_fields=['es_catalogo_institucional'])
+        if solicitud.tipo == 'topico':
+            # Los sub-tópicos que el mismo docente cargó bajo ese tópico pasan
+            # al catálogo con él.
+            Subtopic.objects.filter(
+                topic=entidad, created_by_id=entidad.created_by_id, es_catalogo_institucional=False,
+            ).update(es_catalogo_institucional=True)
 
     solicitud.estado = 'aprobada'
     solicitud.resuelto_por = admin_user

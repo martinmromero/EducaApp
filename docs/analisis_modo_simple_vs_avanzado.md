@@ -1,4 +1,4 @@
-# Modo simple (asistentes) vs. modo avanzado (ABM) — análisis al 2026-10-05 (revisión 2)
+# Modo simple (asistentes) vs. modo avanzado (ABM) — análisis (revisión 3, 2026-10-08)
 
 Alcance: relevamiento del código (`material/urls.py`, `views.py`, templates, JS de los asistentes), de la
 memoria del proyecto y, en esta segunda revisión, **prueba real en navegador** del Asistente completo con una
@@ -9,6 +9,8 @@ Marcas: **[código]** leído hoy en el código · **[navegador]** comprobado hoy
 ---
 
 ## 0. Qué cambió desde la primera revisión
+
+> **Revisión 3 (08/10):** las secciones 3 en adelante se reescribieron con las decisiones del 08/10 (tópicos por carrera-materia, IA pública como principal, administración fuera de alcance, oral en el asistente). Los hallazgos D1 a D9 de la sección 2 están corregidos y mergeados (PR #7); la sección 2 queda como registro histórico.
 
 | Hecho | Detalle |
 |---|---|
@@ -123,79 +125,223 @@ Observación sobre el flujo de examen (no es un bug): los pasos 5, 6 y 7 del asi
 
 ---
 
-## 3. Qué debería entrar al Asistente completo
+## 3b. Respuestas y cambios de rumbo (08/10, tarde)
 
-### P0 — sin esto no se puede declarar "funcionando al 100%"
+Reemplaza lo que contradiga en las secciones 4 y 5.
 
-| # | Qué | Estado / detalle | Esfuerzo |
-|---|---|---|---|
-| P0.1 | ~~Commitear y probar el paso 7~~ | **Hecho en `main`** y probado hoy en el camino feliz. Falta probar: móvil real, tema oscuro, sesión vencida a mitad del iframe (D3) y varios temas (lote). | 0,5 día |
-| P0.2 | ✅ Hecho (06/10) — Arreglar **D1 + D2**: un solo gate de primer ingreso que lleve al Asistente completo y que se marque como completado al terminar o salir. | Es lo primero que vive cualquier usuario nuevo o tester. Hoy el recorrido termina en el asistente viejo. | 0,5 día |
-| P0.3 | ✅ Hecho (06/10) — Arreglar **D3**: ningún redirect desde una pantalla enmarcada puede apuntar a una no enmarcable. | Callejón sin salida, silencioso. | 0,5 día |
-| P0.4 | ✅ Hecho (06/10) — Arreglar **D4**: el examen debe llevar por defecto todas las preguntas de los tópicos elegidos (o pedir la cantidad con un valor inicial y ayuda). | Un docente que sigue el camino feliz obtiene un examen de 1 pregunta. Afecta también al formulario clásico (`views.py:184`, `2058`). | 0,25 día |
-| P0.5 | **Estado de la IA en el paso 6**: consultar `ai_config_status` y mostrar *lista* / *usa el cupo compartido* / *falta configurar* antes de "Generar con IA". | El default de cada usuario es `ollama_local` (`models.py:2499`), que en Render no existe; solo funciona por el fallback compartido. **Localmente hay 2 `GlobalAIConfig` activas (Gemini y Groq, con key)**; en producción **no se verificó**. | 0,5 día + confirmar en prod |
-| P0.6 | Pendientes de despliegue de la memoria (**[memoria]**, no re-verificados): migración `0101` en Neon, deploy manual en Render, `render.yaml` ≠ build real, `wipe_production_content` nunca corrido contra Neon, carga masiva OGE/STFI/TFI sin hacer. | Un asistente perfecto sobre una base sin contenido o sin migrar no sirve. | a confirmar |
+1. **Ollama.** Se llama **"Servidor de IA propio (Ollama)"**: puede ser el de la institución o uno propio, no necesariamente "mi computadora". Ya está en la pantalla y en el modelo.
+2. **Tópicos: cambia la relación, no solo la pantalla.** "Inglés I" de Arquitectura no es el de Sistemas, así que los tópicos pertenecen a la **asociación carrera-materia**. El diseño con "vacío = común" (4.1) queda como respaldo. La regla, igual que con los resultados de aprendizaje:
+   - **Materia personal:** los tópicos son solo del dueño.
+   - **Materia del catálogo:** los tópicos son del catálogo, unificados para todos los docentes de esa carrera-materia, y los administra un admin.
+   - Un docente que necesita un tópico que el catálogo no tiene crea uno **personal** en esa carrera-materia (solo lo ve él) y puede proponerlo al catálogo por el circuito de solicitudes que ya existe (proponer, aprobar, rechazar, fusionar). Sin esto, quien carga preguntas en una materia del catálogo quedaría bloqueado.
+   - Cambios: `Topic.career_subject` (clave a `CareerSubject`) y una marca de catálogo; los selectores de tópicos pasan la carrera; ABM de tópicos y subtópicos dentro del bloque de cada carrera en la ficha de la materia. Los subtópicos siguen a su tópico.
+   - Datos existentes: relleno razonable (materias con una sola carrera quedan asignadas; las compartidas se duplican por carrera-materia y las preguntas quedan con el primero). **Neon todavía no es producción**, así que no hace falta que sea perfecto y se puede reiniciar.
+3. **Oral con preguntas propias: pasa dentro y fuera del asistente.** El asistente envía al mismo formulario y a las mismas vistas. Está en cuatro lugares del código: las materias que ofrece el formulario, `validate_oral_exam`, `generate_oral_exam_questions` y el cambio de pregunta. **No hay una decisión detrás:** el módulo oral es del 19/09/2025 y el sistema de compartir (`content_visibility.py`) es del 29/07/2026; el oral nunca se pasó a usarlo. Además usa todas las preguntas del docente, aprobadas o no. Corrección: usar `get_visible_questions` con las mismas reglas que el examen escrito.
+4. **Plantillas: sí conviene cambiar el orden.** Una plantilla guarda institución, facultad, carrera, materia, sede, docente, cátedra, año, tipo, resultados de aprendizaje, rúbricas y notas: es todo lo de los pasos 1 a 5 y el encabezado. Su lugar natural es **el comienzo** del Asistente completo: "¿Partir de una plantilla?" completa los pasos 1 a 5 y lleva directo a Preguntas o Examen, y el examen embebido recibe el resto (docente, sede, formato, rúbricas, notas). Si no se elige ninguna, el paso funciona como hoy. Es lo recomendado frente a la alternativa mínima (no saltear el paso "Plantilla" del examen embebido).
+5. **IA pública agotada o no disponible:** el texto es el que indicaste (no hay más cupo compartido; se puede cargar una conexión propia o, si la institución tiene un servidor Ollama propio, conectarlo consultando con el administrador). Implementado.
+6. **Pregunta sobre producción:** retirada. Neon no es producción, así que el diseño no depende de cuántos datos haya.
+7. **Fecha:** cuanto antes.
+8. **Estimaciones.** Las de la sección 5 eran en días de un desarrollador, con margen. El trabajo real de esta sesión es más corto: la IA pública (cambio de modelo, migración de datos, mensajes, estado en el asistente, 11 tests y prueba en el navegador) se hizo en una sola tanda. Lo que de verdad frena es revisar y mergear cada cambio, el deploy manual a Render y los cambios de modelo que tocan muchos lugares. Estimación actual de trabajo mío: tópicos con la nueva relación, aproximadamente una jornada; plantilla al comienzo, 2 a 3 horas; oral y corrección de preguntas compartidas, 2 a 3 horas; interruptor Simple/Avanzado, 2 horas.
 
-### P1 — lo que hace que realmente se sienta "simple"
+### Estado de implementación (08/10 noche)
+Todo en la rama `feat/ia-publica-principal`, sin commitear. 210 tests en verde (incluye 31 nuevos de tópicos y oral y 11 de IA pública). Migraciones nuevas: 0102 (IA pública), 0103 (tópicos por carrera-materia, con relleno) y 0104 (solicitud de tópico).
 
-| # | Qué | Detalle | Esfuerzo |
-|---|---|---|---|
-| P1.1 | **Colapsar el encabezado del examen embebido**: reemplazar "Docente y fecha", "Institución, sede y curso" y "Tipo y modalidad" por **una pantalla** con valores por defecto (docente = yo, fecha = hoy, institución/carrera = lo elegido; pedir solo sede/curso/tipo). Rúbricas queda como sección plegada. | ~12 → ~8 pantallas. Mismos nombres de campo, el guardado no cambia. | 1 día |
-| P1.2 | **Interruptor Simple/Avanzado por usuario** (campo en `Profile`). Simple = menú reducido (Inicio, Generar con IA, Preguntas, Exámenes, Cuestionarios orales, Mis datos) y los botones "Nuevo X" llevan al asistente. Avanzado = el menú actual. | Es lo que convierte "tener asistentes" en "tener un modo". Se toca `base.html` y los 5 `list.html` que ya tienen el botón "Asistente". | 1 día |
-| P1.3 | **Reducir el chrome en móvil** (D5, D6, D7): ocultar la introducción y las migas en pasos 6–7, un solo stepper, indicador de carga. | La demo con jurado y los testers usan celular. | 0,5 día |
-| P1.4 | **Cuestionario oral como alternativa en el paso 7.** | Reutiliza el patrón de iframe (`embed.js`); falta `xframe_options_sameorigin` y un modo `fw=1` en `create_oral_exam_wizard`. | 0,5–1 día |
-| P1.5 | **Editar examen desde el asistente** (el payload ya existe: `_build_preview_exam_payload_from_exam`) o, como mínimo, ocultar "Editar" en modo simple y ofrecer "Duplicar". | Es la fuga más visible hacia el formulario viejo. | 1 día (0,25 si solo se oculta) |
-| P1.6 | **Entrada al asistente desde Materias/Carreras para no-admin**: "Agregar con el asistente" en lugar de "Solicitar alta". | Hoy el docente solo llega a crear materia/carrera por el Asistente completo. | 0,5 día |
+| Cambio | Estado |
+|---|---|
+| IA pública como principal (default, mensajes, estado en el paso Preguntas, "Servidor de IA propio (Ollama)") | Hecho y probado en el navegador |
+| Tópicos por carrera-materia con espacio personal / catálogo | Hecho: `Topic.career_subject` y `es_catalogo_institucional` (también en sub-tópicos), `get_visible_topics`, ABM en la ficha de la materia, proponer al catálogo, aprobar / rechazar / fusionar en la bandeja. Probado en el navegador con un docente y un admin |
+| Oral con preguntas compartidas (y sus tópicos y sub-tópicos) | Hecho: `get_oral_questions` en los siete lugares, solo aprobadas, igual que el examen escrito |
+| Plantilla al comienzo del asistente | Pendiente |
+| Oral dentro del Asistente completo | Pendiente |
+| Interruptor Simple/Avanzado | Pendiente |
 
-### P2 — después de liberar (no bloquean)
-- Rúbricas inline en el paso de examen (hoy: "Crear una" en pestaña nueva; el asistente de Plantilla ya refresca al volver con `focus`, el de examen no).
-- Guardar el examen recién armado como **plantilla** al final.
-- Tópicos: ABM mínimo o alta desde la ficha de materia (problema de fuga entre carreras documentado en memoria).
-- Asistentes para Rúbrica y Grupos.
-- Reanudar el Asistente completo entre sesiones (D8).
-- Convertir "Generar con IA" (~3.500 líneas) en un módulo `mount()` como el de subir preguntas.
-- Retirar o fusionar `onboarding_v2` una vez que el Asistente completo cubra su demo.
+**Reglas que quedaron** (mismo criterio que los resultados de aprendizaje):
+- Materia personal: sus tópicos son solo del dueño.
+- Materia del catálogo: los tópicos del catálogo los administra un admin y los ven todos los docentes de esa carrera-materia (y los que no tienen carrera asignada). Un docente crea tópicos **personales** (solo los ve él, y quien reciba la materia por un grupo de confianza) y puede **proponerlos al catálogo**.
+- Aprobar un tópico lo pasa al catálogo con sus sub-tópicos personales. Rechazarlo lo deja personal. Fusionarlo lo une con uno existente: las preguntas, los exámenes y los cuestionarios orales pasan al tópico del catálogo, y los sub-tópicos se unen por nombre.
+- Fusionar materias o carreras reubica los tópicos en la carrera-materia destino.
+- Los datos que ya existían se rellenaron así: materias personales, tópicos personales del dueño; materias del catálogo con una sola carrera, tópico asignado a esa carrera; materias en varias carreras, tópico sin carrera asignada (se ve en todas) hasta que se lo asigne desde la ficha.
+
+**Límites conocidos:**
+- "Generar con IA" crea sus tópicos sin carrera asignada cuando la materia está en varias carreras (el generador no recibe la carrera). Se asignan después desde la ficha.
+- Los sub-tópicos personales sobre un tópico del catálogo no tienen circuito de propuesta propio: solo viajan con la propuesta de su tópico.
+- El formulario clásico de examen, el cuestionario oral suelto y "subir preguntas" suelto, sin carrera elegida, listan todos los tópicos visibles de la materia, como antes.
+
+### Pregunta resuelta
+En una materia del catálogo el docente **sí** puede crear tópicos personales y proponerlos al catálogo, con el mismo criterio que el resto de los objetos.
 
 ---
 
-## 4. Qué NO debe tener asistente (queda como modo avanzado)
+## 3. Decisiones del 08/10 y cómo cambian el plan
 
-Edición de pregunta, importación CSV clásica, detalle/edición de institución con sedes y facultades, asociaciones de carrera, formatos de impresión,
-grupos de confianza, favoritos, espacio personal, avisos de borrado, y todo el submenú de Administración. Son tareas de mantenimiento,
-no de "primer uso".
+| Decisión | Efecto en el plan |
+|---|---|
+| Tópicos y subtópicos necesitan un ABM muy simple, dentro de la materia, y deberían ser únicos de cada asociación carrera-materia. | Nuevo bloque de trabajo con análisis propio (4.1). Pasa de "P2" a prioridad alta. |
+| La administración no necesita asistente. | Sale del alcance. Usuarios, invitaciones, bandeja, carga masiva, Groq, Neon, prompt, IA institucional y resultados de testing quedan como están. |
+| La IA pública tiene que ser la principal. Ollama pasa a ser una opción más. | Cambio de default y de mensajes (4.2). Reemplaza al punto P0.5 anterior. |
+| Formatos de impresión y Rúbricas sin asistente está bien. | Prioridad baja. Ya no aparecen en el plan. |
+| Cuestionario oral: evaluar sumarlo al Asistente completo. | Evaluado en 4.3. |
+| Editar desde el asistente importa menos que cargar lo ya creado y crear lo nuevo. | "Editar examen desde el asistente" baja a P2. Sube "usar lo ya creado" (4.4). |
 
 ---
 
-## 5. Plan sugerido para la semana (revisado)
+## 4. Análisis de viabilidad
 
-| Día | Trabajo | Resultado |
+### 4.1 Tópicos y subtópicos por carrera-materia
+
+**Cómo está hoy [código]**
+- `Topic.subject` apunta a la materia, no a la asociación carrera-materia (`CareerSubject`). Los tópicos de una materia los ven todas las carreras que la comparten.
+- `Topic` ya tiene `created_by` y un `unique_together (nombre, materia, creador)`, y el modelo de `Unidad` dice que los tópicos son "privados por usuario". En la práctica no es así: `add_topic` no guarda `created_by`, rechaza nombres repetidos en toda la materia y `get_topics` no filtra por creador. Hay un desfasaje entre lo que el modelo dice y lo que el código hace.
+- Los resultados de aprendizaje, en cambio, **ya** son únicos de cada carrera-materia, y la ficha de la materia (`subjects/detail.html`) los muestra agrupados por carrera con sus botones de alta, edición y baja. Los tópicos encajan en ese mismo bloque.
+- Al borrar un tópico, sus preguntas pasan a "sin tópico" (`SET_NULL`), y desaparece de los exámenes y cuestionarios orales que lo usaban (relaciones M2M).
+- No existe ninguna pantalla de tópicos. Se crean solo desde cargar o editar una pregunta, o desde "Generar con IA".
+
+**¿La materia comparte carreras? [datos locales, no producción]**
+
+| Dato | Valor |
+|---|---|
+| Materias con alguna carrera | 989 de 992 |
+| Materias que están en más de una carrera | **48 (4,9 %)** |
+| Las más compartidas | Inglés I e Inglés II (8 carreras cada una), Seminario de Trabajo de Integración y Trabajo Final de Graduación (5), Programación I (3) |
+| Materias con tópicos y en más de una carrera | 7 (de 41 tópicos en total) |
+| Preguntas sin tópico | 10 de 323 |
+
+Conclusión: sí se comparten, pero son una minoría y casi todas con pocos tópicos. Hay que confirmar con la base de producción. Si se va a borrar antes de la defensa (`wipe_production_content`), el catálogo se vuelve a cargar y el problema se define de cero.
+
+**Diseño propuesto**
+1. Agregar `Topic.career_subject`, una clave a `CareerSubject` que puede quedar vacía. **Vacío significa "común a todas las carreras de la materia"**: todo lo existente, las materias sin carrera y los tópicos creados sin contexto de carrera. No hace falta migrar datos ni duplicar tópicos.
+2. El nombre pasa a ser único por (materia, carrera-materia, creador) y la comprobación de duplicados de `add_topic` se hace dentro del mismo alcance.
+3. En la ficha de la materia, dentro del bloque de cada carrera (junto a los resultados de aprendizaje), una lista de tópicos con sus subtópicos: agregar, renombrar y borrar. Antes de borrar, un aviso con la cantidad de preguntas, exámenes y cuestionarios afectados. Si la materia está en más de una carrera, un bloque "Comunes a todas las carreras".
+4. Dónde se listan los tópicos:
+   - Con carrera conocida (el Asistente completo, el asistente de examen embebido, la ficha de la materia): los comunes más los de esa carrera.
+   - Con carrera desconocida (subir preguntas suelto, formulario clásico de examen, cuestionario oral, generar con IA): se listan todos, como hoy. Así el cambio no rompe ningún flujo existente.
+5. Permisos: quien puede ver la materia puede crear tópicos (como hoy, y como pide el flujo de cargar preguntas). Renombrar y borrar queda para el dueño de la materia personal o un admin. Para el borrado de tópicos ajenos de una materia del catálogo hay que definir una regla (pregunta abierta 1).
+
+**Riesgos**
+- Las preguntas pertenecen a la materia, no a la carrera. Una pregunta con un tópico de la carrera A no se ofrece al armar un examen de la carrera B si se filtra por tópico. Es coherente con la regla pedida, pero hay que decirlo en pantalla ("este tópico es solo de la carrera X").
+- Los lugares que leen tópicos son unos 36 (`views.py` 19, `forms.py` 7, `views_document_processor.py` 6, más modelos, contexto y cuentas de entrenamiento). Con el valor vacío como "todos", ninguno se rompe, pero hay que revisar los 5 selectores de tópicos: `get_topics`, `get_questions_by_topics`, el asistente de examen, el oral y el generador.
+- Si el alcance es "carrera-materia" y no "docente", los tópicos de un docente pasan a ser visibles para los demás docentes de esa carrera-materia. Hoy ya lo son (global por materia), así que no empeora, pero conviene decidirlo a propósito (pregunta abierta 2).
+
+**Estimación**
+
+| Fase | Contenido | Esfuerzo |
 |---|---|---|
-| 1 | P0.2 (gate de primer ingreso + marcar completado), P0.3 (redirects del iframe), P0.4 (cantidad por defecto) — los tres son cambios chicos y localizados | El recorrido completo ya no se rompe ni se desvía |
-| 2 | P0.5 (estado de IA en el paso 6) + confirmar `GlobalAIConfig` en producción + P0.6 (migración, deploy, base de datos) | IA operativa y base lista |
-| 3 | P1.1 (encabezado colapsado) + P1.3 (móvil) | Recorrido corto y usable en celular |
-| 4 | P1.2 (interruptor Simple/Avanzado) + P1.6 | Existe el "modo simple" como tal |
-| 5 | P1.5 (o su versión mínima) + P1.4 si da el tiempo + UAT final + actualizar tours driver.js y checklist | Congelado para liberar |
+| 1 | ABM de tópicos y subtópicos en la ficha de la materia, sin tocar el modelo, con aviso de "esta materia se usa en N carreras" y permisos (`_puede_editar_catalogo`) | 0,5 a 1 día |
+| 2 | `Topic.career_subject`, migración, selectores con contexto de carrera, tests | 1,5 a 2 días |
 
-Reglas de la casa para todo lo que se toque: sin tuteo/voseo en la UI, "Docente" y no "Profesor", actualizar los tours
-driver.js en el mismo turno que cambie la UI, nunca commitear `media/`, y correr `collectstatic` local antes de probar JS/CSS nuevos.
+**Recomendación:** hacer la Fase 1 ya (resuelve el pedido visible y deja la pantalla donde hará falta) y la Fase 2 enseguida detrás, porque es aditiva y no cambia el comportamiento por defecto.
+
+### 4.2 IA pública como principal, Ollama como una opción más
+
+**Cómo está hoy [código]**
+- `UserAIConfig.source` tiene por defecto `ollama_local` (`models.py:2499`) y los cuatro valores posibles ya existen: IA pública (`shared_demo`), Ollama, API propia y la de la institución.
+- En la pantalla "Proveedor de IA" la IA pública ya aparece primera, pero **el formulario guarda `ollama_local` si no llega ningún valor** (`views.py:9388`), y el mensaje de estado y el procesador de documentos usan `ollama_local` como valor de respaldo.
+- Si el usuario tiene `ollama_local` y no hay un servidor Ollama, el sistema ya cae solo a la IA pública (`ai_router.py`). Funciona, pero la pantalla muestra "Ollama" y el usuario ve un estado que no es el real.
+- Si el usuario elige IA pública y no hay una `GlobalAIConfig` activa con clave, el sistema vuelve a Ollama y falla con un error confuso en vez de decir que la IA pública no está disponible.
+- En la base local hay 3 configuraciones, todas en `ollama_local` y sin URL propia. Localmente hay 2 `GlobalAIConfig` activas (Gemini y Groq). **En producción no se verificó.**
+
+**Cambios**
+1. Default del modelo a `shared_demo` y migración de datos: las filas en `ollama_local` sin URL propia pasan a `shared_demo`. Las que tienen una URL propia no se tocan.
+2. Cambiar `ollama_local` por `shared_demo` en los respaldos de `ai_config_view`, de `ai_config.html` y de `views_document_processor.py`.
+3. Con IA pública seleccionada y sin configuración activa, mostrar "La IA pública no está disponible ahora" con el camino a "usar mi propia clave". Dejar de caer en Ollama en ese caso.
+4. Estado visible en el paso Preguntas del Asistente completo, antes de "Generar con IA": usar `ai_config_status` (ya existe) y mostrar uno de tres estados: *lista* (con el cupo restante si hay), *cupo agotado* o *no disponible, usar mi propia clave*. "Cargar a mano" queda siempre disponible.
+5. Dejar Ollama en la pantalla como "IA en mi computadora (avanzado)".
+
+**Riesgos**
+- La IA pública tiene cupo limitado y compartido. Con muchos docentes probando a la vez se agota. El estado visible y el aviso de cupo existen para eso, pero conviene confirmar los límites de las cuentas gratuitas antes de la defensa.
+- Hay textos viejos con tuteo en esa pantalla ("Mientras no cargues una nueva…"). Aprovechar para corregirlos (regla de la casa).
+- Migración de datos: tocar filas de usuarios reales. Es de bajo riesgo, pero hay que correrla en Neon como cualquier otra.
+
+**Estimación:** 0,5 a 1 día, con tests.
+
+### 4.3 Cuestionario oral dentro del Asistente completo
+
+**Qué necesita el cuestionario oral [código]**
+- Materia, tópicos, cantidad de estudiantes, preguntas por estudiante y cantidad de grupos. Un panel en vivo (`validate_oral_exam`) avisa si no alcanzan las preguntas.
+- Genera las preguntas **solo con las preguntas propias** del docente (`user=oral_exam.user`), a diferencia del examen escrito, que también usa las compartidas por grupos.
+- Agrupa las preguntas por **subtópico**, o por tópico si no hay subtópicos. Para que dos estudiantes del mismo grupo no reciban lo mismo hacen falta, como mínimo, estudiantes por grupo × preguntas por estudiante subtópicos (o tópicos) distintos. Hoy, localmente, hay 3 subtópicos en toda la base. **El oral con un solo tópico no sirve.**
+- El formulario guarda por un POST nativo a `create_oral_exam`, que al terminar redirige a `view_oral_exam`, una pantalla que no se puede enmarcar.
+
+**Viabilidad:** sí, con el mismo patrón del iframe del examen. Es el segundo caso del mismo mecanismo.
+
+| Pieza | Trabajo |
+|---|---|
+| Elegir "Examen escrito" o "Cuestionario oral" en el paso 7 | Dos tarjetas en el host; el escrito sigue igual |
+| `create_oral_exam_wizard` enmarcable y con `?fw=1` (materia precargada, se saltea el paso de materia) | Decorador `xframe_options_sameorigin`, parámetros, JS |
+| Guardado dentro del iframe | Con `fw=1`, el éxito vuelve a una pantalla propia que avisa `educaapp:oral-saved` con la dirección del cuestionario; los errores de validación vuelven al asistente, no al formulario clásico (mismo problema que se arregló en el examen) |
+| Pantalla final del host | Tarjeta "Cuestionario guardado" con "Ver el cuestionario" |
+| Aviso previo | Si la materia no tiene al menos 2 tópicos o subtópicos con preguntas propias, avisarlo antes de abrir el asistente |
+| Tests | Prefill, enmarcado, errores y guardado |
+
+**Estimación:** 1 día. Conviene hacerlo después de los tópicos: cuanto mejor se carguen los tópicos y subtópicos, mejor funciona el oral.
+
+### 4.4 Cargar lo ya creado y crear lo nuevo
+
+Cobertura actual del Asistente completo [código y navegador]:
+
+| Paso | Usar lo ya creado | Crear nuevo |
+|---|---|---|
+| Institución, Facultad, Carrera, Materia | Sí: chips "Catálogo" y "Personal" más búsqueda | Sí |
+| Resultados de aprendizaje | Sí: lista de la carrera-materia | Sí |
+| Preguntas | Sí, pero solo se ve el conteo ("tiene 5 preguntas disponibles"); no hay forma de mirarlas ni elegirlas | Sí: a mano (una o por lote) o con IA |
+| Examen | **No.** El asistente embebido **saltea el paso "Plantilla"** (`startEmbedded` avanza dos pasos), aunque ya filtra las plantillas de la materia elegida | Sí |
+
+Huecos:
+1. **Plantilla existente.** Una plantilla guarda institución, carrera, formato de impresión, resultados de aprendizaje, rúbricas y notas. Es justamente "lo ya creado" del examen y hoy no se puede usar desde el asistente. Arreglo: no saltear el paso 1 cuando la materia tiene plantillas (0,25 a 0,5 día).
+2. **Partir de un examen anterior.** No existe "duplicar un examen". Es lo más pedido por un docente real (el mismo parcial con otras preguntas). Va al plan como mejora posterior.
+3. **Mirar las preguntas existentes** desde el paso Preguntas: un enlace "Ver mis preguntas de esta materia" a la lista filtrada. Mínimo.
 
 ---
 
-## 6. Preguntas abiertas para decidir antes de empezar
+## 5. Plan priorizado (revisado el 08/10)
 
-1. ¿El modo simple es **por usuario** (interruptor) o **por rol**? Recomendación: por usuario, con default "simple".
-2. ¿Se retira `/comenzar/` o queda solo como ejemplo de la primera visita? (Hoy es la primera pantalla de todo usuario nuevo, y su recorrido de 13 pasos se superpone.)
-3. ¿El cuestionario oral entra al recorrido principal esta semana o queda como entrada aparte?
-4. ¿Cuántas pantallas de encabezado se aceptan en el examen embebido (1 vs. las 3 actuales)?
-5. ¿"Preguntas por tema" vacío debe significar "todas" o hay que obligar a indicar un número?
+Hoy es jueves. Si la semana de liberación termina el viernes, **no entra todo**. Propuesta de corte:
+
+### Para liberar (en este orden)
+| # | Trabajo | Esfuerzo | Por qué |
+|---|---|---|---|
+| 1 | IA pública por defecto, mensajes y estado en el paso Preguntas (4.2) | 0,5 a 1 día | Sin IA que funcione, el camino más prometedor del asistente falla |
+| 2 | Tópicos: ABM en la ficha de la materia (4.1, Fase 1) | 0,5 a 1 día | Pedido directo, hoy no hay dónde ver ni ordenar los tópicos |
+| 3 | Plantilla existente dentro del paso Examen (4.4) | 0,25 a 0,5 día | Es "cargar lo ya creado" |
+| 4 | Interruptor Simple/Avanzado por usuario | 1 día | Es lo que convierte los asistentes en un modo |
+| 5 | Pendientes de despliegue: migración 0101, build de Render, base de datos de Neon, carga de preguntas | a confirmar | Nada de lo anterior sirve sin esto |
+
+### Inmediatamente después
+| # | Trabajo | Esfuerzo |
+|---|---|---|
+| 6 | Tópicos por carrera-materia (4.1, Fase 2) | 1,5 a 2 días |
+| 7 | Cuestionario oral en el Asistente completo (4.3) | 1 día |
+| 8 | Encabezado del examen en una sola pantalla (de ~12 a ~8 pantallas) | 1 día |
+| 9 | "Agregar con el asistente" en Materias y Carreras para quien no es admin | 0,5 día |
+
+### Después / baja prioridad
+- Duplicar un examen como punto de partida.
+- Editar desde el asistente (examen, preguntas).
+- Asistentes para Rúbricas y Formatos de impresión (decisión: no hacen falta).
+- Reanudar el Asistente completo entre sesiones.
+- Convertir "Generar con IA" en un módulo embebible.
+- Retirar o fusionar el asistente viejo de `/comenzar/`.
+
+### Fuera de alcance
+- Toda la Administración (usuarios, invitaciones, bandeja, carga masiva, Groq, Neon, prompt, IA institucional, resultados de testing).
+- Grupos de confianza, favoritos, espacio personal, avisos de borrado.
+
+---
+
+## 6. Preguntas abiertas
+
+1. **Borrar o renombrar tópicos en una materia del catálogo:** ¿solo admin, o también el docente que lo creó?
+2. **Alcance de los tópicos:** ¿los comparten todos los docentes de la misma carrera-materia (como los resultados de aprendizaje), o cada docente tiene los suyos? El modelo dice "privados por usuario", el código funciona como "compartidos por materia", y la regla que pediste ("únicos de cada asociación carrera-materia") apunta a lo primero.
+3. **Datos de producción:** ¿cuántas materias compartidas hay realmente en Neon? El 4,9 % es de la base local.
+4. **IA pública:** ¿cuál es el cupo diario real de las cuentas gratuitas, y qué se le muestra a un docente cuando se agota?
+5. **Fecha de liberación:** ¿sigue siendo esta semana? De eso depende cuánto de la segunda tabla entra.
 
 ---
 
 ## 7. Qué no se probó (para no dar por cerrado lo que no se vio)
 
-- **Generar con IA** de punta a punta (la cuenta de prueba no tiene proveedor propio; el fallback compartido existe localmente pero no se ejecutó una generación).
-- Carga **por lote** (CSV/TXT) en el asistente de preguntas.
-- **Varios temas** (lote de exámenes) dentro del iframe.
-- Tema oscuro y dispositivo móvil real (solo emulación de 375 px).
-- Exportación PDF/DOCX del examen creado por el asistente.
-- Producción (Render/Neon): nada de esto se ejecutó contra producción.
+- Generar con IA de punta a punta (la cuenta de prueba no tiene proveedor propio) y el estado real de la `GlobalAIConfig` en producción.
+- Carga por lote CSV o TXT en el asistente de preguntas.
+- Varios temas (lote de exámenes) dentro del iframe, tema oscuro y celular real.
+- El conteo de materias compartidas y de tópicos se hizo sobre la base local, no sobre producción.
+- Nada de lo propuesto en las secciones 4 y 5 está implementado todavía.

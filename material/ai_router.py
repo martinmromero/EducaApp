@@ -641,6 +641,48 @@ def _parse_duration_to_seconds(raw: Optional[str]) -> Optional[float]:
     return total if (hours or minutes or seconds) else None
 
 
+SHARED_QUOTA_EXHAUSTED_MESSAGE = (
+    'La IA pública gratuita no tiene más cupo compartido por ahora. Se puede seguir '
+    'cargando una conexión propia en "Proveedor de IA" (clave de un proveedor) o, si la '
+    'institución cuenta con un servidor Ollama propio, conectándolo desde esa misma '
+    'pantalla (consultar antes con el administrador de la institución).'
+)
+
+SHARED_UNAVAILABLE_MESSAGE = (
+    'La IA pública gratuita no está disponible ahora mismo. Se puede cargar una '
+    'conexión propia en "Proveedor de IA" (clave de un proveedor) o, si la institución '
+    'cuenta con un servidor Ollama propio, conectarlo desde esa misma pantalla '
+    '(consultar antes con el administrador de la institución).'
+)
+
+
+def _quota_friendly(result):
+    """Si el resultado de una generación con la IA pública falló por cupo, deja el
+    mensaje que entiende un docente (qué pasó y qué puede hacer) en vez del error
+    crudo del proveedor ("Límite de solicitudes de groq alcanzado (429)…")."""
+    if not isinstance(result, dict) or result.get('success'):
+        return result
+    error = (result.get('error') or '').lower()
+    if result.get('status_code') == 429 or '429' in error or 'límite' in error or 'quota' in error:
+        return {**result, 'error': SHARED_QUOTA_EXHAUSTED_MESSAGE, 'quota_exhausted': True}
+    return result
+
+
+class PublicAIUnavailableBackend:
+    """La IA pública está elegida pero no hay ninguna configuración compartida
+    activa con key: se dice así, en vez de caer a un servidor Ollama que en
+    producción no existe y fallar con un error de conexión que no explica nada."""
+
+    def is_available(self) -> bool:
+        return False
+
+    def generate(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        return {'success': False, 'error': SHARED_UNAVAILABLE_MESSAGE, 'text': None}
+
+    def get_status(self) -> Dict[str, Any]:
+        return {'connected': False, 'backend': 'shared_demo', 'error': SHARED_UNAVAILABLE_MESSAGE}
+
+
 class SharedDemoBackend:
     """Marcador común para los backends del fallback compartido de demo
     (GlobalFallbackBackend de un solo proveedor, o DemoRoutingBackend con
@@ -671,7 +713,7 @@ class GlobalFallbackBackend(SharedDemoBackend):
         rate_limit = result.get('rate_limit') if isinstance(result, dict) else None
         if rate_limit:
             self._save_quota_snapshot(rate_limit)
-        return result
+        return _quota_friendly(result)
 
     def refresh_quota(self):
         """Pide un mínimo indispensable (1 token de salida, prompt de una letra)
@@ -835,13 +877,13 @@ class DemoRoutingBackend(SharedDemoBackend):
                 return result
 
         if self._gemini:
-            return self._gemini.generate(*args, **kwargs)
+            return _quota_friendly(self._gemini.generate(*args, **kwargs))
 
         if self._groq:
             # No hay Gemini de respaldo configurado: devolver el intento de
-            # Groq tal cual (con cupo agotado, probablemente falle, pero es
-            # la única opción real).
-            return self._groq.generate(*args, **kwargs)
+            # Groq (con cupo agotado, probablemente falle, pero es la única
+            # opción real) con el mensaje de cupo ya explicado.
+            return _quota_friendly(self._groq.generate(*args, **kwargs))
 
         return {'success': False, 'error': 'No hay proveedor de IA compartido configurado.', 'text': None}
 
@@ -994,8 +1036,8 @@ def _resolve_backend_for_user(user):
         fallback = _global_demo_backend()
         if fallback is not None:
             return fallback
-        logger.warning('shared_demo seleccionado pero no hay GlobalAIConfig activa con key. Usando Ollama.')
-        return OllamaBackend()
+        logger.warning('shared_demo seleccionado pero no hay GlobalAIConfig activa con key.')
+        return PublicAIUnavailableBackend()
 
     if source == 'ollama_local':
         ollama = OllamaBackend(ollama_url=config.ollama_url or None)

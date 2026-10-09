@@ -40,10 +40,11 @@
                  {% if config.source == 'shared_demo' %}checked{% endif %}
                  onchange="onSourceChange()">
           <div class="flex-grow-1">
-            <div class="fw-semibold"><i class="bi bi-gift me-1"></i>IA de prueba gratuita de EducaApp</div>
-            <small class="text-muted">Permite generar preguntas ya mismo, sin configurar nada. Usa una cuota
-            compartida entre todos los usuarios de EducaApp — es limitada y puede agotarse. Si se agota el cupo,
-            conectar una key propia gratis (abajo) permite seguir sin depender de la compartida.</small>
+            <div class="fw-semibold"><i class="bi bi-gift me-1"></i>IA pública gratuita de EducaApp <span class="badge bg-primary ms-1">Recomendada</span></div>
+            <small class="text-muted">Permite generar preguntas ya mismo, sin configurar nada. Usa un cupo
+            compartido entre todos los usuarios de EducaApp: es limitado y puede agotarse. Si se agota, se puede
+            cargar una conexión propia (abajo) o, si la institución cuenta con un servidor Ollama propio,
+            conectarlo (consultando antes con el administrador).</small>
           </div>
         </label>
       </div>
@@ -58,9 +59,10 @@
                  {% if config.source == 'ollama_local' %}checked{% endif %}
                  onchange="onSourceChange()">
           <div class="flex-grow-1">
-            <div class="fw-semibold"><i class="bi bi-hdd-network me-1"></i>IA Local (Ollama)</div>
-            <small class="text-muted">Usa el servidor Ollama de la red interna. Sin costo, sin internet requerido,
-            privado. Ideal si hay conectividad con el servidor.</small>
+            <div class="fw-semibold"><i class="bi bi-hdd-network me-1"></i>Servidor de IA propio (Ollama)</div>
+            <small class="text-muted">Usa un servidor Ollama cuya dirección se indica acá: el de la institución
+            (consultar antes con su administrador) o uno propio. Sin costo por uso y sin enviar datos a terceros.
+            Requiere que el servidor sea accesible desde donde se usa EducaApp.</small>
 
             <!-- Configuración avanzada de Ollama -->
             <div id="ollama-fields" class="mt-3 {% if config.source != 'ollama_local' %}d-none{% endif %}">
@@ -417,11 +419,11 @@ function toggleKeyVisibility() {
 
 const STATUS_MSGS = {
   shared_demo: {
-    ok:   'Usando la IA de prueba gratuita de EducaApp',
-    fail: 'La IA de prueba gratuita no está disponible ahora mismo (puede estar sin configurar o sin cupo). Probar de nuevo más tarde o conectar una API Key propia.',
+    ok:   'Usando la IA pública gratuita de EducaApp',
+    fail: 'La IA pública gratuita no está disponible o no tiene más cupo compartido por ahora. Se puede cargar una conexión propia (clave de un proveedor) o, si la institución cuenta con un servidor Ollama propio, conectarlo (consultando antes con el administrador).',
   },
   ollama_local: {
-    ok:   'Servidor Ollama conectado',
+    ok:   'Servidor de IA propio (Ollama) conectado',
     fail: 'Servidor Ollama no disponible. Verificar que el servidor esté activo y accesible desde esta red.',
   },
   byok: {
@@ -447,9 +449,9 @@ function checkStatus() {
       // mensaje tiene que reflejar ESO y no la preferencia guardada, o si
       // no se muestra "Servidor Ollama conectado" mientras en realidad se
       // está gastando el cupo compartido de Groq (ver ai_config_status).
-      const source = data.source || 'ollama_local';
+      const source = data.source || 'shared_demo';
       const statusKey = data.using_shared_fallback ? 'shared_demo' : source;
-      const msgs = STATUS_MSGS[statusKey] || STATUS_MSGS['ollama_local'];
+      const msgs = STATUS_MSGS[statusKey] || STATUS_MSGS['shared_demo'];
       if (data.connected) {
         const ready = data.ready_for_generation !== false;
         document.getElementById('status-icon').textContent = ready ? '✅' : '⚠️';

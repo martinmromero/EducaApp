@@ -5,6 +5,7 @@ from . import views_export as export_views  # Exportación DOCX / PDF
 from . import training_views  # Área de Pruebas
 from . import testing_panel_views  # Modo Testing (panel de UAT)
 from . import list_columns  # Vista configurable de listados (columnas y orden)
+from . import views_topics  # ABM de tópicos y sub-tópicos (dentro de la ficha de la materia)
 
 app_name = 'material'
 
@@ -164,6 +165,14 @@ path('exam-templates/view/<int:template_id>/', material_views.view_exam_template
 
 
 path('add-topic/', material_views.add_topic, name='add_topic'),
+    # ABM de tópicos y sub-tópicos desde la ficha de la materia
+    path('subjects/<int:subject_id>/topicos/crear/', views_topics.topic_create, name='topic_create'),
+    path('topicos/<int:pk>/editar/', views_topics.topic_update, name='topic_update'),
+    path('topicos/<int:pk>/eliminar/', views_topics.topic_delete, name='topic_delete'),
+    path('topicos/<int:pk>/proponer/', views_topics.topic_propose, name='topic_propose'),
+    path('topicos/<int:topic_id>/subtopicos/crear/', views_topics.subtopic_create, name='subtopic_create'),
+    path('subtopicos/<int:pk>/editar/', views_topics.subtopic_update, name='subtopic_update'),
+    path('subtopicos/<int:pk>/eliminar/', views_topics.subtopic_delete, name='subtopic_delete'),
 path('add-subtopic/', material_views.add_subtopic, name='add_subtopic'),
 
 path('upload/', material_views.upload_contenido, name='upload_contenido'),  # Para contenido tradicional

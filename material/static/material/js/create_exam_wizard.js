@@ -383,7 +383,11 @@ _onDomReady(function () {
         topicsEmpty.classList.add('d-none');
         topicsWrap.classList.remove('d-none');
 
-        var topicsPromise = fetch(CFG.urls.getTopics + '?subject_id=' + subjectId + '&for_exam=1&include_no_topic=1')
+        // Embebido en el Asistente completo la carrera ya está elegida: los tópicos
+        // son de cada carrera-materia (ver get_visible_topics).
+        var careerParam = CFG.isEmbedded && CFG.fwPrefill && CFG.fwPrefill.carrera_id
+            ? '&career_id=' + encodeURIComponent(CFG.fwPrefill.carrera_id) : '';
+        var topicsPromise = fetch(CFG.urls.getTopics + '?subject_id=' + subjectId + '&for_exam=1&include_no_topic=1' + careerParam)
             .then(function (r) { return r.json(); });
         var questionsPromise = fetch(CFG.urls.getQuestionsByTopics + '?subject_id=' + subjectId + '&all=true')
             .then(function (r) { return r.json(); });

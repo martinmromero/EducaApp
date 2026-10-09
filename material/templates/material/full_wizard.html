@@ -76,6 +76,8 @@
                     <small>Una pregunta por vez, o un archivo CSV/TXT con muchas juntas.</small></span>
                 </button>
             </div>
+            <!-- Estado de la IA antes de ofrecer "Generar con IA" (ver refreshAIStatus en full_wizard.js). -->
+            <div id="fwAIStatus" class="alert py-2 small mt-3 mb-0 d-none" role="status"></div>
         </div>
         <!-- Asistente "Subir preguntas" embebido (ver question_upload_wizard.js).
              Una sola instancia por página: sus radios son globales al documento. -->
@@ -172,6 +174,8 @@ window.EducaAppFullWizardConfig = {
         materiasByCarreraBase: "/get-subjects-by-career/",
         outcomesByCareerSubject: "{% url 'material:get_learning_outcomes_by_career_subject' %}",
         subjectProgress: "{% url 'material:full_wizard_subject_progress' %}",
+        aiStatus: "{% url 'material:ai_config_status' %}",
+        aiConfig: "{% url 'material:ai_config' %}",
         docProcessor: "{% url 'material:document_processor_dashboard' %}",
         createExamWizard: "{% url 'material:create_exam_wizard' %}",
         misExamenes: "{% url 'material:mis_examenes' %}",
