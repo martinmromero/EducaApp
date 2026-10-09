@@ -123,6 +123,18 @@
             </div>
 
             <div id="fwExamStage" class="d-none">
+                <!-- Qué se arma en este último paso: examen escrito (por defecto) o cuestionario
+                     oral. Cambiar de uno a otro no pierde lo ya cargado en cada uno. -->
+                <div id="fwKindBar" class="fw-kind-bar px-3 py-2 border-bottom">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="small text-muted">Armar:</span>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Tipo de evaluación">
+                            <button type="button" class="btn btn-primary active" data-kind="escrito" aria-pressed="true">Examen escrito</button>
+                            <button type="button" class="btn btn-outline-primary" data-kind="oral" aria-pressed="false">Cuestionario oral</button>
+                        </div>
+                    </div>
+                    <div id="fwKindNote" class="small text-warning-emphasis mt-1 d-none" role="status"></div>
+                </div>
                 <div class="fw-exam-loading" id="fwExamLoading">
                     <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
                     Preparando el examen con lo ya elegido…
@@ -147,12 +159,13 @@
                 <div class="fw-exam-done-icon"><i class="bi bi-check-circle-fill"></i></div>
                 <h4 id="fwExamDoneTitle">Examen guardado</h4>
                 <p class="wiz-step-intro mb-3" id="fwExamDoneMsg"></p>
+                <div id="fwExamDoneWarnings" class="text-start mx-auto mb-3 d-none" style="max-width: 36rem;"></div>
                 <div class="d-flex flex-wrap gap-2 justify-content-center">
                     <a href="#" class="btn btn-primary" id="fwExamDoneView">
-                        <i class="bi bi-eye me-1"></i>Ver el examen
+                        <i class="bi bi-eye me-1"></i><span id="fwExamDoneViewText">Ver el examen</span>
                     </a>
                     <button type="button" class="btn btn-outline-primary" id="fwExamDoneAnother">
-                        <i class="bi bi-plus-lg me-1"></i>Armar otro examen
+                        <i class="bi bi-plus-lg me-1"></i><span id="fwExamDoneAnotherText">Armar otro examen</span>
                     </button>
                 </div>
             </div>
@@ -201,7 +214,9 @@ window.EducaAppFullWizardConfig = {
         aiConfig: "{% url 'material:ai_config' %}",
         docProcessor: "{% url 'material:document_processor_dashboard' %}",
         createExamWizard: "{% url 'material:create_exam_wizard' %}",
+        createOralWizard: "{% url 'material:create_oral_exam_wizard' %}",
         misExamenes: "{% url 'material:mis_examenes' %}",
+        listOrals: "{% url 'material:list_oral_exams' %}",
     }
 };
 </script>

@@ -813,12 +813,17 @@
     // llama "educaapp-embed-exam": es lo que activa el modo sin menú
     // (static/js/embed.js) y los avisos por postMessage de abajo.
     var EXAM_DRAFT_KEY = 'educaapp_exam_wizard_draft_fw';
-    var exam = { url: null, saved: false, readySeen: false };
+    // kind: lo que se arma en este último paso, 'escrito' (examen) u 'oral' (cuestionario oral).
+    var exam = { url: null, saved: false, readySeen: false, kind: 'escrito', contextKey: null };
+    var ORAL_DRAFT_KEY = 'educaapp_oral_wizard_draft_fw';
 
     function examEl(id) { return document.getElementById(id); }
 
     function clearExamDraft() {
         try { sessionStorage.removeItem(EXAM_DRAFT_KEY); } catch (e) { /* sin sessionStorage */ }
+    }
+    function clearOralDraft() {
+        try { sessionStorage.removeItem(ORAL_DRAFT_KEY); } catch (e) { /* sin sessionStorage */ }
     }
 
     // 'blocked' | 'stage' | 'done'. Con el asistente de examen abierto
@@ -835,6 +840,11 @@
     function examFrameUrl() {
         var params = new URLSearchParams({ fw: '1' });
         var ctx = contextPayload();
+        if (exam.kind === 'oral') {
+            // El cuestionario oral solo necesita la materia: tópicos, alumnos y grupos se piden adentro.
+            if (ctx.materia_id) params.set('subject_id', ctx.materia_id);
+            return CFG.urls.createOralWizard + '?' + params.toString();
+        }
         if (ctx.materia_id) params.set('subject_id', ctx.materia_id);
         if (ctx.institucion_id) params.set('institucion_id', ctx.institucion_id);
         if (ctx.facultad_id) params.set('facultad_id', ctx.facultad_id);
@@ -852,9 +862,13 @@
         // Misma materia/elecciones que la última vez (ej. se salió a Preguntas
         // y se volvió): no se recarga, así no se pierde lo ya armado.
         if (exam.url === url) return;
-        // Cambió algo de lo elegido antes: el borrador del asistente de examen
-        // (otra materia, otros resultados de aprendizaje) ya no sirve.
-        if (!retry) clearExamDraft();
+        // Cambió algo de lo elegido antes (otra materia, otros resultados de
+        // aprendizaje, otra plantilla): los borradores de los asistentes de examen
+        // y de oral ya no sirven. Cambiar solo de tipo (escrito <-> oral) NO cambia
+        // el contexto: cada uno conserva lo ya cargado.
+        var contextKey = JSON.stringify([contextPayload(), STATE.outcomes.map(function (o) { return o.id; }), STATE.templateId]);
+        if (!retry && exam.contextKey !== contextKey) { clearExamDraft(); clearOralDraft(); }
+        exam.contextKey = contextKey;
         exam.url = url;
         exam.readySeen = false;
         examEl('fwExamLoading').classList.remove('d-none');
@@ -863,7 +877,41 @@
         frame.src = url;
     }
 
+    // ---- Examen escrito o cuestionario oral ---------------------------------
+    function refreshKindBar() {
+        document.querySelectorAll('#fwKindBar [data-kind]').forEach(function (btn) {
+            var activo = btn.dataset.kind === exam.kind;
+            btn.classList.toggle('active', activo);
+            btn.classList.toggle('btn-primary', activo);
+            btn.classList.toggle('btn-outline-primary', !activo);
+            btn.setAttribute('aria-pressed', activo ? 'true' : 'false');
+        });
+        var nota = examEl('fwKindNote');
+        nota.classList.add('d-none');
+        nota.textContent = '';
+        if (exam.kind !== 'oral') return;
+        var sid = currentSubjectId();
+        if (!sid) return;
+        // El oral reparte las preguntas por sub-tópico (o por tópico si no hay
+        // sub-tópicos): con muy pocas "unidades", los alumnos repiten tema.
+        fetchProgress(sid).then(function (data) {
+            if (exam.kind !== 'oral' || (data.oral_units || 0) >= 2) return;
+            nota.textContent = 'Esta materia tiene ' + (data.oral_units || 0) + ' tópico(s) o sub-tópico(s) con preguntas propias o compartidas. '
+                + 'El cuestionario oral reparte las preguntas por sub-tópico: con tan pocos, los alumnos van a repetir tema. '
+                + 'Se pueden agregar tópicos y sub-tópicos desde la ficha de la materia.';
+            nota.classList.remove('d-none');
+        }).catch(function () { /* el aviso es opcional */ });
+    }
+
+    function setExamKind(kind) {
+        if (kind === exam.kind) return;
+        exam.kind = kind;
+        refreshKindBar();
+        mountExamFrame();
+    }
+
     function enterExamStep() {
+        refreshKindBar();
         if (exam.saved) { showExamPanel('done'); return; }
         var sid = currentSubjectId();
         if (!sid) { mountExamFrame(); return; }
@@ -893,11 +941,26 @@
 
     function onExamSaved(d) {
         exam.saved = true;
+        var oral = exam.kind === 'oral';
         clearExamDraft();
+        clearOralDraft();
         // El recorrido terminó: no tiene sentido ofrecer "retomarlo" después.
         if (draft) draft.clear();
-        examEl('fwExamDoneMsg').textContent = d.message || 'El examen se guardó correctamente.';
-        examEl('fwExamDoneView').href = d.viewUrl || CFG.urls.misExamenes;
+        examEl('fwExamDoneTitle').textContent = oral ? 'Cuestionario oral guardado' : 'Examen guardado';
+        examEl('fwExamDoneMsg').textContent = d.message || (oral
+            ? 'El cuestionario oral se guardó correctamente.' : 'El examen se guardó correctamente.');
+        examEl('fwExamDoneViewText').textContent = oral ? 'Ver el cuestionario' : 'Ver el examen';
+        examEl('fwExamDoneAnotherText').textContent = oral ? 'Armar otro cuestionario' : 'Armar otro examen';
+        var avisos = examEl('fwExamDoneWarnings');
+        avisos.innerHTML = '';
+        (d.warnings || []).forEach(function (texto) {
+            var div = document.createElement('div');
+            div.className = 'alert alert-warning py-2 px-3 small';
+            div.textContent = texto;
+            avisos.appendChild(div);
+        });
+        avisos.classList.toggle('d-none', !(d.warnings || []).length);
+        examEl('fwExamDoneView').href = d.viewUrl || (oral ? CFG.urls.listOrals : CFG.urls.misExamenes);
         showExamPanel('done');
         refreshPills();
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -957,10 +1020,14 @@
             if (d.type === 'educaapp:embed-ready') { exam.readySeen = true; showExamFallback(false); }
             // "Atrás" en el primer paso del asistente de examen: vuelve al
             // paso Preguntas del host (el progreso del examen queda en el iframe).
-            if (d.type === 'educaapp:exam-exit') examEl('wizBackBtn').click();
+            if (d.type === 'educaapp:exam-exit' || d.type === 'educaapp:oral-exit') examEl('wizBackBtn').click();
+            else if (d.type === 'educaapp:oral-saved') onExamSaved({ message: '', viewUrl: d.viewUrl, warnings: d.warnings });
             else if (d.type === 'educaapp:exam-saved') onExamSaved(d);
         });
         examEl('fwExamBlockedBtn').addEventListener('click', function () { examEl('wizBackBtn').click(); });
+        document.querySelectorAll('#fwKindBar [data-kind]').forEach(function (btn) {
+            btn.addEventListener('click', function () { setExamKind(btn.dataset.kind); });
+        });
         examEl('fwExamFallbackRetry').addEventListener('click', function () {
             exam.url = null;
             showExamFallback(false);
@@ -972,6 +1039,7 @@
             exam.saved = false;
             exam.url = null;
             clearExamDraft();
+            clearOralDraft();
             mountExamFrame();
             refreshPills();
         });
