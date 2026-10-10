@@ -186,8 +186,8 @@
       element: '#tourModeToggle',
       popover: {
         title: 'Modo simple o avanzado',
-        description: 'El modo simple muestra solo lo esencial y arma todo con asistentes. El avanzado suma el menú completo (contenidos, instituciones, carreras, materias, plantillas, rúbricas, grupos) y los formularios de siempre. Se puede cambiar cuando se quiera.',
-        side: 'top',
+        description: 'Apagado, el modo simple muestra solo lo esencial y arma todo con asistentes. Encendido, el modo avanzado suma el menú completo (contenidos, instituciones, carreras, materias, plantillas, rúbricas, grupos) y los formularios de siempre. Se puede cambiar cuando se quiera.',
+        side: 'bottom',
       },
     },
     {

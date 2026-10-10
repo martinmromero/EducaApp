@@ -132,12 +132,14 @@
                             <button type="button" class="btn btn-primary active" data-kind="escrito" aria-pressed="true">Examen escrito</button>
                             <button type="button" class="btn btn-outline-primary" data-kind="oral" aria-pressed="false">Cuestionario oral</button>
                         </div>
+                        <!-- Avance del asistente de adentro, contado por él (ver wizard-step en full_wizard.js). -->
+                        <span id="fwKindProgress" class="small text-muted ms-md-auto" role="status"></span>
                     </div>
                     <div id="fwKindNote" class="small text-warning-emphasis mt-1 d-none" role="status"></div>
                 </div>
                 <div class="fw-exam-loading" id="fwExamLoading">
                     <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
-                    Preparando el examen con lo ya elegido…
+                    Preparando con lo ya elegido…
                 </div>
                 <iframe id="fwExamFrame" name="educaapp-embed-exam" class="fw-exam-frame d-none"
                         title="Asistente para armar el examen"></iframe>

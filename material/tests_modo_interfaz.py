@@ -98,7 +98,9 @@ class MenuTests(TestCase):
         self.assertContains(resp, 'id="tourMenuGenerarIA"')
         self.assertContains(resp, 'id="tourMenuPreguntas"')
         self.assertContains(resp, 'id="tourMenuAgregados"')
-        self.assertContains(resp, 'Pasar a modo avanzado')
+        self.assertContains(resp, 'id="modeSwitch"')
+        self.assertNotContains(resp, 'id="modeSwitch" checked')
+        self.assertNotContains(resp, 'Pasar a modo')  # ya no está en el menú lateral
         for oculto in ('id="tourMenuContenidos"', 'id="tourMenuAcademico"', 'id="tourMenuGrupos"', 'id="tourMenuPlantillas"'):
             self.assertNotContains(resp, oculto)
 
@@ -107,7 +109,8 @@ class MenuTests(TestCase):
         for presente in ('id="tourMenuContenidos"', 'id="tourMenuAcademico"', 'id="tourMenuGrupos"', 'id="tourMenuPlantillas"'):
             self.assertContains(resp, presente)
         self.assertNotContains(resp, 'id="tourMenuAsistente"')
-        self.assertContains(resp, 'Pasar a modo simple')
+        self.assertContains(resp, 'id="modeSwitch"')
+        self.assertRegex(resp.content.decode(), r'id="modeSwitch"\s*checked')
 
     def test_un_admin_en_modo_simple_conserva_administracion(self):
         resp = self.inicio('m_admin_simple')

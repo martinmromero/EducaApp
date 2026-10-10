@@ -87,9 +87,9 @@
           <label class="form-label fw-semibold">Proveedor</label>
           <select class="form-select" name="provider" id="inst-provider" onchange="onInstProviderChange()" required>
             <optgroup label="Principales">
-              <option value="openai"    {% if editing.provider == 'openai'    %}selected{% endif %}>OpenAI — GPT-4o, GPT-4o mini</option>
-              <option value="gemini"    {% if editing.provider == 'gemini'    %}selected{% endif %}>Google Gemini — Gemini 2.5 Flash / Pro</option>
-              <option value="anthropic" {% if editing.provider == 'anthropic' %}selected{% endif %}>Anthropic — Claude 3 Haiku / Sonnet</option>
+              <option value="openai"    {% if editing.provider == 'openai'    %}selected{% endif %}>OpenAI (ChatGPT)</option>
+              <option value="gemini"    {% if editing.provider == 'gemini'    %}selected{% endif %}>Google Gemini</option>
+              <option value="anthropic" {% if editing.provider == 'anthropic' %}selected{% endif %}>Anthropic (Claude)</option>
             </optgroup>
             <optgroup label="Avanzado">
               <option value="groq"              {% if editing.provider == 'groq'              %}selected{% endif %}>Groq (Llama, Mixtral — muy rápido, gratis)</option>
@@ -122,7 +122,7 @@
           <div class="input-group">
             <input type="password" class="form-control" name="api_key" id="inst-api-key"
                    autocomplete="new-password"
-                   placeholder="{% if editing and editing.api_key_encrypted %}••••••••  (guardada — dejar vacío para no cambiar){% else %}sk-...{% endif %}">
+                   placeholder="{% if editing and editing.api_key_encrypted %}••••••••  API key cargada{% else %}Inserte aquí su API key{% endif %}">
             <button class="btn btn-outline-secondary" type="button" onclick="toggleInstKey()">
               <i class="bi bi-eye" id="inst-eye-icon"></i>
             </button>

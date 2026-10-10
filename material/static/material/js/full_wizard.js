@@ -814,7 +814,7 @@
     // (static/js/embed.js) y los avisos por postMessage de abajo.
     var EXAM_DRAFT_KEY = 'educaapp_exam_wizard_draft_fw';
     // kind: lo que se arma en este último paso, 'escrito' (examen) u 'oral' (cuestionario oral).
-    var exam = { url: null, saved: false, readySeen: false, kind: 'escrito', contextKey: null };
+    var exam = { url: null, saved: false, readySeen: false, kind: 'escrito', contextKey: null, revealTimer: null };
     var ORAL_DRAFT_KEY = 'educaapp_oral_wizard_draft_fw';
 
     function examEl(id) { return document.getElementById(id); }
@@ -872,6 +872,7 @@
         exam.url = url;
         exam.readySeen = false;
         examEl('fwExamLoading').classList.remove('d-none');
+        examEl('fwKindProgress').textContent = '';
         var frame = retry ? replaceExamFrame() : examEl('fwExamFrame');
         frame.classList.add('d-none');
         frame.src = url;
@@ -935,8 +936,27 @@
         var panel = examEl('fwExamFallback');
         if (!panel) return;
         panel.classList.toggle('d-none', !show);
-        examEl('fwExamFrame').classList.toggle('d-none', !!show);
-        if (show) examEl('fwExamLoading').classList.add('d-none');
+        if (show) {
+            examEl('fwExamFrame').classList.add('d-none');
+            examEl('fwExamLoading').classList.add('d-none');
+        }
+    }
+
+    // El marco se muestra recién cuando lo de adentro quedó listo: así no se ve cómo se
+    // van llenando los pasos de un asistente que se arma solo al cargar. Mientras tanto
+    // se ve el aviso "Preparando con lo ya elegido…".
+    function revealExamFrame() {
+        clearTimeout(exam.revealTimer);
+        examEl('fwExamLoading').classList.add('d-none');
+        if (examEl('fwExamFallback').classList.contains('d-none')) examEl('fwExamFrame').classList.remove('d-none');
+    }
+
+    function holdExamFrame() {
+        examEl('fwExamLoading').classList.remove('d-none');
+        examEl('fwExamFrame').classList.add('d-none');
+        // Si la pantalla de adentro nunca avisa que terminó (error de script), no se la deja oculta para siempre.
+        clearTimeout(exam.revealTimer);
+        exam.revealTimer = setTimeout(revealExamFrame, 12000);
     }
 
     function onExamSaved(d) {
@@ -971,8 +991,6 @@
     // primera.
     function onExamFrameLoad() {
         if (!exam.url) return;
-        examEl('fwExamLoading').classList.add('d-none');
-        examEl('fwExamFrame').classList.remove('d-none');
         // Toda pantalla propia avisa 'educaapp:embed-ready' (embed.js) antes
         // de que dispare 'load'. Si no llegó, lo que cargó es otra cosa (una
         // pantalla no enmarcable, el login por sesión vencida, un error del
@@ -1011,13 +1029,26 @@
             if (!exam.url || exam.saved) return;
             if (examEl('fwExamStage').classList.contains('d-none')) return;
             var frame = examEl('fwExamFrame');
-            if (frame.classList.contains('d-none')) return;
+            if (!examEl('fwExamFallback').classList.contains('d-none')) return;
             try { void frame.contentWindow.location.href; } catch (e) { showExamFallback(true); }
         }, 1500);
         window.addEventListener('message', function (e) {
             if (e.origin !== window.location.origin || e.source !== examEl('fwExamFrame').contentWindow) return;
             var d = e.data || {};
-            if (d.type === 'educaapp:embed-ready') { exam.readySeen = true; showExamFallback(false); }
+            if (d.type === 'educaapp:embed-ready') {
+                exam.readySeen = true;
+                showExamFallback(false);
+                examEl('fwKindProgress').textContent = '';
+                // Una pantalla que se arma sola al cargar se mantiene oculta hasta 'content-ready'.
+                if (d.deferred) holdExamFrame(); else revealExamFrame();
+            } else if (d.type === 'educaapp:content-ready') {
+                revealExamFrame();
+            } else if (d.type === 'educaapp:wizard-step') {
+                // "Paso X de N" del asistente de adentro, contado desde su primer paso visible.
+                var n = (d.step || 1) - (d.from || 1) + 1;
+                var total = (d.total || 1) - (d.from || 1) + 1;
+                examEl('fwKindProgress').textContent = 'Paso ' + n + ' de ' + total + (d.label ? ': ' + d.label : '');
+            }
             // "Atrás" en el primer paso del asistente de examen: vuelve al
             // paso Preguntas del host (el progreso del examen queda en el iframe).
             if (d.type === 'educaapp:exam-exit' || d.type === 'educaapp:oral-exit') examEl('wizBackBtn').click();
