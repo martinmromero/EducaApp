@@ -9536,10 +9536,20 @@ def ai_config_view(request):
                     'o escribirlo a mano. No se guardó ningún cambio.',
                 )
                 return redirect('material:ai_config')
-            config.provider = request.POST.get('provider', 'openai')
+            new_provider = request.POST.get('provider', 'openai')
+            raw_key = request.POST.get('api_key', '').strip()
+            if not raw_key and config.api_key_encrypted and config.provider != new_provider:
+                # La key guardada es de otro proveedor: conservarla con el
+                # proveedor nuevo dejaría una combinación que no funciona.
+                messages.error(
+                    request,
+                    'La API Key guardada es de otro proveedor. Cargar la API Key de este proveedor '
+                    'para guardar el cambio. No se guardó ningún cambio.',
+                )
+                return redirect('material:ai_config')
+            config.provider = new_provider
             config.model = model
             config.base_url = request.POST.get('base_url', '').strip() or None
-            raw_key = request.POST.get('api_key', '').strip()
             if raw_key:  # no sobrescribir si el campo quedó vacío
                 config.api_key = raw_key
 
@@ -9559,6 +9569,9 @@ def ai_config_view(request):
         'config': config,
         'institutions_with_ai': institutions_with_ai,
         'has_api_key': bool(config.api_key_encrypted),
+        # Proveedor al que pertenece la key guardada (una sola por cuenta): la
+        # pantalla solo dice "API key cargada" si el proveedor elegido es ese.
+        'saved_provider': config.provider if config.api_key_encrypted else '',
         'is_staff': is_admin(request.user),
         'default_ollama_url': 'http://192.168.12.236:11434',
     }
@@ -9587,6 +9600,27 @@ def ai_config_list_models(request):
 
     success, models, error = list_models_for_provider(provider, api_key, base_url)
     return JsonResponse({'success': success, 'models': models, 'error': error})
+
+
+@login_required
+def ai_config_reveal_key(request):
+    """Devuelve a su dueño la API Key propia guardada (para el botón del ojo).
+
+    Solo POST (con CSRF), solo la key de la cuenta que la pide, y solo si el
+    proveedor pedido es el de la key guardada. Nunca se muestra la key global.
+    """
+    from django.http import JsonResponse
+    from .models import UserAIConfig
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+    config = UserAIConfig.objects.filter(user=request.user).first()
+    provider = request.POST.get('provider', '').strip()
+    if not config or not config.api_key_encrypted or config.provider != provider:
+        return JsonResponse({'success': False, 'error': 'No hay una API Key guardada para este proveedor.'})
+    response = JsonResponse({'success': True, 'api_key': config.api_key})
+    response['Cache-Control'] = 'no-store'
+    return response
 
 
 @login_required

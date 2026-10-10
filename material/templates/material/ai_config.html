@@ -149,15 +149,19 @@
                 <div class="input-group">
                   <input type="password" class="form-control" name="api_key" id="api-key-input"
                          autocomplete="new-password"
-                         placeholder="{% if has_api_key %}••••••••  API key cargada{% else %}Inserte aquí su API key{% endif %}">
+                         data-saved-provider="{{ saved_provider }}"
+                         placeholder="{% if saved_provider and saved_provider == config.provider %}••••••••  API key cargada{% else %}Inserte aquí su API key{% endif %}">
                   <button class="btn btn-outline-secondary" type="button"
                           onclick="toggleKeyVisibility()">
                     <i class="bi bi-eye" id="eye-icon"></i>
                   </button>
                 </div>
                 {% if has_api_key and config.source == 'byok' %}
-                  <div class="form-text text-success d-flex align-items-center flex-wrap gap-2 mt-1">
-                    <span><i class="bi bi-shield-lock me-1"></i>Key guardada y cifrada — solo se puede ver o eliminar desde esta cuenta, nadie más (ni otro usuario, ni un administrador) puede leerla. Para cambiarla, escribir una nueva en el campo.</span>
+                  <div id="saved-key-note" class="form-text text-success d-flex align-items-center flex-wrap gap-2 mt-1">
+                    <span><i class="bi bi-shield-lock me-1"></i>Key guardada y cifrada — con el ojo se puede ver desde esta cuenta, ningún otro usuario la ve. Para cambiarla, escribir una nueva en el campo.</span>
+                  </div>
+                  <div id="other-provider-note" class="form-text text-warning-emphasis d-none mt-1">
+                    <i class="bi bi-exclamation-triangle me-1"></i>La key guardada es de otro proveedor. Para usar este hay que cargar su propia API Key.
                   </div>
                   <button type="submit" name="action" value="clear_api_key"
                           class="btn btn-sm btn-outline-danger py-0 px-2 mt-1"
@@ -282,6 +286,7 @@ function onProviderChange() {
 
   // Limpiar lista de modelos: cambia el proveedor, hay que volver a buscar
   resetModelSelect();
+  updateKeyFieldState();
 
   // Mostrar instructivo correspondiente
   ['openai','gemini','anthropic','groq'].forEach(k => {
@@ -290,6 +295,27 @@ function onProviderChange() {
   document.getElementById('info-other')?.classList.add('d-none');
   const infoEl = document.getElementById('info-' + p) || document.getElementById('info-other');
   infoEl?.classList.remove('d-none');
+}
+
+// La cuenta guarda UNA sola key, de un proveedor. El campo solo dice "API key
+// cargada" cuando el proveedor elegido es ese; con otro pide cargar la suya.
+function updateKeyFieldState() {
+  const inp = document.getElementById('api-key-input');
+  const p = document.getElementById('byok-provider').value;
+  const mine = !!inp.dataset.savedProvider && inp.dataset.savedProvider === p;
+  if (inp.dataset.revealed && !mine) {
+    // La key que se había mostrado con el ojo es de otro proveedor: se descarta.
+    inp.value = '';
+    inp.type = 'password';
+    document.getElementById('eye-icon').className = 'bi bi-eye';
+    delete inp.dataset.revealed;
+  }
+  if (!inp.value) {
+    inp.placeholder = mine ? '••••••••  API key cargada' : 'Inserte aquí su API key';
+  }
+  document.getElementById('saved-key-note')?.classList.toggle('d-none', !mine);
+  document.getElementById('other-provider-note')?.classList.toggle(
+    'd-none', mine || !inp.dataset.savedProvider);
 }
 
 function resetModelSelect() {
@@ -408,7 +434,28 @@ function fetchModels() {
 function toggleKeyVisibility() {
   const inp = document.getElementById('api-key-input');
   const icon = document.getElementById('eye-icon');
+  const provider = document.getElementById('byok-provider').value;
   if (inp.type === 'password') {
+    // Campo vacío y key guardada de este proveedor: se la pide al servidor.
+    if (!inp.value && inp.dataset.savedProvider && inp.dataset.savedProvider === provider) {
+      const body = new URLSearchParams();
+      body.set('provider', provider);
+      fetch('{% url "material:ai_config_reveal_key" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCsrfToken()},
+        body: body.toString(),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            inp.value = data.api_key;
+            inp.dataset.revealed = '1';
+            inp.type = 'text';
+            icon.className = 'bi bi-eye-slash';
+          }
+        });
+      return;
+    }
     inp.type = 'text';
     icon.className = 'bi bi-eye-slash';
   } else {
