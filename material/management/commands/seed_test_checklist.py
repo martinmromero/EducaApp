@@ -129,7 +129,8 @@ ITEMS = [
     (13, "Proveedor de IA", "Cargar una clave propia (OpenAI / Anthropic / Google)", "ai_config", False, 3),
     (13, "Proveedor de IA", "Los proveedores se ofrecen por empresa, sin versiones de modelo: OpenAI (ChatGPT), Google Gemini, Anthropic (Claude)", "ai_config", False, 3),
     (13, "Proveedor de IA", "El orden es Proveedor, API Key y después Modelo con \"Buscar modelos\" (la key va antes de buscar los modelos)", "ai_config", False, 3),
-    (13, "Proveedor de IA", "El campo de la key dice \"Inserte aquí su API key\" si no hay ninguna, y \"API key cargada\" si ya hay una guardada; con una guardada, \"Buscar modelos\" funciona sin volver a escribirla", "ai_config", False, 3),
+    (13, "Proveedor de IA", "El campo de la key dice \"Inserte aquí su API key\" si no hay ninguna guardada o si se elige un proveedor distinto del de la key guardada, y \"API key cargada\" solo con el proveedor de esa key; con la guardada, \"Buscar modelos\" funciona sin volver a escribirla", "ai_config", False, 3),
+    (13, "Proveedor de IA", "Con una key guardada, el ojo la muestra y la vuelve a ocultar; al cambiar de proveedor la key mostrada desaparece, y guardar otro proveedor sin cargar su key avisa y no cambia nada", "ai_config", False, 3),
     (13, "Proveedor de IA", "Ver el estado y los modelos disponibles", "ai_config", False, 3),
     (13, "Proveedor de IA", "Eliminar la clave guardada con el botón nuevo y confirmar que vuelve a \"sin clave\"", "ai_config", False, 3),
 

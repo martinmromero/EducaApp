@@ -110,3 +110,60 @@ class CupoAgotadoTests(TestCase):
         self.assertIn('conexión propia', msg)
         self.assertIn('Ollama', msg)
         self.assertIn('administrador', msg)
+
+
+class ClaveGuardadaPorProveedorTests(TestCase):
+    """La cuenta guarda UNA key, de un proveedor: la pantalla no debe decir
+    "API key cargada" para otro, y el ojo solo la revela a su dueño."""
+
+    def setUp(self):
+        self.user = make_user('ia_clave')
+        self.cfg = UserAIConfig.objects.create(user=self.user, source='byok', provider='gemini', model='m')
+        self.cfg.api_key = 'clave-secreta-123'
+        self.cfg.save()
+        self.client = Client()
+        self.client.login(username='ia_clave', password='testpass123')
+
+    def test_la_pantalla_dice_de_que_proveedor_es_la_key(self):
+        resp = self.client.get(reverse('material:ai_config'))
+        self.assertEqual(resp.context['saved_provider'], 'gemini')
+        self.assertContains(resp, 'data-saved-provider="gemini"')
+        self.assertNotContains(resp, 'clave-secreta-123')
+
+    def test_sin_key_no_hay_proveedor_guardado(self):
+        otro = make_user('ia_sin_clave')
+        client = Client()
+        client.login(username='ia_sin_clave', password='testpass123')
+        resp = client.get(reverse('material:ai_config'))
+        self.assertEqual(resp.context['saved_provider'], '')
+        self.assertContains(resp, 'Inserte aquí su API key')
+
+    def test_ver_clave_la_devuelve_solo_al_dueno_y_del_proveedor_guardado(self):
+        url = reverse('material:ai_config_reveal_key')
+        data = self.client.post(url, {'provider': 'gemini'}).json()
+        self.assertEqual(data, {'success': True, 'api_key': 'clave-secreta-123'})
+        self.assertEqual(self.client.post(url, {'provider': 'gemini'})['Cache-Control'], 'no-store')
+        # Otro proveedor: no se devuelve.
+        self.assertFalse(self.client.post(url, {'provider': 'openai'}).json()['success'])
+        # Otra cuenta: no ve la de nadie más.
+        make_user('ia_otro')
+        otro = Client()
+        otro.login(username='ia_otro', password='testpass123')
+        self.assertFalse(otro.post(url, {'provider': 'gemini'}).json()['success'])
+        # Solo POST.
+        self.assertEqual(self.client.get(url).status_code, 405)
+
+    def test_cambiar_de_proveedor_sin_cargar_su_key_no_guarda(self):
+        resp = self.client.post(reverse('material:ai_config'), {
+            'source': 'byok', 'provider': 'openai', 'model': 'x', 'api_key': '',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.cfg.refresh_from_db()
+        self.assertEqual((self.cfg.provider, self.cfg.model, self.cfg.api_key), ('gemini', 'm', 'clave-secreta-123'))
+
+    def test_cambiar_de_proveedor_con_su_key_si_guarda(self):
+        self.client.post(reverse('material:ai_config'), {
+            'source': 'byok', 'provider': 'openai', 'model': 'x', 'api_key': 'otra-key',
+        })
+        self.cfg.refresh_from_db()
+        self.assertEqual((self.cfg.provider, self.cfg.api_key), ('openai', 'otra-key'))
