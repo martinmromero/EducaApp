@@ -382,7 +382,7 @@
             <button type="button" class="btn btn-outline-secondary" id="wizBackBtn">
                 <i class="bi bi-arrow-left me-1"></i>Atrás
             </button>
-            {% if is_embedded %}<span></span>{% else %}<a href="{% url 'material:create_exam_wizard' %}?limpiar=1" class="text-muted small">Empezar de nuevo</a>{% endif %}
+            {% if is_embedded %}<span class="small"><a href="#" data-fw-action="restart" class="text-muted">Empezar de nuevo</a> <span class="text-body-tertiary">·</span> <a href="#" data-fw-action="exit" class="text-muted" title="Lo ya cargado en este recorrido queda guardado igual">Salir</a></span>{% else %}<a href="{% url 'material:create_exam_wizard' %}?limpiar=1" class="text-muted small">Empezar de nuevo</a>{% endif %}
             <button type="button" class="btn btn-primary" id="wizNextBtn">
                 Siguiente<i class="bi bi-arrow-right ms-1"></i>
             </button>

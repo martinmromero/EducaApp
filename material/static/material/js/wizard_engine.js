@@ -25,6 +25,9 @@ window.EducaAppWizard = (function () {
         // el primer paso no desaparece, sale hacia el host (onBackFromFirst).
         var keepBackOnFirst = !!config.keepBackOnFirst;
         var onBackFromFirst = config.onBackFromFirst || function () {};
+        // Primer paso que se ve (puede no ser el 1: un asistente embebido salta los que
+        // ya vienen resueltos del host). "Atrás" ahí sale hacia el host, no a un paso oculto.
+        var firstVisibleStep = config.firstVisibleStep || function () { return 1; };
         // Se llama con el número de paso cada vez que se muestra uno (el asistente
         // embebido se lo cuenta al host, que muestra "Paso X de N").
         var onStep = config.onStep || function () {};
@@ -62,7 +65,7 @@ window.EducaAppWizard = (function () {
             showStep(next);
         }
         function goBack() {
-            if (currentStep === 1 && keepBackOnFirst) { onBackFromFirst(); return; }
+            if (keepBackOnFirst && currentStep <= firstVisibleStep()) { onBackFromFirst(); return; }
             showStep(Math.max(currentStep - 1, 1));
         }
         function goToStep(n) {

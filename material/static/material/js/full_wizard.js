@@ -552,6 +552,47 @@
         return txt + '.';
     }
 
+    // Aviso del paso Preguntas cuando la materia ya tiene: cuántas, de cuántos tópicos
+    // (si tiene), y el "acá" que muestra las dos formas de sumar más.
+    var qMoreOpen = false;
+
+    function showQuestionOptions(show) {
+        var more = document.getElementById('fwQMore');
+        if (more) more.classList.toggle('d-none', !show);
+    }
+
+    function renderQuestionsStatus(status, data) {
+        var n = data.question_count || 0;
+        status.textContent = '';
+        status.className = 'alert py-2 ' + (n ? 'alert-success' : 'alert-warning');
+        if (!n) {
+            status.textContent = questionCountText(data);
+            showQuestionOptions(true);
+            return;
+        }
+        var own = data.own_question_count || 0;
+        var topics = data.topic_count || 0;
+        var txt = 'Esta materia ya tiene ' + n + (n === 1 ? ' pregunta' : ' preguntas');
+        if (topics) txt += ', de ' + topics + (topics === 1 ? ' tópico' : ' tópicos');
+        txt += '.';
+        if (own !== n) txt += ' (' + own + (own === 1 ? ' propia' : ' propias') + ', el resto compartidas por grupos de confianza.)';
+        status.appendChild(document.createTextNode(txt + ' Si desea agregar más preguntas, hacer clic '));
+        var link = document.createElement('a');
+        link.href = '#';
+        link.className = 'alert-link';
+        link.textContent = 'acá';
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            qMoreOpen = true;
+            showQuestionOptions(true);
+            var more = document.getElementById('fwQMore');
+            if (more) more.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+        status.appendChild(link);
+        status.appendChild(document.createTextNode('. Si no, seguir con "Continuar".'));
+        showQuestionOptions(qMoreOpen);
+    }
+
     function setQuestionsView(showEmbed) {
         applyQuestionsView(showEmbed);
         configureBottomAction(6);
@@ -607,6 +648,27 @@
         embed.mountedFor = sid;
     }
 
+    function hostNavLink(i) {
+        var a = document.querySelectorAll('.fw-nav-links a')[i];
+        return a ? a.href : window.location.href;
+    }
+
+    // Empezar de nuevo desde el marco: descarta lo cargado en este recorrido (no lo ya
+    // creado, que queda guardado en la cuenta) y vuelve al primer paso sin preguntar si retomar.
+    function restartFromExamFrame() {
+        window.EducaAppModal.confirm('Se descarta lo elegido en este recorrido y se vuelve al primer paso. Lo que ya se creó (materias, preguntas, exámenes guardados) no se borra.', {
+            title: 'Empezar de nuevo',
+            variant: 'warning',
+            okLabel: 'Empezar de nuevo',
+        }).then(function (ok) {
+            if (!ok) return;
+            clearExamDraft();
+            clearOralDraft();
+            if (draft) draft.clear();
+            window.location.href = hostNavLink(0);
+        });
+    }
+
     function hostNavLinksHtml() {
         var links = document.querySelector('.fw-nav-links');
         return links ? '<div class="fw-nav-links">' + links.innerHTML + '</div>' : '';
@@ -633,6 +695,7 @@
     function configureQuestionsBottomAction() {
         var status = document.getElementById('fwQStatus');
         if (status) { status.classList.add('d-none'); status.textContent = ''; }
+        showQuestionOptions(true);
         if (embed.active) {
             if (nextBtn) nextBtn.classList.add('d-none');
             return;
@@ -640,16 +703,15 @@
         setNextButton('Saltear', requestSkipQuestions);
         var sid = currentSubjectId();
         if (!sid) return;
+        // Con materia elegida, las tarjetas esperan a saber si ya tiene preguntas (si no, se verían un instante).
+        showQuestionOptions(qMoreOpen);
         fetchProgress(sid)
             .then(function (data) {
                 // La respuesta puede llegar tarde: si en el medio se cambió
                 // de paso o se abrió el asistente embebido, no se pisa nada.
                 if (embed.active || wizardCtrl.current() !== 6) return;
                 var n = data.question_count || 0;
-                if (status) {
-                    status.textContent = questionCountText(data);
-                    status.className = 'alert py-2 ' + (n ? 'alert-success' : 'alert-warning');
-                }
+                if (status) renderQuestionsStatus(status, data);
                 if (!n) return;
                 setNextButton('Continuar', function () {
                     STATE.questionsSkipped = false;
@@ -657,7 +719,7 @@
                     wizardCtrl.goNext();
                 });
             })
-            .catch(function () {});
+            .catch(function () { showQuestionOptions(true); });
     }
 
     function configureBottomAction(n) {
@@ -723,7 +785,8 @@
     // ---- Partir de una plantilla -------------------------------------------
     // Una plantilla (ExamTemplate) guarda institución, facultad, carrera, materia
     // y resultados de aprendizaje: elegirla completa los pasos 1 a 5 de una vez
-    // y lleva a Preguntas (o directo a Examen si la materia ya tiene preguntas).
+    // y lleva a Preguntas: si la materia ya tiene, ahí se avisa cuántas y se puede
+    // seguir de largo o sumar más (no se salta el paso).
     var templatesAvailable = false;
 
     function toggleTemplateBox(n) {
@@ -778,9 +841,8 @@
                     renderBreadcrumb();
                     saveDraft();
                     // El motor solo deja avanzar de a un paso: se recorren los
-                    // intermedios (ya resueltos) hasta Preguntas o Examen.
-                    var destino = d.question_count > 0 ? 7 : 6;
-                    var pasos = destino - wizardCtrl.current();
+                    // intermedios (ya resueltos) hasta Preguntas.
+                    var pasos = 6 - wizardCtrl.current();
                     for (var i = 0; i < pasos; i++) wizardCtrl.goNext();
                 })
                 .catch(function () { useBtn.disabled = false; showError('Error de red: reintentar.'); });
@@ -1049,6 +1111,10 @@
                 var total = (d.total || 1) - (d.from || 1) + 1;
                 examEl('fwKindProgress').textContent = 'Paso ' + n + ' de ' + total + (d.label ? ': ' + d.label : '');
             }
+            // "Empezar de nuevo" / "Salir" del asistente de adentro: son los mismos enlaces
+            // de la barra del host (que está oculta mientras el marco está a la vista).
+            if (d.type === 'educaapp:fw-exit') { window.location.href = hostNavLink(1); return; }
+            if (d.type === 'educaapp:fw-restart') { restartFromExamFrame(); return; }
             // "Atrás" en el primer paso del asistente de examen: vuelve al
             // paso Preguntas del host (el progreso del examen queda en el iframe).
             if (d.type === 'educaapp:exam-exit' || d.type === 'educaapp:oral-exit') examEl('wizBackBtn').click();

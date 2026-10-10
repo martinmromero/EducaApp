@@ -53,8 +53,13 @@ _onDomReady(function () {
         try { window.parent.postMessage(Object.assign({ type: type }, payload || {}), window.location.origin); } catch (e) { /* sin host */ }
     }
 
+    // Primer paso que ve quien lo usa embebido: 3 si Plantilla y Materia vienen resueltas
+    // del Asistente completo (ver startEmbedded), 1 si no. "Atrás" ahí sale al host.
+    var entryStep = 1;
+
     var wizardCtrl = window.EducaAppWizard.init({
         totalSteps: 8,
+        firstVisibleStep: function () { return entryStep; },
         onValidateStep: validateStep,
         onEnterFinalStep: function () { renderSummary(); },
         keepBackOnFirst: !!CFG.isEmbedded,
@@ -64,7 +69,7 @@ _onDomReady(function () {
         // vienen resueltos del Asistente completo).
         onStep: CFG.isEmbedded ? function (n) {
             var label = document.querySelector('.wiz-step-pill[data-step-pill="' + n + '"] .wiz-step-label');
-            postToHost('educaapp:wizard-step', { step: n, total: 8, from: 3, label: label ? label.textContent.trim() : '' });
+            postToHost('educaapp:wizard-step', { step: n, total: 8, from: entryStep, label: label ? label.textContent.trim() : '' });
         } : undefined,
     });
     // Expuesto para que el recorrido de demo (create_exam_wizard_tour.js,
@@ -1092,6 +1097,7 @@ _onDomReady(function () {
     function startEmbedded() {
         var saved = draft.load();
         var fwSubject = String((CFG.fwPrefill || {}).subject_id || '');
+        if (fwSubject) entryStep = 3;
         // Volver desde la vista previa ("Editar"): se retoma el borrador, sin
         // preguntar. Si es de otra materia, no sirve.
         if (saved && saved.subject && (!fwSubject || String(saved.subject) === fwSubject)) {
