@@ -1,7 +1,7 @@
 {% extends 'material/base.html' %}
 {% load static %}
 {% load filter_tags %}
-{% block body_extra_attrs %}data-tour-page="create_oral_exam_wizard"{% endblock %}
+{% block body_extra_attrs %}data-tour-page="create_oral_exam_wizard"{% if is_embedded and fw_subject %} data-embed-defer-ready="1"{% endif %}{% endblock %}
 {% block title %}Asistente: Cuestionario oral - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-magic me-2"></i>Asistente: Cuestionario oral{% endblock %}
 {% block content %}
@@ -30,7 +30,7 @@
     {% else %}
 
     <nav class="wiz-stepper" id="wizStepper" aria-label="Pasos del asistente">
-        <div class="wiz-step-pill is-active" data-step-pill="1"><span class="wiz-step-num"><span>1</span></span><span class="wiz-step-label">Materia y tópicos</span></div>
+        <div class="wiz-step-pill is-active" data-step-pill="1"><span class="wiz-step-num"><span>1</span></span><span class="wiz-step-label">{% if fw_subject %}Tópicos{% else %}Materia y tópicos{% endif %}</span></div>
         <div class="wiz-step-pill" data-step-pill="2"><span class="wiz-step-num"><span>2</span></span><span class="wiz-step-label">Alumnos y grupos</span></div>
         <div class="wiz-step-pill" data-step-pill="3"><span class="wiz-step-num"><span>3</span></span><span class="wiz-step-label">Nombre y revisión</span></div>
     </nav>

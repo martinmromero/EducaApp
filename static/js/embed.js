@@ -28,7 +28,14 @@
     // sesión vencida, un error del servidor) y ofrece una salida en vez de
     // dejar un recuadro en blanco.
     if (embedded) {
-        var announce = function () { window.EducaAppEmbed.notify('educaapp:embed-ready'); };
+        // Una pantalla que se arma sola al cargar (precarga, borrador) lo declara con
+        // data-embed-defer-ready en el <body>: el host la mantiene oculta, con un
+        // aviso de "preparando", hasta que ella misma manda 'educaapp:content-ready'.
+        // Sin eso el usuario veía cómo se iban llenando los pasos uno por uno.
+        var announce = function () {
+            var deferred = !!(document.body && document.body.hasAttribute('data-embed-defer-ready'));
+            window.EducaAppEmbed.notify('educaapp:embed-ready', { deferred: deferred });
+        };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', announce);
         else announce();
     }

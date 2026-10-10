@@ -110,6 +110,14 @@ class FwExamPrefillTests(TestCase):
         resp = self.client.get(self.url(subject_id=self.materia.pk))
         self.assertEqual(resp['X-Frame-Options'], 'SAMEORIGIN')
 
+    def test_embebido_difiere_el_aviso_de_listo_y_suelto_no(self):
+        # Enmarcado: el host espera "content-ready" para no mostrar cómo se llena.
+        resp = self.client.get(self.url(subject_id=self.materia.pk))
+        self.assertContains(resp, 'data-embed-defer-ready')
+        # Suelto: no hay host que espere.
+        resp = self.client.get(reverse('material:create_exam_wizard'))
+        self.assertNotContains(resp, 'data-embed-defer-ready')
+
     def test_otras_pantallas_siguen_sin_poder_enmarcarse(self):
         resp = self.client.get(reverse('material:create_exam'))
         self.assertEqual(resp['X-Frame-Options'], 'DENY')

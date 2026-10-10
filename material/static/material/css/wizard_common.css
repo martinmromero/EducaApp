@@ -10,6 +10,11 @@
     margin: 0 auto;
 }
 
+/* Un asistente dentro de otro (Asistente completo) no muestra su propia barra de pasos:
+   hay una sola, la del asistente de afuera, y el avance de adentro se cuenta aparte
+   ("Paso X de N"). */
+.wiz-wrap.is-embedded .wiz-stepper { display: none; }
+
 /* ── Stepper ─────────────────────────────────────────────────────────── */
 .wiz-stepper {
     display: flex;

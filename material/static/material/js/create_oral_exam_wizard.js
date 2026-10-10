@@ -277,6 +277,11 @@ _onDomReady(function () {
         onEnterFinalStep: renderSummary,
         keepBackOnFirst: !!CFG.isEmbedded,
         onBackFromFirst: function () { postToHost('educaapp:oral-exit'); },
+        // Embebido no muestra su propia barra de pasos: le cuenta al host en qué paso está.
+        onStep: CFG.isEmbedded ? function (n) {
+            var label = document.querySelector('.wiz-step-pill[data-step-pill="' + n + '"] .wiz-step-label');
+            postToHost('educaapp:wizard-step', { step: n, total: 3, from: 1, label: label ? label.textContent.trim() : '' });
+        } : undefined,
     });
 
     // ── Backup a sessionStorage (mismo motor que Plantilla de Examen y
@@ -302,18 +307,18 @@ _onDomReady(function () {
 
     function restoreDraft() {
         var saved = draft.load();
-        if (!saved || !saved.subject) return;
+        if (!saved || !saved.subject) return Promise.resolve();
         // Dentro del Asistente completo la materia ya está fijada: un borrador de otra materia no sirve.
-        if (CFG.isEmbedded && CFG.fwSubjectId && String(saved.subject) !== String(CFG.fwSubjectId)) { draft.clear(); return; }
+        if (CFG.isEmbedded && CFG.fwSubjectId && String(saved.subject) !== String(CFG.fwSubjectId)) { draft.clear(); return Promise.resolve(); }
 
         var ask = CFG.isEmbedded
             ? Promise.resolve(true)
             : draft.confirmRestore('Encontramos un cuestionario oral sin terminar de una sesión anterior. ¿Recuperarlo?');
-        ask.then(function (quiere) {
+        return ask.then(function (quiere) {
             if (!quiere) { draft.clear(); return; }
 
             subjectSelect.value = saved.subject;
-            loadTopicsForSubject(saved.subject).then(function () {
+            return loadTopicsForSubject(saved.subject).then(function () {
                 (saved.topicIds || []).forEach(function (id) {
                     var cb = topicsList.querySelector('input[value="' + id + '"]');
                     if (cb) cb.checked = true;
@@ -342,7 +347,9 @@ _onDomReady(function () {
     wizardCtrl.goToStep(1);
     if (CFG.isEmbedded && CFG.fwSubjectId) {
         // Materia fijada por el Asistente completo: se cargan sus tópicos de entrada.
-        loadTopicsForSubject(CFG.fwSubjectId).then(restoreDraft);
+        // Hasta que no quede en su paso inicial el host lo mantiene oculto (data-embed-defer-ready).
+        var listo = function () { postToHost('educaapp:content-ready'); };
+        loadTopicsForSubject(CFG.fwSubjectId).then(restoreDraft).then(listo, listo);
     } else {
         restoreDraft();
     }

@@ -25,6 +25,9 @@ window.EducaAppWizard = (function () {
         // el primer paso no desaparece, sale hacia el host (onBackFromFirst).
         var keepBackOnFirst = !!config.keepBackOnFirst;
         var onBackFromFirst = config.onBackFromFirst || function () {};
+        // Se llama con el número de paso cada vez que se muestra uno (el asistente
+        // embebido se lo cuenta al host, que muestra "Paso X de N").
+        var onStep = config.onStep || function () {};
         var currentStep = 1;
         var maxStepReached = 1;
 
@@ -47,6 +50,7 @@ window.EducaAppWizard = (function () {
             if (nextBtn) nextBtn.classList.toggle('d-none', n === totalSteps);
             if (submitBtn) submitBtn.classList.toggle('d-none', n !== totalSteps);
             currentStep = n;
+            onStep(n);
             if (n === totalSteps) onEnterFinalStep();
             if (stepperEl) window.scrollTo({ top: stepperEl.offsetTop - 20, behavior: 'smooth' });
         }

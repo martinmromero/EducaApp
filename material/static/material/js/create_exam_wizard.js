@@ -59,6 +59,13 @@ _onDomReady(function () {
         onEnterFinalStep: function () { renderSummary(); },
         keepBackOnFirst: !!CFG.isEmbedded,
         onBackFromFirst: function () { postToHost('educaapp:exam-exit'); },
+        // Embebido no muestra su propia barra de pasos (una sola, la del host): le avisa
+        // al host en qué paso está. El primero que se ve es el 3 (Plantilla y Materia ya
+        // vienen resueltos del Asistente completo).
+        onStep: CFG.isEmbedded ? function (n) {
+            var label = document.querySelector('.wiz-step-pill[data-step-pill="' + n + '"] .wiz-step-label');
+            postToHost('educaapp:wizard-step', { step: n, total: 8, from: 3, label: label ? label.textContent.trim() : '' });
+        } : undefined,
     });
     // Expuesto para que el recorrido de demo (create_exam_wizard_tour.js,
     // función startDemo) pueda avanzar los pasos del asistente en sincro con
@@ -973,16 +980,16 @@ _onDomReady(function () {
 
     function restoreDraft() {
         var saved = draft.load();
-        if (!saved || !saved.subject) return;
+        if (!saved || !saved.subject) return Promise.resolve();
 
         var ask = CFG.isEmbedded
             ? Promise.resolve(true)
             : draft.confirmRestore('Encontramos un examen sin terminar de una sesión anterior. ¿Recuperarlo?');
-        ask.then(function (quiere) {
+        return ask.then(function (quiere) {
             if (!quiere) { draft.clear(); return; }
 
             subjectSelect.value = saved.subject;
-            loadSubjectDependents(saved.subject, saved.topicIds, saved.questionIds).then(function () {
+            return loadSubjectDependents(saved.subject, saved.topicIds, saved.questionIds).then(function () {
                 (saved.learningOutcomeIds || []).forEach(function (id) {
                     var cb = document.getElementById('wiz_outcome_' + id);
                     if (cb) cb.checked = true;
@@ -1077,13 +1084,18 @@ _onDomReady(function () {
         });
     }
 
+    // Avisa al host que el asistente ya quedó en su paso inicial: hasta ese momento
+    // el host lo mantiene oculto (ver data-embed-defer-ready), así no se ve cómo se
+    // van llenando los pasos. Se manda también ante un error, para no dejarlo oculto.
+    function signalContentReady() { postToHost('educaapp:content-ready'); }
+
     function startEmbedded() {
         var saved = draft.load();
         var fwSubject = String((CFG.fwPrefill || {}).subject_id || '');
         // Volver desde la vista previa ("Editar"): se retoma el borrador, sin
         // preguntar. Si es de otra materia, no sirve.
         if (saved && saved.subject && (!fwSubject || String(saved.subject) === fwSubject)) {
-            restoreDraft();
+            restoreDraft().then(signalContentReady, signalContentReady);
             return;
         }
         draft.clear();
@@ -1097,7 +1109,7 @@ _onDomReady(function () {
             return applyTemplate(plantillaId);
         }).then(function () {
             if (subjectSelect.value) { wizardCtrl.goNext(); wizardCtrl.goNext(); }
-        });
+        }).then(signalContentReady, signalContentReady);
     }
 
     wizardCtrl.goToStep(1);

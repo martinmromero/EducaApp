@@ -127,6 +127,9 @@ ITEMS = [
     (12, "Favoritos", "Quitar un favorito", "favoritos_list", False, 3),
 
     (13, "Proveedor de IA", "Cargar una clave propia (OpenAI / Anthropic / Google)", "ai_config", False, 3),
+    (13, "Proveedor de IA", "Los proveedores se ofrecen por empresa, sin versiones de modelo: OpenAI (ChatGPT), Google Gemini, Anthropic (Claude)", "ai_config", False, 3),
+    (13, "Proveedor de IA", "El orden es Proveedor, API Key y después Modelo con \"Buscar modelos\" (la key va antes de buscar los modelos)", "ai_config", False, 3),
+    (13, "Proveedor de IA", "El campo de la key dice \"Inserte aquí su API key\" si no hay ninguna, y \"API key cargada\" si ya hay una guardada; con una guardada, \"Buscar modelos\" funciona sin volver a escribirla", "ai_config", False, 3),
     (13, "Proveedor de IA", "Ver el estado y los modelos disponibles", "ai_config", False, 3),
     (13, "Proveedor de IA", "Eliminar la clave guardada con el botón nuevo y confirmar que vuelve a \"sin clave\"", "ai_config", False, 3),
 
@@ -164,11 +167,12 @@ ITEMS = [
 
     # Área 19: modo simple/avanzado y lo que se sumó al Asistente completo. Área nueva,
     # no ítems intercalados en las existentes (ver el comentario de las áreas 17 y 18).
-    (19, "Modo simple y asistentes", "Con una cuenta nueva el menú lateral es el reducido (Asistente completo, Generar con IA, Preguntas, Exámenes, Mis agregados). Pasar a modo avanzado desde el pie del menú y comprobar que aparece el menú completo", "index", False, None),
+    (19, "Modo simple y asistentes", "Con una cuenta nueva el menú lateral es el reducido (Asistente completo, Generar con IA, Preguntas, Exámenes, Mis agregados). Encender el interruptor \"Modo avanzado\" (arriba a la derecha, junto a Inicio y \"?\") y comprobar que aparece el menú completo", "index", False, None),
     (19, "Modo simple y asistentes", "En modo simple, los botones \"Nuevo ...\" de Mis Exámenes, Cuestionarios Orales y Preguntas abren el asistente; en modo avanzado abren el formulario completo", "mis_examenes", False, None),
     (19, "Modo simple y asistentes", "Proveedor de IA: en una cuenta nueva viene elegida la IA pública gratuita, y el paso Preguntas del Asistente completo muestra su estado antes de Generar con IA", "ai_config", False, None),
     (19, "Modo simple y asistentes", "Asistente completo: elegir \"¿Partir de una plantilla?\" en el paso 1 y comprobar que completa los pasos hasta Preguntas o Examen", "full_wizard", False, None),
     (19, "Modo simple y asistentes", "Asistente completo, último paso: cambiar entre Examen escrito y Cuestionario oral, armar y guardar un cuestionario oral", "full_wizard", False, None),
+    (19, "Modo simple y asistentes", "Asistente completo, último paso: al abrirse no se ve cómo se llenan los pasos de adentro (aparece \"Preparando con lo ya elegido…\" y recién después el primer paso), y hay una sola barra de pasos, con \"Paso X de N\" al lado de \"Armar\"", "full_wizard", False, None),
     (19, "Modo simple y asistentes", "Ficha de una materia: agregar tópicos y sub-tópicos dentro de una carrera, editarlos, borrarlos y proponer uno al catálogo", "subject_list", False, None),
     (19, "Modo simple y asistentes", "Cuestionario oral con una materia compartida por un grupo de confianza: se ofrecen sus preguntas, tópicos y sub-tópicos", "create_oral_exam_wizard", False, None),
     (19, "Modo simple y asistentes", "Bandeja de solicitudes: aprobar, rechazar y fusionar la propuesta de un tópico", "catalog_requests_bandeja", True, None),

@@ -1,7 +1,7 @@
 {% extends 'material/base.html' %}
 {% load static %}
 {% load filter_tags %}
-{% block body_extra_attrs %}data-tour-page="create_exam_wizard"{% endblock %}
+{% block body_extra_attrs %}data-tour-page="create_exam_wizard"{% if is_embedded %} data-embed-defer-ready="1"{% endif %}{% endblock %}
 {% block title %}Asistente: Nuevo examen - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-magic me-2"></i>Asistente: Nuevo examen{% endblock %}
 {% block content %}
