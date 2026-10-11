@@ -114,9 +114,13 @@ class FwExamPrefillTests(TestCase):
         # Enmarcado: el host espera "content-ready" para no mostrar cómo se llena.
         resp = self.client.get(self.url(subject_id=self.materia.pk))
         self.assertContains(resp, 'data-embed-defer-ready')
+        # Su barra inferior trae "Empezar de nuevo" y "Salir" (los hace el host).
+        self.assertContains(resp, 'data-fw-action="restart"')
+        self.assertContains(resp, 'data-fw-action="exit"')
         # Suelto: no hay host que espere.
         resp = self.client.get(reverse('material:create_exam_wizard'))
         self.assertNotContains(resp, 'data-embed-defer-ready')
+        self.assertNotContains(resp, 'data-fw-action')
 
     def test_otras_pantallas_siguen_sin_poder_enmarcarse(self):
         resp = self.client.get(reverse('material:create_exam'))
@@ -159,3 +163,33 @@ class FwExamSaveResponseTests(TestCase):
         data = resp.json()
         self.assertTrue(data['success'], data)
         self.assertIn('/examenes/lotes/', data['view_url'])
+
+
+class FwSubjectProgressTopicCountTests(TestCase):
+    """El aviso del paso Preguntas dice de cuántos tópicos son las preguntas."""
+
+    def setUp(self):
+        self.user = make_user('fw_progreso')
+        self.client = Client()
+        self.client.login(username='fw_progreso', password='testpass123')
+        self.materia = Subject.objects.create(name='Materia progreso', created_by=self.user, es_catalogo_institucional=False)
+
+    def progreso(self):
+        return self.client.get(reverse('material:full_wizard_subject_progress'), {'subject_id': self.materia.pk}).json()
+
+    def agregar(self, texto, topic=None):
+        q = Question.objects.create(user=self.user, question_text=texto, answer_text='r', topic=topic)
+        q.subjects.add(self.materia)
+
+    def test_cuenta_topicos_distintos_y_no_las_preguntas_sin_topico(self):
+        t1 = Topic.objects.create(name='T1', subject=self.materia, created_by=self.user, es_catalogo_institucional=False)
+        t2 = Topic.objects.create(name='T2', subject=self.materia, created_by=self.user, es_catalogo_institucional=False)
+        self.agregar('a', t1)
+        self.agregar('b', t1)
+        self.agregar('c', t2)
+        datos = self.progreso()
+        self.assertEqual((datos['question_count'], datos['topic_count']), (3, 2))
+
+    def test_materia_sin_preguntas_no_tiene_topicos(self):
+        datos = self.progreso()
+        self.assertEqual((datos['question_count'], datos['topic_count']), (0, 0))

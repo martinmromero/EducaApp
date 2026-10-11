@@ -9997,13 +9997,15 @@ def full_wizard_subject_progress(request):
     # compartidas por grupos de confianza, mismo pool que get_visible_questions).
     # Solo de una materia visible para el usuario: no se filtra el conteo de
     # una materia ajena por adivinar el id.
-    question_count = own_question_count = oral_units = 0
+    question_count = own_question_count = oral_units = topic_count = 0
     subject = get_visible_subjects(request.user).filter(pk=int(subject_id)).first()
     if subject is not None:
         from .content_visibility import get_oral_questions
         usable = get_visible_questions(request.user, subject=subject).filter(EXAM_ELIGIBLE_Q)
         question_count = usable.count()
         own_question_count = usable.filter(user=request.user).count()
+        # Tópicos distintos de esas preguntas (las que no tienen tópico no suman).
+        topic_count = len({t for t in usable.values_list('topic_id', flat=True) if t})
         # El cuestionario oral reparte las preguntas por sub-tópico (o por tópico
         # si no hay sub-tópicos): cuántas "unidades" distintas hay en la materia.
         oral_units = len({
@@ -10013,7 +10015,7 @@ def full_wizard_subject_progress(request):
     return JsonResponse({
         'has_contenido': has_contenido, 'has_question': has_question,
         'question_count': question_count, 'own_question_count': own_question_count,
-        'oral_units': oral_units,
+        'topic_count': topic_count, 'oral_units': oral_units,
     })
 
 

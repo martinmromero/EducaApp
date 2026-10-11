@@ -85,6 +85,9 @@
             <h4>Preguntas</h4>
             <p class="wiz-step-intro" id="fwStep6Msg">Un examen se arma con preguntas ya aprobadas de la materia. Se pueden generar con IA a partir de un documento, o cargar a mano — de a una o por lote.</p>
             <div class="alert py-2 d-none" id="fwQStatus"></div>
+            <!-- Las dos formas de sumar preguntas. Si la materia ya tiene, se esconden detrás del
+                 "acá" del aviso de arriba y el asistente sigue con "Continuar" (ver full_wizard.js). -->
+            <div id="fwQMore">
             <div class="fw-q-options">
                 <a id="fwQGenLink" href="#" class="fw-q-option">
                     <i class="bi bi-cpu"></i>
@@ -99,6 +102,7 @@
             </div>
             <!-- Estado de la IA antes de ofrecer "Generar con IA" (ver refreshAIStatus en full_wizard.js). -->
             <div id="fwAIStatus" class="alert py-2 small mt-3 mb-0 d-none" role="status"></div>
+            </div>
         </div>
         <!-- Asistente "Subir preguntas" embebido (ver question_upload_wizard.js).
              Una sola instancia por página: sus radios son globales al documento. -->

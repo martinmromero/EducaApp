@@ -22,6 +22,16 @@
             return true;
         },
     };
+    // Enlaces "Empezar de nuevo" / "Salir" de la barra inferior de un asistente embebido:
+    // no navegan solos (saldrían del <iframe>), le piden al host que lo haga.
+    if (embedded) {
+        document.addEventListener('click', function (e) {
+            var link = e.target.closest ? e.target.closest('[data-fw-action]') : null;
+            if (!link) return;
+            e.preventDefault();
+            window.EducaAppEmbed.notify('educaapp:fw-' + link.getAttribute('data-fw-action'));
+        });
+    }
     // Toda pantalla propia que cargue este script avisa que "llegó". Si el
     // host no recibe este aviso tras cargar el <iframe>, sabe que lo que se
     // ve es otra cosa (una pantalla que no se puede enmarcar, el login por
