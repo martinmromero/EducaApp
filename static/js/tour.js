@@ -236,19 +236,32 @@
     return window.innerWidth <= 768;
   }
 
+  // En escritorio el menú puede estar colapsado (modo simple arranca así): el recorrido lo abre
+  // y lo deja como estaba. toggleSidebar(true) no guarda eso como elección de quien lo usa.
   function ensureSidebarVisible() {
-    if (!isMobileViewport()) return false;
     const sidebar = document.getElementById('sidebar');
-    if (!sidebar || sidebar.classList.contains('mobile-open')) return false;
+    if (!sidebar) return false;
+    if (!isMobileViewport()) {
+      if (!sidebar.classList.contains('collapsed') || typeof window.toggleSidebar !== 'function') return false;
+      window.toggleSidebar(true);
+      return 'desktop';
+    }
+    if (sidebar.classList.contains('mobile-open')) return false;
     if (typeof window.toggleSidebar === 'function') {
       window.toggleSidebar();
-      return true;
+      return 'mobile';
     }
     return false;
   }
 
   function restoreSidebar(openedByTour) {
-    if (openedByTour && typeof window.closeSidebarMobile === 'function') {
+    if (openedByTour === 'desktop') {
+      // Solo si sigue abierto (onDestroyed puede llegar más de una vez): se vuelve a colapsar.
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar && !sidebar.classList.contains('collapsed') && typeof window.toggleSidebar === 'function') {
+        window.toggleSidebar(true);
+      }
+    } else if (openedByTour && typeof window.closeSidebarMobile === 'function') {
       window.closeSidebarMobile();
     }
   }
@@ -275,6 +288,16 @@
       },
     });
     tourDriver.drive();
+    // driver.js no siempre llama a onDestroyed al cerrar con la X: se vigila también que el
+    // recorrido deje de estar activo para dejar el menú como estaba.
+    if (openedSidebar) {
+      const observer = new MutationObserver(() => {
+        if (document.body.classList.contains('driver-active')) return;
+        observer.disconnect();
+        restoreSidebar(openedSidebar);
+      });
+      observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
   }
 
   function startIfFirstVisit() {

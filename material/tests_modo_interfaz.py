@@ -112,6 +112,14 @@ class MenuTests(TestCase):
         self.assertContains(resp, 'id="modeSwitch"')
         self.assertRegex(resp.content.decode(), r'id="modeSwitch"\s*checked')
 
+    def test_en_modo_simple_el_menu_lateral_arranca_colapsado_y_en_avanzado_no(self):
+        simple = self.inicio('m_simple').content.decode()
+        self.assertIn('if (true && window.innerWidth > 768', simple)
+        self.assertIn('const UI_SIMPLE = true;', simple)
+        avanzado = self.inicio('m_avanzado').content.decode()
+        self.assertIn('if (false && window.innerWidth > 768', avanzado)
+        self.assertIn('const UI_SIMPLE = false;', avanzado)
+
     def test_un_admin_en_modo_simple_conserva_administracion(self):
         resp = self.inicio('m_admin_simple')
         self.assertContains(resp, 'Administración')
