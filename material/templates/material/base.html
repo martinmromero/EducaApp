@@ -29,6 +29,18 @@
         } catch (e) {}
       })();
     </script>
+    <script>
+      // Modo simple: el menú lateral arranca colapsado en pantallas grandes (menos cosas a la vista);
+      // quien lo abre lo deja abierto la próxima vez. "sb-pre" lo esconde desde el primer pintado,
+      // sin la animación de deslizarse; base.html le pone después las clases reales y la saca.
+      (function () {
+        try {
+          if ({{ ui_simple|yesno:"true,false" }} && window.innerWidth > 768 && localStorage.getItem('edu_sidebar_simple') !== 'open') {
+            document.documentElement.classList.add('sb-pre');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -41,6 +53,10 @@
     <script src="{% static 'js/html_escape.js' %}"></script>
     <script src="{% static 'js/embed.js' %}"></script>
     <style>
+      html.sb-pre .sidebar { transform: translateX(-250px); transition: none; }
+      html.sb-pre .main-content { margin-left: 0; transition: none; }
+      html.sb-pre .main-content .edu-topbar .container-fluid { padding-left: 56px; }
+      html.sb-pre #externalToggle, html.sb-pre #externalToggle.at-sidebar-edge { left: 20px; transition: none; }
       /* Fallback critico para produccion: evita depender de cache de static/css/styles.css */
       @media (max-width: 768px) {
         #externalToggle {
@@ -800,7 +816,10 @@
             }
         }
 
-        function toggleSidebar() {
+        const UI_SIMPLE = {{ ui_simple|yesno:"true,false" }};
+
+        // skipSave: el recorrido guiado abre/cierra el menú sin que eso cuente como elección de quien lo usa.
+        function toggleSidebar(skipSave) {
             const sidebar = document.getElementById('sidebar');
             const mainContent = document.getElementById('mainContent');
             const overlay = document.getElementById('sidebarOverlay');
@@ -814,6 +833,9 @@
                 // En desktop: colapsar/expandir
                 const collapsedNow = sidebar.classList.toggle('collapsed');
                 mainContent.classList.toggle('expanded', collapsedNow);
+                if (UI_SIMPLE && skipSave !== true) {
+                    try { localStorage.setItem('edu_sidebar_simple', collapsedNow ? 'closed' : 'open'); } catch (e) {}
+                }
             }
             syncToggleButton();
         }
@@ -882,11 +904,16 @@
             }
         });
 
+        // Solo al pasar de móvil a escritorio se repone el menú: un cambio de tamaño cualquiera
+        // (ventana, teclado) no tiene que reabrir uno que se había colapsado.
+        let wasMobile = isMobile();
         window.addEventListener('resize', () => {
             const sidebar = document.getElementById('sidebar');
             const mainContent = document.getElementById('mainContent');
             const overlay = document.getElementById('sidebarOverlay');
-            if (!isMobile()) {
+            const cameFromMobile = wasMobile;
+            wasMobile = isMobile();
+            if (!isMobile() && cameFromMobile) {
                 sidebar.classList.remove('mobile-open');
                 overlay.classList.remove('active');
                 document.body.classList.remove('sidebar-open');
@@ -904,7 +931,18 @@
                 closeSidebarMobile();
               });
             }
-            syncToggleButton();
+            // Modo simple: pasar del "colapsado de entrada" (sb-pre, solo CSS) al colapsado real.
+            const root = document.documentElement;
+            if (root.classList.contains('sb-pre')) {
+              if (!isMobile()) {
+                document.getElementById('sidebar').classList.add('collapsed');
+                document.getElementById('mainContent').classList.add('expanded');
+              }
+              syncToggleButton();
+              setTimeout(() => root.classList.remove('sb-pre'), 80);
+            } else {
+              syncToggleButton();
+            }
           });
 
         // Recorrido guiado (driver.js) — ver static/js/tour.js. El botón "?"
