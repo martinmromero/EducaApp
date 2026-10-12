@@ -7065,6 +7065,40 @@ def career_create_simple(request):
         'is_create': True,
     })
 
+def _leer_plan_de_estudios(post, career_subjects):
+    """Lee del formulario "Editar carrera" el N° de materia, el año y el
+    cuatrimestre de cada materia ya asociada a la carrera (campos
+    plan_numero_<id>, plan_anio_<id> y plan_cuatri_<id>, con <id> = la fila
+    CareerSubject). Devuelve (cambios, errores): `cambios` es {cs_id: valores}
+    solo con lo que se mandó y es válido; `errores` son frases para mostrar.
+    Una materia sin campos en el POST (por ejemplo la que se acaba de tildar)
+    no se toca."""
+    cambios, errores = {}, []
+    for cs in career_subjects:
+        numero = post.get(f'plan_numero_{cs.pk}')
+        anio = post.get(f'plan_anio_{cs.pk}')
+        cuatri = post.get(f'plan_cuatri_{cs.pk}')
+        if numero is None and anio is None and cuatri is None:
+            continue
+        numero, anio, cuatri = (numero or '').strip(), (anio or '').strip(), (cuatri or '').strip()
+        nombre = cs.subject.name
+        if len(numero) > 20:
+            errores.append(f'{nombre}: el N° de materia no puede superar 20 caracteres.')
+            continue
+        if len(cuatri) > 20:
+            errores.append(f'{nombre}: el cuatrimestre no puede superar 20 caracteres.')
+            continue
+        if anio and (not anio.isdigit() or not 1 <= int(anio) <= 12):
+            errores.append(f'{nombre}: el año tiene que ser un número entre 1 y 12.')
+            continue
+        cambios[cs.pk] = {
+            'numero_materia': numero,
+            'anio_cursada': int(anio) if anio else None,
+            'cuatrimestre_cursada': cuatri,
+        }
+    return cambios, errores
+
+
 @login_required
 def career_associations(request, pk):
     career = get_object_or_404(Career, pk=pk)
@@ -7087,6 +7121,23 @@ def career_associations(request, pk):
                     career=career,
                     defaults={'institution': institution, 'is_active': True}
                 )
+
+            # Plan de estudios: N° / año / cuatrimestre de cada materia. Se actualiza
+            # la fila existente (nunca se borra y se vuelve a crear: de ella cuelgan
+            # los tópicos y los resultados de aprendizaje de esa materia en esta carrera).
+            cambios, errores_plan = _leer_plan_de_estudios(
+                request.POST, CareerSubject.objects.filter(career=career).select_related('subject'),
+            )
+            for cs_id, valores in cambios.items():
+                CareerSubject.objects.filter(pk=cs_id, career=career).update(**valores)
+            if errores_plan:
+                messages.warning(
+                    request,
+                    'Se guardaron las asociaciones, pero estos datos del plan de estudios no se guardaron: '
+                    + ' | '.join(errores_plan),
+                    extra_tags='examenes',
+                )
+                return redirect('material:career_associations', pk=pk)
 
             messages.success(request, 'Asociaciones actualizadas correctamente', extra_tags='examenes')
             return redirect('material:career_detail', pk=pk)
@@ -7112,7 +7163,11 @@ def career_associations(request, pk):
     
     return render(request, 'material/careers/associations.html', {
         'form': form,
-        'career': career
+        'career': career,
+        # Plan de estudios: una fila por materia ya asociada (las recién tildadas
+        # aparecen acá después de guardar).
+        'plan_rows': CareerSubject.objects.filter(career=career).select_related('subject')
+                     .order_by('anio_cursada', 'numero_materia', 'subject__name'),
     })
 
 

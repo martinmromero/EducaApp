@@ -109,6 +109,41 @@
                             </div>
                         </div>
                         
+                        {% if plan_rows %}
+                        <!-- Plan de estudios: datos de cada materia DENTRO de esta carrera (la misma
+                             materia puede ser de otro año en otra carrera). Se editan acá, con el
+                             mismo permiso que el resto del formulario. -->
+                        <div class="mb-3" id="plan-estudios">
+                            <h6 class="mb-1">Plan de estudios</h6>
+                            <p class="text-muted small mb-2">
+                                N° de materia, año y cuatrimestre de cada materia en esta carrera. Son opcionales.
+                                Una materia que se acaba de tildar aparece acá después de guardar.
+                            </p>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Materia</th>
+                                            <th style="width: 7rem;">N°</th>
+                                            <th style="width: 6rem;">Año</th>
+                                            <th style="width: 10rem;">Cuatrimestre</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for cs in plan_rows %}
+                                        <tr>
+                                            <td>{{ cs.subject.name }}</td>
+                                            <td><input type="text" class="form-control form-control-sm" name="plan_numero_{{ cs.pk }}" id="plan_numero_{{ cs.pk }}" value="{{ cs.numero_materia }}" maxlength="20" aria-label="N° de {{ cs.subject.name }}"></td>
+                                            <td><input type="number" class="form-control form-control-sm" name="plan_anio_{{ cs.pk }}" id="plan_anio_{{ cs.pk }}" value="{{ cs.anio_cursada|default_if_none:'' }}" min="1" max="12" aria-label="Año de {{ cs.subject.name }}"></td>
+                                            <td><input type="text" class="form-control form-control-sm" name="plan_cuatri_{{ cs.pk }}" id="plan_cuatri_{{ cs.pk }}" value="{{ cs.cuatrimestre_cursada }}" maxlength="20" placeholder="1.º, 2.º, anual…" aria-label="Cuatrimestre de {{ cs.subject.name }}"></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endif %}
+
                         <div class="row">
                             <div class="col-12">
                                 <button type="submit" class="btn btn-primary">
