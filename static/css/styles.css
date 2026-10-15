@@ -58,6 +58,38 @@ body.offcanvas-open .sidebar-toggle-external {
     justify-content: space-between;
     gap: .75rem;
 }
+/* Home y "?" (.edu-topbar-quick) van junto al título; el interruptor de modo y
+   las acciones de la pantalla (.edu-topbar-tools) se acomodan aparte. En
+   escritorio todo queda en una fila con las herramientas antes de home/"?"; en
+   celular las herramientas bajan a una segunda fila (con wrap) en vez de
+   empujar home/"?" fuera de la pantalla. */
+.edu-topbar-tools {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+@media (min-width: 768px) {
+    .edu-topbar-title { order: 0; }
+    .edu-topbar-tools { order: 1; margin-left: auto; }
+    .edu-topbar-quick { order: 2; }
+}
+@media (max-width: 767.98px) {
+    .edu-topbar .container-fluid {
+        flex-wrap: wrap;
+        row-gap: .5rem;
+    }
+    /* Con home y "?" al lado, un título largo ("Cuestionarios Orales") ya no
+       entra en una línea: que baje a dos en vez de cortarse. */
+    .edu-topbar .edu-topbar-title {
+        flex: 1 1 0;
+        white-space: normal;
+        line-height: 1.2;
+    }
+    .edu-topbar-tools {
+        order: 3;
+        flex: 1 0 100%;
+        justify-content: flex-end;
+    }
+}
 .edu-topbar-title {
     font-size: 1.4rem;
     font-weight: 600;
