@@ -85,7 +85,8 @@ Convención que debe respetar la página que lo incluye:
         }
         .mobile-card-table td.rt-card-title {
             order: -1;
-            flex: 1 1 auto;
+            /* basis 0: comparte renglón con el checkbox/insignia aunque el título sea largo */
+            flex: 1 1 0;
             min-width: 0;
             font-weight: 700;
             font-size: 1rem;
@@ -94,10 +95,26 @@ Convención que debe respetar la página que lo incluye:
             content: none;
         }
         .mobile-card-table td.rt-card-select,
-        .mobile-card-table td.rt-card-badge {
+.mobile-card-table td.rt-card-badge {
             order: -2;
             flex: 0 0 auto;
             padding: 0 !important;
+        }
+        /* Checkbox/insignia alineados con la primera línea del título (que lleva
+           .25rem de padding arriba y línea de 1.5rem), con aire a la derecha para
+           que no se pegue al texto. Si el título ocupa varias líneas el checkbox
+           queda a la altura de la primera. */
+        .mobile-card-table td.rt-card-select {
+            display: flex;
+            align-items: center;
+            align-self: flex-start;
+            min-height: 1.5rem;
+            margin-right: .65rem;
+            padding-top: .25rem !important;
+            box-sizing: content-box;
+        }
+        .mobile-card-table td.rt-card-select input[type="checkbox"] {
+            margin: 0;
         }
         .mobile-card-table td.rt-card-select::before,
         .mobile-card-table td.rt-card-badge::before {
