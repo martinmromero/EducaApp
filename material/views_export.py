@@ -219,7 +219,7 @@ def exportar_examen_docx(request, pk):
         # en la re-validación 2026-09-11).
         logger.exception("Error al generar DOCX del examen %s", pk)
         return HttpResponse(
-            'No se pudo generar el archivo DOCX de este examen. Volvé a intentarlo o contactá al administrador si persiste.',
+            'No se pudo generar el archivo DOCX de este examen. Volver a intentarlo o contactar al administrador si persiste.',
             status=500,
             content_type='text/plain; charset=utf-8',
         )
@@ -268,7 +268,7 @@ def exportar_examen_pdf(request, pk):
         # El detalle real ahora solo va al log del servidor.
         logger.exception("Error al generar PDF del examen %s", pk)
         return HttpResponse(
-            'No se pudo generar el archivo PDF de este examen. Volvé a intentarlo o contactá al administrador si persiste.',
+            'No se pudo generar el archivo PDF de este examen. Volver a intentarlo o contactar al administrador si persiste.',
             status=500,
             content_type='text/plain; charset=utf-8',
         )
@@ -307,7 +307,7 @@ def exportar_lote_docx(request, batch_id):
     except Exception:
         logger.exception("Error al generar DOCX del lote %s", batch_id)
         return HttpResponse(
-            'No se pudo generar el archivo DOCX de este lote. Volvé a intentarlo o contactá al administrador si persiste.',
+            'No se pudo generar el archivo DOCX de este lote. Volver a intentarlo o contactar al administrador si persiste.',
             status=500,
             content_type='text/plain; charset=utf-8',
         )
@@ -347,7 +347,7 @@ def exportar_lote_pdf(request, batch_id):
     except Exception:
         logger.exception("Error al generar PDF del lote %s", batch_id)
         return HttpResponse(
-            'No se pudo generar el archivo PDF de este lote. Volvé a intentarlo o contactá al administrador si persiste.',
+            'No se pudo generar el archivo PDF de este lote. Volver a intentarlo o contactar al administrador si persiste.',
             status=500,
             content_type='text/plain; charset=utf-8',
         )

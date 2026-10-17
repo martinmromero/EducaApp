@@ -341,7 +341,7 @@
       })
       .catch(function () {
         btn.disabled = false;
-        window.EducaAppModal.alert('No se pudo guardar el examen. Intenta nuevamente.', { title: 'Error al guardar', variant: 'danger' });
+        window.EducaAppModal.alert('No se pudo guardar el examen. Intentar nuevamente.', { title: 'Error al guardar', variant: 'danger' });
       });
   }
 
@@ -376,7 +376,7 @@
     document.getElementById('saveAsNewVersionsConfirmBtn').addEventListener('click', function () {
       const nameVal = (saveAsNewNameInput.value || '').trim();
       if (!nameVal) {
-        window.EducaAppModal.alert('Ingresá un nombre para el nuevo examen.', { title: 'Falta el nombre', variant: 'warning' });
+        window.EducaAppModal.alert('Ingresar un nombre para el nuevo examen.', { title: 'Falta el nombre', variant: 'warning' });
         return;
       }
       getSaveAsNewModal().hide();

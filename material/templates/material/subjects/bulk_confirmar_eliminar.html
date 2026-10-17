@@ -12,7 +12,7 @@
 
         <div class="alert alert-info">
             <strong>Otro{{ cantidad_consumidores_externos|pluralize:",s" }} docente{{ cantidad_consumidores_externos|pluralize:",s" }}</strong>
-            ({{ cantidad_consumidores_externos }}) tiene{{ cantidad_consumidores_externos|pluralize:",n" }} exámenes, lotes de versiones o cuestionarios orales armados con alguna de estas materias (las compartiste en un grupo de confianza). Elegí qué pasa con su contenido:
+            ({{ cantidad_consumidores_externos }}) tiene{{ cantidad_consumidores_externos|pluralize:",n" }} exámenes, lotes de versiones o cuestionarios orales armados con alguna de estas materias (fueron compartidas en un grupo de confianza). Elegir qué pasa con su contenido:
             <form method="post" action="{% url 'material:bulk_eliminar_subjects' %}">
                 {% csrf_token %}
                 {% for id in hidden_ids %}

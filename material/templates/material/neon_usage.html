@@ -11,10 +11,10 @@
     {% if not configured %}
         <div class="alert alert-warning">
             <p class="mb-2"><strong>Falta configurar el acceso a la API de Neon.</strong></p>
-            <p class="mb-2">Definí estas dos variables de entorno en Render (Environment) y volvé a cargar la página:</p>
+            <p class="mb-2">Definir estas dos variables de entorno en Render (Environment) y volver a cargar la página:</p>
             <ul class="mb-2">
                 <li><code>NEON_API_KEY</code> — Neon Console → cuenta → <em>API keys</em> → crear una nueva.</li>
-                <li><code>NEON_PROJECT_ID</code> — Neon Console → tu proyecto → <em>Settings → General</em> (el id, no el nombre).</li>
+                <li><code>NEON_PROJECT_ID</code> — Neon Console → el proyecto → <em>Settings → General</em> (el id, no el nombre).</li>
             </ul>
             <p class="mb-0 text-muted small">Este panel solo hace un GET a la API de Neon, no toca la base de datos.</p>
         </div>
@@ -90,7 +90,7 @@
                 </p>
                 <p class="mb-0 text-muted small">
                     Este número (CPU-tiempo, no CU-hours) es una referencia rápida — para el número
-                    oficial de CU-hours consumidas del mes, mirá el dashboard de
+                    oficial de CU-hours consumidas del mes, ver el dashboard de
                     <a href="https://console.neon.tech" target="_blank" rel="noopener">console.neon.tech</a> directamente.
                 </p>
             </div>
@@ -108,7 +108,7 @@
                 tipo el de <code>/health/</code> (corregido 2026-08-14): las dos causas suben este número
                 igual. Para diferenciarlas hay que mirar el patrón: uso real tiende a ser en ráfagas
                 (mientras alguien usa la app), mientras que un bug de autosuspend da actividad constante y
-                pareja las 24 horas — si el % vuelve a subir mucho, revisá el estado de arriba varias veces
+                pareja las 24 horas — si el % vuelve a subir mucho, revisar el estado de arriba varias veces
                 en el día: si siempre dice "activo" o "idle" por muy poco rato, es más probable que sea un
                 bug nuevo que un pico de uso real.
             </p>

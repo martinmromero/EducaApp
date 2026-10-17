@@ -157,7 +157,7 @@
              desaparece antes de que el tester llegue a verlo. Vive acá para
              sobrevivir al re-render y de verdad mostrarse. -->
         <div class="test-panel-toast d-none" id="testPanelToast">
-            <i class="bi bi-check-circle-fill me-1"></i>Guardado — segui con "Siguiente" o elegí otro ítem en <i class="bi bi-list-check mx-1"></i>.
+            <i class="bi bi-check-circle-fill me-1"></i>Guardado — seguir con "Siguiente" o elegir otro ítem en <i class="bi bi-list-check mx-1"></i>.
         </div>
         <!-- Checklist completo, colapsado por defecto: deja ver de un
              vistazo qué está pendiente/con problemas sin tener que ir
@@ -1087,7 +1087,7 @@
           '<p class="fw-semibold">' + escapeHtml(item.text) + '</p>' +
           (item.target_url ? '<a href="' + item.target_url + '" class="btn btn-sm btn-outline-primary mb-3"><i class="bi bi-box-arrow-up-right me-1"></i>Ir a esta pantalla</a>' : '') +
           '<div class="mb-2">' + radios + '</div>' +
-          '<textarea class="form-control form-control-sm mb-2" id="testComment" rows="3" placeholder="Comentario (qué esperabas vs. qué pasó)">' + escapeHtml(item.comment) + '</textarea>' +
+          '<textarea class="form-control form-control-sm mb-2" id="testComment" rows="3" placeholder="Comentario (qué se esperaba vs. qué pasó)">' + escapeHtml(item.comment) + '</textarea>' +
           '<button type="button" class="btn btn-primary btn-sm w-100" onclick="testPanelSave(' + item.id + ')">Guardar resultado</button>';
         prevBtn.disabled = data.index === 0;
         nextBtn.disabled = data.index === data.total - 1;

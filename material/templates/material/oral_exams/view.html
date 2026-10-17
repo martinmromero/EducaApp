@@ -1116,7 +1116,7 @@ function exchangeQuestion(studentQuestionId, newQuestionId) {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
     if (!csrfToken) {
         console.error('CSRF token not found!');
-        window.EducaAppModal.alert('Error: Token de seguridad no encontrado. Recarga la página.', { title: 'Error', variant: 'danger' });
+        window.EducaAppModal.alert('Error: Token de seguridad no encontrado. Recargar la página.', { title: 'Error', variant: 'danger' });
         return;
     }
     

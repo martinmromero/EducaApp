@@ -8,10 +8,10 @@
     </div>
 
     <p class="text-muted small">
-        Cuando otro docente borra una pregunta o una materia suya que vos veías porque la compartió en un
-        grupo de confianza y ya la habías usado en un examen, lote de versiones o cuestionario oral, acá te
-        avisamos qué pasó: si eligió borrarla para todos (tenés que reemplazarla/regenerar lo que haga falta)
-        o si te dejó una copia propia (ya la tenés vos, no hace falta que hagas nada).
+        Cuando otro docente borra una pregunta o una materia suya que se veía porque la compartió en un
+        grupo de confianza y ya había sido usada en un examen, lote de versiones o cuestionario oral, acá se
+        avisa qué pasó: si se eligió borrarla para todos (hay que reemplazarla/regenerar lo que haga falta)
+        o si se dejó una copia propia (ya es propia, no hace falta hacer nada).
     </p>
 
     <div class="card shadow-sm">
@@ -45,7 +45,7 @@
                                 <td class="text-muted small">{{ aviso.question_text_snapshot|truncatechars:120 }}</td>
                                 <td>
                                     {% if aviso.resolution == 'copia' %}
-                                        <span class="badge bg-success">Se dejó una copia tuya</span>
+                                        <span class="badge bg-success">Se dejó una copia propia</span>
                                     {% elif aviso.content_type.model == 'oralexamset' and not aviso.target %}
                                         <span class="badge bg-danger">Se eliminó por completo, hay que rearmarlo</span>
                                     {% else %}
@@ -60,7 +60,7 @@
                     </table>
                 </div>
             {% else %}
-                <p class="text-muted mb-0">No tenés avisos de este tipo.</p>
+                <p class="text-muted mb-0">No hay avisos de este tipo.</p>
             {% endif %}
         </div>
     </div>

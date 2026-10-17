@@ -106,7 +106,7 @@ window.EducaAppSmartChecklist = (function () {
 
         var emptyHint = document.createElement('p');
         emptyHint.className = 'text-muted small mb-0 mt-2 subjects-checklist-hint';
-        emptyHint.textContent = opts.emptyRestLabel || 'Escribí para buscar entre el resto de las opciones.';
+        emptyHint.textContent = opts.emptyRestLabel || 'Escribir para buscar entre el resto de las opciones.';
 
         var toggleBtn = document.createElement('button');
         toggleBtn.type = 'button';

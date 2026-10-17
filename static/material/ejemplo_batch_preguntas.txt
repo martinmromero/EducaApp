@@ -2,7 +2,7 @@
 El campo tipo puede ser desarrollo, opcion_multiple, completar_blank o verdadero_falso.
 El campo opciones solo se usa con opcion_multiple, separando cada opcion con el caracter pipe, por ejemplo A pipe B pipe C pipe D.
 Los campos subtema, pagina, opciones, dificultad y nivel_bloom son opcionales.
-Copia el bloque del tipo que necesites las veces que haga falta y cambia el contenido.
+Se copia el bloque del tipo necesario las veces que haga falta y se cambia el contenido.
 
 pregunta: ¿Cuál es la capital de Francia?
 respuesta: París

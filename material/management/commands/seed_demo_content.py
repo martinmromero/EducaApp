@@ -95,7 +95,7 @@ PROGRAMACION_QUESTIONS = [
     dict(
         topic='Variables y tipos de datos', difficulty=2, bloom_level=2,
         question_type='desarrollo',
-        question_text='Explicá la diferencia entre una variable de tipo estático y una de tipo dinámico, dando un ejemplo de lenguaje para cada caso.',
+        question_text='Explique la diferencia entre una variable de tipo estático y una de tipo dinámico, dando un ejemplo de lenguaje para cada caso.',
         answer_text='En tipado estático (ej. Java, C), el tipo de la variable se fija en tiempo de compilación y no puede cambiar. En tipado dinámico (ej. Python, JavaScript), el tipo se determina en tiempo de ejecución y una misma variable puede referenciar valores de distinto tipo a lo largo del programa.',
     ),
     dict(
@@ -114,7 +114,7 @@ PROGRAMACION_QUESTIONS = [
     dict(
         topic='Estructuras de control', difficulty=3, bloom_level=4,
         question_type='desarrollo',
-        question_text='Dado un arreglo de números, describí un algoritmo que use estructuras de control para encontrar el valor máximo, indicando qué rol cumple cada estructura utilizada.',
+        question_text='Dado un arreglo de números, describa un algoritmo que use estructuras de control para encontrar el valor máximo, indicando qué rol cumple cada estructura utilizada.',
         answer_text='Se inicializa una variable "máximo" con el primer elemento del arreglo. Luego se recorre el resto del arreglo con un bucle for; en cada iteración, un condicional (if) compara el elemento actual contra "máximo" y lo reemplaza si es mayor. Al terminar el recorrido, "máximo" contiene el valor buscado.',
     ),
     dict(
@@ -138,7 +138,7 @@ PROGRAMACION_QUESTIONS = [
     dict(
         topic='Funciones y modularización', difficulty=3, bloom_level=4,
         question_type='desarrollo',
-        question_text='Analizá qué problemas puede traer una función que modifica variables globales en lugar de recibir y devolver valores mediante parámetros y retorno.',
+        question_text='Analice qué problemas puede traer una función que modifica variables globales en lugar de recibir y devolver valores mediante parámetros y retorno.',
         answer_text='Dificulta predecir el comportamiento del programa (efectos secundarios ocultos), complica las pruebas unitarias porque el resultado depende de un estado externo, y aumenta el riesgo de errores cuando varias funciones modifican la misma variable global en distinto orden.',
     ),
     dict(
@@ -157,7 +157,7 @@ PROGRAMACION_QUESTIONS = [
     dict(
         topic='Estructuras de datos básicas', difficulty=3, bloom_level=3,
         question_type='desarrollo',
-        question_text='Proponé un caso de uso real donde convenga usar una cola en lugar de una pila, y justificá por qué.',
+        question_text='Proponga un caso de uso real donde convenga usar una cola en lugar de una pila, y justifique por qué.',
         answer_text='Un sistema de impresión de documentos: los trabajos de impresión deben procesarse en el orden en que llegaron (el primero que se envió es el primero en imprimirse), lo cual corresponde al comportamiento FIFO de una cola. Una pila haría que el último trabajo enviado se imprima primero, lo cual no es intuitivo para el usuario.',
     ),
     dict(
@@ -182,14 +182,14 @@ PROGRAMACION_QUESTIONS = [
     dict(
         topic='Variables y tipos de datos', difficulty=1, bloom_level=1,
         question_type='opcion_multiple',
-        question_text='¿Qué tipo de dato usarías para representar un valor de verdadero o falso?',
+        question_text='¿Qué tipo de dato se usaría para representar un valor de verdadero o falso?',
         answer_text='Booleano',
         options=['Booleano', 'Entero', 'Cadena de texto', 'Flotante'],
     ),
     dict(
         topic='Variables y tipos de datos', difficulty=3, bloom_level=2,
         question_type='desarrollo',
-        question_text='Explicá qué es el "scope" (ámbito) de una variable y por qué es importante entenderlo al escribir funciones.',
+        question_text='Explique qué es el "scope" (ámbito) de una variable y por qué es importante entenderlo al escribir funciones.',
         answer_text='El scope es la región del programa donde una variable existe y puede ser accedida. Una variable local solo existe dentro de la función donde se declaró; una global existe en todo el programa. Entender el scope es importante para evitar que una función modifique por error una variable de otra parte del programa, y para saber cuándo una variable deja de estar disponible.',
     ),
     dict(
@@ -258,7 +258,7 @@ PROGRAMACION_QUESTIONS = [
     dict(
         topic='Funciones y modularización', difficulty=3, bloom_level=4,
         question_type='desarrollo',
-        question_text='Explicá qué es la recursividad y qué condición es imprescindible para que una función recursiva no termine en un bucle infinito.',
+        question_text='Explique qué es la recursividad y qué condición es imprescindible para que una función recursiva no termine en un bucle infinito.',
         answer_text='La recursividad es cuando una función se llama a sí misma para resolver un problema dividiéndolo en subproblemas más pequeños del mismo tipo. Es imprescindible definir un "caso base": una condición simple que no requiere más llamadas recursivas y detiene la cadena de llamadas, evitando que la función se llame indefinidamente.',
     ),
     dict(
@@ -283,7 +283,7 @@ PROGRAMACION_QUESTIONS = [
     dict(
         topic='Estructuras de datos básicas', difficulty=2, bloom_level=3,
         question_type='desarrollo',
-        question_text='Dado un problema donde se necesita insertar y eliminar elementos frecuentemente en el medio de una colección, ¿convendría más un arreglo o una lista enlazada? Justificá.',
+        question_text='Dado un problema donde se necesita insertar y eliminar elementos frecuentemente en el medio de una colección, ¿convendría más un arreglo o una lista enlazada? Justifique.',
         answer_text='Conviene una lista enlazada: insertar o eliminar un elemento en el medio de un arreglo requiere desplazar todos los elementos posteriores, lo cual es costoso. En una lista enlazada, esa misma operación solo requiere reajustar un par de punteros, sin mover el resto de los elementos.',
     ),
 ]
@@ -335,7 +335,7 @@ BASES_DE_DATOS_QUESTIONS = [
     dict(
         topic='Modelo relacional', difficulty=3, bloom_level=4,
         question_type='desarrollo',
-        question_text='Dado un sistema de biblioteca con "Libros" y "Autores", donde un libro puede tener varios autores y un autor puede escribir varios libros, describí cómo modelarías esa relación.',
+        question_text='Dado un sistema de biblioteca con "Libros" y "Autores", donde un libro puede tener varios autores y un autor puede escribir varios libros, describa cómo se modelaría esa relación.',
         answer_text='Se necesita una tabla intermedia (ej. "Libro_Autor") con claves foráneas hacia "Libros" y hacia "Autores", ya que es una relación muchos-a-muchos que no puede resolverse agregando una sola clave foránea en ninguna de las dos tablas originales.',
     ),
     dict(
@@ -354,7 +354,7 @@ BASES_DE_DATOS_QUESTIONS = [
     dict(
         topic='Consultas SQL', difficulty=3, bloom_level=4,
         question_type='desarrollo',
-        question_text='Explicá la diferencia entre usar COUNT(*) y COUNT(columna) en una consulta con GROUP BY, y en qué caso los resultados podrían diferir.',
+        question_text='Explique la diferencia entre usar COUNT(*) y COUNT(columna) en una consulta con GROUP BY, y en qué caso los resultados podrían diferir.',
         answer_text='COUNT(*) cuenta todas las filas del grupo, incluyendo aquellas donde una columna específica tenga valor NULL. COUNT(columna) solo cuenta las filas donde esa columna no es NULL. Los resultados difieren cuando el grupo contiene filas con valores NULL en la columna contada.',
     ),
     dict(
@@ -378,7 +378,7 @@ BASES_DE_DATOS_QUESTIONS = [
     dict(
         topic='Normalización', difficulty=3, bloom_level=4,
         question_type='desarrollo',
-        question_text='Dada una tabla "Pedidos" con columnas (id_pedido, id_cliente, nombre_cliente, id_producto, nombre_producto, cantidad), identificá qué forma normal viola y cómo la normalizarías.',
+        question_text='Dada una tabla "Pedidos" con columnas (id_pedido, id_cliente, nombre_cliente, id_producto, nombre_producto, cantidad), identifique qué forma normal viola y cómo se normalizaría.',
         answer_text='Viola la 2FN y la 3FN: nombre_cliente depende solo de id_cliente (no de la clave completa) y nombre_producto depende solo de id_producto. Se normaliza separando en tres tablas: Clientes (id_cliente, nombre_cliente), Productos (id_producto, nombre_producto) y Pedidos (id_pedido, id_cliente, id_producto, cantidad), cada una referenciando a las otras por clave foránea.',
     ),
     dict(
@@ -410,7 +410,7 @@ BASES_DE_DATOS_QUESTIONS = [
     dict(
         topic='Modelo relacional', difficulty=3, bloom_level=3,
         question_type='desarrollo',
-        question_text='Explicá la diferencia entre una clave primaria y una clave única (UNIQUE), dando un ejemplo de cuándo usarías cada una.',
+        question_text='Explique la diferencia entre una clave primaria y una clave única (UNIQUE), dando un ejemplo de cuándo se usaría cada una.',
         answer_text='La clave primaria identifica de forma única cada fila y no admite valores NULL; solo puede haber una por tabla (aunque puede ser compuesta). Una restricción UNIQUE también exige valores no repetidos, pero puede admitir NULL (según el motor) y puede haber varias por tabla — por ejemplo, el DNI de una persona podría ser UNIQUE aunque la clave primaria sea un id autogenerado.',
     ),
     dict(
@@ -442,7 +442,7 @@ BASES_DE_DATOS_QUESTIONS = [
     dict(
         topic='Consultas SQL', difficulty=3, bloom_level=3,
         question_type='desarrollo',
-        question_text='Explicá qué hace una subconsulta (subquery) y dá un ejemplo de una situación donde sea necesaria.',
+        question_text='Explique qué hace una subconsulta (subquery) y dé un ejemplo de una situación donde sea necesaria.',
         answer_text='Una subconsulta es una consulta SELECT anidada dentro de otra consulta, usada para calcular un valor o un conjunto de valores intermedios. Por ejemplo, para encontrar los empleados que ganan más que el promedio salarial, se necesita una subconsulta que calcule ese promedio (SELECT AVG(salario) FROM empleados) y usarla dentro del WHERE de la consulta principal.',
     ),
     dict(
@@ -512,7 +512,7 @@ BASES_DE_DATOS_QUESTIONS = [
     dict(
         topic='Transacciones y control de concurrencia', difficulty=3, bloom_level=3,
         question_type='desarrollo',
-        question_text='Explicá qué es un bloqueo (lock) en una base de datos y por qué es necesario para el control de concurrencia.',
+        question_text='Explique qué es un bloqueo (lock) en una base de datos y por qué es necesario para el control de concurrencia.',
         answer_text='Un bloqueo es un mecanismo que impide que dos transacciones modifiquen (o a veces incluso lean) el mismo dato al mismo tiempo, reservando temporalmente el acceso a una fila o tabla para una transacción hasta que termine. Es necesario porque, sin bloqueos, transacciones concurrentes podrían pisarse cambios entre sí o leer datos en un estado intermedio inconsistente.',
     ),
 ]
@@ -571,7 +571,7 @@ BIOLOGIA_QUESTIONS = [
     dict(
         topic='La célula y sus organelas', difficulty=3, bloom_level=4,
         question_type='desarrollo',
-        question_text='Compará la estructura y función del retículo endoplasmático liso y el rugoso.',
+        question_text='Compare la estructura y función del retículo endoplasmático liso y el rugoso.',
         answer_text='El retículo endoplasmático rugoso tiene ribosomas adheridos y se encarga principalmente de la síntesis de proteínas destinadas a secreción o membranas. El retículo endoplasmático liso carece de ribosomas y participa en la síntesis de lípidos, el metabolismo de carbohidratos y la desintoxicación de sustancias.',
     ),
     dict(
@@ -590,7 +590,7 @@ BIOLOGIA_QUESTIONS = [
     dict(
         topic='Membrana celular y transporte', difficulty=3, bloom_level=4,
         question_type='desarrollo',
-        question_text='Explicá por qué la bicapa lipídica de la membrana celular es permeable a moléculas pequeñas y no polares, pero no a iones, y qué mecanismo permite igualmente el paso de estos últimos.',
+        question_text='Explique por qué la bicapa lipídica de la membrana celular es permeable a moléculas pequeñas y no polares, pero no a iones, y qué mecanismo permite igualmente el paso de estos últimos.',
         answer_text='La bicapa lipídica está formada por colas hidrofóbicas hacia el interior, que dejan pasar libremente moléculas pequeñas no polares (como O2 o CO2) por difusión simple. Los iones, al estar cargados, no pueden atravesar ese ambiente hidrofóbico, por lo que necesitan proteínas de membrana específicas (canales o transportadores) que faciliten su paso mediante difusión facilitada o transporte activo.',
     ),
     dict(
@@ -614,7 +614,7 @@ BIOLOGIA_QUESTIONS = [
     dict(
         topic='División celular', difficulty=3, bloom_level=4,
         question_type='desarrollo',
-        question_text='Explicá por qué el entrecruzamiento (crossing over) que ocurre durante la meiosis es una fuente importante de variabilidad genética.',
+        question_text='Explique por qué el entrecruzamiento (crossing over) que ocurre durante la meiosis es una fuente importante de variabilidad genética.',
         answer_text='Durante la profase I de la meiosis, los cromosomas homólogos se aparean e intercambian segmentos de material genético entre sus cromátidas no hermanas. Esto genera combinaciones nuevas de alelos en los cromosomas resultantes, distintas tanto de las de la madre como del padre, aumentando la diversidad genética de los gametos producidos.',
     ),
     dict(
@@ -646,7 +646,7 @@ BIOLOGIA_QUESTIONS = [
     dict(
         topic='La célula y sus organelas', difficulty=3, bloom_level=4,
         question_type='desarrollo',
-        question_text='Explicá la teoría endosimbiótica sobre el origen de las mitocondrias y qué evidencia la sustenta.',
+        question_text='Explique la teoría endosimbiótica sobre el origen de las mitocondrias y qué evidencia la sustenta.',
         answer_text='La teoría endosimbiótica propone que las mitocondrias fueron originalmente bacterias de vida libre que fueron incorporadas por una célula ancestral mayor, estableciendo una relación simbiótica permanente. La evidencia principal es que las mitocondrias tienen su propio ADN circular (similar al bacteriano), se reproducen por división binaria independiente del ciclo celular, y poseen una doble membrana compatible con un origen por fagocitosis.',
     ),
     dict(
@@ -736,7 +736,7 @@ BIOLOGIA_QUESTIONS = [
     dict(
         topic='Núcleo y material genético', difficulty=3, bloom_level=4,
         question_type='desarrollo',
-        question_text='Explicá la diferencia entre eucromatina y heterocromatina en términos de su actividad transcripcional.',
+        question_text='Explique la diferencia entre eucromatina y heterocromatina en términos de su actividad transcripcional.',
         answer_text='La eucromatina es cromatina laxa, poco condensada, que resulta accesible para la maquinaria de transcripción — sus genes suelen estar activos. La heterocromatina está muy condensada y compactada, lo que la vuelve inaccesible para esa maquinaria, por lo que sus genes permanecen generalmente inactivos (silenciados).',
     ),
 ]
@@ -786,7 +786,7 @@ class Command(BaseCommand):
             seed_user = User.objects.get(username=username)
         except User.DoesNotExist:
             raise CommandError(
-                f'No existe el usuario "{username}". Corré antes las migraciones '
+                f'No existe el usuario "{username}". Correr antes las migraciones '
                 '(material.0042_seed_content_user crea este usuario).'
             )
 

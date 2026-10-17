@@ -43,7 +43,7 @@
                         </select>
                         {% if not institutions %}
                         <p class="text-muted small mt-2 mb-0">
-                            Todavía no tenés ninguna institución propia.
+                            Todavía no hay ninguna institución propia.
                             <a href="{% url 'material:create_institution_v2' %}" target="_blank" rel="noopener">Crear una</a> primero.
                         </p>
                         {% endif %}
@@ -103,7 +103,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="id_catedra">Cátedra <span class="text-muted fw-normal">(opcional)</span></label>
-                        <input type="text" class="form-control" name="catedra" id="id_catedra" placeholder="Ej: Cátedra A - Prof. Pérez">
+                        <input type="text" class="form-control" name="catedra" id="id_catedra" placeholder="Ej: Cátedra A - Docente Pérez">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="id_print_format">Formato de impresión <span class="text-muted fw-normal">(opcional)</span></label>

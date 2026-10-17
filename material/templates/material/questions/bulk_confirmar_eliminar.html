@@ -7,7 +7,7 @@
 
     <div class="alert alert-info">
         <strong>Otro{{ cantidad_consumidores_externos|pluralize:",s" }} docente{{ cantidad_consumidores_externos|pluralize:",s" }}</strong>
-        ({{ cantidad_consumidores_externos }}) usa{{ cantidad_consumidores_externos|pluralize:",n" }} alguna de estas preguntas en sus propios exámenes o cuestionarios orales (las compartiste en un grupo de confianza). Elegí qué pasa con su contenido:
+        ({{ cantidad_consumidores_externos }}) usa{{ cantidad_consumidores_externos|pluralize:",n" }} alguna de estas preguntas en sus propios exámenes o cuestionarios orales (fueron compartidas en un grupo de confianza). Elegir qué pasa con su contenido:
         <form method="post" id="bulkDeleteForm">
             {% csrf_token %}
             {% if delete_all_filtered %}
