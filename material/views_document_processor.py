@@ -1162,7 +1162,7 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
         existing_block = (
             f"\n\nPREGUNTAS YA GENERADAS PARA ESTE DOCUMENTO (NO REPETIR NI PARAFRASEAR):\n"
             + "\n".join(lines)
-            + "\n\nGenerá preguntas completamente distintas a las anteriores, sobre aspectos o ángulos diferentes del texto.\n"
+            + "\n\nGenere preguntas completamente distintas a las anteriores, sobre aspectos o ángulos diferentes del texto.\n"
         )
 
     if images and not (content and content.strip()):
@@ -1171,14 +1171,14 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
         # ni pregunte sobre la ausencia de texto — ver [[project_fotosintesis_prompt_leak]].
         images_note = (
             "\nEste fragmento no tiene texto extraíble (es una página escaneada). "
-            "Se incluyen las imágenes de esas páginas: generá las preguntas basándote "
+            "Se incluyen las imágenes de esas páginas: genere las preguntas basándose "
             "pura y exclusivamente en lo que se ve en ellas.\n"
         )
     elif images:
         images_note = (
             "\nTambién se incluyen una o más imágenes de este fragmento del documento "
             "(diagramas, gráficos, fotos). Si aportan contenido educativo relevante, "
-            "generá al menos una pregunta que haga referencia a lo que se ve en ellas.\n"
+            "genere al menos una pregunta que haga referencia a lo que se ve en ellas.\n"
         )
     else:
         images_note = ""
@@ -1616,7 +1616,7 @@ def document_page_preview(request):
                 pass
 
         if not file_path or not os.path.exists(file_path):
-            return JsonResponse({'success': False, 'error': 'No hay documento en sesión. Sube o selecciona uno primero.'}, status=400)
+            return JsonResponse({'success': False, 'error': 'No hay documento en sesión. Subir o seleccionar uno primero.'}, status=400)
 
     ext = os.path.splitext(file_path)[1].lower()
 

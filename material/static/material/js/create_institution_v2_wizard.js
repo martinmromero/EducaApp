@@ -161,7 +161,7 @@ _onDomReady(function () {
         var saved = draft.load();
         if (!saved || !saved.name) return;
 
-        draft.confirmRestore('Encontramos una institución sin terminar de una sesión anterior. ¿Querés recuperarla? (El logo, si habías elegido uno, se pierde igual — hay que volver a elegirlo.)').then(function (quiere) {
+        draft.confirmRestore('Encontramos una institución sin terminar de una sesión anterior. ¿Recuperarla? (El logo, si se había elegido uno, se pierde igual — hay que volver a elegirlo.)').then(function (quiere) {
             if (!quiere) { draft.clear(); return; }
 
             nameInput.value = saved.name || '';

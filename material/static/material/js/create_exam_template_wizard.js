@@ -423,7 +423,7 @@ _onDomReady(function () {
         var saved = draft.load();
         if (!saved || !saved.institution) return;
 
-        draft.confirmRestore('Encontramos una plantilla sin terminar de una sesión anterior. ¿Querés recuperarla?').then(function (quiere) {
+        draft.confirmRestore('Encontramos una plantilla sin terminar de una sesión anterior. ¿Recuperarla?').then(function (quiere) {
             if (!quiere) { draft.clear(); return; }
 
             institutionSelect.value = saved.institution;

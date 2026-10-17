@@ -27,7 +27,7 @@
 
     {% if form.errors %}
     <div class="alert alert-danger mb-3">
-      <strong>Corregí los siguientes errores:</strong>
+      <strong>Corregir los siguientes errores:</strong>
       <ul class="mb-0 mt-1">
         {% for field in form %}{% for error in field.errors %}
           <li><strong>{{ field.label }}:</strong> {{ error }}</li>
@@ -468,7 +468,7 @@
         const subjectId = subjectIds.length ? subjectIds[0] : null;
         if (!name) { newTopicInput.focus(); return; }
         if (!subjectId) {
-          window.EducaAppModal.alert('Elegí primero al menos una materia.', { title: 'Falta la materia', variant: 'warning' });
+          window.EducaAppModal.alert('Elegir primero al menos una materia.', { title: 'Falta la materia', variant: 'warning' });
           return;
         }
         saveNewTopicBtn.disabled = true;
@@ -497,7 +497,7 @@
     if (addSubtopicBtn) {
       addSubtopicBtn.addEventListener('click', () => {
         if (!topicSel.value) {
-          window.EducaAppModal.alert('Elegí primero un tópico.', { title: 'Falta el tópico', variant: 'warning' });
+          window.EducaAppModal.alert('Elegir primero un tópico.', { title: 'Falta el tópico', variant: 'warning' });
           return;
         }
         newSubtopicContainer.style.display = '';

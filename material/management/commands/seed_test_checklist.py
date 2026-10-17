@@ -28,11 +28,11 @@ from material.models import TestChecklistItem
 # (contra los 74 totales) para que un solo tester no tenga que hacer todo el
 # checklist de punta a punta — ver [[project_uat_testing_plan]].
 ITEMS = [
-    (1, "Alta y primer acceso", "Recordá cómo te fue creando la cuenta (signup abierto o por invitación) — contalo acá", "signup", False, None),
-    (1, "Alta y primer acceso", "Recordá cómo te fue configurando la pregunta de seguridad — contalo acá", "security_question_setup", False, None),
-    (1, "Alta y primer acceso", "Recordá cómo te fue con el asistente de bienvenida (onboarding): pasos, contenido demo, resumen final", "onboarding_v2_page", False, None),
+    (1, "Alta y primer acceso", "Comentar cómo resultó crear la cuenta (signup abierto o por invitación) — dejar el comentario acá", "signup", False, None),
+    (1, "Alta y primer acceso", "Comentar cómo resultó configurar la pregunta de seguridad — dejar el comentario acá", "security_question_setup", False, None),
+    (1, "Alta y primer acceso", "Comentar cómo resultó el asistente de bienvenida (onboarding): pasos, contenido demo, resumen final", "onboarding_v2_page", False, None),
     (1, "Alta y primer acceso", "Cerrar sesión, volver a entrar con usuario/contraseña, y volver a activar Modo Testing para seguir", "login", False, None),
-    (1, "Alta y primer acceso", "Cerrar sesión y probar \"olvidé mi contraseña\" sobre tu propia cuenta — al volver a entrar, reactivá Modo Testing y contá cómo te fue", "password_reset_request", False, None),
+    (1, "Alta y primer acceso", "Cerrar sesión y probar \"olvidé mi contraseña\" sobre la cuenta propia — al volver a entrar, reactivar Modo Testing y comentar cómo resultó", "password_reset_request", False, None),
     (1, "Alta y primer acceso", "Editar los datos propios (nombre, email, contraseña) desde \"Mis datos\", pie del menú", "mis_datos", False, None),
     (1, "Alta y primer acceso", "Entrar y salir del Área de Pruebas (cuenta espejo de entrenamiento) desde el pie del menú", "", False, None),
 
@@ -53,7 +53,7 @@ ITEMS = [
     (4, "Banco de Preguntas", "Cargar una pregunta a mano con el formulario manual", "upload_questions", False, 1),
     (4, "Banco de Preguntas", "Descargar la plantilla CSV/TXT e importar preguntas en bloque", "upload_questions", False, 1),
     (4, "Banco de Preguntas", "Exportar el banco de preguntas", "lista_preguntas", False, 1),
-    (4, "Banco de Preguntas", "Filtrar el listado, abrir una pregunta (Ver o Editar) y volver con \"Volver\" — confirmar que respeta el filtro y la página en la que estabas", "lista_preguntas", False, 1),
+    (4, "Banco de Preguntas", "Filtrar el listado, abrir una pregunta (Ver o Editar) y volver con \"Volver\" — confirmar que respeta el filtro y la página en la que se estaba", "lista_preguntas", False, 1),
     (4, "Banco de Preguntas", "Probar el asistente guiado para subir una pregunta suelta (materia, tipo, clasificación, revisión) y usar \"Cargar otra pregunta\"", "upload_questions_wizard", False, 1),
     (4, "Banco de Preguntas", "Probar el asistente guiado con un lote CSV/TXT: revisar la vista previa (filas con problemas, tópicos nuevos, duplicadas) antes de importar", "upload_questions_wizard", False, 1),
 
@@ -97,7 +97,7 @@ ITEMS = [
     (10, "Mi Espacio Académico", "Agregar/editar/eliminar resultados de aprendizaje de una materia", "subject_list", False, 3),
     (10, "Mi Espacio Académico", "Confirmar que los filtros en cascada (institución→sede→facultad→carrera→materia) funcionan", "institution_v2_list", False, 3),
     (10, "Mi Espacio Académico", "Probar el asistente guiado (paso a paso) para crear una institución", "create_institution_v2_wizard", False, 3),
-    (10, "Mi Espacio Académico", "Como docente NO admin, agregar un resultado de aprendizaje en una materia PERSONAL tuya (no del catálogo institucional) — confirmar que se puede cargar y queda usable de inmediato", "subject_list", False, 3),
+    (10, "Mi Espacio Académico", "Como docente NO admin, agregar un resultado de aprendizaje en una materia PERSONAL propia (no del catálogo institucional) — confirmar que se puede cargar y queda usable de inmediato", "subject_list", False, 3),
     (10, "Mi Espacio Académico", "Probar el \"Asistente completo\" (botón nuevo): recorrer institución → facultad → carrera → materia → resultados de aprendizaje → preguntas → examen en un solo flujo", "full_wizard", False, 3),
     (10, "Mi Espacio Académico", "En el Asistente completo, elegir una institución con facultades ya cargadas y confirmar que el paso siguiente las muestra de entrada (sin tener que tipear para buscar)", "full_wizard", False, 3),
     (10, "Mi Espacio Académico", "En el Asistente completo, saltear algún paso (por ejemplo Resultados de aprendizaje) y confirmar que el asistente sigue avanzando en vez de terminar", "full_wizard", False, 3),
@@ -162,7 +162,7 @@ ITEMS = [
     # asignada las ve igual, solo que después del área 16 en vez de antes.
     (17, "Catálogo Académico compartido", "Proponer una carrera o materia nueva al catálogo compartido desde \"Mis agregados\"", "mis_solicitudes_catalogo", False, 3),
     (17, "Catálogo Académico compartido", "Ver el estado de una solicitud propia (pendiente, aprobada o rechazada)", "mis_solicitudes_catalogo", False, 3),
-    (17, "Catálogo Académico compartido", "En \"Mis agregados\", confirmar que una solicitud rechazada deja claro que NO se borró lo que cargaste, solo que no se sumó al catálogo compartido", "mis_solicitudes_catalogo", False, 3),
+    (17, "Catálogo Académico compartido", "En \"Mis agregados\", confirmar que una solicitud rechazada deja claro que NO se borró lo cargado, solo que no se sumó al catálogo compartido", "mis_solicitudes_catalogo", False, 3),
 
     (18, "Contenido compartido y sus avisos", "Verificar que le llega un aviso al dueño de un examen/oral cuando otro integrante del grupo borra una pregunta compartida que usaba", "mis_avisos_preguntas_borradas", False, 3),
 
@@ -188,6 +188,26 @@ ITEMS = [
 ]
 
 
+# Textos anteriores de ítems que cambiaron de redacción (se pasaron a registro
+# impersonal): (area_number, texto nuevo) -> texto anterior. Sirve para renombrar
+# el ítem existente sin perder los resultados que ya cargaron los testers.
+TEXTOS_ANTERIORES = {
+    (1, "Comentar cómo resultó crear la cuenta (signup abierto o por invitación) — dejar el comentario acá"):
+        "Recordá cómo te fue creando la cuenta (signup abierto o por invitación) — contalo acá",
+    (1, "Comentar cómo resultó configurar la pregunta de seguridad — dejar el comentario acá"):
+        "Recordá cómo te fue configurando la pregunta de seguridad — contalo acá",
+    (1, "Comentar cómo resultó el asistente de bienvenida (onboarding): pasos, contenido demo, resumen final"):
+        "Recordá cómo te fue con el asistente de bienvenida (onboarding): pasos, contenido demo, resumen final",
+    (1, "Cerrar sesión y probar \"olvidé mi contraseña\" sobre la cuenta propia — al volver a entrar, reactivar Modo Testing y comentar cómo resultó"):
+        "Cerrar sesión y probar \"olvidé mi contraseña\" sobre tu propia cuenta — al volver a entrar, reactivá Modo Testing y contá cómo te fue",
+    (4, "Filtrar el listado, abrir una pregunta (Ver o Editar) y volver con \"Volver\" — confirmar que respeta el filtro y la página en la que se estaba"):
+        "Filtrar el listado, abrir una pregunta (Ver o Editar) y volver con \"Volver\" — confirmar que respeta el filtro y la página en la que estabas",
+    (10, "Como docente NO admin, agregar un resultado de aprendizaje en una materia PERSONAL propia (no del catálogo institucional) — confirmar que se puede cargar y queda usable de inmediato"):
+        "Como docente NO admin, agregar un resultado de aprendizaje en una materia PERSONAL tuya (no del catálogo institucional) — confirmar que se puede cargar y queda usable de inmediato",
+    (17, "En \"Mis agregados\", confirmar que una solicitud rechazada deja claro que NO se borró lo cargado, solo que no se sumó al catálogo compartido"):
+        "En \"Mis agregados\", confirmar que una solicitud rechazada deja claro que NO se borró lo que cargaste, solo que no se sumó al catálogo compartido",
+}
+
 class Command(BaseCommand):
     """
     Idempotente vía update_or_create, clave natural (area_number, text) — NO
@@ -206,6 +226,9 @@ class Command(BaseCommand):
         created, updated = 0, 0
         for idx, (area_number, area_name, text, url_name, admin_only, stage) in enumerate(ITEMS, start=1):
             seen_keys.add((area_number, text))
+            anterior = TEXTOS_ANTERIORES.get((area_number, text))
+            if anterior:
+                TestChecklistItem.objects.filter(area_number=area_number, text=anterior).update(text=text)
             obj, was_created = TestChecklistItem.objects.update_or_create(
                 area_number=area_number,
                 text=text,

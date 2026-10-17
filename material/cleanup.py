@@ -160,7 +160,7 @@ def cleanup_files_for_inactive_sessions():
     except Exception as exc:
         logger.warning(
             "cleanup_files_for_inactive_sessions: no se pudo leer la tabla de sesiones (%s). "
-            "Verificá que uses el backend de sesiones en base de datos.",
+            "Verificar que se use el backend de sesiones en base de datos.",
             exc
         )
         return 0

@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         var requested = parseInt(qpvInput && qpvInput.value, 10);
         if (requested && requested > available) {
-            hint.textContent = 'Ojo: pediste ' + requested + ' y hay ' + available + ' preguntas disponibles para los tópicos elegidos.';
+            hint.textContent = 'Ojo: se pidieron ' + requested + ' y hay ' + available + ' preguntas disponibles para los tópicos elegidos.';
             hint.className = 'form-text text-warning';
         } else {
             hint.textContent = available + ' pregunta' + (available === 1 ? '' : 's') + ' disponible' + (available === 1 ? '' : 's') + ' para los tópicos elegidos.';
@@ -565,7 +565,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('No se pudieron cargar los tópicos:', err);
                 var container = document.getElementById('topics_checkbox_container');
                 if (container) {
-                    container.innerHTML = '<div class="text-danger small">No se pudieron cargar los tópicos. Recargá la página e intentá de nuevo.</div>';
+                    container.innerHTML = '<div class="text-danger small">No se pudieron cargar los tópicos. Recargar la página e intentar de nuevo.</div>';
                 }
             });
         // Resultados de aprendizaje como checkboxes

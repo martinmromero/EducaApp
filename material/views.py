@@ -970,7 +970,7 @@ def upload_contenido(request):  # Antes upload_material
             if existing and existing.file_available:
                 messages.warning(
                     request,
-                    f'Este documento ya existe en tus contenidos: "{existing.title}". '
+                    f'Este documento ya existe en Mis Contenidos: "{existing.title}". '
                     f'No se creó un duplicado.',
                     extra_tags='contenidos'
                 )
@@ -2397,7 +2397,7 @@ def save_exam_from_session(request):
                     created_exams.append(exam_obj)
     except Exception:
         logger.exception('Error guardando examenes desde /save-exam/.')
-        return _error('No se pudo guardar el examen. Intenta nuevamente en unos segundos.')
+        return _error('No se pudo guardar el examen. Intentar nuevamente en unos segundos.')
 
     del request.session['preview_exam']
     request.session.pop('preview_generated_versions_ids', None)
@@ -2705,7 +2705,7 @@ def preview_exam_template(request):
 
     except Exception as e:
         logger.error(f"Preview error: {str(e)}", exc_info=True)
-        return JsonResponse({'error': 'No se pudo generar la vista previa de la plantilla. Volvé a intentarlo o contactá al administrador si persiste.'}, status=500)
+        return JsonResponse({'error': 'No se pudo generar la vista previa de la plantilla. Volver a intentarlo o contactar al administrador si persiste.'}, status=500)
 
 @login_required
 def edit_exam_template(request, template_id):
@@ -2716,7 +2716,7 @@ def edit_exam_template(request, template_id):
             created_by=request.user
         )
     except ExamTemplate.DoesNotExist:
-        messages.error(request, 'La plantilla no existe o no tienes permisos para editarla.', extra_tags='plantillas')
+        messages.error(request, 'La plantilla no existe o no hay permisos para editarla.', extra_tags='plantillas')
         return redirect('material:list_exam_templates')
 
     if request.method == 'POST':
@@ -2844,7 +2844,7 @@ def view_exam_template(request, template_id):
             created_by=request.user
         )
     except ExamTemplate.DoesNotExist:
-        raise Http404("La plantilla no existe o no tienes permisos para verla")
+        raise Http404("La plantilla no existe o no hay permisos para verla")
 
     outcomes_to_display = [
         {'description': outcome.description}
@@ -3038,7 +3038,7 @@ def save_exam_template(request):
         except Http404:
             return JsonResponse({
                 'success': False,
-                'error': 'La plantilla no existe o no te pertenece.'
+                'error': 'La plantilla no existe o pertenece a otra cuenta.'
             }, status=404)
 
         except IntegrityError as e:
@@ -3441,7 +3441,7 @@ def password_reset_question(request):
     if cache.get(attempts_key, 0) >= PWRESET_MAX_ATTEMPTS:
         request.session.pop('pwreset_username', None)
         return render(request, 'registration/password_reset_request.html', {
-            'error': 'Demasiados intentos para ese usuario. Esperá unos minutos y volvé a empezar.',
+            'error': 'Demasiados intentos para ese usuario. Esperar unos minutos y volver a empezar.',
         })
 
     question_label = dict(Profile.SECURITY_QUESTION_CHOICES).get(user.profile.security_question, '')
@@ -3460,7 +3460,7 @@ def password_reset_question(request):
         if attempts >= PWRESET_MAX_ATTEMPTS:
             request.session.pop('pwreset_username', None)
             return render(request, 'registration/password_reset_request.html', {
-                'error': 'Demasiados intentos para ese usuario. Esperá unos minutos y volvé a empezar.',
+                'error': 'Demasiados intentos para ese usuario. Esperar unos minutos y volver a empezar.',
             })
         error = 'La respuesta no coincide. Intentar de nuevo.'
     return render(request, 'registration/password_reset_question.html', {
@@ -4110,7 +4110,7 @@ def editar_examen(request, pk):
     request.session.pop('editing_batch_id', None)
     request.session.pop('preview_generated_versions_ids', None)
 
-    messages.info(request, 'Puedes editar el examen y volver a previsualizar/guardar.', extra_tags='examenes')
+    messages.info(request, 'Se puede editar el examen y volver a previsualizar/guardar.', extra_tags='examenes')
     return redirect(f"{reverse('material:create_exam')}?edit_exam_id={examen.pk}")
 
 @login_required
@@ -4137,7 +4137,7 @@ def editar_lote(request, batch_id):
     request.session.pop('editing_exam_id', None)
     request.session.pop('preview_generated_versions_ids', None)
 
-    messages.info(request, 'Puedes editar los parametros generales del lote y volver a previsualizar/guardar.', extra_tags='examenes')
+    messages.info(request, 'Se pueden editar los parametros generales del lote y volver a previsualizar/guardar.', extra_tags='examenes')
     return redirect(f"{reverse('material:create_exam')}?edit_batch_id={batch.pk}")
 
 @login_required
@@ -4416,10 +4416,10 @@ def eliminar_pregunta(request, pk):
         propios_orales = [o for o in orales_afectados if o.user_id == request.user.id]
         if propios_examenes:
             nombres = ', '.join(e.title for e in propios_examenes)
-            avisos.append(f'{len(propios_examenes)} examen(es) escritos tuyos quedaron con una pregunta menos: {nombres}.')
+            avisos.append(f'{len(propios_examenes)} examen(es) propios quedaron con una pregunta menos: {nombres}.')
         if propios_orales:
             nombres_o = ', '.join(o.name for o in propios_orales)
-            avisos.append(f'{len(propios_orales)} cuestionario(s) oral(es) tuyos quedaron con una asignación menos: {nombres_o}.')
+            avisos.append(f'{len(propios_orales)} cuestionario(s) oral(es) propios quedaron con una asignación menos: {nombres_o}.')
         if externos:
             if resolution == 'copia':
                 avisos.append(f'{len(externos)} docente(s) más usaban esta pregunta: se les dejó una copia propia y fueron avisados.')
@@ -4428,7 +4428,7 @@ def eliminar_pregunta(request, pk):
         if avisos:
             messages.warning(
                 request,
-                'Pregunta eliminada. ' + ' '.join(avisos) + ' Revisalos y reemplazá/regenerá lo que haga falta.',
+                'Pregunta eliminada. ' + ' '.join(avisos) + ' Revisarlos y reemplazar/regenerar lo que haga falta.',
                 extra_tags='preguntas'
             )
         else:
@@ -4552,16 +4552,16 @@ def bulk_eliminar_preguntas(request):
         nombres = ', '.join(e.title for e in propios_examenes)
         messages.warning(
             request,
-            f'{len(propios_examenes)} examen(es) tuyos quedaron con una o más preguntas menos: '
-            f'{nombres}. Revisalos y reemplazá las preguntas que hagan falta.',
+            f'{len(propios_examenes)} examen(es) propios quedaron con una o más preguntas menos: '
+            f'{nombres}. Revisarlos y reemplazar las preguntas que hagan falta.',
             extra_tags='preguntas'
         )
     if propios_orales:
         nombres_o = ', '.join(o.name for o in propios_orales)
         messages.warning(
             request,
-            f'{len(propios_orales)} cuestionario(s) oral(es) tuyos quedaron con una o más asignaciones menos: '
-            f'{nombres_o}. Revisalos y regená lo que haga falta.',
+            f'{len(propios_orales)} cuestionario(s) oral(es) propios quedaron con una o más asignaciones menos: '
+            f'{nombres_o}. Revisarlos y regenerar lo que haga falta.',
             extra_tags='preguntas'
         )
     if externos_totales:
@@ -4581,7 +4581,7 @@ def bulk_eliminar_preguntas(request):
         plural = 's' if skipped_not_owned != 1 else ''
         messages.warning(
             request,
-            f'{skipped_not_owned} pregunta{plural} seleccionada{plural} no se eliminó{plural} porque no te pertenece{plural}.',
+            f'No se eliminó por pertenecer a otra cuenta: {skipped_not_owned} pregunta{plural} seleccionada{plural}.',
             extra_tags='preguntas',
         )
 
@@ -5536,7 +5536,7 @@ def delete_exam_template(request):
             plural = 's' if skipped != 1 else ''
             messages.warning(
                 request,
-                f'{skipped} plantilla{plural} seleccionada{plural} no se eliminó{plural} porque no te pertenece{plural}.',
+                f'No se eliminó por pertenecer a otra cuenta: {skipped} plantilla{plural} seleccionada{plural}.',
                 extra_tags='plantillas',
             )
         if not count and not skipped:
@@ -5839,7 +5839,7 @@ def institution_v2_list(request):
 
     except DatabaseError as e:
         logger.error(f"Error DB en institution_v2_list: {str(e)}", exc_info=True)
-        messages.error(request, 'Se detecto un problema temporal de base de datos en Instituciones. Reintenta en unos minutos.')
+        messages.error(request, 'Se detecto un problema temporal de base de datos en Instituciones. Reintentar en unos minutos.')
         page_obj = Paginator([], 10).get_page(1)
         favorite_count = 0
         favorite_ids = set()
@@ -5942,7 +5942,7 @@ def create_institution_v2(request):
                 messages.error(
                     request,
                     'No se pudo crear la institución: hay un nombre de sede o facultad repetido en el formulario. '
-                    'Revisá que no haya dos filas con el mismo nombre.',
+                    'Revisar que no haya dos filas con el mismo nombre.',
                     extra_tags='instituciones',
                 )
     else:
@@ -6877,7 +6877,7 @@ def bulk_eliminar_subjects(request):
         plural = 's' if skipped_not_owned != 1 else ''
         messages.warning(
             request,
-            f'{skipped_not_owned} materia{plural} seleccionada{plural} no se eliminó{plural} porque no te pertenece{plural}.',
+            f'No se eliminó por pertenecer a otra cuenta: {skipped_not_owned} materia{plural} seleccionada{plural}.',
             extra_tags='materias',
         )
     if bloqueadas:
@@ -7046,7 +7046,7 @@ def bulk_eliminar_careers(request):
         plural = 's' if skipped != 1 else ''
         messages.warning(
             request,
-            f'{skipped} carrera{plural} seleccionada{plural} no se eliminó{plural} porque no te pertenece{plural}.',
+            f'No se eliminó por pertenecer a otra cuenta: {skipped} carrera{plural} seleccionada{plural}.',
             extra_tags='carreras',
         )
     return redirect('material:career_list')
@@ -9502,7 +9502,7 @@ def formato_impresion_create(request):
 def formato_impresion_edit(request, pk):
     formato = get_object_or_404(FormatoImpresion, pk=pk)
     if not _can_manage_print_format(request.user, formato):
-        messages.error(request, 'No tienes permisos para editar este formato.')
+        messages.error(request, 'No hay permisos para editar este formato.')
         return redirect('material:formato_impresion_list')
 
     if request.method == 'POST':
@@ -9537,7 +9537,7 @@ def formato_impresion_edit(request, pk):
 def formato_impresion_delete(request, pk):
     formato = get_object_or_404(FormatoImpresion, pk=pk)
     if not _can_manage_print_format(request.user, formato):
-        messages.error(request, 'No tienes permisos para eliminar este formato.')
+        messages.error(request, 'No hay permisos para eliminar este formato.')
         return redirect('material:formato_impresion_list')
     formato.delete()
     messages.success(request, 'Formato de impresión eliminado.')
@@ -9549,7 +9549,7 @@ def formato_impresion_delete(request, pk):
 def formato_impresion_set_default(request, pk):
     formato = get_object_or_404(FormatoImpresion, pk=pk)
     if not _can_manage_print_format(request.user, formato):
-        messages.error(request, 'No tienes permisos para marcar este formato como predeterminado.')
+        messages.error(request, 'No hay permisos para marcar este formato como predeterminado.')
         return redirect('material:formato_impresion_list')
     with transaction.atomic():
         clear_existing_default_for_scope(user=formato.user, institution=formato.institution, exclude_id=formato.pk)
@@ -11420,7 +11420,7 @@ def grupo_detalle(request, pk):
     group = get_object_or_404(SharingGroup, pk=pk)
     my_membership = GroupMembership.objects.filter(group=group, user=request.user).first()
     if my_membership is None:
-        messages.error(request, 'No pertenecés a este grupo.', extra_tags='grupos')
+        messages.error(request, 'La cuenta no pertenece a este grupo.', extra_tags='grupos')
         return redirect('material:grupos_list')
 
     is_accepted_member = my_membership.status == 'accepted'
@@ -11551,7 +11551,7 @@ def grupo_salir(request, pk):
     group = get_object_or_404(SharingGroup, pk=pk)
     membership = GroupMembership.objects.filter(group=group, user=request.user).first()
     if membership is None:
-        messages.error(request, 'No pertenecés a este grupo.', extra_tags='grupos')
+        messages.error(request, 'La cuenta no pertenece a este grupo.', extra_tags='grupos')
         return redirect('material:grupos_list')
 
     # Si quien sale es quien creó el grupo, transferir la creación a otro
@@ -11571,7 +11571,7 @@ def grupo_salir(request, pk):
     membership.delete()
     messages.success(
         request,
-        f'Saliste del grupo "{group.name}". Lo que compartías ahí dejó de estar visible para el resto.',
+        f'Se salió del grupo "{group.name}". Lo que se compartía ahí dejó de estar visible para el resto.',
         extra_tags='grupos',
     )
     return redirect('material:grupos_list')
@@ -11589,7 +11589,7 @@ def grupo_remover_miembro(request, pk, user_id):
         messages.error(request, 'Solo quien creó el grupo puede remover miembros.', extra_tags='grupos')
         return redirect('material:grupo_detalle', pk=group.pk)
     if int(user_id) == request.user.id:
-        messages.error(request, 'Para salir del grupo usá la opción "Salir del grupo".', extra_tags='grupos')
+        messages.error(request, 'Para salir del grupo, usar la opción "Salir del grupo".', extra_tags='grupos')
         return redirect('material:grupo_detalle', pk=group.pk)
 
     membership = GroupMembership.objects.filter(group=group, user_id=user_id).first()
@@ -11619,9 +11619,9 @@ def invitaciones_pendientes(request):
             membership.responded_at = timezone.now()
             membership.save(update_fields=['status', 'responded_at'])
             if action == 'accept':
-                messages.success(request, f'Te uniste a "{membership.group.name}".', extra_tags='grupos')
+                messages.success(request, f'Se sumó al grupo "{membership.group.name}".', extra_tags='grupos')
             else:
-                messages.info(request, f'Rechazaste la invitación a "{membership.group.name}".', extra_tags='grupos')
+                messages.info(request, f'Se rechazó la invitación a "{membership.group.name}".', extra_tags='grupos')
         return redirect('material:invitaciones_pendientes')
 
     pending = GroupMembership.objects.filter(
@@ -11881,7 +11881,7 @@ def groq_monitor_page(request):
             vision_provider = (request.POST.get('vision_provider') or 'gemini').strip()
             if model_name:
                 run_vision_test(model_name, provider=vision_provider)
-                messages.success(request, f'Prueba de visión ejecutada para "{vision_provider}: {model_name}" — mirá el resultado abajo.', extra_tags='general')
+                messages.success(request, f'Prueba de visión ejecutada para "{vision_provider}: {model_name}" — el resultado se muestra abajo.', extra_tags='general')
             return redirect('material:groq_monitor_page')
         if action == 'run_vision_load':
             from .groq_monitor import run_vision_load_test
@@ -11897,7 +11897,7 @@ def groq_monitor_page(request):
                 messages.success(
                     request,
                     f'Ráfaga de {count} llamadas a "{vision_provider}: {model_name}" terminada — '
-                    f'{ok} exitosas, {count - ok} fallaron. Mirá el detalle y el historial de cortes abajo.',
+                    f'{ok} exitosas, {count - ok} fallaron. El detalle y el historial de cortes se muestran abajo.',
                     extra_tags='general',
                 )
             return redirect('material:groq_monitor_page')
@@ -11959,7 +11959,7 @@ def groq_monitor_page(request):
             from .groq_monitor import run_test
             fixture_key = request.POST.get('fixture') or None
             run_test(fixture_key=fixture_key)
-            messages.success(request, 'Corrida manual ejecutada — mirá el resultado en la tabla.', extra_tags='general')
+            messages.success(request, 'Corrida manual ejecutada — el resultado está en la tabla.', extra_tags='general')
         return redirect('material:groq_monitor_page')
 
     runs = list(GroqMonitorRun.objects.all()[:200])

@@ -24,7 +24,7 @@ PROMPT_PLACEHOLDERS = {
 
 DEFAULT_TEMPERATURE = 0.2
 
-DEFAULT_PROMPT_TEMPLATE = """Analizá el siguiente texto educativo del capítulo "{chapter_title}" {context_note} y generá exactamente {num_questions} preguntas variadas.
+DEFAULT_PROMPT_TEMPLATE = """Analice el siguiente texto educativo del capítulo "{chapter_title}" {context_note} y genere exactamente {num_questions} preguntas variadas.
 {images_note}
 TEXTO:
 {content}
@@ -33,19 +33,19 @@ TIPOS DE PREGUNTAS HABILITADOS:
 {enabled_descriptions}
 {existing_block}
 REGLAS:
-- Generá exactamente {num_questions} preguntas basándote ÚNICAMENTE en el texto anterior.
-- No inventes datos, cifras, nombres, fechas ni conceptos que no estén explícitamente en el TEXTO. Si no estás seguro de que algo esté en el texto, no lo uses.
-- Antes de responder, verificá mentalmente que cada afirmación de cada pregunta, opción y respuesta sea verificable palabra por palabra en el TEXTO dado.
-- Si el texto no alcanza para armar una pregunta de calidad sobre un aspecto puntual, elegí otro aspecto mejor cubierto en el texto en vez de completar con información inventada.
+- Genere exactamente {num_questions} preguntas basándose ÚNICAMENTE en el texto anterior.
+- No invente datos, cifras, nombres, fechas ni conceptos que no estén explícitamente en el TEXTO. Si no está seguro de que algo esté en el texto, no lo use.
+- Antes de responder, verifique mentalmente que cada afirmación de cada pregunta, opción y respuesta sea verificable palabra por palabra en el TEXTO dado.
+- Si el texto no alcanza para armar una pregunta de calidad sobre un aspecto puntual, elija otro aspecto mejor cubierto en el texto en vez de completar con información inventada.
 - El bloque "Formato JSON requerido" de más abajo es solo un ejemplo de ESTRUCTURA: su contenido de ejemplo es ficticio, no forma parte del TEXTO, y nunca debe copiarse, parafrasearse ni reutilizarse como si fuera una pregunta real.
-- Distribuí los tipos de manera relativamente pareja entre los tipos habilitados.
-- Variá la dificultad: dificultad 1-2 (fácil), 3 (media), 4-5 (difícil).
-- Para "opcion_multiple": siempre 4 opciones con prefijo A), B), C), D). Los distractores (opciones incorrectas) deben ser plausibles pero verificablemente falsos según el TEXTO — no los inventes con datos de fuera del texto.
-- Para "completar_blank": escribí la pregunta con [___] donde va la respuesta.
+- Distribuya los tipos de manera relativamente pareja entre los tipos habilitados.
+- Varíe la dificultad: dificultad 1-2 (fácil), 3 (media), 4-5 (difícil).
+- Para "opcion_multiple": siempre 4 opciones con prefijo A), B), C), D). Los distractores (opciones incorrectas) deben ser plausibles pero verificablemente falsos según el TEXTO — no los invente con datos de fuera del texto.
+- Para "completar_blank": escriba la pregunta con [___] donde va la respuesta.
 - Para "verdadero_falso": la respuesta debe ser exactamente "Verdadero" o "Falso".
 - Para "desarrollo": la respuesta es la respuesta de referencia del docente (no del alumno).
-- No incluyas referencias a páginas, títulos de sección ni numeración.
-- Respondé SOLO con JSON válido, sin bloques de código markdown.
+- No incluya referencias a páginas, títulos de sección ni numeración.
+- Responda SOLO con JSON válido, sin bloques de código markdown.
 
 Formato JSON requerido:
 {{
@@ -77,7 +77,7 @@ Formato JSON requerido:
       "bloom_nivel": 1
     }},
     {{
-      "pregunta": "Explicá cómo ocurre el proceso X.",
+      "pregunta": "Explique cómo ocurre el proceso X.",
       "tipo": "desarrollo",
       "respuesta": "Respuesta de referencia: El proceso X ocurre cuando...",
       "explicacion": "Evalúa comprensión profunda del proceso.",

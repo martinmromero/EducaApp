@@ -327,7 +327,7 @@ class ExamTemplateForm(forms.ModelForm):
             }),
             'catedra': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Ej: Cátedra A - Prof. Pérez (opcional)',
+                'placeholder': 'Ej: Cátedra A - Docente Pérez (opcional)',
             }),
             'learning_outcomes': forms.CheckboxSelectMultiple(
                 attrs={'class': 'learning-outcomes-checkbox'}
@@ -427,7 +427,7 @@ class CustomLoginForm(AuthenticationForm):
     def confirm_login_allowed(self, user):
         if not user.is_active:
             raise forms.ValidationError(
-                "Cuenta inactiva. Contacta al administrador.",
+                "Cuenta inactiva. Contactar al administrador.",
                 code='inactive',
             )
 
