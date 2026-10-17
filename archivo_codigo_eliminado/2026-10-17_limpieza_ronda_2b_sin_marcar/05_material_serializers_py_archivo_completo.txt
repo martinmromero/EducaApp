@@ -1,0 +1,13 @@
+SECTOR: material/serializers.py (archivo completo)
+ORIGEN: material/serializers.py (líneas 1-8 en el commit 18be49e)
+MOTIVO: Único serializer del proyecto (InstitutionV2Serializer) sin ningún import: quedó del primer intento de CRUD de instituciones como API (commit c1149ce), reemplazado por vistas Django normales.
+RESTAURAR: git show 18be49e:material/serializers.py  (el texto exacto está abajo)
+==============================================================================
+# material/serializers.py
+from rest_framework import serializers
+from .models import InstitutionV2
+
+class InstitutionV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = InstitutionV2
+        fields = '__all__'

@@ -67,3 +67,27 @@ def delete_contenido_files_on_logout(sender, request, user, **kwargs):
             "Error al limpiar archivos de contenido en logout de %s: %s",
             getattr(user, 'username', '?'), exc
         )
+
+# ── Opciones de filtro en caché (ver material/column_filters.py) ─────────────
+# Cualquier alta, cambio o baja de lo que alimenta las opciones de los filtros por
+# columna descarta la caché corta, así que una pregunta, un tópico o una materia
+# recién creados aparecen en el filtro de inmediato.
+from django.apps import apps as _apps
+from django.db.models.signals import m2m_changed, post_delete
+
+
+def _invalidate_filter_options(sender, **kwargs):
+    from .column_filters import invalidate_filter_options_cache
+    invalidate_filter_options_cache()
+
+
+_MODELOS_QUE_ALIMENTAN_FILTROS = (
+    'Question', 'Topic', 'Subtopic', 'Exam', 'ExamTemplate', 'ExamVersionBatch', 'OralExamSet',
+    'Subject', 'Career', 'CareerSubject', 'InstitutionV2', 'FacultyV2', 'CampusV2',
+    'InstitutionCareer', 'InstitutionSubject', 'UserInstitution', 'Contenido', 'Favorite',
+)
+for _nombre in _MODELOS_QUE_ALIMENTAN_FILTROS:
+    _modelo = _apps.get_model('material', _nombre)
+    post_save.connect(_invalidate_filter_options, sender=_modelo, weak=False, dispatch_uid=f'filtros_save_{_nombre}')
+    post_delete.connect(_invalidate_filter_options, sender=_modelo, weak=False, dispatch_uid=f'filtros_delete_{_nombre}')
+m2m_changed.connect(_invalidate_filter_options, weak=False, dispatch_uid='filtros_m2m')

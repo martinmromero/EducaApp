@@ -1,0 +1,6 @@
+SECTOR: rest_framework en INSTALLED_APPS
+ORIGEN: educaapp/settings.py (líneas 56-56 en el commit 18be49e)
+MOTIVO: No hay ninguna vista, router ni configuración de DRF.
+RESTAURAR: git show 18be49e:educaapp/settings.py  (el texto exacto está abajo)
+==============================================================================
+    'rest_framework', 

@@ -402,3 +402,55 @@ class LimpiezaRonda2Tests(TestCase):
         self.assertEqual(r.status_code, 302)
         plantilla.refresh_from_db()
         self.assertEqual(plantilla.name, 'Mi plantilla')
+
+
+class CacheDeOpcionesDeFiltroTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.ana = make_user('f_ana')
+        self.beto = make_user('f_beto')
+        self.materia = Subject.objects.create(name='Historia', created_by=self.ana)
+        self.tema = Topic.objects.create(name='Tema 1', subject=self.materia, created_by=self.ana)
+        self.q = Question.objects.create(question_text='P1', answer_text='r', user=self.ana, topic=self.tema, bloom_level=1)
+        self.q.subjects.add(self.materia)
+
+    def _opciones(self, user, query=''):
+        from django.test import RequestFactory
+        from .column_filters import get_filter_options, get_selected_filters
+        from .views import QUESTION_FILTER_FIELDS
+        request = RequestFactory().get('/lista-preguntas/' + query)
+        request.user = user
+        selected = get_selected_filters(request, QUESTION_FILTER_FIELDS)
+        return get_filter_options(Question.objects.filter(user=user), QUESTION_FILTER_FIELDS, selected, request=request)
+
+    def test_la_segunda_llamada_no_toca_la_base(self):
+        primera = self._opciones(self.ana)
+        with self.assertNumQueries(0):
+            segunda = self._opciones(self.ana)
+        self.assertEqual(primera, segunda)
+
+    def test_un_tema_nuevo_aparece_enseguida(self):
+        antes = {o['label'] for o in self._opciones(self.ana)['topic']}
+        nuevo = Topic.objects.create(name='Tema 2', subject=self.materia, created_by=self.ana)
+        Question.objects.create(question_text='P2', answer_text='r', user=self.ana, topic=nuevo, bloom_level=2)
+        despues = {o['label'] for o in self._opciones(self.ana)['topic']}
+        self.assertNotIn('Tema 2', antes)
+        self.assertIn('Tema 2', despues)
+
+    def test_cada_usuario_y_cada_url_tienen_su_entrada(self):
+        self._opciones(self.ana)
+        # Otro usuario: no reutiliza lo de Ana (y no ve sus temas).
+        self.assertEqual([o['label'] for o in self._opciones(self.beto)['topic'] if o['value'] != '__none__'], [])
+        # Misma persona con otros parámetros: calcula de nuevo, no devuelve lo anterior.
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        with CaptureQueriesContext(connection) as ctx:
+            self._opciones(self.ana, '?bloom_level=1')
+        self.assertGreater(len(ctx), 0)
+
+    def test_borrar_invalida(self):
+        self._opciones(self.ana)
+        self.q.delete()
+        topicos = [o for o in self._opciones(self.ana)['topic'] if o['value'] != '__none__']
+        self.assertEqual(topicos, [])

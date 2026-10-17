@@ -1,0 +1,51 @@
+SECTOR: Vista split_text_chunks
+ORIGEN: material/views_document_processor.py (líneas 310-353 en el commit 18be49e)
+MOTIVO: Nadie la llamaba (ni templates, ni JS, ni tests): el procesador divide el texto por dentro con split_text_by_tokens.
+RESTAURAR: git show 18be49e:material/views_document_processor.py  (el texto exacto está abajo)
+==============================================================================
+@login_required
+@require_http_methods(["POST"])
+def split_text_chunks(request):
+    """
+    Divide un texto en chunks según límite de tokens.
+    
+    POST params:
+        - text: texto a dividir
+        - max_tokens: límite por chunk (default: 4000)
+    
+    Returns:
+        JSON con chunks
+    """
+    text = request.POST.get('text', '')
+    max_tokens = int(request.POST.get('max_tokens', 4000))
+    
+    if not text:
+        return JsonResponse({
+            'success': False,
+            'error': 'No se proporcionó texto'
+        }, status=400)
+    
+    try:
+        chunks = split_text_by_tokens(text, max_tokens=max_tokens)
+        
+        return JsonResponse({
+            'success': True,
+            'total_chunks': len(chunks),
+            'max_tokens_per_chunk': max_tokens,
+            'chunks': [
+                {
+                    'chunk_number': i + 1,
+                    'tokens': count_tokens(chunk),
+                    'preview': chunk[:100] + '...' if len(chunk) > 100 else chunk
+                }
+                for i, chunk in enumerate(chunks)
+            ]
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+

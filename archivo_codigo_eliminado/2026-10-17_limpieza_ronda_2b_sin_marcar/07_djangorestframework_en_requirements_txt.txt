@@ -1,0 +1,6 @@
+SECTOR: djangorestframework en requirements.txt
+ORIGEN: requirements.txt (líneas 6-6 en el commit 18be49e)
+MOTIVO: Ya nada lo importa.
+RESTAURAR: git show 18be49e:requirements.txt  (el texto exacto está abajo)
+==============================================================================
+djangorestframework==3.16.0

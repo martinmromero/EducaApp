@@ -1,0 +1,6 @@
+SECTOR: URL split_text_chunks
+ORIGEN: material/urls.py (líneas 89-89 en el commit 18be49e)
+MOTIVO: Ruta de la vista eliminada.
+RESTAURAR: git show 18be49e:material/urls.py  (el texto exacto está abajo)
+==============================================================================
+    path('doc-processor/split-chunks/', doc_views.split_text_chunks, name='split_text_chunks'),

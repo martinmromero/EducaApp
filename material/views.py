@@ -3086,7 +3086,7 @@ def list_exam_templates_filtros(request):
     lista_preguntas_filtros)."""
     base_templates = _exam_template_base_queryset(request)
     selected_filters = get_selected_filters(request, EXAM_TEMPLATE_FILTER_FIELDS)
-    filter_options = get_filter_options(base_templates, EXAM_TEMPLATE_FILTER_FIELDS, selected_filters)
+    filter_options = get_filter_options(base_templates, EXAM_TEMPLATE_FILTER_FIELDS, selected_filters, request=request)
     return JsonResponse(filter_options)
 
 
@@ -3104,7 +3104,7 @@ def list_exam_templates(request):
     )
 
     selected_filters = get_selected_filters(request, EXAM_TEMPLATE_FILTER_FIELDS)
-    filter_options = get_filter_options(base_templates, EXAM_TEMPLATE_FILTER_FIELDS, selected_filters)
+    filter_options = get_filter_options(base_templates, EXAM_TEMPLATE_FILTER_FIELDS, selected_filters, request=request)
     templates = apply_column_filters(request, base_templates, EXAM_TEMPLATE_FILTER_FIELDS).order_by('-created_at')
 
     favorite_ids = set(Favorite.objects.filter(
@@ -3591,7 +3591,7 @@ def _compute_mis_examenes_filter_options(request, examenes_qs, batches_qs):
     if not option_querysets:
         option_querysets = [examenes_qs.none()]
 
-    filter_options = get_filter_options(option_querysets, MIS_EXAMENES_FILTER_FIELDS, selected_filters)
+    filter_options = get_filter_options(option_querysets, MIS_EXAMENES_FILTER_FIELDS, selected_filters, request=request)
     filter_options['kind'] = MIS_EXAMENES_KIND_OPTIONS
     return selected_filters, filter_options, include_exams, include_batches
 
@@ -4090,7 +4090,7 @@ def _compute_question_filter_options(request, base_preguntas):
     # Opciones de tema/subtema/bloom en cascada respecto a materia y estado IA.
     scoped_generic = _apply_subject_filter(base_preguntas, subject_selected)
     scoped_generic = _apply_ai_status_filter(scoped_generic, ai_status_selected)
-    filter_options = get_filter_options(scoped_generic, QUESTION_FILTER_FIELDS, selected_filters)
+    filter_options = get_filter_options(scoped_generic, QUESTION_FILTER_FIELDS, selected_filters, request=request)
 
     # Opciones de materia en cascada respecto a tema/subtema/bloom y estado IA
     # (nunca respecto a la propia materia, para no autoexcluirse).
@@ -5303,6 +5303,9 @@ def _save_imported_questions(pending, subject, errors):
             SubjectLink.objects.bulk_create([
                 SubjectLink(question_id=q.pk, subject_id=subject.pk) for q in questions
             ])
+        # bulk_create no dispara señales: se descartan a mano las opciones de filtro en caché.
+        from .column_filters import invalidate_filter_options_cache
+        invalidate_filter_options_cache()
         return len(questions)
     except Exception as exc:
         logger.warning("Carga masiva: falló el guardado en bloque (%s); reintentando fila por fila.", exc)
@@ -5549,7 +5552,7 @@ def institution_v2_list_filtros(request):
         _ensure_institution_v2_logo_b64_column()
         institutions = _institution_v2_base_queryset(request)
         selected_filters = get_selected_filters(request, INSTITUTION_V2_FILTER_FIELDS)
-        filter_options = get_filter_options(institutions, INSTITUTION_V2_FILTER_FIELDS, selected_filters)
+        filter_options = get_filter_options(institutions, INSTITUTION_V2_FILTER_FIELDS, selected_filters, request=request)
     except DatabaseError as e:
         logger.error(f"Error DB en institution_v2_list_filtros: {str(e)}", exc_info=True)
         filter_options = {f.name: [] for f in INSTITUTION_V2_FILTER_FIELDS}
@@ -5651,7 +5654,7 @@ def institution_v2_list(request):
         only_personal = request.GET.get('personal') == '1'
 
         selected_filters = get_selected_filters(request, INSTITUTION_V2_FILTER_FIELDS)
-        filter_options = get_filter_options(institutions, INSTITUTION_V2_FILTER_FIELDS, selected_filters)
+        filter_options = get_filter_options(institutions, INSTITUTION_V2_FILTER_FIELDS, selected_filters, request=request)
         institutions = apply_column_filters(request, institutions, INSTITUTION_V2_FILTER_FIELDS)
 
         # defer('logo_b64'): el listado ya sabe si hay logo (anotación
@@ -6353,7 +6356,7 @@ def subject_list_filtros(request):
     (Institución/Facultades/Carreras)."""
     subjects = _subject_base_queryset(request)
     selected_filters = get_selected_filters(request, SUBJECT_FILTER_FIELDS)
-    filter_options = get_filter_options(subjects, SUBJECT_FILTER_FIELDS, selected_filters)
+    filter_options = get_filter_options(subjects, SUBJECT_FILTER_FIELDS, selected_filters, request=request)
     return JsonResponse(filter_options)
 
 
@@ -6365,7 +6368,7 @@ def subject_list(request):
 
     subjects = _subject_base_queryset(request)
     selected_filters = get_selected_filters(request, SUBJECT_FILTER_FIELDS)
-    filter_options = get_filter_options(subjects, SUBJECT_FILTER_FIELDS, selected_filters)
+    filter_options = get_filter_options(subjects, SUBJECT_FILTER_FIELDS, selected_filters, request=request)
     subjects = apply_column_filters(request, subjects, SUBJECT_FILTER_FIELDS).distinct()
 
     # Búsqueda por tipeo — mismo motor de parecido que check_catalog_duplicate
@@ -6811,7 +6814,7 @@ def career_list_filtros(request):
     Carreras (Facultades/Campus/Materias)."""
     careers = _career_base_queryset(request)
     selected_filters = get_selected_filters(request, CAREER_FILTER_FIELDS)
-    filter_options = get_filter_options(careers, CAREER_FILTER_FIELDS, selected_filters)
+    filter_options = get_filter_options(careers, CAREER_FILTER_FIELDS, selected_filters, request=request)
     return JsonResponse(filter_options)
 
 
@@ -6821,7 +6824,7 @@ def career_list(request):
     only_personal = request.GET.get('personal') == '1'
 
     selected_filters = get_selected_filters(request, CAREER_FILTER_FIELDS)
-    filter_options = get_filter_options(careers, CAREER_FILTER_FIELDS, selected_filters)
+    filter_options = get_filter_options(careers, CAREER_FILTER_FIELDS, selected_filters, request=request)
     careers = apply_column_filters(request, careers, CAREER_FILTER_FIELDS)
 
     paginator = Paginator(careers, 10)
@@ -7946,7 +7949,7 @@ def list_oral_exams(request):
     base_qs = OralExamSet.objects.filter(user=request.user)
 
     selected_filters = get_selected_filters(request, ORAL_EXAM_FILTER_FIELDS)
-    filter_options = get_filter_options(base_qs, ORAL_EXAM_FILTER_FIELDS, selected_filters)
+    filter_options = get_filter_options(base_qs, ORAL_EXAM_FILTER_FIELDS, selected_filters, request=request)
     oral_exams = apply_column_filters(request, base_qs, ORAL_EXAM_FILTER_FIELDS).order_by('-created_at')
 
     favorite_ids = set(Favorite.objects.filter(
@@ -10543,6 +10546,9 @@ def _fusionar_en_destino(tipo, origen, destino):
             raise ValueError('ese tipo no admite fusión')
 
         origen.delete()
+    # Las fusiones usan update() masivos (sin señales): se descartan las opciones de filtro en caché.
+    from .column_filters import invalidate_filter_options_cache
+    invalidate_filter_options_cache()
 
 
 def resolve_catalog_request_fusion(solicitud, *, admin_user, destino_id):

@@ -41,8 +41,36 @@ asi no hace falta anidarlos dentro de otro <form> ya existente, p.ej. el de
 borrado multiple).
 """
 
+import hashlib
+import time
+
+from django.core.cache import cache
+
+
 
 NONE_VALUE = '__none__'  # valor especial para "sin {campo}" (NULL / vacio)
+
+# Caché corto de las opciones de filtro. Cada pantalla con filtros hacía entre 1 y 6
+# consultas solo para calcular las opciones (Preguntas y Plantillas, 6): en Neon, a
+# 30-80 ms cada una, eran 180-480 ms por visita. Las opciones se guardan 60 segundos
+# por usuario + pantalla + parámetros de la URL, y se invalidan solas apenas se
+# guarda o borra algo que puede cambiarlas (ver material/signals.py). Las altas masivas
+# (bulk_create) y los .update() no disparan señales: llaman a invalidate_filter_options_cache()
+# a mano o, si no, el vencimiento de 60 s las recoge.
+FILTER_OPTIONS_CACHE_SECONDS = 60
+_FILTER_CACHE_VERSION_KEY = 'colfilters:version'
+
+
+def invalidate_filter_options_cache():
+    """Descarta todas las opciones de filtro guardadas (cambia la versión de la clave)."""
+    cache.set(_FILTER_CACHE_VERSION_KEY, time.time_ns(), None)
+
+
+def _filter_cache_key(request, fields):
+    version = cache.get(_FILTER_CACHE_VERSION_KEY, 0)
+    params = sorted((k, tuple(sorted(v))) for k, v in request.GET.lists() if k != 'page')
+    raw = repr((version, request.user.pk, request.path, tuple(f.name for f in fields), params))
+    return 'colfilters:' + hashlib.sha1(raw.encode('utf-8')).hexdigest()
 
 
 class ColumnFilterField:
@@ -216,7 +244,7 @@ def _field_options(scoped_querysets, field):
     return none_option + sorted(({'value': v, 'label': l} for v, l in seen.items()), key=lambda o: o['label'])
 
 
-def get_filter_options(base_qs_or_list, fields, selected_filters):
+def get_filter_options(base_qs_or_list, fields, selected_filters, request=None):
     """Calcula, para cada columna, los valores distintos disponibles EN CASCADA:
     solo se consideran las filas que ya cumplen los filtros activos en las
     DEMAS columnas (nunca el propio, para no autoexcluirse).
@@ -225,10 +253,21 @@ def get_filter_options(base_qs_or_list, fields, selected_filters):
     (por ejemplo cuando un listado combina mas de un modelo, como examenes
     individuales + lotes en "Mis examenes"); en ese caso las opciones son la
     union de lo que aparece en cada una.
+
+    Con `request`, el resultado se guarda en caché unos segundos (ver arriba): la clave
+    incluye el usuario, la pantalla y todos los parámetros de la URL, que son lo que
+    define el queryset base y los filtros activos.
     """
+    key = _filter_cache_key(request, fields) if request is not None else None
+    if key is not None:
+        cached = cache.get(key)
+        if cached is not None:
+            return cached
     querysets = base_qs_or_list if isinstance(base_qs_or_list, (list, tuple)) else [base_qs_or_list]
     options = {}
     for field in fields:
         scoped = _scoped_querysets(querysets, fields, selected_filters, exclude_field=field.name)
         options[field.name] = _field_options(scoped, field)
+    if key is not None:
+        cache.set(key, options, FILTER_OPTIONS_CACHE_SECONDS)
     return options

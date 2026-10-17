@@ -139,7 +139,6 @@ La aplicación estará disponible en `http://127.0.0.1:8000/`
 | python-pptx | 0.6.23 | Procesamiento de archivos PowerPoint |
 | django-crispy-forms | 2.4 | Formularios mejorados |
 | crispy-bootstrap5 | - | Integración Bootstrap 5 |
-| djangorestframework | 3.16.0 | APIs REST |
 | django-debug-toolbar | 4.2.0 | Herramientas de desarrollo |
 | django-extensions | 3.2.3 | Utilidades adicionales para Django |
 

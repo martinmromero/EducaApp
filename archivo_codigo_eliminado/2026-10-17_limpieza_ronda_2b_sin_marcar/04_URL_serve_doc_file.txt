@@ -1,0 +1,6 @@
+SECTOR: URL serve_doc_file
+ORIGEN: material/urls.py (líneas 104-104 en el commit 18be49e)
+MOTIVO: Ruta de la vista eliminada.
+RESTAURAR: git show 18be49e:material/urls.py  (el texto exacto está abajo)
+==============================================================================
+    path('doc-processor/serve-file/', doc_views.serve_doc_file, name='serve_doc_file'),
