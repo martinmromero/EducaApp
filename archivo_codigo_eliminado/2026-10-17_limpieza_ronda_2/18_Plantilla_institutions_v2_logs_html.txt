@@ -1,3 +1,8 @@
+SECTOR: Plantilla institutions_v2/logs.html
+ORIGEN: material/templates/material/institutions_v2/logs.html (líneas 1-75 en el commit b90b896)
+MOTIVO: Solo la leía institution_v2_logs.
+RESTAURAR: git show b90b896:material/templates/material/institutions_v2/logs.html
+==============================================================================
 {% extends "material/base.html" %}
 
 {% block content %}

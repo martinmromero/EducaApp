@@ -365,3 +365,40 @@ class RutasQueDabanErrorTests(TestCase):
         c = Client()
         c.force_login(admin)
         self.assertEqual(c.get('/admin/material/subject/add/').status_code, 200)
+
+
+class LimpiezaRonda2Tests(TestCase):
+    """Lo que quedó tras eliminar el código marcado "CANDIDATO A BORRAR" (2026-10-17)."""
+
+    def setUp(self):
+        self.user = make_user('l_ana')
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def test_las_rutas_eliminadas_ya_no_existen(self):
+        from django.urls import NoReverseMatch
+        for nombre, kwargs in (('institution_v2_logs', {'pk': 1}), ('download_template', {'format': 'csv'})):
+            with self.assertRaises(NoReverseMatch):
+                reverse('material:' + nombre, kwargs=kwargs)
+        self.assertEqual(self.client.get('/instituciones-v2/logs/1/').status_code, 404)
+        self.assertEqual(self.client.get('/download-template/csv/').status_code, 404)
+
+    def test_la_ruta_de_resultados_de_aprendizaje_sigue_viva(self):
+        self.assertEqual(self.client.get(reverse('material:get_learning_outcomes')).status_code, 200)
+
+    def test_editar_plantilla_abre_y_un_post_directo_no_guarda(self):
+        from .models import ExamTemplate
+        from .models import FacultyV2, InstitutionV2
+        materia = Subject.objects.create(name='Álgebra', created_by=self.user)
+        inst = InstitutionV2.objects.create(name='Inst L', created_by=self.user)
+        fac = FacultyV2.objects.create(name='Fac L', institution=inst, created_by=self.user)
+        carrera = Career.objects.create(name='Carrera L', created_by=self.user, es_catalogo_institucional=False)
+        plantilla = ExamTemplate.objects.create(
+            name='Mi plantilla', created_by=self.user, subject=materia,
+            institution=inst, faculty=fac, career=carrera)
+        url = reverse('material:edit_exam_template', args=[plantilla.pk])
+        self.assertEqual(self.client.get(url).status_code, 200)
+        r = self.client.post(url, {'name': 'Cambiado por POST directo'})
+        self.assertEqual(r.status_code, 302)
+        plantilla.refresh_from_db()
+        self.assertEqual(plantilla.name, 'Mi plantilla')

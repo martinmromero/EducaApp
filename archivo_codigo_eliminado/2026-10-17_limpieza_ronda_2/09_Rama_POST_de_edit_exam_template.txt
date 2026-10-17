@@ -1,0 +1,93 @@
+SECTOR: Rama POST de edit_exam_template
+ORIGEN: material/views.py (líneas 2723-2810 en el commit b90b896)
+MOTIVO: Inalcanzable desde la UI (el JS hace preventDefault del envío nativo); con prints de depuración. Se reemplazó por un aviso.
+RESTAURAR: git show b90b896:material/views.py  (el texto exacto está abajo)
+==============================================================================
+    if request.method == 'POST':
+        # CANDIDATO A BORRAR (QA 2026-09-10): create_exam_template.js hace
+        # e.preventDefault() incondicional sobre el submit nativo de este
+        # form — el guardado real siempre pasa por AJAX a
+        # material:save_exam_template. Esta rama (con los prints de debug
+        # de abajo) parece inalcanzable desde la UI actual. Confirmar antes
+        # de borrar.
+        # Debug: Ver qué datos se están enviando
+        print(f"DEBUG: Datos POST recibidos: {dict(request.POST)}")
+        
+        form = ExamTemplateForm(request.POST, instance=template, user=request.user)
+        
+        # Debug: Información del template original
+        print(f"DEBUG: Template original ID: {template.id}")
+        print(f"DEBUG: Template original created_by: {template.created_by}")
+        print(f"DEBUG: Form instance ID antes de validar: {form.instance.id if hasattr(form, 'instance') else 'No instance'}")
+        print(f"DEBUG: Form instance es el mismo objeto?: {form.instance is template}")
+        
+        if form.is_valid():
+            try:
+                # Verificar que el formulario mantenga la instancia correcta
+                exam_template = form.save(commit=False)
+                
+                print(f"DEBUG: Después de form.save(commit=False):")
+                print(f"  - ID: {exam_template.id}")
+                print(f"  - PK: {exam_template.pk}")
+                print(f"  - created_by: {exam_template.created_by}")
+                print(f"  - Es el mismo objeto que el template original?: {exam_template is template}")
+                
+                # Verificar si hay algún campo que esté causando problemas
+                print(f"DEBUG: Campos del formulario cambiados: {form.changed_data}")
+                
+                # Guardar
+                exam_template.save()
+                form.save_m2m()
+
+                # ── Actualizar snapshots (el usuario editó conscientemente la plantilla) ──
+                exam_template.institution_name_snapshot = exam_template.institution.name if exam_template.institution_id else ''
+                exam_template.faculty_name_snapshot     = exam_template.faculty.name     if exam_template.faculty_id     else ''
+                exam_template.campus_name_snapshot      = exam_template.campus.name      if exam_template.campus_id      else ''
+                exam_template.career_name_snapshot      = exam_template.career.name      if exam_template.career_id      else ''
+                exam_template.subject_name_snapshot     = exam_template.subject.name     if exam_template.subject_id     else ''
+                exam_template.outcomes_snapshot = list(
+                    exam_template.learning_outcomes.values_list('description', flat=True)
+                )
+                exam_template.save(update_fields=[
+                    'institution_name_snapshot', 'faculty_name_snapshot', 'campus_name_snapshot',
+                    'career_name_snapshot', 'subject_name_snapshot', 'outcomes_snapshot',
+                ])
+                
+                print(f"DEBUG: Después de save():")
+                print(f"  - ID final: {exam_template.id}")
+                print(f"  - PK final: {exam_template.pk}")
+                
+                # Verificar en la base de datos
+                updated_template = ExamTemplate.objects.get(id=template_id)
+                print(f"DEBUG: Template desde DB - ID: {updated_template.id}, created_by: {updated_template.created_by}")
+                
+                messages.success(request, f'Plantilla con ID {exam_template.id} actualizada exitosamente.', extra_tags='plantillas')
+                return redirect('material:list_exam_templates')
+                
+            except Exception as e:
+                print(f"DEBUG: Error al guardar: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                messages.error(request, f'Error al actualizar la plantilla: {str(e)}', extra_tags='plantillas')
+        else:
+            print(f"DEBUG: Errores del formulario: {form.errors}")
+            print(f"DEBUG: Non-field errors: {form.non_field_errors()}")
+            field_errors = []
+            for field_name, errors in form.errors.items():
+                if field_name == '__all__':
+                    field_errors.extend(str(err) for err in errors)
+                    continue
+                label = form.fields.get(field_name).label if field_name in form.fields else field_name
+                for err in errors:
+                    field_errors.append(f"{label}: {err}")
+            if field_errors:
+                messages.error(
+                    request,
+                    'Por favor corrige los errores en el formulario: ' + ' | '.join(field_errors),
+                    extra_tags='plantillas'
+                )
+            else:
+                messages.error(request, 'Por favor corrige los errores en el formulario.', extra_tags='plantillas')
+    else:
+        # GET request - crear formulario con la instancia existente
+        form = ExamTemplateForm(instance=template, user=request.user)

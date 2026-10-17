@@ -1,0 +1,12 @@
+SECTOR: Lectura de InstitutionLog en institution_v2_detail
+ORIGEN: material/views.py (líneas 6232-6238 en el commit b90b896)
+MOTIVO: El detalle pasaba "logs" al template pero detail.html nunca lo usa.
+RESTAURAR: git show b90b896:material/views.py  (el texto exacto está abajo)
+==============================================================================
+    logs = InstitutionLog.objects.filter(institution=institution).order_by('-created_at')
+
+    context = {
+        'institution': institution,
+        'is_favorite': is_favorite,
+        'logs': logs
+    }

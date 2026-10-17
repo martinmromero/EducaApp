@@ -1,0 +1,6 @@
+SECTOR: Import de InstitutionLog en views.py
+ORIGEN: material/views.py (líneas 634-634 en el commit b90b896)
+MOTIVO: El modelo ya no existe.
+RESTAURAR: git show b90b896:material/views.py  (el texto exacto está abajo)
+==============================================================================
+from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer, InstitutionSubject)

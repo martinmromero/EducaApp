@@ -1,0 +1,6 @@
+SECTOR: institution_v2_logs en tests_qa_smoke
+ORIGEN: material/tests_qa_smoke.py (líneas 46-46 en el commit b90b896)
+MOTIVO: La vista ya no existe.
+RESTAURAR: git show b90b896:material/tests_qa_smoke.py  (el texto exacto está abajo)
+==============================================================================
+    ('institution_v2_logs', lambda f: {'pk': f['institucion'].pk}),

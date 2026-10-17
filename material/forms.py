@@ -479,18 +479,6 @@ class UserEditForm(forms.ModelForm):
                 except ValidationError as e:
                     self.add_error('new_password1', e)
         return cleaned_data
-    # CANDIDATO A BORRAR (auditoría 2026-08-03, ver memoria
-    # project_institution_v1_cleanup): existió acá un campo "institutions"
-    # que mostraba instituciones de InstitutionV2 pero al guardar intentaba
-    # escribirlas en Profile.institutions, un ManyToMany al modelo
-    # `Institution` v1 (tipos incompatibles) — Django tira TypeError al
-    # guardar si alguna vez se completa ese campo. No crasheaba en producción
-    # solo porque edit_user.html nunca lo renderiza (nadie llega a
-    # completarlo hoy), pero es una trampa activa. Se sacó del todo: la
-    # relación real usuario↔institución ya vive en UserInstitution (V2),
-    # que es la que usa el resto de la app — este formulario no necesita
-    # duplicarla.
-
     class Meta:
         model = User
         fields = ['username', 'first_name', 'last_name', 'email', 'is_active', 'role']

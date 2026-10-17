@@ -231,33 +231,6 @@ class FacultyV2(models.Model):
     def __str__(self):
         return f"{self.name} - {self.institution.name}"
 
-class InstitutionLog(models.Model):
-    # CANDIDATO A BORRAR (QA 2026-09-10, parkeado a pedido del usuario):
-    # ningún flujo real de crear/editar/borrar institución, sede o facultad
-    # escribe acá — el único .create() que existe en todo el código (al
-    # crear una plantilla de examen) le pasa una oración entera a `action`,
-    # que solo acepta un choice de máx. 10 caracteres, así que ni siquiera
-    # esa escritura sirve. La pantalla /instituciones-v2/logs/<pk>/ que lee
-    # este modelo no tiene ningún link real hacia ella desde ningún lado.
-    # Antes de borrar: confirmar que nadie llegó a usarla ni depende de ella.
-    ACTION_CHOICES = [
-        ('create', 'Creación'),
-        ('update', 'Actualización'),
-        ('delete', 'Eliminación'),
-        ('favorite', 'Favorito'),
-    ]
-
-    institution = models.ForeignKey(InstitutionV2, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
-    details = models.JSONField(default=dict)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']
-        verbose_name = "Log de Institución"
-        verbose_name_plural = "Logs de Instituciones"
-
 # Institution/Campus/Faculty (v1) fueron eliminados — ver rediseño del
 # catálogo académico público (informe "Catálogo Académico"). Reemplazados
 # en toda la app por InstitutionV2/CampusV2/FacultyV2 desde hace tiempo;

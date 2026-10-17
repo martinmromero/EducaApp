@@ -1,0 +1,9 @@
+SECTOR: Borrado de InstitutionLog al eliminar institución (1 de 2)
+ORIGEN: material/views.py (líneas 6127-6130 en el commit b90b896)
+MOTIVO: Sin modelo InstitutionLog no hay nada que borrar.
+RESTAURAR: git show b90b896:material/views.py  (el texto exacto está abajo)
+==============================================================================
+                # 3. Eliminar logs asociados
+                InstitutionLog.objects.filter(institution=institution).delete()
+                
+                # 4. Finalmente eliminar la institución

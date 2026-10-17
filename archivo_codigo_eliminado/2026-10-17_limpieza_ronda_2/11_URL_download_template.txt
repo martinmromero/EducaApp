@@ -1,0 +1,6 @@
+SECTOR: URL download_template
+ORIGEN: material/urls.py (líneas 72-72 en el commit b90b896)
+MOTIVO: Ruta de la vista eliminada.
+RESTAURAR: git show b90b896:material/urls.py  (el texto exacto está abajo)
+==============================================================================
+    path('download-template/<str:format>/', material_views.download_template, name='download_template'),

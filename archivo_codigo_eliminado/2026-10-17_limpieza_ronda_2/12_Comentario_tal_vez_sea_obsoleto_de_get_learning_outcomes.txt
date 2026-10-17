@@ -1,0 +1,6 @@
+SECTOR: Comentario "tal vez sea obsoleto" de get-learning-outcomes
+ORIGEN: material/urls.py (líneas 196-196 en el commit b90b896)
+MOTIVO: Revisado el 2026-10-17: NO es obsoleto, lo usan create_exam.js, create_exam_template.js y los dos asistentes. Se dejó la ruta y se quitó el comentario.
+RESTAURAR: git show b90b896:material/urls.py  (el texto exacto está abajo)
+==============================================================================
+#el siguiente renglon tal vez sea obsoleto. revisar cuando termine de ver temas de learning outcomes

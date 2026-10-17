@@ -43,7 +43,6 @@ NOMBRES_MATERIAL_SIN_PARAM = [
 # necesitan un pk real.
 NOMBRES_MATERIAL_CON_PARAM = [
     ('institution_v2_detail', lambda f: {'pk': f['institucion'].pk}),
-    ('institution_v2_logs', lambda f: {'pk': f['institucion'].pk}),
     ('edit_institution_v2', lambda f: {'pk': f['institucion'].pk}),
     ('career_detail', lambda f: {'pk': f['carrera'].pk}),
     ('career_associations', lambda f: {'pk': f['carrera'].pk}),

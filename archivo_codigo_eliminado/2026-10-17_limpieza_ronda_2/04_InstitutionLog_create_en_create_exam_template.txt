@@ -1,0 +1,11 @@
+SECTOR: InstitutionLog.create en create_exam_template
+ORIGEN: material/views.py (líneas 2547-2552 en el commit b90b896)
+MOTIVO: Le pasaba una oración entera a action (máx. 10 caracteres): fallaba siempre. Esa rama POST tampoco se alcanza desde la UI (el JS bloquea el envío nativo).
+RESTAURAR: git show b90b896:material/views.py  (el texto exacto está abajo)
+==============================================================================
+                    InstitutionLog.objects.create(
+                        institution=exam_template.institution,
+                        user=request.user,
+                        action=f"Creó plantilla de examen: {exam_template}"
+                    )
+                    

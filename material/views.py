@@ -631,7 +631,7 @@ from .models import (Exam, ExamTemplate, Contenido, Profile, Question, Subject, 
     OralExamSet, OralExamGroup, OralExamStudent, OralExamStudentQuestion,
     Rubric, ExamRubric, RubricLevel, RubricCriterion, RubricCell, ExamVersionBatch,
     FormatoImpresion)
-from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionLog, InstitutionCareer, InstitutionSubject)
+from .models import (InstitutionV2, CampusV2, FacultyV2, UserInstitution, InstitutionCareer, InstitutionSubject)
 from .models import CatalogRequest
 from .models import Favorite
 from .models import QuestionDeletionNotice
@@ -2544,12 +2544,6 @@ def create_exam_template(request):
                         'career_name_snapshot', 'subject_name_snapshot', 'outcomes_snapshot',
                     ])
 
-                    InstitutionLog.objects.create(
-                        institution=exam_template.institution,
-                        user=request.user,
-                        action=f"Creó plantilla de examen: {exam_template}"
-                    )
-                    
                     messages.success(
                         request, 
                         'Plantilla creada correctamente',
@@ -2721,93 +2715,12 @@ def edit_exam_template(request, template_id):
         return redirect('material:list_exam_templates')
 
     if request.method == 'POST':
-        # CANDIDATO A BORRAR (QA 2026-09-10): create_exam_template.js hace
-        # e.preventDefault() incondicional sobre el submit nativo de este
-        # form — el guardado real siempre pasa por AJAX a
-        # material:save_exam_template. Esta rama (con los prints de debug
-        # de abajo) parece inalcanzable desde la UI actual. Confirmar antes
-        # de borrar.
-        # Debug: Ver qué datos se están enviando
-        print(f"DEBUG: Datos POST recibidos: {dict(request.POST)}")
-        
-        form = ExamTemplateForm(request.POST, instance=template, user=request.user)
-        
-        # Debug: Información del template original
-        print(f"DEBUG: Template original ID: {template.id}")
-        print(f"DEBUG: Template original created_by: {template.created_by}")
-        print(f"DEBUG: Form instance ID antes de validar: {form.instance.id if hasattr(form, 'instance') else 'No instance'}")
-        print(f"DEBUG: Form instance es el mismo objeto?: {form.instance is template}")
-        
-        if form.is_valid():
-            try:
-                # Verificar que el formulario mantenga la instancia correcta
-                exam_template = form.save(commit=False)
-                
-                print(f"DEBUG: Después de form.save(commit=False):")
-                print(f"  - ID: {exam_template.id}")
-                print(f"  - PK: {exam_template.pk}")
-                print(f"  - created_by: {exam_template.created_by}")
-                print(f"  - Es el mismo objeto que el template original?: {exam_template is template}")
-                
-                # Verificar si hay algún campo que esté causando problemas
-                print(f"DEBUG: Campos del formulario cambiados: {form.changed_data}")
-                
-                # Guardar
-                exam_template.save()
-                form.save_m2m()
+        # El guardado real es por AJAX (material:save_exam_template): create_exam_template.js
+        # bloquea el envío nativo del formulario. Un POST directo a esta pantalla no guarda nada.
+        messages.warning(request, 'Para guardar los cambios, usar el botón Guardar de la plantilla.', extra_tags='plantillas')
+        return redirect('material:edit_exam_template', template_id=template_id)
 
-                # ── Actualizar snapshots (el usuario editó conscientemente la plantilla) ──
-                exam_template.institution_name_snapshot = exam_template.institution.name if exam_template.institution_id else ''
-                exam_template.faculty_name_snapshot     = exam_template.faculty.name     if exam_template.faculty_id     else ''
-                exam_template.campus_name_snapshot      = exam_template.campus.name      if exam_template.campus_id      else ''
-                exam_template.career_name_snapshot      = exam_template.career.name      if exam_template.career_id      else ''
-                exam_template.subject_name_snapshot     = exam_template.subject.name     if exam_template.subject_id     else ''
-                exam_template.outcomes_snapshot = list(
-                    exam_template.learning_outcomes.values_list('description', flat=True)
-                )
-                exam_template.save(update_fields=[
-                    'institution_name_snapshot', 'faculty_name_snapshot', 'campus_name_snapshot',
-                    'career_name_snapshot', 'subject_name_snapshot', 'outcomes_snapshot',
-                ])
-                
-                print(f"DEBUG: Después de save():")
-                print(f"  - ID final: {exam_template.id}")
-                print(f"  - PK final: {exam_template.pk}")
-                
-                # Verificar en la base de datos
-                updated_template = ExamTemplate.objects.get(id=template_id)
-                print(f"DEBUG: Template desde DB - ID: {updated_template.id}, created_by: {updated_template.created_by}")
-                
-                messages.success(request, f'Plantilla con ID {exam_template.id} actualizada exitosamente.', extra_tags='plantillas')
-                return redirect('material:list_exam_templates')
-                
-            except Exception as e:
-                print(f"DEBUG: Error al guardar: {str(e)}")
-                import traceback
-                traceback.print_exc()
-                messages.error(request, f'Error al actualizar la plantilla: {str(e)}', extra_tags='plantillas')
-        else:
-            print(f"DEBUG: Errores del formulario: {form.errors}")
-            print(f"DEBUG: Non-field errors: {form.non_field_errors()}")
-            field_errors = []
-            for field_name, errors in form.errors.items():
-                if field_name == '__all__':
-                    field_errors.extend(str(err) for err in errors)
-                    continue
-                label = form.fields.get(field_name).label if field_name in form.fields else field_name
-                for err in errors:
-                    field_errors.append(f"{label}: {err}")
-            if field_errors:
-                messages.error(
-                    request,
-                    'Por favor corrige los errores en el formulario: ' + ' | '.join(field_errors),
-                    extra_tags='plantillas'
-                )
-            else:
-                messages.error(request, 'Por favor corrige los errores en el formulario.', extra_tags='plantillas')
-    else:
-        # GET request - crear formulario con la instancia existente
-        form = ExamTemplateForm(instance=template, user=request.user)
+    form = ExamTemplateForm(instance=template, user=request.user)
 
     # Materias visibles del usuario (propias + compartidas). El fallback
     # anterior (request.user.profile.institutions, campo v1 ya muerto desde
@@ -5450,73 +5363,6 @@ def build_question_from_dict(data, contenido, user, subject, topic_cache=None, s
     )
 
 
-def download_template(request, format):
-    # CANDIDATO A BORRAR (QA 2026-09-10): la UI real de /upload-questions/
-    # (pestaña "Lote CSV/TXT") no llama a este endpoint — sus links de
-    # "Descargar ejemplo" apuntan a archivos estáticos propios
-    # (static/material/ejemplo_batch_preguntas.csv/.txt). Confirmar que
-    # sigue sin ningún caller antes de borrar.
-    if format == 'csv':
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="template.csv"'
-        writer = csv.writer(response)
-        writer.writerow(['pregunta', 'respuesta', 'tema', 'subtema', 'pagina', 'tipo', 'opciones', 'dificultad', 'nivel_bloom'])
-        writer.writerow(['¿Cuál es la capital de Francia?', 'París', 'Geografía', 'Capitales', 1, 'desarrollo', '', 2, ''])
-        writer.writerow(['¿Quién escribió "Cien años de soledad"?', 'Gabriel García Márquez', 'Literatura', 'Autores', 2, 'opcion_multiple', '["Gabriel García Márquez","Jorge Luis Borges","Julio Cortázar","Mario Vargas Llosa"]', 3, 1])
-        return response
-    elif format == 'json':
-        data = [
-            {
-                "pregunta": "¿Cuál es la capital de Francia?",
-                "respuesta": "París",
-                "tema": "Geografía",
-                "subtema": "Capitales",
-                "pagina": 1,
-                "tipo": "desarrollo",
-                "opciones": "",
-                "dificultad": 2,
-                "nivel_bloom": ""
-            },
-            {
-                "pregunta": "¿Quién escribió 'Cien años de soledad'?",
-                "respuesta": "Gabriel García Márquez",
-                "tema": "Literatura",
-                "subtema": "Autores",
-                "pagina": 2,
-                "tipo": "opcion_multiple",
-                "opciones": ["Gabriel García Márquez", "Jorge Luis Borges", "Julio Cortázar", "Mario Vargas Llosa"],
-                "dificultad": 3,
-                "nivel_bloom": 1
-            }
-        ]
-        response = HttpResponse(json.dumps(data, indent=4, ensure_ascii=False), content_type='application/json')
-        response['Content-Disposition'] = 'attachment; filename="template.json"'
-        return response
-    elif format == 'txt':
-        content = """pregunta: ¿Cuál es la capital de Francia?
-respuesta: París
-tema: Geografía
-subtema: Capitales
-pagina: 1
-tipo: desarrollo
-dificultad: 2
-
-pregunta: ¿Quién escribió 'Cien años de soledad'?
-respuesta: Gabriel García Márquez
-tema: Literatura
-subtema: Autores
-pagina: 2
-tipo: opcion_multiple
-opciones: Gabriel García Márquez|Jorge Luis Borges|Julio Cortázar|Mario Vargas Llosa
-dificultad: 3
-nivel_bloom: 1"""
-        response = HttpResponse(content, content_type='text/plain')
-        response['Content-Disposition'] = 'attachment; filename="template.txt"'
-        return response
-    else:
-        messages.error(request, 'Formato de plantilla no soportado.', extra_tags='plantillas')
-        return redirect('material:upload_questions')
-
 @login_required
 def delete_exam_template(request):
     if request.method == 'POST':
@@ -6124,10 +5970,7 @@ def delete_institution_v2(request, pk):
                 CampusV2.objects.filter(institution=institution).delete()
                 FacultyV2.objects.filter(institution=institution).delete()
                 
-                # 3. Eliminar logs asociados
-                InstitutionLog.objects.filter(institution=institution).delete()
-                
-                # 4. Finalmente eliminar la institución
+                # 3. Finalmente eliminar la institución
                 institution_name = institution.name
                 institution.delete()
                 
@@ -6170,7 +6013,6 @@ def bulk_eliminar_instituciones_v2(request):
                 UserInstitution.objects.filter(institution=institution, user=request.user).delete()
                 CampusV2.objects.filter(institution=institution).delete()
                 FacultyV2.objects.filter(institution=institution).delete()
-                InstitutionLog.objects.filter(institution=institution).delete()
                 institution.delete()
     except ProtectedError as e:
         messages.error(request, _protected_error_message(e))
@@ -6201,21 +6043,6 @@ def toggle_favorite_institution(request, pk):
     return redirect(_safe_next_url(request, reverse('material:institution_v2_detail', args=[pk])))
 
 @login_required
-def institution_v2_logs(request, pk):
-    # CANDIDATO A BORRAR (ver InstitutionLog en models.py): nada escribe
-    # logs reales acá y no hay ningún link a esta pantalla desde la app.
-    # Institución es catálogo público — lectura abierta a cualquier usuario
-    # logueado, no solo a quien la tiene vinculada como "suya".
-    institution = get_object_or_404(InstitutionV2, pk=pk)
-
-    logs = InstitutionLog.objects.filter(institution=institution).order_by('-created_at')
-
-    return render(request, 'material/institutions_v2/logs.html', {
-        'institution': institution,
-        'logs': logs
-    })
-
-@login_required
 def institution_v2_detail(request, pk):
     # Institución es catálogo público — lectura abierta a cualquier usuario
     # logueado, no solo a quien la tiene vinculada como "suya" (antes esto
@@ -6229,12 +6056,9 @@ def institution_v2_detail(request, pk):
         is_favorite=True
     ).exists()
     
-    logs = InstitutionLog.objects.filter(institution=institution).order_by('-created_at')
-
     context = {
         'institution': institution,
         'is_favorite': is_favorite,
-        'logs': logs
     }
     return render(request, 'material/institutions_v2/detail.html', context)
 

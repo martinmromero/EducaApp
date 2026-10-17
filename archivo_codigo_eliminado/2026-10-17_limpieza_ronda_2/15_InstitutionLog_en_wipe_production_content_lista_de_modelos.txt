@@ -1,0 +1,6 @@
+SECTOR: InstitutionLog en wipe_production_content (lista de modelos)
+ORIGEN: material/management/commands/wipe_production_content.py (líneas 56-56 en el commit b90b896)
+MOTIVO: El modelo ya no existe.
+RESTAURAR: git show b90b896:material/management/commands/wipe_production_content.py  (el texto exacto está abajo)
+==============================================================================
+InstitutionAIConfig, CampusV2, FacultyV2, InstitutionLog,

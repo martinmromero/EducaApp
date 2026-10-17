@@ -1,0 +1,20 @@
+SECTOR: Vista institution_v2_logs
+ORIGEN: material/views.py (líneas 6203-6216 en el commit b90b896)
+MOTIVO: Pantalla /instituciones-v2/logs/<pk>/ sin ningún link desde la app (solo un test de humo la visitaba).
+RESTAURAR: git show b90b896:material/views.py  (el texto exacto está abajo)
+==============================================================================
+@login_required
+def institution_v2_logs(request, pk):
+    # CANDIDATO A BORRAR (ver InstitutionLog en models.py): nada escribe
+    # logs reales acá y no hay ningún link a esta pantalla desde la app.
+    # Institución es catálogo público — lectura abierta a cualquier usuario
+    # logueado, no solo a quien la tiene vinculada como "suya".
+    institution = get_object_or_404(InstitutionV2, pk=pk)
+
+    logs = InstitutionLog.objects.filter(institution=institution).order_by('-created_at')
+
+    return render(request, 'material/institutions_v2/logs.html', {
+        'institution': institution,
+        'logs': logs
+    })
+

@@ -69,7 +69,6 @@ urlpatterns = [
     path('mis-contenidos/', material_views.mis_contenidos, name='mis_contenidos'),
     path('delete-contenido/', material_views.delete_contenido, name='delete_contenido'),
     path('upload-questions/', material_views.upload_questions, name='upload_questions'),
-    path('download-template/<str:format>/', material_views.download_template, name='download_template'),
     path('ver-pregunta/<int:pk>/', material_views.ver_pregunta, name='ver_pregunta'),
     path('editar-pregunta/<int:pk>/', material_views.editar_pregunta, name='editar_pregunta'),
     path('eliminar-pregunta/<int:pk>/', material_views.eliminar_pregunta, name='eliminar_pregunta'),
@@ -119,7 +118,6 @@ urlpatterns = [
     path('modo-interfaz/', material_views.set_interface_mode, name='set_interface_mode'),
     path('preferencias-listado/<str:list_key>/', list_columns.save_list_view, name='save_list_view'),
     path('instituciones-v2/detalle/<int:pk>/', material_views.institution_v2_detail, name='institution_v2_detail'),
-    path('instituciones-v2/logs/<int:pk>/', material_views.institution_v2_logs, name='institution_v2_logs'),
 # linea siguiente comentada para ser borrada:
     # path('instituciones-v2/count-favorites/', material_views.count_favorite_institutions, name='count_favorite_institutions'),
     path('instituciones-v2/<int:institution_id>/facultad/<int:faculty_id>/edit/', material_views.edit_faculty_v2, name='edit_faculty_v2'),
@@ -193,7 +191,7 @@ path('get-subjects-catalog-filters/', material_views.get_subjects_catalog_filter
 
 path('get-exam-template/<int:template_id>/', material_views.get_exam_template, name='get_exam_template'),
 
-#el siguiente renglon tal vez sea obsoleto. revisar cuando termine de ver temas de learning outcomes
+# Resultados de aprendizaje por materia: lo usan create_exam.js, create_exam_template.js y los asistentes de examen y plantilla.
 path('get-learning-outcomes/', material_views.get_learning_outcomes, name='get_learning_outcomes'),
 
 # Cuestionarios Orales

@@ -1,0 +1,72 @@
+SECTOR: Vista download_template
+ORIGEN: material/views.py (líneas 5453-5518 en el commit b90b896)
+MOTIVO: Ningún template ni JS la llama; la UI real baja ejemplos de static/material/ejemplo_batch_preguntas.csv/.txt.
+RESTAURAR: git show b90b896:material/views.py  (el texto exacto está abajo)
+==============================================================================
+def download_template(request, format):
+    # CANDIDATO A BORRAR (QA 2026-09-10): la UI real de /upload-questions/
+    # (pestaña "Lote CSV/TXT") no llama a este endpoint — sus links de
+    # "Descargar ejemplo" apuntan a archivos estáticos propios
+    # (static/material/ejemplo_batch_preguntas.csv/.txt). Confirmar que
+    # sigue sin ningún caller antes de borrar.
+    if format == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="template.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['pregunta', 'respuesta', 'tema', 'subtema', 'pagina', 'tipo', 'opciones', 'dificultad', 'nivel_bloom'])
+        writer.writerow(['¿Cuál es la capital de Francia?', 'París', 'Geografía', 'Capitales', 1, 'desarrollo', '', 2, ''])
+        writer.writerow(['¿Quién escribió "Cien años de soledad"?', 'Gabriel García Márquez', 'Literatura', 'Autores', 2, 'opcion_multiple', '["Gabriel García Márquez","Jorge Luis Borges","Julio Cortázar","Mario Vargas Llosa"]', 3, 1])
+        return response
+    elif format == 'json':
+        data = [
+            {
+                "pregunta": "¿Cuál es la capital de Francia?",
+                "respuesta": "París",
+                "tema": "Geografía",
+                "subtema": "Capitales",
+                "pagina": 1,
+                "tipo": "desarrollo",
+                "opciones": "",
+                "dificultad": 2,
+                "nivel_bloom": ""
+            },
+            {
+                "pregunta": "¿Quién escribió 'Cien años de soledad'?",
+                "respuesta": "Gabriel García Márquez",
+                "tema": "Literatura",
+                "subtema": "Autores",
+                "pagina": 2,
+                "tipo": "opcion_multiple",
+                "opciones": ["Gabriel García Márquez", "Jorge Luis Borges", "Julio Cortázar", "Mario Vargas Llosa"],
+                "dificultad": 3,
+                "nivel_bloom": 1
+            }
+        ]
+        response = HttpResponse(json.dumps(data, indent=4, ensure_ascii=False), content_type='application/json')
+        response['Content-Disposition'] = 'attachment; filename="template.json"'
+        return response
+    elif format == 'txt':
+        content = """pregunta: ¿Cuál es la capital de Francia?
+respuesta: París
+tema: Geografía
+subtema: Capitales
+pagina: 1
+tipo: desarrollo
+dificultad: 2
+
+pregunta: ¿Quién escribió 'Cien años de soledad'?
+respuesta: Gabriel García Márquez
+tema: Literatura
+subtema: Autores
+pagina: 2
+tipo: opcion_multiple
+opciones: Gabriel García Márquez|Jorge Luis Borges|Julio Cortázar|Mario Vargas Llosa
+dificultad: 3
+nivel_bloom: 1"""
+        response = HttpResponse(content, content_type='text/plain')
+        response['Content-Disposition'] = 'attachment; filename="template.txt"'
+        return response
+    else:
+        messages.error(request, 'Formato de plantilla no soportado.', extra_tags='plantillas')
+        return redirect('material:upload_questions')
+

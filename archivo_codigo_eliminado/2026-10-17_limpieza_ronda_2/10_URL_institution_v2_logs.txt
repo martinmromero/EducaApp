@@ -1,0 +1,6 @@
+SECTOR: URL institution_v2_logs
+ORIGEN: material/urls.py (líneas 122-122 en el commit b90b896)
+MOTIVO: Ruta de la vista eliminada.
+RESTAURAR: git show b90b896:material/urls.py  (el texto exacto está abajo)
+==============================================================================
+    path('instituciones-v2/logs/<int:pk>/', material_views.institution_v2_logs, name='institution_v2_logs'),
