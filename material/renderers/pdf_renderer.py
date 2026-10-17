@@ -269,6 +269,31 @@ def _decode_data_uri(data_uri):
         return None
 
 
+def _to_raster_png(img_bytes):
+    """Devuelve bytes que ReportLab/PIL puedan dibujar, o None si no se puede.
+
+    Los logos SVG (los escudos de ejemplo y cualquier logo .svg que suba una
+    institución, ver InstitutionV2.logo) no los abre PIL: ``Image(BytesIO(...))``
+    lanzaba UnidentifiedImageError y la exportación a PDF completa daba 500.
+    Se rasteriza con PyMuPDF (ya es dependencia del proyecto) a PNG.
+    """
+    try:
+        probe = PILImage.open(io.BytesIO(img_bytes))
+        probe.verify()
+        return img_bytes
+    except Exception:
+        pass
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(stream=img_bytes, filetype='svg')
+        try:
+            return doc[0].get_pixmap(dpi=200, alpha=True).tobytes('png')
+        finally:
+            doc.close()
+    except Exception:
+        return None
+
+
 def _build_logo_flowable(block):
     logo_b64 = block.get('logo_b64') or ''
     logo_url = block.get('logo_url') or ''
@@ -278,14 +303,23 @@ def _build_logo_flowable(block):
     max_height = 1.2 * cm
     img_bytes = _decode_data_uri(logo_b64) or _decode_data_uri(logo_url)
     if img_bytes:
-        width, height = _fit_logo_size(img_bytes=img_bytes, max_width=max_width, max_height=max_height)
-        return Image(io.BytesIO(img_bytes), width=width, height=height)
+        img_bytes = _to_raster_png(img_bytes)
+    if img_bytes:
+        try:
+            width, height = _fit_logo_size(img_bytes=img_bytes, max_width=max_width, max_height=max_height)
+            return Image(io.BytesIO(img_bytes), width=width, height=height)
+        except Exception:
+            pass  # sin logo es mejor que no poder exportar el examen
 
     for path_value in [logo_path, logo_url]:
         if path_value and os.path.exists(path_value):
             try:
-                width, height = _fit_logo_size(path=path_value, max_width=max_width, max_height=max_height)
-                return Image(path_value, width=width, height=height)
+                with open(path_value, 'rb') as fh:
+                    file_bytes = _to_raster_png(fh.read())
+                if not file_bytes:
+                    continue
+                width, height = _fit_logo_size(img_bytes=file_bytes, max_width=max_width, max_height=max_height)
+                return Image(io.BytesIO(file_bytes), width=width, height=height)
             except Exception:
                 continue
 

@@ -526,7 +526,7 @@ def get_careers_by_faculty(request, faculty_id):
     # CUALQUIER usuario para cualquiera que supiera el ID de facultad.
     from .content_visibility import get_visible_careers
     careers = get_visible_careers(request.user).filter(faculties__id=faculty_id).distinct()
-    data = [{'id': c.id, 'name': c.name} for c in careers]
+    data = [{'id': c.id, 'name': c.name, 'es_catalogo_institucional': c.es_catalogo_institucional} for c in careers]
     return JsonResponse({'careers': data})
 
 @login_required
@@ -539,7 +539,7 @@ def get_subjects_by_career(request, career_id):
     from .content_visibility import get_visible_subjects
     career = get_object_or_404(Career, pk=career_id)
     subjects = get_visible_subjects(request.user).filter(pk__in=career.subjects.all())
-    data = [{'id': s.id, 'name': s.name} for s in subjects]
+    data = [{'id': s.id, 'name': s.name, 'es_catalogo_institucional': s.es_catalogo_institucional} for s in subjects]
     return JsonResponse({'subjects': data})
 
 
@@ -1355,6 +1355,15 @@ def _build_preview_exam_payload_from_exam(examen):
             return str(obj.pk), ''
         return 'otro', name_value
 
+    def _iso_date(value):
+        # Los exámenes de ejemplo guardan la fecha como "15/06/2026"; el <input
+        # type="date"> solo acepta AAAA-MM-DD y, si no, la precarga queda vacía y
+        # al guardar se borra.
+        m = re.match(r'^\s*(\d{1,2})/(\d{1,2})/(\d{4})\s*$', value or '')
+        if m:
+            return f'{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}'
+        return value or ''
+
     institucion, institucion_text = _resolve_dropdown_value(InstitutionV2, examen.institution_name)
     facultad, facultad_text = _resolve_dropdown_value(FacultyV2, examen.faculty_name)
     carrera, carrera_text = _resolve_dropdown_value(Career, examen.career_name)
@@ -1389,12 +1398,19 @@ def _build_preview_exam_payload_from_exam(examen):
         'carrera_text': carrera_text,
         'sede': sede,
         'sede_text': sede_text,
+        # Nombres en bruto: si el <select> del docente no trae esa fila (por ejemplo
+        # una institución de ejemplo que no es suya), la página cae a "Otro" + este
+        # texto en vez de dejar el campo vacío y borrarlo al guardar.
+        'institucion_name': examen.institution_name or '',
+        'facultad_name': examen.faculty_name or '',
+        'carrera_name': examen.career_name or '',
+        'sede_name': examen.campus_name or '',
         'curso': examen.curso or '',
         'catedra': examen.catedra or '',
         'turno': turno,
         'turno_text': turno_text,
         'profesor': profesor,
-        'fecha': examen.date_str or '',
+        'fecha': _iso_date(examen.date_str),
         'year': str(examen.year) if examen.year else '',
         'tipo_examen': examen.exam_type or '',
         'tipo_modalidad': examen.exam_group or '',
@@ -5195,7 +5211,16 @@ def _iter_csv_rows(lines):
     """Filas del CSV como (etiqueta, dict con claves en minúscula). La
     primera fila de datos es la "Fila 2" (la 1 es el encabezado)."""
     try:
-        reader = csv.DictReader(lines)
+        lines = list(lines)
+        # Excel en español guarda los CSV separados por ";" (y a veces por tab):
+        # se elige el separador que más aparece en el encabezado, en vez de
+        # asumir "," y fallar con un mensaje que no explica nada.
+        if lines:
+            lines[0] = lines[0].lstrip('\ufeff')
+        encabezado = lines[0] if lines else ''
+        delimitador = max([',', ';', '\t'], key=encabezado.count) if any(
+            encabezado.count(d) for d in (',', ';', '\t')) else ','
+        reader = csv.DictReader(lines, delimiter=delimitador)
         for number, row in enumerate(reader, start=2):
             # Una fila con más celdas que el encabezado deja la clave None.
             yield f"Fila {number}", {
@@ -7356,7 +7381,10 @@ def get_visible_institutions_json(request):
     by_institution/get_careers_by_faculty/get_subjects_by_career, que este
     endpoint imita para el nivel de arriba de todos, que no tiene padre)."""
     from .content_visibility import get_visible_institutions
-    instituciones = get_visible_institutions(request.user).order_by('name').values('id', 'name')
+    # es_catalogo_institucional: el paso 1 del asistente marca "Personal" o "Catálogo"
+    # según este valor; sin él todas salían como "Catálogo".
+    instituciones = get_visible_institutions(request.user).order_by('name').values(
+        'id', 'name', 'es_catalogo_institucional')
     return JsonResponse({'institutions': list(instituciones)})
 
 
@@ -7377,7 +7405,7 @@ def get_faculties_by_institution(request, institution_id):
         # justamente la semilla y necesita mostrar su facultad de ejemplo.
         if not request.session.get('onb2_demo_scheme_active'):
             faculties = faculties.filter(institution__is_seed_demo=False)
-        faculties = faculties.values('id', 'name')
+        faculties = faculties.values('id', 'name', 'es_catalogo_institucional')
         return JsonResponse({'faculties': list(faculties)})
     except Exception as e:
         logger.error(f"Error in get_faculties_by_institution: {e}")
@@ -8586,6 +8614,13 @@ def exchange_question(request):
             'new_topic': new_question.topic.name if new_question.topic else 'Sin tópico'
         })
         
+    except Http404:
+        # Pregunta que no corresponde (otra materia, IA sin aprobar, cuestionario
+        # ajeno): antes caía al except de abajo y salía 500 con texto en inglés.
+        return JsonResponse({
+            'success': False,
+            'error': 'No se encontró esa pregunta o no se puede usar en este cuestionario.'
+        }, status=404)
     except Exception as e:
         logger.error(f"Error in exchange_question: {str(e)}", exc_info=True)
         return JsonResponse({
@@ -10486,6 +10521,53 @@ def _intentar_eliminar_si_vacio(tipo, entidad):
     return True
 
 
+def _unir_topico_en(origen, destino):
+    """Pasa todo lo que colgaba del tópico `origen` al tópico `destino`:
+    sus sub-tópicos (se unen por nombre con los del destino o se mudan si no
+    existe uno igual), las preguntas, los exámenes y los cuestionarios orales.
+    No borra `origen`: lo hace quien llama."""
+    from .models import OralExamSet, Subtopic
+    for sub in Subtopic.objects.filter(topic=origen):
+        igual = Subtopic.objects.filter(topic=destino, name__iexact=sub.name).first()
+        if igual is not None:
+            Question.objects.filter(subtopic=sub).update(subtopic=igual)
+            sub.delete()
+        else:
+            sub.topic = destino
+            sub.save(update_fields=['topic'])
+    Question.objects.filter(topic=origen).update(topic=destino)
+    for exam in Exam.objects.filter(topics=origen):
+        exam.topics.remove(origen)
+        exam.topics.add(destino)
+    for oral in OralExamSet.objects.filter(topics=origen):
+        oral.topics.remove(origen)
+        oral.topics.add(destino)
+
+
+_SIN_CAMBIO = object()
+
+
+def _reubicar_topicos(topicos, *, subject=_SIN_CAMBIO, career_subject=_SIN_CAMBIO):
+    """Mueve tópicos a otra materia y/o carrera-materia al fusionar. Si el mismo
+    docente ya tiene en el destino un tópico con el mismo nombre (la restricción
+    única es nombre + materia + carrera-materia + creador), no se puede mover:
+    se unen (ver _unir_topico_en) y se borra el que sobra. Antes, un update()
+    masivo chocaba con esa restricción y la fusión terminaba en error 500."""
+    for t in list(topicos):
+        nuevo_subject = t.subject if subject is _SIN_CAMBIO else subject
+        nuevo_cs = t.career_subject if career_subject is _SIN_CAMBIO else career_subject
+        igual = Topic.objects.filter(
+            name=t.name, subject=nuevo_subject, career_subject=nuevo_cs, created_by=t.created_by,
+        ).exclude(pk=t.pk).first()
+        if igual is not None:
+            _unir_topico_en(t, igual)
+            t.delete()
+        else:
+            t.subject = nuevo_subject
+            t.career_subject = nuevo_cs
+            t.save(update_fields=['subject', 'career_subject'])
+
+
 def _fusionar_en_destino(tipo, origen, destino):
     """Funde un borrador del espacio personal (`origen`) dentro de una
     fila YA institucional (`destino`) que el admin identificó a mano en
@@ -10506,7 +10588,6 @@ def _fusionar_en_destino(tipo, origen, destino):
         CatalogRequest.objects.filter(**{campo: origen}).update(**{campo: destino})
 
         if tipo == 'materia':
-            Topic.objects.filter(subject=origen).update(subject=destino)
             for q in Question.objects.filter(subjects=origen):
                 q.subjects.remove(origen)
                 q.subjects.add(destino)
@@ -10520,8 +10601,11 @@ def _fusionar_en_destino(tipo, origen, destino):
                     },
                 )
                 LearningOutcome.objects.filter(career_subject=cs_origen).update(career_subject=cs_destino)
-                Topic.objects.filter(career_subject=cs_origen).update(career_subject=cs_destino)
+                _reubicar_topicos(Topic.objects.filter(subject=origen, career_subject=cs_origen),
+                                  subject=destino, career_subject=cs_destino)
                 cs_origen.delete()
+            # Tópicos que quedaron sin carrera asignada: solo cambian de materia.
+            _reubicar_topicos(Topic.objects.filter(subject=origen), subject=destino)
             ContentShare.objects.filter(kind='materia', subject=origen).update(subject=destino)
         elif tipo == 'carrera':
             for cs_origen in CareerSubject.objects.filter(career=origen):
@@ -10534,7 +10618,7 @@ def _fusionar_en_destino(tipo, origen, destino):
                     },
                 )
                 LearningOutcome.objects.filter(career_subject=cs_origen).update(career_subject=cs_destino)
-                Topic.objects.filter(career_subject=cs_origen).update(career_subject=cs_destino)
+                _reubicar_topicos(Topic.objects.filter(career_subject=cs_origen), career_subject=cs_destino)
                 cs_origen.delete()
             destino.faculties.add(*origen.faculties.all())
         elif tipo == 'facultad':
@@ -10552,22 +10636,7 @@ def _fusionar_en_destino(tipo, origen, destino):
             # Las preguntas, los exámenes y los cuestionarios orales que usaban
             # el tópico personal pasan al del catálogo. Sus sub-tópicos se
             # unen por nombre con los del destino (o se mudan si no existe).
-            from .models import OralExamSet, Subtopic
-            for sub in Subtopic.objects.filter(topic=origen):
-                igual = Subtopic.objects.filter(topic=destino, name__iexact=sub.name).first()
-                if igual is not None:
-                    Question.objects.filter(subtopic=sub).update(subtopic=igual)
-                    sub.delete()
-                else:
-                    sub.topic = destino
-                    sub.save(update_fields=['topic'])
-            Question.objects.filter(topic=origen).update(topic=destino)
-            for exam in Exam.objects.filter(topics=origen):
-                exam.topics.remove(origen)
-                exam.topics.add(destino)
-            for oral in OralExamSet.objects.filter(topics=origen):
-                oral.topics.remove(origen)
-                oral.topics.add(destino)
+            _unir_topico_en(origen, destino)
         elif tipo == 'resultado_aprendizaje':
             # No tiene nada colgando DEBAJO (es la hoja del árbol) — solo
             # hay que re-apuntar lo que lo usa: exámenes/plantillas que ya

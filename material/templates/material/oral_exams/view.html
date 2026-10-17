@@ -648,7 +648,9 @@ function setupEvaluationSystem() {
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('eval-btn') || e.target.parentElement.classList.contains('eval-btn')) {
             const btn = e.target.classList.contains('eval-btn') ? e.target : e.target.parentElement;
-            const questionId = btn.closest('[data-question-id]').getAttribute('data-question-id');
+            const questionHolder = btn.closest('[data-question-id]');
+            if (!questionHolder) return;  // manejador viejo: el que guarda de verdad es otro
+            const questionId = questionHolder.getAttribute('data-question-id');
             const score = btn.getAttribute('data-score');
             
             // Limpiar selecciones anteriores del mismo grupo

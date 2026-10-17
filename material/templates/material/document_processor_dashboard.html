@@ -1221,7 +1221,7 @@ async function checkLocalAIStatus() {
                     <i class="bi bi-arrow-repeat"></i>
                 </button>
             `;
-            unlimitedBadge.style.display = data.backend === 'ollama_local' ? 'inline' : 'none';
+            if (unlimitedBadge) unlimitedBadge.style.display = data.backend === 'ollama_local' ? 'inline' : 'none';
 
             // Actualizar contador de modelos si está disponible (solo existe con backend Ollama local)
             const modelsCountBadge = document.getElementById('modelsCountBadge');
@@ -1238,7 +1238,7 @@ async function checkLocalAIStatus() {
                     <i class="bi bi-arrow-repeat"></i>
                 </button>
             `;
-            unlimitedBadge.style.display = 'none';
+            if (unlimitedBadge) unlimitedBadge.style.display = 'none';
             const modelsCountBadge = document.getElementById('modelsCountBadge');
             if (modelsCountBadge) modelsCountBadge.textContent = '0';
         }

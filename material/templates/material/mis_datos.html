@@ -67,8 +67,10 @@
 <!-- Script para mostrar el modal automáticamente si hay mensajes -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        var messageModal = new bootstrap.Modal(document.getElementById('messageModal'));
-        messageModal.show();
+        // El modal solo existe cuando hay mensajes que mostrar.
+        var modalEl = document.getElementById('messageModal');
+        if (!modalEl) return;
+        new bootstrap.Modal(modalEl).show();
     });
 </script>
 {% endblock %}

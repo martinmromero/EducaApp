@@ -1092,7 +1092,19 @@
             if (examEl('fwExamStage').classList.contains('d-none')) return;
             var frame = examEl('fwExamFrame');
             if (!examEl('fwExamFallback').classList.contains('d-none')) return;
-            try { void frame.contentWindow.location.href; } catch (e) { showExamFallback(true); }
+            try {
+                void frame.contentWindow.location.href;
+                // Una página de error del servidor (500) es del mismo origen y se
+                // puede leer, pero no es una pantalla propia: no lleva embed.js,
+                // que le pone html.embed-mode. Sin esta comprobación el marco
+                // quedaba con "Server Error (500)" crudo y sin salida.
+                var doc = frame.contentDocument;
+                if (doc && doc.readyState === 'complete' && doc.documentElement
+                    && doc.URL !== 'about:blank'
+                    && !doc.documentElement.classList.contains('embed-mode')) {
+                    showExamFallback(true);
+                }
+            } catch (e) { showExamFallback(true); }
         }, 1500);
         window.addEventListener('message', function (e) {
             if (e.origin !== window.location.origin || e.source !== examEl('fwExamFrame').contentWindow) return;

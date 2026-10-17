@@ -608,6 +608,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setValue('fecha', 'fecha');
     setValue('year', 'year');
     setValue('curso', 'curso');
+    setValue('catedra', 'catedra');
     setValue('id_duration_minutes', 'duration_minutes');
     setValue('id_instructions', 'instructions');
     setValue('id_title', 'title');
@@ -616,7 +617,34 @@ document.addEventListener('DOMContentLoaded', function() {
     setValue('batch_semester', 'batch_semester');
     setValue('batch_name', 'batch_name');
 
+    var tipoSel = document.getElementById('tipo_examen_select');
+    if (tipoSel && data.tipo_examen && !Array.from(tipoSel.options).some(function (o) { return o.value === data.tipo_examen; })) {
+        // Valor que el selector no ofrece (por ejemplo "parcial" en exámenes de
+        // ejemplo): se agrega para que no se borre al guardar.
+        var extraOpt = document.createElement('option');
+        extraOpt.value = data.tipo_examen;
+        extraOpt.textContent = data.tipo_examen.charAt(0).toUpperCase() + data.tipo_examen.slice(1);
+        tipoSel.appendChild(extraOpt);
+    }
     setValue('tipo_examen_select', 'tipo_examen');
+
+    // Si el desplegable no ofrece la fila guardada (no es del docente, o se
+    // eliminó), usar "Otro" con el nombre en texto: así no se pierde al guardar.
+    function fallbackToOther(selId, textId, wantedValue, name) {
+        var sel = document.getElementById(selId);
+        var txt = document.getElementById(textId);
+        if (!sel || !txt || !name || !wantedValue) return;
+        if (wantedValue !== 'otro' && sel.value === String(wantedValue)) return;
+        sel.value = 'otro';
+        if (typeof toggleTextbox === 'function') toggleTextbox(selId, textId);
+        txt.value = name;
+    }
+    window.__examPrefillFallback = function () {
+        fallbackToOther('institucion_dropdown', 'institucion_text', data.institucion, data.institucion_name);
+        fallbackToOther('facultad_dropdown', 'facultad_text', data.facultad, data.facultad_name);
+        fallbackToOther('carrera_dropdown', 'carrera_text', data.carrera, data.carrera_name);
+        fallbackToOther('sede_dropdown', 'sede_text', data.sede, data.sede_name);
+    };
 
     if (data.tipo_modalidad) {
         var radio = document.querySelector('input[name="tipo_modalidad"][value="' + data.tipo_modalidad + '"]');
@@ -723,6 +751,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if ((topicsOk && loOk && questionsOk) || tries >= 10) {
             clearInterval(timer);
+            window.__examPrefillFallback();
         }
     }, 350);
 });
