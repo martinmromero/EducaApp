@@ -1132,7 +1132,7 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
     ALL_TYPES = {
         'opcion_multiple': 'Opción múltiple (4 opciones A/B/C/D, una correcta)',
         'verdadero_falso': 'Verdadero/Falso (afirmación clara)',
-        'completar_blank': 'Completar el espacio (usa [___] en la pregunta para el espacio en blanco)',
+        'completar_blank': 'Completar el espacio (usar [___] en la pregunta para el espacio en blanco)',
         'desarrollo': 'Desarrollo (pregunta abierta con respuesta de referencia para el docente)',
     }
 
@@ -2001,6 +2001,7 @@ def save_generated_questions(request):
         saved_count = 0
         topic_id = data.get('topic_id')
         subtopic_id = data.get('subtopic_id')
+        career_id = data.get('career_id')
         new_topic_name = (data.get('new_topic_name') or '').strip()
         new_subtopic_name = (data.get('new_subtopic_name') or '').strip()
 
@@ -2049,14 +2050,14 @@ def save_generated_questions(request):
             from material.content_visibility import get_or_create_topic, resolve_career_subject
             default_topic, _ = get_or_create_topic(
                 request.user, default_subject, new_topic_name,
-                career_subject=resolve_career_subject(default_subject),
+                career_subject=resolve_career_subject(default_subject, career_id),
             )
         if not default_topic:
             # Fallback automático
             from material.content_visibility import get_or_create_topic, resolve_career_subject
             default_topic, _ = get_or_create_topic(
                 request.user, default_subject, f"Preguntas de {filename}",
-                career_subject=resolve_career_subject(default_subject),
+                career_subject=resolve_career_subject(default_subject, career_id),
             )
 
         # Resolver subtema

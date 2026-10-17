@@ -324,3 +324,44 @@ class ExchangeQuestionInvalidaTests(TestCase):
         self.assertEqual(r.status_code, 404)
         self.assertFalse(r.json()['success'])
         self.assertNotIn('matches', r.json()['error'])
+
+
+class TipoDeExamenTests(TestCase):
+    def test_los_tipos_del_formulario_tienen_nombre_legible(self):
+        for valor, texto in (('1er_parcial', '1er. Parcial'), ('recuperatorio', 'Recuperatorio'),
+                             ('practico', 'Práctico'), ('final', 'Final'), ('parcial', 'Parcial')):
+            self.assertEqual(Exam(exam_type=valor).get_exam_type_display(), texto)
+
+
+class TopicosDeIAConCarreraTests(TestCase):
+    def test_con_la_carrera_elegida_el_topico_queda_en_esa_carrera(self):
+        from .content_visibility import resolve_career_subject
+        ana = make_user('ia_ana')
+        a = Career.objects.create(name='Carrera A', es_catalogo_institucional=True)
+        b = Career.objects.create(name='Carrera B', es_catalogo_institucional=True)
+        materia = Subject.objects.create(name='Inglés I', es_catalogo_institucional=True)
+        cs_a = CareerSubject.objects.create(career=a, subject=materia)
+        CareerSubject.objects.create(career=b, subject=materia)
+        self.assertIsNone(resolve_career_subject(materia))            # varias carreras: sin carrera
+        self.assertEqual(resolve_career_subject(materia, a.pk), cs_a)  # con la carrera elegida
+
+
+class RutasQueDabanErrorTests(TestCase):
+    def test_los_resultados_de_aprendizaje_sin_sesion_redirigen_al_login(self):
+        r = Client().get('/carrera-materia/1/outcomes/')
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('login', r['Location'])
+
+    def test_unidades_con_materia_vacia_devuelve_lista_vacia(self):
+        user = make_user('u_unidades')
+        c = Client()
+        c.force_login(user)
+        r = c.get('/get-unidades/', {'subject_id': ''})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json(), [])
+
+    def test_el_admin_de_django_permite_agregar_una_materia(self):
+        admin = User.objects.create_superuser('adm_django', 'a@b.com', 'pass-12345')
+        c = Client()
+        c.force_login(admin)
+        self.assertEqual(c.get('/admin/material/subject/add/').status_code, 200)

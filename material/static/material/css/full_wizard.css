@@ -120,8 +120,11 @@
     color: var(--bs-secondary-color, #6c757d);
 }
 .fw-nav-sep {
-    color: var(--bs-border-color, #dee2e6);
+    color: var(--bs-secondary-color, #6c757d);
 }
+/* En celular "Empezar de nuevo" y "Saltear" se partían en dos líneas. */
+.fw-nav-links a, #fwActionBtn { white-space: nowrap; }
+.fw-nav-links { flex-wrap: wrap; }
 
 /* Pastilla de un paso salteado (full_wizard.js le suma .is-skipped a las
    que ya tienen .is-done): círculo gris neutro con ícono skip-forward —

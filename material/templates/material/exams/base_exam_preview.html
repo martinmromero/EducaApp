@@ -6,7 +6,14 @@
     <title>{% block title %}Previsualización de Examen{% endblock %} - {{ institution.name|default:"EducaApp" }}</title>
     <link rel="stylesheet" href="{% static 'css/vendor/driver.css' %}">
     <script src="{% static 'js/embed.js' %}"></script>
+    <script>
+        // Mismo criterio que base.html: con el modo oscuro guardado, el fondo que
+        // rodea la hoja pasa a oscuro (la hoja sigue blanca: es lo que se imprime).
+        try { if (localStorage.getItem('mode') === 'dark') document.documentElement.setAttribute('data-bs-theme', 'dark'); } catch (e) {}
+    </script>
     <style>
+        html[data-bs-theme="dark"] body { background-color: #212529; }
+        @media print { html[data-bs-theme="dark"] body { background-color: #fff; } }
         :root {
             --exam-font-family: {{ print_style.font_family|default:'Arial' }};
             --exam-font-size: {{ print_style.font_size_pt|default:'11pt' }};

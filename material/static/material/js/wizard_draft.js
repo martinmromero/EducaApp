@@ -40,19 +40,31 @@ window.EducaAppWizardDraft = (function () {
         var uid = window.EducaAppUserId;
         return uid ? key + ':u' + uid : key;
     }
-    function init(baseKey) {
+    // opts.persist: el borrador sobrevive al cierre del navegador (localStorage,
+    // con vencimiento de 7 días) en vez de vivir solo en la pestaña
+    // (sessionStorage). Es el "retomar mañana" del Asistente completo; los demás
+    // asistentes siguen con el borrador de pestaña.
+    var DIAS_MS = 7 * 24 * 60 * 60 * 1000;
+    function init(baseKey, opts) {
         var key = scopedKey(baseKey);
+        var persist = !!(opts && opts.persist);
+        function store() { return persist ? window.localStorage : window.sessionStorage; }
         function save(state) {
-            try { sessionStorage.setItem(key, JSON.stringify(state)); } catch (e) { /* sessionStorage lleno o bloqueado (navegación privada) — best-effort */ }
+            try { store().setItem(key, JSON.stringify(persist ? { t: Date.now(), s: state } : state)); } catch (e) { /* almacenamiento lleno o bloqueado (navegación privada) — best-effort */ }
         }
         function load() {
             var raw;
-            try { raw = sessionStorage.getItem(key); } catch (e) { return null; }
+            try { raw = store().getItem(key); } catch (e) { return null; }
             if (!raw) return null;
-            try { return JSON.parse(raw); } catch (e) { clear(); return null; }
+            try {
+                var parsed = JSON.parse(raw);
+                if (!persist) return parsed;
+                if (!parsed || typeof parsed.t !== 'number' || (Date.now() - parsed.t) > DIAS_MS) { clear(); return null; }
+                return parsed.s;
+            } catch (e) { clear(); return null; }
         }
         function clear() {
-            try { sessionStorage.removeItem(key); } catch (e) { /* ver save */ }
+            try { store().removeItem(key); } catch (e) { /* ver save */ }
         }
         function confirmRestore(message) {
             if (!window.EducaAppModal) return Promise.resolve(false);

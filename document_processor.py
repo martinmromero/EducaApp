@@ -121,7 +121,7 @@ class DocumentProcessor:
             doc.close()
             raise ValueError(
                 f'El documento tiene {page_count} páginas y supera el máximo permitido '
-                f'de {max_pages}. Subí solo las páginas o el capítulo que necesitás analizar.'
+                f'de {max_pages}. Subir solo las páginas o el capítulo que se necesita analizar.'
             )
 
         # Extraer metadata

@@ -86,23 +86,21 @@ class SubjectAdmin(admin.ModelAdmin):
     list_display = ('name', 'careers_list')
     search_fields = ('name',)
     list_filter = ('careers',)  # Añadido para mejor filtrado
-    filter_horizontal = ('careers',)  # Para selección más fácil de carreras
+    # 'careers' es la relación inversa (Career.subjects, a través de CareerSubject):
+    # no es un campo de Subject, por eso no va en el formulario (daba error 500 al agregar).
 
     fieldsets = (
         (None, {
-            'fields': ('name', 'careers')
+            'fields': ('name',)
         }),
     )
 
     def careers_list(self, obj):
         return ", ".join([c.name for c in obj.careers.all()[:3]]) + ("..." if obj.careers.count() > 3 else "")
     careers_list.short_description = 'Carreras'
-    
-    class Media:
-        css = {
-            'all': ('admin/css/subject_admin.css',)
-        }
-        js = ('admin/js/subject_admin.js',)
+    # (Se quitó una clase Media que apuntaba a admin/css/subject_admin.css y
+    # admin/js/subject_admin.js: esos archivos nunca existieron y, con el manifest
+    # de estáticos de producción, la pantalla de la materia daba error 500.)
 
 @admin.register(Contenido)
 class ContenidoAdmin(OwnerScopedAdminMixin, admin.ModelAdmin):

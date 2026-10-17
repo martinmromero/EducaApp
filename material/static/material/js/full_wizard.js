@@ -90,7 +90,7 @@
         el.innerHTML = parts.join(' <span class="text-muted">›</span> ');
     }
 
-    var draft = window.EducaAppWizardDraft ? window.EducaAppWizardDraft.init(DRAFT_KEY) : null;
+    var draft = window.EducaAppWizardDraft ? window.EducaAppWizardDraft.init(DRAFT_KEY, { persist: true }) : null;
     function saveDraft() {
         if (draft) draft.save(STATE);
     }
@@ -881,7 +881,9 @@
         var genLink = document.getElementById('fwQGenLink');
         if (genLink) {
             var sid = currentSubjectId();
-            genLink.href = CFG.urls.docProcessor + '?fw=1' + (sid ? '&subject_id=' + encodeURIComponent(sid) : '');
+            var cid = STATE.carrera && !STATE.carrera.skipped && STATE.carrera.id ? STATE.carrera.id : null;
+            genLink.href = CFG.urls.docProcessor + '?fw=1' + (sid ? '&subject_id=' + encodeURIComponent(sid) : '')
+                + (cid ? '&carrera_id=' + encodeURIComponent(cid) : '');
         }
     }
 

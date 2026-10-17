@@ -2847,7 +2847,11 @@ async function doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, ne
                 new_topic_name: newTopicName || '',
                 subtopic_id: subtopicId || null,
                 new_subtopic_name: newSubtopicName || '',
-                contenido_id: window.currentDocumentData.contenido_id || null
+                contenido_id: window.currentDocumentData.contenido_id || null,
+                // Carrera elegida en el Asistente completo (llega en la URL): con una
+                // materia que está en varias carreras, los tópicos nuevos quedan en
+                // esa carrera en vez de "sin carrera asignada".
+                career_id: new URLSearchParams(window.location.search).get('carrera_id') || null
             })
         });
 

@@ -37,7 +37,8 @@
      onboarding, banners de asistente, resaltados de bloom, etc.) */
   --edu-accent-soft-bg: #eaf2ff;
   --edu-accent-soft-border: #cfe2ff;
-  --edu-accent-soft-text: var(--bs-primary);
+  /* Más oscuro que el primario puro: sobre el fondo suave daba 4.0:1 (WCAG AA pide 4.5:1). */
+  --edu-accent-soft-text: color-mix(in srgb, var(--bs-primary) 78%, black);
   /* Color de marca para TEXTO: el primario tal cual en claro, aclarado en oscuro
      (sobre fondo oscuro los primarios de marca dan contraste de 1,3 a 3). */
   --edu-primary-text: var(--bs-primary);

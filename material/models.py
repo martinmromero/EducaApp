@@ -932,10 +932,19 @@ class Exam(models.Model):
         return sum(q.difficulty for q in self.questions.all())
 
 
-    EXAM_TYPE_CHOICES = [  
-        ('final', 'Final'),  
-        ('parcial', 'Parcial'),  
-    ]  
+    # Los mismos tipos que ofrece el formulario de Crear Examen y las plantillas
+    # (antes solo final/parcial: los demás se guardaban igual pero
+    # get_exam_type_display() devolvía el valor crudo, ej. "1er_parcial").
+    # 'parcial' queda por los exámenes que ya lo tenían guardado.
+    EXAM_TYPE_CHOICES = [
+        ('1er_parcial', '1er. Parcial'),
+        ('2do_parcial', '2do. Parcial'),
+        ('3er_parcial', '3er. Parcial'),
+        ('final', 'Final'),
+        ('recuperatorio', 'Recuperatorio'),
+        ('practico', 'Práctico'),
+        ('parcial', 'Parcial'),
+    ]
     EXAM_MODE_CHOICES = [  
         ('oral', 'Oral'),  
         ('escrito', 'Escrito'),  

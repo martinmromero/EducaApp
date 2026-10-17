@@ -772,11 +772,12 @@ def get_unidades_by_subject(request):
     contenido más rápido al crear examen (ver informe de rediseño). Privadas
     por usuario, igual que Topic: cada quien ve solo las suyas.
 
-    CANDIDATO A BORRAR (QA 2026-09-10): ningún template ni JS del proyecto
-    llama a este endpoint ni al modelo Unidad — quedó del rediseño pero
-    nunca se conectó a ninguna pantalla real. Confirmar que sigue sin uso
-    antes de borrar junto con el modelo Unidad."""
+    Lo usa create_exam.js (chips de Unidades al elegir la materia). La nota
+    vieja de "candidato a borrar" era incorrecta."""
     subject_id = request.GET.get('subject_id')
+    if not (subject_id or '').isdigit():
+        # Editar un examen dispara esta consulta con la materia todavía vacía.
+        return JsonResponse([], safe=False)
     unidades = Unidad.objects.filter(
         subject_id=subject_id, created_by=request.user
     ).order_by('order', 'name').prefetch_related('topics')
@@ -7585,7 +7586,7 @@ class LearningOutcomeCreateView(_PuedeAgregarRAMixin, CreateView):
             )
         return response
 
-class LearningOutcomeListView(ListView):
+class LearningOutcomeListView(LoginRequiredMixin, ListView):
     model = LearningOutcome
     template_name = 'material/learningoutcome_list.html'
     context_object_name = 'outcomes'
