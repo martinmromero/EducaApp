@@ -16,6 +16,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="EducaApp">
+    <script>window.EducaAppUserId = {% if user.is_authenticated %}{{ user.id }}{% else %}null{% endif %};</script>
 
     <script>
       // Aplica el tema ANTES de que se pinte cualquier CSS, para evitar el
@@ -67,6 +68,11 @@
         }
         #externalToggle:active {
           transform: scale(0.96);
+        }
+        body.toggle-hidden #externalToggle {
+          transform: translateY(-70px);
+          opacity: 0;
+          pointer-events: none;
         }
         body.sidebar-open #externalToggle {
           left: 262px !important;
@@ -1191,6 +1197,29 @@
     })();
     </script>
     {% endif %}
+
+    <script>
+    // Celular: el botón del menú es fijo y, al leer una lista o un formulario
+    // largo, quedaba tapando el borde del contenido. Se esconde al bajar y
+    // vuelve al subir (o al llegar arriba), así siempre se alcanza sin estorbar.
+    (function () {
+      var lastY = window.scrollY || 0;
+      var ticking = false;
+      function update() {
+        ticking = false;
+        var y = window.scrollY || 0;
+        var movil = window.matchMedia('(max-width: 768px)').matches;
+        var ocultar = movil && !document.body.classList.contains('sidebar-open') && y > 80 && y > lastY + 6;
+        var mostrar = !movil || y <= 80 || y < lastY - 6 || document.body.classList.contains('sidebar-open');
+        if (ocultar) document.body.classList.add('toggle-hidden');
+        else if (mostrar) document.body.classList.remove('toggle-hidden');
+        lastY = y;
+      }
+      window.addEventListener('scroll', function () {
+        if (!ticking) { ticking = true; window.requestAnimationFrame(update); }
+      }, { passive: true });
+    })();
+    </script>
 
     <!-- Bloque para JavaScript específico de cada página -->
     {% block javascript %}{% endblock %}

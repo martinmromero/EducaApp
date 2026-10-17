@@ -150,7 +150,7 @@ def _append_payload(doc, payload, formato):
             add_line(f"Modalidad de resolución: {block['texto']}", bold=False)
 
         elif tipo == 'lista_temas' and block.get('items'):
-            add_line('Temas a evaluar', size=base_size + 1, color=title_rgb, heading=True)
+            add_line('Tópicos a evaluar', size=base_size + 1, color=title_rgb, heading=True)
             for item in block['items']:
                 add_line(f"• {item}")
 

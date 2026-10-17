@@ -1931,7 +1931,7 @@ def _parse_fw_exam_prefill(request):
     outcome_ids (separados por coma)."""
     from .content_visibility import (
         get_visible_institutions, get_visible_faculties, get_visible_careers,
-        get_visible_subjects, get_visible_learning_outcomes,
+        get_usable_subjects, get_visible_learning_outcomes,
     )
 
     def _visible(qs_fn, key):
@@ -1939,7 +1939,8 @@ def _parse_fw_exam_prefill(request):
         return qs_fn(request.user).filter(pk=int(raw)).first() if raw.isdigit() else None
 
     prefill = {}
-    subject = _visible(get_visible_subjects, 'subject_id')
+    # Usables: también una materia que otro docente compartió por un grupo.
+    subject = _visible(get_usable_subjects, 'subject_id')
     if subject:
         prefill['subject_id'] = subject.pk
     for key, qs_fn in (('institucion', get_visible_institutions),
@@ -5057,6 +5058,19 @@ def upload_questions_wizard_preview(request):
             warnings.append(f"{label}: es de opción múltiple pero no trae opciones.")
         if q_type == 'verdadero_falso' and _normalize_true_false_answer(data.get('respuesta')) not in ('Verdadero', 'Falso'):
             warnings.append(f"{label}: es verdadero/falso pero la respuesta no es Verdadero ni Falso.")
+        # Valores que la importación corrige en silencio: se avisa antes de importar.
+        raw_tipo = (data.get('tipo') or '').strip()
+        if raw_tipo and raw_tipo.lower() not in _QUESTION_TYPE_ALIASES:
+            warnings.append(f"{label}: el tipo \"{raw_tipo}\" no se reconoce; se importa como desarrollo.")
+        raw_dif = (data.get('dificultad') or '').strip()
+        if raw_dif and (not raw_dif.isdigit() or not 1 <= int(raw_dif) <= 5):
+            warnings.append(f"{label}: la dificultad \"{raw_dif}\" no es un número de 1 a 5; se importa como {_normalize_difficulty(raw_dif)}.")
+        raw_bloom = (data.get('nivel_bloom') or '').strip()
+        if raw_bloom and _normalize_bloom_level(raw_bloom) is None:
+            warnings.append(f"{label}: el nivel de Bloom \"{raw_bloom}\" no es un número de 1 a 6; se importa sin nivel.")
+        raw_pag = (data.get('pagina') or '').strip()
+        if raw_pag and not raw_pag.isdigit():
+            warnings.append(f"{label}: la página \"{raw_pag}\" no es un número; se importa sin página.")
 
     labels = dict(Question.QUESTION_TYPE_CHOICES)
     return JsonResponse({
@@ -5118,7 +5132,10 @@ def upload_questions_wizard_import(request):
 # Funciones auxiliares para procesamiento de archivos
 def _normalize_question_type(raw_value):
     raw = (raw_value or '').strip().lower()
-    mapping = {
+    return _QUESTION_TYPE_ALIASES.get(raw, 'desarrollo')
+
+
+_QUESTION_TYPE_ALIASES = {
         'desarrollo': 'desarrollo',
         'a_desarrollar': 'desarrollo',
         'a desarrollar': 'desarrollo',
@@ -5135,8 +5152,7 @@ def _normalize_question_type(raw_value):
         'completar': 'completar_blank',
         'completar el espacio': 'completar_blank',
         'fill_blank': 'completar_blank',
-    }
-    return mapping.get(raw, 'desarrollo')
+}
 
 
 def _normalize_true_false_answer(raw_answer):
@@ -5231,16 +5247,32 @@ def _iter_csv_rows(lines):
         raise Exception(f"Error al procesar el CSV: {str(e)}")
 
 
+_TXT_KEYS = frozenset({
+    'pregunta', 'respuesta', 'tema', 'subtema', 'tipo', 'opciones', 'pagina',
+    'dificultad', 'nivel_bloom',
+})
+
+
 def _iter_txt_blocks(lines):
-    """Bloques "clave: valor" del TXT, separados por línea en blanco."""
+    """Bloques "clave: valor" del TXT, separados por línea en blanco.
+
+    Solo una clave conocida (pregunta, respuesta, tema, ...) abre un campo nuevo.
+    Una línea sin ":" o con un ":" que no sigue a una clave conocida ("Explique la
+    hora 10:30", "con detalle en otra línea: aquí") continúa el valor anterior;
+    antes se tomaba como otra clave y el texto se perdía sin aviso."""
     data = {}
     number = 0
+    ultima = None
     for line in lines:
         if line.strip():
-            if ':' in line:
-                key, value = line.split(':', 1)
-                data[key.strip().lower()] = value.strip()
+            key, sep, value = line.partition(':')
+            if sep and key.strip().lower() in _TXT_KEYS:
+                ultima = key.strip().lower()
+                data[ultima] = value.strip()
+            elif ultima is not None:
+                data[ultima] = (data[ultima] + ' ' + line.strip()).strip()
         elif data:
+            ultima = None
             number += 1
             yield f"Bloque {number}", data
             data = {}
@@ -7113,14 +7145,14 @@ def _leer_plan_de_estudios(post, career_subjects):
         if len(cuatri) > 20:
             errores.append(f'{nombre}: el cuatrimestre no puede superar 20 caracteres.')
             continue
+        valores = {'numero_materia': numero, 'cuatrimestre_cursada': cuatri}
         if anio and (not anio.isdigit() or not 1 <= int(anio) <= 12):
-            errores.append(f'{nombre}: el año tiene que ser un número entre 1 y 12.')
-            continue
-        cambios[cs.pk] = {
-            'numero_materia': numero,
-            'anio_cursada': int(anio) if anio else None,
-            'cuatrimestre_cursada': cuatri,
-        }
+            # Un año inválido no frena el resto de la fila: el N° y el cuatrimestre
+            # se guardan y el año queda como estaba.
+            errores.append(f'{nombre}: el año tiene que ser un número entre 1 y 12 (se conservó el año anterior).')
+        else:
+            valores['anio_cursada'] = int(anio) if anio else None
+        cambios[cs.pk] = valores
     return cambios, errores
 
 
@@ -9940,7 +9972,7 @@ def full_wizard_save_step(request):
     import json as _json
     from .content_visibility import (
         get_visible_institutions, get_visible_faculties, get_visible_careers,
-        get_visible_subjects, get_visible_learning_outcomes,
+        get_usable_subjects, get_visible_learning_outcomes,
     )
 
     try:
@@ -9965,7 +9997,7 @@ def full_wizard_save_step(request):
     # cualquier otro endpoint de este archivo que recibe un id por POST.
     _visible_por_nivel = {
         'institucion': get_visible_institutions, 'facultad': get_visible_faculties,
-        'carrera': get_visible_careers, 'materia': get_visible_subjects,
+        'carrera': get_visible_careers, 'materia': get_usable_subjects,
     }
 
     def _resolver_contexto(nivel, id_valor):
@@ -10016,7 +10048,10 @@ def full_wizard_save_step(request):
                 entidad.faculties.add(facultad_obj)
             if institucion_obj:
                 InstitutionCareer.objects.get_or_create(institution=institucion_obj, career=entidad)
-        elif step == 'materia' and carrera_obj:
+        elif step == 'materia' and carrera_obj and (
+                entidad.es_catalogo_institucional or entidad.created_by_id == request.user.id):
+            # Una materia compartida por otro docente se usa tal cual: no se la
+            # vincula a la carrera de quien la usa (ensuciaría la materia ajena).
             CareerSubject.objects.get_or_create(career=carrera_obj, subject=entidad)
 
         return JsonResponse({'ok': True, 'id': entidad.pk, 'name': nombre, 'created': False})
@@ -10076,7 +10111,7 @@ def full_wizard_subject_progress(request):
     subject_id = request.GET.get('subject_id', '')
     if not subject_id.isdigit():
         return JsonResponse({'has_contenido': False, 'has_question': False, 'question_count': 0, 'own_question_count': 0})
-    from .content_visibility import EXAM_ELIGIBLE_Q, get_visible_questions, get_visible_subjects
+    from .content_visibility import EXAM_ELIGIBLE_Q, get_visible_questions, get_usable_subjects
     has_contenido = Contenido.objects.filter(
         uploaded_by=request.user, subjects__id=int(subject_id)
     ).exists()
@@ -10088,7 +10123,7 @@ def full_wizard_subject_progress(request):
     # Solo de una materia visible para el usuario: no se filtra el conteo de
     # una materia ajena por adivinar el id.
     question_count = own_question_count = oral_units = topic_count = 0
-    subject = get_visible_subjects(request.user).filter(pk=int(subject_id)).first()
+    subject = get_usable_subjects(request.user).filter(pk=int(subject_id)).first()
     if subject is not None:
         from .content_visibility import get_oral_questions
         usable = get_visible_questions(request.user, subject=subject).filter(EXAM_ELIGIBLE_Q)
@@ -10107,6 +10142,25 @@ def full_wizard_subject_progress(request):
         'question_count': question_count, 'own_question_count': own_question_count,
         'topic_count': topic_count, 'oral_units': oral_units,
     })
+
+
+@login_required
+def full_wizard_shared_subjects(request):
+    """Materias que otro docente compartió con este usuario por un grupo de
+    confianza, para ofrecerlas como opción en el paso Materia del Asistente
+    completo (con esa materia se puede armar un examen o un oral con las
+    preguntas compartidas, aunque la cadena institución/carrera sea del otro
+    docente y acá no se vea)."""
+    from .content_visibility import get_shared_subjects
+    materias = get_shared_subjects(request.user).select_related('created_by').order_by('name')
+    return JsonResponse({'subjects': [
+        {
+            'id': s.pk, 'name': s.name, 'compartida': True,
+            'es_catalogo_institucional': bool(s.es_catalogo_institucional),
+            'de': (s.created_by.get_full_name() or s.created_by.username) if s.created_by_id else '',
+        }
+        for s in materias
+    ]})
 
 
 @login_required
@@ -10254,9 +10308,10 @@ def check_catalog_duplicate(request):
     # usuario, ese no es elegible para esta solicitud de todos modos.
     from .content_visibility import (
         get_visible_institutions, get_visible_faculties,
-        get_visible_careers, get_visible_subjects,
+        get_visible_careers, get_visible_subjects, get_shared_subjects,
     )
     campos = ['id', 'name', 'es_catalogo_institucional']
+    compartidas_ids = set()
     if nivel == 'institucion':
         qs = get_visible_institutions(request.user)
         campos.append('sigla')
@@ -10286,6 +10341,14 @@ def check_catalog_duplicate(request):
         carrera_id = request.GET.get('carrera_id', '')
         if carrera_id.isdigit():
             qs = qs.filter(careers__id=carrera_id)
+        # Solo el Asistente completo lo pide: además de lo visible, ofrece las
+        # materias que otro docente compartió por un grupo (para armar un examen
+        # u oral con esas preguntas). Las pantallas de "agregar al catálogo" no.
+        if request.GET.get('incluir_compartidas') == '1':
+            compartidas = get_shared_subjects(request.user)
+            compartidas_ids = set(compartidas.values_list('pk', flat=True))
+            qs = Subject.objects.filter(
+                Q(pk__in=qs.values('pk')) | Q(pk__in=compartidas.values('pk')))
     else:
         return JsonResponse([], safe=False)
 
@@ -10303,7 +10366,11 @@ def check_catalog_duplicate(request):
     puntuados = [(c, puntaje(c)) for c in candidatos]
     puntuados = [par for par in puntuados if par[1] > 0]
     puntuados.sort(key=lambda par: -par[1])
-    return JsonResponse([c for c, _score in puntuados[:20]], safe=False)
+    resultado = [c for c, _score in puntuados[:20]]
+    if compartidas_ids:
+        for c in resultado:
+            c['compartida'] = c['id'] in compartidas_ids
+    return JsonResponse(resultado, safe=False)
 
 
 @login_required

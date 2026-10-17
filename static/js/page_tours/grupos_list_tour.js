@@ -44,6 +44,7 @@
     try {
       window.driver.js.driver({
         showProgress: true,
+        progressText: '{{current}} de {{total}}',
         allowClose: true,
         overlayOpacity: 0.6,
         nextBtnText: 'Siguiente',

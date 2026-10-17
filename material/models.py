@@ -1719,6 +1719,15 @@ class CatalogRequest(models.Model):
         tipo_label = self.get_tipo_display().lower()
         articulo = self._ARTICULO_POR_TIPO.get(self.tipo, 'la').capitalize()
         if self.estado == 'aprobada':
+            # Fusión (ver views.resolve_catalog_request_fusion): no se sumó una fila
+            # nueva, se unió con una que ya estaba en el catálogo.
+            import re as _re
+            fusion = _re.match(r'^Fusionado con "(.+)", ya existente', self.nota_admin or '')
+            if fusion:
+                return (
+                    f'{articulo} {tipo_label} "{self.nombre_propuesto}"{contexto} se fusionó con '
+                    f'"{fusion.group(1)}", que ya estaba en el catálogo institucional.'
+                )
             return (
                 f'{articulo} {tipo_label} "{self.nombre_propuesto}"{contexto} ya se sumó al catálogo institucional.'
             )

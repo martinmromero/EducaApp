@@ -10,10 +10,18 @@ import base64
 import io
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+import json
 
-from .models import Career, CareerSubject, Exam, Question, Subject, Topic
-from .views import _build_preview_exam_payload_from_exam, _fusionar_en_destino, _iter_csv_rows
+from django.test import Client, TestCase
+from django.urls import reverse
+
+from .models import (
+    Career, CareerSubject, ContentShare, Exam, GroupMembership, Question, SharingGroup, Subject, Topic,
+)
+from .views import (
+    _build_preview_exam_payload_from_exam, _fusionar_en_destino, _iter_csv_rows, _iter_txt_blocks,
+    _leer_plan_de_estudios,
+)
 
 User = get_user_model()
 
@@ -160,3 +168,159 @@ class CsvConPuntoYComaTests(TestCase):
 
     def test_archivo_vacio_no_rompe(self):
         self.assertEqual(self._filas(''), [])
+
+
+class MateriaCompartidaEnAsistenteTests(TestCase):
+    """Un docente al que le compartieron una materia (grupo de confianza) puede
+    armarle un examen o un oral desde el Asistente completo, sin que esa materia
+    pase a ser "visible" para administrarla."""
+
+    def setUp(self):
+        self.ana = make_user('c_ana')
+        self.beto = make_user('c_beto')
+        self.cleo = make_user('c_cleo')
+        self.carrera_ana = Career.objects.create(name='Carrera de Ana', created_by=self.ana, es_catalogo_institucional=False)
+        self.materia = Subject.objects.create(name='Historia compartida', created_by=self.ana, es_catalogo_institucional=False)
+        self.cs = CareerSubject.objects.create(career=self.carrera_ana, subject=self.materia)
+        self.tema = Topic.objects.create(name='Tema 1', subject=self.materia, career_subject=self.cs, created_by=self.ana)
+        for i in range(3):
+            q = Question.objects.create(
+                question_text=f'Pregunta {i}', answer_text='r', user=self.ana, topic=self.tema, bloom_level=1)
+            q.subjects.add(self.materia)
+        grupo = SharingGroup.objects.create(name='Cátedra', created_by=self.ana)
+        GroupMembership.objects.create(group=grupo, user=self.ana, status='accepted')
+        GroupMembership.objects.create(group=grupo, user=self.beto, status='accepted')
+        ContentShare.objects.create(group=grupo, shared_by=self.ana, kind='materia', subject=self.materia, is_active=True)
+        self.carrera_beto = Career.objects.create(name='Carrera de Beto', created_by=self.beto, es_catalogo_institucional=False)
+
+    def _cliente(self, user):
+        c = Client()
+        c.force_login(user)
+        return c
+
+    def test_helpers_de_visibilidad(self):
+        from . import content_visibility as cv
+        self.assertIn(self.materia, cv.get_shared_subjects(self.beto))
+        self.assertIn(self.materia, cv.get_usable_subjects(self.beto))
+        # Compartida no es "visible": no se administra ni se lista como propia.
+        self.assertNotIn(self.materia, cv.get_visible_subjects(self.beto))
+        # Quien no está en el grupo no la ve de ninguna forma.
+        self.assertNotIn(self.materia, cv.get_usable_subjects(self.cleo))
+        # La dueña no se la ve como "compartida conmigo".
+        self.assertNotIn(self.materia, cv.get_shared_subjects(self.ana))
+
+    def test_el_paso_materia_lista_las_compartidas(self):
+        r = self._cliente(self.beto).get(reverse('material:full_wizard_shared_subjects'))
+        nombres = [m['name'] for m in r.json()['subjects']]
+        self.assertEqual(nombres, ['Historia compartida'])
+        self.assertTrue(r.json()['subjects'][0]['compartida'])
+        r2 = self._cliente(self.cleo).get(reverse('material:full_wizard_shared_subjects'))
+        self.assertEqual(r2.json()['subjects'], [])
+
+    def test_el_buscador_las_ofrece_solo_si_se_pide(self):
+        c = self._cliente(self.beto)
+        url = reverse('material:check_catalog_duplicate')
+        self.assertEqual(c.get(url, {'nivel': 'materia', 'q': 'Historia'}).json(), [])
+        r = c.get(url, {'nivel': 'materia', 'q': 'Historia', 'incluir_compartidas': '1'}).json()
+        self.assertEqual([m['name'] for m in r], ['Historia compartida'])
+        self.assertTrue(r[0]['compartida'])
+
+    def test_elegirla_no_la_vincula_a_la_carrera_de_quien_la_usa(self):
+        c = self._cliente(self.beto)
+        r = c.post(reverse('material:full_wizard_save_step'), json.dumps({
+            'step': 'materia', 'action': 'existente', 'existing_id': self.materia.pk,
+            'carrera_id': self.carrera_beto.pk,
+        }), content_type='application/json')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertTrue(r.json()['ok'])
+        self.assertFalse(CareerSubject.objects.filter(career=self.carrera_beto, subject=self.materia).exists())
+
+    def test_quien_no_esta_en_el_grupo_no_puede_elegirla(self):
+        r = self._cliente(self.cleo).post(reverse('material:full_wizard_save_step'), json.dumps({
+            'step': 'materia', 'action': 'existente', 'existing_id': self.materia.pk,
+        }), content_type='application/json')
+        self.assertEqual(r.status_code, 400)
+
+    def test_el_progreso_cuenta_las_preguntas_compartidas(self):
+        r = self._cliente(self.beto).get(reverse('material:full_wizard_subject_progress'), {'subject_id': self.materia.pk})
+        self.assertEqual(r.json()['question_count'], 3)
+        self.assertEqual(r.json()['own_question_count'], 0)
+        r2 = self._cliente(self.cleo).get(reverse('material:full_wizard_subject_progress'), {'subject_id': self.materia.pk})
+        self.assertEqual(r2.json()['question_count'], 0)
+
+    def test_el_asistente_de_examen_embebido_precarga_la_materia_compartida(self):
+        r = self._cliente(self.beto).get(reverse('material:create_exam_wizard'), {'fw': '1', 'subject_id': self.materia.pk})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Historia compartida')
+
+
+class TxtConLineasDeContinuacionTests(TestCase):
+    def _bloques(self, texto):
+        return list(_iter_txt_blocks(texto.splitlines(keepends=True)))
+
+    def test_los_dos_puntos_dentro_del_texto_no_cortan_el_campo(self):
+        bloques = self._bloques(
+            'pregunta: Defina el término: "átomo". Ejemplo: H2O\nrespuesta: Unidad básica: la menor parte\ntema: Química: general\n')
+        datos = bloques[0][1]
+        self.assertEqual(datos['pregunta'], 'Defina el término: "átomo". Ejemplo: H2O')
+        self.assertEqual(datos['tema'], 'Química: general')
+
+    def test_una_linea_de_continuacion_se_suma_a_la_pregunta(self):
+        bloques = self._bloques('pregunta: Explique la hora 10:30\ncon detalle en otra línea: aquí\nrespuesta: x\ntema: T\n')
+        self.assertEqual(bloques[0][1]['pregunta'], 'Explique la hora 10:30 con detalle en otra línea: aquí')
+
+    def test_la_introduccion_con_dos_puntos_antes_del_primer_bloque_se_ignora(self):
+        bloques = self._bloques('Ejemplo de archivo: copiar el bloque.\n\npregunta: A\nrespuesta: B\ntema: T\n')
+        self.assertEqual(len(bloques), 1)
+        self.assertEqual(set(bloques[0][1]), {'pregunta', 'respuesta', 'tema'})
+
+
+class PlanDeEstudiosAnioInvalidoTests(TestCase):
+    def test_un_anio_invalido_conserva_el_numero_y_el_cuatrimestre(self):
+        class FakeSubject:
+            name = 'Álgebra'
+        class FakeCS:
+            pk = 7
+            subject = FakeSubject()
+        post = {'plan_numero_7': '12', 'plan_anio_7': '99', 'plan_cuatri_7': '1.º'}
+        cambios, errores = _leer_plan_de_estudios(post, [FakeCS()])
+        self.assertEqual(cambios[7], {'numero_materia': '12', 'cuatrimestre_cursada': '1.º'})
+        self.assertNotIn('anio_cursada', cambios[7])
+        self.assertEqual(len(errores), 1)
+
+    def test_un_anio_valido_se_guarda_completo(self):
+        class FakeSubject:
+            name = 'Álgebra'
+        class FakeCS:
+            pk = 7
+            subject = FakeSubject()
+        cambios, errores = _leer_plan_de_estudios({'plan_numero_7': '1', 'plan_anio_7': '2', 'plan_cuatri_7': ''}, [FakeCS()])
+        self.assertEqual(cambios[7]['anio_cursada'], 2)
+        self.assertEqual(errores, [])
+
+
+class MensajeDeFusionTests(TestCase):
+    def test_la_solicitud_fusionada_lo_dice(self):
+        from .models import CatalogRequest
+        solicitud = CatalogRequest(
+            tipo='topico', estado='aprobada', nombre_propuesto='Vocab. de obra',
+            nota_admin='Fusionado con "Vocabulario de obra", ya existente en el catálogo institucional.')
+        mensaje = solicitud.resultado_mensaje()
+        self.assertIn('se fusionó con "Vocabulario de obra"', mensaje)
+        self.assertNotIn('ya se sumó', mensaje)
+
+    def test_la_aprobada_normal_sigue_igual(self):
+        from .models import CatalogRequest
+        solicitud = CatalogRequest(tipo='topico', estado='aprobada', nombre_propuesto='Frases', nota_admin='')
+        self.assertIn('ya se sumó al catálogo institucional', solicitud.resultado_mensaje())
+
+
+class ExchangeQuestionInvalidaTests(TestCase):
+    def test_una_pregunta_que_no_corresponde_da_404_en_espanol(self):
+        user = make_user('q_oral')
+        c = Client()
+        c.force_login(user)
+        r = c.post(reverse('material:exchange_question'), {'student_question_id': '999999', 'new_question_id': '1'})
+        self.assertEqual(r.status_code, 404)
+        self.assertFalse(r.json()['success'])
+        self.assertNotIn('matches', r.json()['error'])

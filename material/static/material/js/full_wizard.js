@@ -169,6 +169,8 @@
         if (key === 'facultad' && STATE.institucion && !STATE.institucion.skipped) params.institucion_id = STATE.institucion.id;
         if (key === 'carrera' && STATE.facultad && !STATE.facultad.skipped) params.facultad_id = STATE.facultad.id;
         if (key === 'materia' && STATE.carrera && !STATE.carrera.skipped) params.carrera_id = STATE.carrera.id;
+        // También se ofrecen las materias que otro docente compartió por un grupo.
+        if (key === 'materia') params.incluir_compartidas = '1';
         return params;
     }
 
@@ -216,14 +218,14 @@
             if (extraSkipAfter()) wizardCtrl.goNext();
         }
 
-        function confirmExisting(id, name) {
+        function confirmExisting(id, name, compartida) {
             showError('');
             setBusy(true);
             postStep(Object.assign({ step: cfgStep.key, action: 'existente', existing_id: id }, contextPayload()))
                 .then(function (res) {
                     setBusy(false);
                     if (!res.data.ok) { showError(res.data.error || 'No se pudo guardar.'); return; }
-                    STATE[cfgStep.key] = { id: res.data.id, name: res.data.name, skipped: false };
+                    STATE[cfgStep.key] = { id: res.data.id, name: res.data.name, skipped: false, compartida: !!compartida };
                     advance();
                 })
                 .catch(function () { setBusy(false); showError('Error de red — reintentar.'); });
@@ -241,7 +243,8 @@
                 chip.type = 'button';
                 chip.className = 'fw-chip';
                 var esPersonal = item.es_catalogo_institucional === false;
-                var badgeTxt = esPersonal ? 'Personal' : 'Catálogo';
+                var badgeTxt = item.compartida ? 'Compartida' : (esPersonal ? 'Personal' : 'Catálogo');
+                if (item.compartida && item.de) chip.title = 'Compartida por ' + item.de;
                 var nameSpan = document.createElement('span');
                 nameSpan.textContent = item.name;
                 var badgeSpan = document.createElement('span');
@@ -249,7 +252,7 @@
                 badgeSpan.textContent = badgeTxt;
                 chip.appendChild(nameSpan);
                 chip.appendChild(badgeSpan);
-                chip.addEventListener('click', function () { confirmExisting(item.id, item.name); });
+                chip.addEventListener('click', function () { confirmExisting(item.id, item.name, item.compartida); });
                 chipListEl.appendChild(chip);
             });
         }
@@ -267,6 +270,21 @@
             suggestBox.innerHTML = '';
             searchInput.value = '';
             createBtn.disabled = true;
+
+            // Paso Materia: además de lo de la carrera, las materias que otro
+            // docente compartió por un grupo (con ellas se puede armar un examen
+            // o un oral aunque su carrera/institución no sea visible acá).
+            function conCompartidas(items) {
+                if (cfgStep.key !== 'materia' || !CFG.urls.sharedSubjects) return Promise.resolve(items);
+                return fetch(CFG.urls.sharedSubjects)
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        var ya = {};
+                        items.forEach(function (it) { ya[it.id] = true; });
+                        return items.concat((data.subjects || []).filter(function (s) { return !ya[s.id]; }));
+                    })
+                    .catch(function () { return items; });
+            }
 
             if (!cfgStep.parentKey) {
                 parentMsgEl.textContent = '';
@@ -292,7 +310,7 @@
                 }
                 parentMsgEl.textContent = 'No se especificó ' + LABELS[cfgStep.parentKey].toLowerCase() + ' — buscando en todo el catálogo visible en vez de acotar.';
                 searchInput.disabled = false;
-                renderChips([]);
+                conCompartidas([]).then(renderChips);
                 return;
             }
 
@@ -301,7 +319,8 @@
             showListLoading();
             fetch(cfgStep.loadUrl(parentId))
                 .then(function (r) { return r.json(); })
-                .then(function (data) { renderChips(data[cfgStep.listKey] || []); })
+                .then(function (data) { return conCompartidas(data[cfgStep.listKey] || []); })
+                .then(renderChips)
                 .catch(function () { renderChips([]); });
         }
 
@@ -322,13 +341,13 @@
                             var row = document.createElement('div');
                             row.className = 'fw-suggest-item';
                             var span = document.createElement('span');
-                            span.textContent = item.name;
+                            span.textContent = item.compartida ? item.name + ' (compartida)' : item.name;
                             row.appendChild(span);
                             row.addEventListener('mousedown', function (e) {
                                 e.preventDefault();
                                 searchInput.value = item.name;
                                 suggestBox.classList.add('d-none');
-                                confirmExisting(item.id, item.name);
+                                confirmExisting(item.id, item.name, item.compartida);
                             });
                             suggestBox.appendChild(row);
                         });
@@ -431,7 +450,8 @@
         }
 
         function elegible() {
-            return STATE.carrera && !STATE.carrera.skipped && STATE.materia && !STATE.materia.skipped;
+            return STATE.carrera && !STATE.carrera.skipped && STATE.materia && !STATE.materia.skipped
+                && !STATE.materia.compartida;  // una materia compartida por otro docente no admite cargarle resultados
         }
 
         function loadExisting() {
@@ -882,10 +902,10 @@
     function examEl(id) { return document.getElementById(id); }
 
     function clearExamDraft() {
-        try { sessionStorage.removeItem(EXAM_DRAFT_KEY); } catch (e) { /* sin sessionStorage */ }
+        try { sessionStorage.removeItem(window.EducaAppWizardDraft ? window.EducaAppWizardDraft.scopedKey(EXAM_DRAFT_KEY) : EXAM_DRAFT_KEY); } catch (e) { /* sin sessionStorage */ }
     }
     function clearOralDraft() {
-        try { sessionStorage.removeItem(ORAL_DRAFT_KEY); } catch (e) { /* sin sessionStorage */ }
+        try { sessionStorage.removeItem(window.EducaAppWizardDraft ? window.EducaAppWizardDraft.scopedKey(ORAL_DRAFT_KEY) : ORAL_DRAFT_KEY); } catch (e) { /* sin sessionStorage */ }
     }
 
     // 'blocked' | 'stage' | 'done'. Con el asistente de examen abierto
@@ -1245,9 +1265,19 @@
 
         // Tras generar preguntas con IA en la otra pestaña, al volver a esta
         // el botón inferior tiene que pasar de "Saltear" a "Continuar".
-        window.addEventListener('focus', function () {
+        // Al volver del iframe, el clic que devuelve el foco a esta ventana dispara
+        // este evento entre el "mousedown" y el "mouseup": si el botón se repinta
+        // justo ahí, ese primer clic sobre "Continuar" se perdía. Se espera a que
+        // no haya un clic en curso.
+        var punteroAbajo = false;
+        window.addEventListener('pointerdown', function () { punteroAbajo = true; }, true);
+        window.addEventListener('pointerup', function () { punteroAbajo = false; }, true);
+        window.addEventListener('pointercancel', function () { punteroAbajo = false; }, true);
+        function reconfigurarPasoPreguntas() {
+            if (punteroAbajo) { setTimeout(reconfigurarPasoPreguntas, 200); return; }
             if (wizardCtrl.current() === 6 && !embed.active) configureBottomAction(6);
-        });
+        }
+        window.addEventListener('focus', function () { setTimeout(reconfigurarPasoPreguntas, 250); });
 
         // Vuelta desde el generador con IA (?retomar=1): se retoma sin
         // preguntar, justo donde se había salido.

@@ -32,7 +32,16 @@
 // restaurados hacen que onValidateStep pase limpio en cada uno), no saltar
 // directo.
 window.EducaAppWizardDraft = (function () {
-    function init(key) {
+    // El borrador vive en sessionStorage, que es del navegador y no de la cuenta:
+    // en un equipo compartido, otra persona que ingresara en la misma pestaña
+    // veía ofrecido el trabajo de la anterior. La clave lleva el id de la cuenta
+    // (base.html lo publica en window.EducaAppUserId).
+    function scopedKey(key) {
+        var uid = window.EducaAppUserId;
+        return uid ? key + ':u' + uid : key;
+    }
+    function init(baseKey) {
+        var key = scopedKey(baseKey);
         function save(state) {
             try { sessionStorage.setItem(key, JSON.stringify(state)); } catch (e) { /* sessionStorage lleno o bloqueado (navegación privada) — best-effort */ }
         }
@@ -56,5 +65,5 @@ window.EducaAppWizardDraft = (function () {
         }
         return { save: save, load: load, clear: clear, confirmRestore: confirmRestore };
     }
-    return { init: init };
+    return { init: init, scopedKey: scopedKey };
 })();

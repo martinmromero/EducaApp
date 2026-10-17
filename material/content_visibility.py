@@ -54,6 +54,31 @@ def get_visible_subjects(user):
     )
 
 
+def get_shared_subjects(user):
+    """Materias de OTRO docente que le compartieron a este usuario por un grupo
+    de confianza (ContentShare kind='materia', grupo con membresía aceptada).
+    Suelen ser materias del espacio personal del otro docente, que
+    get_visible_subjects no muestra a propósito (no se ven, no se editan, no
+    se promueven al catálogo); lo único que se hereda es poder armar
+    exámenes y cuestionarios orales con las preguntas compartidas."""
+    shared_ids = ContentShare.objects.filter(
+        kind='materia', is_active=True,
+        group__memberships__user=user, group__memberships__status='accepted',
+    ).exclude(shared_by=user).values('subject_id')
+    return Subject.objects.filter(is_seed_demo=False, pk__in=shared_ids)
+
+
+def get_usable_subjects(user):
+    """Materias con las que el usuario puede ARMAR algo (Asistente completo,
+    examen, oral): las visibles (catálogo + espacio personal propio) más las
+    compartidas por un grupo. No usar para editar/borrar/administrar una
+    materia: para eso rige get_visible_subjects."""
+    return Subject.objects.filter(is_seed_demo=False).filter(
+        Q(es_catalogo_institucional=True) | Q(created_by=user)
+        | Q(pk__in=get_shared_subjects(user).values('pk'))
+    )
+
+
 def get_visible_learning_outcomes(user):
     """Mismo mecanismo de espacio personal que institución/facultad/carrera/
     materia (ver get_visible_subjects) — un Resultado de Aprendizaje

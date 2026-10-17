@@ -371,7 +371,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var parts = [tipoLabel, subjectLabel, institutionLabel, semester];
         if (curso) parts.push(curso);
-        parts.push(year, versions + ' opciones');
+        parts.push(year, versions + (parseInt(versions, 10) === 1 ? ' opción' : ' opciones'));
         batchInput.value = parts.join(' - ');
     }
 

@@ -160,7 +160,7 @@ _onDomReady(function () {
         var year = yearInput.value || (fecha ? fecha.split('-')[0] : 'sin anio');
         var parts = [tipo, subjectLabel, institutionLabel, semester];
         if (curso) parts.push(curso);
-        parts.push(year, versions + ' opciones');
+        parts.push(year, versions + (parseInt(versions, 10) === 1 ? ' opción' : ' opciones'));
         batchNameInput.value = parts.join(' - ');
     }
     ['change', 'input'].forEach(function (evt) {

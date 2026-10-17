@@ -187,7 +187,7 @@ def _append_payload(flow, payload, style_text, style_title, style_h2, *, include
             flow.append(Paragraph(f"Modalidad de resolución: {block['texto']}", style_text))
 
         elif tipo == 'lista_temas' and block.get('items'):
-            flow.append(Paragraph('Temas a evaluar', style_h2))
+            flow.append(Paragraph('Tópicos a evaluar', style_h2))
             for item in block['items']:
                 flow.append(Paragraph(f"• {item}", style_text))
 
