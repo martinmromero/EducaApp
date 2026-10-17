@@ -14,7 +14,7 @@
         element: '#rubricNewBtn',
         popover: {
           title: 'Nueva rúbrica',
-          description: 'Abre un asistente paso a paso para armar la grilla de criterios y niveles — no hay que completarla toda de una vez.',
+          description: 'Abrir un asistente paso a paso para armar la grilla de criterios y niveles — no hay que completarla toda de una vez.',
           side: 'bottom',
         },
       },

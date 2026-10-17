@@ -48,7 +48,7 @@
         element: 'button[type="submit"]',
         popover: {
           title: 'Guardar rúbrica',
-          description: 'Guarda la rúbrica en la biblioteca. Después se puede asociar a cualquier examen desde "Rúbricas del examen".',
+          description: 'Guardar la rúbrica en la biblioteca. Después se puede asociar a cualquier examen desde "Rúbricas del examen".',
           side: 'top',
         },
       },

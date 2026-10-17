@@ -39,7 +39,7 @@
         element: '#localAIStatus',
         popover: {
           title: 'Estado de la IA',
-          description: 'Indica si el proveedor de IA configurado está conectado y listo para generar preguntas.',
+          description: 'Indicar si el proveedor de IA configurado está conectado y listo para generar preguntas.',
           side: 'bottom',
         },
       },

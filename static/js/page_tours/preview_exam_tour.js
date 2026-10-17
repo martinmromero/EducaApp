@@ -107,7 +107,7 @@
       element: '#examSaveBtn',
       popover: {
         title: 'Guardar examen',
-        description: 'Guarda este examen en "Mis exámenes". Se puede seguir editando después.',
+        description: 'Guardar este examen en "Mis exámenes". Se puede seguir editando después.',
         side: 'top',
       },
     });

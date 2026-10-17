@@ -14,7 +14,7 @@
         element: '#templateNewBtn',
         popover: {
           title: 'Nueva plantilla',
-          description: 'Arma una configuración reutilizable (institución, materia, formato de impresión, rúbricas) para no repetirla en cada examen.',
+          description: 'Armar una configuración reutilizable (institución, materia, formato de impresión, rúbricas) para no repetirla en cada examen.',
           side: 'bottom',
         },
       },
@@ -30,7 +30,7 @@
         element: '#templateFavoritosBtn',
         popover: {
           title: 'Favoritas',
-          description: 'Filtra la lista para mostrar solo las plantillas marcadas con la estrella — útil si se maneja más de una institución o materia.',
+          description: 'Filtrar la lista para mostrar solo las plantillas marcadas con la estrella — útil si se maneja más de una institución o materia.',
           side: 'bottom',
         },
       },

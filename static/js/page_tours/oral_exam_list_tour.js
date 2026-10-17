@@ -14,7 +14,7 @@
         element: '#oralNewBtn',
         popover: {
           title: 'Nuevo cuestionario',
-          description: 'Arma un cuestionario oral: se eligen materia y tópicos, y el sistema distribuye las preguntas entre los grupos de estudiantes.',
+          description: 'Armar un cuestionario oral: se eligen materia y tópicos, y el sistema distribuye las preguntas entre los grupos de estudiantes.',
           side: 'bottom',
         },
       },
@@ -30,7 +30,7 @@
         element: '#oralFavoritosBtn',
         popover: {
           title: 'Favoritos',
-          description: 'Filtra la lista para mostrar solo los cuestionarios marcados con la estrella.',
+          description: 'Filtrar la lista para mostrar solo los cuestionarios marcados con la estrella.',
           side: 'bottom',
         },
       },

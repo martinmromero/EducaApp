@@ -64,7 +64,7 @@
         element: '#save-as-copy-btn',
         popover: {
           title: 'Guardar como copia',
-          description: 'Guarda los cambios en una plantilla nueva, sin tocar la original — útil para partir de una existente y ajustarla para otro curso o materia.',
+          description: 'Guardar los cambios en una plantilla nueva, sin tocar la original — útil para partir de una existente y ajustarla para otro curso o materia.',
           side: 'top',
         },
       },

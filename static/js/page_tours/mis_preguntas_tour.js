@@ -13,7 +13,7 @@
         element: '#questionNewBtn',
         popover: {
           title: 'Nueva pregunta',
-          description: 'Carga una pregunta ya armada (con su respuesta) directo al banco, sin pasar por la IA.',
+          description: 'Cargar una pregunta ya armada (con su respuesta) directo al banco, sin pasar por la IA.',
           side: 'bottom',
         },
       },

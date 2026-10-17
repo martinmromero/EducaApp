@@ -12,7 +12,7 @@
         element: '#formatoNewBtn',
         popover: {
           title: 'Nuevo formato',
-          description: 'Define cómo se ve el examen impreso: membrete, colores, fuente y tamaño de hoja, con vista previa en vivo.',
+          description: 'Definir cómo se ve el examen impreso: membrete, colores, fuente y tamaño de hoja, con vista previa en vivo.',
           side: 'bottom',
         },
       },

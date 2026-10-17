@@ -55,7 +55,7 @@
         element: '#institution-form button[type="submit"]',
         popover: {
           title: 'Crear institución',
-          description: 'Guarda la institución con las sedes y facultades cargadas.',
+          description: 'Guardar la institución con las sedes y facultades cargadas.',
           side: 'top',
         },
       },

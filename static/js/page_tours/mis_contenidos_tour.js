@@ -13,7 +13,7 @@
         element: '#contenidoUploadBtn',
         popover: {
           title: 'Subir contenido',
-          description: 'Sube un apunte, PDF o material de clase para poder analizarlo con IA y generar preguntas a partir de él.',
+          description: 'Subir un apunte, PDF o material de clase para poder analizarlo con IA y generar preguntas a partir de él.',
           side: 'bottom',
         },
       },

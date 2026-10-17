@@ -15,7 +15,7 @@
         element: '#examNewBtn',
         popover: {
           title: 'Nuevo examen',
-          description: 'Arma un examen nuevo: institución, materia, tópicos y preguntas. En el modo simple lo pide paso a paso; en el avanzado abre el formulario completo.',
+          description: 'Armar un examen nuevo: institución, materia, tópicos y preguntas. En el modo simple lo pide paso a paso; en el avanzado abre el formulario completo.',
           side: 'bottom',
         },
       },
@@ -31,7 +31,7 @@
         element: '#examFavoritosBtn',
         popover: {
           title: 'Favoritos',
-          description: 'Filtra la lista para mostrar solo los exámenes o lotes marcados con la estrella.',
+          description: 'Filtrar la lista para mostrar solo los exámenes o lotes marcados con la estrella.',
           side: 'bottom',
         },
       },
