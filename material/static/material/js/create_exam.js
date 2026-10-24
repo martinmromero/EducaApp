@@ -533,7 +533,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Turno
         if (data.shift) {
             var turnoSelect = document.getElementById('turno_dropdown');
-            turnoSelect.value = data.shift;
+            // La plantilla guarda 'mañana'; el selector ofrece 'Mañana'.
+            var turnoMap = { 'mañana': 'Mañana', 'tarde': 'Tarde', 'noche': 'Noche' };
+            turnoSelect.value = turnoMap[String(data.shift).toLowerCase()] || data.shift;
         }
     });
     // Temas evaluados según materia seleccionada

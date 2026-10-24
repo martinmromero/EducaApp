@@ -307,6 +307,8 @@ _onDomReady(function () {
         var catedraInput = document.getElementById('id_catedra');
         var notesInput = document.getElementById('id_notes');
         var catedraVal = catedraInput && catedraInput.value.trim() ? catedraInput.value.trim() : '-';
+        var shiftSelect = document.getElementById('id_shift');
+        var shiftVal = shiftSelect && shiftSelect.value ? shiftSelect.selectedOptions[0].textContent : '-';
         var notesVal = notesInput && notesInput.value.trim() ? notesInput.value.trim() : '-';
         box.innerHTML =
             '<dl class="row mb-0">' +
@@ -315,6 +317,7 @@ _onDomReady(function () {
             '<dt class="col-sm-4">Materia</dt><dd class="col-sm-8">' + window.EducaAppEscape(label(subjectSelect)) + '</dd>' +
             '<dt class="col-sm-4">Docente</dt><dd class="col-sm-8">' + window.EducaAppEscape(label(document.getElementById('id_professor'))) + '</dd>' +
             '<dt class="col-sm-4">Cátedra</dt><dd class="col-sm-8">' + window.EducaAppEscape(catedraVal) + '</dd>' +
+            '<dt class="col-sm-4">Turno</dt><dd class="col-sm-8">' + window.EducaAppEscape(shiftVal) + '</dd>' +
             '<dt class="col-sm-4">Resultados de aprendizaje</dt><dd class="col-sm-8">' + outcomesCount + ' seleccionado(s)</dd>' +
             '<dt class="col-sm-4">Rúbricas</dt><dd class="col-sm-8">' + rubricsCount + ' seleccionada(s)</dd>' +
             '<dt class="col-sm-4">Notas y recomendaciones</dt><dd class="col-sm-8">' + window.EducaAppEscape(notesVal) + '</dd>' +
@@ -397,6 +400,7 @@ _onDomReady(function () {
     var form = document.getElementById('templateWizardForm');
     var professorSelect = document.getElementById('id_professor');
     var catedraInput = document.getElementById('id_catedra');
+    var shiftSelect = document.getElementById('id_shift');
     var printFormatSelect = document.getElementById('id_print_format');
     var notesInput = document.getElementById('id_notes');
 
@@ -409,6 +413,7 @@ _onDomReady(function () {
             subject: subjectSelect.value,
             professor: professorSelect.value,
             catedra: catedraInput.value,
+            shift: shiftSelect.value,
             printFormat: printFormatSelect.value,
             name: nameInput.value,
             notes: notesInput.value,
@@ -438,6 +443,7 @@ _onDomReady(function () {
                 subjectSelect.value = saved.subject || '';
                 professorSelect.value = saved.professor || '';
                 catedraInput.value = saved.catedra || '';
+                shiftSelect.value = saved.shift || '';
                 printFormatSelect.value = saved.printFormat || '';
                 nameInput.value = saved.name || '';
                 notesInput.value = saved.notes || '';

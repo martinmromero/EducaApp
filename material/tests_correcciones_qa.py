@@ -431,6 +431,59 @@ class LimpiezaRonda2Tests(TestCase):
         self.assertEqual(plantilla.name, 'Mi plantilla')
 
 
+class TurnoDeLaPlantillaTests(TestCase):
+    """R1 (2026-10-24): las plantillas no guardaban el turno (no había campo en ninguna pantalla)."""
+
+    def setUp(self):
+        from .models import FacultyV2, InstitutionV2
+        self.user = make_user('t_ana')
+        self.client = Client()
+        self.client.force_login(self.user)
+        self.materia = Subject.objects.create(name='Álgebra T', created_by=self.user)
+        self.inst = InstitutionV2.objects.create(name='Inst T', created_by=self.user)
+        self.fac = FacultyV2.objects.create(name='Fac T', institution=self.inst, created_by=self.user)
+        self.carrera = Career.objects.create(name='Carrera T', created_by=self.user, es_catalogo_institucional=False)
+
+    def _datos(self, **extra):
+        datos = {'name': 'Con turno', 'institution': self.inst.pk, 'faculty': self.fac.pk,
+                 'career': self.carrera.pk, 'subject': self.materia.pk}
+        datos.update(extra)
+        return datos
+
+    def test_guardar_plantilla_conserva_el_turno_y_llega_al_examen(self):
+        from .models import ExamTemplate
+        r = self.client.post(reverse('material:save_exam_template'), self._datos(shift='mañana'))
+        self.assertEqual(r.status_code, 200, r.content)
+        plantilla = ExamTemplate.objects.get(name='Con turno')
+        self.assertEqual(plantilla.shift, 'mañana')
+        datos = self.client.get(reverse('material:get_exam_template', args=[plantilla.pk])).json()
+        self.assertEqual(datos['shift'], 'mañana')
+
+    def test_turno_invalido_o_vacio_queda_sin_turno_y_editar_sin_el_campo_no_lo_borra(self):
+        from .models import ExamTemplate
+        self.client.post(reverse('material:save_exam_template'), self._datos(shift='madrugada'))
+        self.assertIsNone(ExamTemplate.objects.get(name='Con turno').shift)
+        plantilla = ExamTemplate.objects.get(name='Con turno')
+        plantilla.shift = 'tarde'
+        plantilla.save(skip_validation=True)
+        self.client.post(reverse('material:save_exam_template'),
+                         self._datos(save_mode='update', template_id=plantilla.pk))
+        plantilla.refresh_from_db()
+        self.assertEqual(plantilla.shift, 'tarde')
+
+    def test_las_dos_pantallas_ofrecen_el_turno(self):
+        self.assertContains(self.client.get(reverse('material:create_exam_template')), 'name="shift"')
+        self.assertContains(self.client.get(reverse('material:create_exam_template_wizard')), 'name="shift"')
+
+
+class EnvioDobleTests(TestCase):
+    def test_la_proteccion_contra_envio_doble_se_carga_en_todas_las_pantallas(self):
+        user = make_user('d_ana')
+        c = Client()
+        c.force_login(user)
+        self.assertContains(c.get(reverse('material:upload_questions')), 'js/submit_guard')
+
+
 class CacheDeOpcionesDeFiltroTests(TestCase):
     def setUp(self):
         from django.core.cache import cache

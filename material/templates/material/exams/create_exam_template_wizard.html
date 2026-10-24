@@ -106,6 +106,15 @@
                         <input type="text" class="form-control" name="catedra" id="id_catedra" placeholder="Ej: Cátedra A - Docente Pérez">
                     </div>
                     <div class="col-md-6">
+                        <label class="form-label" for="id_shift">Turno <span class="text-muted fw-normal">(opcional)</span></label>
+                        <select class="form-select" name="shift" id="id_shift">
+                            <option value="">Sin especificar</option>
+                            <option value="mañana">Mañana</option>
+                            <option value="tarde">Tarde</option>
+                            <option value="noche">Noche</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label" for="id_print_format">Formato de impresión <span class="text-muted fw-normal">(opcional)</span></label>
                         <select class="form-select" name="print_format" id="id_print_format">
                             <option value="">Usar el predeterminado (institución/usuario)</option>

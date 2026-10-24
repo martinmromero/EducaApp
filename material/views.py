@@ -2667,7 +2667,7 @@ def preview_exam_template(request):
             'year': '',  # Las plantillas no tienen año: se muestra en blanco
             'catedra': request.POST.get('catedra', '').strip(),
             'curso': '',  # No disponible en plantillas
-            'turno': '',  # No disponible en plantillas
+            'turno': (request.POST.get('shift') or '').capitalize(),
             # Antes hardcodeado en '' con el comentario "no disponible en
             # plantillas" — dejó de ser cierto cuando ExamTemplate.campus se
             # agregó (sí se guarda, ver save_exam_template); un docente que
@@ -2777,7 +2777,7 @@ def view_exam_template(request, template_id):
         'tipo_modalidad': template.get_exam_mode_display(),
         'catedra': template.catedra or '',
         'curso': '',
-        'turno': '',
+        'turno': template.get_shift_display() if template.shift else '',
         # Antes hardcodeado en '' — dejó de ser cierto cuando
         # ExamTemplate.campus se agregó (ver hallazgo en preview_exam_template
         # más arriba, mismo bug acá para la vista ya guardada).
@@ -2815,6 +2815,12 @@ def view_exam_template(request, template_id):
 
     return render(request, 'material/exams/preview_exam_template.html', context)
 
+def _normalizar_turno(valor):
+    """Turno de una plantilla: solo mañana/tarde/noche (como Exam.SHIFT_CHOICES); lo demás queda vacío."""
+    turno = (valor or '').strip().lower()
+    return turno if turno in ('mañana', 'tarde', 'noche') else None
+
+
 @login_required
 @transaction.atomic
 def save_exam_template(request):
@@ -2851,6 +2857,7 @@ def save_exam_template(request):
                 'career_id': request.POST.get('career'),
                 'subject_id': request.POST.get('subject'),
                 'catedra': request.POST.get('catedra', '').strip(),
+                'shift': _normalizar_turno(request.POST.get('shift')),
                 'exam_mode': request.POST.get('exam_mode'),
                 'exam_type': request.POST.get('exam_type'),
                 'campus_id': request.POST.get('campus'),
@@ -2888,6 +2895,10 @@ def save_exam_template(request):
                     # clave nunca vino, y el setattr incondicional lo pisaba
                     # igual). Hallazgo de la auditoría 2026-09-11.
                     if field == 'campus_id' and 'campus' not in request.POST:
+                        continue
+                    # Mismo criterio para el turno: una pantalla que no lo envía
+                    # no debe borrarlo.
+                    if field == 'shift' and 'shift' not in request.POST:
                         continue
                     setattr(exam_template, field, value)
                 exam_template.save(skip_validation=True)

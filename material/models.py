@@ -1773,7 +1773,7 @@ class ExamTemplate(models.Model):
     
     # Opciones de turno
     SHIFT_CHOICES = [
-        ('manana', 'Mañana'),
+        ('mañana', 'Mañana'),  # igual que Exam.SHIFT_CHOICES: la plantilla se copia al examen tal cual
         ('tarde', 'Tarde'),
         ('noche', 'Noche')
     ]
