@@ -86,6 +86,7 @@ urlpatterns = [
 # Document Processor - Nuevas URLs para procesamiento avanzado de documentos
     path('doc-processor/', doc_views.document_processor_dashboard, name='document_processor_dashboard'),
     path('doc-processor/upload/', doc_views.upload_and_process_document, name='upload_and_process_document'),
+    path('doc-processor/serve-file/', doc_views.serve_doc_file, name='serve_doc_file'),
     
     # Local AI Server integration
     path('doc-processor/local-ai/status/', doc_views.check_local_ai_status, name='check_local_ai_status'),

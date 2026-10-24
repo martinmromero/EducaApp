@@ -382,6 +382,26 @@ class LimpiezaRonda2Tests(TestCase):
         self.assertIn('login', anonimo['Location'])
         self.assertEqual(self.client.get(url).status_code, 200)
 
+    def test_el_visor_del_documento_en_sesion_se_sirve_y_exige_sesion(self):
+        # El JS del procesador de documentos pide esta URL escrita a mano (no por nombre).
+        import os
+        import tempfile
+        url = '/doc-processor/serve-file/'
+        self.assertEqual(reverse('material:serve_doc_file'), url)
+        self.assertEqual(Client().get(url).status_code, 302)
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as carpeta, self.settings(MEDIA_ROOT=carpeta):
+            ruta = os.path.join(carpeta, 'doc.pdf')
+            with open(ruta, 'wb') as f:
+                f.write(b'%PDF-1.4')
+            sesion = self.client.session
+            sesion['doc_processor'] = {'file_path': ruta, 'filename': 'doc.pdf'}
+            sesion.save()
+            r = self.client.get(url)
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r['Content-Type'], 'application/pdf')
+            self.assertEqual(b''.join(r.streaming_content), b'%PDF-1.4')
+        self.assertEqual(self.client.get(url).status_code, 404)
+
     def test_las_rutas_eliminadas_ya_no_existen(self):
         from django.urls import NoReverseMatch
         for nombre, kwargs in (('institution_v2_logs', {'pk': 1}), ('download_template', {'format': 'csv'})):
