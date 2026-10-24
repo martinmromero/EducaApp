@@ -205,7 +205,7 @@ TEXTOS_ANTERIORES = {
     (10, "Como docente NO admin, agregar un resultado de aprendizaje en una materia PERSONAL propia (no del catálogo institucional) — confirmar que se puede cargar y queda usable de inmediato"):
         "Como docente NO admin, agregar un resultado de aprendizaje en una materia PERSONAL tuya (no del catálogo institucional) — confirmar que se puede cargar y queda usable de inmediato",
     (17, "En \"Mis agregados\", confirmar que una solicitud rechazada deja claro que NO se borró lo cargado, solo que no se sumó al catálogo compartido"):
-        "En \"Mis agregados\", confirmar que una solicitud rechazada deja claro que NO se borró lo que cargaste, solo que no se sumó al catálogo compartido",
+        "En \"Mis agregados\", confirmar que una solicitud rechazada deja claro que NO se borró lo cargado, solo que no se sumó al catálogo compartido",
 }
 
 class Command(BaseCommand):

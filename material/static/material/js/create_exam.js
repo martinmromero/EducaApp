@@ -195,7 +195,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (question.bloom_level) option.dataset.bloom = question.bloom_level;
                     // Lo usa renderQuestionsCheckboxes() para colorear cada
                     // pregunta según su tópico (ver assignTopicColors).
-                    if (question.topic_id) option.dataset.topicId = question.topic_id;
+                    // Las preguntas sin tópico usan el mismo valor 'sin_topico' que
+                    // la opción "Sin tópico definido" del selector, para que el
+                    // punto tenga el mismo color en ambas listas.
+                    option.dataset.topicId = question.topic_id ? question.topic_id : 'sin_topico';
                     questionsSelect.appendChild(option);
                 });
                 renderQuestionsCheckboxes();

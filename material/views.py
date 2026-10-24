@@ -7271,20 +7271,19 @@ def get_faculties_by_institution(request, institution_id):
         logger.error(f"Error in get_faculties_by_institution: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
+@login_required
 def get_campuses_by_institution(request, institution_id):
     """
     Devuelve las sedes (campus) asociadas a una institución en formato JSON.
     """
-    print(f"get_campuses_by_institution called with institution_id: {institution_id}")  # DEBUG
     try:
         campuses = CampusV2.objects.filter(institution_id=institution_id)
         if not request.session.get('onb2_demo_scheme_active'):
             campuses = campuses.filter(institution__is_seed_demo=False)
         campuses = campuses.values('id', 'name')
-        print(f"Campuses found: {campuses}")  # DEBUG
         return JsonResponse({'campuses': list(campuses)})
     except Exception as e:
-        print(f"Error in get_campuses_by_institution: {e}")  # DEBUG
+        logger.error(f"Error in get_campuses_by_institution: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
 

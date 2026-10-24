@@ -31,6 +31,28 @@
     line-height: var(--exam-line-height);
   }
 
+  /* Modo oscuro: las tres tarjetas (datos del examen, rúbricas y cada Tema) se
+     ven iguales, con un gris un poco más claro que el fondo de la página y el
+     título en blanco. Los colores de impresión (--exam-*-color) quedan solo
+     para el papel: en pantalla oscura serían texto oscuro sobre fondo oscuro. */
+  [data-bs-theme="dark"] .preview-version-card,
+  [data-bs-theme="dark"] .preview-tema-card {
+    background: #2b3035;
+    border-color: #495057;
+  }
+
+  [data-bs-theme="dark"] .preview-version-card .card-header,
+  [data-bs-theme="dark"] .preview-tema-card .card-header {
+    background: #343a40;
+    color: #f8f9fa;
+    border-bottom-color: #495057;
+  }
+
+  [data-bs-theme="dark"] .preview-version-card .card-body,
+  [data-bs-theme="dark"] .preview-tema-card .card-body {
+    color: #e9ecef;
+  }
+
   @media print {
     @page {
       margin: var(--exam-margin-top) var(--exam-margin-right) var(--exam-margin-bottom) var(--exam-margin-left);
@@ -100,7 +122,7 @@
   {% endif %}
 
   {% for version in versions_preview %}
-  <div class="card mb-3">
+  <div class="card mb-3 preview-tema-card">
     <div class="card-header"><strong>Tema {{ version.number }}</strong></div>
     <div class="card-body">
       <ol>

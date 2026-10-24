@@ -375,6 +375,13 @@ class LimpiezaRonda2Tests(TestCase):
         self.client = Client()
         self.client.force_login(self.user)
 
+    def test_sedes_por_institucion_exige_sesion(self):
+        url = reverse('material:get_campuses_by_institution', kwargs={'institution_id': 1})
+        anonimo = Client().get(url)
+        self.assertEqual(anonimo.status_code, 302)
+        self.assertIn('login', anonimo['Location'])
+        self.assertEqual(self.client.get(url).status_code, 200)
+
     def test_las_rutas_eliminadas_ya_no_existen(self):
         from django.urls import NoReverseMatch
         for nombre, kwargs in (('institution_v2_logs', {'pk': 1}), ('download_template', {'format': 'csv'})):
