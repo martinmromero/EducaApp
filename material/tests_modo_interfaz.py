@@ -164,3 +164,44 @@ class ListadosTests(TestCase):
             self.assertNotIn(f'id="{aparte}"', simple, lista)
             avanzado = login('l_avanzado').get(reverse(f'material:{lista}')).content.decode()
             self.assertIn(f'id="{aparte}"', avanzado, lista)
+
+
+class EleccionDeModoEnElTutorialTests(TestCase):
+    """La pantalla inicial del tutorial deja elegir el modo, con el simple recomendado y marcado."""
+
+    def setUp(self):
+        self.user = make_user('t_nuevo')
+        self.user.profile.onboarding_completed = False
+        self.user.profile.save()
+        self.client = login('t_nuevo')
+
+    def test_el_tutorial_ofrece_los_dos_modos_con_el_simple_marcado_y_recomendado(self):
+        r = self.client.get(reverse('material:onboarding_v2_page') + '?first=1')
+        self.assertContains(r, 'id="onb2ModeBlock"')
+        html = r.content.decode()
+        self.assertIn('id="onb2ModeSimple" value="simple" autocomplete="off" checked', html)
+        self.assertNotIn('id="onb2ModeAdvanced" value="avanzado" autocomplete="off" checked', html)
+        self.assertContains(r, 'Recomendado para empezar')
+
+    def test_una_cuenta_en_avanzado_ve_el_avanzado_marcado(self):
+        self.user.profile.interface_mode = 'avanzado'
+        self.user.profile.save()
+        html = self.client.get(reverse('material:onboarding_v2_page')).content.decode()
+        self.assertIn('id="onb2ModeAdvanced" value="avanzado" autocomplete="off" checked', html)
+
+    def test_elegir_el_modo_desde_el_tutorial_se_guarda_y_responde_json(self):
+        r = self.client.post(reverse('material:set_interface_mode'), {'mode': 'avanzado'},
+                             HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(r.json(), {'success': True, 'mode': 'avanzado'})
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.interface_mode, 'avanzado')
+        r = self.client.post(reverse('material:set_interface_mode'), {'mode': 'simple'},
+                             HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(r.json()['mode'], 'simple')
+
+    def test_un_modo_inventado_se_rechaza_sin_cambiar_nada(self):
+        r = self.client.post(reverse('material:set_interface_mode'), {'mode': 'experto'},
+                             HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(r.status_code, 400)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.interface_mode, 'simple')

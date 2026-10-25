@@ -6122,13 +6122,19 @@ def set_interface_mode(request):
     ):
         destino = reverse('material:index')
     mode = request.POST.get('mode')
+    # El tutorial de inicio lo cambia sin recargar la pantalla: responde JSON en vez de redirigir.
+    por_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     if mode not in {choice for choice, _ in Profile.INTERFACE_MODE_CHOICES}:
+        if por_ajax:
+            return JsonResponse({'success': False, 'error': 'Modo inválido.'}, status=400)
         messages.error(request, 'Modo inválido.', extra_tags='general')
         return redirect(destino)
     profile = request.user.profile
     if profile.interface_mode != mode:
         profile.interface_mode = mode
         profile.save(update_fields=['interface_mode'])
+    if por_ajax:
+        return JsonResponse({'success': True, 'mode': mode})
     return redirect(destino)
 
 
