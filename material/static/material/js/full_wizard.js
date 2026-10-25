@@ -898,7 +898,10 @@
     // (static/js/embed.js) y los avisos por postMessage de abajo.
     var EXAM_DRAFT_KEY = 'educaapp_exam_wizard_draft_fw';
     // kind: lo que se arma en este último paso, 'escrito' (examen) u 'oral' (cuestionario oral).
-    var exam = { url: null, saved: false, readySeen: false, kind: 'escrito', contextKey: null, revealTimer: null };
+    // sig: "preguntas-tópicos-unidades" de la materia la última vez que se montó el marco. Si al
+    // volver al paso cambió (se cargaron o generaron preguntas), el marco se recarga: sus
+    // listas de tópicos se arman al cargar y de otra forma quedarían desactualizadas.
+    var exam = { url: null, saved: false, readySeen: false, kind: 'escrito', contextKey: null, revealTimer: null, sig: null };
     var ORAL_DRAFT_KEY = 'educaapp_oral_wizard_draft_fw';
 
     function examEl(id) { return document.getElementById(id); }
@@ -1008,6 +1011,9 @@
                     showExamPanel('blocked');
                     return;
                 }
+                var sig = [data.question_count, data.topic_count, data.oral_units].join('-');
+                if (exam.sig !== null && exam.sig !== sig) exam.url = null; // cambió el contenido: recargar el marco
+                exam.sig = sig;
                 mountExamFrame();
             })
             .catch(function () { if (wizardCtrl.current() === 7) mountExamFrame(); });
@@ -1152,8 +1158,8 @@
             // "Atrás" en el primer paso del asistente de examen: vuelve al
             // paso Preguntas del host (el progreso del examen queda en el iframe).
             if (d.type === 'educaapp:exam-exit' || d.type === 'educaapp:oral-exit') examEl('wizBackBtn').click();
-            else if (d.type === 'educaapp:oral-saved') onExamSaved({ message: '', viewUrl: d.viewUrl, warnings: d.warnings });
-            else if (d.type === 'educaapp:exam-saved') onExamSaved(d);
+            else if (d.type === 'educaapp:oral-saved') { exam.kind = 'oral'; refreshKindBar(); onExamSaved({ message: '', viewUrl: d.viewUrl, warnings: d.warnings }); }
+            else if (d.type === 'educaapp:exam-saved') { exam.kind = 'escrito'; refreshKindBar(); onExamSaved(d); }
         });
         examEl('fwExamBlockedBtn').addEventListener('click', function () { examEl('wizBackBtn').click(); });
         document.querySelectorAll('#fwKindBar [data-kind]').forEach(function (btn) {

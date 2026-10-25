@@ -1207,7 +1207,7 @@ class Command(BaseCommand):
             year=2026,
             exam_type='final',
             exam_mode='presencial',
-            shift='manana',
+            shift='mañana',
             notes_and_recommendations=(
                 'Revisar los conceptos fundamentales de la materia antes del examen. '
                 'Se recomienda practicar ejercicios de las guías de la cátedra.'

@@ -106,6 +106,13 @@ _onDomReady(function () {
         loadTopicsForSubject(this.value);
         validationBox.innerHTML = '';
     });
+    // Con la lista de tópicos vacía (la materia todavía no tenía preguntas cuando se
+    // cargó esta pantalla), al volver a ella se consulta de nuevo en vez de dejarla así.
+    var reintentoTopicos = null;
+    window.addEventListener('focus', function () {
+        if (!subjectSelect.value || topicsList.children.length || reintentoTopicos) return;
+        reintentoTopicos = loadTopicsForSubject(subjectSelect.value).then(function () { reintentoTopicos = null; }, function () { reintentoTopicos = null; });
+    });
     document.getElementById('oralTopicsSelectAll').addEventListener('click', function () {
         topicsList.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = true; });
         refreshValidation();
