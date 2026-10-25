@@ -420,7 +420,6 @@ def _clone_exam_template(seed_subject, subject, training_user):
         year=timezone.now().year,
         exam_type='final',
         exam_mode='presencial',
-        shift='mañana',
         notes_and_recommendations='Revisar los conceptos fundamentales de la materia antes del examen.',
         created_by=training_user,
         institution_name_snapshot=institution.name,

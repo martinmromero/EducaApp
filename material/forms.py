@@ -316,7 +316,7 @@ class ExamTemplateForm(forms.ModelForm):
         fields = [
             'name',
             'institution', 'faculty', 'career', 'subject', 'campus', 'professor',
-            'catedra', 'shift',
+            'catedra',
             'print_format',
             'learning_outcomes', 'rubrics', 'notes_and_recommendations',
         ]
@@ -329,7 +329,6 @@ class ExamTemplateForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Ej: Cátedra A - Docente Pérez (opcional)',
             }),
-            'shift': forms.Select(attrs={'class': 'form-select'}),
             'learning_outcomes': forms.CheckboxSelectMultiple(
                 attrs={'class': 'learning-outcomes-checkbox'}
             ),
@@ -371,8 +370,6 @@ class ExamTemplateForm(forms.ModelForm):
             self.fields['print_format'].queryset = FormatoImpresion.objects.none()
             self.fields['rubrics'].queryset = Rubric.objects.none()
         self.fields['print_format'].required = False
-        self.fields['shift'].required = False
-        self.fields['shift'].choices = [('', 'Sin especificar')] + list(ExamTemplate.SHIFT_CHOICES)
         self.fields['print_format'].empty_label = 'Usar el predeterminado (institución/usuario)'
 
         self.fields['faculty'].queryset = FacultyV2.objects.none()

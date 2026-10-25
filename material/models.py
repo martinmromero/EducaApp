@@ -1771,13 +1771,6 @@ class ExamTemplate(models.Model):
         ('practico', 'Práctico')
     ]
     
-    # Opciones de turno
-    SHIFT_CHOICES = [
-        ('mañana', 'Mañana'),  # igual que Exam.SHIFT_CHOICES: la plantilla se copia al examen tal cual
-        ('tarde', 'Tarde'),
-        ('noche', 'Noche')
-    ]
-
     # Nombre elegido por el usuario (opcional). Si se deja vacío, __str__
     # sigue armando uno automático a partir de Materia/Tipo/Año, como antes.
     name = models.CharField(
@@ -1857,13 +1850,6 @@ class ExamTemplate(models.Model):
         default=None
     )
    
-    shift = models.CharField(
-        max_length=20,
-        choices=SHIFT_CHOICES,
-        verbose_name="Turno",
-        blank=True,
-        null=True
-    )
     
     # Contenido evaluativo
     learning_outcomes = models.ManyToManyField(

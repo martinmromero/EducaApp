@@ -833,23 +833,6 @@ _onDomReady(function () {
             var radio = document.querySelector('input[name="tipo_modalidad"][value="' + data.exam_mode + '"]');
             if (radio) radio.checked = true;
         }
-        if (data.shift) {
-            // La plantilla guarda el turno en minúscula ('tarde'); el selector
-            // ofrece 'Tarde'. Sin normalizar quedaba vacío.
-            var turnoSel = document.getElementById('turno_dropdown');
-            var turnoMap = { 'mañana': 'Mañana', 'tarde': 'Tarde', 'noche': 'Noche' };
-            var turnoValor = turnoMap[String(data.shift).toLowerCase()] || data.shift;
-            turnoSel.value = turnoValor;
-            if (turnoSel.value !== turnoValor) {
-                turnoSel.value = 'otro';
-                var turnoTxt = document.getElementById('turno_text');
-                if (turnoTxt) {
-                    if (typeof toggleTextbox === 'function') toggleTextbox('turno_dropdown', 'turno_text');
-                    turnoTxt.value = data.shift;
-                }
-            }
-        }
-
         updateSuggestedBatchName();
     }
 

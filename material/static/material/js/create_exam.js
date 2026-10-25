@@ -530,13 +530,6 @@ document.addEventListener('DOMContentLoaded', function() {
             var modalidadRadio = document.querySelector('input[name="tipo_modalidad"][value="' + data.exam_mode + '"]');
             if (modalidadRadio) modalidadRadio.checked = true;
         }
-        // Turno
-        if (data.shift) {
-            var turnoSelect = document.getElementById('turno_dropdown');
-            // La plantilla guarda 'mañana'; el selector ofrece 'Mañana'.
-            var turnoMap = { 'mañana': 'Mañana', 'tarde': 'Tarde', 'noche': 'Noche' };
-            turnoSelect.value = turnoMap[String(data.shift).toLowerCase()] || data.shift;
-        }
     });
     // Temas evaluados según materia seleccionada
     var subjectSelect = document.getElementById('id_subject');
