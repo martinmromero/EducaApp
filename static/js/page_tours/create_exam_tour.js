@@ -133,7 +133,7 @@
         },
       },
       {
-        element: '#id_subject',
+        element: '.ss-wrap:has(> #id_subject), #id_subject:not(.ss-native)',
         area: 1,
         popover: {
           title: 'Materia',

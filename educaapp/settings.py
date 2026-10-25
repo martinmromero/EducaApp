@@ -43,6 +43,11 @@ NEON_PROJECT_ID = os.environ.get('NEON_PROJECT_ID', '')
 # la migración de datos material/migrations/0042_seed_content_user.py.
 SEED_CONTENT_USERNAME = 'educaapp_demo'
 
+# Selectores con búsqueda y relevancia (listas largas de materias): SELECTORES_INTELIGENTES=0 los apaga y
+# deja los desplegables de siempre, sin tocar código. Con 12 opciones o menos no se esconde nada.
+SELECTORES_INTELIGENTES = os.environ.get('SELECTORES_INTELIGENTES', '1') != '0'
+SELECTOR_UMBRAL = 12
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',

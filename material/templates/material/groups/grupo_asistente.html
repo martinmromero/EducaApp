@@ -42,20 +42,12 @@
                     Las invitaciones se envían al terminar. Cada docente las responde desde su cuenta: ve de qué grupo se trata y qué se comparte, y
                     hasta que acepte no puede usar nada de eso. Se puede dejar sin tildar a nadie y invitar más tarde.
                 </p>
-                {% if invitables %}
-                <input type="search" class="form-control form-control-sm mb-2" id="filtroInvitables"
-                       placeholder="Buscar por usuario…" autocomplete="off" aria-label="Buscar docente por usuario">
-                <div class="border rounded p-2 wiz-lista" id="listaInvitables">
-                    {% for u in invitables %}
-                    <div class="form-check wiz-item" data-texto="{{ u.username|lower }}">
-                        <input class="form-check-input" type="checkbox" name="invitar" value="{{ u.id }}" id="inv_{{ u.id }}" data-nombre="{{ u.username }}">
-                        <label class="form-check-label" for="inv_{{ u.id }}">{{ u.username }}</label>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-muted small border rounded p-3 mb-0">No hay más cuentas disponibles para invitar.</p>
-                {% endif %}
+                <label class="form-label small mb-1" for="buscarInvitado">Buscar por nombre de usuario</label>
+                <input type="search" class="form-control" id="buscarInvitado" autocomplete="off"
+                       placeholder="Escribir al menos 3 letras…" aria-describedby="buscarInvitadoAyuda">
+                <div id="resultadosInvitado" class="list-group mt-1" role="listbox" aria-label="Resultados"></div>
+                <div id="buscarInvitadoAyuda" class="form-text">Aparecen hasta 8 cuentas que coincidan.</div>
+                <div id="invitadosElegidos" class="d-flex flex-wrap gap-2 mt-3" aria-live="polite"></div>
             </div>
         </div>
 
@@ -113,10 +105,13 @@
 
 <style>
     .wiz-lista { max-height: 280px; overflow-y: auto; }
-    .wiz-item.is-hidden-by-filter { display: none; }
 </style>
 <script>
-window.EducaAppGrupoWizardConfig = { esNuevo: {{ group|yesno:"false,true" }} };
+window.EducaAppGrupoWizardConfig = {
+    esNuevo: {{ group|yesno:"false,true" }},
+    urlBuscar: "{% url 'material:grupo_buscar_usuarios' %}",
+    grupoId: "{{ group.pk|default:'' }}"
+};
 </script>
 <script src="{% static 'material/js/wizard_engine.js' %}"></script>
 <script src="{% static 'material/js/grupo_asistente.js' %}"></script>

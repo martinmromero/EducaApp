@@ -282,6 +282,9 @@ window.EducaAppLoadTemplateDependents = loadDependents;
                     const groupCareer = [], groupRest = [];
                     allOptions.forEach(opt => (careerIds.includes(opt.value) ? groupCareer : groupRest).push(opt));
 
+                    // El buscador de materias (smart_select.js) ordena por este nivel.
+                    groupCareer.forEach(o => { if (o.dataset.tier !== 'mias') o.dataset.tier = 'carrera'; });
+                    groupRest.forEach(o => { if (o.dataset.tier === 'carrera') o.dataset.tier = 'resto'; });
                     subjectSelect.innerHTML = '';
                     const placeholder = new Option('---------', '');
                     subjectSelect.appendChild(placeholder);

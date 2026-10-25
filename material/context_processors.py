@@ -90,6 +90,8 @@ def onboarding_context(request):
         # los listados para mostrar el menú reducido y mandar los "Nuevo" al asistente.
         'ui_mode': profile.interface_mode,
         'ui_simple': profile.interface_mode == 'simple',
+        'selectores_inteligentes': settings.SELECTORES_INTELIGENTES,
+        'selector_umbral': settings.SELECTOR_UMBRAL,
         'visual_theme': profile.visual_theme,
         'visual_theme_choices': profile.VISUAL_THEME_CHOICES,
         # Área de Pruebas: la marca de sesión (ver training_views.py) es lo

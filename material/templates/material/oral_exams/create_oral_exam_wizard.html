@@ -54,10 +54,10 @@
                 {% else %}
                 <h4>¿Qué materia se va a tomar?</h4>
                 <p class="wiz-step-intro">Seleccionar la materia y los tópicos a evaluar.</p>
-                <select class="form-select mb-3" name="subject" id="id_subject" required>
+                <select class="form-select mb-3" name="subject" id="id_subject" required data-smart-select="materia">
                     <option value="">Seleccionar materia</option>
                     {% for materia in materias %}
-                        <option value="{{ materia.id }}">{{ materia.name }}</option>
+                        <option value="{{ materia.id }}" data-tier="{{ materia.tier }}" data-nombre="{{ materia.name }}" data-extra="{{ materia.extra }}">{{ materia.etiqueta }}</option>
                     {% endfor %}
                 </select>
                 {% endif %}

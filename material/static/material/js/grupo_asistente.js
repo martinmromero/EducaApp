@@ -19,15 +19,74 @@ _onDomReady(function () {
         return Array.from(form.querySelectorAll('input[name="' + nombreCampo + '"]:checked'));
     }
 
-    // ── Paso 1: filtrar la lista de docentes por tipeo ───────────────────
-    var filtro = document.getElementById('filtroInvitables');
-    if (filtro) {
-        filtro.addEventListener('input', function () {
-            var q = filtro.value.trim().toLowerCase();
-            document.querySelectorAll('#listaInvitables .wiz-item').forEach(function (fila) {
-                fila.classList.toggle('is-hidden-by-filter', !!q && fila.dataset.texto.indexOf(q) === -1);
+    // ── Paso 1: buscar cuentas por nombre de usuario (no se lista a todo el sistema) ──
+    var buscar = document.getElementById('buscarInvitado');
+    var resultados = document.getElementById('resultadosInvitado');
+    var elegidos = document.getElementById('invitadosElegidos');
+    var temporizador = null;
+    var secuencia = 0;
+
+    function yaElegido(id) { return !!elegidos.querySelector('input[value="' + id + '"]'); }
+
+    function agregarInvitado(u) {
+        if (yaElegido(u.id)) return;
+        var chip = document.createElement('span');
+        chip.className = 'badge text-bg-primary d-inline-flex align-items-center gap-2 py-2 px-3';
+        var input = document.createElement('input');
+        input.type = 'hidden'; input.name = 'invitar'; input.value = u.id; input.dataset.nombre = u.username;
+        var texto = document.createElement('span');
+        texto.textContent = u.username;
+        var quitar = document.createElement('button');
+        quitar.type = 'button'; quitar.className = 'btn-close btn-close-white'; quitar.style.fontSize = '.6rem';
+        quitar.setAttribute('aria-label', 'Quitar a ' + u.username);
+        quitar.addEventListener('click', function () { chip.remove(); });
+        chip.appendChild(input); chip.appendChild(texto); chip.appendChild(quitar);
+        elegidos.appendChild(chip);
+    }
+
+    function mostrarResultados(lista, mensaje) {
+        resultados.innerHTML = '';
+        if (mensaje) {
+            var p = document.createElement('div');
+            p.className = 'list-group-item small text-muted';
+            p.textContent = mensaje;
+            resultados.appendChild(p);
+            return;
+        }
+        lista.forEach(function (u) {
+            var b = document.createElement('button');
+            b.type = 'button'; b.className = 'list-group-item list-group-item-action';
+            b.textContent = u.username;
+            b.disabled = yaElegido(u.id);
+            b.addEventListener('click', function () {
+                agregarInvitado(u);
+                buscar.value = '';
+                resultados.innerHTML = '';
+                buscar.focus();
             });
+            resultados.appendChild(b);
         });
+    }
+
+    if (buscar) {
+        buscar.addEventListener('input', function () {
+            clearTimeout(temporizador);
+            var q = buscar.value.trim();
+            if (q.length < 3) { resultados.innerHTML = ''; return; }
+            temporizador = setTimeout(function () {
+                var mia = ++secuencia;
+                var url = CFG.urlBuscar + '?q=' + encodeURIComponent(q) + (CFG.grupoId ? '&grupo=' + encodeURIComponent(CFG.grupoId) : '');
+                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (mia !== secuencia) return;
+                        mostrarResultados(data.usuarios, data.usuarios.length ? '' : 'No hay cuentas que coincidan.');
+                    })
+                    .catch(function () { mostrarResultados([], 'No se pudo buscar. Probar de nuevo.'); });
+            }, 250);
+        });
+        // Enter en el buscador no debe enviar el formulario completo.
+        buscar.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
     }
 
     // ── Todo / Ninguno en las materias ────────────────────────────────────
@@ -60,7 +119,7 @@ _onDomReady(function () {
             html += '<dt class="col-sm-4">Grupo</dt><dd class="col-sm-8">' + window.EducaAppEscape(nameInput.value.trim() || '-') + '</dd>';
         }
         html += '<dt class="col-sm-4">Se invita a</dt><dd class="col-sm-8">' +
-            lista(marcados('invitar').map(function (cb) { return cb.dataset.nombre; }), 'Nadie por ahora') + '</dd>';
+            lista(Array.from(elegidos.querySelectorAll('input[name="invitar"]')).map(function (i) { return i.dataset.nombre; }), 'Nadie por ahora') + '</dd>';
         [['materias', 'Materias'], ['rubricas', 'Rúbricas'], ['plantillas', 'Plantillas de examen'], ['formatos', 'Formatos de impresión']].forEach(function (par) {
             var campo = par[0];
             var todos = Array.from(form.querySelectorAll('input[name="' + campo + '"]'));

@@ -40,15 +40,37 @@ class GrupoAsistenteTests(TestCase):
     def test_el_asistente_abre_para_un_grupo_nuevo_y_para_uno_existente(self):
         r = self.client.get(reverse('material:grupo_asistente_nuevo'))
         self.assertContains(r, 'id="id_grupo_name"')
-        self.assertContains(r, 'g_beto')
-        self.assertNotContains(r, 'value="%d" id="inv_%d"' % (self.ana.pk, self.ana.pk))
+        self.assertContains(r, 'id="buscarInvitado"')
+        # No se vuelca la lista de cuentas del sistema en la pantalla: se buscan por nombre de usuario.
+        self.assertNotContains(r, 'g_beto')
         self._crear()
         grupo = SharingGroup.objects.get(name='Cátedra G')
         r = self.client.get(reverse('material:grupo_asistente', args=[grupo.pk]))
         self.assertNotContains(r, 'id="id_grupo_name"')
         # lo ya compartido llega tildado, y quien ya fue invitado no se ofrece de nuevo
         self.assertContains(r, 'data-inicial="1"')
-        self.assertNotContains(r, 'id="inv_%d"' % self.beto.pk)
+
+    def test_buscar_cuentas_pide_3_letras_y_no_lista_a_todos(self):
+        url = reverse('material:grupo_buscar_usuarios')
+        self.assertEqual(self.client.get(url, {'q': 'g_'}).json()['usuarios'], [])
+        nombres = [u['username'] for u in self.client.get(url, {'q': 'beto'}).json()['usuarios']]
+        self.assertEqual(nombres, ['g_beto'])
+        # no aparece uno mismo, ni cuentas del Área de Pruebas
+        self.assertEqual(self.client.get(url, {'q': 'g_ana'}).json()['usuarios'], [])
+        entrenamiento = make_user('g_entrena')
+        entrenamiento.profile.is_training_account = True
+        entrenamiento.profile.save()
+        self.assertEqual(self.client.get(url, {'q': 'entrena'}).json()['usuarios'], [])
+
+    def test_buscar_cuentas_excluye_miembros_y_exige_ser_miembro_del_grupo(self):
+        self._crear()
+        grupo = SharingGroup.objects.get(name='Cátedra G')
+        url = reverse('material:grupo_buscar_usuarios')
+        self.assertEqual(self.client.get(url, {'q': 'beto', 'grupo': grupo.pk}).json()['usuarios'], [])  # ya invitado
+        self.assertEqual([u['username'] for u in self.client.get(url, {'q': 'carla', 'grupo': grupo.pk}).json()['usuarios']], ['g_carla'])
+        ajeno = Client()
+        ajeno.force_login(self.carla)
+        self.assertEqual(ajeno.get(url, {'q': 'beto', 'grupo': grupo.pk}).json()['usuarios'], [])
 
     def test_un_solo_envio_crea_el_grupo_invita_y_comparte(self):
         r = self._crear()

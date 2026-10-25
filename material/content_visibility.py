@@ -9,7 +9,7 @@ una relación permanente que el propio usuario configuró en "Mis grupos").
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import BooleanField, Case, Exists, OuterRef, Q, Value, When
 
 from .models import (
     Career, ContentShare, ExamTemplate, Favorite, FacultyV2, FormatoImpresion,
@@ -239,6 +239,13 @@ def order_subjects_by_relevance(user, subjects_qs):
     has_content = Exists(
         Question.objects.filter(user=user, subjects=OuterRef('pk'))
     )
+    if settings.SELECTORES_INTELIGENTES:
+        # Una materia que la persona creó cuenta como propia aunque todavía no tenga preguntas:
+        # sin esto quien prueba la app con una materia vacía no la veía destacada.
+        return subjects_qs.annotate(
+            _is_favorite=is_favorite, _has_content=has_content,
+            _created=Case(When(created_by=user, then=Value(True)), default=Value(False), output_field=BooleanField()),
+        ).order_by('-_is_favorite', '-_created', '-_has_content', 'name')
     return subjects_qs.annotate(
         _is_favorite=is_favorite, _has_content=has_content,
     ).order_by('-_is_favorite', '-_has_content', 'name')
@@ -258,9 +265,12 @@ def count_relevant_subjects(user, subjects_qs):
     has_content = Exists(
         Question.objects.filter(user=user, subjects=OuterRef('pk'))
     )
+    relevantes = Q(_is_favorite=True) | Q(_has_content=True)
+    if settings.SELECTORES_INTELIGENTES:
+        relevantes |= Q(created_by=user)
     return subjects_qs.annotate(
         _is_favorite=is_favorite, _has_content=has_content,
-    ).filter(Q(_is_favorite=True) | Q(_has_content=True)).count()
+    ).filter(relevantes).count()
 
 
 def get_visible_questions(user, subject=None, include_seed=False):
@@ -373,3 +383,63 @@ def get_visible_professors(user):
 # examen. Usar esta condición en vez de `ai_approved=True` donde se arme el
 # pool de preguntas utilizables.
 EXAM_ELIGIBLE_Q = Q(generated_by_ai=False) | Q(ai_approved=True)
+
+
+# ── Selectores de materia con relevancia y rótulos que desambiguan ─────────────
+# Un solo lugar decide qué materias van primero y cómo se rotula cada opción, para que
+# todas las pantallas con una lista larga se comporten igual (ver static/js/smart_select.js).
+def _sin_acentos(texto):
+    import unicodedata
+    return ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
+
+
+def anotar_materias(user, subjects, career_id=None):
+    """Devuelve las materias (una lista, no un queryset) ordenadas por relevancia, con estos
+    atributos en cada una:
+
+      .tier      'mias' (favorita, creada por la persona, con preguntas propias o compartida con ella),
+                 'carrera' (de la carrera `career_id`) o 'resto'.
+      .etiqueta  El nombre; si otra materia de la lista se llama igual, suma la carrera y el origen
+                 para poder distinguirlas: "Programación I (Sistemas · Personal)".
+      .carreras_txt, .origen  Datos sueltos para mostrar en el desplegable.
+
+    Con SELECTORES_INTELIGENTES apagado todo queda como 'resto' y en orden alfabético, como antes."""
+    lista = list(subjects)
+    if not lista:
+        return lista
+    ids = [s.pk for s in lista]
+
+    carreras = {pk: [] for pk in ids}
+    en_carrera = set()
+    filas = CareerSubject.objects.filter(subject_id__in=ids, career__is_seed_demo=False).filter(
+        Q(career__es_catalogo_institucional=True) | Q(career__created_by=user)
+    ).values_list('subject_id', 'career_id', 'career__name').order_by('career__name')
+    for subject_id, cid, nombre in filas:
+        carreras[subject_id].append(nombre)
+        if career_id and str(cid) == str(career_id):
+            en_carrera.add(subject_id)
+
+    mias = set()
+    if settings.SELECTORES_INTELIGENTES:
+        subject_ct = ContentType.objects.get_for_model(Subject)
+        mias |= set(Favorite.objects.filter(user=user, content_type=subject_ct, object_id__in=ids).values_list('object_id', flat=True))
+        mias |= set(Question.objects.filter(user=user, subjects__in=ids).values_list('subjects', flat=True))
+        mias |= set(get_shared_subjects(user).filter(pk__in=ids).values_list('pk', flat=True))
+        mias |= {s.pk for s in lista if s.created_by_id == user.id}
+
+    repetidos = {}
+    for s in lista:
+        clave = _sin_acentos(s.name).casefold().strip()
+        repetidos[clave] = repetidos.get(clave, 0) + 1
+
+    for s in lista:
+        s.tier = 'mias' if s.pk in mias else ('carrera' if s.pk in en_carrera else 'resto')
+        s.carreras_txt = ' / '.join(carreras[s.pk])
+        s.origen = 'Catálogo' if s.es_catalogo_institucional else 'Personal'
+        s.extra = f'{s.carreras_txt or "Sin carrera"} · {s.origen}'
+        duplicada = repetidos[_sin_acentos(s.name).casefold().strip()] > 1
+        s.etiqueta = f'{s.name} ({s.carreras_txt or "sin carrera"} · {s.origen})' if duplicada else s.name
+
+    orden = {'mias': 0, 'carrera': 1, 'resto': 2}
+    lista.sort(key=lambda s: (orden[s.tier], _sin_acentos(s.name).casefold()))
+    return lista

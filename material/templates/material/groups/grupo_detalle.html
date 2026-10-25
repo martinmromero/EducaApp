@@ -62,22 +62,10 @@
                     <strong>Invitar a un docente</strong>
                 </div>
                 <div class="card-body">
-                    {% if invitable_users %}
-                    <form method="post" action="{% url 'material:grupo_invitar' group.id %}" class="d-flex gap-2">
-                        {% csrf_token %}
-                        <select name="user_id" class="form-select" required>
-                            <option value="">— elegir usuario —</option>
-                            {% for u in invitable_users %}
-                            <option value="{{ u.id }}">{{ u.username }}</option>
-                            {% endfor %}
-                        </select>
-                        <button type="submit" class="btn btn-primary text-nowrap">
-                            <i class="bi bi-envelope-plus me-1"></i>Invitar
-                        </button>
-                    </form>
-                    {% else %}
-                    <p class="text-muted mb-0 small">No hay más usuarios disponibles para invitar.</p>
-                    {% endif %}
+                    <p class="text-muted small mb-2">La búsqueda por nombre de usuario está en el asistente.</p>
+                    <a href="{% url 'material:grupo_asistente' group.id %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-envelope-plus me-1"></i>Invitar con el asistente
+                    </a>
                 </div>
             </div>
         </div>

@@ -265,6 +265,10 @@ _onDomReady(function () {
                     opts.forEach(function (o) { group.appendChild(o); });
                     subjectSelect.appendChild(group);
                 }
+                // El buscador de materias (smart_select.js) ordena por este nivel, no por los grupos.
+                groupOwn.forEach(function (o) { o.dataset.tier = 'mias'; });
+                groupCareer.forEach(function (o) { o.dataset.tier = 'carrera'; });
+                groupRest.forEach(function (o) { o.dataset.tier = 'resto'; });
                 appendGroup('Con contenido propio (preguntas ya cargadas)', groupOwn);
                 appendGroup('De esta carrera', groupCareer);
                 appendGroup('Todas las demás', groupRest);

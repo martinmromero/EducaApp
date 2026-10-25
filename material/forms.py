@@ -15,6 +15,43 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
 
 
+class SmartSelectWidget(forms.Select):
+    """<select> que el buscador de static/js/smart_select.js puede mejorar: cada opción lleva su nivel de
+    relevancia (data-tier) y la carrera/origen (data-extra). Sin el JS (o con SELECTORES_INTELIGENTES=0)
+    se comporta como un desplegable normal."""
+    def __init__(self, attrs=None):
+        attrs = dict(attrs or {})
+        attrs.setdefault('data-smart-select', 'materia')
+        super().__init__(attrs)
+        self.opciones_meta = {}
+
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        opcion = super().create_option(name, value, label, selected, index, subindex=subindex, attrs=attrs)
+        meta = self.opciones_meta.get(str(getattr(value, 'value', value)))
+        if meta:
+            opcion['attrs']['data-tier'] = meta['tier']
+            opcion['attrs']['data-nombre'] = meta['nombre']
+            opcion['attrs']['data-extra'] = meta['extra']
+        return opcion
+
+
+def aplicar_materias_a_campo(campo, user, subjects, career_id=None, vacio='---------'):
+    """Deja en un ModelChoiceField de materia las opciones ordenadas por relevancia y con rótulos que
+    distinguen nombres repetidos. `campo.queryset` queda como antes (valida lo mismo); solo cambia lo que
+    se dibuja."""
+    from .content_visibility import anotar_materias
+    lista = anotar_materias(user, subjects, career_id=career_id)
+    if not isinstance(campo.widget, SmartSelectWidget):
+        clase = campo.widget.attrs.get('class', 'form-select')
+        campo.widget = SmartSelectWidget(attrs={'class': clase})
+    campo.widget.opciones_meta = {
+        str(s.pk): {'tier': s.tier, 'nombre': s.name, 'extra': s.extra}
+        for s in lista
+    }
+    campo.widget.choices = [('', vacio)] + [(s.pk, s.etiqueta) for s in lista]
+    return lista
+
+
 class LearningOutcomeForm(forms.ModelForm):
     class Meta:
         model = LearningOutcome
@@ -280,7 +317,7 @@ class ExamForm(forms.ModelForm):
                  'instructions', 'duration_minutes']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
-            'subject': forms.Select(attrs={'class': 'form-select'}),
+            'subject': SmartSelectWidget(attrs={'class': 'form-select'}),
             'topics': forms.SelectMultiple(attrs={'class': 'form-control'}),
             'questions': forms.SelectMultiple(attrs={'class': 'form-control'}),
             'instructions': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
@@ -360,6 +397,7 @@ class ExamTemplateForm(forms.ModelForm):
             # existente. Ver [[project_subject_topic_global_sharing_bug]].
             from .content_visibility import get_visible_subjects
             self.fields['subject'].queryset = get_visible_subjects(user)
+            aplicar_materias_a_campo(self.fields['subject'], user, self.fields['subject'].queryset)
             from .print_format_utils import get_visible_print_formats
             self.fields['print_format'].queryset = get_visible_print_formats(user)
             from .content_visibility import get_visible_rubrics
@@ -982,7 +1020,7 @@ class OralExamForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Ej: Examen Oral Final - Matemáticas'
             }),
-            'subject': forms.Select(attrs={'class': 'form-select'}),
+            'subject': SmartSelectWidget(attrs={'class': 'form-select'}),
             'num_groups': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': '1',
@@ -1026,6 +1064,7 @@ class OralExamForm(forms.ModelForm):
                 questions__in=get_visible_questions(self.user)
             ).distinct()
             self.fields['subject'].queryset = user_subjects
+            aplicar_materias_a_campo(self.fields['subject'], self.user, user_subjects)
         
         # Si hay una materia seleccionada, mostrar sus temas
         if 'subject' in self.data:

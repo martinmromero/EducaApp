@@ -159,7 +159,7 @@
         },
       },
       {
-        element: '#id_subject',
+        element: '.ss-wrap:has(> #id_subject), #id_subject:not(.ss-native)',
         stepNumber: 2,
         popover: {
           title: 'Materia',

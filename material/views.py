@@ -1611,8 +1611,13 @@ def create_exam(request):
     carreras = Career.objects.all()
     sedes = CampusV2.objects.filter(is_active=True)
     if not is_demo_peek:
-        instituciones = instituciones.filter(is_seed_demo=False)
-        carreras = carreras.filter(is_seed_demo=False)
+        # Solo lo que esta cuenta puede ver: catálogo institucional y su espacio personal. Antes
+        # salían todas las instituciones, facultades y carreras del sistema, incluidas las que otros
+        # docentes cargaron en su espacio personal.
+        from .content_visibility import get_visible_institutions, get_visible_faculties, get_visible_careers
+        instituciones = get_visible_institutions(request.user).filter(is_active=True)
+        facultades = get_visible_faculties(request.user)
+        carreras = get_visible_careers(request.user)
     materias = Subject.objects.filter(is_seed_demo=False)
     # Uno mismo más los compañeros de grupo de confianza, no todas las
     # cuentas del sistema (ver content_visibility.get_visible_professors).
@@ -1679,6 +1684,8 @@ def create_exam(request):
         form.fields['subject'].queryset = Subject.objects.filter(
             is_seed_demo=False, id__in=visible_subject_ids
         )
+    from .forms import aplicar_materias_a_campo
+    aplicar_materias_a_campo(form.fields['subject'], request.user, form.fields['subject'].queryset)
 
     import json as _json
     prefill_data = request.session.get('preview_exam') or {}
@@ -1905,8 +1912,9 @@ def create_exam_wizard(request):
             if institucion_obj:
                 demo_prefill['institucion_name'] = institucion_obj.name
 
+    from .content_visibility import anotar_materias
     context = {
-        'materias': materias,
+        'materias': anotar_materias(request.user, materias),
         'profesores': profesores,
         'templates': templates,
         'visible_rubrics': visible_rubrics,
@@ -2484,7 +2492,10 @@ def create_exam_template_wizard(request):
     subjects = get_visible_subjects(request.user)
     print_formats = get_visible_print_formats(request.user)
     rubrics = get_visible_rubrics(request.user)
-    professors = User.objects.filter(is_active=True).exclude(profile__is_training_account=True)
+    # Igual que el formulario clásico y Crear Examen: uno mismo y los compañeros de grupo; solo un
+    # admin ve todas las cuentas. Antes salían las de todo el sistema para cualquier docente.
+    from .content_visibility import get_visible_professors, anotar_materias
+    professors = get_visible_professors(request.user)
     # Para reordenar el <select> de materia en el paso 2: las que ya tienen
     # preguntas propias van primero (ver create_exam_template_wizard.js) —
     # acotado a `subjects` (lo que ya se va a listar) para no mandar al
@@ -2493,7 +2504,7 @@ def create_exam_template_wizard(request):
 
     context = {
         'institutions': institutions,
-        'subjects': subjects,
+        'subjects': anotar_materias(request.user, subjects),
         'print_formats': print_formats,
         'rubrics': rubrics,
         'professors': professors,
@@ -4779,11 +4790,11 @@ def upload_questions(request):
     else:
         form = QuestionForm(current_user=request.user)
     
-    from .content_visibility import get_visible_subjects
+    from .content_visibility import get_visible_subjects, anotar_materias
     context = {
         'form': form,
         'current_tab': request.session.get('upload_questions_tab', 'single'),
-        'visible_subjects': get_visible_subjects(request.user).order_by('name'),
+        'visible_subjects': anotar_materias(request.user, get_visible_subjects(request.user)),
     }
 
     return render(request, 'material/questions/upload_questions.html', context)
@@ -4828,7 +4839,7 @@ def upload_questions_wizard(request):
 @login_required
 def upload_questions_wizard_subjects(request):
     """Materias visibles para el usuario, para el paso "Materia" del
-    asistente. Sin `q` devuelve las propias (favoritas o con preguntas
+    asistente. Sin `q` devuelve las propias (favoritas, creadas por la persona o con preguntas
     cargadas — mismo criterio que el formulario clásico, ver
     order_subjects_by_relevance); con `q` busca por nombre en todas las
     visibles, sin acentos ni mayúsculas."""
@@ -4842,8 +4853,11 @@ def upload_questions_wizard_subjects(request):
         pairs = [(s, _normalizar_para_busqueda(s.name)) for s in visibles.only('id', 'name', 'es_catalogo_institucional')]
         matches = [s for s, norm in pairs if wanted in norm]
         # Las propias primero, el resto por orden alfabético.
+        relevantes_q = Q(_is_favorite=True) | Q(_has_content=True)
+        if settings.SELECTORES_INTELIGENTES:
+            relevantes_q |= Q(_created=True)
         propias = set(order_subjects_by_relevance(request.user, visibles)
-                      .filter(Q(_is_favorite=True) | Q(_has_content=True))
+                      .filter(relevantes_q)
                       .values_list('pk', flat=True))
         matches.sort(key=lambda s: (s.pk not in propias, s.name.lower()))
         items = matches[:20]
@@ -7831,8 +7845,9 @@ def create_oral_exam_wizard(request):
                 'warnings': request.session.pop('oral_fw_warnings', []),
             }
 
+    from .content_visibility import anotar_materias
     context = {
-        'materias': materias,
+        'materias': anotar_materias(request.user, materias),
         'is_embedded': is_embedded,
         'fw_subject': fw_subject,
         'oral_saved': oral_saved,
@@ -11300,10 +11315,6 @@ def grupo_detalle(request, pk):
         return redirect('material:invitaciones_pendientes')
 
     memberships = group.memberships.select_related('user', 'invited_by').order_by('status', 'user__username')
-    member_ids = set(memberships.filter(status__in=['pending', 'accepted']).values_list('user_id', flat=True))
-    invitable_users = UserModel.objects.filter(is_active=True).exclude(
-        id__in=member_ids
-    ).exclude(id=request.user.id).exclude(profile__is_training_account=True).order_by('username')
 
     my_subjects = Subject.objects.filter(questions__user=request.user).distinct().order_by('name')
     shared_subject_ids = set(
@@ -11341,7 +11352,6 @@ def grupo_detalle(request, pk):
     context = {
         'group': group,
         'memberships': memberships,
-        'invitable_users': invitable_users,
         'my_subjects': my_subjects,
         'shared_subject_ids': shared_subject_ids,
         'my_rubrics': my_rubrics,
@@ -11475,6 +11485,26 @@ def _sincronizar_comparticion(group, user, kind, propios, elegidos):
 
 
 @login_required
+@require_GET
+def grupo_buscar_usuarios(request):
+    """Busca cuentas para invitar por parte del nombre de usuario (3 letras como mínimo, hasta 8 resultados).
+    Antes el desplegable de invitados listaba todas las cuentas del sistema: se exponían todos los usuarios
+    y la lista crecía sin límite. `grupo` es opcional: con él se excluyen quienes ya son miembros o están invitados."""
+    from .models import SharingGroup, GroupMembership
+    q = (request.GET.get('q') or '').strip()
+    if len(q) < 3:
+        return JsonResponse({'usuarios': [], 'minimo': 3})
+    group = None
+    grupo_id = request.GET.get('grupo', '')
+    if grupo_id.isdigit():
+        group = SharingGroup.objects.filter(pk=int(grupo_id)).first()
+        if group is None or not GroupMembership.objects.filter(group=group, user=request.user, status='accepted').exists():
+            return JsonResponse({'usuarios': [], 'minimo': 3})
+    encontrados = _usuarios_invitables(group, request.user).filter(username__icontains=q)[:8]
+    return JsonResponse({'usuarios': [{'id': u.pk, 'username': u.username} for u in encontrados], 'minimo': 3})
+
+
+@login_required
 def grupo_asistente(request, pk=None):
     """Asistente para armar un grupo de punta a punta: a quién invitar, qué materias compartir y qué
     rúbricas, plantillas y formatos. Sin `pk` crea el grupo (el primer paso pide el nombre); con `pk`
@@ -11533,7 +11563,6 @@ def grupo_asistente(request, pk=None):
     ya = _ids_compartidos_por(group, request.user) if group is not None else {k: set() for k in propios}
     return render(request, 'material/groups/grupo_asistente.html', {
         'group': group,
-        'invitables': _usuarios_invitables(group, request.user),
         'propios': propios,
         'ya_compartido': ya,
     })

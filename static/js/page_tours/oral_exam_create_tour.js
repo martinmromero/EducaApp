@@ -15,7 +15,7 @@
   function buildSteps() {
     var steps = [
       {
-        element: '#id_subject',
+        element: '.ss-wrap:has(> #id_subject), #id_subject:not(.ss-native)',
         popover: {
           title: 'Materia',
           description: 'Al elegir la materia se cargan sus tópicos. El resto de los campos permanece deshabilitado hasta completar este paso.',

@@ -85,10 +85,10 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label" for="id_subject">Materia</label>
-                        <select class="form-select" name="subject" id="id_subject" required>
+                        <select class="form-select" name="subject" id="id_subject" required data-smart-select="materia">
                             <option value="">Seleccionar materia</option>
                             {% for materia in subjects %}
-                                <option value="{{ materia.id }}">{{ materia.name }}</option>
+                                <option value="{{ materia.id }}" data-tier="{{ materia.tier }}" data-nombre="{{ materia.name }}" data-extra="{{ materia.extra }}">{{ materia.etiqueta }}</option>
                             {% endfor %}
                         </select>
                     </div>

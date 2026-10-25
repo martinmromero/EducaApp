@@ -76,14 +76,18 @@ class PageAndSubjectsTests(UploadWizardBase):
         self.assertIn('Matemática Discreta', nombres)
         self.assertNotIn('Matemática Secreta', nombres)
 
-    def test_sin_busqueda_solo_trae_las_propias_con_contenido(self):
+    def test_sin_busqueda_solo_trae_las_propias_y_no_el_resto_del_catalogo(self):
+        # Una materia que la persona creó cuenta como propia aunque todavía no tenga preguntas
+        # (antes quien probaba la app con una materia vacía no la veía sin buscarla).
         vacia = Subject.objects.create(name='Sin contenido', created_by=self.user, es_catalogo_institucional=False)
+        ajena = Subject.objects.create(name='Del catálogo', es_catalogo_institucional=True)
         q = Question.objects.create(user=self.user, question_text='x', answer_text='y')
         q.subjects.add(self.materia)
         resp = self.client.get(reverse('material:upload_questions_wizard_subjects'))
         nombres = [s['name'] for s in resp.json()['subjects']]
         self.assertIn('Materia de prueba', nombres)
-        self.assertNotIn(vacia.name, nombres)
+        self.assertIn(vacia.name, nombres)
+        self.assertNotIn(ajena.name, nombres)
 
 
 class SaveSingleTests(UploadWizardBase):

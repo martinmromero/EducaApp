@@ -243,10 +243,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 <div class="form-group mb-3">
                     <label for="batchSubject">Paso 1 — Materia</label><br>
-                    <select name="subject_id" id="batchSubject" class="form-select">
+                    <select name="subject_id" id="batchSubject" class="form-select" data-smart-select="materia">
                         <option value="">Elegir materia...</option> <br>
                         {% for s in visible_subjects %}
-                            <option value="{{ s.pk }}">{{ s.name }}{% if not s.es_catalogo_institucional %} (espacio personal){% endif %}</option>
+                            <option value="{{ s.pk }}" data-tier="{{ s.tier }}" data-nombre="{{ s.name }}" data-extra="{{ s.extra }}">{{ s.etiqueta }}{% if not s.es_catalogo_institucional and s.etiqueta == s.name %} (espacio personal){% endif %}</option>
                         {% endfor %}
                     </select>
                     <div class="invalid-feedback d-none" id="batchSubjectError">
