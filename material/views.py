@@ -3182,7 +3182,7 @@ def mis_invitaciones(request):
     from .models import TEST_STAGE_CHOICES, Invitation
 
     if not is_admin(request.user):
-        messages.error(request, 'No hay permiso para acceder a esta sección.')
+        messages.warning(request, 'Esa pantalla es solo para administradores.', extra_tags='general')
         return redirect('material:index')
 
     if request.method == 'POST':
@@ -9702,7 +9702,7 @@ def institution_ai_config_view(request):
     from .models import InstitutionAIConfig, InstitutionV2
 
     if not is_admin(request.user):
-        messages.error(request, 'No hay permiso para acceder a esta sección.')
+        messages.warning(request, 'Esa pantalla es solo para administradores.', extra_tags='general')
         return redirect('material:ai_config')
 
     # ── Eliminar ──
@@ -11964,7 +11964,7 @@ def groq_monitor_page(request):
     from .groq_monitor import VISION_TEST_MODELS
 
     if not is_admin(request.user):
-        messages.error(request, 'No hay permiso para acceder a esta sección.', extra_tags='general')
+        messages.warning(request, 'Esa pantalla es solo para administradores.', extra_tags='general')
         return redirect('material:index')
 
     cfg, _ = GroqMonitorSchedule.objects.get_or_create(pk=1)
@@ -12134,7 +12134,7 @@ def neon_usage_page(request):
     CU-hours consumidas del mes, remite a la consola de Neon.
     """
     if not is_admin(request.user):
-        messages.error(request, 'No hay permiso para acceder a esta sección.', extra_tags='general')
+        messages.warning(request, 'Esa pantalla es solo para administradores.', extra_tags='general')
         return redirect('material:index')
 
     import requests

@@ -150,14 +150,14 @@ _onDomReady(function () {
         };
         var tipo = tipoMap[document.getElementById('tipo_examen_select').value] || 'examen';
         var subject = document.getElementById('id_subject');
-        var subjectLabel = subject && subject.selectedOptions[0] ? subject.selectedOptions[0].textContent : 'sin materia';
+        var subjectLabel = subject && subject.value && subject.selectedOptions[0] ? (subject.selectedOptions[0].dataset.nombre || subject.selectedOptions[0].textContent).trim() : 'sin materia';
         var institutionSearchInput = document.getElementById('institucion_search');
         var institutionLabel = (institutionSearchInput && institutionSearchInput.value.trim()) || 'sin institucion';
         var semester = batchSemesterHidden.value || 'sin periodo';
         var curso = document.getElementById('curso').value.trim();
         var versions = document.getElementById('num_versions').value || '1';
         var fecha = document.getElementById('fecha').value;
-        var year = yearInput.value || (fecha ? fecha.split('-')[0] : 'sin anio');
+        var year = yearInput.value || (fecha ? fecha.split('-')[0] : 'sin año');
         var parts = [tipo, subjectLabel, institutionLabel, semester];
         if (curso) parts.push(curso);
         parts.push(year, versions + (parseInt(versions, 10) === 1 ? ' opción' : ' opciones'));

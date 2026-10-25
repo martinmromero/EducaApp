@@ -54,6 +54,7 @@
     <script src="{% static 'js/html_escape.js' %}"></script>
     <script src="{% static 'js/embed.js' %}"></script>
     <script src="{% static 'js/submit_guard.js' %}"></script>
+    <script src="{% static 'js/session_guard.js' %}"></script>
     {% if selectores_inteligentes %}
     <script>window.EducaAppSmartSelectConfig = { enabled: true, umbral: {{ selector_umbral|default:12 }} };</script>
     <script src="{% static 'js/smart_select.js' %}"></script>

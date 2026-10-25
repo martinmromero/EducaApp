@@ -358,7 +358,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var versions = document.getElementById('num_versions')?.value || '1';
         var fecha = document.getElementById('fecha')?.value || '';
         var yearInput = document.getElementById('year')?.value || '';
-        var year = yearInput ? yearInput : (fecha ? fecha.split('-')[0] : 'sin anio');
+        var year = yearInput ? yearInput : (fecha ? fecha.split('-')[0] : 'sin año');
 
         var tipoLabelMap = {
             '1er_parcial': '1er parcial',
@@ -369,8 +369,14 @@ document.addEventListener('DOMContentLoaded', function() {
             'practico': 'practico'
         };
         var tipoLabel = tipoLabelMap[tipo] || 'examen';
-        var subjectLabel = subject && subject.selectedOptions[0] ? subject.selectedOptions[0].textContent : 'sin materia';
-        var institutionLabel = institution && institution.selectedOptions[0] ? institution.selectedOptions[0].textContent : 'sin institucion';
+        // Sin elegir nada el <select> muestra su texto de ayuda ("Seleccionar institución"): no es un nombre.
+        var subjectLabel = subject && subject.value && subject.selectedOptions[0] ? (subject.selectedOptions[0].dataset.nombre || subject.selectedOptions[0].textContent).trim() : 'sin materia';
+        var institutionLabel = 'sin institución';
+        if (institution && institution.value === 'otro') {
+            institutionLabel = (document.getElementById('institucion_text')?.value || '').trim() || institutionLabel;
+        } else if (institution && institution.value && institution.selectedOptions[0]) {
+            institutionLabel = institution.selectedOptions[0].textContent.trim();
+        }
 
         var parts = [tipoLabel, subjectLabel, institutionLabel, semester];
         if (curso) parts.push(curso);
