@@ -836,6 +836,25 @@ def _puede_editar_catalogo(user, entidad):
     return is_admin(user) or (entidad.created_by_id == user.id and not entidad.es_catalogo_institucional)
 
 
+MENSAJE_SOLO_ADMIN = (
+    'Esa pantalla es solo para administradores. Si hace falta algo del catálogo (institución, facultad, '
+    'carrera o materia), se puede pedir con el botón "Agregar" y la persona administradora lo recibe.'
+)
+
+
+def solo_admin(vista):
+    """Como @user_passes_test(is_admin, login_url='/'), pero una cuenta que no es admin vuelve al inicio
+    con un aviso que explica qué pasó y cómo pedirlo (antes volvía en silencio y parecía un fallo)."""
+    @functools.wraps(vista)
+    @login_required
+    def envoltura(request, *args, **kwargs):
+        if not is_admin(request.user):
+            messages.warning(request, MENSAJE_SOLO_ADMIN, extra_tags='general')
+            return redirect('material:index')
+        return vista(request, *args, **kwargs)
+    return envoltura
+
+
 class AdminRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
     """Mismo criterio que @user_passes_test(is_admin, login_url='/') pero
     para CBVs — usado en el ABM del catálogo público (Institución/Facultad/
@@ -848,7 +867,8 @@ class AdminRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
-        return redirect(self.login_url)
+        messages.warning(self.request, MENSAJE_SOLO_ADMIN, extra_tags='general')
+        return redirect('material:index')
 
 def _is_last_active_admin(user):
     """Un usuario cuenta como "otro admin activo" si su Profile.role es
@@ -3441,7 +3461,7 @@ def password_reset_new(request):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def user_list(request):
     # Las cuentas espejo del Área de Pruebas nunca aparecen como fila
     # propia (no son un docente) — su estado se muestra colgado de la fila
@@ -3450,7 +3470,7 @@ def user_list(request):
     return render(request, 'material/user_list.html', {'users': users})
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def create_user(request):
     if request.method == 'POST':
         form = UserCreateForm(request.POST)
@@ -3463,7 +3483,7 @@ def create_user(request):
     return render(request, 'material/create_user.html', {'form': form})
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def edit_user(request, user_id):
     user = get_object_or_404(User, id=user_id)
     if request.method == 'POST':
@@ -3494,7 +3514,7 @@ def edit_user(request, user_id):
     return render(request, 'material/edit_user.html', {'form': form, 'edited_user': user})
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def delete_user(request, user_id):
     user = get_object_or_404(User, id=user_id)
     if request.method == 'POST':
@@ -5727,7 +5747,7 @@ def institution_v2_list(request):
     })
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def create_institution_v2_wizard(request):
     """Asistente paso a paso para crear una Institución (con sedes/facultades
     opcionales). Mismo criterio que los otros wizards: página nueva e
@@ -5748,7 +5768,7 @@ def create_institution_v2_wizard(request):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def create_institution_v2(request):
     CampusFormSet = formset_factory(CampusV2Form, extra=1)
     FacultyFormSet = formset_factory(FacultyV2Form, extra=1)
@@ -5966,7 +5986,7 @@ def edit_institution_v2(request, pk):
     })
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def delete_institution_v2(request, pk):
     """Elimina físicamente la institución y sus relaciones"""
     # Institución es catálogo público, admin ya está gateado arriba — no
@@ -6009,7 +6029,7 @@ def delete_institution_v2(request, pk):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 @require_POST
 def bulk_eliminar_instituciones_v2(request):
     """Borrado multiple de instituciones (mismo criterio que delete_institution_v2:
@@ -6597,7 +6617,7 @@ MENSAJE_MATERIA_NO_BORRABLE = (
 
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def delete_subject(request, pk):
     if not _materias_que_el_admin_puede_borrar(request.user).filter(pk=pk).exists():
         messages.error(request, MENSAJE_MATERIA_NO_BORRABLE, extra_tags='materias')
@@ -6655,7 +6675,7 @@ def delete_subject(request, pk):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 @require_POST
 def bulk_eliminar_subjects(request):
     ids_raw = request.POST.getlist('subject_ids')
@@ -6892,7 +6912,7 @@ def career_list(request):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 @require_POST
 def bulk_eliminar_careers(request):
     ids_raw = request.POST.getlist('career_ids')
@@ -6929,7 +6949,7 @@ def bulk_eliminar_careers(request):
     return redirect('material:career_list')
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def delete_career(request, pk):
     # Solo el dueño puede borrar — mismo criterio que delete_subject. Borrar
     # la carrera personal de otro usuario tiene que pasar por la bandeja de
@@ -6973,7 +6993,7 @@ class CareerDetailView(LoginRequiredMixin, DetailView):
         return context
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def career_create_simple(request):
     if request.method == 'POST':
         form = CareerForm(request.POST, user=request.user)
@@ -7406,7 +7426,8 @@ class _PuedeAgregarRAMixin(LoginRequiredMixin, UserPassesTestMixin):
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
-        return redirect(self.login_url)
+        messages.warning(self.request, MENSAJE_SOLO_ADMIN, extra_tags='general')
+        return redirect('material:index')
 
 
 class _PuedeEditarRAMixin(LoginRequiredMixin, UserPassesTestMixin):
@@ -7421,7 +7442,8 @@ class _PuedeEditarRAMixin(LoginRequiredMixin, UserPassesTestMixin):
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
-        return redirect(self.login_url)
+        messages.warning(self.request, MENSAJE_SOLO_ADMIN, extra_tags='general')
+        return redirect('material:index')
 
 
 class LearningOutcomeCreateView(_PuedeAgregarRAMixin, CreateView):
@@ -10256,7 +10278,7 @@ def check_catalog_duplicate(request):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def buscar_destino_fusion(request):
     """Búsqueda admin-only de candidatos para "Fusionar con existente" en
     la bandeja — mismo motor de similitud que check_catalog_duplicate,
@@ -11089,7 +11111,7 @@ def _procesar_carga_catalogo(texto, *, institucion, admin_user, dry_run):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def admin_bulk_catalog_upload(request):
     """Carga masiva de facultad→carrera→materia al catálogo institucional
     desde un CSV — para cargar de una sola vez el plan de estudios
@@ -11191,7 +11213,7 @@ def admin_bulk_catalog_upload(request):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def catalog_requests_bandeja(request):
     if request.method == 'POST':
         solicitud = get_object_or_404(CatalogRequest, pk=request.POST.get('solicitud_id'))
@@ -11871,7 +11893,7 @@ def health_check(request):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def question_generation_prompt_config(request):
     """
     Panel de administración (no Django Admin) para editar el prompt usado en

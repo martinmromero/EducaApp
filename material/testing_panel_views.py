@@ -16,7 +16,7 @@ from django.urls import NoReverseMatch, reverse
 from django.views.decorators.http import require_POST
 
 from .models import TEST_STAGE_CHOICES, TestChecklistItem, TestResult
-from .views import is_admin
+from .views import is_admin, solo_admin
 
 SESSION_TESTING_MODE_ACTIVE = 'testing_mode_active'
 SESSION_TESTING_CURRENT_INDEX = 'testing_panel_current_index'
@@ -178,7 +178,7 @@ def testing_panel_save(request):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='/')
+@solo_admin
 def testing_admin_results(request):
     results = (
         TestResult.objects

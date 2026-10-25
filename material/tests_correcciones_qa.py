@@ -462,6 +462,35 @@ class PlantillaSinTurnoTests(TestCase):
         self.assertNotContains(self.client.get(reverse('material:create_exam_template_wizard')), 'name="shift"')
 
 
+class PantallasDeAdminParaDocentesTests(TestCase):
+    """Un docente que entra a una pantalla de administrador vuelve al inicio con un aviso que explica
+    por qué (antes volvía en silencio y parecía un fallo)."""
+
+    def setUp(self):
+        self.docente = make_user('a_docente')
+        self.docente.profile.onboarding_completed = True
+        self.docente.profile.save()
+        self.client = Client()
+        self.client.force_login(self.docente)
+
+    def test_cada_pantalla_de_admin_avisa_y_vuelve_al_inicio(self):
+        for nombre, kwargs in (
+            ('create_subject', {}), ('user_list', {}), ('create_user', {}), ('create_institution_v2', {}),
+            ('create_institution_v2_wizard', {}), ('career_create_simple', {}), ('catalog_requests_bandeja', {}),
+            ('mis_invitaciones', {}),
+        ):
+            r = self.client.get(reverse('material:' + nombre, kwargs=kwargs), follow=True)
+            self.assertEqual(r.redirect_chain[-1][0], reverse('material:index'), nombre)
+            self.assertContains(r, 'solo para administradores', msg_prefix=nombre)
+
+    def test_un_admin_entra_sin_aviso(self):
+        admin = User.objects.create_superuser('a_admin', 'a@b.com', 'testpass123')
+        c = Client()
+        c.force_login(admin)
+        r = c.get(reverse('material:user_list'))
+        self.assertEqual(r.status_code, 200)
+
+
 class EnvioDobleTests(TestCase):
     def test_la_proteccion_contra_envio_doble_se_carga_en_todas_las_pantallas(self):
         user = make_user('d_ana')
