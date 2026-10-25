@@ -10,9 +10,9 @@
  *   data-tier   'mias' | 'carrera' | 'resto'  (lo decide el servidor, ver content_visibility.anotar_materias)
  *   data-extra  texto chico debajo del nombre (carrera y origen)
  *
- * Con 12 opciones o menos (EducaAppSmartSelectConfig.umbral) no se toca nada: el desplegable es el de
- * siempre. Por encima del umbral, sin escribir se ven solo "mias" y "carrera"; el resto aparece al tipear
- * (sin importar tildes ni mayúsculas).
+ * Se ve igual con cualquier cantidad de opciones, así el detalle (carrera y origen) está siempre. Con 12
+ * opciones o menos (EducaAppSmartSelectConfig.umbral) se muestran todas; por encima, sin escribir se ven
+ * solo "mias" y "carrera" y el resto aparece al tipear (sin importar tildes ni mayúsculas).
  */
 window.EducaAppSmartSelect = (function () {
     var cfg = window.EducaAppSmartSelectConfig || { enabled: true, umbral: 12 };
@@ -47,7 +47,7 @@ window.EducaAppSmartSelect = (function () {
     function enhance(sel) {
         if (sel.dataset.ssReady) return null;
         var base = Array.from(sel.querySelectorAll('option')).filter(function (o) { return o.value !== ''; });
-        if (base.length <= cfg.umbral) return null;   // lista corta: el desplegable de siempre
+        if (!base.length) return null;   // sin opciones no hay nada que mejorar
         sel.dataset.ssReady = '1';
         injectStyle();
 
