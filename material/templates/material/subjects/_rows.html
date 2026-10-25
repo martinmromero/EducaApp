@@ -7,9 +7,17 @@
     {% endif %}
     <td data-col="nombre" class="rt-card-title lc-col-name" data-label="Nombre">
         {{ subject.name }}
-        {% if not subject.es_catalogo_institucional %}
-            <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
+    </td>
+    <td data-col="carreras" data-label="Carrera">
+        {% if subject.carreras_visibles %}{{ subject.carreras_visibles|join:", " }}{% else %}<span class="text-muted">Sin carrera</span>{% endif %}
+    </td>
+    <td data-col="origen" data-label="Origen">
+        {% if subject.es_catalogo_institucional %}
+            <span class="badge bg-primary-subtle text-primary-emphasis border" title="Forma parte del catálogo institucional">Catálogo</span>
+        {% else %}
+            <span class="badge bg-secondary-subtle text-secondary-emphasis border" title="Todavía no se sumó al catálogo institucional">Personal</span>
         {% endif %}
+        {% if subject.creada_por %}<div class="small text-muted">creada por {{ subject.creada_por }}</div>{% endif %}
     </td>
     <td data-col="resultados" class="lc-col-wide" data-label="Resultados de aprendizaje">
         {% with outcomes=subject.get_all_outcomes %}
@@ -57,6 +65,6 @@
 </tr>
 {% empty %}
 <tr>
-    <td colspan="4" class="text-center">No hay materias que coincidan con la búsqueda/filtros.</td>
+    <td colspan="6" class="text-center">No hay materias que coincidan con la búsqueda/filtros.</td>
 </tr>
 {% endfor %}

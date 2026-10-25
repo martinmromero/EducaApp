@@ -385,8 +385,10 @@ class EdicionYBorradoAutoservicioTests(TestCase):
 
     def test_admin_puede_editar_cualquier_cosa(self):
         c = self.login('admin3')
-        resp = c.get(reverse('material:edit_subject', args=[self.materia_institucional_del_dueno.pk]))
-        self.assertEqual(resp.status_code, 200)
+        pk = self.materia_institucional_del_dueno.pk
+        resp = c.get(reverse('material:edit_subject', args=[pk]))
+        # Quien puede editar llega a la ficha (donde se cambia el nombre); quien no, rebota a '/'.
+        self.assertRedirects(resp, reverse('material:subject_detail', args=[pk]) + '?editar=1', fetch_redirect_response=False)
 
     # --- borrado autoservicio ---
 
@@ -831,8 +833,8 @@ class GetOrCreateRealHelpersPersonalSpaceTests(TestCase):
         c = Client()
         c.login(username='docente_helpers', password='testpass123')
         resp = c.get(reverse('material:edit_subject', args=[subj.pk]))
-        self.assertEqual(resp.status_code, 200,
-                          'antes del fix, este 404/redirect porque quedaba institucional por accidente')
+        self.assertRedirects(resp, reverse('material:subject_detail', args=[subj.pk]) + '?editar=1', fetch_redirect_response=False,
+                             msg_prefix='antes del fix rebotaba a "/" porque quedaba institucional por accidente')
 
 
 class MaterializarSolicitudesRequerirCadenaTests(TestCase):

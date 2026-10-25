@@ -98,6 +98,8 @@ LIST_REGISTRY = {
     'materias': {
         'columns': [
             _col('nombre', 'Nombre'),
+            _col('carreras', 'Carrera'),
+            _col('origen', 'Origen'),
             _col('resultados', 'Resultados de aprendizaje'),
         ],
         'text_column': 'resultados',

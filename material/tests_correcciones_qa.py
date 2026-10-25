@@ -476,6 +476,54 @@ class TurnoDeLaPlantillaTests(TestCase):
         self.assertContains(self.client.get(reverse('material:create_exam_template_wizard')), 'name="shift"')
 
 
+class MateriasAdminYListadoTests(TestCase):
+    """D17 (2026-10-25): el admin no podía borrar una materia del catálogo creada por un docente
+    (404), el lápiz y el ojo llevaban a pantallas distintas, y el listado no mostraba carrera ni origen."""
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser('m_admin', 'a@b.com', 'testpass123')
+        self.admin.profile.security_question = 'comida_favorita'
+        self.admin.profile.save()
+        self.docente = make_user('m_docente')
+        self.client = Client()
+        self.client.force_login(self.admin)
+        self.carrera = Career.objects.create(name='Carrera M', es_catalogo_institucional=True)
+        self.del_catalogo = Subject.objects.create(
+            name='LLMs 1', created_by=self.docente, es_catalogo_institucional=True)
+        self.personal_ajena = Subject.objects.create(
+            name='Personal ajena', created_by=self.docente, es_catalogo_institucional=False)
+        CareerSubject.objects.create(career=self.carrera, subject=self.del_catalogo)
+
+    def test_el_admin_borra_una_materia_del_catalogo_aunque_la_creo_un_docente(self):
+        url = reverse('material:delete_subject', args=[self.del_catalogo.pk])
+        self.assertEqual(self.client.get(url).status_code, 200)
+        self.client.post(url, {'resolution': 'borrado'})
+        self.assertFalse(Subject.objects.filter(pk=self.del_catalogo.pk).exists())
+
+    def test_lo_personal_de_otra_cuenta_no_da_404_sino_un_aviso_claro(self):
+        url = reverse('material:delete_subject', args=[self.personal_ajena.pk])
+        r = self.client.get(url, follow=True)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'espacio personal de otra cuenta')
+        self.client.post(url, {'resolution': 'borrado'})
+        self.assertTrue(Subject.objects.filter(pk=self.personal_ajena.pk).exists())
+
+    def test_editar_lleva_a_la_ficha_donde_se_cambia_el_nombre(self):
+        r = self.client.get(reverse('material:edit_subject', args=[self.del_catalogo.pk]))
+        self.assertRedirects(r, reverse('material:subject_detail', args=[self.del_catalogo.pk]) + '?editar=1')
+        ficha = self.client.get(reverse('material:subject_detail', args=[self.del_catalogo.pk]) + '?editar=1')
+        self.assertContains(ficha, 'id="cambiarNombre"')
+        self.client.post(reverse('material:edit_subject', args=[self.del_catalogo.pk]), {'name': 'LLMs Uno'})
+        self.del_catalogo.refresh_from_db()
+        self.assertEqual(self.del_catalogo.name, 'LLMs Uno')
+
+    def test_el_listado_muestra_carrera_y_origen(self):
+        r = self.client.get(reverse('material:subject_list'))
+        self.assertContains(r, 'Carrera M')
+        self.assertContains(r, 'Catálogo')
+        self.assertContains(r, 'creada por m_docente')
+
+
 class EnvioDobleTests(TestCase):
     def test_la_proteccion_contra_envio_doble_se_carga_en_todas_las_pantallas(self):
         user = make_user('d_ana')

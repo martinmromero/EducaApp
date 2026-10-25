@@ -1,0 +1,25 @@
+{# Lista de casillas de lo propio que se puede compartir. Parámetros: items, name (campo del POST), ya (ids ya compartidos), etiqueta_attr, vacio, todo_ninguno. #}
+{% if items %}
+{% if todo_ninguno %}
+<div class="d-flex justify-content-end mb-2">
+    <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-outline-secondary" data-marcar="{{ name }}" data-valor="1">Todo</button>
+        <button type="button" class="btn btn-outline-secondary" data-marcar="{{ name }}" data-valor="0">Ninguno</button>
+    </div>
+</div>
+{% endif %}
+<div class="border rounded p-2 wiz-lista" data-lista="{{ name }}">
+    {% for obj in items %}
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="{{ name }}" value="{{ obj.pk }}" id="{{ name }}_{{ obj.pk }}"
+               {% if obj.pk in ya %}checked data-inicial="1"{% endif %}
+               data-nombre="{% if etiqueta_attr == 'name' %}{% if plantilla %}{{ obj.name|default:obj.subject.name }}{% else %}{{ obj.name }}{% endif %}{% elif etiqueta_attr == 'title' %}{{ obj.title }}{% else %}{{ obj.nombre }}{% endif %}">
+        <label class="form-check-label" for="{{ name }}_{{ obj.pk }}">
+            {% if etiqueta_attr == 'name' %}{% if plantilla %}{{ obj.name|default:obj.subject.name|default:"Plantilla sin nombre" }}{% else %}{{ obj.name }}{% endif %}{% elif etiqueta_attr == 'title' %}{{ obj.title }}{% else %}{{ obj.nombre }}{% endif %}
+        </label>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-muted small border rounded p-3 mb-0">{{ vacio }}</p>
+{% endif %}

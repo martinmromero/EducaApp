@@ -12,16 +12,42 @@
 
     {% show_messages "grupos" %}
 
+    {% if aceptada %}
+    <div class="alert alert-success d-flex flex-wrap justify-content-between align-items-center gap-2" role="alert" id="invitacionAceptada">
+        <span><i class="bi bi-check-circle-fill me-1"></i>Se sumó al grupo <strong>{{ aceptada.group.name }}</strong>.</span>
+        <a href="{% url 'material:grupo_detalle' aceptada.group_id %}" class="btn btn-success btn-sm">
+            Ir al grupo<i class="bi bi-arrow-right ms-1"></i>
+        </a>
+    </div>
+    {% endif %}
+
     {% if pending %}
     <div class="row g-3">
         {% for m in pending %}
-        <div class="col-md-6 col-lg-4">
+        <div class="col-md-6 col-lg-6">
             <div class="card shadow-sm h-100">
                 <div class="card-body">
                     <h5 class="card-title">{{ m.group.name }}</h5>
-                    <p class="text-muted small mb-3">
+                    <p class="text-muted small mb-2">
                         Invitado por {{ m.invited_by.username }}
                     </p>
+                    <p class="small mb-2">
+                        <strong>Miembros:</strong>
+                        {% for miembro in m.miembros %}{{ miembro.user.username }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                    </p>
+                    <div class="small mb-3">
+                        <strong>Lo que se comparte:</strong>
+                        {% if m.compartido %}
+                        {% for bloque in m.compartido %}
+                        <div class="mt-1">
+                            <span class="text-muted">{{ bloque.titulo }} ({{ bloque.items|length }}):</span>
+                            {% for item in bloque.items %}{{ item.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <span class="text-muted">Todavía no se compartió nada.</span>
+                        {% endif %}
+                    </div>
                     <form method="post" class="d-flex gap-2">
                         {% csrf_token %}
                         <input type="hidden" name="membership_id" value="{{ m.id }}">

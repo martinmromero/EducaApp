@@ -10,18 +10,18 @@
         <h5 class="mb-0">Detalle de Materia</h5>
         {% if is_admin %}
         <div class="btn-group">
-            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-success">
-                <i class="bi bi-pencil"></i> Editar
-            </a>
+            <button type="button" class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#cambiarNombre">
+                <i class="bi bi-pencil"></i> Cambiar nombre
+            </button>
             <a href="{% url 'material:delete_subject' pk=subject.pk %}" class="btn btn-danger">
                 <i class="bi bi-trash"></i> Eliminar
             </a>
         </div>
         {% elif subject.created_by_id == user.id and not subject.es_catalogo_institucional %}
         <div class="btn-group">
-            <a href="{% url 'material:edit_subject' pk=subject.pk %}" class="btn btn-outline-success">
-                <i class="bi bi-pencil"></i> Editar
-            </a>
+            <button type="button" class="btn btn-outline-success" data-bs-toggle="collapse" data-bs-target="#cambiarNombre">
+                <i class="bi bi-pencil"></i> Cambiar nombre
+            </button>
             <a href="{% url 'material:eliminar_espacio_personal' 'materia' subject.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-outline-danger">
                 <i class="bi bi-trash"></i> Borrar del espacio personal
             </a>
@@ -37,6 +37,17 @@
                         <span class="badge align-middle bg-secondary-subtle text-secondary-emphasis border ms-1" title="Todavía no se sumó al catálogo institucional">Espacio personal</span>
                     {% endif %}
                 </h5>
+                {% if puede_editar_nombre %}
+                <form method="post" action="{% url 'material:edit_subject' pk=subject.pk %}" id="cambiarNombre"
+                      class="collapse {% if abrir_edicion_nombre %}show{% endif %} mt-2">
+                    {% csrf_token %}
+                    <label for="{{ form_nombre.name.id_for_label }}" class="form-label small mb-1">Nombre de la materia</label>
+                    <div class="input-group input-group-sm">
+                        {{ form_nombre.name }}
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Guardar</button>
+                    </div>
+                </form>
+                {% endif %}
                 <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm mt-2">
                     <i class="bi bi-arrow-left"></i> Volver al listado
                 </a>

@@ -16,9 +16,14 @@
                 <span class="badge bg-danger">{{ pending_invites_count }}</span>
                 {% endif %}
             </a>
-            <a href="{% url 'material:grupo_crear' %}" class="btn btn-primary" id="groupNewBtn">
+            <a href="{% url 'material:grupo_asistente_nuevo' %}" class="btn btn-primary" id="groupNewBtn">
                 <i class="bi bi-plus-circle me-1"></i>Nuevo grupo
             </a>
+            {% if not ui_simple %}
+            <a href="{% url 'material:grupo_crear' %}" class="btn btn-outline-secondary" id="groupNewClassicBtn" title="Crear solo con el nombre, sin asistente">
+                Solo con nombre
+            </a>
+            {% endif %}
         </div>
     </div>
 

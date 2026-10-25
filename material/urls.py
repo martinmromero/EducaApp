@@ -242,6 +242,8 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     # GRUPOS DE CONFIANZA (compartir preguntas)
     path('grupos/', material_views.grupos_list, name='grupos_list'),
     path('grupos/nuevo/', material_views.grupo_crear, name='grupo_crear'),
+    path('grupos/asistente/', material_views.grupo_asistente, name='grupo_asistente_nuevo'),
+    path('grupos/<int:pk>/asistente/', material_views.grupo_asistente, name='grupo_asistente'),
     path('grupos/<int:pk>/', material_views.grupo_detalle, name='grupo_detalle'),
     path('grupos/<int:pk>/invitar/', material_views.grupo_invitar, name='grupo_invitar'),
     path('grupos/<int:pk>/salir/', material_views.grupo_salir, name='grupo_salir'),

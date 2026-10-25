@@ -5,7 +5,10 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0 text-gray-800"><i class="bi bi-people-fill me-2"></i>{{ group.name }}</h1>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap justify-content-end">
+            <a href="{% url 'material:grupo_asistente' group.id %}" class="btn btn-primary btn-sm" id="grupoAsistenteBtn">
+                <i class="bi bi-magic me-1"></i>Invitar y compartir (asistente)
+            </a>
             <a href="{% url 'material:grupos_list' %}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left me-1"></i>Mis grupos
             </a>
@@ -80,6 +83,31 @@
         </div>
 
         <div class="col-lg-6">
+            <div class="card shadow-sm mb-4" id="grupoEstadoCompartido">
+                <div class="card-header">
+                    <strong>Lo que se comparte en este grupo</strong>
+                </div>
+                <div class="card-body">
+                    {% if compartido_en_grupo %}
+                    {% for bloque in compartido_en_grupo %}
+                    <h6 class="mb-1{% if not forloop.first %} mt-3{% endif %}">{{ bloque.titulo }}</h6>
+                    <ul class="list-unstyled mb-0 small">
+                        {% for item in bloque.items %}
+                        <li class="d-flex justify-content-between gap-2 border-bottom py-1">
+                            <span>{{ item.nombre }}</span>
+                            <span class="text-muted text-nowrap">de {{ item.por }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted mb-0 small">Todavía no se comparte nada en este grupo. El asistente permite elegir materias, rúbricas, plantillas y formatos.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <details class="mb-3" id="ajusteIndividual">
+                <summary class="text-primary mb-3" style="cursor:pointer">Compartir o dejar de compartir de a uno</summary>
             <div class="card shadow-sm">
                 <div class="card-header">
                     <strong>Mis materias compartidas con este grupo</strong>
@@ -226,6 +254,7 @@
                     {% endif %}
                 </div>
             </div>
+            </details>
         </div>
     </div>
 </div>

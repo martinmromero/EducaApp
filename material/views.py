@@ -6412,6 +6412,23 @@ def subject_list(request):
         )
     for s in page_subjects:
         s._outcomes_cache = outcomes_by_subject[s.pk]
+    # Carreras de cada materia (solo las que este usuario ve: catálogo + propias)
+    # y quién la creó, en dos consultas para toda la página.
+    carreras_por_materia = {s.pk: [] for s in page_subjects}
+    for row in Career.objects.filter(
+        subjects__in=carreras_por_materia, is_seed_demo=False,
+    ).filter(Q(es_catalogo_institucional=True) | Q(created_by=request.user)).values(
+        'subjects', 'name'
+    ).order_by('name').distinct():
+        carreras_por_materia[row['subjects']].append(row['name'])
+    duenos = {}
+    if is_admin(request.user):
+        duenos = dict(User.objects.filter(
+            pk__in={s.created_by_id for s in page_subjects if s.created_by_id}
+        ).values_list('pk', 'username'))
+    for s in page_subjects:
+        s.carreras_visibles = carreras_por_materia[s.pk]
+        s.creada_por = duenos.get(s.created_by_id, '') if s.created_by_id != request.user.id else ''
     page_obj.object_list = page_subjects
 
     only_personal = request.GET.get('personal') == '1'
@@ -6564,9 +6581,25 @@ def _bifurcar_o_avisar_subject(subject, examenes, batches, orales, deleted_by, r
         QuestionDeletionNotice.objects.bulk_create(avisos)
 
 
+def _materias_que_el_admin_puede_borrar(user):
+    """Las propias, más las del catálogo institucional aunque las haya creado otra
+    persona (una materia que un docente propuso y el admin aprobó sigue figurando
+    a nombre del docente). Lo personal de otra cuenta no entra: no se ve ni se toca."""
+    return Subject.objects.filter(Q(created_by=user) | Q(es_catalogo_institucional=True))
+
+
+MENSAJE_MATERIA_NO_BORRABLE = (
+    'Esa materia no existe, o es del espacio personal de otra cuenta. '
+    'Solo se pueden eliminar las materias propias y las del catálogo institucional.'
+)
+
+
 @login_required
 @user_passes_test(is_admin, login_url='/')
 def delete_subject(request, pk):
+    if not _materias_que_el_admin_puede_borrar(request.user).filter(pk=pk).exists():
+        messages.error(request, MENSAJE_MATERIA_NO_BORRABLE, extra_tags='materias')
+        return redirect('material:subject_list')
     if request.method == 'POST':
         # atomic + select_for_update: sin esto, si _bifurcar_o_avisar_subject
         # ya había clonado/repuntado el contenido de un dueño externo y
@@ -6578,7 +6611,7 @@ def delete_subject(request, pk):
         # la excepción acá adentro para mostrar un mensaje claro.
         with transaction.atomic():
             subject = get_object_or_404(
-                Subject.objects.select_for_update(), pk=pk, created_by=request.user
+                _materias_que_el_admin_puede_borrar(request.user).select_for_update(), pk=pk
             )
             preview = get_delete_preview(subject)
             if preview['can_delete']:
@@ -6607,7 +6640,7 @@ def delete_subject(request, pk):
         messages.success(request, 'Materia eliminada exitosamente', extra_tags='materias')
         return redirect('material:subject_list')
 
-    subject = get_object_or_404(Subject, pk=pk, created_by=request.user)
+    subject = get_object_or_404(_materias_que_el_admin_puede_borrar(request.user), pk=pk)
     preview = get_delete_preview(subject)
     examenes, batches, orales = _subject_afectados(subject)
     externos = _consumidores_externos_subject(examenes, batches, orales, request.user)
@@ -6629,8 +6662,8 @@ def bulk_eliminar_subjects(request):
         messages.error(request, 'No se seleccionó ninguna materia para eliminar.', extra_tags='materias')
         return redirect('material:subject_list')
 
-    # Solo las propias — ver nota de ownership en delete_subject.
-    subjects = list(Subject.objects.filter(pk__in=ids, created_by=request.user))
+    # Las propias y las del catálogo — ver _materias_que_el_admin_puede_borrar.
+    subjects = list(_materias_que_el_admin_puede_borrar(request.user).filter(pk__in=ids))
     skipped_not_owned = len(ids) - len(subjects)
 
     # Antes un solo bloqueo (PROTECT de ExamTemplate) abortaba el lote
@@ -6775,6 +6808,9 @@ class SubjectDetailView(LoginRequiredMixin, DetailView):
         context['puede_agregar_ra'] = is_admin(self.request.user) or (
             self.object.created_by_id == self.request.user.id and not self.object.es_catalogo_institucional
         )
+        context['puede_editar_nombre'] = _puede_editar_catalogo(self.request.user, self.object)
+        context['form_nombre'] = SubjectForm(instance=self.object)
+        context['abrir_edicion_nombre'] = self.request.GET.get('editar') == '1'
         return context
 
 
@@ -7516,6 +7552,11 @@ class SubjectUpdateView(AdminRequiredMixin, UpdateView):
         # compartido (SubjectCreateView y los CRUD de LearningOutcome
         # siguen admin-only sin cambios).
         return _puede_editar_catalogo(self.request.user, self.get_object())
+
+    def get(self, request, *args, **kwargs):
+        # La edición vive en la ficha de la materia (nombre, resultados de aprendizaje y
+        # tópicos juntos): antes esta pantalla solo cambiaba el nombre y la ficha todo lo demás.
+        return redirect(reverse('material:subject_detail', kwargs={'pk': kwargs['pk']}) + '?editar=1')
 
     def form_valid(self, form):
         self.object = form.save()
@@ -11321,8 +11362,193 @@ def grupo_detalle(request, pk):
         'shared_template_ids': shared_template_ids,
         'my_formats': my_formats,
         'shared_format_ids': shared_format_ids,
+        'compartido_en_grupo': _contenido_compartido_en_grupo(group),
     }
     return render(request, 'material/groups/grupo_detalle.html', context)
+
+
+def _invitar_a_grupo(group, inviter, target):
+    """Invita a `target` al grupo. Devuelve 'enviada', 'reenviada' o 'ya_es_miembro'.
+    Quien rechazó antes queda con una fila 'rejected' (unique_together group+user):
+    se reabre en vez de bloquear para siempre. create() atrapa el IntegrityError de
+    dos envíos casi simultáneos."""
+    from .models import GroupMembership
+    existing = GroupMembership.objects.filter(group=group, user=target).first()
+    if existing and existing.status in ('pending', 'accepted'):
+        return 'ya_es_miembro'
+    if existing and existing.status == 'rejected':
+        existing.status = 'pending'
+        existing.invited_by = inviter
+        existing.responded_at = None
+        existing.save(update_fields=['status', 'invited_by', 'responded_at'])
+        return 'reenviada'
+    try:
+        GroupMembership.objects.create(group=group, user=target, status='pending', invited_by=inviter)
+    except IntegrityError:
+        return 'ya_es_miembro'
+    return 'enviada'
+
+
+def _usuarios_invitables(group, user):
+    """Cuentas a las que `user` puede invitar a `group` (sin miembros ni invitados vigentes)."""
+    from .models import GroupMembership
+    miembros = set()
+    if group is not None:
+        miembros = set(GroupMembership.objects.filter(
+            group=group, status__in=['pending', 'accepted']
+        ).values_list('user_id', flat=True))
+    return User.objects.filter(is_active=True).exclude(id__in=miembros).exclude(id=user.id).exclude(
+        profile__is_training_account=True).order_by('username')
+
+
+def _compartibles_del_usuario(user):
+    """Lo propio que se puede compartir con un grupo, por tipo (mismos criterios que las
+    vistas compartir_*: una materia con preguntas propias, y rúbricas/plantillas/formatos
+    creados por la cuenta)."""
+    from .models import Rubric, FormatoImpresion
+    from .content_visibility import get_visible_subjects
+    return {
+        'materia': list(get_visible_subjects(user).filter(questions__user=user).distinct().order_by('name')),
+        'rubrica': list(Rubric.objects.filter(created_by=user).order_by('title')),
+        'plantilla': list(ExamTemplate.objects.filter(created_by=user).order_by('-created_at')),
+        'formato': list(FormatoImpresion.objects.filter(user=user).order_by('nombre')),
+    }
+
+
+def _ids_compartidos_por(group, user):
+    """{'materia': {ids}, 'rubrica': {ids}, ...} de lo que `user` comparte hoy en `group`."""
+    from .models import ContentShare
+    ids = {'materia': set(), 'rubrica': set(), 'plantilla': set(), 'formato': set()}
+    for kind, subject_id, object_id in ContentShare.objects.filter(
+        group=group, shared_by=user, is_active=True
+    ).values_list('kind', 'subject_id', 'object_id'):
+        ids[kind].add(subject_id if kind == 'materia' else object_id)
+    return ids
+
+
+def _contenido_compartido_en_grupo(group):
+    """Todo lo que los miembros que ya aceptaron comparten (activo) en el grupo, para mostrar el
+    estado: [{'clave', 'titulo', 'items': [{'nombre', 'por'}]}] (solo los tipos con algo)."""
+    from .models import ContentShare, Rubric, FormatoImpresion, Subject
+    miembros = set(group.memberships.filter(status='accepted').values_list('user_id', flat=True))
+    shares = list(ContentShare.objects.filter(
+        group=group, is_active=True, shared_by_id__in=miembros
+    ).select_related('shared_by'))
+    nombres = {
+        'materia': dict(Subject.objects.filter(pk__in=[x.subject_id for x in shares if x.kind == 'materia']).values_list('pk', 'name')),
+        'rubrica': dict(Rubric.objects.filter(pk__in=[x.object_id for x in shares if x.kind == 'rubrica']).values_list('pk', 'title')),
+        'plantilla': {t.pk: (t.name or f'Plantilla #{t.pk}') for t in ExamTemplate.objects.filter(pk__in=[x.object_id for x in shares if x.kind == 'plantilla'])},
+        'formato': dict(FormatoImpresion.objects.filter(pk__in=[x.object_id for x in shares if x.kind == 'formato']).values_list('pk', 'nombre')),
+    }
+    etiquetas = [('materia', 'Materias'), ('rubrica', 'Rúbricas'), ('plantilla', 'Plantillas de examen'), ('formato', 'Formatos de impresión')]
+    resultado = []
+    for clave, titulo in etiquetas:
+        items = []
+        for x in shares:
+            if x.kind != clave:
+                continue
+            nombre = nombres[clave].get(x.subject_id if clave == 'materia' else x.object_id)
+            if nombre:
+                items.append({'nombre': nombre, 'por': x.shared_by.username})
+        if items:
+            items.sort(key=lambda i: i['nombre'].lower())
+            resultado.append({'clave': clave, 'titulo': titulo, 'items': items})
+    return resultado
+
+
+def _sincronizar_comparticion(group, user, kind, propios, elegidos):
+    """Deja compartido en `group` exactamente lo que `user` tildó entre `propios` (los objetos
+    que puede compartir), y deja de compartir lo que destildó. Devuelve (activadas, desactivadas).
+    Lo que no esté en `propios` se ignora: nunca se confía en el ID crudo del POST."""
+    from .models import ContentShare
+    from django.contrib.contenttypes.models import ContentType
+    activadas = desactivadas = 0
+    ct = ContentType.objects.get_for_model(type(propios[0])) if propios and kind != 'materia' else None
+    for obj in propios:
+        quiere = obj.pk in elegidos
+        filtro = {'group': group, 'shared_by': user, 'kind': kind}
+        if kind == 'materia':
+            filtro['subject'] = obj
+        else:
+            filtro.update(content_type=ct, object_id=obj.pk)
+        share = ContentShare.objects.filter(**filtro).first()
+        if share is None:
+            if quiere:
+                ContentShare.objects.create(is_active=True, **filtro)
+                activadas += 1
+        elif share.is_active != quiere:
+            share.is_active = quiere
+            share.save(update_fields=['is_active'])
+            if quiere:
+                activadas += 1
+            else:
+                desactivadas += 1
+    return activadas, desactivadas
+
+
+@login_required
+def grupo_asistente(request, pk=None):
+    """Asistente para armar un grupo de punta a punta: a quién invitar, qué materias compartir y qué
+    rúbricas, plantillas y formatos. Sin `pk` crea el grupo (el primer paso pide el nombre); con `pk`
+    ajusta uno existente de la cuenta. Un único POST aplica todo."""
+    from .models import SharingGroup, GroupMembership
+
+    group = None
+    if pk is not None:
+        group = get_object_or_404(SharingGroup, pk=pk)
+        if not GroupMembership.objects.filter(group=group, user=request.user, status='accepted').exists():
+            messages.error(request, 'Solo los miembros del grupo pueden invitar y compartir.', extra_tags='grupos')
+            return redirect('material:grupos_list')
+
+    propios = _compartibles_del_usuario(request.user)
+
+    if request.method == 'POST':
+        nombre = (request.POST.get('name') or '').strip()
+        if group is None and not nombre:
+            messages.error(request, 'El grupo necesita un nombre.', extra_tags='grupos')
+            return redirect('material:grupo_asistente_nuevo')
+        with transaction.atomic():
+            nuevo = group is None
+            if nuevo:
+                group = SharingGroup.objects.create(name=nombre, created_by=request.user)
+                GroupMembership.objects.create(
+                    group=group, user=request.user, status='accepted', invited_by=request.user,
+                    responded_at=timezone.now(),
+                )
+            invitados = []
+            ids_invitar = [int(i) for i in request.POST.getlist('invitar') if i.isdigit()]
+            for target in _usuarios_invitables(group, request.user).filter(pk__in=ids_invitar):
+                if _invitar_a_grupo(group, request.user, target) != 'ya_es_miembro':
+                    invitados.append(target.username)
+            activadas = desactivadas = 0
+            for kind, campo in (('materia', 'materias'), ('rubrica', 'rubricas'), ('plantilla', 'plantillas'), ('formato', 'formatos')):
+                elegidos = {int(i) for i in request.POST.getlist(campo) if i.isdigit()}
+                a, d = _sincronizar_comparticion(group, request.user, kind, propios[kind], elegidos)
+                activadas += a
+                desactivadas += d
+        partes = []
+        if nuevo:
+            partes.append(f'grupo "{group.name}" creado')
+        if invitados:
+            partes.append('invitación enviada a ' + ', '.join(invitados))
+        if activadas:
+            partes.append(f'{activadas} elemento(s) compartido(s)')
+        if desactivadas:
+            partes.append(f'{desactivadas} dejaron de compartirse')
+        if partes:
+            texto = partes[0][0].upper() + partes[0][1:] + (', ' + ', '.join(partes[1:]) if len(partes) > 1 else '') + '.'
+        else:
+            texto = 'No hubo cambios.'
+        messages.success(request, texto, extra_tags='grupos')
+        return redirect('material:grupo_detalle', pk=group.pk)
+
+    ya = _ids_compartidos_por(group, request.user) if group is not None else {k: set() for k in propios}
+    return render(request, 'material/groups/grupo_asistente.html', {
+        'group': group,
+        'invitables': _usuarios_invitables(group, request.user),
+        'propios': propios,
+        'ya_compartido': ya,
+    })
 
 
 @login_required
@@ -11346,33 +11572,13 @@ def grupo_invitar(request, pk):
         messages.error(request, 'Usuario inválido.', extra_tags='grupos')
         return redirect('material:grupo_detalle', pk=group.pk)
 
-    # Quien rechazó una invitación antes queda con una fila 'rejected' — el
-    # unique_together (group, user) impide crear una segunda, así que sin
-    # esto quedaba "invitable" en el dropdown (grupo_detalle solo excluye
-    # pending/accepted) pero cualquier intento de invitarlo caía siempre en
-    # el mensaje de error de abajo. Reabrir la invitación en vez de bloquear
-    # para siempre.
-    existing = GroupMembership.objects.filter(group=group, user=target).first()
-    if existing and existing.status in ('pending', 'accepted'):
+    resultado = _invitar_a_grupo(group, request.user, target)
+    if resultado == 'ya_es_miembro':
         messages.error(request, 'Ese usuario ya es miembro o ya fue invitado.', extra_tags='grupos')
-    elif existing and existing.status == 'rejected':
-        existing.status = 'pending'
-        existing.invited_by = request.user
-        existing.responded_at = None
-        existing.save(update_fields=['status', 'invited_by', 'responded_at'])
+    elif resultado == 'reenviada':
         messages.success(request, f'Invitación reenviada a {target.username}.', extra_tags='grupos')
     else:
-        # create() sin get_or_create: dos POST casi simultáneos (doble clic,
-        # dos pestañas) podían pasar ambos el chequeo de existencia de arriba
-        # y chocar contra el unique_together (group, user) con un
-        # IntegrityError sin capturar -> 500. Ahora se degrada con gracia.
-        try:
-            GroupMembership.objects.create(
-                group=group, user=target, status='pending', invited_by=request.user,
-            )
-            messages.success(request, f'Invitación enviada a {target.username}.', extra_tags='grupos')
-        except IntegrityError:
-            messages.error(request, 'Ese usuario ya es miembro o ya fue invitado.', extra_tags='grupos')
+        messages.success(request, f'Invitación enviada a {target.username}.', extra_tags='grupos')
 
     return redirect('material:grupo_detalle', pk=group.pk)
 
@@ -11460,15 +11666,26 @@ def invitaciones_pendientes(request):
             membership.responded_at = timezone.now()
             membership.save(update_fields=['status', 'responded_at'])
             if action == 'accept':
-                messages.success(request, f'Se sumó al grupo "{membership.group.name}".', extra_tags='grupos')
-            else:
-                messages.info(request, f'Se rechazó la invitación a "{membership.group.name}".', extra_tags='grupos')
+                # El aviso con el acceso al grupo se arma en la pantalla (parámetro aceptada).
+                return redirect(reverse('material:invitaciones_pendientes') + f'?aceptada={membership.group_id}')
+            messages.info(request, f'Se rechazó la invitación a "{membership.group.name}".', extra_tags='grupos')
         return redirect('material:invitaciones_pendientes')
 
-    pending = GroupMembership.objects.filter(
+    pending = list(GroupMembership.objects.filter(
         user=request.user, status='pending'
-    ).select_related('group', 'invited_by').order_by('-created_at')
-    return render(request, 'material/groups/invitaciones_pendientes.html', {'pending': pending})
+    ).select_related('group', 'invited_by').order_by('-created_at'))
+    for invitacion in pending:
+        invitacion.miembros = list(
+            invitacion.group.memberships.filter(status='accepted').select_related('user').order_by('user__username')
+        )
+        invitacion.compartido = _contenido_compartido_en_grupo(invitacion.group)
+    aceptada = None
+    aceptada_raw = request.GET.get('aceptada', '')
+    if aceptada_raw.isdigit():
+        aceptada = GroupMembership.objects.filter(
+            group_id=int(aceptada_raw), user=request.user, status='accepted'
+        ).select_related('group').first()
+    return render(request, 'material/groups/invitaciones_pendientes.html', {'pending': pending, 'aceptada': aceptada})
 
 
 @login_required

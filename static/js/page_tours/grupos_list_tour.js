@@ -21,7 +21,7 @@
         element: '#groupNewBtn',
         popover: {
           title: 'Nuevo grupo',
-          description: 'Crear un grupo e invita a otros docentes por su usuario o email.',
+          description: 'Abre un asistente para crear el grupo, invitar a otros docentes y elegir qué materias, rúbricas, plantillas y formatos compartir.',
           side: 'bottom',
         },
       },
