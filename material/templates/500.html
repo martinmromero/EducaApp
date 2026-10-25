@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algo salió mal - EducaApp</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            color: #212529;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            text-align: center;
+        }
+        main { max-width: 32rem; padding: 2rem 1.25rem; }
+        .codigo { font-size: 4.5rem; font-weight: 700; color: #0d6efd; line-height: 1; }
+        a.boton {
+            display: inline-block; margin-top: 1.25rem; padding: .6rem 1.2rem; border-radius: .4rem;
+            background: #0d6efd; color: #fff; text-decoration: none; font-weight: 600;
+        }
+        p { line-height: 1.5; }
+        @media (prefers-color-scheme: dark) {
+            body { background: #14181c; color: #e6e9ec; }
+            .codigo { color: #6ea8fe; }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="codigo">500</div>
+        <h1>Algo salió mal de nuestro lado</h1>
+        <p>No se pudo completar la acción. Lo que ya estaba guardado sigue ahí. Probar de nuevo en unos segundos; si el problema sigue, avisar a la persona que administra EducaApp.</p>
+        <a class="boton" href="/">Volver al inicio</a>
+    </main>
+</body>
+</html>

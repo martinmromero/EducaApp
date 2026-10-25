@@ -491,6 +491,14 @@ class PantallasDeAdminParaDocentesTests(TestCase):
         self.assertEqual(r.status_code, 200)
 
 
+class PaginaDeErrorTests(TestCase):
+    def test_la_pagina_500_existe_y_es_amable(self):
+        from django.template.loader import render_to_string
+        html = render_to_string('500.html')
+        self.assertIn('Algo salió mal', html)
+        self.assertIn('href="/"', html)
+
+
 class EnvioDobleTests(TestCase):
     def test_la_proteccion_contra_envio_doble_se_carga_en_todas_las_pantallas(self):
         user = make_user('d_ana')
