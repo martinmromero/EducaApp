@@ -1057,6 +1057,16 @@ def _build_generation_prompt(context):
         return DEFAULT_PROMPT_TEMPLATE.format(**context), DEFAULT_TEMPERATURE
 
 
+def _motivo_falla_imagenes(exc):
+    """Texto entendible para la falla de la llamada que lee imágenes (solo la sabe resolver el proveedor con visión)."""
+    texto = str(exc)
+    bajo = texto.lower()
+    if 'api key' in bajo or 'api_key' in bajo or 'unauthorized' in bajo or '401' in bajo or '403' in bajo:
+        return ('la clave del proveedor que lee imágenes (Gemini) no es válida o venció. Hay que renovarla en la '
+                'configuración de IA global. Las preguntas del texto no se ven afectadas. (' + texto + ')')
+    return texto
+
+
 def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None, existing_questions=None, images=None, output_tokens_ceiling=None, generate_kwargs=None):
     """Genera preguntas para un fragmento de capítulo usando la IA configurada.
 
@@ -1478,7 +1488,7 @@ def stream_questions(request, job_id):
                             logger.warning(f"SSE chunk {chunk_idx_global} (imágenes) de '{title}' falló: {img_exc}")
                             # Antes esto solo quedaba en el log y la persona veía las preguntas del texto sin
                             # saber que las imágenes no se habían analizado.
-                            yield f'data: {json_module.dumps({"type": "chunk_error", "chunk": chunk_idx_global, "total_chunks": total_chunks_all, "chapter_title": title, "message": "No se pudieron analizar las imágenes de esta parte: " + str(img_exc)})}\n\n'
+                            yield f'data: {json_module.dumps({"type": "chunk_error", "chunk": chunk_idx_global, "total_chunks": total_chunks_all, "chapter_title": title, "message": "No se pudieron analizar las imágenes de esta parte: " + _motivo_falla_imagenes(img_exc)})}\n\n'
                     # Intercaladas: con el tope de "cantidad de preguntas", todas las del texto primero
                     # dejaban afuera las de las imágenes (solo salían preguntas del texto).
                     raw_questions = []

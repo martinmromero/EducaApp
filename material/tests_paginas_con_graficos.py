@@ -124,3 +124,13 @@ class PaginasConGraficosTests(TestCase):
         mensajes = [e['message'] for e in eventos if e['type'] == 'chunk_error']
         self.assertTrue(any('El modelo no acepta imágenes' in m for m in mensajes), mensajes)
         self.assertTrue(any(e['type'] == 'questions' and e['questions'] for e in eventos))
+
+
+class MotivoDeFallaTests(TestCase):
+    def test_clave_invalida_se_explica_en_castellano(self):
+        texto = vdp._motivo_falla_imagenes(RuntimeError('API key not valid. Please pass a valid API key.'))
+        self.assertIn('Gemini', texto)
+        self.assertIn('renovarla', texto)
+
+    def test_otro_error_se_muestra_tal_cual(self):
+        self.assertEqual(vdp._motivo_falla_imagenes(RuntimeError('timeout')), 'timeout')
