@@ -44,6 +44,12 @@ Convención que debe respetar la página que lo incluye:
         .mobile-card-table thead {
             display: none;
         }
+        /* Sin franjas grises alternadas dentro de las tarjetas: cada fila ya es una tarjeta (como en Materias). */
+        .mobile-card-table > tbody > tr > * {
+            box-shadow: none !important;
+            --bs-table-bg-type: transparent !important;
+            --bs-table-accent-bg: transparent !important;
+        }
         .mobile-card-table,
         .mobile-card-table tbody {
             display: block;

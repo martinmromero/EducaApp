@@ -137,6 +137,12 @@ Convenciones que debe respetar la página que lo incluye:
         .table-responsive:has(.column-filter-table) {
             overflow-x: hidden;
         }
+        /* Sin franjas grises alternadas dentro de las tarjetas (como en Materias). */
+        .column-filter-table > tbody > tr > * {
+            box-shadow: none !important;
+            --bs-table-bg-type: transparent !important;
+            --bs-table-accent-bg: transparent !important;
+        }
         /* Las tarjetas de cada fila ya traen su propio borde/sombra — el
            <div class="container-fluid"> + <div class="card"> que las
            envuelve sumaba otra capa de márgenes/padding encima (10-15px acá,
