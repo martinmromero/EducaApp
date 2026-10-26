@@ -22,6 +22,9 @@ from .models import Profile
 # Líneas que puede ocupar el texto largo de un listado. 0 = completo.
 LINE_OPTIONS = (1, 2, 3, 0)
 
+# Ancho (en píxeles) que se puede darle a una columna arrastrando el borde de su encabezado.
+MIN_WIDTH, MAX_WIDTH = 48, 1500
+
 
 def _col(key, label, default=True):
     return {'key': key, 'label': label, 'default': default}
@@ -223,6 +226,13 @@ def resolve_config(profile, list_key):
     if lines not in LINE_OPTIONS:
         lines = spec['default_lines']
 
+    widths = {}
+    saved_widths = saved.get('widths')
+    if isinstance(saved_widths, dict):
+        for k, v in saved_widths.items():
+            if k in by_key and isinstance(v, int) and not isinstance(v, bool) and MIN_WIDTH <= v <= MAX_WIDTH:
+                widths[k] = v
+
     return {
         'key': list_key,
         'columns': [
@@ -231,6 +241,7 @@ def resolve_config(profile, list_key):
         ],
         'text_column': spec['text_column'],
         'lines': lines,
+        'widths': widths,
         'line_options': list(LINE_OPTIONS) if spec['text_column'] else [],
         # CSS que oculta de entrada las columnas apagadas, para que no se
         # vean un instante antes de que corra list_columns.js. Las claves
@@ -260,6 +271,18 @@ def sanitize(list_key, payload):
     if not visible:
         raise ValueError('Tiene que quedar al menos una columna visible')
     clean = {'order': order, 'visible': visible}
+    widths = payload.get('widths', {})
+    if not isinstance(widths, dict):
+        raise ValueError('"widths" tiene que ser un diccionario de columnas')
+    clean_widths = {}
+    for k, v in widths.items():
+        if k not in valid:
+            raise ValueError('Columna desconocida en "widths": %s' % k)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not (MIN_WIDTH <= v <= MAX_WIDTH):
+            raise ValueError('Ancho de columna no válido')
+        clean_widths[k] = int(round(v))
+    if clean_widths:
+        clean['widths'] = clean_widths
     if spec['text_column']:
         lines = payload.get('lines', spec['default_lines'])
         if isinstance(lines, bool) or lines not in LINE_OPTIONS:

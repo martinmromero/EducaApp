@@ -162,6 +162,60 @@ class SaveListViewEndpointTests(TestCase):
         self.assertEqual(set(self.user.profile.list_view_prefs), {'mis_examenes'})
 
 
+class AnchosDeColumnaTests(TestCase):
+    """El usuario puede ensanchar o achicar columnas arrastrando el borde del encabezado; se guarda por listado."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = _ready(make_user('lc_anchos'))
+
+    def setUp(self):
+        self.client = Client()
+        self.client.login(username='lc_anchos', password='testpass123')
+        self.url = reverse('material:save_list_view', args=['preguntas'])
+
+    def post(self, body):
+        return self.client.post(self.url, data=json.dumps(body), content_type='application/json')
+
+    def test_guarda_y_devuelve_los_anchos(self):
+        r = self.post({'order': ['pregunta', 'materia'], 'visible': ['pregunta'], 'widths': {'pregunta': 480.4}})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['config']['widths'], {'pregunta': 480})
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.list_view_prefs['preguntas']['widths'], {'pregunta': 480})
+
+    def test_sin_anchos_la_configuracion_trae_un_diccionario_vacio(self):
+        self.assertEqual(resolve_config(self.user.profile, 'preguntas')['widths'], {})
+
+    def test_rechaza_columnas_inventadas_y_anchos_fuera_de_rango(self):
+        base = {'order': ['pregunta'], 'visible': ['pregunta']}
+        for widths in ({'inventada': 100}, {'pregunta': 5}, {'pregunta': 99999}, {'pregunta': 'ancho'}, {'pregunta': True}, ['x']):
+            self.assertEqual(self.post(dict(base, widths=widths)).status_code, 400, widths)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.list_view_prefs, {})
+
+    def test_un_valor_viejo_o_roto_guardado_se_ignora_al_leer(self):
+        self.user.profile.list_view_prefs = {'preguntas': {
+            'order': ['pregunta'], 'visible': ['pregunta'], 'widths': {'pregunta': 500, 'borrada': 200, 'bloom': 'x', 'materia': 1},
+        }}
+        self.assertEqual(resolve_config(self.user.profile, 'preguntas')['widths'], {'pregunta': 500})
+
+    def test_restablecer_borra_tambien_los_anchos(self):
+        self.post({'order': ['pregunta'], 'visible': ['pregunta'], 'widths': {'pregunta': 400}})
+        r = self.post({'reset': True})
+        self.assertEqual(r.json()['config']['widths'], {})
+
+    def test_la_pantalla_trae_los_anchos_guardados_en_su_configuracion(self):
+        self.post({'order': ['pregunta', 'materia'], 'visible': ['pregunta', 'materia'], 'widths': {'pregunta': 520}})
+        from .models import Subject
+        materia = Subject.objects.create(name='M anchos', created_by=self.user, es_catalogo_institucional=False)
+        from .models import Question
+        q = Question.objects.create(question_text='Texto', answer_text='r', user=self.user, bloom_level=1)
+        q.subjects.add(materia)
+        r = self.client.get(reverse('material:lista_preguntas'))
+        self.assertContains(r, '"widths": {"pregunta": 520}')
+
+
 class ListadosRenderTests(TestCase):
     """Los listados registrados tienen que marcar cada columna del registro
     con data-col (si no, el panel Columnas no la encuentra) y mandar el texto

@@ -60,6 +60,122 @@
     var labels = {};
     cfg.columns.forEach(function (c) { labels[c.key] = c.label; });
 
+    /* ── Ancho de las columnas: se arrastra el borde del encabezado ─────── */
+    var MIN_W = 60, MAX_W = 1500;
+    var widths = {};
+    function loadWidths(c) {
+      widths = {};
+      Object.keys((c && c.widths) || {}).forEach(function (k) {
+        if (presentKeys[k]) widths[k] = Number(c.widths[k]);
+      });
+    }
+    loadWidths(cfg);
+
+    var widthsStyle = document.createElement('style');
+    widthsStyle.id = 'lcWidthsStyle';
+    document.head.appendChild(widthsStyle);
+
+    function applyWidths() {
+      var keys = Object.keys(widths);
+      table.classList.toggle('lc-resized', keys.length > 0);
+      // Las claves vienen del registro del servidor y los valores son números: seguro como CSS.
+      widthsStyle.textContent = keys.length
+        ? '@media (min-width: 768px) {' + keys.map(function (k) {
+          var w = Math.round(widths[k]) + 'px';
+          return '.lc-table td[data-col="' + k + '"], .lc-table th[data-col="' + k + '"]{width:' + w + ';min-width:' + w + ';max-width:' + w + '}';
+        }).join('') + '}'
+        : '';
+    }
+
+    // Con el primer arrastre se "congelan" los anchos que la tabla tenía, así nada se mueve de golpe.
+    function freezeWidths() {
+      table.querySelectorAll('thead th[data-col]').forEach(function (th) {
+        if (th.classList.contains('lc-hidden') || widths[th.dataset.col]) return;
+        // +1: con el ancho redondeado hacia abajo una palabra justa se partía a la mitad.
+        widths[th.dataset.col] = Math.max(MIN_W, Math.ceil(th.getBoundingClientRect().width) + 1);
+      });
+      applyWidths();
+    }
+
+    var widthsTimer = null;
+    function saveWidths() {
+      clearTimeout(widthsTimer);
+      widthsTimer = setTimeout(function () {
+        post({
+          order: state.order,
+          visible: state.order.filter(function (k) { return state.visible[k]; }),
+          lines: state.lines,
+          widths: widths,
+        }).then(function (res) { if (!res.ok) fail(res.data && res.data.error); })
+          .catch(function () { fail(); });
+      }, 400);
+    }
+
+    function addResizers() {
+      table.querySelectorAll('thead th[data-col]').forEach(function (th) {
+        if (th.querySelector('.lc-resizer')) return;
+        var key = th.dataset.col;
+        var h = document.createElement('span');
+        h.className = 'lc-resizer';
+        h.setAttribute('role', 'separator');
+        h.setAttribute('aria-orientation', 'vertical');
+        h.setAttribute('aria-label', 'Cambiar el ancho de la columna ' + (labels[key] || key) + ' (flechas izquierda y derecha; doble clic para restablecer)');
+        h.tabIndex = 0;
+        th.appendChild(h);
+
+        h.addEventListener('pointerdown', function (e) {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.stopPropagation();
+          freezeWidths();
+          var startX = e.clientX, startW = widths[key] || Math.round(th.getBoundingClientRect().width);
+          h.classList.add('is-dragging');
+          document.body.classList.add('lc-col-resizing');
+          h.setPointerCapture(e.pointerId);
+          function move(ev) {
+            widths[key] = Math.min(MAX_W, Math.max(MIN_W, Math.round(startW + ev.clientX - startX)));
+            applyWidths();
+          }
+          function up() {
+            h.classList.remove('is-dragging');
+            document.body.classList.remove('lc-col-resizing');
+            h.removeEventListener('pointermove', move);
+            h.removeEventListener('pointerup', up);
+            h.removeEventListener('pointercancel', up);
+            saveWidths();
+            requestAnimationFrame(markOverflow);
+          }
+          h.addEventListener('pointermove', move);
+          h.addEventListener('pointerup', up);
+          h.addEventListener('pointercancel', up);
+        });
+
+        h.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); });
+
+        // Doble clic: esa columna vuelve a su ancho natural (si era la última cambiada, toda la tabla).
+        h.addEventListener('dblclick', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          delete widths[key];
+          if (Object.keys(widths).length === 1) widths = {};
+          applyWidths();
+          saveWidths();
+          requestAnimationFrame(markOverflow);
+        });
+
+        h.addEventListener('keydown', function (e) {
+          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+          e.preventDefault();
+          e.stopPropagation();
+          freezeWidths();
+          widths[key] = Math.min(MAX_W, Math.max(MIN_W, (widths[key] || Math.round(th.getBoundingClientRect().width)) + (e.key === 'ArrowRight' ? 16 : -16)));
+          applyWidths();
+          saveWidths();
+          requestAnimationFrame(markOverflow);
+        });
+      });
+    }
+
     /* ── Tabla ─────────────────────────────────────────────────────────── */
     function applyRow(row) {
       var cells = Array.prototype.slice.call(row.children);
@@ -172,6 +288,7 @@
           order: state.order,
           visible: state.order.filter(function (k) { return state.visible[k]; }),
           lines: state.lines,
+          widths: widths,
         }).then(function (res) { if (!res.ok) fail(res.data && res.data.error); })
           .catch(function () { fail(); });
       }, 400);
@@ -239,6 +356,8 @@
         post({ reset: true }).then(function (res) {
           if (!res.ok) { fail(res.data && res.data.error); return; }
           loadState(res.data.config);
+          loadWidths(res.data.config);
+          applyWidths();
           applyTable();
           renderPanel();
         }).catch(function () { fail(); });
@@ -277,6 +396,8 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(markOverflow);
 
     applyTable();
+    applyWidths();
+    addResizers();
     renderPanel();
     // Ya con las clases lc-hidden puestas, el CSS provisorio del servidor
     // (que evitaba el parpadeo) sobra.

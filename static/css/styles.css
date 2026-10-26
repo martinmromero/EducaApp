@@ -819,6 +819,25 @@ html.embed-mode .main-content.test-panel-open {
    y se expande con un clic. En escritorio, las columnas "fit" miden lo que
    su contenido, las "text" se acotan y la "wide" absorbe todo el sobrante. */
 .lc-hidden { display: none !important; }
+/* Borde arrastrable de cada encabezado para cambiar el ancho de la columna (solo en pantallas anchas). */
+.lc-resizer { display: none; }
+@media (min-width: 768px) {
+    .lc-table th[data-col] { position: relative; }
+    .lc-resizer {
+        display: block; position: absolute; top: 0; right: -4px; width: 9px; height: 100%;
+        cursor: col-resize; user-select: none; touch-action: none; z-index: 3;
+    }
+    .lc-resizer::after {
+        content: ""; position: absolute; top: 18%; bottom: 18%; left: 4px; width: 2px; border-radius: 1px;
+        background: var(--bs-border-color); opacity: 0; transition: opacity .12s;
+    }
+    .lc-table th:hover .lc-resizer::after, .lc-resizer:focus-visible::after, .lc-resizer.is-dragging::after { opacity: 1; }
+    .lc-resizer:hover::after, .lc-resizer.is-dragging::after { background: var(--bs-primary); }
+    .lc-resizer:focus-visible { outline: none; }
+    .lc-table.lc-resized { width: auto; }
+    .lc-table.lc-resized td[data-col], .lc-table.lc-resized th[data-col] { overflow-wrap: anywhere; }
+    body.lc-col-resizing, body.lc-col-resizing * { cursor: col-resize !important; user-select: none !important; }
+}
 .lc-table .lc-text { overflow-wrap: anywhere; }
 .lc-table.lc-lines-1 .lc-text:not(.lc-expanded),
 .lc-table.lc-lines-2 .lc-text:not(.lc-expanded),

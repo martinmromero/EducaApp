@@ -22,7 +22,7 @@
         element: '#listColumnsBtn',
         popover: {
           title: 'Columnas',
-          description: 'Permite elegir qué columnas se ven y en qué orden. La vista queda guardada en la cuenta y es propia de este listado.',
+          description: 'Permite elegir qué columnas se ven y en qué orden. La vista queda guardada en la cuenta y es propia de este listado. También se puede cambiar el ancho de cada columna arrastrando el borde de su encabezado (con doble clic vuelve a su ancho de siempre).',
           side: 'bottom',
         },
       },
