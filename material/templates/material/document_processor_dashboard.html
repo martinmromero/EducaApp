@@ -1679,6 +1679,19 @@ function showPreflightModal(indices, chapters) {
             Volver atrás y seleccionar menos capítulos o páginas; generar el resto en otra tanda.
         </div>`;
     }
+    const sinTexto = chapters.filter(ch => ch.sin_texto);
+    if (sinTexto.length) {
+        // Páginas con solo gráficos o escaneos: sin esta opción se omiten (el servidor avisa igual al generar).
+        const toggle = document.getElementById('includeImagesToggle');
+        const marcada = toggle && toggle.checked;
+        chapHtml += `
+        <div class="alert alert-${marcada ? 'info' : 'warning'} py-2">
+            <i class="bi bi-image me-1"></i>
+            ${sinTexto.length === 1 ? '1 página elegida no tiene' : sinTexto.length + ' páginas elegidas no tienen'} texto, solo imágenes.
+            ${marcada ? 'Se van a analizar con la opción <strong>Incluir imágenes del documento</strong>.'
+                      : 'Para generar preguntas de ' + (sinTexto.length === 1 ? 'ella' : 'ellas') + ', tildar <strong>Incluir imágenes del documento</strong> más abajo; si no, se omiten.'}
+        </div>`;
+    }
     document.getElementById('preflightChapterList').innerHTML = chapHtml;
 
     const startBtn = document.getElementById('startGenerationBtn');

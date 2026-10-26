@@ -1346,6 +1346,17 @@ def stream_questions(request, job_id):
             yield f'data: {json_module.dumps({"type": "error", "message": "No se pudo obtener el contenido de los capítulos"})}\n\n'
             return
 
+        # Unidades sin texto (gráficos, escaneos): solo sirven si se pidió analizar imágenes.
+        aviso_sin_texto = ''
+        sin_texto = [ch for ch in chapters_to_process if not (ch.get('content') or ch.get('content_preview') or '').strip()]
+        if sin_texto and not include_images:
+            chapters_to_process = [ch for ch in chapters_to_process if ch not in sin_texto]
+            if not chapters_to_process:
+                yield f'data: {json_module.dumps({"type": "error", "message": "Las páginas elegidas no tienen texto, solo imágenes. Volver a generar tildando Incluir imágenes del documento."})}\n\n'
+                return
+            aviso_sin_texto = (f'Se omitieron {len(sin_texto)} página(s) sin texto, solo con imágenes. '
+                               'Para generar preguntas de ellas, tildar Incluir imágenes del documento.')
+
         # Imágenes del documento (opt-in): se extraen una sola vez para todo
         # el documento y se reparten por capítulo según sus páginas. Solo se
         # adjuntan al primer chunk de cada capítulo (no a todos) para no
@@ -1392,6 +1403,8 @@ def stream_questions(request, job_id):
         yield f'data: {json_module.dumps({"type": "start", "total_chunks": total_chunks_all, "filename": filename, "existing_count": len(existing_questions_list)})}\n\n'
         if aviso_imagenes:
             yield f'data: {json_module.dumps({"type": "aviso", "message": aviso_imagenes})}\n\n'
+        if aviso_sin_texto:
+            yield f'data: {json_module.dumps({"type": "aviso", "message": aviso_sin_texto})}\n\n'
 
         seen_keys = set(existing_texts_set)  # inicializar con preguntas ya en BD
         total_generated = 0
@@ -1466,7 +1479,14 @@ def stream_questions(request, job_id):
                             # Antes esto solo quedaba en el log y la persona veía las preguntas del texto sin
                             # saber que las imágenes no se habían analizado.
                             yield f'data: {json_module.dumps({"type": "chunk_error", "chunk": chunk_idx_global, "total_chunks": total_chunks_all, "chapter_title": title, "message": "No se pudieron analizar las imágenes de esta parte: " + str(img_exc)})}\n\n'
-                    raw_questions = text_questions + image_questions
+                    # Intercaladas: con el tope de "cantidad de preguntas", todas las del texto primero
+                    # dejaban afuera las de las imágenes (solo salían preguntas del texto).
+                    raw_questions = []
+                    for pos in range(max(len(text_questions), len(image_questions))):
+                        if pos < len(text_questions):
+                            raw_questions.append(text_questions[pos])
+                        if pos < len(image_questions):
+                            raw_questions.append(image_questions[pos])
                     # Páginas del FRAGMENTO puntual del que salieron estas
                     # preguntas (no de todo el capítulo/tanda) — ver comentario
                     # análogo en generate_questions_from_chapters.
@@ -1820,13 +1840,16 @@ def get_pages_text(request):
                 if 1 <= page_num <= doc.page_count:
                     page = doc[page_num - 1]
                     text = page.get_text().strip()
-                    if text:
-                        chapters.append({
-                            'title': f'Página {page_num}',
-                            'content': text,
-                            'tokens': count_tokens(text),
-                            'pages': [page_num],
-                        })
+                    # Una página sin texto (gráfico, diagrama, escaneo) que la persona eligió a propósito se
+                    # conserva: con "Incluir imágenes del documento" se genera a partir de lo que muestra.
+                    # Antes se descartaba y, si todo lo elegido era visual, daba "no se pudo extraer texto".
+                    chapters.append({
+                        'title': f'Página {page_num}',
+                        'content': text,
+                        'tokens': count_tokens(text) if text else 0,
+                        'pages': [page_num],
+                        'sin_texto': not text,
+                    })
             doc.close()
 
         elif ext == '.pptx':
@@ -1842,13 +1865,13 @@ def get_pages_text(request):
                         if hasattr(shape, 'text') and shape.text.strip():
                             texts.append(shape.text.strip())
                     text = '\n'.join(texts)
-                    if text:
-                        chapters.append({
-                            'title': f'Slide {i}',
-                            'content': text,
-                            'tokens': count_tokens(text),
-                            'pages': [i],
-                        })
+                    chapters.append({
+                        'title': f'Slide {i}',
+                        'content': text,
+                        'tokens': count_tokens(text) if text else 0,
+                        'pages': [i],
+                        'sin_texto': not text,
+                    })
 
         elif ext in ('.docx', '.txt'):
             selected = set(int(s) for s in data.get('sections', []))
@@ -1926,6 +1949,7 @@ def get_pages_text(request):
             'filename': filename,
             'chapters': chapters,
             'total_tokens': sum(ch['tokens'] for ch in chapters),
+            'solo_sin_texto': all(ch.get('sin_texto') for ch in chapters),
         })
 
     except Exception:
