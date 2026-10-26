@@ -63,24 +63,27 @@
             </div>
         </div>
 
+        <hr>
+        <h2 class="h5"><i class="bi bi-shield-check me-1"></i>Área de Pruebas</h2>
+        {% if training_link %}
+            <p class="mb-2"><i class="bi bi-check-circle-fill text-success me-1"></i>Tiene Área de Pruebas, creada el {{ training_link.created_at|date:"d/m/Y" }}.</p>
+            <button type="submit" form="restablecerAreaForm" class="btn btn-outline-warning">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Restablecer su Área de Pruebas
+            </button>
+            <div class="form-text mb-3">Borra todo lo que esta persona creó en su Área de Pruebas y repone el contenido de ejemplo. No toca su cuenta real. Tarda un rato y sigue sola.</div>
+        {% else %}
+            <p class="mb-3"><i class="bi bi-x-circle-fill text-danger me-1"></i>Todavía no creó su Área de Pruebas, no hay nada para restablecer.</p>
+        {% endif %}
+
+        <hr>
         <button type="submit" class="btn btn-primary">Guardar cambios</button>
         <a href="{% url 'material:user_list' %}" class="btn btn-secondary">Cancelar</a>
     </form>
-
-    <hr class="my-4">
-    <h2 class="h5"><i class="bi bi-shield-check me-1"></i>Área de Pruebas</h2>
     {% if training_link %}
-        <p class="mb-2"><i class="bi bi-check-circle-fill text-success me-1"></i>Tiene Área de Pruebas, creada el {{ training_link.created_at|date:"d/m/Y" }}.</p>
-        <form method="post" action="{% url 'material:admin_restablecer_area_pruebas' edited_user.id %}"
-              onsubmit="return eduConfirmSubmit(event, '¿Restablecer el Área de Pruebas de \'{{ edited_user.username|escapejs }}\'? Se borra todo lo que haya creado ahí y se repone el contenido de ejemplo.', {title: 'Restablecer Área de Pruebas', variant: 'warning', okLabel: 'Restablecer'});">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-outline-warning">
-                <i class="bi bi-arrow-counterclockwise me-1"></i>Restablecer su Área de Pruebas
-            </button>
-            <div class="form-text">Borra todo lo que esta persona creó en su Área de Pruebas y repone el contenido de ejemplo. No toca su cuenta real.</div>
-        </form>
-    {% else %}
-        <p class="mb-0"><i class="bi bi-x-circle-fill text-danger me-1"></i>Todavía no creó su Área de Pruebas, no hay nada para restablecer.</p>
+    <form id="restablecerAreaForm" method="post" action="{% url 'material:admin_restablecer_area_pruebas' edited_user.id %}"
+          onsubmit="return eduConfirmSubmit(event, '¿Restablecer el Área de Pruebas de \'{{ edited_user.username|escapejs }}\'? Se borra todo lo que haya creado ahí y se repone el contenido de ejemplo.', {title: 'Restablecer Área de Pruebas', variant: 'warning', okLabel: 'Restablecer'});">
+        {% csrf_token %}
+    </form>
     {% endif %}
 </div>
 <script>

@@ -12,7 +12,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
-from .training_accounts import get_or_create_training_account, reset_training_account
+from .training_accounts import get_or_create_training_account, reset_training_account, reset_training_account_async
 from .views import is_admin
 
 SESSION_ACTING_AS_TRAINING_FOR = 'acting_as_training_for'
@@ -98,6 +98,13 @@ def admin_restablecer_area_pruebas(request, user_id):
         messages.error(request, f'{real_user.username} todavía no tiene Área de Pruebas creada.', extra_tags='usuarios')
         return redirect('material:edit_user', user_id=real_user.id)
 
-    reset_training_account(link.training_user)
-    messages.success(request, f'Área de Pruebas de {real_user.username} restablecida.', extra_tags='usuarios')
+    if reset_training_account_async(link.training_user_id):
+        messages.success(
+            request,
+            f'Se está restableciendo el Área de Pruebas de {real_user.username}. Tarda un rato y sigue sola: '
+            'no hace falta esperar en esta pantalla.',
+            extra_tags='usuarios',
+        )
+    else:
+        messages.info(request, f'El Área de Pruebas de {real_user.username} ya se está restableciendo.', extra_tags='usuarios')
     return redirect('material:edit_user', user_id=real_user.id)

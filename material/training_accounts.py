@@ -206,6 +206,34 @@ def _delete_training_account_async(training_user_id):
     threading.Thread(target=_worker, daemon=True).start()
 
 
+_reseteos_en_curso = set()
+_reseteos_lock = threading.Lock()
+
+
+def reset_training_account_async(training_user_id):
+    """Restablece en segundo plano (acción de un admin sobre la cuenta de otra persona). Sin repuesto en el pool
+    el reseteo vacía y reclona el contenido en el lugar, y contra la base remota eso puede pasar del minuto: la
+    pantalla se quedaba esperando sin decir nada. Devuelve False si ya hay un reseteo de esa cuenta en curso."""
+    with _reseteos_lock:
+        if training_user_id in _reseteos_en_curso:
+            return False
+        _reseteos_en_curso.add(training_user_id)
+
+    def _worker():
+        try:
+            training_user = User.objects.filter(pk=training_user_id).first()
+            if training_user is not None:
+                reset_training_account(training_user)
+        except Exception:
+            logger.exception('No se pudo restablecer en background el Área de Pruebas.')
+        finally:
+            with _reseteos_lock:
+                _reseteos_en_curso.discard(training_user_id)
+            connection.close()
+    threading.Thread(target=_worker, daemon=True).start()
+    return True
+
+
 def clone_seed_content_into(training_user):
     """Clona el contenido semilla (rúbricas, contenidos, exámenes,
     cuestionarios orales, plantillas incluidos) en propiedad de
