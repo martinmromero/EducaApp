@@ -87,7 +87,9 @@ Convención que debe respetar la página que lo incluye:
             order: -1;
             /* basis 0: comparte renglón con el checkbox/insignia aunque el título sea largo */
             flex: 1 1 0;
-            min-width: 0;
+            /* 40% como mínimo: sin casilla de selección (cuentas no admin) la fila siguiente cabía entera
+               en el mismo renglón y el título quedaba con ancho 0, partido letra por letra */
+            min-width: 40%;
             font-weight: 700;
             font-size: 1rem;
         }
