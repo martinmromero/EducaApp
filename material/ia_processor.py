@@ -138,6 +138,65 @@ def extract_page_images(file_path, pages=None, max_images=4, min_bytes=4000):
     return results
 
 
+def extract_visual_pages(file_path, pages, max_images=12, dpi=100, quality=70):
+    """Páginas con contenido visual (gráficos, diagramas, fotos, escaneos) de un PDF, dibujadas como imagen
+    para mandarlas a un modelo con visión.
+
+    extract_page_images solo recupera imágenes incrustadas: un gráfico dibujado como vectores (lo habitual en
+    PDF exportados de Word, PowerPoint o matplotlib) no tiene ninguna y se perdía, y además tomaba las primeras
+    imágenes de todo el documento aunque estuvieran en páginas que no se eligieron. Acá se mira solo `pages`
+    (1-based) y una página cuenta como visual si tiene una imagen incrustada que no sea un ícono, bastantes
+    trazos vectoriales o casi nada de texto (página escaneada). Se dibuja la página entera, con su texto y sus
+    epígrafes, para que el modelo vea el gráfico en contexto.
+
+    Devuelve [{page, mime, data_uri}] ordenada por página, como mucho `max_images`. Nunca levanta excepción."""
+    import base64
+
+    if os.path.splitext(file_path)[1].lower() != '.pdf' or not pages:
+        return []
+    resultados = []
+    try:
+        import fitz
+        doc = fitz.open(file_path)
+        try:
+            for numero in sorted(set(pages)):
+                if len(resultados) >= max_images:
+                    break
+                if not (0 < numero <= len(doc)):
+                    continue
+                pagina = doc[numero - 1]
+                tiene_imagen = False
+                for img in pagina.get_images(full=True):
+                    try:
+                        incrustada = doc.extract_image(img[0])
+                    except Exception:
+                        continue
+                    if incrustada.get('image') and len(incrustada['image']) >= 4000:
+                        tiene_imagen = True
+                        break
+                muchos_trazos = False
+                if not tiene_imagen:
+                    try:
+                        muchos_trazos = len(pagina.get_drawings()) >= 12
+                    except Exception:
+                        muchos_trazos = False
+                sin_texto = len((pagina.get_text() or '').strip()) < 40
+                if not (tiene_imagen or muchos_trazos or sin_texto):
+                    continue
+                pixmap = pagina.get_pixmap(dpi=dpi)
+                try:
+                    datos = pixmap.tobytes('jpeg', jpg_quality=quality)
+                except TypeError:
+                    datos = pixmap.tobytes('jpeg')
+                b64 = base64.b64encode(datos).decode('utf-8')
+                resultados.append({'page': numero, 'mime': 'image/jpeg', 'data_uri': f'data:image/jpeg;base64,{b64}'})
+        finally:
+            doc.close()
+    except Exception:
+        return []
+    return resultados
+
+
 def extract_text_advanced(file_path, remove_headers=True, remove_footers=True):
     """
     NUEVA FUNCIÓN: Extracción avanzada con limpieza de headers/footers.

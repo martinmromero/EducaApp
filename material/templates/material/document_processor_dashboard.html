@@ -1992,6 +1992,13 @@ async function generateStreaming() {
                         <i class="bi bi-square-fill"></i> Deseleccionar todas
                     </button>
                 </div>`;
+            const avisos = window._sseAvisos || [];
+            if (avisos.length) {
+                const info = document.createElement('div');
+                info.className = 'alert alert-info mt-2 mb-0';
+                info.innerHTML = '<i class="bi bi-info-circle-fill"></i> ' + avisos.map(a => _escapeHtml(a)).join('<br>');
+                header.after(info);
+            }
             if (failed.length > 0) {
                 const warn = document.createElement('div');
                 warn.className = 'alert alert-warning mt-2 mb-0';
@@ -2035,6 +2042,7 @@ async function generateStreaming() {
 
     window._streamFinished = false;
     window._sseFailedChunks = [];
+    window._sseAvisos = [];
     const pauseMode = window._pauseAfterBlock || false;
 
     // ── Manejador SSE ───────────────────────────────────────────────────────
@@ -2109,6 +2117,8 @@ async function generateStreaming() {
             backupGeneratedQuestions();
             _resetGenerationButton();
 
+        } else if (msg.type === 'aviso') {
+            (window._sseAvisos = window._sseAvisos || []).push(msg.message);
         } else if (msg.type === 'chunk_error') {
             console.warn('SSE chunk_error:', msg.message);
             window._sseFailedChunks.push({

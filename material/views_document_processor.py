@@ -29,6 +29,7 @@ _jobs_lock = threading.Lock()
 from material.ia_processor import (
     extract_text_advanced,
     extract_page_images,
+    extract_visual_pages,
     count_tokens,
     optimize_text_for_ai
 )
@@ -1351,11 +1352,23 @@ def stream_questions(request, job_id):
         # repetir la misma imagen en cada llamada — cada imagen mandada de
         # nuevo suma costo/latencia en el proveedor de IA.
         doc_images = []
+        aviso_imagenes = ''
         if include_images and session_file and os.path.exists(session_file):
             try:
-                doc_images = extract_page_images(session_file, max_images=12)
+                # Solo las páginas de los capítulos elegidos, y dibujando la página entera: así entran los
+                # gráficos vectoriales y los escaneos, y no se gastan las 12 imágenes en páginas ajenas.
+                paginas_elegidas = sorted({p for ch in chapters_to_process for p in ch.get('pages', [])})
+                if paginas_elegidas:
+                    doc_images = extract_visual_pages(session_file, paginas_elegidas, max_images=12)
+                if not doc_images:
+                    doc_images = extract_page_images(session_file, pages=paginas_elegidas or None, max_images=12)
+                if not doc_images:
+                    aviso_imagenes = ('Se pidió analizar imágenes, pero en las páginas elegidas no hay gráficos, '
+                                      'fotos ni escaneos que se puedan leer (o el archivo no es un PDF). '
+                                      'Las preguntas salen solo del texto.')
             except Exception as exc:
                 logger.warning(f"No se pudieron extraer imágenes del documento: {exc}")
+                aviso_imagenes = f'No se pudieron leer las imágenes del documento ({exc}). Las preguntas salen solo del texto.'
 
         selected_tokens = _chapters_total_tokens(chapters_to_process)
         run_budget = settings.CONTENIDO_MAX_RUN_TOKENS
@@ -1377,6 +1390,8 @@ def stream_questions(request, job_id):
             total_chunks_all += len(chunks)
 
         yield f'data: {json_module.dumps({"type": "start", "total_chunks": total_chunks_all, "filename": filename, "existing_count": len(existing_questions_list)})}\n\n'
+        if aviso_imagenes:
+            yield f'data: {json_module.dumps({"type": "aviso", "message": aviso_imagenes})}\n\n'
 
         seen_keys = set(existing_texts_set)  # inicializar con preguntas ya en BD
         total_generated = 0
@@ -1448,6 +1463,9 @@ def stream_questions(request, job_id):
                             )
                         except Exception as img_exc:
                             logger.warning(f"SSE chunk {chunk_idx_global} (imágenes) de '{title}' falló: {img_exc}")
+                            # Antes esto solo quedaba en el log y la persona veía las preguntas del texto sin
+                            # saber que las imágenes no se habían analizado.
+                            yield f'data: {json_module.dumps({"type": "chunk_error", "chunk": chunk_idx_global, "total_chunks": total_chunks_all, "chapter_title": title, "message": "No se pudieron analizar las imágenes de esta parte: " + str(img_exc)})}\n\n'
                     raw_questions = text_questions + image_questions
                     # Páginas del FRAGMENTO puntual del que salieron estas
                     # preguntas (no de todo el capítulo/tanda) — ver comentario
