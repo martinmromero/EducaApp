@@ -10209,7 +10209,10 @@ def check_catalog_duplicate(request):
     afuera aunque sea exactamente lo que se tipeó."""
     nivel = request.GET.get('nivel')
     q = (request.GET.get('q') or '').strip()
-    if len(q) < 2:
+    # sugerir=1 sin texto: lo más relevante para esta cuenta, para mostrar al enfocar el campo (ver
+    # wizard_catalog_search.js). Con texto sigue siendo la búsqueda por parecido de siempre.
+    sugerir = request.GET.get('sugerir') == '1' and len(q) < 2
+    if len(q) < 2 and not sugerir:
         return JsonResponse([], safe=False)
 
     # Catálogo institucional, más el espacio personal de quien está
@@ -10261,6 +10264,21 @@ def check_catalog_duplicate(request):
                 Q(pk__in=qs.values('pk')) | Q(pk__in=compartidas.values('pk')))
     else:
         return JsonResponse([], safe=False)
+
+    if sugerir:
+        # Primero lo vinculado o creado por la cuenta (instituciones que marcó o usa, y su espacio personal),
+        # después el catálogo por nombre. Hasta 8; "total" dice cuántas hay para invitar a buscar el resto.
+        from django.db.models import Case, IntegerField, When
+        if nivel == 'institucion':
+            vinculadas = UserInstitution.objects.filter(user=request.user).values('institution_id')
+            prioridad = Case(
+                When(pk__in=vinculadas, then=0), When(created_by=request.user, then=1),
+                default=2, output_field=IntegerField())
+        else:
+            prioridad = Case(When(created_by=request.user, then=0), default=1, output_field=IntegerField())
+        total = qs.distinct().count()
+        items = list(qs.distinct().annotate(_prioridad=prioridad).order_by('_prioridad', 'name').values(*campos)[:8])
+        return JsonResponse({'sugeridas': items, 'total': total})
 
     q_norm = _normalizar_para_busqueda(q)
     q_tokens = _tokens(q_norm)
@@ -11307,6 +11325,8 @@ def grupos_list(request):
 
 @login_required
 def grupo_crear(request):
+    # CANDIDATO A BORRAR (2026-10-26): ya no tiene ningún botón. El asistente (grupo_asistente) crea el grupo,
+    # invita y comparte en un solo recorrido. Se deja la ruta hasta decidir el borrado.
     from .models import SharingGroup, GroupMembership
 
     if request.method == 'POST':

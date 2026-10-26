@@ -146,3 +146,35 @@ class PantallasConSelectorTests(TestCase):
         form = ExamTemplateForm(user=self.ana)
         self.assertIn(m, form.fields['subject'].queryset)
         self.assertEqual(form.fields['subject'].widget.attrs.get('data-smart-select'), 'materia')
+
+
+class SugeridasAlEnfocarTests(TestCase):
+    """El buscador de institución/facultad/carrera del asistente de examen ofrece primero lo relevante, sin tipear."""
+
+    def setUp(self):
+        self.ana = make_user('g_ana2')
+        self.client = Client()
+        self.client.force_login(self.ana)
+        self.url = reverse('material:check_catalog_duplicate')
+
+    def test_sin_texto_y_sin_sugerir_no_devuelve_nada(self):
+        InstitutionV2.objects.create(name='Universidad A', es_catalogo_institucional=True)
+        self.assertEqual(self.client.get(self.url, {'nivel': 'institucion', 'q': ''}).json(), [])
+
+    def test_sugeridas_trae_primero_lo_propio_y_cuenta_el_resto(self):
+        for i in range(10):
+            InstitutionV2.objects.create(name=f'Universidad {i:02d}', es_catalogo_institucional=True)
+        InstitutionV2.objects.create(name='Zeta personal', created_by=self.ana, es_catalogo_institucional=False)
+        InstitutionV2.objects.create(name='Personal de otra cuenta', created_by=make_user('g_otra'), es_catalogo_institucional=False)
+        datos = self.client.get(self.url, {'nivel': 'institucion', 'q': '', 'sugerir': '1'}).json()
+        nombres = [i['name'] for i in datos['sugeridas']]
+        self.assertEqual(nombres[0], 'Zeta personal')
+        self.assertEqual(len(nombres), 8)
+        self.assertEqual(datos['total'], 11)
+        self.assertNotIn('Personal de otra cuenta', nombres)
+
+    def test_con_texto_sigue_la_busqueda_por_parecido(self):
+        InstitutionV2.objects.create(name='Universidad Abierta', es_catalogo_institucional=True)
+        InstitutionV2.objects.create(name='Otra', es_catalogo_institucional=True)
+        datos = self.client.get(self.url, {'nivel': 'institucion', 'q': 'abierta', 'sugerir': '1'}).json()
+        self.assertEqual([i['name'] for i in datos], ['Universidad Abierta'])

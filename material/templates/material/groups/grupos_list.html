@@ -19,11 +19,7 @@
             <a href="{% url 'material:grupo_asistente_nuevo' %}" class="btn btn-primary" id="groupNewBtn">
                 <i class="bi bi-plus-circle me-1"></i>Nuevo grupo
             </a>
-            {% if not ui_simple %}
-            <a href="{% url 'material:grupo_crear' %}" class="btn btn-outline-secondary" id="groupNewClassicBtn" title="Crear solo con el nombre, sin asistente">
-                Solo con nombre
-            </a>
-            {% endif %}
+            {# "Solo con nombre" (grupo_crear) quedó oculto el 2026-10-26: el asistente cubre lo mismo y más. La ruta sigue existiendo. #}
         </div>
     </div>
 

@@ -44,7 +44,7 @@ window.EducaAppWizardCatalogSearch = (function () {
             opts.hiddenInput.dispatchEvent(new Event('change'));
         }
 
-        function renderResults(items) {
+        function renderResults(items, total) {
             opts.suggestBox.innerHTML = '';
             if (!items.length) {
                 var empty = document.createElement('div');
@@ -79,9 +79,33 @@ window.EducaAppWizardCatalogSearch = (function () {
                     });
                     opts.suggestBox.appendChild(row);
                 });
+                // Sugeridas al enfocar: avisa que hay más y que se buscan escribiendo.
+                if (total && total > items.length) {
+                    var mas = document.createElement('div');
+                    mas.className = 'wiz-catalog-suggest-empty';
+                    mas.textContent = 'Escribir para buscar entre ' + (total - items.length) + (total - items.length === 1 ? ' opción más.' : ' opciones más.');
+                    opts.suggestBox.appendChild(mas);
+                }
             }
             opts.suggestBox.classList.remove('d-none');
         }
+
+        // Al enfocar un campo vacío se ofrecen primero las opciones más relevantes, sin obligar a tipear.
+        function sugeridas() {
+            var scope = (opts.getScopeParams && opts.getScopeParams()) || {};
+            if (opts.requiresScope && Object.keys(scope).length === 0) { return; }
+            var params = new URLSearchParams(Object.assign({ nivel: opts.nivel, q: '', sugerir: '1' }, scope));
+            fetch(CFG.urls.checkCatalogDuplicate + '?' + params.toString())
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (opts.searchInput.value.trim().length >= 2 || !data.sugeridas || !data.sugeridas.length) return;
+                    renderResults(data.sugeridas, data.total);
+                })
+                .catch(function () { /* sin sugeridas: se busca tipeando, como siempre */ });
+        }
+        opts.searchInput.addEventListener('focus', function () {
+            if (!opts.hiddenInput.value && !this.value.trim()) sugeridas();
+        });
 
         var search = debounce(function (q) {
             var scope = (opts.getScopeParams && opts.getScopeParams()) || {};
