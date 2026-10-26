@@ -9827,6 +9827,13 @@ def catalog_request_create(request):
         tipo = request.GET.get('tipo')
         if tipo in dict(CatalogRequest.TIPO_CHOICES):
             initial['tipo'] = tipo
+        # Desde la ficha de una institución ("Agregar facultad"): viene la institución ya elegida.
+        # Solo vale si la persona la puede ver; si no, se ignora y el formulario arranca vacío.
+        institucion_id = request.GET.get('institucion', '')
+        if institucion_id.isdigit():
+            from .content_visibility import get_visible_institutions
+            if get_visible_institutions(request.user).filter(pk=institucion_id).exists():
+                initial['institucion'] = int(institucion_id)
         form = CatalogRequestForm(initial=initial, user=request.user)
 
     return render(request, 'material/catalog_requests/form.html', {'form': form})

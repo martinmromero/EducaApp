@@ -63,6 +63,16 @@
                                 <td class="text-muted small">{{ s.created_at|date:'d/m/Y' }}</td>
                                 <td>
                                     {% with entidad=s.entidad_propia %}
+                                        {% if entidad and s.tipo == 'institucion' or entidad and s.tipo == 'carrera' or entidad and s.tipo == 'materia' %}
+                                            <a href="{% if s.tipo == 'institucion' %}{% url 'material:institution_v2_detail' entidad.pk %}{% elif s.tipo == 'carrera' %}{% url 'material:career_detail' entidad.pk %}{% else %}{% url 'material:subject_detail' entidad.pk %}{% endif %}"
+                                               class="btn btn-sm btn-outline-primary me-1" title="Ver y editar">
+                                                <i class="bi bi-eye"></i><span class="d-none d-md-inline ms-1">Ver</span>
+                                            </a>
+                                        {% elif entidad and s.tipo == 'facultad' %}
+                                            <a href="{% url 'material:institution_v2_detail' entidad.institution_id %}" class="btn btn-sm btn-outline-primary me-1" title="Ver y editar">
+                                                <i class="bi bi-eye"></i><span class="d-none d-md-inline ms-1">Ver</span>
+                                            </a>
+                                        {% endif %}
                                         {% if entidad and not entidad.es_catalogo_institucional %}
                                             <div class="btn-group">
                                                 <a href="{% url 'material:eliminar_espacio_personal' s.tipo entidad.pk %}?next={{ request.get_full_path|urlencode }}"

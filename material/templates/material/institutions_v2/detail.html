@@ -92,8 +92,13 @@
 
             <!-- Sección de Facultades -->
             <div class="card">
-                <div class="card-header bg-warning text-white">
-                    <i class="bi bi-mortarboard me-2"></i>Facultades
+                <div class="card-header bg-warning text-white d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-mortarboard me-2"></i>Facultades</span>
+                    {% if not is_admin and institution.created_by_id == user.id and not institution.es_catalogo_institucional %}
+                    <a href="{% url 'material:catalog_request_create' %}?tipo=facultad&institucion={{ institution.pk }}" class="btn btn-sm btn-light">
+                        <i class="bi bi-plus-lg me-1"></i>Agregar facultad
+                    </a>
+                    {% endif %}
                 </div>
                 <div class="card-body">
                     {% if institution.facultyv2_set.all %}
