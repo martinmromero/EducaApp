@@ -3511,7 +3511,10 @@ def edit_user(request, user_id):
     # EDITADA en vez del admin logueado mientras se edita/borra a otro
     # usuario (confuso justo en una acción sensible). Hallazgo de la
     # auditoría 2026-09-11; mismo fix aplicado en delete_user más abajo.
-    return render(request, 'material/edit_user.html', {'form': form, 'edited_user': user})
+    return render(request, 'material/edit_user.html', {
+        'form': form, 'edited_user': user,
+        'training_link': getattr(user, 'training_link', None),
+    })
 
 @login_required
 @solo_admin

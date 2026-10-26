@@ -96,8 +96,8 @@ def admin_restablecer_area_pruebas(request, user_id):
         # Nunca se crea un Área de Pruebas desde el lado admin — si el
         # usuario nunca la pidió, no hay nada que resetear.
         messages.error(request, f'{real_user.username} todavía no tiene Área de Pruebas creada.', extra_tags='usuarios')
-        return redirect('material:user_list')
+        return redirect('material:edit_user', user_id=real_user.id)
 
     reset_training_account(link.training_user)
     messages.success(request, f'Área de Pruebas de {real_user.username} restablecida.', extra_tags='usuarios')
-    return redirect('material:user_list')
+    return redirect('material:edit_user', user_id=real_user.id)

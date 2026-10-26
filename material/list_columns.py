@@ -170,7 +170,7 @@ LIST_REGISTRY = {
     },
     'usuarios': {
         'columns': [
-            _col('id', 'ID'),
+            _col('id', 'ID', default=False),
             _col('usuario', 'Nombre de usuario'),
             _col('nombre', 'Nombre'),
             _col('apellido', 'Apellido'),
@@ -178,7 +178,7 @@ LIST_REGISTRY = {
             _col('rol', 'Rol'),
             _col('estado', 'Estado'),
             _col('ultima_conexion', 'Última conexión'),
-            _col('registro', 'Fecha de registro'),
+            _col('registro', 'Fecha de registro', default=False),
             _col('area_pruebas', 'Área de Pruebas'),
         ],
         'text_column': None,

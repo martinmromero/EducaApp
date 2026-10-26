@@ -11,6 +11,13 @@
 
 {% block content %}
 {% include 'material/components/_mobile_card_table.html' %}
+<style>
+/* Acciones siempre a la vista: si la tabla es más ancha que el cuadro, la columna queda pegada al borde derecho. */
+@media (min-width: 768px) {
+    .usr-actions { position: sticky; right: 0; white-space: nowrap; background: var(--bs-body-bg, #fff); box-shadow: -6px 0 6px -6px rgba(0,0,0,.25); }
+    th[data-col-fixed="last"] { position: sticky; right: 0; background: var(--bs-body-bg, #fff); }
+}
+</style>
 {% list_view_config 'usuarios' as lv %}
 {% include 'material/components/_list_columns_head.html' %}
 <div class="container-fluid">
@@ -56,21 +63,18 @@
                 </td>
                 <td data-col="ultima_conexion" class="lc-col-text" data-label="Última conexión">{{ user.last_login|default:"Nunca" }}</td>
                 <td data-col="registro" class="lc-col-text" data-label="Fecha de registro">{{ user.date_joined }}</td>
-                <td data-col="area_pruebas" class="lc-col-text" data-label="Área de Pruebas">
+                <td data-col="area_pruebas" class="lc-col-fit text-md-center" data-label="Área de Pruebas">
                     {% if user.training_link %}
-                        <span class="text-muted small d-block">Creada el {{ user.training_link.created_at|date:"d/m/Y" }}</span>
-                        <form method="post" action="{% url 'material:admin_restablecer_area_pruebas' user.id %}"
-                              onsubmit="return eduConfirmSubmit(event, '¿Restablecer el Área de Pruebas de \'{{ user.username|escapejs }}\'? Se borra todo lo que haya creado ahí y se repone el contenido de ejemplo.', {title: 'Restablecer Área de Pruebas', variant: 'warning', okLabel: 'Restablecer'});">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-warning mt-1">Restablecer</button>
-                        </form>
+                        <i class="bi bi-check-circle-fill text-success" title="Tiene Área de Pruebas (creada el {{ user.training_link.created_at|date:'d/m/Y' }}). Se restablece desde Editar."></i>
+                        <span class="visually-hidden">Sí</span>
                     {% else %}
-                        <span class="text-muted small">Sin área de pruebas creada</span>
+                        <i class="bi bi-x-circle-fill text-danger" title="Todavía no creó su Área de Pruebas"></i>
+                        <span class="visually-hidden">No</span>
                     {% endif %}
                 </td>
-                <td data-col-fixed="last" data-label="Acciones">
-                    <a href="{% url 'material:edit_user' user.id %}" class="btn btn-sm btn-primary">Editar</a>
-                    <a href="{% url 'material:delete_user' user.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+                <td data-col-fixed="last" class="usr-actions" data-label="Acciones">
+                    <a href="{% url 'material:edit_user' user.id %}" class="btn btn-sm btn-primary" title="Editar"><i class="bi bi-pencil-square"></i><span class="d-none d-md-inline ms-1">Editar</span></a>
+                    <a href="{% url 'material:delete_user' user.id %}" class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="bi bi-trash"></i><span class="visually-hidden">Eliminar</span></a>
                 </td>
             </tr>
             {% endfor %}
