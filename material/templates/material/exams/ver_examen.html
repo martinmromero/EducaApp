@@ -114,10 +114,10 @@ function toggleBloom() {
         <button onclick="doPrint()" class="btn-accent-green">
             <i class="bi bi-printer"></i> Imprimir
         </button>
-        <button onclick="doDownload('pdf')" class="btn-accent-red">
+        <button onclick="doDownload('pdf', this)" class="btn-accent-red">
             <i class="bi bi-file-earmark-pdf"></i> Descargar PDF
         </button>
-        <button onclick="doDownload('docx')" class="btn-accent-indigo">
+        <button onclick="doDownload('docx', this)" class="btn-accent-indigo">
             <i class="bi bi-file-earmark-word"></i> Descargar DOCX
         </button>
     </div>
@@ -152,7 +152,7 @@ function toggleBloom() {
         window.print();
     }
 
-    function doDownload(format) {
+    function doDownload(format, boton) {
         var withAnswers = document.getElementById('exportIncludeAnswers').checked;
         var rubricsCb = document.getElementById('exportIncludeRubrics');
         var withRubrics = rubricsCb ? rubricsCb.checked : true;
@@ -162,7 +162,7 @@ function toggleBloom() {
         var baseUrl = format === 'pdf'
             ? "{% url 'material:exportar_examen_pdf' exam.pk %}"
             : "{% url 'material:exportar_examen_docx' exam.pk %}";
-        window.location.href = baseUrl + '?' + params.toString();
+        EducaAppDescargar(baseUrl + '?' + params.toString(), boton);
     }
 </script>
 {% endblock %}
