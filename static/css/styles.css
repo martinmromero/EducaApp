@@ -870,3 +870,16 @@ html.embed-mode .main-content.test-panel-open {
 .list-columns-menu .lc-grip { width: 1.4rem; text-align: center; color: var(--bs-secondary-color); }
 .list-columns-menu .lc-drag { cursor: grab; }
 .list-columns-menu .lc-ib { width: 1.9rem; height: 1.9rem; padding: 0; line-height: 1; }
+
+/* Botones con solo un ícono (refrescar, configurar, borrar…): el ícono queda centrado en el botón, también en los
+   temas de botones redondeados. Los de ícono + texto de acciones usan .btn-acciones para alinearse parejo. */
+.btn-icon,
+.btn:has(> .bi:only-child) {
+    display: inline-flex; align-items: center; justify-content: center;
+    line-height: 1; vertical-align: middle;
+}
+.btn-icon > .bi, .btn:has(> .bi:only-child) > .bi { line-height: 1; margin: 0; }
+.btn-icon { min-width: 2rem; min-height: 2rem; }
+.btn-sm.btn-icon { min-width: 1.85rem; min-height: 1.85rem; padding-left: .4rem; padding-right: .4rem; }
+.btn-acciones { display: inline-flex; align-items: center; gap: .35rem; flex-wrap: nowrap; white-space: nowrap; }
+.btn-acciones .btn { display: inline-flex; align-items: center; justify-content: center; line-height: 1.2; }

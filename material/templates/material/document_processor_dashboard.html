@@ -75,12 +75,12 @@
                             <i class="bi bi-gear"></i> Configurar
                         </a>
                         {% endif %}
-                        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
+                        <button class="btn btn-sm btn-outline-secondary btn-icon ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
                             <i class="bi bi-arrow-repeat"></i>
                         </button>
                     </div>
                     <div class="position-relative">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="aiStatusInfoBtn" title="Ver detalles del proveedor de IA">
+                        <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" id="aiStatusInfoBtn" title="Ver detalles del proveedor de IA">
                             <i class="bi bi-info-circle-fill"></i>
                         </button>
                         <div id="aiStatusInfoPanel" class="d-none position-absolute end-0 mt-1 p-3 bg-body border rounded shadow-sm"
@@ -124,7 +124,7 @@
                             </small>
                         </div>
                     </div>
-                    <a href="{% url 'material:ai_config' %}" class="btn btn-sm btn-outline-primary" title="Configurar proveedor de IA">
+                    <a href="{% url 'material:ai_config' %}" class="btn btn-sm btn-outline-primary btn-icon" title="Configurar proveedor de IA">
                         <i class="bi bi-gear"></i>
                     </a>
                 </div>
@@ -1217,7 +1217,7 @@ async function checkLocalAIStatus() {
                     <i class="bi bi-circle-fill me-2 blink"></i>
                     <span class="fw-bold">IA Conectada (${providerLabel})</span>
                 </span>
-                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
+                <button class="btn btn-sm btn-outline-secondary btn-icon ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
                     <i class="bi bi-arrow-repeat"></i>
                 </button>
             `;
@@ -1234,7 +1234,7 @@ async function checkLocalAIStatus() {
                     <i class="bi bi-exclamation-circle-fill me-2"></i>
                     <span class="fw-bold">IA Desconectada</span>
                 </span>
-                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
+                <button class="btn btn-sm btn-outline-secondary btn-icon ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
                     <i class="bi bi-arrow-repeat"></i>
                 </button>
             `;
