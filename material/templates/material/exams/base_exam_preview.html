@@ -6,6 +6,7 @@
     <title>{% block title %}Previsualización de Examen{% endblock %} - {{ institution.name|default:"EducaApp" }}</title>
     <link rel="stylesheet" href="{% static 'css/vendor/driver.css' %}">
     <script src="{% static 'js/embed.js' %}"></script>
+    <script src="{% static 'js/descarga_guard.js' %}"></script>
     <script>
         // Mismo criterio que base.html: con el modo oscuro guardado, el fondo que
         // rodea la hoja pasa a oscuro (la hoja sigue blanca: es lo que se imprime).

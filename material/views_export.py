@@ -191,7 +191,21 @@ def _safe_filename(title, suffix=''):
 # Exportar a DOCX
 # ──────────────────────────────────────────────────────────────────────────────
 
+def avisa_fin_de_descarga(vista):
+    """Si el pedido trae ?descarga_token=XYZ, la respuesta deja la cookie descarga_XYZ para que la pantalla
+    sepa cuándo el archivo ya salió del servidor (ver static/js/descarga_guard.js)."""
+    @functools.wraps(vista)
+    def envoltura(request, *args, **kwargs):
+        respuesta = vista(request, *args, **kwargs)
+        token = request.GET.get('descarga_token', '')
+        if token.isalnum() and len(token) <= 40 and getattr(respuesta, 'status_code', 500) == 200:
+            respuesta.set_cookie('descarga_' + token, '1', max_age=120, path='/', samesite='Lax')
+        return respuesta
+    return envoltura
+
+
 @login_required
+@avisa_fin_de_descarga
 def exportar_examen_docx(request, pk):
     """
     Genera y descarga el examen como archivo .docx (Office Open XML).
@@ -240,6 +254,7 @@ def exportar_examen_docx(request, pk):
 # ──────────────────────────────────────────────────────────────────────────────
 
 @login_required
+@avisa_fin_de_descarga
 def exportar_examen_pdf(request, pk):
     """
     Genera y descarga el examen como archivo .pdf.
@@ -282,6 +297,7 @@ def exportar_examen_pdf(request, pk):
 
 
 @login_required
+@avisa_fin_de_descarga
 def exportar_lote_docx(request, batch_id):
     batch = get_object_or_404(ExamVersionBatch, pk=batch_id, created_by=request.user)
     con_respuestas = _as_bool_param(request.GET.get('con_respuestas'), default=False)
@@ -322,6 +338,7 @@ def exportar_lote_docx(request, batch_id):
 
 
 @login_required
+@avisa_fin_de_descarga
 def exportar_lote_pdf(request, batch_id):
     batch = get_object_or_404(ExamVersionBatch, pk=batch_id, created_by=request.user)
     con_respuestas = _as_bool_param(request.GET.get('con_respuestas'), default=False)

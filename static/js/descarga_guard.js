@@ -1,19 +1,13 @@
 /* Descargas de archivos que el servidor arma al momento (PDF/DOCX de exámenes y lotes): mientras se
    prepara, el botón muestra "Preparando…" y no admite otro clic. Antes no había ningún aviso y, como
    la primera descarga tarda, se volvía a tocar el botón y se pedía el mismo archivo varias veces.
-   Se baja con fetch y se entrega como archivo; si algo falla, se avisa en pantalla.
+   La descarga la hace el propio navegador (un marco oculto, con el gesto del toque intacto: funciona también
+   en el celular y dentro del asistente). El servidor deja una cookie descarga_<token> cuando el archivo sale;
+   si en cambio responde una página (error, sesión vencida) el marco la carga y se avisa.
    Uso: EducaAppDescargar(url, boton), o un enlace con href que contenga /exportar/ (se engancha solo). */
 (function () {
   var ocupado = false;
-
-  function nombreDe(respuesta, url) {
-    var cd = respuesta.headers.get('Content-Disposition') || '';
-    var m = /filename\*=UTF-8''([^;]+)/i.exec(cd) || /filename="?([^";]+)"?/i.exec(cd);
-    if (m) {
-      try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
-    }
-    return decodeURIComponent(new URL(url, window.location.href).pathname.split('/').filter(Boolean).pop() || 'archivo');
-  }
+  var ESPERA_MAX_MS = 120000;
 
   function aviso(texto) {
     if (window.EducaAppModal && window.EducaAppModal.alert) {
@@ -23,9 +17,15 @@
     }
   }
 
+  function cookie(nombre) {
+    return document.cookie.split('; ').some(function (c) { return c.indexOf(nombre + '=') === 0; });
+  }
+
   window.EducaAppDescargar = function (url, boton) {
-    if (ocupado) return Promise.resolve(false);
+    if (ocupado) return;
     ocupado = true;
+    var token = Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+    var nombreCookie = 'descarga_' + token;
     var html = null;
     if (boton) {
       html = boton.innerHTML;
@@ -34,8 +34,20 @@
       boton.classList.add('disabled');
       boton.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Preparando…';
     }
+    var marco = document.createElement('iframe');
+    marco.style.display = 'none';
+    marco.setAttribute('aria-hidden', 'true');
+    var inicio = Date.now();
+    var terminado = false;
+    var reloj = null;
+
     function liberar() {
+      if (terminado) return;
+      terminado = true;
+      clearInterval(reloj);
       ocupado = false;
+      document.cookie = nombreCookie + '=; Max-Age=0; path=/';
+      setTimeout(function () { if (marco.parentNode) marco.parentNode.removeChild(marco); }, 2000);
       if (boton) {
         boton.innerHTML = html;
         boton.classList.remove('disabled');
@@ -43,28 +55,27 @@
         delete boton.dataset.descargaBloqueado;
       }
     }
-    return fetch(url, { credentials: 'same-origin' }).then(function (r) {
-      var tipo = (r.headers.get('Content-Type') || '').toLowerCase();
-      var esArchivo = r.ok && tipo.indexOf('text/html') === -1;
-      if (!esArchivo) throw new Error('El servidor no devolvió el archivo (código ' + r.status + ').');
-      return r.blob().then(function (blob) {
-        var enlace = document.createElement('a');
-        var objeto = URL.createObjectURL(blob);
-        enlace.href = objeto;
-        enlace.download = nombreDe(r, url);
-        document.body.appendChild(enlace);
-        enlace.click();
-        document.body.removeChild(enlace);
-        setTimeout(function () { URL.revokeObjectURL(objeto); }, 30000);
-        return true;
-      });
-    }).catch(function (e) {
-      aviso('No se pudo preparar el archivo. Probar de nuevo en unos segundos; si sigue pasando, avisar. (' + e.message + ')');
-      return false;
-    }).then(function (ok) {
+
+    // Una descarga real no dispara "load" en el marco; si lo dispara, el servidor devolvió una página.
+    marco.addEventListener('load', function () {
+      if (terminado || cookie(nombreCookie)) return;
       liberar();
-      return ok;
+      aviso('No se pudo preparar el archivo. Probar de nuevo en unos segundos; si sigue pasando, avisar.');
     });
+    reloj = setInterval(function () {
+      if (cookie(nombreCookie)) {
+        // El archivo ya salió: el navegador lo está guardando.
+        setTimeout(liberar, 600);
+        clearInterval(reloj);
+      } else if (Date.now() - inicio > ESPERA_MAX_MS) {
+        liberar();
+        aviso('El archivo tarda demasiado en prepararse. Probar de nuevo en unos minutos.');
+      }
+    }, 300);
+
+    var sep = url.indexOf('?') === -1 ? '?' : '&';
+    marco.src = url + sep + 'descarga_token=' + token;
+    document.body.appendChild(marco);
   };
 
   document.addEventListener('click', function (e) {
