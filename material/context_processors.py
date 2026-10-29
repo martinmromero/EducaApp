@@ -6,7 +6,7 @@ from django.db.models import Count, Subquery, Value
 from django.db.models.functions import Coalesce
 from .models import (
     InstitutionV2, UserInstitution, Subject, LearningOutcome, Topic, Contenido,
-    InstitutionSubject, GroupMembership, CatalogRequest, Career, CareerSubject,
+    InstitutionSubject, GroupMembership, CatalogRequest, AuthorMessage, Career, CareerSubject,
     FacultyV2, InstitutionCareer, QuestionDeletionNotice,
 )
 from .content_visibility import get_visible_subjects, get_visible_careers, get_visible_faculties
@@ -61,6 +61,10 @@ def onboarding_context(request):
                 _count(CatalogRequest.objects.filter(estado='pendiente'))
                 if is_admin_user else Value(0)
             ),
+            author_unread=(
+                _count(AuthorMessage.objects.filter(leido=False))
+                if is_admin_user else Value(0)
+            ),
             catalog_notifs=_count(
                 CatalogRequest.objects.filter(
                     solicitado_por=request.user, visto_por_solicitante=False,
@@ -70,11 +74,12 @@ def onboarding_context(request):
                 QuestionDeletionNotice.objects.filter(recipient=request.user, visto=False)
             ),
         )
-        .values('invites', 'catalog_pending', 'catalog_notifs', 'deletion_notices')
+        .values('invites', 'catalog_pending', 'author_unread', 'catalog_notifs', 'deletion_notices')
         .get()
     )
     pending_invites_count = counts['invites']
     pending_catalog_requests_count = counts['catalog_pending']
+    unread_author_messages_count = counts['author_unread']
     pending_catalog_notifications_count = counts['catalog_notifs']
     pending_question_deletion_notices_count = counts['deletion_notices']
 
@@ -83,6 +88,7 @@ def onboarding_context(request):
         'onb_data_json': _json.dumps({'autoShow': not profile.onboarding_completed}),
         'pending_invites_count': pending_invites_count,
         'pending_catalog_requests_count': pending_catalog_requests_count,
+        'unread_author_messages_count': unread_author_messages_count,
         'pending_catalog_notifications_count': pending_catalog_notifications_count,
         'pending_question_deletion_notices_count': pending_question_deletion_notices_count,
         'is_admin': is_admin_user,
@@ -94,6 +100,8 @@ def onboarding_context(request):
         'selector_umbral': settings.SELECTOR_UMBRAL,
         'visual_theme': profile.visual_theme,
         'visual_theme_choices': profile.VISUAL_THEME_CHOICES,
+        'font_scale': profile.font_scale,
+        'font_scale_choices': profile.FONT_SCALE_CHOICES,
         # Área de Pruebas: la marca de sesión (ver training_views.py) es lo
         # único que hace falta acá — no una consulta a TrainingAccountLink,
         # ya se revalidó contra esa tabla al entrar/salir.

@@ -1115,6 +1115,22 @@ class Profile(models.Model):
         verbose_name='Tema visual',
         help_text='Skin de colores/tipografía elegido por el usuario para la interfaz.',
     )
+    # Tamaño de letra de toda la interfaz (escala el tamaño base del <html>, ver
+    # static/css/theme.css). "auto" = el de siempre en pantallas grandes y un
+    # escalón más grande en el celular, donde el texto chico se lee mal.
+    FONT_SCALE_CHOICES = [
+        ('auto', 'Automático'),
+        ('normal', 'Normal'),
+        ('grande', 'Grande'),
+        ('muy_grande', 'Muy grande'),
+    ]
+    font_scale = models.CharField(
+        max_length=12,
+        choices=FONT_SCALE_CHOICES,
+        default='auto',
+        verbose_name='Tamaño de letra',
+        help_text='Automático agranda un poco la letra en el celular; Normal, Grande y Muy grande fijan el tamaño en cualquier pantalla.',
+    )
     # Vista elegida por el usuario para cada listado (columnas visibles, su
     # orden y líneas del texto largo). Una entrada por clave de listado, ver
     # list_columns.py: {"preguntas": {"order": [...], "visible": [...], "lines": 3}}.
@@ -2979,3 +2995,38 @@ class QuestionDeletionNotice(models.Model):
 
     def __str__(self):
         return f"Aviso para {self.recipient.username}: {self.content_type.model}#{self.object_id}"
+
+class AuthorMessage(models.Model):
+    """
+    Mensaje de un usuario al autor de la aplicación ("Hablar con el autor").
+
+    No se envía por correo (en producción no hay SMTP configurado): queda en la
+    base y lo lee el administrador desde la bandeja de Administración, que
+    muestra el usuario y su correo para poder responder por fuera. La marca
+    `leido` sostiene el badge del menú, igual que CatalogRequest.
+    """
+    TIPO_CHOICES = [
+        ('consulta', 'Consulta'),
+        ('error', 'Algo no funciona'),
+        ('sugerencia', 'Sugerencia'),
+        ('otro', 'Otro'),
+    ]
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='author_messages', verbose_name="Usuario",
+    )
+    tipo = models.CharField(max_length=12, choices=TIPO_CHOICES, default='consulta', verbose_name="Tipo")
+    mensaje = models.TextField(max_length=2000, verbose_name="Mensaje")
+    # Pantalla desde la que se escribió (ayuda a reproducir un error); la
+    # completa la vista a partir del "next"/Referer, nunca se confía para nada más.
+    pagina_origen = models.CharField(max_length=300, blank=True, verbose_name="Pantalla de origen")
+    leido = models.BooleanField(default=False, verbose_name="Leído")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Mensaje al autor"
+        verbose_name_plural = "Mensajes al autor"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username}: {self.get_tipo_display()} ({self.created_at:%Y-%m-%d})"

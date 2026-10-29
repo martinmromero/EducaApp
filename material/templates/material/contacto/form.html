@@ -1,0 +1,44 @@
+{% extends 'material/base.html' %}
+{% load message_tags %}
+{% block title %}Hablar con el autor - EducaApp{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800"><i class="bi bi-chat-dots me-2"></i>Hablar con el autor</h1>
+
+    {% show_messages "contacto" %}
+
+    <div class="card shadow-sm" style="max-width:640px">
+        <div class="card-body">
+            <p class="text-muted small mb-4">
+                Consultas, algo que no funciona o ideas para mejorar la aplicación: el mensaje le llega directo al autor.
+                Si hace falta, la respuesta se envía al correo asociado a la cuenta.
+            </p>
+            <form method="post" id="contactoAutorForm">
+                {% csrf_token %}
+                <input type="hidden" name="pagina_origen" value="{{ pagina_origen }}">
+                <div class="mb-3">
+                    <label for="id_tipo" class="form-label">Motivo</label>
+                    <select name="tipo" id="id_tipo" class="form-select">
+                        {% for valor, etiqueta in tipo_choices %}
+                            <option value="{{ valor }}"{% if valor == tipo %} selected{% endif %}>{{ etiqueta }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="id_mensaje" class="form-label">Mensaje</label>
+                    <textarea name="mensaje" id="id_mensaje" class="form-control" rows="6" maxlength="2000" required>{{ mensaje_texto }}</textarea>
+                    <div class="form-text">Máximo 2000 caracteres. Si algo no funciona, conviene contar qué se estaba haciendo.</div>
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-send me-1"></i>Enviar</button>
+                <a href="{% url 'material:index' %}" class="btn btn-outline-secondary ms-1">Cancelar</a>
+            </form>
+        </div>
+        <div class="card-footer bg-body-tertiary small">
+            <div class="mb-1">También se puede escribir directamente:</div>
+            <div><i class="bi bi-envelope me-2"></i><a href="mailto:{{ contacto_email }}">{{ contacto_email }}</a></div>
+            <div><i class="bi bi-whatsapp me-2"></i><a href="https://wa.me/{{ contacto_telefono }}" target="_blank" rel="noopener">+{{ contacto_telefono }}</a></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

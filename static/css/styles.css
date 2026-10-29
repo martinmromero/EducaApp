@@ -503,6 +503,7 @@ html.embed-mode .main-content.test-panel-open {
         max-width: 100%;
     }
     .badge {
+        font-size: max(0.75em, 0.8rem);
         white-space: normal;
         overflow-wrap: anywhere;
         word-break: break-word;

@@ -132,8 +132,9 @@ def _apply_real_user_preferences(training_user, real_user):
     todavía no sabe qué docente real lo va a reclamar."""
     try:
         training_user.profile.visual_theme = real_user.profile.visual_theme
+        training_user.profile.font_scale = real_user.profile.font_scale
         training_user.profile.list_view_prefs = dict(real_user.profile.list_view_prefs or {})
-        training_user.profile.save(update_fields=['visual_theme', 'list_view_prefs'])
+        training_user.profile.save(update_fields=['visual_theme', 'font_scale', 'list_view_prefs'])
     except Exception:
         pass
 

@@ -114,6 +114,7 @@ urlpatterns = [
     path('instituciones-v2/eliminar-bulk/', material_views.bulk_eliminar_instituciones_v2, name='bulk_eliminar_instituciones_v2'),
     path('instituciones-v2/favorito/<int:pk>/', material_views.toggle_favorite_institution, name='toggle_favorite_institution'),
     path('tema-visual/', material_views.set_visual_theme, name='set_visual_theme'),
+    path('tamano-letra/', material_views.set_font_scale, name='set_font_scale'),
     path('modo-interfaz/', material_views.set_interface_mode, name='set_interface_mode'),
     path('preferencias-listado/<str:list_key>/', list_columns.save_list_view, name='save_list_view'),
     path('instituciones-v2/detalle/<int:pk>/', material_views.institution_v2_detail, name='institution_v2_detail'),
@@ -228,6 +229,10 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('preguntas-borradas/', material_views.mis_avisos_preguntas_borradas, name='mis_avisos_preguntas_borradas'),
     path('solicitudes-catalogo/espacio-personal/<str:nivel>/<int:pk>/eliminar/', material_views.eliminar_espacio_personal, name='eliminar_espacio_personal'),
     path('solicitudes-catalogo/bandeja/', material_views.catalog_requests_bandeja, name='catalog_requests_bandeja'),
+
+    # HABLAR CON EL AUTOR (mensajes de los usuarios al autor + bandeja de admin)
+    path('hablar-con-el-autor/', material_views.contacto_autor, name='contacto_autor'),
+    path('mensajes-al-autor/', material_views.contacto_bandeja, name='contacto_bandeja'),
 
     # ASISTENTE COMPLETO (wizard combinado institución -> examen)
     path('asistente-completo/', material_views.full_wizard_page, name='full_wizard'),

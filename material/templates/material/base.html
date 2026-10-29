@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html{% if visual_theme and visual_theme != 'default' %} data-visual-theme="{{ visual_theme }}"{% endif %}>
+<html{% if visual_theme and visual_theme != 'default' %} data-visual-theme="{{ visual_theme }}"{% endif %}{% if font_scale and font_scale != 'auto' %} data-font-scale="{{ font_scale }}"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -298,12 +298,15 @@
         {% if is_admin %}
             <div class="menu-item" onclick="toggleSubmenu(this)">
                 <i class="bi bi-shield-lock-fill me-2"></i> Administración
-                {% if pending_catalog_requests_count %}<span class="badge bg-danger ms-1">{{ pending_catalog_requests_count }}</span>{% endif %}
+                {% if pending_catalog_requests_count or unread_author_messages_count %}<span class="badge bg-danger ms-1">{{ pending_catalog_requests_count|add:unread_author_messages_count }}</span>{% endif %}
                 <div class="submenu">
                     <a href="{% url 'material:user_list' %}"><i class="bi bi-people-fill me-2"></i>Usuarios</a>
                     <a href="{% url 'material:mis_invitaciones' %}"><i class="bi bi-send-plus me-2"></i>Invitaciones</a>
                     <a href="{% url 'material:catalog_requests_bandeja' %}"><i class="bi bi-inbox me-2"></i>Solicitudes de catálogo
                         {% if pending_catalog_requests_count %}<span class="badge bg-danger ms-1">{{ pending_catalog_requests_count }}</span>{% endif %}
+                    </a>
+                    <a href="{% url 'material:contacto_bandeja' %}"><i class="bi bi-chat-dots me-2"></i>Mensajes al autor
+                        {% if unread_author_messages_count %}<span class="badge bg-danger ms-1">{{ unread_author_messages_count }}</span>{% endif %}
                     </a>
                     <a href="{% url 'material:admin_bulk_catalog_upload' %}"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Carga masiva de catálogo</a>
                     <a href="{% url 'material:groq_monitor_page' %}"><i class="bi bi-activity me-2"></i>Monitoreo Groq</a>
@@ -319,6 +322,14 @@
         <div class="bottom-links">
             {% if user.is_authenticated %}
                 <a href="{% url 'material:ai_config' %}"><i class="bi bi-cpu me-2"></i>Proveedor de IA</a>
+                <a href="{% url 'material:contacto_autor' %}?next={{ request.get_full_path|urlencode }}" id="tourContactoAutor"><i class="bi bi-chat-dots me-2"></i>Hablar con el autor</a>
+                <div class="font-scale-row" role="group" aria-label="Tamaño de letra" id="tourTamanoLetra">
+                    <span class="font-scale-label"><i class="bi bi-type me-2"></i>Letra</span>
+                    {% for value, label in font_scale_choices %}
+                        <button type="button" data-scale-value="{{ value }}" title="Tamaño de letra: {{ label }}" aria-label="Tamaño de letra: {{ label }}"
+                                class="font-scale-option font-scale-{{ value }}{% if font_scale == value %} active{% endif %}">{% if value == 'auto' %}Auto{% else %}A{% endif %}</button>
+                    {% endfor %}
+                </div>
             {% endif %}
             <div class="d-flex justify-content-between align-items-center">
                 <a href="{% url 'material:mis_datos' %}" id="tourMisDatos"><i class="bi bi-person-lines-fill me-2"></i>Mis datos</a>
@@ -907,6 +918,31 @@
                             'Content-Type': 'application/x-www-form-urlencoded',
                         },
                         body: `theme=${encodeURIComponent(theme)}`,
+                    }).catch(() => {});
+                });
+            });
+        }
+
+        // Tamaño de letra: mismo criterio que el tema visual (se aplica al instante vía
+        // data-font-scale en <html>, ver static/css/theme.css, y se guarda en el perfil).
+        const fontScaleOptions = document.querySelectorAll('.font-scale-option');
+        if (fontScaleOptions.length && csrfInput) {
+            fontScaleOptions.forEach((option) => {
+                option.addEventListener('click', () => {
+                    const scale = option.dataset.scaleValue;
+                    if (scale === 'auto') {
+                        htmlEl.removeAttribute('data-font-scale');
+                    } else {
+                        htmlEl.setAttribute('data-font-scale', scale);
+                    }
+                    fontScaleOptions.forEach((o) => o.classList.toggle('active', o === option));
+                    fetch('{% url "material:set_font_scale" %}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfInput.value,
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `scale=${encodeURIComponent(scale)}`,
                     }).catch(() => {});
                 });
             });

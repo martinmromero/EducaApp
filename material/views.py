@@ -6130,6 +6130,18 @@ def set_visual_theme(request):
     return JsonResponse({'success': True, 'theme': theme})
 
 @login_required
+def set_font_scale(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+    scale = request.POST.get('scale')
+    if scale not in {choice for choice, _ in Profile.FONT_SCALE_CHOICES}:
+        return JsonResponse({'success': False, 'error': 'Tamaño inválido'}, status=400)
+    profile = request.user.profile
+    profile.font_scale = scale
+    profile.save(update_fields=['font_scale'])
+    return JsonResponse({'success': True, 'scale': scale})
+
+@login_required
 @require_POST
 def set_interface_mode(request):
     """Cambia entre modo simple y modo avanzado y vuelve a donde se estaba."""
@@ -12325,3 +12337,61 @@ def neon_usage_page(request):
 
     return render(request, 'material/neon_usage.html', context)
 
+
+# ---------------------------------------------------------------------------
+# HABLAR CON EL AUTOR
+# ---------------------------------------------------------------------------
+
+@login_required
+def contacto_autor(request):
+    """Formulario para escribirle al autor. Cualquier usuario autenticado."""
+    from .models import AuthorMessage
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    origen = request.GET.get('next') or request.POST.get('pagina_origen') or request.META.get('HTTP_REFERER', '')
+    if not url_has_allowed_host_and_scheme(origen, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        origen = ''
+
+    tipo = request.POST.get('tipo') or 'consulta'
+    texto = (request.POST.get('mensaje') or '').strip()
+    if request.method == 'POST':
+        tipos_validos = {valor for valor, _ in AuthorMessage.TIPO_CHOICES}
+        if tipo not in tipos_validos:
+            tipo = 'consulta'
+        if not texto:
+            messages.error(request, 'Falta escribir el mensaje.', extra_tags='contacto')
+        elif len(texto) > 2000:
+            messages.error(request, 'El mensaje supera los 2000 caracteres; conviene acortarlo.', extra_tags='contacto')
+        else:
+            AuthorMessage.objects.create(
+                user=request.user, tipo=tipo, mensaje=texto, pagina_origen=origen[:300],
+            )
+            messages.success(request, 'El mensaje llegó al autor. Si hace falta, se responde al correo de la cuenta.', extra_tags='general')
+            return redirect('material:index')
+
+    return render(request, 'material/contacto/form.html', {
+        'tipo_choices': AuthorMessage.TIPO_CHOICES,
+        'tipo': tipo,
+        'mensaje_texto': texto,
+        'pagina_origen': origen,
+        'contacto_email': settings.AUTHOR_CONTACT_EMAIL,
+        'contacto_telefono': settings.AUTHOR_CONTACT_PHONE,
+    })
+
+
+@login_required
+@solo_admin
+def contacto_bandeja(request):
+    """Bandeja del administrador: mensajes de los usuarios, con marcar leído / no leído."""
+    from .models import AuthorMessage
+
+    if request.method == 'POST':
+        mensaje = get_object_or_404(AuthorMessage, pk=request.POST.get('mensaje_id'))
+        accion = request.POST.get('accion')
+        if accion in ('leido', 'no_leido'):
+            mensaje.leido = accion == 'leido'
+            mensaje.save(update_fields=['leido'])
+        return redirect('material:contacto_bandeja')
+
+    lista = AuthorMessage.objects.select_related('user').order_by('leido', '-created_at')
+    return render(request, 'material/contacto/bandeja.html', {'mensajes': lista})

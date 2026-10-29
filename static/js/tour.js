@@ -167,6 +167,14 @@
       onHighlightStarted: collapseAllMenus,
     },
     {
+      element: '#tourTamanoLetra',
+      popover: {
+        title: 'Tamaño de letra',
+        description: 'Si el texto se ve chico, aquí se agranda en toda la app. Automático agranda un poco en el celular.',
+        side: 'right',
+      },
+    },
+    {
       element: '#visualThemeDropdown',
       popover: {
         title: 'Tema visual',

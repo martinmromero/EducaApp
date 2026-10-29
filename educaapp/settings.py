@@ -180,6 +180,11 @@ LOGOUT_REDIRECT_URL = '/accounts/login/'
 # Email settings (para desarrollo)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+# Contacto directo con el autor (pantalla "Hablar con el autor"). El teléfono va en formato
+# internacional sin signos: se usa tal cual para armar el enlace de WhatsApp.
+AUTHOR_CONTACT_EMAIL = 'martin.romero@uai.edu.ar'
+AUTHOR_CONTACT_PHONE = '5491160490784'
+
 # Custom user model (opcional, si en el futuro necesitas personalizar)
 # AUTH_USER_MODEL = 'material.CustomUser'
 
