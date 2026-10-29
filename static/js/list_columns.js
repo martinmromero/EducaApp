@@ -60,6 +60,105 @@
     var labels = {};
     cfg.columns.forEach(function (c) { labels[c.key] = c.label; });
 
+    /* ── Orden: clic en el encabezado, o "Ordenar por" en el panel ──────────
+       El orden vive en la URL (?sort=<columna>&dir=asc|desc) y lo aplica el
+       servidor sobre todo el listado, no solo la página que se ve. Clic en una
+       columna: ascendente, otro clic: descendente, otro: el orden original. */
+    var sortable = {};
+    cfg.columns.forEach(function (c) { if (c.sortable && presentKeys[c.key]) sortable[c.key] = true; });
+    var urlParams = new URLSearchParams(window.location.search);
+    var curSort = sortable[urlParams.get('sort')] ? urlParams.get('sort') : null;
+    var curDir = urlParams.get('dir') === 'desc' ? 'desc' : 'asc';
+
+    function sortHref(key, dir) {
+      var p = new URLSearchParams(window.location.search);
+      // Al cambiar el orden se vuelve a la primera página.
+      p.delete('page');
+      p.delete('vpage');
+      if (key) { p.set('sort', key); p.set('dir', dir); } else { p.delete('sort'); p.delete('dir'); }
+      var qs = p.toString();
+      return window.location.pathname + (qs ? '?' + qs : '');
+    }
+
+    function goSort(key, dir) { window.location.assign(sortHref(key, dir)); }
+
+    function addSortHeaders() {
+      table.querySelectorAll('thead th[data-col]').forEach(function (th) {
+        var key = th.dataset.col;
+        if (!sortable[key] || th.querySelector('.lc-sort')) return;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'lc-sort';
+        while (th.firstChild) btn.appendChild(th.firstChild);
+        var icon = document.createElement('i');
+        icon.className = 'bi lc-sort-icon ' + (curSort === key ? (curDir === 'desc' ? 'bi-caret-down-fill' : 'bi-caret-up-fill') : 'bi-chevron-expand');
+        icon.setAttribute('aria-hidden', 'true');
+        btn.appendChild(icon);
+        var next = curSort !== key ? 'ascendente' : (curDir === 'asc' ? 'descendente' : 'sin orden');
+        btn.title = 'Ordenar por ' + (labels[key] || key) + ' (' + next + ')';
+        th.appendChild(btn);
+        th.setAttribute('aria-sort', curSort === key ? (curDir === 'desc' ? 'descending' : 'ascending') : 'none');
+        if (curSort === key) th.classList.add('lc-sorted');
+        btn.addEventListener('click', function () {
+          if (curSort !== key) goSort(key, 'asc');
+          else if (curDir === 'asc') goSort(key, 'desc');
+          else goSort(null);
+        });
+      });
+    }
+
+    // El orden sobrevive a aplicar o limpiar filtros y a la búsqueda por texto.
+    function keepSortInForms() {
+      if (!curSort) return;
+      document.querySelectorAll('form').forEach(function (f) {
+        if ((f.method || '').toLowerCase() !== 'get' || f.querySelector('input[name="sort"]')) return;
+        var path;
+        try { path = new URL(f.action, window.location.href).pathname; } catch (e) { return; }
+        if (path !== window.location.pathname) return;
+        [['sort', curSort], ['dir', curDir]].forEach(function (pair) {
+          var h = document.createElement('input');
+          h.type = 'hidden'; h.name = pair[0]; h.value = pair[1];
+          f.appendChild(h);
+        });
+      });
+    }
+
+    var sortWrap = document.getElementById('listSortWrap');
+    var sortSelect = document.getElementById('listSortSelect');
+    var sortDirSeg = document.getElementById('listSortDir');
+    function renderSortPanel() {
+      var keys = state.order.filter(function (k) { return sortable[k]; });
+      if (!sortWrap || !sortSelect || !keys.length) return;
+      sortWrap.classList.remove('d-none');
+      sortSelect.innerHTML = '';
+      var none = document.createElement('option');
+      none.value = '';
+      none.textContent = 'Orden original';
+      sortSelect.appendChild(none);
+      keys.forEach(function (k) {
+        var o = document.createElement('option');
+        o.value = k;
+        o.textContent = labels[k];
+        sortSelect.appendChild(o);
+      });
+      sortSelect.value = curSort || '';
+      sortDirSeg.querySelectorAll('button').forEach(function (b) {
+        var on = !!curSort && b.dataset.dir === curDir;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.disabled = !curSort;
+      });
+    }
+    if (sortSelect) {
+      sortSelect.addEventListener('change', function () {
+        if (sortSelect.value) goSort(sortSelect.value, curSort ? curDir : 'asc'); else goSort(null);
+      });
+      sortDirSeg.addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-dir]');
+        if (b && curSort) goSort(curSort, b.dataset.dir);
+      });
+    }
+
     /* ── Ancho de las columnas: se arrastra el borde del encabezado ─────── */
     var MIN_W = 60, MAX_W = 1500;
     var widths = {};
@@ -397,8 +496,11 @@
 
     applyTable();
     applyWidths();
+    addSortHeaders();
     addResizers();
     renderPanel();
+    renderSortPanel();
+    keepSortInForms();
     // Ya con las clases lc-hidden puestas, el CSS provisorio del servidor
     // (que evitaba el parpadeo) sobra.
     if (preStyle) preStyle.remove();

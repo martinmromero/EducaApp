@@ -86,11 +86,11 @@
         <nav aria-label="Paginación de contenidos vigentes">
             <ul class="pagination pagination-sm">
                 {% if vigentes_page.has_previous %}
-                <li class="page-item"><a class="page-link" href="?vpage={{ vigentes_page.previous_page_number }}">Anterior</a></li>
+                <li class="page-item"><a class="page-link" href="?vpage={{ vigentes_page.previous_page_number }}{% if request.GET.sort %}&sort={{ request.GET.sort|urlencode }}&dir={{ request.GET.dir|urlencode }}{% endif %}">Anterior</a></li>
                 {% endif %}
                 <li class="page-item disabled"><span class="page-link">Página {{ vigentes_page.number }} de {{ vigentes_page.paginator.num_pages }}</span></li>
                 {% if vigentes_page.has_next %}
-                <li class="page-item"><a class="page-link" href="?vpage={{ vigentes_page.next_page_number }}">Siguiente</a></li>
+                <li class="page-item"><a class="page-link" href="?vpage={{ vigentes_page.next_page_number }}{% if request.GET.sort %}&sort={{ request.GET.sort|urlencode }}&dir={{ request.GET.dir|urlencode }}{% endif %}">Siguiente</a></li>
                 {% endif %}
             </ul>
         </nav>

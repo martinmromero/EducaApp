@@ -23,6 +23,7 @@ from .column_filters import (
     _apply_field_filter,
     NONE_VALUE,
 )
+from .list_columns import get_sort, sort_items, sort_queryset, text_key
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -3136,6 +3137,7 @@ def list_exam_templates(request):
     selected_filters = get_selected_filters(request, EXAM_TEMPLATE_FILTER_FIELDS)
     filter_options = get_filter_options(base_templates, EXAM_TEMPLATE_FILTER_FIELDS, selected_filters, request=request)
     templates = apply_column_filters(request, base_templates, EXAM_TEMPLATE_FILTER_FIELDS).order_by('-created_at')
+    templates = sort_queryset(request, 'plantillas', templates)
 
     favorite_ids = set(Favorite.objects.filter(
         user=request.user, content_type=ContentType.objects.get_for_model(ExamTemplate)
@@ -3467,6 +3469,7 @@ def user_list(request):
     # propia (no son un docente) — su estado se muestra colgado de la fila
     # del docente real dueño, vía select_related('training_link__training_user').
     users = User.objects.exclude(profile__is_training_account=True).select_related('training_link__training_user')
+    users = sort_queryset(request, 'usuarios', users)
     return render(request, 'material/user_list.html', {'users': users})
 
 @login_required
@@ -3678,6 +3681,17 @@ def mis_examenes(request):
         for examen in examenes
     ]
     items.sort(key=lambda item: item['sort_key'], reverse=True)
+    def _subject_name(item):
+        subject = (item['batch'] if item['kind'] == 'batch' else item['examen']).subject
+        return text_key(subject.name) if subject else ''
+
+    items = sort_items(request, 'mis_examenes', items, {
+        'nombre': lambda i: text_key(i['batch'].name if i['kind'] == 'batch' else i['examen'].title),
+        'materia': _subject_name,
+        # Los lotes primero (de menos a más temas) y después los exámenes individuales.
+        'tipo': lambda i: (0, i['batch'].version_count) if i['kind'] == 'batch' else (1, 0),
+        'creado': lambda i: i['sort_key'],
+    })
 
     return render(request, 'material/exams/mis_examenes_new.html', {
         'items': items,
@@ -4189,7 +4203,7 @@ def lista_preguntas(request):
     ia_rechazadas_count = counts['ia_rechazadas']
     ia_sin_revisar_count = counts['ia_sin_revisar']
 
-    paginator = Paginator(preguntas, 25)
+    paginator = Paginator(sort_queryset(request, 'preguntas', preguntas), 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -4641,7 +4655,8 @@ def mis_contenidos(request):
 
     base_qs = Contenido.objects.filter(uploaded_by=request.user).prefetch_related('subjects')
 
-    vigentes_qs = base_qs.filter(file_deleted_at__isnull=True).order_by('-uploaded_at')
+    vigentes_qs = sort_queryset(
+        request, 'contenidos', base_qs.filter(file_deleted_at__isnull=True).order_by('-uploaded_at'))
     vigentes_paginator = Paginator(vigentes_qs, 25)
     vigentes_page = vigentes_paginator.get_page(request.GET.get('vpage'))
 
@@ -5710,7 +5725,7 @@ def institution_v2_list(request):
             institution__is_active=True  # Contar solo favoritos activos
         ).count()
 
-        paginator = Paginator(institutions, 10)
+        paginator = Paginator(sort_queryset(request, 'instituciones', institutions), 10)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
@@ -6209,6 +6224,16 @@ _FAVORITE_MODELS = {
     'oral': OralExamSet,
 }
 
+# Cómo se rotula cada tipo en la columna "Tipo" de Favoritos (favoritos_list.html).
+_FAVORITE_KIND_LABELS = {
+    'exam': 'Examen',
+    'examtemplate': 'Plantilla',
+    'subject': 'Materia',
+    'batch': 'Lote',
+    'oral': 'Cuestionario oral',
+    'institucion': 'Institución',
+}
+
 
 def _favoritable_queryset(model_key, user):
     """Alcance de "lo que este usuario puede marcar/ver como favorito" para
@@ -6320,6 +6345,34 @@ def favoritos_list(request):
         })
     items.sort(key=lambda i: i['favorited_at'], reverse=True)
 
+    # Lo que muestra cada columna depende del tipo de ítem (ver favoritos_list.html).
+    def _fav_name(item):
+        obj = item['object']
+        if item['kind'] == 'exam':
+            return obj.title
+        if item['kind'] == 'examtemplate':
+            return obj.subject_name_snapshot or (obj.subject.name if obj.subject else '')
+        return obj.name
+
+    def _fav_detail(item):
+        obj, kind = item['object'], item['kind']
+        if kind == 'examtemplate':
+            return obj.institution_name_snapshot
+        if kind == 'subject':
+            return ', '.join(c.name for c in obj.careers.all())
+        if kind == 'institucion':
+            return obj.sigla
+        if kind == 'batch':
+            return '%s %s' % (obj.subject.name if obj.subject else '', obj.version_count)
+        return obj.subject.name if getattr(obj, 'subject', None) else ''
+
+    items = sort_items(request, 'favoritos', items, {
+        'tipo': lambda i: text_key(_FAVORITE_KIND_LABELS.get(i['kind'], i['kind'])),
+        'nombre': lambda i: text_key(_fav_name(i)),
+        'detalle': lambda i: text_key(_fav_detail(i)),
+        'favoriteado': lambda i: i['favorited_at'],
+    })
+
     return render(request, 'material/favoritos_list.html', {'items': items})
 
 
@@ -6355,6 +6408,10 @@ def espacio_personal_list(request):
                 'object': obj,
                 'url_ver': url_ver,
             })
+    items = sort_items(request, 'espacio_personal', items, {
+        'tipo': lambda i: text_key(i['kind']),
+        'nombre': lambda i: text_key(i['object'].name),
+    })
     return render(request, 'material/espacio_personal_list.html', {'items': items})
 
 
@@ -6417,13 +6474,21 @@ def subject_list(request):
     # (ver _similitud), pero sin el tope de 20: acá se pagina el resultado
     # completo en vez de mostrar un dropdown de sugerencias.
     q = (request.GET.get('q') or '').strip()
+    # Si el usuario eligió una columna para ordenar, manda sobre la relevancia
+    # de la búsqueda (que sigue decidiendo qué filas entran).
+    sort_chosen = get_sort(request, 'materias')[0] is not None
     if q:
         q_norm = _normalizar_para_busqueda(q)
         q_tokens = _tokens(q_norm)
+        if sort_chosen:
+            subjects = sort_queryset(request, 'materias', subjects)
         puntuados = [(s, _similitud(q_norm, q_tokens, s.name)) for s in subjects]
         puntuados = [par for par in puntuados if par[1] > 0]
-        puntuados.sort(key=lambda par: -par[1])
+        if not sort_chosen:
+            puntuados.sort(key=lambda par: -par[1])
         subjects = [s for s, _score in puntuados]
+    elif sort_chosen:
+        subjects = sort_queryset(request, 'materias', subjects)
     else:
         subjects = subjects.order_by('name')
 
@@ -6905,7 +6970,7 @@ def career_list(request):
     filter_options = get_filter_options(careers, CAREER_FILTER_FIELDS, selected_filters, request=request)
     careers = apply_column_filters(request, careers, CAREER_FILTER_FIELDS)
 
-    paginator = Paginator(careers, 10)
+    paginator = Paginator(sort_queryset(request, 'carreras', careers), 10)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'material/careers/list.html', {
@@ -8036,6 +8101,7 @@ def list_oral_exams(request):
     selected_filters = get_selected_filters(request, ORAL_EXAM_FILTER_FIELDS)
     filter_options = get_filter_options(base_qs, ORAL_EXAM_FILTER_FIELDS, selected_filters, request=request)
     oral_exams = apply_column_filters(request, base_qs, ORAL_EXAM_FILTER_FIELDS).order_by('-created_at')
+    oral_exams = sort_queryset(request, 'orales', oral_exams)
 
     favorite_ids = set(Favorite.objects.filter(
         user=request.user, content_type=ContentType.objects.get_for_model(OralExamSet)
@@ -9179,6 +9245,7 @@ def rubric_list(request):
         level_count=Count('levels', distinct=True),
         criterion_count=Count('criteria', distinct=True),
     ).order_by('-created_at')
+    rubricas = sort_queryset(request, 'rubricas', rubricas)
     return render(request, 'material/rubricas/list.html', {'rubricas': rubricas})
 
 
@@ -9388,6 +9455,7 @@ def _can_manage_print_format(user, formato):
 @login_required
 def formato_impresion_list(request):
     formatos = get_visible_print_formats(request.user).distinct().order_by('nombre')
+    formatos = sort_queryset(request, 'formatos', formatos)
     return render(request, 'material/formatos_impresion/list.html', {
         'formatos': formatos,
     })

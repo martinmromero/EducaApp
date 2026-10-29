@@ -838,6 +838,16 @@ html.embed-mode .main-content.test-panel-open {
     .lc-table.lc-resized td[data-col], .lc-table.lc-resized th[data-col] { overflow-wrap: anywhere; }
     body.lc-col-resizing, body.lc-col-resizing * { cursor: col-resize !important; user-select: none !important; }
 }
+/* Encabezado ordenable: el título es un botón sin aspecto de botón, con un indicador del orden vigente. */
+.lc-sort {
+    display: inline-flex; align-items: center; gap: .3rem; max-width: 100%;
+    padding: 0; border: 0; background: transparent; color: inherit;
+    font: inherit; text-align: inherit; cursor: pointer;
+}
+.lc-sort .lc-sort-icon { flex: none; font-size: .75em; opacity: .55; }
+.lc-sort:hover .lc-sort-icon, .lc-sort:focus-visible .lc-sort-icon { opacity: .8; }
+.lc-table th.lc-sorted .lc-sort .lc-sort-icon { opacity: 1; color: var(--bs-primary); }
+.lc-sort:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; border-radius: 2px; }
 .lc-table .lc-text { overflow-wrap: anywhere; }
 .lc-table.lc-lines-1 .lc-text:not(.lc-expanded),
 .lc-table.lc-lines-2 .lc-text:not(.lc-expanded),

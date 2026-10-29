@@ -3,7 +3,7 @@ Vista configurable de listados, parte 2: el botón "Columnas" y su panel.
 Va dentro de #listControlDefault, junto al botón de Filtros.
 {% endcomment %}
 <div class="dropdown">
-    <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" id="listColumnsBtn" title="Elegir columnas y su orden"
+    <button type="button" class="btn btn-outline-secondary btn-sm list-toolbar-btn" id="listColumnsBtn" title="Elegir columnas y su orden, y ordenar el listado"
             data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
         <i class="bi bi-layout-three-columns"></i> <span class="d-none d-sm-inline">Columnas</span>
     </button>
@@ -13,6 +13,21 @@ Va dentro de #listControlDefault, junto al botón de Filtros.
             <button type="button" class="btn btn-sm btn-outline-secondary" id="listColumnsReset">
                 <i class="bi bi-arrow-counterclockwise"></i> Restablecer
             </button>
+        </div>
+        <div class="d-none mb-3 pb-3 border-bottom" id="listSortWrap">
+            <label class="fw-semibold mb-1" for="listSortSelect">Ordenar por</label>
+            <div class="d-flex gap-2">
+                <select class="form-select form-select-sm" id="listSortSelect"></select>
+                <div class="btn-group btn-group-sm flex-shrink-0" role="group" id="listSortDir" aria-label="Sentido del orden">
+                    <button type="button" class="btn btn-outline-secondary" data-dir="asc" title="Ascendente: de la A a la Z, de menor a mayor, de más antiguo a más nuevo">
+                        <i class="bi bi-sort-up" aria-hidden="true"></i><span class="visually-hidden">Ascendente</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-dir="desc" title="Descendente: de la Z a la A, de mayor a menor, de más nuevo a más antiguo">
+                        <i class="bi bi-sort-down" aria-hidden="true"></i><span class="visually-hidden">Descendente</span>
+                    </button>
+                </div>
+            </div>
+            <p class="small text-body-secondary mt-1 mb-0">Ordena todo el listado, no solo la página que se ve.</p>
         </div>
         <div id="listColumnsList"></div>
         <div class="d-none align-items-center gap-2 mt-3 flex-wrap" id="listColumnsLinesWrap">
