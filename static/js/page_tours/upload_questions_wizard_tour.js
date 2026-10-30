@@ -19,7 +19,7 @@
         element: '[data-uqw] [data-role="stepper"]',
         popover: {
           title: 'Asistente para subir preguntas',
-          description: 'Se completa un paso a la vez. Al principio se elige la materia y si se carga una pregunta sola o un lote; los pasos siguientes cambian según esa elección. Se puede volver atrás tocando una pastilla ya recorrida.',
+          description: 'Se completa un paso a la vez. Al principio se elige la materia y si se carga una pregunta sola o un lote; los pasos siguientes cambian según esa elección. Se puede volver atrás tocando un paso ya recorrido en la barra de arriba.',
           side: 'bottom',
         },
       },

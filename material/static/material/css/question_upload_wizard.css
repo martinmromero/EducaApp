@@ -10,38 +10,46 @@
 .uqw { width: 100%; }
 
 /* ── Stepper ─────────────────────────────────────────────────────────── */
-.uqw-stepper { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.5rem; }
+/* Mismo aspecto que el de los demás asistentes (wizard_common.css): una fila de chevrones a todo el ancho. */
+.uqw-stepper { --uqw-chev: 12px; display: flex; flex-wrap: nowrap; gap: 0; margin-bottom: 1.5rem; width: 100%; }
 .uqw-pill {
-    display: flex; align-items: center; gap: .5rem;
-    border: 1px solid var(--bs-border-color);
-    background: var(--bs-body-bg);
-    border-radius: 2rem;
-    padding: .35rem .9rem .35rem .4rem;
+    display: flex; align-items: center; justify-content: center; gap: .4rem;
+    flex: 1 1 0; min-width: 0; height: 2.6rem;
+    padding: 0 calc(var(--uqw-chev) + .3rem);
+    margin-left: calc(3px - var(--uqw-chev));
+    border: 0; border-radius: 0;
+    background: var(--bs-tertiary-bg);
     font-size: .85rem;
     color: var(--bs-secondary-color);
     cursor: default;
-    flex: 1 1 auto;
-    min-width: 0;
+    clip-path: polygon(0 0, calc(100% - var(--uqw-chev)) 0, 100% 50%, calc(100% - var(--uqw-chev)) 100%, 0 100%, var(--uqw-chev) 50%);
+}
+.uqw-pill:first-child {
+    margin-left: 0; padding-left: .75rem; border-radius: .45rem 0 0 .45rem;
+    clip-path: polygon(0 0, calc(100% - var(--uqw-chev)) 0, 100% 50%, calc(100% - var(--uqw-chev)) 100%, 0 100%);
+}
+.uqw-pill:last-child {
+    padding-right: .75rem; border-radius: 0 .45rem .45rem 0;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, var(--uqw-chev) 50%);
 }
 .uqw-pill.is-reachable { cursor: pointer; }
 .uqw-pill-num {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 1.6em; height: 1.6em; border-radius: 50%;
-    background: var(--bs-tertiary-bg); color: var(--bs-secondary-color);
-    font-size: .8em; flex-shrink: 0;
+    min-width: 1.2em; height: 1.2em; background: none; color: inherit;
+    font-weight: 700; line-height: 1; flex-shrink: 0; text-align: center;
 }
+.uqw-pill-num > i { line-height: 1; display: block; }
 .uqw-pill-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.uqw-pill.is-active {
-    border-color: var(--bs-primary);
-    background: var(--edu-accent-soft-bg);
-    color: var(--edu-accent-soft-text);
-    font-weight: 600;
+.uqw-pill.is-active { background: var(--bs-primary); color: #fff; font-weight: 600; }
+.uqw-pill.is-done { background: var(--bs-success); color: #fff; }
+.uqw-pill.is-active.is-done { background: var(--bs-primary); }
+@media (max-width: 991.98px) {
+    .uqw-pill:not(.is-active) .uqw-pill-label { display: none; }
 }
-.uqw-pill.is-active .uqw-pill-num { background: var(--bs-primary); color: #fff; }
-.uqw-pill.is-done .uqw-pill-num { background: var(--bs-success); color: #fff; }
-@media (max-width: 767px) {
+@media (max-width: 767.98px) {
+    .uqw-stepper { --uqw-chev: 9px; }
+    .uqw-pill { padding: 0 calc(var(--uqw-chev) + .1rem); height: 2.4rem; }
     .uqw-pill-label { display: none; }
-    .uqw-pill { flex: 0 0 auto; padding: .35rem; }
 }
 
 /* ── Pasos ───────────────────────────────────────────────────────────── */

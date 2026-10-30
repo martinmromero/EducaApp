@@ -55,7 +55,25 @@ window.EducaAppWizard = (function () {
             currentStep = n;
             onStep(n);
             if (n === totalSteps) onEnterFinalStep();
-            if (stepperEl) window.scrollTo({ top: stepperEl.offsetTop - 20, behavior: 'smooth' });
+        }
+
+        // Un solo criterio de posición para todos los asistentes: al pasar de un paso a otro (Siguiente, Atrás o
+        // tocar un paso del indicador) el indicador de pasos queda arriba de la pantalla, siempre en el mismo
+        // lugar. Al abrir el asistente no se mueve nada (sin esto cada paso, y cada asistente, quedaba en un lugar
+        // distinto: offsetTop es relativo al contenedor, no a la página, y el asistente completo oculta su
+        // introducción justo después de mostrar el paso, lo que corría todo). El desplazamiento se hace en el
+        // turno siguiente, cuando ya terminaron de acomodarse los otros listeners; en el celular se deja lugar
+        // para el botón flotante del menú.
+        function scrollToStepper() {
+            if (!stepperEl) return;
+            setTimeout(function () {
+                var movil = window.innerWidth <= 767;
+                var rect = stepperEl.getBoundingClientRect();
+                // En pantalla ancha, si el indicador ya se ve entero no hace falta mover nada.
+                if (!movil && rect.top >= 0) return;
+                var top = rect.top + window.pageYOffset - (movil ? 64 : 16);
+                window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+            }, 0);
         }
 
         function goNext() {
@@ -63,10 +81,12 @@ window.EducaAppWizard = (function () {
             var next = Math.min(currentStep + 1, totalSteps);
             maxStepReached = Math.max(maxStepReached, next);
             showStep(next);
+            scrollToStepper();
         }
         function goBack() {
             if (keepBackOnFirst && currentStep <= firstVisibleStep()) { onBackFromFirst(); return; }
             showStep(Math.max(currentStep - 1, 1));
+            scrollToStepper();
         }
         function goToStep(n) {
             if (n <= maxStepReached) showStep(n);
@@ -76,7 +96,9 @@ window.EducaAppWizard = (function () {
         if (backBtn) backBtn.addEventListener('click', goBack);
         document.querySelectorAll('.wiz-step-pill').forEach(function (pill) {
             pill.addEventListener('click', function () {
-                goToStep(parseInt(pill.dataset.stepPill, 10));
+                var destino = parseInt(pill.dataset.stepPill, 10);
+                if (destino <= maxStepReached && destino !== currentStep) scrollToStepper();
+                goToStep(destino);
             });
         });
 

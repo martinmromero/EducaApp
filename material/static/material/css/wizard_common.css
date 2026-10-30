@@ -16,41 +16,58 @@
 .wiz-wrap.is-embedded .wiz-stepper { display: none; }
 
 /* ── Stepper ─────────────────────────────────────────────────────────── */
+/* Una fila de chevrones (flechas) que ocupa todo el ancho y reparte el espacio entre los pasos, a cualquier
+   resolución. El número (o el tilde de "hecho") va centrado en cada chevron; el nombre se muestra cuando hay lugar. */
 .wiz-stepper {
+    --wiz-chev: 12px;
     display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
+    flex-wrap: nowrap;
+    gap: 0;
     margin-bottom: 1.5rem;
+    width: 100%;
 }
 .wiz-step-pill {
     display: flex;
     align-items: center;
-    gap: .5rem;
-    border: 1px solid var(--bs-border-color);
-    background: var(--bs-body-bg);
-    border-radius: 2rem;
-    padding: .35rem .9rem .35rem .4rem;
+    justify-content: center;
+    gap: .4rem;
+    flex: 1 1 0;
+    min-width: 0;
+    height: 2.6rem;
+    padding: 0 calc(var(--wiz-chev) + .3rem);
+    margin-left: calc(3px - var(--wiz-chev));
+    border: 0;
+    border-radius: 0;
+    background: var(--bs-tertiary-bg);
     font-size: .85rem;
     color: var(--bs-secondary-color);
     cursor: default;
-    flex: 1 1 auto;
-    min-width: 0;
+    clip-path: polygon(0 0, calc(100% - var(--wiz-chev)) 0, 100% 50%, calc(100% - var(--wiz-chev)) 100%, 0 100%, var(--wiz-chev) 50%);
 }
+.wiz-step-pill:first-child {
+    margin-left: 0;
+    padding-left: .75rem;
+    border-radius: .45rem 0 0 .45rem;
+    clip-path: polygon(0 0, calc(100% - var(--wiz-chev)) 0, 100% 50%, calc(100% - var(--wiz-chev)) 100%, 0 100%);
+}
+.wiz-step-pill:last-child {
+    padding-right: .75rem;
+    border-radius: 0 .45rem .45rem 0;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, var(--wiz-chev) 50%);
+}
+.wiz-step-pill:first-child:last-child { clip-path: none; border-radius: .45rem; }
 .wiz-step-pill.is-reachable { cursor: pointer; }
 .wiz-step-pill .wiz-step-num {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.6em;
-    height: 1.6em;
-    border-radius: 50%;
-    background: var(--bs-tertiary-bg);
-    color: var(--bs-secondary-color);
-    font-size: .8em;
-    flex-shrink: 0;
-    /* número y tilde centrados en el círculo: sin el alto de línea heredado (1.5) el texto quedaba más abajo */
+    min-width: 1.2em;
+    height: 1.2em;
+    background: none;
+    color: inherit;
+    font-weight: 700;
     line-height: 1;
-    padding: 0;
+    flex-shrink: 0;
     text-align: center;
 }
 .wiz-step-pill .wiz-step-num > span,
@@ -58,7 +75,7 @@
     display: block;
     line-height: 1;
 }
-/* medido: el dígito quedaba ~0,4 px más arriba que el centro del círculo */
+/* medido: el dígito quedaba ~0,4 px más arriba que el centro */
 .wiz-step-pill .wiz-step-num > span { transform: translateY(.04em); }
 .wiz-step-pill .wiz-step-label {
     white-space: nowrap;
@@ -66,16 +83,11 @@
     text-overflow: ellipsis;
 }
 .wiz-step-pill.is-active {
-    border-color: var(--bs-primary);
-    background: var(--edu-accent-soft-bg);
-    color: var(--edu-accent-soft-text);
-    font-weight: 600;
-}
-.wiz-step-pill.is-active .wiz-step-num {
     background: var(--bs-primary);
     color: #fff;
+    font-weight: 600;
 }
-.wiz-step-pill.is-done .wiz-step-num {
+.wiz-step-pill.is-done {
     background: var(--bs-success);
     color: #fff;
 }
@@ -83,10 +95,21 @@
     content: "\2713";
 }
 .wiz-step-pill.is-done .wiz-step-num span { display: none; }
+/* si el paso activo ya estaba hecho (se volvió a él), se ve como activo */
+.wiz-step-pill.is-active.is-done { background: var(--bs-primary); }
 
-@media (max-width: 767px) {
+/* Pantallas medianas: solo el paso activo lleva nombre; el resto, número. */
+@media (max-width: 991.98px) {
+    .wiz-step-pill:not(.is-active) .wiz-step-label { display: none; }
+}
+/* Celular: solo números, chevrones más finos. */
+@media (max-width: 767.98px) {
+    /* Con un paso corto la página no alcanzaba para subir el indicador al borde de arriba y quedaba más abajo que en
+       los pasos largos. Este alto mínimo deja siempre lugar para que el indicador quede en el mismo lugar. */
+    .wiz-wrap:not(.is-embedded) { min-height: calc(100vh + 12rem); }
+    .wiz-stepper { --wiz-chev: 9px; }
+    .wiz-step-pill { padding: 0 calc(var(--wiz-chev) + .1rem); height: 2.4rem; }
     .wiz-step-pill .wiz-step-label { display: none; }
-    .wiz-step-pill { flex: 0 0 auto; padding: .35rem; }
 }
 
 /* ── Pasos ───────────────────────────────────────────────────────────── */
@@ -220,3 +243,21 @@
 }
 .wiz-summary dt { color: var(--bs-secondary-color); font-weight: 500; }
 .wiz-summary dd { margin-bottom: .5rem; }
+
+/* Casillas y botones de opción de los pasos: nunca se achican (con un nombre largo al lado quedaba una rayita
+   en vez de la casilla) y en el celular son más grandes, fáciles de tocar. */
+.wiz-step input[type="checkbox"],
+.wiz-step input[type="radio"] {
+    flex-shrink: 0;
+    min-width: 1.15em;
+    min-height: 1.15em;
+}
+@media (max-width: 767.98px) {
+    .wiz-step input[type="checkbox"],
+    .wiz-step input[type="radio"] {
+        width: 1.5rem;
+        height: 1.5rem;
+        min-width: 1.5rem;
+        min-height: 1.5rem;
+    }
+}

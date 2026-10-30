@@ -424,7 +424,7 @@
 }
 /* Componentes propios con texto fijo #fff sobre el primario (en Figma oscuro el
    primario es casi blanco). */
-[data-visual-theme="figma"][data-bs-theme="dark"] .wiz-step-pill.is-active .wiz-step-num {
+[data-visual-theme="figma"][data-bs-theme="dark"] .wiz-step-pill.is-active {
   color: #000;
 }
 
