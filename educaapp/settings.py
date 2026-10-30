@@ -27,6 +27,12 @@ ALLOWED_HOSTS.extend(['educaapp.vercel.app', 'localhost', '127.0.0.1'])
 
 # Configurás la lista de confianza para el login (CSRF)
 CSRF_TRUSTED_ORIGINS = ['https://educaapp.onrender.com', 'https://educaapp.vercel.app']
+# Otro hosting (ver docs/migrar_hosting.md): se suma por variable de entorno, sin tocar código. Lista separada
+# por comas con el esquema incluido, ej. https://educaapp.fly.dev,https://app.midominio.com. Sin esto el login
+# falla con "CSRF verification failed" apenas cambia el dominio.
+CSRF_TRUSTED_ORIGINS.extend(
+    o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()
+)
 
 # URL pública de la app (Vercel actúa de redirect proxy hacia Render). Se usa
 # para armar links que se comparten fuera de la app (ej. invitaciones), para

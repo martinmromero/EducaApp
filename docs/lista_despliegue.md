@@ -53,7 +53,11 @@ Start Command: `gunicorn educaapp.wsgi --workers 1 --threads 4 --timeout 120`. U
 5. Abrir `/users/` con la cuenta docente: debe volver al inicio con el aviso.
 6. Mirar los logs de Render por errores 500.
 
-## 8. Cómo volver atrás
+## 8. Si Render o Neon fallan
+
+Ver `docs/migrar_hosting.md`: variables, receta de alta en otro hosting, copias de la base y costos de alternativas.
+
+## 9. Cómo volver atrás
 
 - Apagar el buscador de materias: `SELECTORES_INTELIGENTES=0` y reiniciar.
 - Volver a una versión anterior: `git revert <commit>` y push; cada cambio grande quedó en su propio commit.
