@@ -64,12 +64,12 @@
   // descarta automáticamente al construir el tour.
   const STEP_DEFS = [
     {
-      element: '#tourSidebarBrand',
+      element: '#tourHelpBtn',
       popover: {
         title: '¡Bienvenido a EducaApp!',
         description: 'Este recorrido presenta brevemente la ubicación de las funciones principales. Puede repetirse en cualquier momento desde el botón "?" resaltado arriba a la derecha.',
-        side: 'right',
-        align: 'start',
+        side: 'bottom',
+        align: 'end',
       },
       onHighlightStarted: highlightHelpBtn,
       onDeselected: unhighlightHelpBtn,
@@ -106,7 +106,7 @@
       element: '#tourMenuPreguntas',
       popover: {
         title: 'Preguntas',
-        description: 'Aquí vive el banco de preguntas: si ya hay preguntas armadas con su respuesta, se pueden subir directo tanto individualmente como en lotes. Las que genera la IA se pueden aprobar o rechazar cada una, pero se guardan todas, para que la IA tenga memoria de las preferencias la próxima vez.',
+        description: 'Aquí vive el banco de preguntas: si ya hay preguntas armadas con su respuesta, se pueden subir directo, tanto individualmente como en lotes. Las que genera la IA se pueden aprobar o rechazar cada una, pero se guardan todas, para que la IA tenga memoria de las preferencias la próxima vez.',
         side: 'right',
       },
       onHighlightStarted: () => expandMenu('tourMenuPreguntas'),
@@ -125,7 +125,7 @@
       element: '#tourMenuAgregados',
       popover: {
         title: 'Mis agregados',
-        description: 'Lo que se propuso al catálogo (materias, carreras, tópicos...) y si ya fue aprobado.',
+        description: 'Los elementos (materias, carreras, tópicos...) que se cargaron al espacio personal.',
         side: 'right',
       },
       onHighlightStarted: () => expandMenu('tourMenuAgregados'),
@@ -194,7 +194,7 @@
       element: '#tourModeToggle',
       popover: {
         title: 'Modo simple o avanzado',
-        description: 'Apagado, el modo simple muestra solo lo esencial y arma todo con asistentes. Encendido, el modo avanzado suma el menú completo (contenidos, instituciones, carreras, materias, plantillas, rúbricas, grupos) y los formularios de siempre. Se puede cambiar cuando se quiera.',
+        description: 'Apagado, el modo simple muestra solo lo esencial y arma todo con asistentes. Encendido, el modo avanzado suma el menú completo (contenidos, instituciones, carreras, materias, plantillas, rúbricas, grupos) y los formularios de siempre. Se puede cambiar entre modos cuando se desee.',
         side: 'bottom',
       },
     },
@@ -250,7 +250,10 @@
     const sidebar = document.getElementById('sidebar');
     if (!sidebar) return false;
     if (!isMobileViewport()) {
-      if (!sidebar.classList.contains('collapsed') || typeof window.toggleSidebar !== 'function') return false;
+      // "sb-pre": el modo simple arranca colapsado solo con CSS y la clase real llega después (ver base.html).
+      const teniaPre = document.documentElement.classList.contains('sb-pre');
+      if (teniaPre) document.documentElement.classList.remove('sb-pre');
+      if (!sidebar.classList.contains('collapsed') || typeof window.toggleSidebar !== 'function') return teniaPre ? 'desktop' : false;
       window.toggleSidebar(true);
       return 'desktop';
     }

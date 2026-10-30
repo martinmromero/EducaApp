@@ -171,19 +171,35 @@
         return window.innerWidth <= 768;
     }
 
+    // En escritorio el menú puede estar colapsado (el modo simple arranca así): se abre para el recorrido y se
+    // deja como estaba. toggleSidebar(true) no guarda eso como elección de quien lo usa.
     function ensureSidebarVisible() {
-        if (!isMobileViewport()) return false;
         var sidebar = document.getElementById('sidebar');
-        if (!sidebar || sidebar.classList.contains('mobile-open')) return false;
-        if (typeof window.toggleSidebar === 'function') {
-            window.toggleSidebar();
-            return true;
+        if (!sidebar || typeof window.toggleSidebar !== 'function') return false;
+        if (!isMobileViewport()) {
+            // "sb-pre": el modo simple arranca el menú colapsado solo con CSS y base.html le pone la clase real
+            // DESPUÉS de este momento; sin esto el recorrido creía el menú abierto y resaltaba algo fuera de pantalla.
+            var root = document.documentElement;
+            var teniaPre = root.classList.contains('sb-pre');
+            if (teniaPre) root.classList.remove('sb-pre');
+            if (sidebar.classList.contains('collapsed')) {
+                window.toggleSidebar(true);
+                return 'desktop';
+            }
+            return teniaPre ? 'desktop' : false;
         }
-        return false;
+        if (sidebar.classList.contains('mobile-open')) return false;
+        window.toggleSidebar();
+        return 'mobile';
     }
 
     function restoreSidebar(openedByTour) {
-        if (openedByTour && typeof window.closeSidebarMobile === 'function') {
+        if (openedByTour === 'desktop') {
+            var sidebar = document.getElementById('sidebar');
+            if (sidebar && !sidebar.classList.contains('collapsed') && typeof window.toggleSidebar === 'function') {
+                window.toggleSidebar(true);
+            }
+        } else if (openedByTour && typeof window.closeSidebarMobile === 'function') {
             window.closeSidebarMobile();
         }
     }
@@ -191,7 +207,8 @@
     function buildSteps(driverObj) {
         function nextAndCheck(itemId) {
             return function (element, step, opts) {
-                markChecked(itemId);
+                // También los pasos que en este modo de menú no tienen ítem propio (ej. Contenidos en el modo simple).
+                STEP_ITEMS.slice(0, STEP_ITEMS.indexOf(itemId) + 1).forEach(markChecked);
                 driverObj.moveNext();
             };
         }
@@ -202,16 +219,19 @@
             };
         }
 
-        return [
+        var pasos = [
             {
-                element: '#tourMenuAcademico',
+                // Modo simple: ese ítem no existe, el recorrido de institución a examen es el Asistente completo.
+                element: document.getElementById('tourMenuAcademico') ? '#tourMenuAcademico' : '#tourMenuAsistente',
                 popover: {
                     title: 'Institución y materia',
-                    description: 'Este examen de ejemplo ya tiene cargados institución y materia — el primer dato a configurar, una sola vez, como se muestra en el recorrido general.',
+                    description: document.getElementById('tourMenuAcademico')
+                        ? 'Este examen de ejemplo ya tiene cargados institución y materia — el primer dato a configurar, una sola vez, como se muestra en el recorrido general.'
+                        : 'Este examen de ejemplo ya tiene cargados institución y materia. En el Asistente completo se cargan los propios, paso a paso, hasta llegar al examen.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem1'),
                 },
-                onHighlightStarted: highlight('tourMenuAcademico', 'recapItem1'),
+                onHighlightStarted: highlight(document.getElementById('tourMenuAcademico') ? 'tourMenuAcademico' : 'tourMenuAsistente', 'recapItem1'),
             },
             {
                 element: '#tourMenuContenidos',
@@ -278,6 +298,8 @@
                 onHighlightStarted: collapseAllMenus,
             },
         ];
+        // Un paso solo vale si su ítem existe en el menú de este modo (ej. Contenidos no está en el modo simple).
+        return pasos.filter(function (paso) { return !!document.querySelector(paso.element); });
     }
 
     function startTour() {
@@ -285,6 +307,7 @@
         var openedSidebar = ensureSidebarVisible();
         var tourDriver = window.driver.js.driver({
             showProgress: true,
+            progressText: '{{current}} de {{total}}',
             allowClose: true,
             overlayOpacity: 0.6,
             nextBtnText: 'Siguiente',
@@ -297,7 +320,9 @@
                 restoreSidebar(openedSidebar);
             },
         });
-        tourDriver.setSteps(buildSteps(tourDriver));
+        var pasosDelRecorrido = buildSteps(tourDriver);
+        if (!pasosDelRecorrido.length) return;
+        tourDriver.setSteps(pasosDelRecorrido);
         if (openedSidebar) {
             // El sidebar recién se abrió (transición de ~0.25s, ver
             // base.html) — se espera a que termine antes de arrancar, así
@@ -308,8 +333,12 @@
         }
     }
 
+    // El recorrido arranca DESPUÉS del evento "load": base.html cierra el menú en celular en ese evento (y deja el
+    // colapso del modo simple listo en DOMContentLoaded). Si arrancaba antes, el menú abierto se cerraba enseguida.
+    function arrancarRecorrido() { setTimeout(startTour, 60); }
+    if (document.readyState === 'complete') arrancarRecorrido();
+    else window.addEventListener('load', arrancarRecorrido);
     document.addEventListener('DOMContentLoaded', function () {
-        startTour();
         document.getElementById('recapReplayTourBtn')?.addEventListener('click', function () {
             STEP_ITEMS.forEach(function (id) {
                 var item = document.getElementById(id);

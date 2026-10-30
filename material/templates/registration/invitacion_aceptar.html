@@ -74,7 +74,7 @@
                 </div>
                 {% endif %}
 
-                <form method="post">
+                <form method="post" id="aceptarInvitacionForm">
                     {% csrf_token %}
                     <div class="row">
                         <div class="col-6 mb-3">
@@ -127,7 +127,10 @@
                         <input type="text" class="form-control" name="security_answer" id="security_answer" value="{{ posted.security_answer|default:'' }}" required>
                     </div>
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg">Crear cuenta</button>
+                        <button type="submit" class="btn btn-primary btn-lg" id="aceptarInvitacionBtn">
+                            <span id="aceptarInvitacionTexto">Crear cuenta</span>
+                            <span class="spinner-border spinner-border-sm ms-2 d-none" id="aceptarInvitacionSpinner" role="status" aria-hidden="true"></span>
+                        </button>
                     </div>
                 </form>
                 {% endif %}
@@ -136,6 +139,22 @@
     </div>
 
     <script>
+        // Crear la cuenta tarda unos segundos (clave, perfil, contenido de ejemplo): sin aviso parecía colgado.
+        (function () {
+            var form = document.getElementById('aceptarInvitacionForm');
+            if (!form) return;
+            function restaurar() {
+                document.getElementById('aceptarInvitacionBtn').disabled = false;
+                document.getElementById('aceptarInvitacionSpinner').classList.add('d-none');
+                document.getElementById('aceptarInvitacionTexto').textContent = 'Crear cuenta';
+            }
+            form.addEventListener('submit', function () {
+                document.getElementById('aceptarInvitacionBtn').disabled = true;
+                document.getElementById('aceptarInvitacionSpinner').classList.remove('d-none');
+                document.getElementById('aceptarInvitacionTexto').textContent = 'Creando la cuenta… un momento';
+            });
+            window.addEventListener('pageshow', function (e) { if (e.persisted) restaurar(); });
+        })();
         function togglePasswordVisibility(inputId, btn) {
             const inp = document.getElementById(inputId);
             const icon = btn.querySelector('i');

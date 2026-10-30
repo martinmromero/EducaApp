@@ -15,7 +15,7 @@
     <div class="card onb2-card shadow-sm">
       <div class="card-body p-4 p-lg-5 text-center">
         <h4 class="fw-semibold mb-2">¿Cómo empezar?</h4>
-        <p class="text-muted mb-4">Se puede cargar información propia, o probar el sistema en un minuto con un esquema ya armado.</p>
+        <p class="text-muted mb-4">Elegir cómo se va a usar la app y empezar.</p>
 
         <!-- Cómo se va a usar la app: modo simple (recomendado) o avanzado. Se guarda al elegir. -->
         <div class="mb-4" id="onb2ModeBlock">
@@ -38,10 +38,13 @@
               </label>
             </div>
           </div>
-          <p class="small text-muted mt-2 mb-0" id="onb2ModeStatus" role="status">Se puede cambiar cuando se quiera con el interruptor "Modo avanzado", arriba a la derecha.</p>
+          <p class="small text-muted mt-2 mb-0" id="onb2ModeStatus" role="status">Se puede cambiar entre modos cuando se desee, con el interruptor "Modo avanzado" de arriba a la derecha.</p>
         </div>
 
-        <div class="row g-3 justify-content-center">
+        <!-- Los dos botones grandes ("Probar con un esquema ya armado" y "Cargar mi propia información") están
+             ocultos por ahora a pedido (2026-10-30): no se borran, el JS de abajo los sigue usando. Para volver a
+             mostrarlos: quitar d-none de este contenedor y de #onb2GatewayStartWrap. -->
+        <div class="row g-3 justify-content-center d-none" id="onb2GatewayChoices">
           {% if is_first_visit %}
           <div class="col-md-6">
             <button type="button" class="btn btn-success w-100 h-100 py-4 position-relative" id="onb2GatewayDemoBtn">
@@ -74,6 +77,11 @@
             </button>
           </div>
           {% endif %}
+        </div>
+        <div class="mt-4" id="onb2GatewayStartWrap">
+          <button type="button" class="btn btn-primary btn-lg" id="onb2GatewayStartBtn">
+            <i class="bi bi-arrow-right-circle me-1"></i>Empezar con el Asistente completo
+          </button>
         </div>
         <div id="onb2GatewayDemoPicker" class="d-none mt-4 text-start">
           <p class="text-muted mb-2 small">Elegir una materia de ejemplo:</p>
@@ -1063,7 +1071,7 @@
           if (campo) campo.value = radio.value === 'avanzado' ? 'simple' : 'avanzado';
         }
         estado.textContent = j.success
-          ? (radio.value === 'simple' ? 'Listo: modo simple.' : 'Listo: modo avanzado.') + ' Se puede cambiar cuando se quiera con el interruptor "Modo avanzado", arriba a la derecha.'
+          ? (radio.value === 'simple' ? 'Listo: modo simple.' : 'Listo: modo avanzado.') + ' Se puede cambiar entre modos cuando se desee, con el interruptor "Modo avanzado" de arriba a la derecha.'
           : 'No se pudo guardar la elección. Probar de nuevo.';
       } catch (e) {
         estado.textContent = 'No se pudo guardar la elección. Probar de nuevo.';
@@ -1085,6 +1093,12 @@
   // vigente: institución → examen). El asistente de 7 pasos de más abajo sigue
   // existiendo, pero solo se entra por ?step=N (retornos de IA/contenido).
   document.getElementById('onb2GatewayOwnBtn').addEventListener('click', function () {
+    window.location.href = '{% url "material:full_wizard" %}';
+  });
+
+  document.getElementById('onb2GatewayStartBtn').addEventListener('click', function () {
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Abriendo…';
     window.location.href = '{% url "material:full_wizard" %}';
   });
 
