@@ -9064,7 +9064,9 @@ def onboarding_v2_demo_recap(request):
     if not subject:
         return redirect('material:onboarding_v2_page')
 
-    institution = InstitutionV2.objects.filter(pk=exam_session.get('institucion')).first()
+    # Una materia de ejemplo sin institución vinculada guarda '' acá: filtrar por pk='' rompía con ValueError.
+    inst_id = exam_session.get('institucion')
+    institution = InstitutionV2.objects.filter(pk=inst_id).first() if inst_id else None
     topics = list(Topic.objects.filter(subject=subject).order_by('name').values_list('name', flat=True))
     seed_username = getattr(settings, 'SEED_CONTENT_USERNAME', 'educaapp_demo')
     questions_qs = Question.objects.filter(subjects=subject, user__username=seed_username)

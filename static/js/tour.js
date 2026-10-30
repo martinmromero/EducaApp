@@ -210,7 +210,7 @@
       element: '#tourAreaPruebasItem',
       popover: {
         title: 'Área de Pruebas',
-        description: 'En este espacio se pueden hacer pruebas de uso, sin afectar al resto del sistema.',
+        description: 'En este espacio se pueden hacer pruebas de uso, sin afectar al resto del sistema. Ahí también está el botón "Ver el ejemplo paso a paso", con un examen ya armado y explicado.',
         side: 'left',
         align: 'start',
       },

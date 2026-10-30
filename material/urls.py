@@ -40,6 +40,7 @@ urlpatterns = [
     path('area-pruebas/entrar/', training_views.entrar_area_pruebas, name='entrar_area_pruebas'),
     path('area-pruebas/salir/', training_views.salir_area_pruebas, name='salir_area_pruebas'),
     path('area-pruebas/restablecer/', training_views.restablecer_area_pruebas, name='restablecer_area_pruebas'),
+    path('area-pruebas/ejemplo/', training_views.ejemplo_paso_a_paso, name='ejemplo_paso_a_paso'),
     path('mis-datos/', material_views.mis_datos, name='mis_datos'),
     path('formatos-impresion/', material_views.formato_impresion_list, name='formato_impresion_list'),
     path('formatos-impresion/nuevo/', material_views.formato_impresion_create, name='formato_impresion_create'),

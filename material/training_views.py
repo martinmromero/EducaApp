@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .training_accounts import get_or_create_training_account, reset_training_account, reset_training_account_async
@@ -108,3 +109,36 @@ def admin_restablecer_area_pruebas(request, user_id):
     else:
         messages.info(request, f'El Área de Pruebas de {real_user.username} ya se está restableciendo.', extra_tags='usuarios')
     return redirect('material:edit_user', user_id=real_user.id)
+
+
+@login_required
+def ejemplo_paso_a_paso(request):
+    """Ofrece, DENTRO del Área de Pruebas, el recorrido de ejemplo que antes se ofrecía en el tutorial de inicio
+    ("Probar con un esquema ya armado"): un examen ya armado con contenido semilla, explicado paso a paso. Reusa
+    onboarding_v2_demo_scheme + la pantalla de resumen: no hay una copia aparte. Con una sola materia de ejemplo
+    entra directo; con varias, deja elegir."""
+    if not request.session.get(SESSION_ACTING_AS_TRAINING_FOR):
+        messages.info(request, 'El ejemplo paso a paso se ve desde el Área de Pruebas.', extra_tags='general')
+        return redirect('material:index')
+
+    from django.conf import settings
+    from django.shortcuts import render
+    from .models import InstitutionSubject, Subject
+
+    seed_username = getattr(settings, 'SEED_CONTENT_USERNAME', 'educaapp_demo')
+    materias = list(
+        Subject.objects.filter(questions__user__username=seed_username).distinct().order_by('name')
+    )
+    if not materias:
+        messages.info(request, 'Todavía no hay materias de ejemplo cargadas en el sistema.', extra_tags='general')
+        return redirect('material:index')
+    if len(materias) == 1:
+        return redirect(reverse('material:onboarding_v2_demo_scheme') + f'?subject_id={materias[0].id}')
+
+    instituciones = {
+        row['subject_id']: row['institution__name']
+        for row in InstitutionSubject.objects.filter(subject__in=materias).values('subject_id', 'institution__name')
+    }
+    return render(request, 'material/area_pruebas_ejemplo.html', {
+        'materias': [{'id': m.id, 'name': m.name, 'institucion': instituciones.get(m.id, '')} for m in materias],
+    })
