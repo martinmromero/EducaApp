@@ -78,7 +78,7 @@
       // Solo está en el menú del modo simple (en el avanzado vive dentro de "Mi espacio académico").
       element: '#tourMenuAsistente',
       popover: {
-        title: 'Asistente completo',
+        title: 'Asistente paso a paso',
         description: 'El recorrido paso a paso: institución, carrera, materia, preguntas y examen, todo en un mismo lugar. Es el punto de partida del modo simple.',
         side: 'right',
       },
@@ -207,11 +207,10 @@
       },
     },
     {
-      // Vive dentro del menú "?" (Ayuda): el paso lo abre, igual que el de Área de Pruebas que sigue.
-      element: '#tourContactoAutor',
+      element: '#tourAreaPruebasItem',
       popover: {
-        title: 'Hablar con el autor',
-        description: 'Desde aquí se puede contactar al autor de la aplicación.',
+        title: 'Área de Pruebas',
+        description: 'En este espacio se pueden hacer pruebas de uso, sin afectar al resto del sistema. Ahí también está el botón "Ver el ejemplo paso a paso", con un examen ya armado y explicado.',
         side: 'left',
         align: 'start',
       },
@@ -219,10 +218,11 @@
       onDeselected: closeTourHelpDropdown,
     },
     {
-      element: '#tourAreaPruebasItem',
+      // Vive dentro del menú "?" (Ayuda), último ítem: el paso lo abre, igual que el de Área de Pruebas de arriba.
+      element: '#tourContactoAutor',
       popover: {
-        title: 'Área de Pruebas',
-        description: 'En este espacio se pueden hacer pruebas de uso, sin afectar al resto del sistema. Ahí también está el botón "Ver el ejemplo paso a paso", con un examen ya armado y explicado.',
+        title: 'Hablar con el autor',
+        description: 'Desde aquí se puede contactar al autor de la aplicación.',
         side: 'left',
         align: 'start',
       },

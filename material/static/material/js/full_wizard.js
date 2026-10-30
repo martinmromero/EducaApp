@@ -1,4 +1,4 @@
-// full_wizard.js — Asistente completo (institución -> facultad -> carrera ->
+// full_wizard.js — Asistente paso a paso (institución -> facultad -> carrera ->
 // materia -> resultados de aprendizaje -> preguntas -> examen). El paso Examen
 // monta el asistente "Nuevo examen" en un <iframe> (ver mountExamFrame).
 // A diferencia de los otros 4 wizards (Examen/Oral/Plantilla/Institución),

@@ -21,7 +21,7 @@ window.EducaAppWizard = (function () {
         var totalSteps = config.totalSteps;
         var onValidateStep = config.onValidateStep || function () { return true; };
         var onEnterFinalStep = config.onEnterFinalStep || function () {};
-        // Para un asistente embebido en otro (Asistente completo): "Atrás" en
+        // Para un asistente embebido en otro (Asistente paso a paso): "Atrás" en
         // el primer paso no desaparece, sale hacia el host (onBackFromFirst).
         var keepBackOnFirst = !!config.keepBackOnFirst;
         var onBackFromFirst = config.onBackFromFirst || function () {};

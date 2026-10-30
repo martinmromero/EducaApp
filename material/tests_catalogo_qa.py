@@ -839,7 +839,7 @@ class GetOrCreateRealHelpersPersonalSpaceTests(TestCase):
 
 class MaterializarSolicitudesRequerirCadenaTests(TestCase):
     """_materializar_y_generar_solicitudes(datos, user, requerir_cadena=False)
-    — usado por el Asistente completo (full_wizard) para tolerar un nivel
+    — usado por el Asistente paso a paso (full_wizard) para tolerar un nivel
     superior salteado. requerir_cadena=True (default) preserva el
     comportamiento historico de Solicitar Alta."""
 

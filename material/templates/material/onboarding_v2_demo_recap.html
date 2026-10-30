@@ -221,13 +221,13 @@
 
         var pasos = [
             {
-                // Modo simple: ese ítem no existe, el recorrido de institución a examen es el Asistente completo.
+                // Modo simple: ese ítem no existe, el recorrido de institución a examen es el Asistente paso a paso.
                 element: document.getElementById('tourMenuAcademico') ? '#tourMenuAcademico' : '#tourMenuAsistente',
                 popover: {
                     title: 'Institución y materia',
                     description: document.getElementById('tourMenuAcademico')
                         ? 'Este examen de ejemplo ya tiene cargados institución y materia — el primer dato a configurar, una sola vez, como se muestra en el recorrido general.'
-                        : 'Este examen de ejemplo ya tiene cargados institución y materia. En el Asistente completo se cargan los propios, paso a paso, hasta llegar al examen.',
+                        : 'Este examen de ejemplo ya tiene cargados institución y materia. En el Asistente paso a paso se cargan los propios, paso a paso, hasta llegar al examen.',
                     side: 'right',
                     onNextClick: nextAndCheck('recapItem1'),
                 },
@@ -307,7 +307,8 @@
         var openedSidebar = ensureSidebarVisible();
         var tourDriver = window.driver.js.driver({
             showProgress: true,
-            progressText: '{{current}} de {{total}}',
+            {# Esta plantilla de Django se comía las llaves de driver.js: el recorrido mostraba solo " de ". #}
+            progressText: '{% templatetag openvariable %}current{% templatetag closevariable %} de {% templatetag openvariable %}total{% templatetag closevariable %}',
             allowClose: true,
             overlayOpacity: 0.6,
             nextBtnText: 'Siguiente',

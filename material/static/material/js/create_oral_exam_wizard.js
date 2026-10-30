@@ -20,7 +20,7 @@ function _onDomReady(fn) {
 _onDomReady(function () {
     var CFG = window.EducaAppOralWizardConfig || { urls: {} };
 
-    // Embebido en el Asistente completo (<iframe>, ver full_wizard.js): avisos al
+    // Embebido en el Asistente paso a paso (<iframe>, ver full_wizard.js): avisos al
     // host por postMessage de mismo origen.
     function postToHost(type, payload) {
         try { window.parent.postMessage(Object.assign({ type: type }, payload || {}), window.location.origin); } catch (e) { /* sin host */ }
@@ -47,7 +47,7 @@ _onDomReady(function () {
     var nameInput = document.getElementById('id_name');
 
     // La materia es un <select>, o un <input hidden> con data-label cuando viene fijada
-    // desde el Asistente completo.
+    // desde el Asistente paso a paso.
     function subjectLabel() {
         if (subjectSelect.selectedOptions && subjectSelect.selectedOptions[0]) return subjectSelect.selectedOptions[0].textContent;
         return subjectSelect.dataset.label || 'sin elegir';
@@ -315,7 +315,7 @@ _onDomReady(function () {
     function restoreDraft() {
         var saved = draft.load();
         if (!saved || !saved.subject) return Promise.resolve();
-        // Dentro del Asistente completo la materia ya está fijada: un borrador de otra materia no sirve.
+        // Dentro del Asistente paso a paso la materia ya está fijada: un borrador de otra materia no sirve.
         if (CFG.isEmbedded && CFG.fwSubjectId && String(saved.subject) !== String(CFG.fwSubjectId)) { draft.clear(); return Promise.resolve(); }
 
         var ask = CFG.isEmbedded
@@ -353,7 +353,7 @@ _onDomReady(function () {
 
     wizardCtrl.goToStep(1);
     if (CFG.isEmbedded && CFG.fwSubjectId) {
-        // Materia fijada por el Asistente completo: se cargan sus tópicos de entrada.
+        // Materia fijada por el Asistente paso a paso: se cargan sus tópicos de entrada.
         // Hasta que no quede en su paso inicial el host lo mantiene oculto (data-embed-defer-ready).
         var listo = function () { postToHost('educaapp:content-ready'); };
         loadTopicsForSubject(CFG.fwSubjectId).then(restoreDraft).then(listo, listo);

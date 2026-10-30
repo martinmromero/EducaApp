@@ -47,7 +47,7 @@ Start Command: `gunicorn educaapp.wsgi --workers 1 --threads 4 --timeout 120`. U
 ## 7. Verificación después de cada despliegue (5 minutos)
 
 1. Entrar con una cuenta docente y abrir Inicio.
-2. Asistente completo hasta guardar un examen y descargarlo en PDF.
+2. Asistente paso a paso hasta guardar un examen y descargarlo en PDF.
 3. Generar con IA con un PDF corto (el visor de páginas tiene que cargar).
 4. Nuevo grupo con el asistente y aceptar la invitación con otra cuenta.
 5. Abrir `/users/` con la cuenta docente: debe volver al inicio con el aviso.

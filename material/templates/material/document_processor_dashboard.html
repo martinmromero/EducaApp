@@ -17,7 +17,7 @@
                  style="background:var(--edu-accent-soft-bg);border:1px solid var(--edu-accent-soft-border);">
                 <div class="d-flex align-items-center gap-2" style="font-size:.92rem">
                     <i class="bi bi-magic text-primary"></i>
-                    <span class="fw-semibold">Asistente completo</span>
+                    <span class="fw-semibold">Asistente paso a paso</span>
                     <span class="text-muted">— Paso 6 de 7 · Preguntas{% if preselected_subject_name %} · Materia: <strong>{{ preselected_subject_name }}</strong>{% endif %}</span>
                 </div>
                 <a href="{% url 'material:full_wizard' %}?retomar=1" class="text-muted small text-decoration-none" id="fwBackLink">
@@ -747,7 +747,7 @@
 
 <script>
 const WIZARD_ACTIVE = {{ wizard_active|yesno:"true,false" }};
-// Asistente completo (ver view): al guardar vuelve a /asistente-completo/.
+// Asistente paso a paso (ver view): al guardar vuelve a /asistente-completo/.
 const FW_ACTIVE = {{ fw_active|yesno:"true,false" }};
 const FW_RETURN_URL = "{% url 'material:full_wizard' %}?retomar=1";
 
@@ -2463,7 +2463,7 @@ function _spRenderChips() {
     });
 }
 
-// Asistente completo: las preguntas se guardan en la materia que ya eligió el
+// Asistente paso a paso: las preguntas se guardan en la materia que ya eligió el
 // asistente, no en cualquier otra — si no, el paso Examen no encontraría
 // nada para armar. Sin materia en el asistente (se salteó), el buscador
 // queda abierto y la elegida se la lleva de vuelta al asistente.
@@ -2871,7 +2871,7 @@ async function doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, ne
                 subtopic_id: subtopicId || null,
                 new_subtopic_name: newSubtopicName || '',
                 contenido_id: window.currentDocumentData.contenido_id || null,
-                // Carrera elegida en el Asistente completo (llega en la URL): con una
+                // Carrera elegida en el Asistente paso a paso (llega en la URL): con una
                 // materia que está en varias carreras, los tópicos nuevos quedan en
                 // esa carrera en vez de "sin carrera asignada".
                 career_id: new URLSearchParams(window.location.search).get('carrera_id') || null
@@ -2916,7 +2916,7 @@ async function doSaveQuestions(subjectIds, topicId, newTopicName, subtopicId, ne
                 window.location.href = backUrl;
             }, 1300);
             {% elif fw_active %}
-            // Asistente completo: se avisa y se vuelve solo al asistente (que
+            // Asistente paso a paso: se avisa y se vuelve solo al asistente (que
             // sigue en el paso Preguntas, con "Continuar" ya habilitado). Se
             // le pasa la materia usada por si el asistente no tenía ninguna.
             const fwCta = document.getElementById('fwSaveCta');

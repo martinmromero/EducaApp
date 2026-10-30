@@ -1,4 +1,4 @@
-"""Estado del cuestionario oral dentro del Asistente completo (2026-10-25).
+"""Estado del cuestionario oral dentro del Asistente paso a paso (2026-10-25).
 
 O4: con una sola pregunta el oral tiene que ofrecer su tópico, y el host necesita poder detectar que
 cambió el contenido de la materia (firma preguntas-tópicos-unidades de full_wizard_subject_progress)

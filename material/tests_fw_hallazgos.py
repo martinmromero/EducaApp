@@ -1,6 +1,6 @@
-"""Regresiones de los hallazgos de la revisión del Asistente completo (2026-10-05):
+"""Regresiones de los hallazgos de la revisión del Asistente paso a paso (2026-10-05):
 
-D1/D2  entrar al Asistente completo cuenta como haber hecho el recorrido
+D1/D2  entrar al Asistente paso a paso cuenta como haber hecho el recorrido
        inicial (OnboardingGateMiddleware ya no rebota a /comenzar/).
 D3     la vista previa, dentro del <iframe> del asistente, vuelve al asistente
        de examen (enmarcable) y no al formulario clásico (X-Frame-Options: DENY).

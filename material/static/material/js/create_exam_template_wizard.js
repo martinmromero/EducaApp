@@ -9,7 +9,7 @@
 // si el evento ya disparó para cuando este script corre (script al final del
 // body, carga lenta, bfcache, o navegación programática), el callback nunca
 // se ejecuta — sin ningún error visible, silenciosamente no pasa nada. Se
-// detectó así: el asistente completo funcionaba (stepper, cascadas) pero el
+// detectó así: el asistente funcionaba (stepper, cascadas) pero el
 // botón final "Crear plantilla" no hacía nada, sin excepción en consola.
 function _onDomReady(fn) {
     if (document.readyState === 'loading') {

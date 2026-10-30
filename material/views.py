@@ -88,7 +88,7 @@ def bloom_taxonomy(request):
 def _redirect_to_exam_form(request):
     """Vuelve al armado del examen cuando la vista previa no tiene nada que mostrar.
 
-    Dentro del <iframe> del Asistente completo (el navegador manda
+    Dentro del <iframe> del Asistente paso a paso (el navegador manda
     Sec-Fetch-Dest: iframe) hay que volver al asistente de examen, que sí se
     puede enmarcar: el formulario clásico responde X-Frame-Options: DENY y el
     recuadro quedaba en blanco, sin salida. El borrador del asistente (en
@@ -1907,7 +1907,7 @@ def create_exam_wizard(request):
         ).values_list('subjects__id', flat=True).distinct()
         materias = Subject.objects.filter(is_seed_demo=False, id__in=visible_subject_ids)
 
-    # Embebido en el Asistente completo (paso Examen, ?fw=1): la materia,
+    # Embebido en el Asistente paso a paso (paso Examen, ?fw=1): la materia,
     # institución, facultad, carrera y resultados de aprendizaje ya elegidos
     # allá llegan por query string y precargan este asistente, así no hay
     # que repetirlos (ver full_wizard.js, que lo monta en un <iframe>).
@@ -1951,7 +1951,7 @@ def create_exam_wizard(request):
 
 
 def _parse_fw_exam_prefill(request):
-    """Lo ya elegido en el Asistente completo, validado: cada id tiene que
+    """Lo ya elegido en el Asistente paso a paso, validado: cada id tiene que
     ser visible para este usuario (catálogo o su espacio personal), igual que
     en cualquier otro endpoint que recibe un id por GET/POST — un id ajeno
     o inventado simplemente no precarga nada.
@@ -1979,7 +1979,7 @@ def _parse_fw_exam_prefill(request):
         if obj:
             prefill[key + '_id'] = obj.pk
             prefill[key + '_name'] = obj.name
-    # Plantilla elegida al comienzo del Asistente completo: solo si es visible y de
+    # Plantilla elegida al comienzo del Asistente paso a paso: solo si es visible y de
     # la misma materia que se precargó (si no, se ignora y sigue el camino normal).
     from .content_visibility import get_visible_templates
     plantilla_raw = request.GET.get('plantilla_id', '')
@@ -2467,7 +2467,7 @@ def save_exam_from_session(request):
             'message': success_message,
             'redirect_url': reverse('material:onboarding_v2_finish') if wizard_finished else reverse('material:mis_examenes'),
             'created_exam_ids': [e.pk for e in created_exams],
-            # Para el Asistente completo, que muestra su propia pantalla
+            # Para el Asistente paso a paso, que muestra su propia pantalla
             # final en vez de saltar a otra página: a dónde lleva "Ver el
             # examen" (el lote si hay varios temas, el examen si es uno).
             'view_url': (
@@ -4853,7 +4853,7 @@ UPLOAD_WIZARD_MAX_FILE_BYTES = 5 * 1024 * 1024
 def upload_wizard_context(user, initial_subject_id=None):
     """Contexto que necesita questions/_upload_wizard.html, para cualquier
     página que lo incluya (hoy /upload-questions/asistente/; mañana el paso
-    "Preguntas" del Asistente completo)."""
+    "Preguntas" del Asistente paso a paso)."""
     from .content_visibility import get_visible_subjects
     initial_subject = None
     if str(initial_subject_id or '').isdigit():
@@ -5483,7 +5483,7 @@ def get_learning_outcomes_by_career_subject(request):
     """RA visibles (catálogo + espacio personal propio) de una combinación
     puntual Carrera+Materia — a diferencia de get_learning_outcomes (que
     junta los de TODAS las carreras de una materia), esto es lo que
-    necesita el paso "Resultados de aprendizaje" del Asistente completo
+    necesita el paso "Resultados de aprendizaje" del Asistente paso a paso
     (full_wizard): ya se resolvió una Carrera y una Materia concretas en
     los pasos anteriores (el frontend solo tiene esos 2 ids, no el pk de
     CareerSubject — por eso query params y no un path param), así que solo
@@ -7390,7 +7390,7 @@ def create_related_element(request):
 def get_visible_institutions_json(request):
     """Instituciones visibles para este usuario (catálogo + espacio
     personal propio) en JSON — usado por el paso 1 (Institución) del
-    Asistente completo (full_wizard) para listar de entrada las
+    Asistente paso a paso (full_wizard) para listar de entrada las
     instituciones disponibles, sin obligar a tipear para buscar (mismo
     problema ya resuelto para facultad/carrera/materia por get_faculties_
     by_institution/get_careers_by_faculty/get_subjects_by_career, que este
@@ -7928,7 +7928,7 @@ def create_oral_exam_wizard(request):
     from .content_visibility import get_visible_questions
     materias = Subject.objects.filter(questions__in=get_visible_questions(request.user)).distinct()
 
-    # Embebido en el Asistente completo (paso Examen, ?fw=1, en un <iframe>):
+    # Embebido en el Asistente paso a paso (paso Examen, ?fw=1, en un <iframe>):
     # la materia ya se eligió allá, así que se fija y se saltea esa elección.
     # El guardado y los errores vuelven a esta misma pantalla (ver
     # create_oral_exam) porque el formulario clásico y la vista del cuestionario
@@ -8008,7 +8008,7 @@ def create_oral_exam(request):
             # Generar las preguntas para cada grupo y estudiante
             generation_stats = generate_oral_exam_questions(oral_exam)
 
-            # Dentro del Asistente completo (<iframe>, campo oculto fw=1) los avisos
+            # Dentro del Asistente paso a paso (<iframe>, campo oculto fw=1) los avisos
             # no se encolan como mensajes (aparecerían después en otra pantalla):
             # se guardan en la sesión y los muestra la pantalla de "guardado".
             desde_asistente = request.POST.get('fw') == '1'
@@ -9954,7 +9954,7 @@ def full_wizard_page(request):
 
     Entrar acá cuenta como haber hecho el recorrido inicial: marca
     onboarding_completed (ver OnboardingGateMiddleware). Sin esto, quien
-    terminaba el Asistente completo y volvía a Inicio rebotaba al asistente
+    terminaba el Asistente paso a paso y volvía a Inicio rebotaba al asistente
     viejo (/comenzar/), porque solo ése marcaba la bandera."""
     profile = getattr(request.user, 'profile', None)
     if profile is not None and not profile.onboarding_completed:
@@ -9966,7 +9966,7 @@ def full_wizard_page(request):
 @login_required
 @require_POST
 def full_wizard_save_step(request):
-    """Guarda UN paso del Asistente completo. Mismo motor que Solicitar
+    """Guarda UN paso del Asistente paso a paso. Mismo motor que Solicitar
     Alta (_materializar_y_generar_solicitudes, con requerir_cadena=False:
     acá SÍ es válido saltear un nivel superior — ver el parking lot de
     diseño) — deja la misma auditoría (CatalogRequest) que esa pantalla, a
@@ -10119,7 +10119,7 @@ def full_wizard_save_step(request):
 
 @login_required
 def full_wizard_subject_progress(request):
-    """Para los pasos 6 (Contenido) y 7 (Preguntas) del Asistente completo:
+    """Para los pasos 6 (Contenido) y 7 (Preguntas) del Asistente paso a paso:
     dice si la materia elegida ya tiene algo propio cargado, así el botón
     inferior compartido puede decir "Continuar" (ya se hizo algo) en vez de
     "Saltear" (todavía no) — mismo criterio pedido por el usuario para los
@@ -10181,14 +10181,47 @@ def full_wizard_shared_subjects(request):
     ]})
 
 
+def _plantilla_cadena_no_usable(plantilla, visibles):
+    """Primer eslabón de la cadena institución / facultad / carrera / materia de una plantilla que este usuario no puede
+    usar en el Asistente paso a paso (o None si puede usarla). `visibles` trae, por eslabón, los ids que el usuario ve.
+    Una plantilla puede apoyarse en algo que el asistente no ofrece (contenido de ejemplo, o algo del espacio
+    personal de otro docente que se la compartió): se la detecta acá para no ofrecerla."""
+    for clave, obj in (
+        ('institucion', plantilla.institution),
+        ('facultad', plantilla.faculty),
+        ('carrera', plantilla.career),
+        ('materia', plantilla.subject),
+    ):
+        if obj is None or obj.pk not in visibles[clave]:
+            return clave
+    return None
+
+
+def _ids_visibles_para_plantillas(user):
+    from .content_visibility import (
+        get_visible_careers, get_visible_faculties, get_visible_institutions, get_visible_subjects,
+    )
+    return {
+        'institucion': set(get_visible_institutions(user).values_list('pk', flat=True)),
+        'facultad': set(get_visible_faculties(user).values_list('pk', flat=True)),
+        'carrera': set(get_visible_careers(user).values_list('pk', flat=True)),
+        'materia': set(get_visible_subjects(user).values_list('pk', flat=True)),
+    }
+
+
 @login_required
 def full_wizard_templates(request):
     """Plantillas de examen que el usuario puede usar (propias o compartidas por
     un grupo), para ofrecer "Partir de una plantilla" al comienzo del Asistente
     completo. Una plantilla ya trae institución, facultad, carrera, materia y
-    resultados de aprendizaje: elegirla completa de una vez los pasos 1 a 5."""
+    resultados de aprendizaje: elegirla completa de una vez los pasos 1 a 5.
+    Solo se ofrecen las que de verdad se pueden usar: antes se listaban todas y, al elegir una apoyada en
+    contenido de ejemplo, recién ahí aparecía "no está disponible en esta cuenta"."""
     from .content_visibility import get_visible_templates
-    plantillas = get_visible_templates(request.user).select_related('subject', 'career').order_by('-created_at')
+    plantillas = get_visible_templates(request.user).select_related(
+        'subject', 'career', 'institution', 'faculty',
+    ).order_by('-created_at')
+    visibles = _ids_visibles_para_plantillas(request.user)
     return JsonResponse({'templates': [
         {
             'id': t.pk, 'name': t.name,
@@ -10196,36 +10229,35 @@ def full_wizard_templates(request):
             'career': t.career.name if t.career_id else '',
         }
         for t in plantillas
+        if _plantilla_cadena_no_usable(t, visibles) is None
     ]})
 
 
 @login_required
 def full_wizard_template_context(request, template_id):
-    """Lo que el Asistente completo necesita para arrancar desde una plantilla:
+    """Lo que el Asistente paso a paso necesita para arrancar desde una plantilla:
     la cadena institución / facultad / carrera / materia y los resultados de
     aprendizaje, cada uno validado como visible para este usuario (una
     plantilla compartida por otro docente puede apoyarse en algo de su espacio
     personal que acá no se ve: en ese caso no se la puede usar)."""
     from .content_visibility import (
-        EXAM_ELIGIBLE_Q, get_visible_careers, get_visible_faculties, get_visible_institutions,
-        get_visible_learning_outcomes, get_visible_questions, get_visible_subjects, get_visible_templates,
+        EXAM_ELIGIBLE_Q, get_visible_learning_outcomes, get_visible_questions, get_visible_templates,
     )
     plantilla = get_object_or_404(get_visible_templates(request.user), pk=template_id)
 
-    cadena = {}
-    for clave, qs_fn, obj in (
-        ('institucion', get_visible_institutions, plantilla.institution),
-        ('facultad', get_visible_faculties, plantilla.faculty),
-        ('carrera', get_visible_careers, plantilla.career),
-        ('materia', get_visible_subjects, plantilla.subject),
-    ):
-        if obj is None or not qs_fn(request.user).filter(pk=obj.pk).exists():
-            etiqueta = {'institucion': 'la institución', 'facultad': 'la facultad', 'carrera': 'la carrera', 'materia': 'la materia'}[clave]
-            return JsonResponse({
-                'ok': False,
-                'error': f'Esta plantilla usa {etiqueta}, que no está disponible en esta cuenta.',
-            }, status=409)
-        cadena[clave] = {'id': obj.pk, 'name': obj.name}
+    faltante = _plantilla_cadena_no_usable(plantilla, _ids_visibles_para_plantillas(request.user))
+    if faltante:
+        etiqueta = {'institucion': 'la institución', 'facultad': 'la facultad', 'carrera': 'la carrera', 'materia': 'la materia'}[faltante]
+        return JsonResponse({
+            'ok': False,
+            'error': f'Esta plantilla usa {etiqueta}, que no está disponible en esta cuenta.',
+        }, status=409)
+    cadena = {
+        'institucion': {'id': plantilla.institution.pk, 'name': plantilla.institution.name},
+        'facultad': {'id': plantilla.faculty.pk, 'name': plantilla.faculty.name},
+        'carrera': {'id': plantilla.career.pk, 'name': plantilla.career.name},
+        'materia': {'id': plantilla.subject.pk, 'name': plantilla.subject.name},
+    }
 
     resultados = [
         {'id': o.pk, 'description': o.description}
@@ -10362,7 +10394,7 @@ def check_catalog_duplicate(request):
         carrera_id = request.GET.get('carrera_id', '')
         if carrera_id.isdigit():
             qs = qs.filter(careers__id=carrera_id)
-        # Solo el Asistente completo lo pide: además de lo visible, ofrece las
+        # Solo el Asistente paso a paso lo pide: además de lo visible, ofrece las
         # materias que otro docente compartió por un grupo (para armar un examen
         # u oral con esas preguntas). Las pantallas de "agregar al catálogo" no.
         if request.GET.get('incluir_compartidas') == '1':

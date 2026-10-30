@@ -45,7 +45,9 @@ class ContactoAutorTests(TestCase):
         html = self.c.get(reverse('material:index')).content.decode()
         self.assertEqual(html.count('id="tourContactoAutor"'), 1)
         self.assertGreater(html.index('id="tourContactoAutor"'), html.index('id="tourHelpMenu"'))
-        self.assertLess(html.index('id="tourContactoAutor"'), html.index('id="tourAreaPruebasItem"'))
+        # orden del menú "?": recorrido general, probar con un ejemplo, Área de Pruebas, hablar con el autor
+        orden = [html.index(x) for x in ('id="tourChoiceGeneralItem"', 'id="tourProbarEjemploItem"', 'id="tourAreaPruebasItem"', 'id="tourContactoAutor"')]
+        self.assertEqual(orden, sorted(orden))
         # el menú lateral (antes del menú de ayuda) ya no lo trae
         lateral = html.split('id="tourHelpMenu"')[0]
         self.assertNotIn('Hablar con el autor', lateral)

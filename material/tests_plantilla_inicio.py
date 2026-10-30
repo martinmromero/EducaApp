@@ -1,4 +1,4 @@
-"""Partir de una plantilla al comienzo del Asistente completo.
+"""Partir de una plantilla al comienzo del Asistente paso a paso.
 
 Una plantilla guarda institución, facultad, carrera, materia y resultados de
 aprendizaje: el asistente la ofrece en el paso 1, completa los pasos 1 a 5 y le
@@ -101,6 +101,22 @@ class PlantillaAlComienzoTests(TestCase):
         self.assertEqual(resp.status_code, 409)
         self.assertFalse(resp.json()['ok'])
         self.assertIn('materia', resp.json()['error'])
+
+    def test_no_se_ofrece_una_plantilla_compartida_apoyada_en_una_materia_personal(self):
+        # Antes se listaba y recién al elegirla aparecía "no está disponible en esta cuenta".
+        self.compartir_con_beto()
+        ofrecidas = login('p_beto').get(reverse('material:full_wizard_templates')).json()['templates']
+        self.assertEqual(ofrecidas, [])
+
+    def test_no_se_ofrece_una_plantilla_apoyada_en_contenido_de_ejemplo(self):
+        # Contenido de ejemplo (is_seed_demo): ningún selector real lo ofrece, la plantilla tampoco.
+        demo = Career.objects.create(name='Carrera de ejemplo', es_catalogo_institucional=True, is_seed_demo=True)
+        ExamTemplate.objects.create(
+            name='Plantilla de ejemplo', created_by=self.ana, institution=self.inst, faculty=self.fac,
+            career=demo, subject=self.materia,
+        )
+        nombres = [t['name'] for t in login('p_ana').get(reverse('material:full_wizard_templates')).json()['templates']]
+        self.assertEqual(nombres, ['Parcial tipo'])
 
     def test_el_examen_embebido_recibe_la_plantilla_de_la_misma_materia(self):
         url = reverse('material:create_exam_wizard') + (

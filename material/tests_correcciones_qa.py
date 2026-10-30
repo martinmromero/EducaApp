@@ -172,7 +172,7 @@ class CsvConPuntoYComaTests(TestCase):
 
 class MateriaCompartidaEnAsistenteTests(TestCase):
     """Un docente al que le compartieron una materia (grupo de confianza) puede
-    armarle un examen o un oral desde el Asistente completo, sin que esa materia
+    armarle un examen o un oral desde el Asistente paso a paso, sin que esa materia
     pase a ser "visible" para administrarla."""
 
     def setUp(self):

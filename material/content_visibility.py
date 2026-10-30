@@ -69,7 +69,7 @@ def get_shared_subjects(user):
 
 
 def get_usable_subjects(user):
-    """Materias con las que el usuario puede ARMAR algo (Asistente completo,
+    """Materias con las que el usuario puede ARMAR algo (Asistente paso a paso,
     examen, oral): las visibles (catálogo + espacio personal propio) más las
     compartidas por un grupo. No usar para editar/borrar/administrar una
     materia: para eso rige get_visible_subjects."""

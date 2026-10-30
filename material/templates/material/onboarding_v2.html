@@ -12,7 +12,7 @@
   <div id="onb2Gateway">
     <div class="card onb2-card shadow-sm">
       <div class="card-body p-4 p-lg-5 text-center">
-        <h4 class="fw-semibold mb-4">¿Cómo se va a usar EducaApp?</h4>
+        <h4 class="fw-semibold mb-4" id="onb2GatewayTitle">¿Cómo se va a usar EducaApp?</h4>
 
         <!-- Cómo se va a usar la app: modo simple (recomendado) o avanzado. Se guarda al elegir. -->
         <div class="mb-4" id="onb2ModeBlock">
@@ -76,7 +76,7 @@
         </div>
         <div class="mt-4" id="onb2GatewayStartWrap">
           <button type="button" class="btn btn-primary btn-lg" id="onb2GatewayStartBtn">
-            <i class="bi bi-arrow-right-circle me-1"></i>Empezar con el Asistente completo
+            <i class="bi bi-arrow-right-circle me-1"></i>Empezar con el Asistente paso a paso
           </button>
         </div>
         <div id="onb2GatewayDemoPicker" class="d-none mt-4 text-start">
@@ -1092,7 +1092,7 @@
     showStep(step >= 1 && step <= 7 ? step : 1);
   }
 
-  // "Cargar mi propia información" lleva al Asistente completo (el recorrido
+  // "Cargar mi propia información" lleva al Asistente paso a paso (el recorrido
   // vigente: institución → examen). El asistente de 7 pasos de más abajo sigue
   // existiendo, pero solo se entra por ?step=N (retornos de IA/contenido).
   document.getElementById('onb2GatewayOwnBtn').addEventListener('click', function () {
@@ -1149,6 +1149,14 @@
   const qSubjectId = parseInt(params.get('subject_id'), 10);
   if (qContenidoId) lastUploadedContenidoId = qContenidoId;
   if (qSubjectId) lastSelectedSubjectId = qSubjectId;
+
+  // ?demo=1 (ítem "Probar con un ejemplo" del menú "?"): va directo a elegir la materia de ejemplo, sin la elección de modo.
+  if (params.get('demo') === '1') {
+    document.getElementById('onb2GatewayTitle').textContent = 'Probar con un ejemplo';
+    document.getElementById('onb2ModeBlock').classList.add('d-none');
+    document.getElementById('onb2GatewayStartWrap').classList.add('d-none');
+    document.getElementById('onb2GatewayDemoPicker').classList.remove('d-none');
+  }
 
   const requestedStep = parseInt(params.get('step'), 10);
   if (requestedStep >= 1 && requestedStep <= 7) {

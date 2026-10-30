@@ -223,7 +223,7 @@ body.offcanvas-open .sidebar-toggle-external {
     margin-right: 10px;
 }
 
-/* Pantalla dentro del <iframe> del Asistente completo (ver static/js/embed.js):
+/* Pantalla dentro del <iframe> del Asistente paso a paso (ver static/js/embed.js):
    sin menú lateral, barra superior ni panel de testing — el host ya los tiene. */
 html.embed-mode #sidebar,
 html.embed-mode #sidebarOverlay,

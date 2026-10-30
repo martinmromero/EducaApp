@@ -1,4 +1,4 @@
-"""Cuestionario oral dentro del Asistente completo (iframe, ?fw=1).
+"""Cuestionario oral dentro del Asistente paso a paso (iframe, ?fw=1).
 
 El asistente oral se enmarca con la materia ya fijada, el guardado vuelve a una
 pantalla propia (el cuestionario y el formulario clásico no se pueden enmarcar) y

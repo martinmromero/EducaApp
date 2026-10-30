@@ -76,7 +76,7 @@
         <div class="wiz-step" data-step="2">
             <div class="wiz-step-card">
                 <h4>¿Qué materia se va a evaluar?</h4>
-                <p class="wiz-step-intro">{% if is_embedded and fw_subject_id %}La materia ya se eligió en el asistente completo. Acá se pueden ajustar los resultados de aprendizaje (si la materia tiene).{% else %}Seleccionar la materia. Los resultados de aprendizaje (si la materia tiene) aparecen abajo.{% endif %}</p>
+                <p class="wiz-step-intro">{% if is_embedded and fw_subject_id %}La materia ya se eligió en el asistente paso a paso. Acá se pueden ajustar los resultados de aprendizaje (si la materia tiene).{% else %}Seleccionar la materia. Los resultados de aprendizaje (si la materia tiene) aparecen abajo.{% endif %}</p>
                 <select class="form-select" name="subject" id="id_subject" required data-smart-select="materia">
                     <option value="">Seleccionar materia</option>
                     {% for materia in materias %}
@@ -408,7 +408,7 @@ window.EducaAppWizardConfig = {
     },
     isDemoPeek: {{ is_demo_peek|yesno:"true,false" }},
     demoPrefill: {{ demo_prefill_json|json_embed }},
-    // Embebido en el Asistente completo (<iframe name="educaapp-embed-exam">):
+    // Embebido en el Asistente paso a paso (<iframe name="educaapp-embed-exam">):
     // ver create_exam_wizard.js y full_wizard.js.
     isEmbedded: {{ is_embedded|yesno:"true,false" }},
     fwPrefill: {{ fw_prefill_json|json_embed }}

@@ -46,7 +46,7 @@ _onDomReady(function () {
         return true;
     }
 
-    // Embebido en el Asistente completo (full_wizard.js lo monta en un
+    // Embebido en el Asistente paso a paso (full_wizard.js lo monta en un
     // <iframe>): el host escucha estos mensajes. Mismo origen, así que el
     // targetOrigin es el propio.
     function postToHost(type, payload) {
@@ -54,7 +54,7 @@ _onDomReady(function () {
     }
 
     // Primer paso que ve quien lo usa embebido: 3 si Plantilla y Materia vienen resueltas
-    // del Asistente completo (ver startEmbedded), 1 si no. "Atrás" ahí sale al host.
+    // del Asistente paso a paso (ver startEmbedded), 1 si no. "Atrás" ahí sale al host.
     var entryStep = 1;
 
     var wizardCtrl = window.EducaAppWizard.init({
@@ -66,7 +66,7 @@ _onDomReady(function () {
         onBackFromFirst: function () { postToHost('educaapp:exam-exit'); },
         // Embebido no muestra su propia barra de pasos (una sola, la del host): le avisa
         // al host en qué paso está. El primero que se ve es el 3 (Plantilla y Materia ya
-        // vienen resueltos del Asistente completo).
+        // vienen resueltos del Asistente paso a paso).
         onStep: CFG.isEmbedded ? function (n) {
             var label = document.querySelector('.wiz-step-pill[data-step-pill="' + n + '"] .wiz-step-label');
             postToHost('educaapp:wizard-step', { step: n, total: 8, from: entryStep, label: label ? label.textContent.trim() : '' });
@@ -395,7 +395,7 @@ _onDomReady(function () {
         topicsEmpty.classList.add('d-none');
         topicsWrap.classList.remove('d-none');
 
-        // Embebido en el Asistente completo la carrera ya está elegida: los tópicos
+        // Embebido en el Asistente paso a paso la carrera ya está elegida: los tópicos
         // son de cada carrera-materia (ver get_visible_topics).
         var careerParam = CFG.isEmbedded && CFG.fwPrefill && CFG.fwPrefill.carrera_id
             ? '&career_id=' + encodeURIComponent(CFG.fwPrefill.carrera_id) : '';
@@ -1059,7 +1059,7 @@ _onDomReady(function () {
     var startOverLink = document.querySelector('a[href*="limpiar=1"]');
     if (startOverLink) startOverLink.addEventListener('click', function () { draft.clear(); });
 
-    // ── Embebido en el Asistente completo ────────────────────────────────
+    // ── Embebido en el Asistente paso a paso ────────────────────────────────
     // Materia, institución, facultad, carrera y resultados de aprendizaje ya
     // se eligieron allá: llegan en CFG.fwPrefill (validados por el servidor,
     // ver _parse_fw_exam_prefill) y se aplican con las mismas funciones que
@@ -1102,7 +1102,7 @@ _onDomReady(function () {
         }
         draft.clear();
         applyFwPrefill().then(function () {
-            // Plantilla elegida al comienzo del Asistente completo: se aplica
+            // Plantilla elegida al comienzo del Asistente paso a paso: se aplica
             // acá (docente, sede, formato, rúbricas, notas...) y el paso 1
             // queda resuelto igual que si se la hubiera elegido a mano.
             var plantillaId = (CFG.fwPrefill || {}).plantilla_id;

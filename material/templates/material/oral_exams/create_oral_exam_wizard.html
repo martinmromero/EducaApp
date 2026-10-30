@@ -17,7 +17,7 @@
     {% endif %}
 
     {% if oral_saved %}
-    <!-- Cuestionario guardado (solo dentro del Asistente completo): el host muestra su propia
+    <!-- Cuestionario guardado (solo dentro del Asistente paso a paso): el host muestra su propia
          pantalla final al recibir el aviso; esto queda por si el aviso no llega. -->
     <div class="wiz-step-card text-center py-4" id="oralSavedCard">
         <h4>Cuestionario oral guardado</h4>
@@ -143,7 +143,7 @@ window.EducaAppOralWizardConfig = {
         getTopics: "{% url 'material:get_topics' %}",
         validateOralExam: "{% url 'material:validate_oral_exam' %}"
     },
-    // Embebido en el Asistente completo (<iframe name="educaapp-embed-exam">): ver full_wizard.js.
+    // Embebido en el Asistente paso a paso (<iframe name="educaapp-embed-exam">): ver full_wizard.js.
     isEmbedded: {{ is_embedded|yesno:"true,false" }},
     fwSubjectId: "{{ fw_subject.id|default:'' }}",
     saved: {{ oral_saved_json|json_embed }}

@@ -988,7 +988,7 @@ function examPreviewGoBack(fallbackUrl) {
             .then(function (data) {
                 btn.disabled = false;
                 if (data.success) {
-                    // Dentro del Asistente completo (<iframe>): el host muestra
+                    // Dentro del Asistente paso a paso (<iframe>): el host muestra
                     // su propia pantalla final, no este modal ni la redirección.
                     if (window.EducaAppEmbed && window.EducaAppEmbed.notify('educaapp:exam-saved', {
                         message: data.message, createdExamIds: data.created_exam_ids, viewUrl: data.view_url, listUrl: data.redirect_url,

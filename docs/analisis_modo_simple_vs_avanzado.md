@@ -1,7 +1,7 @@
 # Modo simple (asistentes) vs. modo avanzado (ABM) — análisis (revisión 3, 2026-10-08)
 
 Alcance: relevamiento del código (`material/urls.py`, `views.py`, templates, JS de los asistentes), de la
-memoria del proyecto y, en esta segunda revisión, **prueba real en navegador** del Asistente completo con una
+memoria del proyecto y, en esta segunda revisión, **prueba real en navegador** del Asistente paso a paso con una
 cuenta docente (no admin) creada para la ocasión y borrada al terminar. No se modificó código de la app.
 Marcas: **[código]** leído hoy en el código · **[navegador]** comprobado hoy en el navegador ·
 **[memoria]** viene de notas de sesiones anteriores y no se re-verificó.
@@ -29,30 +29,30 @@ Leyenda: ✅ existe · ◐ parcial · ❌ no existe · 🔒 solo admin
 
 | Entidad | Asistente | ABM clásico | Quién puede en el ABM | Editar desde asistente | Observaciones |
 |---|---|---|---|---|---|
-| Institución | ✅ `create_institution_v2_wizard` (4 pasos, 🔒 admin) + ✅ paso 1 del Asistente completo (cualquier usuario → espacio personal) | crear / editar / detalle / logs / eliminar / favorito | crear = 🔒 admin; los demás, admin o dueño del borrador personal | ❌ | Logo, sedes y facultades solo se editan en el ABM. |
-| Facultad | ✅ paso 2 del Asistente completo; ◐ dentro del wizard de institución | `edit_faculty_v2` (colgada de la institución) | admin / dueño | ❌ | No tiene lista propia. |
-| Carrera | ✅ paso 3 del Asistente completo | `career_create_simple` 🔒 admin, `career_associations` (editar), eliminar, detalle | crear = 🔒 admin; para el resto: "Solicitar alta" | ❌ | **Un docente (no admin) solo puede crear carreras por el Asistente completo o "Solicitar alta".** |
-| Materia | ✅ paso 4 del Asistente completo | `SubjectCreateView` 🔒 admin, `SubjectUpdateView` (admin o dueño personal), eliminar, detalle | igual que Carrera | ❌ | Igual: para un docente el asistente es el único camino directo. |
-| Resultados de aprendizaje | ✅ paso 5 del Asistente completo | `LearningOutcome{List,Add,Edit,Delete}` colgados de `CareerSubject` | `_PuedeEditarRAMixin` | ❌ | Opcional en todo el recorrido. |
+| Institución | ✅ `create_institution_v2_wizard` (4 pasos, 🔒 admin) + ✅ paso 1 del Asistente paso a paso (cualquier usuario → espacio personal) | crear / editar / detalle / logs / eliminar / favorito | crear = 🔒 admin; los demás, admin o dueño del borrador personal | ❌ | Logo, sedes y facultades solo se editan en el ABM. |
+| Facultad | ✅ paso 2 del Asistente paso a paso; ◐ dentro del wizard de institución | `edit_faculty_v2` (colgada de la institución) | admin / dueño | ❌ | No tiene lista propia. |
+| Carrera | ✅ paso 3 del Asistente paso a paso | `career_create_simple` 🔒 admin, `career_associations` (editar), eliminar, detalle | crear = 🔒 admin; para el resto: "Solicitar alta" | ❌ | **Un docente (no admin) solo puede crear carreras por el Asistente paso a paso o "Solicitar alta".** |
+| Materia | ✅ paso 4 del Asistente paso a paso | `SubjectCreateView` 🔒 admin, `SubjectUpdateView` (admin o dueño personal), eliminar, detalle | igual que Carrera | ❌ | Igual: para un docente el asistente es el único camino directo. |
+| Resultados de aprendizaje | ✅ paso 5 del Asistente paso a paso | `LearningOutcome{List,Add,Edit,Delete}` colgados de `CareerSubject` | `_PuedeEditarRAMixin` | ❌ | Opcional en todo el recorrido. |
 | Tópicos / subtópicos | ◐ alta inline dentro del asistente de preguntas (`add_topic`/`add_subtopic`) | **No hay ABM de tópicos** | — | — | Pendiente conocido y marcado PRIORIDAD ALTA en memoria: no se puede crear tópico desde la edición de materia sin filtrar entre carreras. Hoy se crean solo al cargar preguntas. |
-| Solicitud de alta al catálogo | ◐ (el Asistente completo la genera de fondo) | `catalog_request_create`, "Mis agregados", bandeja admin | cualquiera / admin | — | Es el mecanismo detrás del espacio personal. |
+| Solicitud de alta al catálogo | ◐ (el Asistente paso a paso la genera de fondo) | `catalog_request_create`, "Mis agregados", bandeja admin | cualquiera / admin | — | Es el mecanismo detrás del espacio personal. |
 
 ### 1.2 Contenido y preguntas
 
 | Entidad | Asistente | ABM clásico | Editar desde asistente | Observaciones |
 |---|---|---|---|---|
-| Contenido (documento fuente) | ❌ (se sube solo dentro de "Generar con IA") | `upload_contenido`, `mis_contenidos`, eliminar | ❌ | En el Asistente completo ya no hay paso de contenido (se fusionó con Preguntas). El form clásico sigue siendo el único alta "suelta". |
+| Contenido (documento fuente) | ❌ (se sube solo dentro de "Generar con IA") | `upload_contenido`, `mis_contenidos`, eliminar | ❌ | En el Asistente paso a paso ya no hay paso de contenido (se fusionó con Preguntas). El form clásico sigue siendo el único alta "suelta". |
 | Pregunta — carga manual | ✅ `upload_questions_wizard` (una o lote CSV/TXT, con vista previa) y embebido en el paso 6 | `upload_questions` (form + CSV) | ❌ | 30 tests propios. |
-| Pregunta — generación con IA | ◐ `document_processor_dashboard` es un flujo por etapas (documento → capítulos → generar → revisar → guardar), **pero no es un asistente del framework** y pesa ~3.500 líneas | — | Revisión/edición dentro de la misma pantalla | Desde el Asistente completo se abre vía link (vuelve con `?retomar=1`). |
+| Pregunta — generación con IA | ◐ `document_processor_dashboard` es un flujo por etapas (documento → capítulos → generar → revisar → guardar), **pero no es un asistente del framework** y pesa ~3.500 líneas | — | Revisión/edición dentro de la misma pantalla | Desde el Asistente paso a paso se abre vía link (vuelve con `?retomar=1`). |
 | Pregunta — ver/editar/eliminar/exportar | ❌ | `ver_pregunta`, `editar_pregunta`, `eliminar_pregunta`, `bulk`, `exportar_preguntas` | — | Es lo único razonable de dejar como "avanzado". |
 
 ### 1.3 Exámenes
 
 | Entidad | Asistente | ABM clásico | Editar desde asistente | Observaciones |
 |---|---|---|---|---|
-| Examen escrito | ✅ `create_exam_wizard` (**8 pasos**: Plantilla, Materia, Tópicos y preguntas, Uno o varios temas, Docente y fecha, Institución y sede, Tipo y modalidad, Rúbricas; embebido en el Asistente completo arranca en el 3) y embebido en el paso 7 del Asistente completo | `create_exam` (formulario único), vista previa, guardar, lotes, exportar DOCX/PDF | ❌ **`editar_examen` / `editar_lote` redirigen al form clásico** (`create_exam?edit_exam_id=`) | La vista del wizard dice textualmente que no soporta retomar una edición. |
+| Examen escrito | ✅ `create_exam_wizard` (**8 pasos**: Plantilla, Materia, Tópicos y preguntas, Uno o varios temas, Docente y fecha, Institución y sede, Tipo y modalidad, Rúbricas; embebido en el Asistente paso a paso arranca en el 3) y embebido en el paso 7 del Asistente paso a paso | `create_exam` (formulario único), vista previa, guardar, lotes, exportar DOCX/PDF | ❌ **`editar_examen` / `editar_lote` redirigen al form clásico** (`create_exam?edit_exam_id=`) | La vista del wizard dice textualmente que no soporta retomar una edición. |
 | Plantilla de examen | ✅ `create_exam_template_wizard` (4 pasos) | `create_exam_template` + `save_exam_template` (fetch) | ❌ (`edit_exam_template` clásico) | |
-| Cuestionario oral | ✅ `create_oral_exam_wizard` (3 pasos) | `create_oral_exam` | ❌ | La pantalla de **evaluar** (`view_oral_exam`) no es asistente, pero es la "ejecución", no un ABM. **No está dentro del Asistente completo.** |
+| Cuestionario oral | ✅ `create_oral_exam_wizard` (3 pasos) | `create_oral_exam` | ❌ | La pantalla de **evaluar** (`view_oral_exam`) no es asistente, pero es la "ejecución", no un ABM. **No está dentro del Asistente paso a paso.** |
 | Rúbrica | ❌ | `rubric_create/edit/view/delete` (grilla) | ❌ | El asistente de examen la enlaza en pestaña nueva (`target=_blank`). |
 | Formato de impresión | ❌ | `formato_impresion_*` | ❌ | Se resuelve **solo** al armar el examen (`resolve_print_format_for_context`: del usuario → de la institución → global). No hace falta paso. |
 
@@ -62,7 +62,7 @@ Leyenda: ✅ existe · ◐ parcial · ❌ no existe · 🔒 solo admin
 |---|---|---|
 | Alta de cuenta | ◐ invitación por link (admin) / `signup` | `signup` usa `UserCreationForm` (solo usuario + clave). |
 | Pregunta de seguridad, Mis datos | ❌ | Formularios chicos, no necesitan asistente. |
-| Proveedor de IA (`ai_config`) | ◐ solo `onboarding_v2_connect_gemini` | **El Asistente completo no verifica ni guía la IA** antes de ofrecer "Generar con IA". El default de cada usuario es `ollama_local`, que en Render no existe y cae al fallback global compartido **[verificado en `ai_router._resolve_backend_for_user`]**; si no hay `GlobalAIConfig` activa con key, genera con Ollama inexistente y falla. |
+| Proveedor de IA (`ai_config`) | ◐ solo `onboarding_v2_connect_gemini` | **El Asistente paso a paso no verifica ni guía la IA** antes de ofrecer "Generar con IA". El default de cada usuario es `ollama_local`, que en Render no existe y cae al fallback global compartido **[verificado en `ai_router._resolve_backend_for_user`]**; si no hay `GlobalAIConfig` activa con key, genera con Ollama inexistente y falla. |
 | Grupos de confianza (crear / invitar / compartir ×4) | ❌ | Todo ABM. Es "avanzado" por naturaleza. |
 | Favoritos, Espacio personal, Avisos de borrado | n/a | Listados. |
 | Administración (usuarios, invitaciones, bandeja, carga masiva, Groq, Neon, prompt, IA institucional, resultados de testing) | n/a | Siempre avanzado/admin. |
@@ -70,7 +70,7 @@ Leyenda: ✅ existe · ◐ parcial · ❌ no existe · 🔒 solo admin
 ### 1.5 Dos asistentes que se pisan
 
 Hay **dos puertas de entrada de "asistente"** en Inicio y en el menú: "Asistente guiado" (`/comenzar/`, onboarding v2, 7 pasos + demo) y
-"Asistente completo" (`/asistente-completo/`, 7 pasos). Hacen casi lo mismo con código distinto. Para alguien nuevo no hay forma de saber
+"Asistente paso a paso" (`/asistente-completo/`, 7 pasos). Hacen casi lo mismo con código distinto. Para alguien nuevo no hay forma de saber
 cuál elegir — y la elección ya está hecha por el sistema: `OnboardingGateMiddleware` manda a todo usuario no-staff que entra a Inicio sin
 `onboarding_completed` a `/comenzar/?first=1` (verificado en navegador; ver D1/D2 en la sección 2). Además el onboarding v2 tiene cosas que el completo no (nombre, conectar Gemini, ejemplo enlatado) y viceversa (espacio personal
 con auditoría, precarga del examen, preguntas embebidas).
@@ -90,8 +90,8 @@ con auditoría, precarga del examen, preguntas embebidas).
 
 | # | Defecto | Evidencia | Arreglo sugerido |
 |---|---|---|---|
-| **D1** | **"Terminar" devuelve al asistente viejo.** Tras completar todo el Asistente completo (incluido el examen guardado), el botón "Terminar" lleva a Inicio y `OnboardingGateMiddleware` redirige a `/comenzar/?first=1` (pregunta "¿Cómo empezar?" + recorrido de 13 pasos), porque solo `onboarding_v2` marca `profile.onboarding_completed`. | **[navegador]** repetido tras el examen guardado. **[código]** `material/middleware.py:61-73`; la bandera solo se escribe en `views.py` ~8631 y ~8860 (onboarding). | Marcar `onboarding_completed=True` desde el Asistente completo (al primer paso guardado o en "Terminar"/"Salir"). |
-| **D2** | **Primer ingreso de un usuario nuevo = el asistente viejo.** Pregunta de seguridad → `/comenzar/?first=1` → ventana "Bienvenido, 1 de 13" encima. El Asistente completo no es la puerta de entrada. | **[navegador]** + **[código]** `middleware.py`. | Cambiar el destino del gate a `/asistente-completo/` (o fusionar). Ver P0.2. |
+| **D1** | **"Terminar" devuelve al asistente viejo.** Tras completar todo el Asistente paso a paso (incluido el examen guardado), el botón "Terminar" lleva a Inicio y `OnboardingGateMiddleware` redirige a `/comenzar/?first=1` (pregunta "¿Cómo empezar?" + recorrido de 13 pasos), porque solo `onboarding_v2` marca `profile.onboarding_completed`. | **[navegador]** repetido tras el examen guardado. **[código]** `material/middleware.py:61-73`; la bandera solo se escribe en `views.py` ~8631 y ~8860 (onboarding). | Marcar `onboarding_completed=True` desde el Asistente paso a paso (al primer paso guardado o en "Terminar"/"Salir"). |
+| **D2** | **Primer ingreso de un usuario nuevo = el asistente viejo.** Pregunta de seguridad → `/comenzar/?first=1` → ventana "Bienvenido, 1 de 13" encima. El Asistente paso a paso no es la puerta de entrada. | **[navegador]** + **[código]** `middleware.py`. | Cambiar el destino del gate a `/asistente-completo/` (o fusionar). Ver P0.2. |
 | **D3** | **Callejón sin salida dentro del iframe.** `preview_exam` redirige a `create_exam` cuando la sesión no tiene datos (`views.py:92-93`) o cuando no se encontró ninguna pregunta (`views.py:283-288`). `create_exam` responde `X-Frame-Options: DENY`, así que dentro del iframe queda un **recuadro en blanco** sin ninguna salida (la barra inferior del host está oculta mientras el iframe está abierto). Pasa también si la sesión vence y el redirect va al login. | **[navegador]** reproducido: con la sesión sin datos, `/preview-exam/` termina en `/create-exam/` (DENY) y el iframe queda blanco. **[código]** `tests_exam_embed.py::test_otras_pantallas_siguen_sin_poder_enmarcarse` afirma justamente que `create_exam` es DENY. | (a) En modo embebido, redirigir a `create_exam_wizard?fw=1` en vez de `create_exam`; (b) que el host detecte "no llegó el aviso de carga" y muestre un botón "Volver"; (c) idem para el login. Ajustar el test. |
 | **D4** | **El examen sale con 1 sola pregunta si no se completa "Preguntas por tema".** Con tópicos elegidos y ese campo vacío (opcional, placeholder "Ej: 10", sin explicación), el servidor usa `max(1, cantidad_de_tópicos)`. Con 1 tópico de 4 preguntas, el examen salió con **1 pregunta**; el resumen del paso 8 decía "Preguntas elegidas: 0". | **[navegador]** + **[código]** `views.py:184-186` (vista previa) y `2058-2060` (guardado). | Por defecto, tomar todas las preguntas de los tópicos (o pedir el número con valor inicial y una frase de ayuda). Mostrar en el resumen cuántas preguntas va a tener cada tema. |
 | D5 | En móvil (375 px) el contenido útil del paso Examen empieza **debajo de la primera pantalla**: párrafo de introducción + 7 pastillas + migas + 8 pastillas internas + título. En escritorio, cargar una pregunta ocupa ~55 % de la pantalla con tres barras de pasos apiladas (host, migas, asistente embebido). | **[navegador]** capturas. | En los pasos 6–7 ocultar el párrafo introductorio y las migas (o plegarlos); un solo stepper visible. |
@@ -105,7 +105,7 @@ con auditoría, precarga del examen, preguntas embebidas).
 | # | Estado | Qué se hizo |
 |---|---|---|
 | D1 | ✅ corregido y probado en navegador | `full_wizard_page` marca `profile.onboarding_completed` al entrar. "Terminar" ya lleva a Inicio sin rebotar. |
-| D2 | ✅ corregido y probado en navegador | La pantalla "¿Cómo empezar?" de `/comenzar/` conserva el ejemplo armado y el recorrido de bienvenida, pero **"Cargar mi propia información" lleva al Asistente completo**. En Inicio el orden pasó a "Asistente completo" · "Probar con un ejemplo". El asistente de 7 pasos viejo sigue existiendo solo por `?step=N`. |
+| D2 | ✅ corregido y probado en navegador | La pantalla "¿Cómo empezar?" de `/comenzar/` conserva el ejemplo armado y el recorrido de bienvenida, pero **"Cargar mi propia información" lleva al Asistente paso a paso**. En Inicio el orden pasó a "Asistente paso a paso" · "Probar con un ejemplo". El asistente de 7 pasos viejo sigue existiendo solo por `?step=N`. |
 | D3 | ✅ corregido y probado en navegador | (a) `preview_exam` vuelve al asistente de examen (`create_exam_wizard?fw=1`) cuando la petición viene de un iframe (`Sec-Fetch-Dest`); el borrador repone lo cargado y el aviso aparece como diálogo. (b) Red de seguridad en el host: `embed.js` avisa `educaapp:embed-ready` y el host vigila que el iframe siga siendo de su origen; si no, muestra "No se pudo mostrar el armado del examen" con *Reintentar* (arma un iframe nuevo y conserva el borrador), *Recargar la página* y *Volver a Preguntas*. |
 | D4 | ✅ corregido, con tests y probado en navegador | `_default_questions_per_version`: sin cantidad, se usan todas las preguntas elegibles de los tópicos elegidos, repartidas entre los temas (antes: una por tópico). Afecta vista previa y guardado, asistente y formulario clásico. Se agregó el texto de ayuda en ambos y el resumen del paso 8 dice qué va a pasar en vez de "0". |
 | D5 | ✅ probado en navegador (emulación 375 px) | Desde el paso 2 se oculta la introducción; en pantallas angostas, desde el paso 6 se ocultan también las migas. El contenido del paso Examen pasó de empezar debajo de la primera pantalla a empezar a 175 px. El stepper interno del examen entra en una fila en celular (verificado inyectando el CSS: el archivo servido en el navegador de pruebas estaba en caché). |
@@ -137,7 +137,7 @@ Reemplaza lo que contradiga en las secciones 4 y 5.
    - Cambios: `Topic.career_subject` (clave a `CareerSubject`) y una marca de catálogo; los selectores de tópicos pasan la carrera; ABM de tópicos y subtópicos dentro del bloque de cada carrera en la ficha de la materia. Los subtópicos siguen a su tópico.
    - Datos existentes: relleno razonable (materias con una sola carrera quedan asignadas; las compartidas se duplican por carrera-materia y las preguntas quedan con el primero). **Neon todavía no es producción**, así que no hace falta que sea perfecto y se puede reiniciar.
 3. **Oral con preguntas propias: pasa dentro y fuera del asistente.** El asistente envía al mismo formulario y a las mismas vistas. Está en cuatro lugares del código: las materias que ofrece el formulario, `validate_oral_exam`, `generate_oral_exam_questions` y el cambio de pregunta. **No hay una decisión detrás:** el módulo oral es del 19/09/2025 y el sistema de compartir (`content_visibility.py`) es del 29/07/2026; el oral nunca se pasó a usarlo. Además usa todas las preguntas del docente, aprobadas o no. Corrección: usar `get_visible_questions` con las mismas reglas que el examen escrito.
-4. **Plantillas: sí conviene cambiar el orden.** Una plantilla guarda institución, facultad, carrera, materia, sede, docente, cátedra, año, tipo, resultados de aprendizaje, rúbricas y notas: es todo lo de los pasos 1 a 5 y el encabezado. Su lugar natural es **el comienzo** del Asistente completo: "¿Partir de una plantilla?" completa los pasos 1 a 5 y lleva directo a Preguntas o Examen, y el examen embebido recibe el resto (docente, sede, formato, rúbricas, notas). Si no se elige ninguna, el paso funciona como hoy. Es lo recomendado frente a la alternativa mínima (no saltear el paso "Plantilla" del examen embebido).
+4. **Plantillas: sí conviene cambiar el orden.** Una plantilla guarda institución, facultad, carrera, materia, sede, docente, cátedra, año, tipo, resultados de aprendizaje, rúbricas y notas: es todo lo de los pasos 1 a 5 y el encabezado. Su lugar natural es **el comienzo** del Asistente paso a paso: "¿Partir de una plantilla?" completa los pasos 1 a 5 y lleva directo a Preguntas o Examen, y el examen embebido recibe el resto (docente, sede, formato, rúbricas, notas). Si no se elige ninguna, el paso funciona como hoy. Es lo recomendado frente a la alternativa mínima (no saltear el paso "Plantilla" del examen embebido).
 5. **IA pública agotada o no disponible:** el texto es el que indicaste (no hay más cupo compartido; se puede cargar una conexión propia o, si la institución tiene un servidor Ollama propio, conectarlo consultando con el administrador). Implementado.
 6. **Pregunta sobre producción:** retirada. Neon no es producción, así que el diseño no depende de cuántos datos haya.
 7. **Fecha:** cuanto antes.
@@ -152,8 +152,8 @@ Todo en la rama `feat/ia-publica-principal`, sin commitear. 210 tests en verde (
 | Tópicos por carrera-materia con espacio personal / catálogo | Hecho: `Topic.career_subject` y `es_catalogo_institucional` (también en sub-tópicos), `get_visible_topics`, ABM en la ficha de la materia, proponer al catálogo, aprobar / rechazar / fusionar en la bandeja. Probado en el navegador con un docente y un admin |
 | Oral con preguntas compartidas (y sus tópicos y sub-tópicos) | Hecho: `get_oral_questions` en los siete lugares, solo aprobadas, igual que el examen escrito |
 | Plantilla al comienzo del asistente | Hecho en la rama `feat/plantilla-al-comienzo` (sin commitear): "¿Partir de una plantilla?" en el paso 1 completa los pasos 1 a 5 y lleva siempre a Preguntas (si la materia ya tiene, lo avisa con cuántas y de cuántos tópicos, y se sigue de largo o se suman más; ya no salta directo a Examen); el examen embebido recibe `plantilla_id` y aplica docente, sede, cátedra, formato, rúbricas y notas. Probado en el navegador de punta a punta. |
-| Oral dentro del Asistente completo | Hecho en la rama `feat/oral-en-asistente`: el paso 7 tiene una barra "Armar: Examen escrito / Cuestionario oral"; el oral se arma en el mismo marco con la materia ya fijada y termina en la pantalla final del asistente. Cambiar de uno a otro conserva lo cargado. Avisa si la materia tiene pocas unidades (tópicos o sub-tópicos) para el oral. Probado en el navegador. |
-| Interruptor Simple/Avanzado | Hecho en la rama `feat/modo-simple-avanzado` (migración 0105): `Profile.interface_mode`; las cuentas nuevas arrancan en simple y las existentes quedan en avanzado. El modo simple muestra el menú reducido (Asistente completo, Generar con IA, Preguntas, Exámenes, Mis agregados, Administración si es admin), Inicio con una sola puerta y los "Nuevo ..." de exámenes, orales, preguntas, plantillas e instituciones abren el asistente. Las pantallas avanzadas siguen accesibles por su dirección. Interruptor al pie del menú; recorrido guiado actualizado. Probado en el navegador. |
+| Oral dentro del Asistente paso a paso | Hecho en la rama `feat/oral-en-asistente`: el paso 7 tiene una barra "Armar: Examen escrito / Cuestionario oral"; el oral se arma en el mismo marco con la materia ya fijada y termina en la pantalla final del asistente. Cambiar de uno a otro conserva lo cargado. Avisa si la materia tiene pocas unidades (tópicos o sub-tópicos) para el oral. Probado en el navegador. |
+| Interruptor Simple/Avanzado | Hecho en la rama `feat/modo-simple-avanzado` (migración 0105): `Profile.interface_mode`; las cuentas nuevas arrancan en simple y las existentes quedan en avanzado. El modo simple muestra el menú reducido (Asistente paso a paso, Generar con IA, Preguntas, Exámenes, Mis agregados, Administración si es admin), Inicio con una sola puerta y los "Nuevo ..." de exámenes, orales, preguntas, plantillas e instituciones abren el asistente. Las pantallas avanzadas siguen accesibles por su dirección. Interruptor al pie del menú; recorrido guiado actualizado. Probado en el navegador. |
 
 **Reglas que quedaron** (mismo criterio que los resultados de aprendizaje):
 - Materia personal: sus tópicos son solo del dueño.
@@ -180,7 +180,7 @@ En una materia del catálogo el docente **sí** puede crear tópicos personales 
 | La administración no necesita asistente. | Sale del alcance. Usuarios, invitaciones, bandeja, carga masiva, Groq, Neon, prompt, IA institucional y resultados de testing quedan como están. |
 | La IA pública tiene que ser la principal. Ollama pasa a ser una opción más. | Cambio de default y de mensajes (4.2). Reemplaza al punto P0.5 anterior. |
 | Formatos de impresión y Rúbricas sin asistente está bien. | Prioridad baja. Ya no aparecen en el plan. |
-| Cuestionario oral: evaluar sumarlo al Asistente completo. | Evaluado en 4.3. |
+| Cuestionario oral: evaluar sumarlo al Asistente paso a paso. | Evaluado en 4.3. |
 | Editar desde el asistente importa menos que cargar lo ya creado y crear lo nuevo. | "Editar examen desde el asistente" baja a P2. Sube "usar lo ya creado" (4.4). |
 
 ---
@@ -213,7 +213,7 @@ Conclusión: sí se comparten, pero son una minoría y casi todas con pocos tóp
 2. El nombre pasa a ser único por (materia, carrera-materia, creador) y la comprobación de duplicados de `add_topic` se hace dentro del mismo alcance.
 3. En la ficha de la materia, dentro del bloque de cada carrera (junto a los resultados de aprendizaje), una lista de tópicos con sus subtópicos: agregar, renombrar y borrar. Antes de borrar, un aviso con la cantidad de preguntas, exámenes y cuestionarios afectados. Si la materia está en más de una carrera, un bloque "Comunes a todas las carreras".
 4. Dónde se listan los tópicos:
-   - Con carrera conocida (el Asistente completo, el asistente de examen embebido, la ficha de la materia): los comunes más los de esa carrera.
+   - Con carrera conocida (el Asistente paso a paso, el asistente de examen embebido, la ficha de la materia): los comunes más los de esa carrera.
    - Con carrera desconocida (subir preguntas suelto, formulario clásico de examen, cuestionario oral, generar con IA): se listan todos, como hoy. Así el cambio no rompe ningún flujo existente.
 5. Permisos: quien puede ver la materia puede crear tópicos (como hoy, y como pide el flujo de cargar preguntas). Renombrar y borrar queda para el dueño de la materia personal o un admin. Para el borrado de tópicos ajenos de una materia del catálogo hay que definir una regla (pregunta abierta 1).
 
@@ -244,7 +244,7 @@ Conclusión: sí se comparten, pero son una minoría y casi todas con pocos tóp
 1. Default del modelo a `shared_demo` y migración de datos: las filas en `ollama_local` sin URL propia pasan a `shared_demo`. Las que tienen una URL propia no se tocan.
 2. Cambiar `ollama_local` por `shared_demo` en los respaldos de `ai_config_view`, de `ai_config.html` y de `views_document_processor.py`.
 3. Con IA pública seleccionada y sin configuración activa, mostrar "La IA pública no está disponible ahora" con el camino a "usar mi propia clave". Dejar de caer en Ollama en ese caso.
-4. Estado visible en el paso Preguntas del Asistente completo, antes de "Generar con IA": usar `ai_config_status` (ya existe) y mostrar uno de tres estados: *lista* (con el cupo restante si hay), *cupo agotado* o *no disponible, usar mi propia clave*. "Cargar a mano" queda siempre disponible.
+4. Estado visible en el paso Preguntas del Asistente paso a paso, antes de "Generar con IA": usar `ai_config_status` (ya existe) y mostrar uno de tres estados: *lista* (con el cupo restante si hay), *cupo agotado* o *no disponible, usar mi propia clave*. "Cargar a mano" queda siempre disponible.
 5. Dejar Ollama en la pantalla como "IA en mi computadora (avanzado)".
 
 **Riesgos**
@@ -254,7 +254,7 @@ Conclusión: sí se comparten, pero son una minoría y casi todas con pocos tóp
 
 **Estimación:** 0,5 a 1 día, con tests.
 
-### 4.3 Cuestionario oral dentro del Asistente completo
+### 4.3 Cuestionario oral dentro del Asistente paso a paso
 
 **Qué necesita el cuestionario oral [código]**
 - Materia, tópicos, cantidad de estudiantes, preguntas por estudiante y cantidad de grupos. Un panel en vivo (`validate_oral_exam`) avisa si no alcanzan las preguntas.
@@ -277,7 +277,7 @@ Conclusión: sí se comparten, pero son una minoría y casi todas con pocos tóp
 
 ### 4.4 Cargar lo ya creado y crear lo nuevo
 
-Cobertura actual del Asistente completo [código y navegador]:
+Cobertura actual del Asistente paso a paso [código y navegador]:
 
 | Paso | Usar lo ya creado | Crear nuevo |
 |---|---|---|
@@ -310,7 +310,7 @@ Hoy es jueves. Si la semana de liberación termina el viernes, **no entra todo**
 | # | Trabajo | Esfuerzo |
 |---|---|---|
 | 6 | Tópicos por carrera-materia (4.1, Fase 2) | 1,5 a 2 días |
-| 7 | Cuestionario oral en el Asistente completo (4.3) | 1 día |
+| 7 | Cuestionario oral en el Asistente paso a paso (4.3) | 1 día |
 | 8 | Encabezado del examen en una sola pantalla (de ~12 a ~8 pantallas) | 1 día |
 | 9 | "Agregar con el asistente" en Materias y Carreras para quien no es admin | 0,5 día |
 
@@ -318,7 +318,7 @@ Hoy es jueves. Si la semana de liberación termina el viernes, **no entra todo**
 - Duplicar un examen como punto de partida.
 - Editar desde el asistente (examen, preguntas).
 - Asistentes para Rúbricas y Formatos de impresión (decisión: no hacen falta).
-- Reanudar el Asistente completo entre sesiones.
+- Reanudar el Asistente paso a paso entre sesiones.
 - Convertir "Generar con IA" en un módulo embebible.
 - Retirar o fusionar el asistente viejo de `/comenzar/`.
 

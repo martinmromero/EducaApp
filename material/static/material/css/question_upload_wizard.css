@@ -1,5 +1,5 @@
 /* question_upload_wizard.css — Asistente "Subir preguntas".
-   Pensado para embeberse dentro de otro asistente (el Asistente completo):
+   Pensado para embeberse dentro de otro asistente (el Asistente paso a paso):
    por eso NO reutiliza las clases .wiz-step / .wiz-step-pill de
    wizard_common.css — wizard_engine.js las busca con
    document.querySelectorAll y un asistente anidado le pisaría el estado de
@@ -151,7 +151,7 @@
 .uqw-nav { display: flex; justify-content: space-between; align-items: center; gap: .75rem; margin-top: 1rem; }
 .uqw-nav.is-hidden { display: none; }
 
-/* Celular, solo en la pantalla propia del asistente (dentro del Asistente completo la botonera de arriba ya queda fija):
+/* Celular, solo en la pantalla propia del asistente (dentro del Asistente paso a paso la botonera de arriba ya queda fija):
    Atrás y Siguiente quedan abajo de la pantalla, siempre a la vista. */
 @media (max-width: 575.98px) {
     .uqw-page .uqw-nav {

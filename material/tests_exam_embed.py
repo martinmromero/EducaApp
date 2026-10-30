@@ -1,4 +1,4 @@
-"""Paso Examen del Asistente completo: el asistente "Nuevo examen" se monta en
+"""Paso Examen del Asistente paso a paso: el asistente "Nuevo examen" se monta en
 un <iframe> same-origin (?fw=1) con lo ya elegido precargado. Cubre la
 validación de ese precargado, el acotado de materia/plantillas, que las
 pantallas enmarcadas puedan enmarcarse (y las demás no), y la respuesta del
@@ -129,7 +129,7 @@ class FwExamPrefillTests(TestCase):
 
 class FwExamSaveResponseTests(TestCase):
     """save_exam_from_session devuelve view_url para la pantalla final del
-    Asistente completo (no la redirección al listado)."""
+    Asistente paso a paso (no la redirección al listado)."""
 
     def setUp(self):
         self.user = make_user('fw_guarda')

@@ -93,7 +93,7 @@
         element: '.wiz-nav a',
         popover: {
           title: 'Empezar de nuevo',
-          description: 'Este enlace reinicia el asistente completo, por si conviene partir de cero.',
+          description: 'Este enlace reinicia el asistente, por si conviene partir de cero.',
           side: 'top',
         },
       },

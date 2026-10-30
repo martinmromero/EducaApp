@@ -129,7 +129,9 @@ class MenuTests(TestCase):
         resp = self.inicio('m_simple')
         self.assertContains(resp, 'id="homeAsistenteBtn"')
         self.assertNotContains(resp, 'bi-upload me-2')
-        self.assertNotContains(self.inicio('m_avanzado'), 'id="homeAsistenteBtn"')
+        # En modo avanzado el recorrido completo también es el primer botón; no está el de subir material.
+        self.assertContains(self.inicio('m_avanzado'), 'id="homeAsistenteBtn"')
+        self.assertNotContains(self.inicio('m_avanzado'), 'bi-upload me-2')
 
     def test_las_pantallas_avanzadas_siguen_accesibles_en_modo_simple(self):
         client = login('m_simple')

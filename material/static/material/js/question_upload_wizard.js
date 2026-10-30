@@ -1,7 +1,7 @@
 // question_upload_wizard.js — Asistente "Subir preguntas" (una sola o por lote).
 //
 // DISEÑO PENSADO PARA EMBEBERSE: más adelante este asistente se integra como
-// paso del Asistente completo (/asistente-completo/, paso 7 "Preguntas"). Por
+// paso del Asistente paso a paso (/asistente-completo/, paso 7 "Preguntas"). Por
 // eso es un módulo autocontenido, no una página:
 //   - mount(root, opciones) trabaja SOLO dentro de `root` (data-role /
 //     data-uqw-step), sin ids globales ni document.querySelector.
@@ -18,7 +18,7 @@
 //   subject       {id, name} materia ya elegida. Sin lockSubject arranca en el
 //                 paso "Qué cargar" pero se puede cambiar volviendo atrás.
 //   lockSubject   true => el paso "Materia" no existe (el host ya la resolvió,
-//                 ej. el paso Materia del Asistente completo) y no se puede
+//                 ej. el paso Materia del Asistente paso a paso) y no se puede
 //                 cambiar desde acá. Exige `subject`.
 //   draftKey      clave de sessionStorage del borrador (una por host, para que
 //                 dos asistentes en la misma pestaña no se pisen).
@@ -69,7 +69,7 @@ window.EducaAppQuestionUpload = (function () {
         var URLS = options.urls || window.EducaAppQuestionUploadUrls || {};
         var DRAFT_KEY = options.draftKey || 'educaapp_question_upload_wizard_draft_v1';
         var lockSubject = !!(options.lockSubject && options.subject);
-        // Carrera ya elegida por el host (Asistente completo): los tópicos son de
+        // Carrera ya elegida por el host (Asistente paso a paso): los tópicos son de
         // cada carrera-materia, así que se listan y se crean dentro de esa carrera.
         var CAREER_ID = options.careerId ? String(options.careerId) : '';
 

@@ -1,5 +1,5 @@
 /* embed.js — Pantallas de EducaApp que se muestran dentro de un <iframe> de
-   otra pantalla (hoy: el paso Examen del Asistente completo, que monta el
+   otra pantalla (hoy: el paso Examen del Asistente paso a paso, que monta el
    asistente de examen y su vista previa en un <iframe name="educaapp-embed-exam">).
 
    Contrato: el <iframe> se llama "educaapp-embed-<algo>". Dentro, esta
