@@ -71,7 +71,7 @@
         element: '#generateQuestionsBtn',
         popover: {
           title: 'Generar',
-          description: 'Al elegir al menos un capítulo, este botón se habilita para generar las preguntas con IA.',
+          description: 'Al elegir al menos un capítulo, este botón se habilita. Abre una ventana para configurar la generación: qué se envía a la IA y adónde, los tipos de pregunta, los niveles de Bloom a priorizar (opcional) y la cantidad. Al revisar las preguntas, al desmarcar una se puede indicar el motivo del descarte.',
           side: 'top',
         },
       },

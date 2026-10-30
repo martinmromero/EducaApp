@@ -307,12 +307,29 @@ def upload_and_process_document(request):
         }, status=500)
 
 
+def _privacy_info(ai_status, using_shared_fallback):
+    """Dónde se procesa el texto con el proveedor activo (panel de privacidad de Generar con IA).
+
+    Devuelve {'kind': 'shared'|'local'|'external', 'provider': str}. Se calcula con el backend
+    realmente en uso (si el servidor propio no responde y cae al público, cuenta como 'shared').
+    """
+    if using_shared_fallback:
+        return {'kind': 'shared', 'provider': ''}
+    if ai_status.get('backend') == 'ollama_local':
+        return {'kind': 'local', 'provider': ''}
+    proveedores = {'openai': 'OpenAI', 'anthropic': 'Anthropic', 'gemini': 'Google (Gemini)', 'groq': 'Groq'}
+    clave = (ai_status.get('provider') or ai_status.get('backend') or '').lower()
+    return {'kind': 'external', 'provider': proveedores.get(clave, ai_status.get('provider') or 'el proveedor configurado')}
+
+
 @login_required
 def document_processor_dashboard(request):
     """
     Vista HTML para el dashboard de procesamiento de documentos.
     """
     from material.content_visibility import get_visible_subjects
+    import json
+    from material.models import Question
     # Obtener backend configurado para este usuario (no la instancia global)
     from .ai_router import get_backend_for_user, get_global_demo_quota, ensure_fresh_demo_quota, SharedDemoBackend
     backend = get_backend_for_user(request.user)
@@ -377,6 +394,9 @@ def document_processor_dashboard(request):
         'using_shared_fallback': using_shared_fallback,
         'demo_quota': demo_quota,
         'demo_quota_low_tokens': demo_quota_low_tokens,
+        'privacy_info': _privacy_info(ai_status, using_shared_fallback),
+        'bloom_choices': [(1, 'Recordar'), (2, 'Comprender'), (3, 'Aplicar'), (4, 'Analizar'), (5, 'Evaluar'), (6, 'Crear')],
+        'discard_reasons_json': json.dumps([{'value': v, 'label': l} for v, l in Question.DISCARD_REASON_CHOICES]),
     }
     
     return render(request, 'material/document_processor_dashboard.html', context)
@@ -654,6 +674,10 @@ def generate_questions_from_chapters(request):
         # question_types enviados por el cliente (lista de strings)
         question_types = data.get('question_types') or []
 
+        # Niveles de Bloom a priorizar (opcional; vacío = la IA elige). Se
+        # descartan valores fuera de 1-6 para no meter texto libre al prompt.
+        bloom_levels = _parse_bloom_levels(data.get('bloom_levels'))
+
         # Cantidad total de preguntas deseadas (usuario elige, default 20, máximo 200)
         total_questions = max(1, min(200, int(data.get('total_questions', 20) or 20)))
 
@@ -685,6 +709,7 @@ def generate_questions_from_chapters(request):
                 existing_questions_list=existing_questions_list,
                 existing_texts_set=existing_texts_set,
                 include_images=bool(data.get('include_images')),
+                bloom_levels=bloom_levels,
             )
             return JsonResponse({
                 'success': True,
@@ -805,6 +830,7 @@ def generate_questions_from_chapters(request):
                         question_types=question_types, backend=_ai_backend,
                         existing_questions=existing_questions_list,
                         output_tokens_ceiling=_output_tokens_ceiling,
+                        bloom_levels=bloom_levels,
                     )
                 except Exception as exc:
                     logger.warning(f"Chunk {chunk_idx + 1}/{len(chunks)} de '{title}' falló: {exc}")
@@ -871,7 +897,7 @@ def generate_questions_from_chapters(request):
 def _store_streaming_job(request, chapter_indices, chapters_from_request, filename,
                          question_types=None, total_questions=20, questions_per_block=0,
                          existing_questions_list=None, existing_texts_set=None,
-                         include_images=False):
+                         include_images=False, bloom_levels=None):
     """Guarda los parámetros del job en memoria y retorna el job_id."""
     job_id = str(uuid.uuid4())
     with _jobs_lock:
@@ -886,6 +912,7 @@ def _store_streaming_job(request, chapter_indices, chapters_from_request, filena
             'chapters_from_request': chapters_from_request,
             'filename': filename,
             'question_types': question_types or [],
+            'bloom_levels': bloom_levels or [],
             'total_questions': total_questions,
             'questions_per_block': questions_per_block,  # 0 = calcular automáticamente
             'doc_session': dict(request.session.get('doc_processor', {})),
@@ -1067,7 +1094,20 @@ def _motivo_falla_imagenes(exc):
     return texto
 
 
-def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None, existing_questions=None, images=None, output_tokens_ceiling=None, generate_kwargs=None):
+def _parse_bloom_levels(raw):
+    """Lista ordenada y sin repetidos de niveles de Bloom (1-6); cualquier otro valor se ignora."""
+    niveles = set()
+    for valor in raw or []:
+        try:
+            n = int(valor)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= n <= 6:
+            niveles.add(n)
+    return sorted(niveles)
+
+
+def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_idx, total_chunks, question_types=None, backend=None, existing_questions=None, images=None, output_tokens_ceiling=None, generate_kwargs=None, bloom_levels=None):
     """Genera preguntas para un fragmento de capítulo usando la IA configurada.
 
     Args:
@@ -1116,6 +1156,13 @@ def _generate_questions_for_chunk(content, chapter_title, num_questions, chunk_i
         "bloom_nivel: nivel cognitivo de Bloom (1=Recordar, 2=Comprender, 3=Aplicar, "
         "4=Analizar, 5=Evaluar, 6=Crear)"
     )
+    if bloom_levels:
+        nombres = {1: 'Recordar', 2: 'Comprender', 3: 'Aplicar', 4: 'Analizar', 5: 'Evaluar', 6: 'Crear'}
+        elegidos = ', '.join(f'{n}={nombres[n]}' for n in bloom_levels)
+        bloom_desc += (
+            f". El docente pidió priorizar estos niveles: {elegidos}. "
+            "Distribuya las preguntas solo entre ellos y asigne bloom_nivel con el nivel que la pregunta realmente exige"
+        )
 
     # Bloque de preguntas ya existentes para evitar repeticiones
     existing_block = ""
@@ -1316,6 +1363,7 @@ def stream_questions(request, job_id):
         filename = job['filename']
         doc_session = job['doc_session']
         question_types = job.get('question_types') or []
+        bloom_levels = job.get('bloom_levels') or []
         total_questions = max(1, int(job.get('total_questions', 20) or 20))
         questions_per_block_override = int(job.get('questions_per_block', 0) or 0)
         existing_questions_list = job.get('existing_questions_list') or []
@@ -1466,6 +1514,7 @@ def stream_questions(request, job_id):
                             question_types=question_types, backend=backend,
                             existing_questions=existing_questions_list,
                             output_tokens_ceiling=output_tokens_ceiling,
+                            bloom_levels=bloom_levels,
                         )
                     image_questions = []
                     if chunk_images:
@@ -1483,6 +1532,7 @@ def stream_questions(request, job_id):
                                 existing_questions=existing_questions_list + text_questions,
                                 images=chunk_images,
                                 output_tokens_ceiling=output_tokens_ceiling,
+                                bloom_levels=bloom_levels,
                             )
                         except Exception as img_exc:
                             logger.warning(f"SSE chunk {chunk_idx_global} (imágenes) de '{title}' falló: {img_exc}")
@@ -2120,6 +2170,14 @@ def save_generated_questions(request):
                     ai_approved=is_approved,
                     contenido=contenido_origen
                 )
+                if not is_approved:
+                    # El motivo es opcional; se descarta cualquier valor que
+                    # no sea una de las opciones conocidas.
+                    reason = (q_data.get('motivo_descarte') or '').strip()
+                    if reason in dict(Question.DISCARD_REASON_CHOICES):
+                        question.discard_reason = reason
+                        if reason == 'otro':
+                            question.discard_note = (q_data.get('motivo_detalle') or '').strip()[:300]
 
                 # Guardar opciones si existen
                 if 'opciones' in q_data:

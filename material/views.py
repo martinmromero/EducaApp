@@ -4295,6 +4295,8 @@ def _clonar_pregunta_para(pregunta, nuevo_dueno):
         user=nuevo_dueno,
         generated_by_ai=pregunta.generated_by_ai,
         ai_approved=pregunta.ai_approved,
+        discard_reason=pregunta.discard_reason,
+        discard_note=pregunta.discard_note,
         source_chapters_json=pregunta.source_chapters_json,
     )
     clone.subjects.set(pregunta.subjects.all())

@@ -735,6 +735,34 @@ class Question(models.Model):
         verbose_name='Aprobada por usuario',
         help_text='True=Aprobada, False=Rechazada, NULL=Sin revisar'
     )
+    # Motivo con el que el docente descartó una pregunta generada (opcional).
+    # La tesis lo cita como insumo para refinar los prompts, por eso se guarda
+    # en la pregunta rechazada y no en un registro aparte.
+    DISCARD_REASON_CHOICES = [
+        ('demasiado_simple', 'Demasiado simple (solo exige memorizar)'),
+        ('demasiado_dificil', 'Demasiado difícil para el nivel'),
+        ('no_relevante', 'No es relevante para la materia'),
+        ('repetida', 'Muy parecida a otras preguntas'),
+        ('fuera_del_texto', 'No se desprende del texto'),
+        ('error_factual', 'Respuesta incorrecta o dudosa'),
+        ('mal_redactada', 'Mal redactada o ambigua'),
+        ('opciones_debiles', 'Opciones de respuesta poco convincentes'),
+        ('bloom_inadecuado', 'Nivel de Bloom mal asignado'),
+        ('otro', 'Otro (detallar)'),
+    ]
+    discard_reason = models.CharField(
+        max_length=20,
+        choices=DISCARD_REASON_CHOICES,
+        blank=True,
+        default='',
+        verbose_name='Motivo del descarte',
+    )
+    discard_note = models.CharField(
+        max_length=300,
+        blank=True,
+        default='',
+        verbose_name='Detalle del descarte',
+    )
     source_chapters_json = models.TextField(
         blank=True,
         null=True,

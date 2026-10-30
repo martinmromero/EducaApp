@@ -42,7 +42,8 @@ class TutorialDeInicioTests(TestCase):
         html = _leer('material', 'templates', 'material', 'onboarding_v2_demo_recap.html')
         self.assertIn('sb-pre', html)
         self.assertIn("window.addEventListener('load', arrancarRecorrido)", html)
-        self.assertIn("progressText: '{{current}} de {{total}}'", html)
+        # Django se comía {{current}} y {{total}}: tienen que salir por templatetag (ver tests_inicio_orden).
+        self.assertIn('{% templatetag openvariable %}current{% templatetag closevariable %}', html)
 
     def test_crear_cuenta_por_invitacion_avisa_que_esta_trabajando(self):
         html = _leer('material', 'templates', 'registration', 'invitacion_aceptar.html')

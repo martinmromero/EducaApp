@@ -46,7 +46,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;700&family=Bricolage+Grotesque:wght@700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    {# Inter sirve a los temas comunes; Montserrat (UAI) y Public Sans + Bricolage (Lápiz rojo) se piden solo cuando ese tema está activo (ver el selector de tema, más abajo). #}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {% if visual_theme == 'uai' %}<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">{% elif visual_theme == 'lapiz_rojo' %}<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">{% endif %}
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <link rel="stylesheet" href="{% static 'css/theme.css' %}">
     <link rel="stylesheet" href="{% static 'css/skins.css' %}">
@@ -935,6 +937,17 @@
             visualThemeOptions.forEach((option) => {
                 option.addEventListener('click', () => {
                     const theme = option.dataset.themeValue;
+                    // Fuente propia de ese tema: se pide recién al elegirlo (en la carga ya viene solo la del tema activo).
+                    const fuentesDeTema = {
+                        uai: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap',
+                        lapiz_rojo: 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700&family=Public+Sans:wght@400;500;600&display=swap'
+                    };
+                    if (fuentesDeTema[theme] && !document.querySelector('link[href="' + fuentesDeTema[theme] + '"]')) {
+                        const linkFuente = document.createElement('link');
+                        linkFuente.rel = 'stylesheet';
+                        linkFuente.href = fuentesDeTema[theme];
+                        document.head.appendChild(linkFuente);
+                    }
                     if (theme === 'default') {
                         htmlEl.removeAttribute('data-visual-theme');
                     } else {

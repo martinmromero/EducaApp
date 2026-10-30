@@ -1,5 +1,6 @@
 {% extends "material/base.html" %}
 {% load static %}
+{% load filter_tags %}
 
 {% block title %}Generar preguntas con IA - EducaApp{% endblock %}
 {% block page_title %}<i class="bi bi-magic me-2"></i>Generar preguntas con IA{% endblock %}
@@ -290,6 +291,21 @@
             <div class="modal-body">
                 <div id="preflightChapterList"></div>
                 <hr>
+                {# Panel de privacidad: dice adónde va el texto según el proveedor realmente en uso. #}
+                <details class="mb-3" id="privacyPanel" data-ai-kind="{{ privacy_info.kind }}">
+                    <summary class="fw-bold"><i class="bi bi-shield-lock"></i> ¿Qué se envía a la IA y adónde?</summary>
+                    <div class="alert alert-light border mt-2 mb-0 small">
+                        {% if privacy_info.kind == 'shared' %}
+                            <p class="mb-2"><strong>IA pública de EducaApp.</strong> Se envía únicamente el texto de las páginas elegidas, en tandas, a un proveedor externo (Groq o Gemini, según disponibilidad). El archivo completo no se envía.</p>
+                            <p class="mb-2">Si se activa «Incluir imágenes del documento», esas imágenes también se envían (a Gemini). El cupo diario se comparte entre todos los usuarios y no tiene costo para el docente.</p>
+                        {% elif privacy_info.kind == 'local' %}
+                            <p class="mb-2"><strong>Servidor de IA propio.</strong> El texto de las páginas elegidas se procesa en el servidor configurado y no sale de esa red. No hay costo por uso, pero la calidad depende del modelo instalado.</p>
+                        {% else %}
+                            <p class="mb-2"><strong>Proveedor: {{ privacy_info.provider }}.</strong> El texto de las páginas elegidas se envía a ese proveedor con la clave configurada (propia o de la institución). Rigen sus condiciones de privacidad y su facturación por uso; el costo en tokens se puede consultar en la plataforma del proveedor.</p>
+                        {% endif %}
+                        <p class="mb-0 text-muted">Los archivos subidos se borran al cerrar sesión; se conservan las preguntas y sus datos de origen (documento y página). El proveedor se cambia en <a href="{% url 'material:ai_config' %}">Configuración de IA</a>.</p>
+                    </div>
+                </details>
                 <h6 class="mb-2">
                     <i class="bi bi-list-ul"></i> Tipos de preguntas a generar
                     <i class="bi bi-question-circle-fill text-muted ms-1"
@@ -330,6 +346,22 @@
                         </div>
                     </div>
                 </div>
+                <hr>
+                <h6 class="mb-2">
+                    <i class="bi bi-diagram-3"></i> Niveles de Bloom a priorizar
+                    <i class="bi bi-question-circle-fill text-muted ms-1"
+                       title="Opcional. Sin selección, la IA reparte las preguntas entre los seis niveles."
+                       style="cursor:help"></i>
+                </h6>
+                <div class="d-flex flex-wrap gap-3 mb-2" id="bloomLevelChoices">
+                    {% for n, nombre in bloom_choices %}
+                    <div class="form-check">
+                        <input class="form-check-input bloom-level-cb" type="checkbox" value="{{ n }}" id="bl_{{ n }}">
+                        <label class="form-check-label" for="bl_{{ n }}">{{ n }}. {{ nombre }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="small text-muted mb-3" id="bloomModeHint" aria-live="polite">Sin selección, la IA reparte las preguntas entre los distintos niveles.</div>
                 <hr>
                 <h6><i class="bi bi-sliders"></i> Cantidad de preguntas</h6>
                 <div class="mb-3">
@@ -1560,6 +1592,7 @@ async function offerRestoreGeneratedQuestionsBackup() {
         document.querySelectorAll('.question-approve-checkbox').forEach(cb => {
             cb.checked = approvedSet.has(parseInt(cb.value, 10));
         });
+        syncDiscardBlocks();
     }
 
     new bootstrap.Modal(document.getElementById('questionsModal')).show();
@@ -1701,6 +1734,25 @@ function showPreflightModal(indices, chapters) {
     new bootstrap.Modal(document.getElementById('preflightModal')).show();
 }
 
+// Aviso según los niveles de Bloom elegidos: los altos rinden mejor con un modelo potente.
+const AI_KIND = "{{ privacy_info.kind }}";
+function updateBloomHint() {
+    const niveles = [...document.querySelectorAll('.bloom-level-cb:checked')].map(cb => parseInt(cb.value, 10));
+    const hint = document.getElementById('bloomModeHint');
+    if (!hint) return;
+    if (niveles.length === 0) {
+        hint.textContent = 'Sin selección, la IA reparte las preguntas entre los distintos niveles.';
+    } else if (niveles.some(n => n >= 4)) {
+        hint.textContent = 'Analizar, Evaluar y Crear exigen más razonamiento: suelen rendir mejor con un modelo potente (IA pública o clave propia de un proveedor) que con uno pequeño instalado en un servidor propio.'
+            + (AI_KIND === 'local' ? ' El proveedor activo es un servidor propio: conviene revisar estas preguntas con más cuidado o cambiar el proveedor en Configuración de IA.' : '');
+    } else {
+        hint.textContent = 'Recordar, Comprender y Aplicar suelen resolverse bien con un modelo liviano, incluso uno instalado en un servidor propio; es una buena opción cuando prima la privacidad.';
+    }
+}
+document.addEventListener('change', function (e) {
+    if (e.target && e.target.matches && e.target.matches('.bloom-level-cb')) updateBloomHint();
+});
+
 async function startGeneration() {
     // Recolectar tipos de preguntas seleccionados
     const checkedTypes = [...document.querySelectorAll('.question-type-cb:checked')].map(cb => cb.value);
@@ -1709,6 +1761,7 @@ async function startGeneration() {
         return;
     }
     window._selectedQuestionTypes = checkedTypes;
+    window._bloomLevels = [...document.querySelectorAll('.bloom-level-cb:checked')].map(cb => parseInt(cb.value, 10));
 
     // Deshabilitar de forma síncrona, antes de cualquier operación async: un
     // doble clic en "Comenzar" alcanzaba a lanzar dos jobs de generación en
@@ -1786,6 +1839,7 @@ async function generateStreaming() {
                 filename: window.currentDocumentData.filename,
                 stream_mode: true,
                 question_types: window._selectedQuestionTypes || [],
+                bloom_levels: window._bloomLevels || [],
                 total_questions: window._totalQuestions || 20,
                 questions_per_block: window._questionsPerBlock || 0,
                 include_images: window._includeImages || false,
@@ -2308,7 +2362,8 @@ function appendGeneratedQuestions(questions) {
             </div>
             <div class="card-body" id="questionBody${index}">
                 ${questionBodyHTML(q)}
-            </div>`;
+            </div>
+            ${discardReasonHTML(index, q)}`;
         container.appendChild(card);
     });
 }
@@ -2353,6 +2408,7 @@ function displayGeneratedQuestions(questions) {
                 <div class="card-body" id="questionBody${index}">
                     ${questionBodyHTML(q)}
                 </div>
+                ${discardReasonHTML(index, q)}
             </div>
         `;
     });
@@ -2360,10 +2416,67 @@ function displayGeneratedQuestions(questions) {
     document.getElementById('questionsContent').innerHTML = html;
 }
 
+// ─── Motivo de descarte ─────────────────────────────────────────────────────
+// Al desmarcar una pregunta aparece un selector opcional con el motivo (y un
+// detalle si elige "Otro"). Se guarda en la pregunta rechazada; sirve para
+// afinar los prompts. Si no se elige nada, la pregunta se descarta igual.
+const DISCARD_REASONS = {{ discard_reasons_json|json_embed }};
+
+function discardReasonHTML(index, q) {
+    const opts = DISCARD_REASONS.map(r =>
+        `<option value="${r.value}" ${q.motivo_descarte === r.value ? 'selected' : ''}>${window.EducaAppEscape(r.label)}</option>`
+    ).join('');
+    const showNote = q.motivo_descarte === 'otro';
+    return `
+        <div class="card-footer discard-reason-block d-none" id="discardBlock${index}" data-index="${index}">
+            <label class="form-label small fw-bold mb-1" for="discardReason${index}">
+                <i class="bi bi-x-circle text-danger"></i> Motivo del descarte <span class="text-muted fw-normal">(opcional)</span>
+            </label>
+            <select class="form-select form-select-sm discard-reason-select" id="discardReason${index}" data-index="${index}">
+                <option value="">Sin especificar</option>
+                ${opts}
+            </select>
+            <input type="text" class="form-control form-control-sm mt-2 discard-note-input ${showNote ? '' : 'd-none'}"
+                   id="discardNote${index}" data-index="${index}" maxlength="300"
+                   placeholder="Detalle breve del motivo" value="${window.EducaAppEscape(q.motivo_detalle || '')}">
+        </div>`;
+}
+
+function syncDiscardBlocks() {
+    document.querySelectorAll('.question-approve-checkbox').forEach(cb => {
+        const block = document.getElementById('discardBlock' + cb.value);
+        if (block) block.classList.toggle('d-none', cb.checked);
+    });
+}
+
+document.addEventListener('change', function (e) {
+    const t = e.target;
+    if (!t || !t.matches) return;
+    if (t.matches('.question-approve-checkbox')) {
+        syncDiscardBlocks();
+    } else if (t.matches('.discard-reason-select')) {
+        const q = window.generatedQuestions[parseInt(t.dataset.index, 10)];
+        if (!q) return;
+        q.motivo_descarte = t.value;
+        const note = document.getElementById('discardNote' + t.dataset.index);
+        if (note) note.classList.toggle('d-none', t.value !== 'otro');
+        backupGeneratedQuestions();
+    }
+});
+
+document.addEventListener('input', function (e) {
+    const t = e.target;
+    if (t && t.matches && t.matches('.discard-note-input')) {
+        const q = window.generatedQuestions[parseInt(t.dataset.index, 10)];
+        if (q) { q.motivo_detalle = t.value; backupGeneratedQuestions(); }
+    }
+});
+
 function selectAllQuestions(select) {
     document.querySelectorAll('.question-approve-checkbox').forEach(checkbox => {
         checkbox.checked = select;
     });
+    syncDiscardBlocks();
 }
 
 // ─── Edición de preguntas ───────────────────────────────────────────────────

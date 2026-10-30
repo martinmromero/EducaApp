@@ -125,6 +125,7 @@
                                         <span class="badge text-bg-success">✅ Aprobada</span>
                                     {% else %}
                                         <span class="badge text-bg-danger">❌ Rechazada</span>
+                                        {% if pregunta.discard_reason %}<div class="small text-muted">{{ pregunta.get_discard_reason_display }}{% if pregunta.discard_note %}: {{ pregunta.discard_note }}{% endif %}</div>{% endif %}
                                     {% endif %}
                                 {% else %}
                                     <span class="text-muted">—</span>
