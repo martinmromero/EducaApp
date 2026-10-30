@@ -291,7 +291,10 @@
     .catreq-chip-final.is-locked { opacity: .5; }
     .catreq-chip-final-label { font-size: .85rem; font-weight: 600; margin-bottom: 6px; }
     .catreq-chip-final-locked-hint { font-size: .8rem; color: var(--bs-warning-text-emphasis, #997404); background: var(--bs-warning-bg-subtle, #fff3cd); border: 1px solid var(--bs-warning-border-subtle, #ffe69c); border-radius: .4rem; padding: 8px 10px; margin-bottom: 8px; }
-    .catreq-chip-final .catreq-chip-search .form-control { padding-left: 36px; }
+    .catreq-chip-final .catreq-chip-search .form-control { padding-left: 36px; padding-top: 10px; padding-bottom: 10px; font-size: .9rem; }
+    /* Mismo fondo que los buscadores de los pasos de arriba (input plano → Field); .form-control usaba el beige de la página */
+    .catreq-chip-final .catreq-chip-search .form-control:not(:disabled):not([readonly]) { background-color: Field; color: FieldText; }
+    .catreq-chip-final .catreq-chip-search .form-control:focus { border-color: #86b7fe; box-shadow: 0 0 0 .2rem rgba(13,110,253,.15); }
     .catreq-final-confirmado { border: 1px solid var(--bs-border-color); border-radius: .4rem; padding: 10px 12px; margin-top: 4px; background: var(--bs-tertiary-bg); }
     .catreq-final-confirmado-msg { display: flex; align-items: center; gap: 8px; font-size: .88rem; margin-bottom: 6px; }
     .catreq-final-confirmado-msg svg { color: var(--bs-success); flex-shrink: 0; }
@@ -351,6 +354,7 @@ document.addEventListener('DOMContentLoaded', function () {
         institucion: 'Buscar por nombre o sigla.',
         facultad: 'Buscar una facultad ya cargada.',
         carrera: 'Buscar una carrera ya cargada.',
+        materia_existente: 'Buscar una materia ya cargada en esta carrera.',
     };
     // Pregunta arriba de cada paso — se ve solo mientras ese paso está
     // activo, así nunca hay más de una pregunta a la vez en pantalla.
@@ -380,6 +384,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const el = document.getElementById(opts.chipId);
         return Object.assign({
             nivel: nivel,
+            // `nivel` es lo que entiende el servidor (materia_existente busca
+            // en 'materia'); `key` identifica al chip en `chips`/`expandido`.
+            key: opts.key || nivel,
             el: el,
             headEmpty: el.querySelector('[data-role="empty"]'),
             headFilled: el.querySelector('[data-role="filled"]'),
@@ -404,7 +411,7 @@ document.addEventListener('DOMContentLoaded', function () {
             chipId: 'chipCarrera', select: carreraSelect, nueva: carreraNueva, soloExistente: false,
         }),
         materia_existente: buildChip('materia', {
-            chipId: 'chipMateriaExistente', select: materiaSelect, nueva: null, soloExistente: true,
+            key: 'materia_existente', chipId: 'chipMateriaExistente', select: materiaSelect, nueva: null, soloExistente: true,
         }),
     };
 
@@ -436,16 +443,16 @@ document.addEventListener('DOMContentLoaded', function () {
     function cerrarExpand(chip) {
         chip.expand.style.display = 'none';
         chip.suggestBox.innerHTML = '';
-        if (expandido === chip.nivel) expandido = null;
+        if (expandido === chip.key) expandido = null;
     }
 
     function abrirExpand(chip) {
-        if (expandido && chips[expandido] && expandido !== chip.nivel) {
+        if (expandido && chips[expandido] && expandido !== chip.key) {
             cerrarExpand(chips[expandido]);
         }
-        expandido = chip.nivel;
+        expandido = chip.key;
         chip.expand.style.display = '';
-        if (chip.question) chip.question.textContent = CHIP_QUESTIONS[chip.nivel] || '';
+        if (chip.question) chip.question.textContent = CHIP_QUESTIONS[chip.key] || '';
         chip.searchInput.value = nombreResuelto(chip);
         // Limpia resultados de una búsqueda anterior — si no, tipear "uc",
         // cambiar de nivel/tipo y volver dejaba las sugerencias viejas
@@ -466,13 +473,13 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         chip.el.style.display = '';
-        chip.el.classList.toggle('is-active', expandido === chip.nivel);
+        chip.el.classList.toggle('is-active', expandido === chip.key);
         const resuelto = chipResuelto(chip);
-        if (!resuelto || expandido === chip.nivel) {
-            chip.headEmpty.style.display = expandido === chip.nivel ? 'none' : '';
+        if (!resuelto || expandido === chip.key) {
+            chip.headEmpty.style.display = expandido === chip.key ? 'none' : '';
             chip.headFilled.style.display = 'none';
             const hints = chip.soloExistente ? CHIP_HINTS_SOLO_EXISTENTE : CHIP_HINTS;
-            chip.headEmpty.querySelector('.catreq-chip-sub').textContent = hints[chip.nivel] || '';
+            chip.headEmpty.querySelector('.catreq-chip-sub').textContent = hints[chip.key] || '';
         } else {
             chip.headEmpty.style.display = 'none';
             chip.headFilled.style.display = '';
@@ -512,7 +519,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 chip.select.value = row.dataset.id;
                 if (chip.nueva) chip.nueva.value = '';
                 cerrarExpand(chip);
-                onChipResolved(chip.nivel);
+                onChipResolved(chip.key);
             });
         });
         const crearRow = chip.suggestBox.querySelector('[data-crear]');
@@ -521,7 +528,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 chip.select.value = '';
                 if (chip.nueva) chip.nueva.value = chip.searchInput.value.trim();
                 cerrarExpand(chip);
-                onChipResolved(chip.nivel);
+                onChipResolved(chip.key);
             });
         }
     }
@@ -580,10 +587,23 @@ document.addEventListener('DOMContentLoaded', function () {
         if (nivel === 'institucion') { limpiarChip(chips.facultad); }
         if (nivel === 'institucion' || nivel === 'facultad') { limpiarChip(chips.carrera); }
         if (nivel !== 'materia_existente') { limpiarChip(chips.materia_existente); }
+        // Las coincidencias del paso final dependen del contexto de arriba:
+        // si cambió, las sugerencias o el "ya existe" de antes quedan viejos.
+        sugerenciasFinal.innerHTML = '';
+        if (finalConfirmado.style.display !== 'none') ocultarFinalConfirmado(true);
         renderAll();
+        enfocarPasoActual();
+    }
+
+    // Mismo comportamiento en cualquier tipo: el paso que toca completar se
+    // abre y toma el foco — un chip si falta alguno, y si no, el campo final.
+    function enfocarPasoActual() {
         const proximo = siguienteChipVacio();
         if (proximo) abrirExpand(proximo);
         renderAll();
+        if (!proximo && !nombrePropuesto.disabled && finalSearchWrap.style.display !== 'none') {
+            nombrePropuesto.focus();
+        }
     }
 
     function nivelesNecesarios() {
@@ -639,6 +659,7 @@ document.addEventListener('DOMContentLoaded', function () {
         finalLabel.textContent = FINAL_QUESTIONS[tipoSelect.value] || 'Nombre propuesto';
         nombrePropuesto.placeholder = NOMBRE_PROPUESTO_PLACEHOLDER[tipoSelect.value] || '';
         nombrePropuesto.rows = esResultadoAprendizaje ? 3 : 1;
+        nombrePropuesto.style.resize = esResultadoAprendizaje ? 'vertical' : 'none';
     }
 
     tipoSelect.addEventListener('change', function () {
@@ -651,9 +672,7 @@ document.addEventListener('DOMContentLoaded', function () {
         sugerenciasFinal.innerHTML = '';
         ocultarFinalConfirmado();
         renderAll();
-        const proximo = siguienteChipVacio();
-        if (proximo) abrirExpand(proximo);
-        renderAll();
+        enfocarPasoActual();
     });
 
     // El paso final (lo que efectivamente se está pidiendo) usa la misma
@@ -673,14 +692,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (submitBtn) submitBtn.disabled = true;
     }
 
-    function ocultarFinalConfirmado() {
+    function ocultarFinalConfirmado(sinFoco) {
         finalConfirmado.style.display = 'none';
         finalSearchWrap.style.display = '';
         if (submitBtn) submitBtn.disabled = false;
-        nombrePropuesto.focus();
+        if (sinFoco !== true) nombrePropuesto.focus();
     }
 
-    finalConfirmadoDeshacer.addEventListener('click', ocultarFinalConfirmado);
+    finalConfirmadoDeshacer.addEventListener('click', function () { ocultarFinalConfirmado(); });
 
     function renderSuggestFinal(matches) {
         if (!matches.length) { sugerenciasFinal.innerHTML = ''; return; }
@@ -703,13 +722,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
     nombrePropuesto.addEventListener('input', debounce(function () {
         const nivel = tipoSelect.value;
-        buscarCoincidencias(nivel, nombrePropuesto.value).then(renderSuggestFinal);
+        // Igual que en los chips: se busca solo dentro de lo elegido arriba
+        // (facultades de ESA institución, etc.); si un padre es nuevo, nada
+        // cargado puede pertenecerle.
+        const padres = { facultad: ['institucion'], carrera: ['institucion', 'facultad'], materia: ['institucion', 'facultad', 'carrera'] }[nivel] || [];
+        if (padres.some(function (p) { return chipEsNueva(chips[p]); })) { renderSuggestFinal([]); return; }
+        const extra = {};
+        if (nivel === 'facultad') extra.institucion_id = institucionSelect.value;
+        if (nivel === 'carrera') extra.facultad_id = facultadSelect.value;
+        if (nivel === 'materia') extra.carrera_id = carreraSelect.value;
+        buscarCoincidencias(nivel, nombrePropuesto.value, extra).then(renderSuggestFinal);
     }, 300));
 
     renderAll();
-    const primerVacio = siguienteChipVacio();
-    if (primerVacio) abrirExpand(primerVacio);
-    renderAll();
+    enfocarPasoActual();
 });
 </script>
 {% endblock %}
