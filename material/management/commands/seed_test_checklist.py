@@ -175,7 +175,7 @@ ITEMS = [
     (19, "Modo simple y asistentes", "Asistente paso a paso, último paso: cambiar entre Examen escrito y Cuestionario oral, armar y guardar un cuestionario oral", "full_wizard", False, None),
     (19, "Modo simple y asistentes", "Asistente paso a paso, último paso: la barra de abajo del examen y del oral tiene \"Empezar de nuevo\" (pide confirmar y vuelve al primer paso sin preguntar si retomar) y \"Salir\"", "full_wizard", False, None),
     (19, "Modo simple y asistentes", "Asistente paso a paso, último paso con plantilla elegida: \"Atrás\" en el primer paso que se ve (\"Paso 1 de 6\") vuelve al paso Preguntas del asistente paso a paso, no a un paso oculto de adentro; \"Atrás\" en los siguientes sí retrocede de a uno", "full_wizard", False, None),
-    (19, "Modo simple y asistentes", "Asistente paso a paso, paso Preguntas con una materia que ya tiene preguntas (también al elegir una plantilla): dice \"Esta materia ya tiene N preguntas, de M tópicos\" (sin la parte de tópicos si no tiene), las dos tarjetas para sumar más quedan escondidas hasta tocar \"acá\", y \"Continuar\" sigue de largo", "full_wizard", False, None),
+    (19, "Modo simple y asistentes", "Asistente paso a paso, paso Preguntas con una materia que ya tiene preguntas (también al elegir una plantilla): dice \"Esta materia ya tiene N preguntas, de M tópicos\" (sin tópicos si no tiene), las dos tarjetas para sumar más quedan escondidas hasta tocar \"acá\", y \"Continuar\" sigue de largo", "full_wizard", False, None),
     (19, "Modo simple y asistentes", "Asistente paso a paso, paso Preguntas con una materia sin preguntas: las dos tarjetas (Generar con IA / Cargar a mano) se ven de entrada y el aviso pide cargar al menos una", "full_wizard", False, None),
     (19, "Modo simple y asistentes", "Asistente paso a paso, último paso: al abrirse no se ve cómo se llenan los pasos de adentro (aparece \"Preparando con lo ya elegido…\" y recién después el primer paso), y hay una sola barra de pasos, con \"Paso X de N\" al lado de \"Armar\"", "full_wizard", False, None),
     (19, "Modo simple y asistentes", "Modo simple en pantalla grande: el menú lateral arranca colapsado; el botón de arriba a la izquierda lo abre y lo cierra y recuerda la elección; el recorrido guiado (\"?\") lo abre y al terminar lo vuelve a cerrar; en modo avanzado y en el celular no cambia", "index", False, None),
@@ -191,7 +191,14 @@ ITEMS = [
 # Textos anteriores de ítems que cambiaron de redacción (se pasaron a registro
 # impersonal): (area_number, texto nuevo) -> texto anterior. Sirve para renombrar
 # el ítem existente sin perder los resultados que ya cargaron los testers.
+# Largo máximo de TestChecklistItem.text (CharField).
+TEXTO_MAX = 300
+
+
 TEXTOS_ANTERIORES = {
+    # Acortado al renombrar el asistente: con el nombre nuevo pasaba de los 300 caracteres de la columna.
+    (19, "Asistente paso a paso, paso Preguntas con una materia que ya tiene preguntas (también al elegir una plantilla): dice \"Esta materia ya tiene N preguntas, de M tópicos\" (sin tópicos si no tiene), las dos tarjetas para sumar más quedan escondidas hasta tocar \"acá\", y \"Continuar\" sigue de largo"):
+        "Asistente completo, paso Preguntas con una materia que ya tiene preguntas (también al elegir una plantilla): dice \"Esta materia ya tiene N preguntas, de M tópicos\" (sin la parte de tópicos si no tiene), las dos tarjetas para sumar más quedan escondidas hasta tocar \"acá\", y \"Continuar\" sigue de largo",
     (1, "Comentar cómo resultó crear la cuenta (signup abierto o por invitación) — dejar el comentario acá"):
         "Recordá cómo te fue creando la cuenta (signup abierto o por invitación) — contalo acá",
     (1, "Comentar cómo resultó configurar la pregunta de seguridad — dejar el comentario acá"):
@@ -225,9 +232,17 @@ class Command(BaseCommand):
         seen_keys = set()
         created, updated = 0, 0
         for idx, (area_number, area_name, text, url_name, admin_only, stage) in enumerate(ITEMS, start=1):
+            if len(text) > TEXTO_MAX:
+                # Un ítem demasiado largo no tiene que tirar abajo el deploy (esto corre en el build de Render).
+                self.stderr.write(f'Ítem omitido por superar {TEXTO_MAX} caracteres ({len(text)}): {text[:70]}…')
+                continue
             seen_keys.add((area_number, text))
             anterior = TEXTOS_ANTERIORES.get((area_number, text))
-            if anterior:
+            if not anterior and 'asistente paso a paso' in text.lower():
+                # Renombrado "Asistente completo" -> "Asistente paso a paso": se actualiza el ítem existente
+                # (con sus resultados) en vez de borrarlo y crear uno nuevo.
+                anterior = text.replace('Asistente paso a paso', 'Asistente completo').replace('asistente paso a paso', 'asistente completo')
+            if anterior and anterior != text:
                 TestChecklistItem.objects.filter(area_number=area_number, text=anterior).update(text=text)
             obj, was_created = TestChecklistItem.objects.update_or_create(
                 area_number=area_number,
