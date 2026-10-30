@@ -100,7 +100,9 @@ def onboarding_context(request):
         'selector_umbral': settings.SELECTOR_UMBRAL,
         'visual_theme': profile.visual_theme,
         'visual_theme_choices': profile.VISUAL_THEME_CHOICES,
-        'font_scale': profile.font_scale,
+        'tamano_letra_selector': settings.TAMANO_LETRA_SELECTOR,
+        # Con el selector apagado no se aplica una preferencia guardada: queda el tamaño automático.
+        'font_scale': profile.font_scale if settings.TAMANO_LETRA_SELECTOR else 'auto',
         'font_scale_choices': profile.FONT_SCALE_CHOICES,
         # Área de Pruebas: la marca de sesión (ver training_views.py) es lo
         # único que hace falta acá — no una consulta a TrainingAccountLink,

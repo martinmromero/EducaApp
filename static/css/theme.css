@@ -204,3 +204,6 @@ html[data-font-scale="muy_grande"] { font-size: 125%; }
   border-color: var(--bs-primary);
   color: #fff;
 }
+
+/* Paleta de temas y modo claro/oscuro al pie del menú lateral: un poco de aire contra el borde derecho del menú. */
+.sidebar .bottom-links .sidebar-acciones { padding-right: 14px; }

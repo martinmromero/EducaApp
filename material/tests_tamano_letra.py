@@ -1,6 +1,6 @@
 """Tamaño de letra por cuenta (2026-10-29): endpoint, atributo en <html> y menú."""
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 User = get_user_model()
@@ -14,6 +14,7 @@ def _crear(nombre):
     return u
 
 
+@override_settings(TAMANO_LETRA_SELECTOR=True)
 class TamanoLetraTests(TestCase):
     def setUp(self):
         self.u = _crear('tl_docente')
@@ -47,3 +48,27 @@ class TamanoLetraTests(TestCase):
     def test_solo_post_y_con_login(self):
         self.assertEqual(self.c.get(reverse('material:set_font_scale')).status_code, 405)
         self.assertEqual(Client().post(reverse('material:set_font_scale'), {'scale': 'grande'}).status_code, 302)
+
+
+class TamanoLetraOcultoTests(TestCase):
+    """Con el interruptor apagado (el valor por defecto) el selector no se ve ni se aplica lo guardado."""
+
+    def setUp(self):
+        self.u = _crear('tl_oculto')
+        self.c = Client()
+        self.c.force_login(self.u)
+
+    def test_apagado_por_defecto_no_muestra_el_selector(self):
+        html = self.c.get(reverse('material:index')).content.decode()
+        self.assertNotIn('data-scale-value', html)
+        self.assertNotIn('font-scale-row', html)
+        # Un comentario de plantilla mal escrito (de varias líneas) se vería como texto en el menú.
+        self.assertNotIn('{#', html)
+        self.assertNotIn('TAMANO_LETRA', html)
+
+    def test_una_preferencia_guardada_no_se_aplica_si_esta_apagado(self):
+        self.u.profile.font_scale = 'muy_grande'
+        self.u.profile.save()
+        html = self.c.get(reverse('material:index')).content.decode()
+        self.assertNotIn('data-font-scale', html.split('<head>')[0])
+

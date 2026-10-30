@@ -324,6 +324,9 @@
             {% if user.is_authenticated %}
                 <a href="{% url 'material:ai_config' %}"><i class="bi bi-cpu me-2"></i>Proveedor de IA</a>
                 <a href="{% url 'material:contacto_autor' %}?next={{ request.get_full_path|urlencode }}" id="tourContactoAutor"><i class="bi bi-chat-dots me-2"></i>Hablar con el autor</a>
+                {% comment %}Selector de tamaño de letra: oculto por ahora (settings.TAMANO_LETRA_SELECTOR). Pendiente de
+                   llevarlo dentro del menú de la paleta de temas; ver la memoria "font-scale-parking-lot".{% endcomment %}
+                {% if tamano_letra_selector %}
                 <div class="font-scale-row" role="group" aria-label="Tamaño de letra" id="tourTamanoLetra">
                     <span class="font-scale-label"><i class="bi bi-type me-2"></i>Letra</span>
                     {% for value, label in font_scale_choices %}
@@ -331,10 +334,11 @@
                                 class="font-scale-option font-scale-{{ value }}{% if font_scale == value %} active{% endif %}">{% if value == 'auto' %}Auto{% else %}A{% endif %}</button>
                     {% endfor %}
                 </div>
+                {% endif %}
             {% endif %}
             <div class="d-flex justify-content-between align-items-center">
                 <a href="{% url 'material:mis_datos' %}" id="tourMisDatos"><i class="bi bi-person-lines-fill me-2"></i>Mis datos</a>
-                <div class="d-flex align-items-center gap-1">
+                <div class="d-flex align-items-center gap-1 sidebar-acciones">
                     {% if user.is_authenticated %}
                         <div class="dropdown">
                             <button class="btn btn-secondary btn-sm" type="button" id="visualThemeDropdown"

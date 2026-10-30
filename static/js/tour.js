@@ -167,6 +167,14 @@
       onHighlightStarted: collapseAllMenus,
     },
     {
+      element: '#tourContactoAutor',
+      popover: {
+        title: 'Hablar con el autor',
+        description: 'Desde aquí se puede contactar al autor de la aplicación.',
+        side: 'right',
+      },
+    },
+    {
       element: '#tourTamanoLetra',
       popover: {
         title: 'Tamaño de letra',

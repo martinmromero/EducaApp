@@ -191,6 +191,11 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 AUTHOR_CONTACT_EMAIL = 'martin.romero@uai.edu.ar'
 AUTHOR_CONTACT_PHONE = '5491160490784'
 
+# Selector de tamaño de letra (Profile.font_scale). Apagado por ahora: el diseño de la fila en el menú lateral no
+# convenció y falta llevarlo dentro del menú de la paleta de temas. Con 1 vuelve a aparecer y se aplica la
+# preferencia guardada. Sin el selector, la letra automática del celular (static/css/theme.css) sigue funcionando.
+TAMANO_LETRA_SELECTOR = os.environ.get('TAMANO_LETRA_SELECTOR', '0') == '1'
+
 # Custom user model (opcional, si en el futuro necesitas personalizar)
 # AUTH_USER_MODEL = 'material.CustomUser'
 

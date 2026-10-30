@@ -68,11 +68,11 @@
     var st = document.createElement('style');
     st.id = 'actividadEstilo';
     st.textContent =
-      '#actividadBarra{position:fixed;top:0;left:0;right:0;height:3px;z-index:3000;pointer-events:none;' +
+      '#actividadBarra{position:fixed;top:0;left:0;right:0;height:6px;z-index:3000;pointer-events:none;' +
       'overflow:hidden;opacity:0;transition:opacity .15s}' +
       '#actividadBarra.activa{opacity:1}' +
       '#actividadBarra::before{content:"";position:absolute;top:0;bottom:0;left:-40%;width:40%;' +
-      'background:var(--bs-primary,#0d6efd);border-radius:0 3px 3px 0;animation:actividadMover 1.1s ease-in-out infinite}' +
+      'background:var(--bs-primary,#0d6efd);border-radius:0 6px 6px 0;animation:actividadMover 1.1s ease-in-out infinite}' +
       '@keyframes actividadMover{0%{left:-40%}100%{left:100%}}' +
       '@media (prefers-reduced-motion:reduce){#actividadBarra::before{left:0;width:100%;animation:actividadPulso 1.6s ease-in-out infinite}' +
       '@keyframes actividadPulso{50%{opacity:.35}}}' +
