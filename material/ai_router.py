@@ -643,14 +643,14 @@ def _parse_duration_to_seconds(raw: Optional[str]) -> Optional[float]:
 
 SHARED_QUOTA_EXHAUSTED_MESSAGE = (
     'La IA pública gratuita no tiene más cupo compartido por ahora. Se puede seguir '
-    'cargando una conexión propia en "Proveedor de IA" (clave de un proveedor) o, si la '
+    'cargando una conexión propia en "Configuración de IA" (clave de un proveedor) o, si la '
     'institución cuenta con un servidor Ollama propio, conectándolo desde esa misma '
     'pantalla (consultar antes con el administrador de la institución).'
 )
 
 SHARED_UNAVAILABLE_MESSAGE = (
     'La IA pública gratuita no está disponible ahora mismo. Se puede cargar una '
-    'conexión propia en "Proveedor de IA" (clave de un proveedor) o, si la institución '
+    'conexión propia en "Configuración de IA" (clave de un proveedor) o, si la institución '
     'cuenta con un servidor Ollama propio, conectarlo desde esa misma pantalla '
     '(consultar antes con el administrador de la institución).'
 )

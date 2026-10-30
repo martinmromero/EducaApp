@@ -108,7 +108,8 @@ class MenuTests(TestCase):
         resp = self.inicio('m_avanzado')
         for presente in ('id="tourMenuContenidos"', 'id="tourMenuAcademico"', 'id="tourMenuGrupos"', 'id="tourMenuPlantillas"'):
             self.assertContains(resp, presente)
-        self.assertNotContains(resp, 'id="tourMenuAsistente"')
+        # El asistente paso a paso es el primer ítem en los dos modos.
+        self.assertContains(resp, 'id="tourMenuAsistente"')
         self.assertContains(resp, 'id="modeSwitch"')
         self.assertRegex(resp.content.decode(), r'id="modeSwitch"\s*checked')
 

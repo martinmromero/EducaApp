@@ -637,13 +637,13 @@ def generate_questions_from_chapters(request):
             if backend_type == 'ollama_local':
                 error_msg = (
                     'El servidor Ollama configurado no responde. Verificar su dirección en '
-                    '"Proveedor de IA", o volver a la IA pública gratuita desde esa misma pantalla.'
+                    '"Configuración de IA", o volver a la IA pública gratuita desde esa misma pantalla.'
                 )
             elif backend_type == 'shared_demo':
                 from .ai_router import SHARED_UNAVAILABLE_MESSAGE
                 error_msg = _status.get('error') or SHARED_UNAVAILABLE_MESSAGE
             else:
-                error_msg = f'Proveedor de IA ({backend_type}) no disponible. Verificar la configuración y la API key.'
+                error_msg = f'Configuración de IA ({backend_type}) no disponible. Verificar la configuración y la API key.'
             return JsonResponse({
                 'success': False,
                 'error': error_msg

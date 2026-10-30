@@ -71,8 +71,8 @@
                             <i class="bi bi-exclamation-circle-fill me-2"></i>
                             <span class="fw-bold">IA Desconectada</span>
                         </span>
-                        <a href="{% url 'material:ai_config' %}" class="btn btn-sm btn-warning ms-2" title="Configurar proveedor">
-                            <i class="bi bi-gear"></i> Configurar
+                        <a href="{% url 'material:ai_config' %}" class="btn btn-sm btn-warning ms-2" title="Configuración de IA">
+                            <i class="bi bi-gear"></i> Configuración de IA
                         </a>
                         {% endif %}
                         <button class="btn btn-sm btn-outline-secondary btn-icon ms-2" onclick="checkLocalAIStatus()" title="Actualizar estado">
@@ -103,7 +103,7 @@
                                 {% elif local_ai_connected %}
                                     <span class="text-warning">
                                         <i class="bi bi-exclamation-triangle-fill"></i> La conexión responde, pero el modelo configurado no es compatible para generar preguntas.
-                                        Revisar proveedor y modelo en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a>.
+                                        Revisar proveedor y modelo en <a href="{% url 'material:ai_config' %}">Configuración de IA</a>.
                                     </span>
                                 {% else %}
                                     <span class="text-warning">
@@ -124,8 +124,9 @@
                             </small>
                         </div>
                     </div>
-                    <a href="{% url 'material:ai_config' %}" class="btn btn-sm btn-outline-primary btn-icon" title="Configurar proveedor de IA">
-                        <i class="bi bi-gear"></i>
+                    {# Antes era solo un ícono de engranaje: se le puso el nombre para que se encuentre (el ítem "Configuración de IA" ya no está en el menú lateral). #}
+                    <a href="{% url 'material:ai_config' %}" class="btn btn-sm btn-primary" id="docAiConfigBtn" title="Elegir el proveedor de IA y cargar una clave propia">
+                        <i class="bi bi-gear me-1"></i>Configuración de IA
                     </a>
                 </div>
             </div>
@@ -1273,7 +1274,7 @@ function renderDemoQuotaBox(data) {
     }
     box.innerHTML = (low ? '<i class="bi bi-exclamation-triangle-fill text-warning"></i>' : '<i class="bi bi-people-fill"></i>') +
         ` IA compartida — cupo del día: quedan <strong>${q.remaining_requests} de ${q.limit_requests ?? '?'}</strong> tandas` +
-        (low ? ' <span class="text-warning">(queda poco — conviene conectar una key propia en Proveedor de IA)</span>' : '') +
+        (low ? ' <span class="text-warning">(queda poco — conviene conectar una key propia en Configuración de IA)</span>' : '') +
         resetLine +
         (lowTokens ? '<br><span class="text-warning"><i class="bi bi-hourglass-split"></i> Uso compartido alto ahora mismo (de todos los que usan la IA de prueba) — puede tardar más de lo normal por un rato</span>' : '');
 }
@@ -1607,8 +1608,8 @@ async function generateQuestionsFromSelected() {
         if (!statusData.connected) {
             const providerMsg = statusData.provider || statusData.backend || 'IA';
             showAiNoticeBanner(
-                `Verificar la configuración en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a> antes de generar preguntas. Proveedor activo: <strong>${window.EducaAppEscape(providerMsg)}</strong>.`,
-                { title: 'Proveedor de IA no disponible' }
+                `Verificar la configuración en <a href="{% url 'material:ai_config' %}">Configuración de IA</a> antes de generar preguntas. Proveedor activo: <strong>${window.EducaAppEscape(providerMsg)}</strong>.`,
+                { title: 'IA no disponible' }
             );
             return;
         }
@@ -3516,8 +3517,8 @@ async function generateFromPageSelection() {
     if (!statusData.connected) {
       const providerMsg = statusData.provider || statusData.backend || 'IA';
       showAiNoticeBanner(
-        `Verificar la configuración en <a href="{% url 'material:ai_config' %}">Proveedor de IA</a> antes de generar preguntas. Proveedor activo: <strong>${window.EducaAppEscape(providerMsg)}</strong>.`,
-        { title: 'Proveedor de IA no disponible' }
+        `Verificar la configuración en <a href="{% url 'material:ai_config' %}">Configuración de IA</a> antes de generar preguntas. Proveedor activo: <strong>${window.EducaAppEscape(providerMsg)}</strong>.`,
+        { title: 'IA no disponible' }
       );
       return;
     }

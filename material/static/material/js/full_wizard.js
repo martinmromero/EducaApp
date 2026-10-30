@@ -784,7 +784,7 @@
                     var link = document.createElement('a');
                     link.href = CFG.urls.aiConfig;
                     link.className = 'alert-link';
-                    link.textContent = 'Abrir Proveedor de IA';
+                    link.textContent = 'Abrir Configuración de IA';
                     el.appendChild(link);
                     el.appendChild(document.createTextNode('. Mientras tanto, "Cargar a mano" sigue disponible.'));
                 } else if (d.using_shared_fallback) {

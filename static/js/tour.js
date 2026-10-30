@@ -11,7 +11,7 @@
   const STORAGE_KEY = 'educaapp_tour_done';
 
   // El sidebar tiene grupos con submenú (Exámenes, Mi espacio académico) e
-  // ítems simples sin submenú (Generar con IA, Contenidos, Preguntas,
+  // ítems simples sin submenú (Asistente, Generar con IA, Preguntas,
   // Grupos). expandMenu() sirve para ambos: en un ítem simple la clase
   // "active" no tiene efecto visible (no hay .submenu que mostrar), pero
   // igual cierra cualquier otro submenú que haya quedado abierto.
@@ -75,11 +75,10 @@
       onDeselected: unhighlightHelpBtn,
     },
     {
-      // Solo está en el menú del modo simple (en el avanzado vive dentro de "Mi espacio académico").
       element: '#tourMenuAsistente',
       popover: {
         title: 'Asistente paso a paso',
-        description: 'El recorrido paso a paso: institución, carrera, materia, preguntas y examen, todo en un mismo lugar. Es el punto de partida del modo simple.',
+        description: 'El recorrido paso a paso: institución, carrera, materia, preguntas y examen, todo en un mismo lugar. Es el primer ítem del menú y la puerta de entrada.',
         side: 'right',
       },
       onHighlightStarted: () => expandMenu('tourMenuAsistente'),
@@ -88,19 +87,10 @@
       element: '#tourMenuGenerarIA',
       popover: {
         title: 'Generar con IA',
-        description: 'Se sube un apunte, PDF o material de clase y la IA genera preguntas automáticamente a partir de su contenido. Es la función más usada de EducaApp.',
+        description: 'Se sube un apunte, PDF o material de clase y la IA genera preguntas automáticamente a partir de su contenido. Es la función más usada de EducaApp. Dentro de esa pantalla, el botón "Configuración de IA" permite elegir el proveedor de IA y cargar una clave propia.',
         side: 'right',
       },
       onHighlightStarted: () => expandMenu('tourMenuGenerarIA'),
-    },
-    {
-      element: '#tourMenuContenidos',
-      popover: {
-        title: 'Contenidos',
-        description: 'Biblioteca de todo lo que se subió: apuntes, PDFs y materiales de clase.',
-        side: 'right',
-      },
-      onHighlightStarted: () => expandMenu('tourMenuContenidos'),
     },
     {
       element: '#tourMenuPreguntas',
@@ -134,10 +124,28 @@
       element: '#tourMenuAcademico',
       popover: {
         title: 'Mi espacio académico',
-        description: 'Institución, carrera y materia, más las plantillas de examen, rúbricas y formatos de impresión — todo lo que se configura una vez y se cambia ocasionalmente.',
+        description: 'Lo que se agregó al espacio personal, más institución, carrera, materia y los contenidos subidos — la estructura académica, que se configura una vez y se cambia ocasionalmente.',
         side: 'right',
       },
       onHighlightStarted: () => expandMenu('tourMenuAcademico'),
+    },
+    {
+      element: '#tourMenuContenidos',
+      popover: {
+        title: 'Contenidos',
+        description: 'Biblioteca de todo lo que se subió: apuntes, PDFs y materiales de clase. Vive dentro de Mi espacio académico.',
+        side: 'right',
+      },
+      onHighlightStarted: () => expandMenu('tourMenuAcademico'),
+    },
+    {
+      element: '#tourMenuFormatosPlantillas',
+      popover: {
+        title: 'Formatos y plantillas',
+        description: 'Los modelos que se reutilizan al armar exámenes: plantillas, rúbricas y formatos de impresión.',
+        side: 'right',
+      },
+      onHighlightStarted: () => expandMenu('tourMenuFormatosPlantillas'),
     },
     {
       element: '#tourMenuPlantillas',
@@ -146,7 +154,7 @@
         description: 'Aquí se pueden crear plantillas de examen reutilizables, para no repetir la misma configuración cada vez.',
         side: 'right',
       },
-      onHighlightStarted: () => expandMenu('tourMenuAcademico'),
+      onHighlightStarted: () => expandMenu('tourMenuFormatosPlantillas'),
     },
     {
       element: '#tourMenuFormatos',
@@ -155,7 +163,7 @@
         description: 'Aquí se define cómo se ve el examen impreso (membrete, colores, tamaño de hoja). Si se trabaja con más de una institución, se pueden guardar varios formatos — uno por cada una — para tener los exámenes listos con el membrete correspondiente.',
         side: 'right',
       },
-      onHighlightStarted: () => expandMenu('tourMenuAcademico'),
+      onHighlightStarted: () => expandMenu('tourMenuFormatosPlantillas'),
     },
     {
       element: '#tourMenuGrupos',

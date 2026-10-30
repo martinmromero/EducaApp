@@ -48,3 +48,54 @@ class InicioOrdenTests(TestCase):
         fuente = (Path(__file__).parent / 'templates' / 'material' / 'onboarding_v2_demo_recap.html').read_text(encoding='utf-8')
         self.assertNotIn("progressText: '{{current}}", fuente)
         self.assertIn('{% templatetag openvariable %}current{% templatetag closevariable %}', fuente)
+
+
+class MenuLateralTests(TestCase):
+    def _lateral(self, modo, admin=False):
+        u = _docente(f'ml_{modo}_{int(admin)}', modo)
+        if admin:
+            u.profile.role = 'admin'
+            u.profile.save()
+        c = Client()
+        c.force_login(u)
+        html = c.get(reverse('material:index')).content.decode()
+        return html.split('id="sidebar"')[1].split('class="bottom-links"')[0]
+
+    def test_orden_del_menu_en_modo_avanzado(self):
+        lateral = self._lateral('avanzado', admin=True)
+        ids = ['tourMenuAsistente', 'tourMenuGenerarIA', 'tourMenuPreguntas', 'tourMenuExamenes', 'tourMenuAcademico',
+               'tourMenuFormatosPlantillas', 'tourMenuGrupos', 'bi-shield-lock-fill']
+        posiciones = [lateral.index(i) for i in ids]
+        self.assertEqual(posiciones, sorted(posiciones))
+
+    def test_contenidos_vive_dentro_de_mi_espacio_academico(self):
+        lateral = self._lateral('avanzado')
+        academico = lateral.split('id="tourMenuAcademico"')[1].split('id="tourMenuFormatosPlantillas"')[0]
+        self.assertIn('id="tourMenuContenidos"', academico)
+        # "Mis agregados" abre el submenú; plantillas, rúbricas y formatos ya no están acá
+        self.assertLess(academico.index('Mis agregados'), academico.index('Instituciones'))
+        for movido in ('tourMenuPlantillas', 'tourMenuFormatos"', 'Rúbricas'):
+            self.assertNotIn(movido, academico)
+        self.assertEqual(lateral.count('id="tourMenuContenidos"'), 1)
+        self.assertNotIn('Asistente paso a paso', academico)
+
+    def test_la_configuracion_de_ia_ya_no_esta_en_el_menu_lateral(self):
+        for modo in ('simple', 'avanzado'):
+            html = self._lateral(modo)
+            self.assertNotIn(reverse('material:ai_config'), html)
+            self.assertNotIn('Proveedor de IA', html)
+
+    def test_la_configuracion_de_ia_se_encuentra_en_generar_con_ia_con_su_nombre(self):
+        u = _docente('ml_doc', 'avanzado')
+        c = Client()
+        c.force_login(u)
+        html = c.get(reverse('material:document_processor_dashboard')).content.decode()
+        self.assertIn('id="docAiConfigBtn"', html)
+        boton = html.split('id="docAiConfigBtn"')[1].split('</a>')[0]
+        self.assertIn('Configuración de IA', boton)
+
+    def test_formatos_y_plantillas_es_un_menu_propio(self):
+        lateral = self._lateral('avanzado')
+        grupo = lateral.split('id="tourMenuFormatosPlantillas"')[1].split('id="tourMenuGrupos"')[0]
+        for presente in ('id="tourMenuPlantillas"', 'Rúbricas', 'id="tourMenuFormatos"'):
+            self.assertIn(presente, grupo)

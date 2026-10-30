@@ -52,6 +52,14 @@
         },
       },
       {
+        element: '#docAiConfigBtn',
+        popover: {
+          title: 'Configuración de IA',
+          description: 'Aquí se elige el proveedor de IA (la IA pública gratuita, una clave propia o un servidor propio) y el modelo. Ya no está en el menú lateral: se entra desde esta pantalla.',
+          side: 'bottom',
+        },
+      },
+      {
         element: '#chaptersGrid',
         popover: {
           title: 'Capítulos detectados',

@@ -221,24 +221,17 @@
             </div>
         {% endif %}
 
-        {% if ui_simple %}
-        <!-- Modo simple: el recorrido completo (institución → examen) es la puerta de entrada -->
+        <!-- Orden del menú: 1 Asistente paso a paso (el recorrido institución → examen, puerta de entrada en los dos
+             modos), 2 Generar con IA, 3 Preguntas, 4 Exámenes, 5 Mi espacio académico (con Contenidos adentro),
+             6 Grupos, 7 Administración (según rol). La configuración de la IA ya no está acá: se llega desde Generar con IA. -->
         <a href="{% url 'material:full_wizard' %}" class="menu-item" id="tourMenuAsistente" style="text-decoration:none;">
             <i class="bi bi-magic me-2"></i> Asistente paso a paso
         </a>
-        {% endif %}
 
         <!-- Generar con IA: función core, un solo click, sin submenú -->
         <a href="{% url 'material:document_processor_dashboard' %}" class="menu-item" id="tourMenuGenerarIA" style="text-decoration:none;">
-            <i class="bi bi-magic me-2"></i> Generar con IA
+            <i class="bi bi-stars me-2"></i> Generar con IA
         </a>
-
-        <!-- Contenidos: biblioteca de material subido (el botón "Subir" vive en la propia lista) -->
-        {% if not ui_simple %}
-        <a href="{% url 'material:mis_contenidos' %}" class="menu-item" id="tourMenuContenidos" style="text-decoration:none;">
-            <i class="bi bi-folder-fill me-2"></i> Contenidos
-        </a>
-        {% endif %}
 
         <!-- Preguntas: banco propio (el botón "Nueva pregunta" vive en la propia lista) -->
         <a href="{% url 'material:lista_preguntas' %}" class="menu-item" id="tourMenuPreguntas" style="text-decoration:none;">
@@ -273,14 +266,20 @@
             <i class="bi bi-diagram-3-fill me-2"></i> Mi espacio académico
             {% if pending_catalog_notifications_count %}<span class="badge bg-danger ms-1">{{ pending_catalog_notifications_count }}</span>{% endif %}
             <div class="submenu">
-                <a href="{% url 'material:institution_v2_list' %}"><i class="bi bi-buildings me-2"></i>Instituciones</a>
-                <a href="{% url 'material:career_list' %}"><i class="bi bi-mortarboard-fill me-2"></i>Carreras</a>
-                <a href="{% url 'material:subject_list' %}"><i class="bi bi-book me-2"></i>Materias</a>
                 <a href="{% url 'material:mis_solicitudes_catalogo' %}"><i class="bi bi-list-check me-2"></i>Mis agregados
                     {% if pending_catalog_notifications_count %}<span class="badge bg-danger ms-1">{{ pending_catalog_notifications_count }}</span>{% endif %}
                 </a>
-                <a href="{% url 'material:full_wizard' %}"><i class="bi bi-magic me-2"></i>Asistente paso a paso</a>
-                <div class="submenu-divider"></div>
+                <a href="{% url 'material:institution_v2_list' %}"><i class="bi bi-buildings me-2"></i>Instituciones</a>
+                <a href="{% url 'material:career_list' %}"><i class="bi bi-mortarboard-fill me-2"></i>Carreras</a>
+                <a href="{% url 'material:subject_list' %}"><i class="bi bi-book me-2"></i>Materias</a>
+                <a href="{% url 'material:mis_contenidos' %}" id="tourMenuContenidos"><i class="bi bi-folder-fill me-2"></i>Contenidos</a>
+            </div>
+        </div>
+
+        <!-- Formatos y plantillas: los modelos que se reutilizan al armar exámenes (antes iban dentro de Mi espacio académico) -->
+        <div class="menu-item" id="tourMenuFormatosPlantillas" onclick="toggleSubmenu(this)">
+            <i class="bi bi-file-earmark-ruled-fill me-2"></i> Formatos y plantillas
+            <div class="submenu">
                 <a href="{% url 'material:list_exam_templates' %}" id="tourMenuPlantillas"><i class="bi bi-file-earmark-ruled me-2"></i>Plantillas</a>
                 <a href="{% url 'material:rubric_list' %}"><i class="bi bi-card-checklist me-2"></i>Rúbricas</a>
                 <a href="{% url 'material:formato_impresion_list' %}" id="tourMenuFormatos"><i class="bi bi-printer me-2"></i>Formatos de Impresión</a>
@@ -322,7 +321,6 @@
         <!-- Enlaces inferiores (siempre al final) -->
         <div class="bottom-links">
             {% if user.is_authenticated %}
-                <a href="{% url 'material:ai_config' %}"><i class="bi bi-cpu me-2"></i>Proveedor de IA</a>
                 {% comment %}Selector de tamaño de letra: oculto por ahora (settings.TAMANO_LETRA_SELECTOR). Pendiente de
                    llevarlo dentro del menú de la paleta de temas; ver la memoria "font-scale-parking-lot".{% endcomment %}
                 {% if tamano_letra_selector %}

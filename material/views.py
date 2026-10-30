@@ -9194,7 +9194,7 @@ def onboarding_v2_exit(request):
 def onboarding_v2_connect_gemini(request):
     """
     Permite pegar una API key de Gemini propia directamente desde el paso 5
-    del wizard nuevo, sin pasar por la pantalla "Proveedor de IA".
+    del wizard nuevo, sin pasar por la pantalla "Configuración de IA".
     Valida la key contra la API de Gemini antes de guardarla.
     """
     import json as _json
