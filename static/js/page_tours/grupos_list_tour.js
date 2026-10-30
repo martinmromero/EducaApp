@@ -1,7 +1,7 @@
 /*
  * Recorrido guiado (driver.js) de la pantalla "Grupos" (groups/grupos_list.html)
- * — grupos de confianza para compartir el banco de preguntas por materia con
- * otros docentes.
+ * — grupos de confianza para compartir materias (con sus tópicos y preguntas),
+ * rúbricas, plantillas de examen y formatos de impresión con otros docentes.
  *
  * Disparado por el usuario desde el menú del botón "?" del navbar (ver
  * base.html + static/js/tour.js) en cualquier momento.
@@ -13,7 +13,7 @@
         element: '#groupIntroText',
         popover: {
           title: 'Grupos de confianza',
-          description: 'Permiten compartir el banco de preguntas, por materia, con otros docentes elegidos. Nadie ve ni usa esas preguntas hasta aceptar compartirlas explícitamente, y solo dentro de los grupos de los que se es miembro.',
+          description: 'Permiten compartir con otros docentes elegidos materias (con sus tópicos y preguntas), rúbricas, plantillas de examen y formatos de impresión. Nadie ve ni usa nada de eso hasta que quien lo tiene lo comparte explícitamente, y solo dentro de los grupos de los que se es miembro.',
           side: 'bottom',
         },
       },

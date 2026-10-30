@@ -169,7 +169,7 @@
       element: '#tourMenuGrupos',
       popover: {
         title: 'Grupos',
-        description: 'Grupos de confianza para compartir preguntas por materia con otros docentes.',
+        description: 'Grupos de confianza para compartir materias, rúbricas, plantillas y formatos con otros docentes.',
         side: 'right',
       },
       onHighlightStarted: collapseAllMenus,

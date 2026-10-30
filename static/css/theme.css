@@ -268,3 +268,34 @@ body.driver-active #eduModal, body.driver-active #eduModal * { pointer-events: a
 }
 .edu-stat__value { font-size: clamp(1.25rem, 2.4vw, 1.7rem); font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .edu-stat__extra { font-size: .72rem; color: var(--bs-secondary-color); line-height: 1.2; }
+
+/* Listados en celular (tarjetas): casilla de selección y botones de acción más grandes. Sobraba lugar en las tarjetas
+   y a 16 px eran difíciles de tocar. El selector lleva "body" para ganarle a las reglas de cada componente
+   (_mobile_card_table.html y _column_filters_assets.html). */
+@media (max-width: 767.98px) {
+    body table.mobile-card-table td.rt-card-select input[type="checkbox"],
+    body table.column-filter-table td.rt-card-select input[type="checkbox"] {
+        width: 1.75rem;
+        height: 1.75rem;
+        flex-shrink: 0;
+    }
+    body table.mobile-card-table td.rt-card-select,
+    body table.column-filter-table td.rt-card-select {
+        min-height: 2rem;
+        margin-right: .85rem;
+    }
+    body table.mobile-card-table tr > td:last-of-type .btn,
+    body table.column-filter-table tr > td:last-of-type .btn {
+        min-width: 3rem;
+        min-height: 2.9rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: .35rem .75rem;
+    }
+    body table.mobile-card-table tr > td:last-of-type .btn .bi,
+    body table.column-filter-table tr > td:last-of-type .btn .bi {
+        font-size: 1.3rem;
+        line-height: 1;
+    }
+}
