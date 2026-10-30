@@ -38,24 +38,40 @@
     margin-left: calc(3px - var(--wiz-chev));
     border: 0;
     border-radius: 0;
-    background: var(--bs-tertiary-bg);
     font-size: .85rem;
-    color: var(--bs-secondary-color);
+    color: color-mix(in srgb, var(--bs-emphasis-color) 85%, var(--bs-body-bg));
     cursor: default;
-    clip-path: polygon(0 0, calc(100% - var(--wiz-chev)) 0, 100% 50%, calc(100% - var(--wiz-chev)) 100%, 0 100%, var(--wiz-chev) 50%);
+    /* Reborde: la pastilla se pinta del color del borde y un ::before 1,5 px más chico, con la misma forma, la
+       rellena (clip-path no admite border). Los colores salen del tema activo, en claro y en oscuro. */
+    --wiz-fill: var(--bs-tertiary-bg);
+    --wiz-line: color-mix(in srgb, var(--bs-body-color) 30%, var(--bs-body-bg));
+    --wiz-shape: polygon(0 0, calc(100% - var(--wiz-chev)) 0, 100% 50%, calc(100% - var(--wiz-chev)) 100%, 0 100%, var(--wiz-chev) 50%);
+    position: relative;
+    isolation: isolate;
+    background: var(--wiz-line);
+    clip-path: var(--wiz-shape);
+}
+.wiz-step-pill::before {
+    content: "";
+    position: absolute;
+    inset: 1.5px;
+    z-index: -1;
+    background: var(--wiz-fill);
+    clip-path: var(--wiz-shape);
+    border-radius: inherit;
 }
 .wiz-step-pill:first-child {
     margin-left: 0;
     padding-left: .75rem;
     border-radius: .45rem 0 0 .45rem;
-    clip-path: polygon(0 0, calc(100% - var(--wiz-chev)) 0, 100% 50%, calc(100% - var(--wiz-chev)) 100%, 0 100%);
+    --wiz-shape: polygon(0 0, calc(100% - var(--wiz-chev)) 0, 100% 50%, calc(100% - var(--wiz-chev)) 100%, 0 100%);
 }
 .wiz-step-pill:last-child {
     padding-right: .75rem;
     border-radius: 0 .45rem .45rem 0;
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, var(--wiz-chev) 50%);
+    --wiz-shape: polygon(0 0, 100% 0, 100% 100%, 0 100%, var(--wiz-chev) 50%);
 }
-.wiz-step-pill:first-child:last-child { clip-path: none; border-radius: .45rem; }
+.wiz-step-pill:first-child:last-child { --wiz-shape: none; border-radius: .45rem; }
 .wiz-step-pill.is-reachable { cursor: pointer; }
 .wiz-step-pill .wiz-step-num {
     display: inline-flex;
@@ -83,12 +99,14 @@
     text-overflow: ellipsis;
 }
 .wiz-step-pill.is-active {
-    background: var(--bs-primary);
+    --wiz-fill: var(--bs-primary);
+    --wiz-line: color-mix(in srgb, var(--bs-primary) 55%, var(--bs-body-color));
     color: #fff;
     font-weight: 600;
 }
 .wiz-step-pill.is-done {
-    background: var(--bs-success);
+    --wiz-fill: var(--bs-success);
+    --wiz-line: color-mix(in srgb, var(--bs-success) 55%, var(--bs-body-color));
     color: #fff;
 }
 .wiz-step-pill.is-done .wiz-step-num::before {
@@ -96,7 +114,10 @@
 }
 .wiz-step-pill.is-done .wiz-step-num span { display: none; }
 /* si el paso activo ya estaba hecho (se volvió a él), se ve como activo */
-.wiz-step-pill.is-active.is-done { background: var(--bs-primary); }
+.wiz-step-pill.is-active.is-done {
+    --wiz-fill: var(--bs-primary);
+    --wiz-line: color-mix(in srgb, var(--bs-primary) 55%, var(--bs-body-color));
+}
 
 /* Pantallas medianas: solo el paso activo lleva nombre; el resto, número. */
 @media (max-width: 991.98px) {

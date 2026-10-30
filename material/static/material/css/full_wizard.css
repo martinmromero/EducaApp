@@ -136,7 +136,8 @@
    que ya tienen .is-done): círculo gris neutro con ícono skip-forward —
    "no se hizo", sin leerse como error. */
 .wiz-step-pill.is-skipped {
-    background: var(--bs-secondary-bg);
+    --wiz-fill: var(--bs-secondary-bg);
+    --wiz-line: color-mix(in srgb, var(--bs-body-color) 30%, var(--bs-body-bg));
     color: var(--bs-secondary-color);
 }
 .wiz-step-pill.is-skipped .wiz-step-num::before { content: none; }

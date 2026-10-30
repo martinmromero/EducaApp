@@ -18,19 +18,28 @@
     padding: 0 calc(var(--uqw-chev) + .3rem);
     margin-left: calc(3px - var(--uqw-chev));
     border: 0; border-radius: 0;
-    background: var(--bs-tertiary-bg);
     font-size: .85rem;
-    color: var(--bs-secondary-color);
+    color: color-mix(in srgb, var(--bs-emphasis-color) 85%, var(--bs-body-bg));
     cursor: default;
-    clip-path: polygon(0 0, calc(100% - var(--uqw-chev)) 0, 100% 50%, calc(100% - var(--uqw-chev)) 100%, 0 100%, var(--uqw-chev) 50%);
+    /* Reborde (ver wizard_common.css): la pastilla va del color del borde y el ::before la rellena. */
+    --uqw-fill: var(--bs-tertiary-bg);
+    --uqw-line: color-mix(in srgb, var(--bs-body-color) 30%, var(--bs-body-bg));
+    --uqw-shape: polygon(0 0, calc(100% - var(--uqw-chev)) 0, 100% 50%, calc(100% - var(--uqw-chev)) 100%, 0 100%, var(--uqw-chev) 50%);
+    position: relative; isolation: isolate;
+    background: var(--uqw-line);
+    clip-path: var(--uqw-shape);
+}
+.uqw-pill::before {
+    content: ""; position: absolute; inset: 1.5px; z-index: -1;
+    background: var(--uqw-fill); clip-path: var(--uqw-shape); border-radius: inherit;
 }
 .uqw-pill:first-child {
     margin-left: 0; padding-left: .75rem; border-radius: .45rem 0 0 .45rem;
-    clip-path: polygon(0 0, calc(100% - var(--uqw-chev)) 0, 100% 50%, calc(100% - var(--uqw-chev)) 100%, 0 100%);
+    --uqw-shape: polygon(0 0, calc(100% - var(--uqw-chev)) 0, 100% 50%, calc(100% - var(--uqw-chev)) 100%, 0 100%);
 }
 .uqw-pill:last-child {
     padding-right: .75rem; border-radius: 0 .45rem .45rem 0;
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, var(--uqw-chev) 50%);
+    --uqw-shape: polygon(0 0, 100% 0, 100% 100%, 0 100%, var(--uqw-chev) 50%);
 }
 .uqw-pill.is-reachable { cursor: pointer; }
 .uqw-pill-num {
@@ -40,9 +49,9 @@
 }
 .uqw-pill-num > i { line-height: 1; display: block; }
 .uqw-pill-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.uqw-pill.is-active { background: var(--bs-primary); color: #fff; font-weight: 600; }
-.uqw-pill.is-done { background: var(--bs-success); color: #fff; }
-.uqw-pill.is-active.is-done { background: var(--bs-primary); }
+.uqw-pill.is-active { --uqw-fill: var(--bs-primary); --uqw-line: color-mix(in srgb, var(--bs-primary) 55%, var(--bs-body-color)); color: #fff; font-weight: 600; }
+.uqw-pill.is-done { --uqw-fill: var(--bs-success); --uqw-line: color-mix(in srgb, var(--bs-success) 55%, var(--bs-body-color)); color: #fff; }
+.uqw-pill.is-active.is-done { --uqw-fill: var(--bs-primary); --uqw-line: color-mix(in srgb, var(--bs-primary) 55%, var(--bs-body-color)); }
 @media (max-width: 991.98px) {
     .uqw-pill:not(.is-active) .uqw-pill-label { display: none; }
 }
