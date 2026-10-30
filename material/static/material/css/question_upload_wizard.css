@@ -150,3 +150,16 @@
 /* ── Navegación inferior ─────────────────────────────────────────────── */
 .uqw-nav { display: flex; justify-content: space-between; align-items: center; gap: .75rem; margin-top: 1rem; }
 .uqw-nav.is-hidden { display: none; }
+
+/* Celular, solo en la pantalla propia del asistente (dentro del Asistente completo la botonera de arriba ya queda fija):
+   Atrás y Siguiente quedan abajo de la pantalla, siempre a la vista. */
+@media (max-width: 575.98px) {
+    .uqw-page .uqw-nav {
+        position: sticky;
+        bottom: 0;
+        z-index: 20;
+        background: var(--bs-body-bg);
+        padding: .6rem 0;
+        border-top: 1px solid var(--bs-border-color);
+    }
+}
