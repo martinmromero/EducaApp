@@ -196,6 +196,10 @@ AUTHOR_CONTACT_PHONE = '5491160490784'
 # preferencia guardada. Sin el selector, la letra automática del celular (static/css/theme.css) sigue funcionando.
 TAMANO_LETRA_SELECTOR = os.environ.get('TAMANO_LETRA_SELECTOR', '0') == '1'
 
+# Modo Testing (panel de UAT para quienes tienen is_tester) y "Resultados de Testing" en Administración. Oculto por ahora:
+# nada de eso aparece, aunque la cuenta tenga la marca. Con 1 vuelve a mostrarse. El código y las URLs siguen ahí.
+MODO_TESTING_VISIBLE = os.environ.get('MODO_TESTING_VISIBLE', '0') == '1'
+
 # Custom user model (opcional, si en el futuro necesitas personalizar)
 # AUTH_USER_MODEL = 'material.CustomUser'
 

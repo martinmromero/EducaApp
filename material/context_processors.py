@@ -109,8 +109,9 @@ def onboarding_context(request):
         # ya se revalidó contra esa tabla al entrar/salir.
         'in_training_mode': bool(request.session.get('acting_as_training_for')),
         # Modo Testing (panel de UAT) — ver testing_panel_views.py.
-        'is_tester': profile.is_tester,
-        'testing_mode_active': profile.is_tester and bool(request.session.get('testing_mode_active')),
+        'modo_testing_visible': settings.MODO_TESTING_VISIBLE,
+        'is_tester': profile.is_tester and settings.MODO_TESTING_VISIBLE,
+        'testing_mode_active': settings.MODO_TESTING_VISIBLE and profile.is_tester and bool(request.session.get('testing_mode_active')),
     }
 
     is_wizard_page = (

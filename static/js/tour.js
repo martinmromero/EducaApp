@@ -167,14 +167,6 @@
       onHighlightStarted: collapseAllMenus,
     },
     {
-      element: '#tourContactoAutor',
-      popover: {
-        title: 'Hablar con el autor',
-        description: 'Desde aquí se puede contactar al autor de la aplicación.',
-        side: 'right',
-      },
-    },
-    {
       element: '#tourTamanoLetra',
       popover: {
         title: 'Tamaño de letra',
@@ -215,6 +207,18 @@
       },
     },
     {
+      // Vive dentro del menú "?" (Ayuda): el paso lo abre, igual que el de Área de Pruebas que sigue.
+      element: '#tourContactoAutor',
+      popover: {
+        title: 'Hablar con el autor',
+        description: 'Desde aquí se puede contactar al autor de la aplicación.',
+        side: 'left',
+        align: 'start',
+      },
+      onHighlightStarted: openTourHelpDropdown,
+      onDeselected: closeTourHelpDropdown,
+    },
+    {
       element: '#tourAreaPruebasItem',
       popover: {
         title: 'Área de Pruebas',
@@ -227,8 +231,20 @@
     },
   ];
 
-  function buildSteps() {
-    return STEP_DEFS.filter((step) => document.querySelector(step.element));
+  // El recorrido que arranca solo en el primer ingreso deja afuera lo que no hace falta para empezar o que la propia
+  // pantalla inicial ya explica (el modo simple/avanzado se elige ahí mismo). Todo sigue en el recorrido del botón "?".
+  const OMITIR_EN_PRIMER_INGRESO = ['#visualThemeDropdown', '#toggleMode', '#tourModeToggle', '#tourAreaPruebasItem', '#tourTamanoLetra'];
+
+  function buildSteps(primerIngreso) {
+    const celular = window.innerWidth <= 768;
+    return STEP_DEFS.filter((step) => document.querySelector(step.element)
+      && !(primerIngreso && OMITIR_EN_PRIMER_INGRESO.indexOf(step.element) !== -1))
+      .map((step) => {
+        // En el celular el menú ocupa 250 de los ~375 px: un globo "a la derecha" no entra y tapaba justo el ítem
+        // señalado. Para los ítems del menú el globo va debajo (el motor lo pasa arriba si abajo no hay lugar).
+        if (!celular || !step.popover || !document.querySelector(step.element).closest('#sidebar')) return step;
+        return Object.assign({}, step, { popover: Object.assign({}, step.popover, { side: 'bottom', align: 'start' }) });
+      });
   }
 
   // El navegador no permite mover el cursor real del mouse por seguridad,
@@ -285,12 +301,55 @@
     }
   }
 
-  function start() {
+  function leerCookie(nombre) {
+    const par = document.cookie.split('; ').find((c) => c.indexOf(nombre + '=') === 0);
+    return par ? decodeURIComponent(par.slice(nombre.length + 1)) : '';
+  }
+
+  // Aviso al querer salir del recorrido que arranca solo en el primer ingreso: pregunta si se quiere salir y ofrece
+  // "No volver a mostrar" (se guarda en la cuenta, no en el navegador). Devuelve true si se sale.
+  async function confirmarSalida() {
+    const ModalApp = window.EducaAppModal;
+    if (!ModalApp || !ModalApp.confirm) return true;
+    const respuesta = await ModalApp.confirm(
+      '¿Salir del recorrido? Se puede volver a ver cuando se quiera desde el botón "?" (Ayuda) de arriba a la derecha.',
+      {
+        title: 'Salir del recorrido',
+        variant: 'warning',
+        okLabel: 'Salir',
+        cancelLabel: 'Seguir con el recorrido',
+        checkboxLabel: 'No volver a mostrar este recorrido al ingresar',
+      }
+    );
+    if (!respuesta.ok) return false;
+    if (respuesta.checked) {
+      try {
+        await fetch('/ayuda/no-mostrar/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': leerCookie('csrftoken') },
+          sinAviso: true,
+        });
+      } catch (e) { /* si falla, el recorrido simplemente puede volver a aparecer */ }
+    }
+    return true;
+  }
+
+  // Primer ingreso: arranca recién cuando la página terminó de cargar. En el celular base.html cierra el menú
+  // lateral en el evento "load"; si el recorrido abre el menú antes, ese cierre lo deja señalando algo que no se ve.
+  function startFirstUse() {
+    const arrancar = () => setTimeout(() => start({ primerIngreso: true }), 150);
+    if (document.readyState === 'complete') arrancar();
+    else window.addEventListener('load', arrancar, { once: true });
+  }
+
+  function start(opciones) {
     if (!window.driver || !window.driver.js) return;
-    const steps = buildSteps();
+    const primerIngreso = !!(opciones && opciones.primerIngreso);
+    const steps = buildSteps(primerIngreso);
     if (!steps.length) return;
     const openedSidebar = ensureSidebarVisible();
-    const tourDriver = window.driver.js.driver({
+    let tourDriver = null;
+    tourDriver = window.driver.js.driver({
       showProgress: true,
       progressText: '{{current}} de {{total}}',
       allowClose: true,
@@ -300,6 +359,18 @@
       doneBtnText: 'Listo',
       steps: steps,
       onPopoverRender: focusNextButton,
+      // En el celular el menú se desliza al abrirse: el motor calcula el recuadro con el menú todavía a medio camino y
+      // lo deja desfasado. Se recalcula cuando termina el deslizamiento.
+      onHighlighted: () => {
+        if (!isMobileViewport()) return;
+        setTimeout(() => { if (tourDriver && tourDriver.isActive()) tourDriver.refresh(); }, 450);
+      },
+      // Solo en el recorrido que arranca solo: cerrar a mitad de camino (X, Escape, clic afuera) pregunta antes.
+      // El que se pide a propósito desde "?" se cierra sin preguntar.
+      onDestroyStarted: () => {
+        if (!primerIngreso || tourDriver.isLastStep()) { tourDriver.destroy(); return; }
+        confirmarSalida().then((salir) => { if (salir) tourDriver.destroy(); });
+      },
       onDestroyed: () => {
         try { localStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
         restoreSidebar(openedSidebar);
@@ -363,5 +434,5 @@
     return !!el && el.getClientRects().length > 0;
   }
 
-  window.EducaAppTour = { start, startIfFirstVisit, registerPageTour, getCurrentPageTour, isVisible };
+  window.EducaAppTour = { start, startFirstUse, startIfFirstVisit, registerPageTour, getCurrentPageTour, isVisible };
 })();

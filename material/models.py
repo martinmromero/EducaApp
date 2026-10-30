@@ -1093,6 +1093,13 @@ class Profile(models.Model):
         verbose_name='Onboarding completado',
         help_text='Indica si el usuario completó o saltó el wizard de configuración inicial.',
     )
+    # "No volver a mostrar": el recorrido de ayuda que arranca solo en el primer ingreso. Se marca desde el aviso
+    # que pregunta si se quiere salir (static/js/tour.js). El recorrido sigue disponible en el botón "?" (Ayuda).
+    ayuda_inicial_oculta = models.BooleanField(
+        default=False,
+        verbose_name='Ayuda inicial oculta',
+        help_text='Si está marcada, el recorrido de ayuda no arranca solo en el primer ingreso. Se puede ver desde el botón "?".',
+    )
     # Modo de la interfaz: "simple" (menú reducido y todo el armado por asistentes,
     # pensado para empezar a usar la app) o "avanzado" (el menú completo y los
     # formularios de siempre). Es una preferencia por usuario; las pantallas

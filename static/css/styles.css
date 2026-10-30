@@ -464,8 +464,10 @@ html.embed-mode .main-content.test-panel-open {
     .edu-topbar .container-fluid {
         padding-left: 56px;
     }
+    /* 1rem (no 1.15): con el menú y los botones de la barra, "Asistente de configuración" no entraba y la palabra
+       larga quedaba cortada por el borde. */
     .edu-topbar-title {
-        font-size: 1.15rem;
+        font-size: 1rem;
     }
     /* Tablas responsivas */
     table {

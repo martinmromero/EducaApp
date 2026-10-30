@@ -8947,7 +8947,23 @@ def onboarding_v2_page(request):
     # y el badge "Recomendado" del esquema ya armado solo tienen sentido la
     # primera vez.
     is_first_visit = request.GET.get('first') == '1'
-    return render(request, 'material/onboarding_v2.html', {'is_first_visit': is_first_visit})
+    # Quien eligió "No volver a mostrar" al salir del recorrido no lo vuelve a ver arrancar solo.
+    ayuda_oculta = bool(getattr(request.user.profile, 'ayuda_inicial_oculta', False))
+    return render(request, 'material/onboarding_v2.html', {
+        'is_first_visit': is_first_visit,
+        'tour_automatico': is_first_visit and not ayuda_oculta,
+    })
+
+
+@login_required
+@require_POST
+def ayuda_no_mostrar(request):
+    """Marca que el recorrido de ayuda del primer ingreso no tiene que arrancar solo (sigue en el botón "?")."""
+    profile = request.user.profile
+    if not profile.ayuda_inicial_oculta:
+        profile.ayuda_inicial_oculta = True
+        profile.save(update_fields=['ayuda_inicial_oculta'])
+    return JsonResponse({'success': True})
 
 
 @login_required

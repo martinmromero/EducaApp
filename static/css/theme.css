@@ -207,3 +207,9 @@ html[data-font-scale="muy_grande"] { font-size: 125%; }
 
 /* Paleta de temas y modo claro/oscuro al pie del menú lateral: un poco de aire contra el borde derecho del menú. */
 .sidebar .bottom-links .sidebar-acciones { padding-right: 14px; }
+
+/* El aviso "¿Salir del recorrido?" se abre mientras el recorrido (driver.js) sigue activo: sin esto queda detrás de su
+   capa oscura (z-index 1000000000) y driver.js apaga los clics de todo lo que no sea el globo. */
+body.driver-active #eduModal { z-index: 1000000002; }
+body.driver-active .modal-backdrop { z-index: 1000000001; }
+body.driver-active #eduModal, body.driver-active #eduModal * { pointer-events: auto; }

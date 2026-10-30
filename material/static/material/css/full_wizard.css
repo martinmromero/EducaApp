@@ -48,7 +48,7 @@
 .fw-chip-loading { display: inline-flex; align-items: center; padding: .35rem 0; }
 
 /* Menos "chrome" a medida que se avanza (ver onEnterStep en full_wizard.js). */
-.wiz-wrap.fw-past-first > #fwIntro { display: none; }
+.wiz-wrap.fw-past-first > #fwIntro, .wiz-wrap.fw-past-first > #fwIntroMas { display: none; }
 @media (max-width: 575.98px) {
     .wiz-wrap.fw-late #fwBreadcrumb { display: none; }
 }

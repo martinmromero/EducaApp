@@ -6,21 +6,17 @@
 
 {% block content %}
 <div class="onb2-wrap">
-  <div class="onb2-header">
-    <p class="text-muted mb-0">Guía paso a paso: cargar los datos, subir un contenido, aprobar preguntas generadas por IA y armar el examen.</p>
-  </div>
-
-  <!-- Pantalla de decisión: se muestra primero, antes de pedir cualquier dato -->
+  <!-- Pantalla de decisión: se muestra primero, antes de pedir cualquier dato.
+       Una sola pregunta, sin subtítulo ni instrucción aparte: antes el título de la página, un subtítulo y dos
+       frases más decían casi lo mismo. -->
   <div id="onb2Gateway">
     <div class="card onb2-card shadow-sm">
       <div class="card-body p-4 p-lg-5 text-center">
-        <h4 class="fw-semibold mb-2">¿Cómo empezar?</h4>
-        <p class="text-muted mb-4">Elegir cómo se va a usar la app y empezar.</p>
+        <h4 class="fw-semibold mb-4">¿Cómo se va a usar EducaApp?</h4>
 
         <!-- Cómo se va a usar la app: modo simple (recomendado) o avanzado. Se guarda al elegir. -->
         <div class="mb-4" id="onb2ModeBlock">
           {% csrf_token %}
-          <p class="fw-semibold mb-2">Elegir cómo se va a usar EducaApp</p>
           <div class="row g-2 justify-content-center">
             <div class="col-md-5">
               <input type="radio" class="btn-check" name="onb2Mode" id="onb2ModeSimple" value="simple" autocomplete="off"{% if ui_simple %} checked{% endif %}>
@@ -95,6 +91,9 @@
   </div>
 
   <div id="onb2WizardBody" class="d-none">
+  <div class="onb2-header">
+    <p class="text-muted mb-3">Guía paso a paso: cargar los datos, subir un contenido, aprobar preguntas generadas por IA y armar el examen.</p>
+  </div>
   <div class="onb2-progress mb-4">
     <div class="progress" style="height:8px">
       <div class="progress-bar bg-primary" id="onb2ProgressBar" role="progressbar" style="width:16%"></div>
@@ -392,6 +391,10 @@
 </div>
 
 <style>
+/* Celular: la etiqueta "Recomendado para empezar" flota sobre la esquina y tapaba el nombre "Simple". */
+@media (max-width: 575.98px) {
+  label[for="onb2ModeSimple"] .badge { position: static !important; display: inline-block; margin: 0 0 .4rem 0 !important; }
+}
 .onb2-wrap { max-width: 1100px; margin: 0 auto; padding-bottom: 3rem; }
 .onb2-card {
   border-radius: 1rem;
@@ -1171,8 +1174,9 @@
       // (?first=1, la pone únicamente OnboardingGateMiddleware) — si se
       // llega acá de otra forma (ej. tarjeta "Asistente guiado" de Inicio,
       // en una visita posterior) no debe autoiniciarse.
-      var isFirstVisit = {{ is_first_visit|yesno:"true,false" }};
-      if (isFirstVisit && window.EducaAppTour) window.EducaAppTour.start();
+      // tour_automatico: primer ingreso Y la cuenta no pidió "No volver a mostrar" (ver ayuda_no_mostrar).
+      var arrancaSolo = {{ tour_automatico|yesno:"true,false" }};
+      if (arrancaSolo && window.EducaAppTour) window.EducaAppTour.startFirstUse();
     });
   }
 })();

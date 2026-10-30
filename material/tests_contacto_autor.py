@@ -1,6 +1,6 @@
 """Hablar con el autor (2026-10-29): formulario para cualquier usuario + bandeja solo para admin."""
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from .models import AuthorMessage
@@ -40,6 +40,28 @@ class ContactoAutorTests(TestCase):
         home = self.c.get(reverse('material:index')).content.decode()
         self.assertIn(reverse('material:contacto_autor'), home)
         self.assertNotIn(reverse('material:contacto_bandeja'), home)
+
+    def test_el_enlace_vive_en_el_menu_de_ayuda_y_no_en_el_menu_lateral(self):
+        html = self.c.get(reverse('material:index')).content.decode()
+        self.assertEqual(html.count('id="tourContactoAutor"'), 1)
+        self.assertGreater(html.index('id="tourContactoAutor"'), html.index('id="tourHelpMenu"'))
+        self.assertLess(html.index('id="tourContactoAutor"'), html.index('id="tourAreaPruebasItem"'))
+        # el menú lateral (antes del menú de ayuda) ya no lo trae
+        lateral = html.split('id="tourHelpMenu"')[0]
+        self.assertNotIn('Hablar con el autor', lateral)
+
+    def test_modo_testing_oculto_por_defecto_aunque_la_cuenta_sea_tester(self):
+        self.docente.profile.is_tester = True
+        self.docente.profile.save()
+        html = self.c.get(reverse('material:index')).content.decode()
+        self.assertNotIn('Modo Testing', html)
+
+    @override_settings(MODO_TESTING_VISIBLE=True)
+    def test_modo_testing_vuelve_con_el_interruptor_encendido(self):
+        self.docente.profile.is_tester = True
+        self.docente.profile.save()
+        html = self.c.get(reverse('material:index')).content.decode()
+        self.assertIn('Modo Testing', html)
 
     def test_el_formulario_muestra_el_contacto_directo(self):
         html = self.c.get(reverse('material:contacto_autor')).content.decode()

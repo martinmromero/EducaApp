@@ -314,7 +314,7 @@
                     <a href="{% url 'material:neon_usage_page' %}"><i class="bi bi-hdd-stack me-2"></i>Uso de Neon (DB)</a>
                     <a href="{% url 'material:question_generation_prompt_config' %}"><i class="bi bi-chat-square-text me-2"></i>Prompt de generación IA</a>
                     <a href="{% url 'material:institution_ai_config' %}"><i class="bi bi-cpu me-2"></i>IA Institucional</a>
-                    <a href="{% url 'material:testing_admin_results' %}"><i class="bi bi-clipboard2-check me-2"></i>Resultados de Testing</a>
+                    {% if modo_testing_visible %}<a href="{% url 'material:testing_admin_results' %}"><i class="bi bi-clipboard2-check me-2"></i>Resultados de Testing</a>{% endif %}
                 </div>
             </div>
         {% endif %}
@@ -323,7 +323,6 @@
         <div class="bottom-links">
             {% if user.is_authenticated %}
                 <a href="{% url 'material:ai_config' %}"><i class="bi bi-cpu me-2"></i>Proveedor de IA</a>
-                <a href="{% url 'material:contacto_autor' %}?next={{ request.get_full_path|urlencode }}" id="tourContactoAutor"><i class="bi bi-chat-dots me-2"></i>Hablar con el autor</a>
                 {% comment %}Selector de tamaño de letra: oculto por ahora (settings.TAMANO_LETRA_SELECTOR). Pendiente de
                    llevarlo dentro del menú de la paleta de temas; ver la memoria "font-scale-parking-lot".{% endcomment %}
                 {% if tamano_letra_selector %}
@@ -413,6 +412,12 @@
                                     <a class="dropdown-item" href="#" id="tourChoicePageItem">
                                         <span class="fw-semibold d-block" id="tourChoicePageLabel">Recorrido de esta pantalla</span>
                                         <span class="small text-muted d-block text-wrap">Recorrido por esta función específica.</span>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'material:contacto_autor' %}?next={{ request.get_full_path|urlencode }}" id="tourContactoAutor">
+                                        <i class="bi bi-chat-dots me-2"></i>Hablar con el autor
                                     </a>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
@@ -629,6 +634,16 @@
             opts = opts || {};
             setHeader(opts.title || 'Confirmar', opts.variant || 'warning');
             bodyEl.textContent = message;
+            // opts.checkboxLabel agrega una casilla ("No volver a mostrar"): en ese caso la promesa se
+            // resuelve con { ok, checked } en vez de un booleano. Sin la opción todo sigue igual.
+            const checkboxLabel = opts.checkboxLabel || '';
+            if (checkboxLabel) {
+              const caja = document.createElement('div');
+              caja.className = 'form-check mt-3';
+              caja.innerHTML = '<input class="form-check-input" type="checkbox" id="eduModalCheck">' +
+                '<label class="form-check-label" for="eduModalCheck">' + window.EducaAppEscape(checkboxLabel) + '</label>';
+              bodyEl.appendChild(caja);
+            }
             const okVariant = opts.okVariant || (opts.variant === 'danger' ? 'danger' : 'primary');
             footerEl.innerHTML =
               '<button type="button" class="btn btn-secondary" id="eduModalCancelBtn">' + window.EducaAppEscape(opts.cancelLabel || 'Cancelar') + '</button>' +
@@ -639,7 +654,12 @@
               function finish(result) {
                 if (settled) return;
                 settled = true;
-                resolve(result);
+                if (checkboxLabel) {
+                  const marcada = !!(document.getElementById('eduModalCheck') || {}).checked;
+                  resolve({ ok: !!result, checked: !!result && marcada });
+                } else {
+                  resolve(result);
+                }
               }
               modalEl.addEventListener('hidden.bs.modal', function onHidden() {
                 modalEl.removeEventListener('hidden.bs.modal', onHidden);

@@ -219,6 +219,7 @@ path('oral-exams/exchange-question/', material_views.exchange_question, name='ex
     path('comenzar/demo/examenes/', material_views.onboarding_v2_demo_exam_list, name='onboarding_v2_demo_exam_list'),
     path('comenzar/listo/', material_views.onboarding_v2_finish, name='onboarding_v2_finish'),
     path('comenzar/salir/', material_views.onboarding_v2_exit, name='onboarding_v2_exit'),
+    path('ayuda/no-mostrar/', material_views.ayuda_no_mostrar, name='ayuda_no_mostrar'),
     path('onboarding/v2/connect-gemini/', material_views.onboarding_v2_connect_gemini, name='onboarding_v2_connect_gemini'),
     path('onboarding/v2/subject-status/', material_views.onboarding_v2_subject_status, name='onboarding_v2_subject_status'),
 

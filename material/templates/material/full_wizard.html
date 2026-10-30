@@ -9,12 +9,14 @@
 <link rel="stylesheet" href="{% static 'material/css/question_upload_wizard.css' %}">
 
 <div class="wiz-wrap">
-    <p class="text-muted mb-3" id="fwIntro">
-        Institución, facultad, carrera, materia, resultados de aprendizaje, preguntas y examen — todo en un
-        recorrido, sin salir de acá. En cada paso se puede usar algo ya cargado, crear algo nuevo, o saltear el paso. Lo que se crea acá
-        queda usable de inmediato en el espacio personal; un administrador decide después si lo suma al catálogo
-        institucional.
+    <p class="text-muted mb-2" id="fwIntro">
+        Todo en un recorrido: institución, facultad, carrera, materia, preguntas y examen. En cada paso se puede
+        usar algo ya cargado, crear algo nuevo u omitir el paso.
     </p>
+    <details class="small text-muted mb-3" id="fwIntroMas">
+        <summary>¿Qué pasa con lo que se crea?</summary>
+        <span class="d-block mt-1">Queda usable de inmediato en el espacio personal; un administrador decide después si lo suma al catálogo institucional.</span>
+    </details>
 
     <nav class="wiz-stepper" id="wizStepper" aria-label="Pasos del asistente">
         <div class="wiz-step-pill is-active" data-step-pill="1"><span class="wiz-step-num"><span>1</span></span><span class="wiz-step-label">Institución</span></div>
