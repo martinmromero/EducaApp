@@ -1,0 +1,6 @@
+<i class="bi {{ icon }} edu-stat__icon" aria-hidden="true"></i>
+<span class="edu-stat__text">
+    <span class="edu-stat__label">{{ label }}</span>
+    <span class="edu-stat__value">{{ value }}</span>
+    {% if extra_ok is not None %}<span class="edu-stat__extra">✅{{ extra_ok }} ❌{{ extra_bad }} ⏳{{ extra_wait }}</span>{% endif %}
+</span>

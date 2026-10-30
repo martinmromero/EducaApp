@@ -1,0 +1,8 @@
+{% comment %}
+Contador de resumen (Inicio, Mis Preguntas y demás listados): mismo formato en todos lados.
+Uso: {% include 'material/components/_stat_tile.html' with label="Preguntas" value=n icon="bi-question-circle-fill" color="primary" %}
+Opcionales: href (la tarjeta pasa a ser un enlace), extra_ok / extra_bad / extra_wait (renglón de aprobadas, rechazadas y
+pendientes). color: primary | info | success | secondary | warning | danger.
+El estilo está en static/css/theme.css (.edu-stat): ícono y texto centrados en vertical, y el número centrado
+debajo del título, a lo ancho del título.
+{% endcomment %}{% if href %}<a href="{{ href }}" class="edu-stat edu-stat--{{ color|default:'primary' }} edu-stat--link">{% include 'material/components/_stat_tile_cuerpo.html' %}</a>{% else %}<div class="edu-stat edu-stat--{{ color|default:'primary' }}">{% include 'material/components/_stat_tile_cuerpo.html' %}</div>{% endif %}

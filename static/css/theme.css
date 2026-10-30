@@ -213,3 +213,58 @@ html[data-font-scale="muy_grande"] { font-size: 125%; }
 body.driver-active #eduModal { z-index: 1000000002; }
 body.driver-active .modal-backdrop { z-index: 1000000001; }
 body.driver-active #eduModal, body.driver-active #eduModal * { pointer-events: auto; }
+
+/* ---------------------------------------------------------------------------
+   Contadores de resumen (.edu-stat): Inicio, Mis Preguntas y demás pantallas con el mismo formato.
+   Banda de color a la izquierda, ícono y texto centrados en vertical, y el número centrado debajo del
+   título (la columna de texto mide lo que mide el título, así que "centrado" es respecto de él).
+   Uso: componente material/components/_stat_tile.html dentro de un .edu-stat-grid.
+   --------------------------------------------------------------------------- */
+.edu-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: .75rem;
+}
+.edu-stat {
+  --edu-stat-color: var(--bs-primary);
+  --edu-stat-text: var(--bs-primary-text-emphasis, var(--bs-primary));
+  display: flex;
+  align-items: center;            /* ícono y bloque de texto, centrados entre sí en vertical */
+  justify-content: center;        /* y el conjunto, centrado en la tarjeta */
+  gap: .7rem;
+  min-width: 0;
+  padding: .7rem .9rem;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-left: .25rem solid var(--edu-stat-color);
+  border-radius: .5rem;
+  box-shadow: 0 .15rem .5rem rgba(0, 0, 0, .12);
+  color: var(--bs-body-color);
+  text-decoration: none;
+}
+.edu-stat--primary { --edu-stat-color: var(--bs-primary); --edu-stat-text: var(--bs-primary-text-emphasis, var(--bs-primary)); }
+.edu-stat--info { --edu-stat-color: var(--bs-info); --edu-stat-text: var(--bs-info-text-emphasis, var(--bs-info)); }
+.edu-stat--success { --edu-stat-color: var(--bs-success); --edu-stat-text: var(--bs-success-text-emphasis, var(--bs-success)); }
+.edu-stat--secondary { --edu-stat-color: var(--bs-secondary); --edu-stat-text: var(--bs-secondary-text-emphasis, var(--bs-secondary)); }
+.edu-stat--warning { --edu-stat-color: var(--bs-warning); --edu-stat-text: var(--bs-warning-text-emphasis, var(--bs-warning)); }
+.edu-stat--danger { --edu-stat-color: var(--bs-danger); --edu-stat-text: var(--bs-danger-text-emphasis, var(--bs-danger)); }
+.edu-stat--link:hover { color: var(--bs-body-color); border-color: var(--edu-stat-color); }
+.edu-stat__icon { flex: none; font-size: clamp(1.25rem, 2.4vw, 1.7rem); color: var(--edu-stat-color); line-height: 1; }
+.edu-stat__text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;            /* el número y el renglón extra, centrados respecto del título */
+  text-align: center;
+  min-width: 0;
+}
+.edu-stat__label {
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  line-height: 1.15;
+  /* El título lleva la versión del color que contrasta con el fondo (la amarilla pura casi no se lee en claro). */
+  color: var(--edu-stat-text);
+}
+.edu-stat__value { font-size: clamp(1.25rem, 2.4vw, 1.7rem); font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.edu-stat__extra { font-size: .72rem; color: var(--bs-secondary-color); line-height: 1.2; }

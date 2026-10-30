@@ -6,6 +6,7 @@
     <h1 class="h2">¿Por dónde empezar?</h1>
     <p class="text-muted">Armar exámenes paso a paso, generar preguntas con IA o crear un examen.</p>
 
+    {% url 'material:lista_preguntas' as url_preguntas %}{% url 'material:mis_examenes' as url_examenes %}{% url 'material:favoritos_list' as url_favoritos %}{% url 'material:espacio_personal_list' as url_espacio %}
     {% if ui_simple %}
     <!-- Modo simple: una sola puerta principal, el recorrido completo paso a paso. el ejemplo vive en el menú "?". -->
     <div class="d-grid gap-2 d-md-flex flex-wrap my-3">
@@ -24,69 +25,11 @@
     </div>
     {% endif %}
 
-    <style>
-        .index-stat-tab .card-body { padding: 0.75rem 1rem; }
-        .index-stat-tab .stat-icon { font-size: clamp(1.1rem, 2.2vw, 1.5rem); color: var(--edu-primary-text); }
-        .index-stat-tab .stat-label { font-size: clamp(0.75rem, 1.2vw, 0.85rem); color: var(--bs-secondary-color); }
-        .index-stat-tab .stat-value { font-size: clamp(1.1rem, 2.2vw, 1.5rem); line-height: 1.2; }
-        .index-stat-tab a.card:hover { border-color: var(--bs-primary); }
-    </style>
-    <div class="row g-3 my-2">
-        <div class="col-6 col-md-3 index-stat-tab">
-            <a href="{% url 'material:mis_contenidos' %}" class="card text-decoration-none h-100">
-                <div class="card-body d-flex align-items-center gap-2">
-                    <i class="bi bi-folder2-open stat-icon" aria-hidden="true"></i>
-                    <div>
-                        <div class="stat-label">Contenidos subidos</div>
-                        <div class="fw-bold stat-value">{{ contenidos_count }}</div>
-                    </div>
-                </div>
-            </a>
-        </div>
-        <div class="col-6 col-md-3 index-stat-tab">
-            <a href="{% url 'material:lista_preguntas' %}" class="card text-decoration-none h-100">
-                <div class="card-body d-flex align-items-center gap-2">
-                    <i class="bi bi-question-circle stat-icon" aria-hidden="true"></i>
-                    <div>
-                        <div class="stat-label">Preguntas en el banco</div>
-                        <div class="fw-bold stat-value">{{ preguntas_count }}</div>
-                    </div>
-                </div>
-            </a>
-        </div>
-        <div class="col-6 col-md-3 index-stat-tab">
-            <a href="{% url 'material:mis_examenes' %}" class="card text-decoration-none h-100">
-                <div class="card-body d-flex align-items-center gap-2">
-                    <i class="bi bi-card-checklist stat-icon" aria-hidden="true"></i>
-                    <div>
-                        <div class="stat-label">Exámenes armados</div>
-                        <div class="fw-bold stat-value">{{ examenes_count }}</div>
-                    </div>
-                </div>
-            </a>
-        </div>
-        <div class="col-6 col-md-3 index-stat-tab">
-            <a href="{% url 'material:favoritos_list' %}" class="card text-decoration-none h-100">
-                <div class="card-body d-flex align-items-center gap-2">
-                    <i class="bi bi-star stat-icon" aria-hidden="true"></i>
-                    <div>
-                        <div class="stat-label">Favoritos</div>
-                        <div class="fw-bold stat-value">{{ favoritos_count }}</div>
-                    </div>
-                </div>
-            </a>
-        </div>
-        <div class="col-6 col-md-3 index-stat-tab">
-            <a href="{% url 'material:espacio_personal_list' %}" class="card text-decoration-none h-100">
-                <div class="card-body d-flex align-items-center gap-2">
-                    <i class="bi bi-person-badge stat-icon" aria-hidden="true"></i>
-                    <div>
-                        <div class="stat-label">Espacio personal</div>
-                        <div class="fw-bold stat-value">{{ espacio_personal_count }}</div>
-                    </div>
-                </div>
-            </a>
-        </div>
+    <div class="edu-stat-grid my-2">
+        {% include 'material/components/_stat_tile.html' with label="Preguntas en el banco" value=preguntas_count icon="bi-question-circle-fill" color="primary" href=url_preguntas %}
+        {% include 'material/components/_stat_tile.html' with label="Exámenes armados" value=examenes_count icon="bi-card-checklist" color="info" href=url_examenes %}
+        {% include 'material/components/_stat_tile.html' with label="Favoritos" value=favoritos_count icon="bi-star-fill" color="warning" href=url_favoritos %}
+        {% include 'material/components/_stat_tile.html' with label="Espacio personal" value=espacio_personal_count icon="bi-person-badge" color="secondary" href=url_espacio %}
     </div>
 
     <h2 class="h5 mt-4">Últimos exámenes</h2>

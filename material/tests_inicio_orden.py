@@ -26,14 +26,14 @@ class InicioOrdenTests(TestCase):
 
     def test_modo_avanzado_tres_botones_en_orden(self):
         html = self._inicio('avanzado')
-        cuerpo = html.split('<h1 class="h2">¿Por dónde empezar?</h1>')[1].split('index-stat-tab')[0]
+        cuerpo = html.split('<h1 class="h2">¿Por dónde empezar?</h1>')[1].split('edu-stat-grid')[0]
         orden = [cuerpo.index(x) for x in ('id="homeAsistenteBtn"', 'Generar preguntas con IA', 'Crear examen')]
         self.assertEqual(orden, sorted(orden))
         self.assertNotIn('Subir material', cuerpo)
         self.assertNotIn('Probar con un ejemplo', cuerpo)
 
     def test_modo_simple_sin_probar_con_un_ejemplo_en_el_inicio(self):
-        cuerpo = self._inicio('simple').split('<h1 class="h2">¿Por dónde empezar?</h1>')[1].split('index-stat-tab')[0]
+        cuerpo = self._inicio('simple').split('<h1 class="h2">¿Por dónde empezar?</h1>')[1].split('edu-stat-grid')[0]
         self.assertNotIn('Probar con un ejemplo', cuerpo)
         self.assertIn('id="homeAsistenteBtn"', cuerpo)
 
@@ -99,3 +99,46 @@ class MenuLateralTests(TestCase):
         grupo = lateral.split('id="tourMenuFormatosPlantillas"')[1].split('id="tourMenuGrupos"')[0]
         for presente in ('id="tourMenuPlantillas"', 'Rúbricas', 'id="tourMenuFormatos"'):
             self.assertIn(presente, grupo)
+
+
+class ContadoresTests(TestCase):
+    """Los contadores de Inicio y de Mis Preguntas comparten un solo componente (.edu-stat)."""
+
+    def setUp(self):
+        self.c = Client()
+        self.c.force_login(_docente('ct_docente', 'avanzado'))
+
+    def test_inicio_tiene_cuatro_contadores_con_color_y_enlace(self):
+        html = self.c.get(reverse('material:index')).content.decode()
+        self.assertEqual(html.count('class="edu-stat edu-stat--'), 4)
+        self.assertEqual(html.count('edu-stat--link'), 4)
+        for color in ('primary', 'info', 'warning', 'secondary'):
+            self.assertIn(f'edu-stat--{color}', html)
+
+    def test_mis_preguntas_usa_el_mismo_componente(self):
+        html = self.c.get(reverse('material:lista_preguntas')).content.decode()
+        fila = html.split('id="questionStatsRow"')[1].split('id="templateFiltersForm"')[0]
+        self.assertEqual(fila.count('class="edu-stat edu-stat--'), 3)
+        for etiqueta in ('Preguntas', 'Materias', 'Tópicos'):
+            self.assertIn(etiqueta, fila)
+        for quitada in ('Sub-tópicos', 'Generadas por IA'):
+            self.assertNotIn(quitada, fila)
+        self.assertNotIn('stat-tab', html)
+
+    def test_inicio_ya_no_tiene_contenidos_subidos(self):
+        html = self.c.get(reverse('material:index')).content.decode()
+        self.assertNotIn('Contenidos subidos', html)
+        for etiqueta in ('Preguntas en el banco', 'Exámenes armados', 'Favoritos', 'Espacio personal'):
+            self.assertIn(etiqueta, html)
+
+
+class MenuExamenesTests(TestCase):
+    def test_el_menu_se_llama_mis_examenes_con_escritos_y_orales(self):
+        c = Client()
+        c.force_login(_docente('me_docente', 'avanzado'))
+        html = c.get(reverse('material:index')).content.decode()
+        lateral = html.split('id="tourMenuExamenes"')[1].split('id="tourMenuAcademico"')[0]
+        self.assertIn('Mis exámenes', lateral)
+        self.assertIn('Escritos</a>', lateral)
+        self.assertIn('Orales</a>', lateral)
+        self.assertNotIn('Cuestionarios Orales', lateral)

@@ -27,104 +27,11 @@
     <!-- Mensajes específicos de preguntas -->
     {% show_messages "preguntas" %}
 
-    <!-- Contadores -->
-    <style>
-        .stat-tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-        .stat-tab {
-            flex: 1 1 0;
-            min-width: 120px;
-        }
-        .stat-tab .card-body {
-            padding: 0.5rem 0.75rem;
-        }
-        .stat-tab i {
-            font-size: clamp(1rem, 2vw, 1.5rem);
-        }
-        .stat-tab .stat-label {
-            font-size: clamp(0.55rem, 1vw, 0.75rem);
-        }
-        .stat-tab .stat-value {
-            font-size: clamp(0.85rem, 1.8vw, 1.25rem);
-        }
-        .stat-tab .stat-extra {
-            font-size: clamp(0.5rem, 0.9vw, 0.7rem);
-        }
-    </style>
-    <div class="stat-tabs mb-4" id="questionStatsRow">
-        <div class="stat-tab">
-            <div class="card border-left-primary shadow h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-question-circle-fill text-primary me-2"></i>
-                        <div>
-                            <div class="text-uppercase text-primary font-weight-bold mb-0 stat-label">Preguntas</div>
-                            <div class="mb-0 font-weight-bold text-gray-800 stat-value">{{ preguntas.paginator.count }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="stat-tab">
-            <div class="card border-left-info shadow h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-book text-info me-2"></i>
-                        <div>
-                            <div class="text-uppercase text-info font-weight-bold mb-0 stat-label">Materias</div>
-                            <div class="mb-0 font-weight-bold text-gray-800 stat-value">{{ materias_count }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="stat-tab">
-            <div class="card border-left-success shadow h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-folder text-success me-2"></i>
-                        <div>
-                            <div class="text-uppercase text-success font-weight-bold mb-0 stat-label">Tópicos</div>
-                            <div class="mb-0 font-weight-bold text-gray-800 stat-value">{{ temas_count }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% if subtemas_count > 0 %}
-        <div class="stat-tab">
-            <div class="card border-left-secondary shadow h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-folder2-open text-secondary me-2"></i>
-                        <div>
-                            <div class="text-uppercase text-secondary font-weight-bold mb-0 stat-label">Sub-tópicos</div>
-                            <div class="mb-0 font-weight-bold text-gray-800 stat-value">{{ subtemas_count }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-        <div class="stat-tab">
-            <div class="card border-left-warning shadow h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-robot text-warning me-2"></i>
-                        <div>
-                            <div class="text-uppercase text-warning font-weight-bold mb-0 stat-label">Generadas por IA</div>
-                            <div class="mb-0 font-weight-bold text-gray-800 stat-value">{{ ia_generadas_count }}</div>
-                            {% if ia_generadas_count > 0 %}
-                            <div class="text-muted stat-extra">✅{{ ia_aprobadas_count }} ❌{{ ia_rechazadas_count }} ⏳{{ ia_sin_revisar_count }}</div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- Contadores: mismo componente que en Inicio (ver static/css/theme.css, .edu-stat) -->
+    <div class="edu-stat-grid mb-4" id="questionStatsRow">
+        {% include 'material/components/_stat_tile.html' with label="Preguntas" value=preguntas.paginator.count icon="bi-question-circle-fill" color="primary" %}
+        {% include 'material/components/_stat_tile.html' with label="Materias" value=materias_count icon="bi-book" color="info" %}
+        {% include 'material/components/_stat_tile.html' with label="Tópicos" value=temas_count icon="bi-folder" color="success" %}
     </div>
 
     {% include 'material/components/_column_filters_assets.html' %}

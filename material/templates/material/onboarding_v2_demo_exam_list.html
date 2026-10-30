@@ -11,15 +11,8 @@
         <div>Así se ve <strong>Mis Exámenes</strong> con el examen de ejemplo ya guardado — nada de esto se guardó de verdad todavía.</div>
     </div>
 
-    <div class="row mb-4">
-        <div class="col-md-3 mb-3">
-            <div class="card border-left-primary shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Exámenes</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">1</div>
-                </div>
-            </div>
-        </div>
+    <div class="edu-stat-grid mb-4">
+        {% include 'material/components/_stat_tile.html' with label="Total Exámenes" value=1 icon="bi-card-checklist" color="primary" %}
     </div>
 
     <div class="card shadow mb-4">

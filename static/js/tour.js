@@ -104,8 +104,8 @@
     {
       element: '#tourMenuExamenes',
       popover: {
-        title: 'Exámenes',
-        description: 'Aquí se arman exámenes con el banco de preguntas — al elegir, solo aparecen las que fueron aprobadas. También viven aquí los cuestionarios orales.',
+        title: 'Mis exámenes',
+        description: 'Aquí están los exámenes armados con el banco de preguntas — al elegir, solo aparecen las que fueron aprobadas. Se dividen en Escritos y Orales.',
         side: 'right',
       },
       onHighlightStarted: () => expandMenu('tourMenuExamenes'),

@@ -29,7 +29,7 @@
         element: '#questionStatsRow',
         popover: {
           title: 'Contadores',
-          description: 'Resumen rápido: preguntas totales, materias y tópicos con preguntas cargadas, y cuántas fueron generadas por IA.',
+          description: 'Resumen rápido: preguntas totales, y cuántas materias y tópicos tienen preguntas cargadas.',
           side: 'bottom',
         },
       },
