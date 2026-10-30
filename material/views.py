@@ -2461,12 +2461,28 @@ def save_exam_from_session(request):
     # "mis exámenes" directamente.
     wizard_finished = bool(request.session.pop('onb2_wizard_active', False))
 
+    # Descarga directa desde el aviso de "examen guardado": el lote si hay varias
+    # versiones, el examen si es uno solo; con varios sueltos no se ofrece.
+    download_urls = {}
+    if editing_batch is not None or batch is not None:
+        batch_pk = (editing_batch or batch).id
+        download_urls = {
+            'download_pdf_url': reverse('material:exportar_lote_pdf', kwargs={'batch_id': batch_pk}),
+            'download_docx_url': reverse('material:exportar_lote_docx', kwargs={'batch_id': batch_pk}),
+        }
+    elif len(created_exams) == 1:
+        download_urls = {
+            'download_pdf_url': reverse('material:exportar_examen_pdf', kwargs={'pk': created_exams[0].pk}),
+            'download_docx_url': reverse('material:exportar_examen_docx', kwargs={'pk': created_exams[0].pk}),
+        }
+
     if is_ajax:
         return JsonResponse({
             'success': True,
             'message': success_message,
             'redirect_url': reverse('material:onboarding_v2_finish') if wizard_finished else reverse('material:mis_examenes'),
             'created_exam_ids': [e.pk for e in created_exams],
+            **download_urls,
             # Para el Asistente paso a paso, que muestra su propia pantalla
             # final en vez de saltar a otra página: a dónde lleva "Ver el
             # examen" (el lote si hay varios temas, el examen si es uno).

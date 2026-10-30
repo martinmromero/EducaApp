@@ -162,9 +162,6 @@ def _append_payload(doc, payload, formato):
                     add_line(f"   {idx}) {opt}")
             elif subtype == 'verdadero_falso':
                 add_line('   ( ) Verdadero      ( ) Falso')
-            elif subtype in ('completar_blank', 'desarrollo'):
-                add_line('   ___________________________________________')
-                add_line('   ___________________________________________')
             if block.get('respuesta'):
                 add_line(f"Respuesta: {block['respuesta']}", bold=True, color=text_rgb)
 

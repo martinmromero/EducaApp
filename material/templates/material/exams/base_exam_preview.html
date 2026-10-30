@@ -748,11 +748,8 @@
                             <span style="margin-left:1em;">
                                 &#9711; Verdadero &nbsp;&nbsp; &#9711; Falso
                             </span>
-                        {% elif question.type == 'completar_blank' %}
-                            {# El [___] ya está en el texto de la pregunta #}
-                        {% elif question.type == 'desarrollo' %}
-                            <div style="margin-top:0.6em;border-bottom:1px solid #aaa;min-height:3em;"></div>
                         {% endif %}
+                        {# completar_blank: el [___] ya está en el texto. desarrollo: sin renglones de respuesta (decisión del autor). #}
                         {# ── Bloque de respuesta (oculto hasta activar modo con-respuestas) ── #}
                         {% if question.answer_text or question.answer_image_b64 %}
                         <div class="answer-block">
@@ -896,7 +893,9 @@ function examPreviewGoBack(fallbackUrl) {
     <div class="simple-modal-box">
         <div class="simple-modal-header"><i class="bi bi-check-circle-fill"></i> Examen guardado</div>
         <div class="simple-modal-body" id="examSavedMessage">El examen se guardó correctamente.</div>
-        <div class="simple-modal-footer">
+        <div class="simple-modal-footer" style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;">
+            <button type="button" id="examSavedPdfBtn" style="display:none;background:#dc3545;"><i class="bi bi-file-earmark-pdf"></i> Descargar PDF</button>
+            <button type="button" id="examSavedDocxBtn" style="display:none;background:#0d6efd;"><i class="bi bi-file-earmark-word"></i> Descargar DOCX</button>
             <button type="button" id="examSavedOkBtn">Ir a mis exámenes</button>
         </div>
     </div>
@@ -970,6 +969,16 @@ function examPreviewGoBack(fallbackUrl) {
 
         var postSaveRedirectUrl = "{% url 'material:mis_examenes' %}";
 
+        // Descarga directa desde el aviso de "examen guardado" (PDF o DOCX), sin ir antes a Mis exámenes.
+        function setSavedDownloads(data) {
+            [['examSavedPdfBtn', data.download_pdf_url], ['examSavedDocxBtn', data.download_docx_url]].forEach(function (par) {
+                var btn = document.getElementById(par[0]);
+                if (!btn) return;
+                btn.style.display = par[1] ? '' : 'none';
+                btn.onclick = par[1] ? function () { EducaAppDescargar(par[1], btn); } : null;
+            });
+        }
+
         function saveExamAndShowModal(btn, extraParams) {
             btn.disabled = true;
             var formData = new FormData();
@@ -992,7 +1001,9 @@ function examPreviewGoBack(fallbackUrl) {
                     // su propia pantalla final, no este modal ni la redirección.
                     if (window.EducaAppEmbed && window.EducaAppEmbed.notify('educaapp:exam-saved', {
                         message: data.message, createdExamIds: data.created_exam_ids, viewUrl: data.view_url, listUrl: data.redirect_url,
+                        downloadPdfUrl: data.download_pdf_url || '', downloadDocxUrl: data.download_docx_url || '',
                     })) return;
+                    setSavedDownloads(data);
                     if (data.redirect_url) postSaveRedirectUrl = data.redirect_url;
                     document.getElementById('examSavedMessage').textContent = data.message || 'El examen se guardó correctamente.';
                     document.getElementById('examSavedBackdrop').classList.add('show');

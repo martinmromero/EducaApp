@@ -201,11 +201,8 @@ def _append_payload(flow, payload, style_text, style_title, style_h2, *, include
                     flow.append(Paragraph(f"   {idx}) {opt}", style_text))
             elif subtype == 'verdadero_falso':
                 flow.append(Paragraph('   ( ) Verdadero      ( ) Falso', style_text))
-            elif subtype == 'completar_blank':
-                flow.append(Paragraph('   ___________________________________________', style_text))
-            elif subtype == 'desarrollo':
-                flow.append(Paragraph('   ___________________________________________', style_text))
-                flow.append(Paragraph('   ___________________________________________', style_text))
+            # completar_blank y desarrollo: sin renglones de respuesta (el espacio en blanco de
+            # "completar" ya viene dentro del texto de la pregunta).
 
             if block.get('respuesta'):
                 flow.append(Paragraph(f"<b>Respuesta:</b> {block['respuesta']}", style_text))

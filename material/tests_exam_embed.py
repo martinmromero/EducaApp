@@ -193,3 +193,59 @@ class FwSubjectProgressTopicCountTests(TestCase):
     def test_materia_sin_preguntas_no_tiene_topicos(self):
         datos = self.progreso()
         self.assertEqual((datos['question_count'], datos['topic_count']), (0, 0))
+
+
+class SinRenglonesDeRespuestaTests(TestCase):
+    """Los exámenes se exportan con las preguntas numeradas y sin renglones de respuesta."""
+
+    PAYLOAD = [
+        {'tipo': 'pregunta', 'numero': 1, 'texto': 'Describa el embudo AIDA', 'subtipo': 'desarrollo'},
+        {'tipo': 'pregunta', 'numero': 2, 'texto': 'El embudo tiene [___] etapas', 'subtipo': 'completar_blank'},
+    ]
+
+    def test_el_pdf_no_dibuja_renglones(self):
+        import fitz
+        from types import SimpleNamespace
+        from .renderers import render_exam_payload_to_pdf
+        pdf = render_exam_payload_to_pdf(self.PAYLOAD, SimpleNamespace())
+        texto = ''.join(p.get_text() for p in fitz.open(stream=pdf, filetype='pdf'))
+        self.assertIn('1. Describa el embudo AIDA', texto)
+        self.assertIn('2. El embudo tiene', texto)
+        self.assertNotIn('____________', texto)
+
+    def test_el_docx_no_dibuja_renglones(self):
+        import io
+        from types import SimpleNamespace
+        from docx import Document
+        from .renderers import render_exam_payload_to_docx
+        doc = Document(io.BytesIO(render_exam_payload_to_docx(self.PAYLOAD, SimpleNamespace())))
+        texto = '\n'.join(p.text for p in doc.paragraphs)
+        self.assertIn('1. Describa el embudo AIDA', texto)
+        self.assertNotIn('____________', texto)
+
+
+class DescargaAlGuardarTests(FwExamSaveResponseTests):
+    """El aviso de "examen guardado" ofrece PDF y DOCX del examen (o del lote)."""
+
+    def test_un_examen_ofrece_su_pdf_y_su_docx(self):
+        data = self.save().json()
+        pk = data['created_exam_ids'][0]
+        self.assertEqual(data['download_pdf_url'], reverse('material:exportar_examen_pdf', kwargs={'pk': pk}))
+        self.assertEqual(data['download_docx_url'], reverse('material:exportar_examen_docx', kwargs={'pk': pk}))
+
+    def test_varias_versiones_ofrecen_el_lote(self):
+        data = self.save(num_versions='2', questions_per_version='1').json()
+        self.assertIn('/examenes/lotes/', data['download_pdf_url'])
+        self.assertTrue(data['download_pdf_url'].endswith('/exportar/pdf/'))
+        self.assertTrue(data['download_docx_url'].endswith('/exportar/docx/'))
+
+    def test_las_urls_devueltas_descargan_de_verdad(self):
+        data = self.save().json()
+        self.assertEqual(self.client.get(data['download_pdf_url']).status_code, 200)
+        self.assertEqual(self.client.get(data['download_docx_url']).status_code, 200)
+
+    def test_las_vistas_previas_traen_los_botones_de_descarga(self):
+        from pathlib import Path
+        base = Path(__file__).parent / 'templates' / 'material' / 'exams'
+        self.assertIn('id="examSavedPdfBtn"', (base / 'base_exam_preview.html').read_text(encoding='utf-8'))
+        self.assertIn('id="examVersionsSavedPdfBtn"', (base / 'preview_exam_versions.html').read_text(encoding='utf-8'))

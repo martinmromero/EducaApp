@@ -48,7 +48,18 @@
     color: var(--bs-secondary-color);
     font-size: .8em;
     flex-shrink: 0;
+    /* número y tilde centrados en el círculo: sin el alto de línea heredado (1.5) el texto quedaba más abajo */
+    line-height: 1;
+    padding: 0;
+    text-align: center;
 }
+.wiz-step-pill .wiz-step-num > span,
+.wiz-step-pill.is-done .wiz-step-num::before {
+    display: block;
+    line-height: 1;
+}
+/* medido: el dígito quedaba ~0,4 px más arriba que el centro del círculo */
+.wiz-step-pill .wiz-step-num > span { transform: translateY(.04em); }
 .wiz-step-pill .wiz-step-label {
     white-space: nowrap;
     overflow: hidden;

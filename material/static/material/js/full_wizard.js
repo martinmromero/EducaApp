@@ -1071,6 +1071,13 @@
         });
         avisos.classList.toggle('d-none', !(d.warnings || []).length);
         examEl('fwExamDoneView').href = d.viewUrl || (oral ? CFG.urls.listOrals : CFG.urls.misExamenes);
+        // PDF y DOCX directos desde la pantalla final (solo exámenes escritos).
+        [['fwExamDonePdf', d.downloadPdfUrl], ['fwExamDoneDocx', d.downloadDocxUrl]].forEach(function (par) {
+            var b = examEl(par[0]);
+            var url = oral ? '' : par[1];
+            b.classList.toggle('d-none', !url);
+            b.onclick = url ? function () { window.EducaAppDescargar(url, b); } : null;
+        });
         showExamPanel('done');
         refreshPills();
         window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -107,7 +107,7 @@
       element: '#examSaveBtn',
       popover: {
         title: 'Guardar examen',
-        description: 'Guardar este examen en "Mis exámenes". Se puede seguir editando después.',
+        description: 'Guardar este examen en "Mis exámenes". Al guardar, el aviso ofrece descargarlo en PDF o DOCX en el momento. Se puede seguir editando después.',
         side: 'top',
       },
     });

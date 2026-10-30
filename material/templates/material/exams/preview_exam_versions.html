@@ -175,6 +175,8 @@
         <p class="mb-0" id="examVersionsSavedModalMessage">El examen se guardó correctamente.</p>
       </div>
       <div class="modal-footer">
+        <button type="button" class="btn btn-danger d-none" id="examVersionsSavedPdfBtn"><i class="bi bi-file-earmark-pdf"></i> Descargar PDF</button>
+        <button type="button" class="btn btn-outline-primary d-none" id="examVersionsSavedDocxBtn"><i class="bi bi-file-earmark-word"></i> Descargar DOCX</button>
         <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Ir a mis exámenes</button>
       </div>
     </div>
@@ -369,7 +371,14 @@
           // propia pantalla final, no este modal ni la redirección.
           if (window.EducaAppEmbed && window.EducaAppEmbed.notify('educaapp:exam-saved', {
             message: data.message, createdExamIds: data.created_exam_ids, viewUrl: data.view_url, listUrl: data.redirect_url,
+            downloadPdfUrl: data.download_pdf_url || '', downloadDocxUrl: data.download_docx_url || '',
           })) return;
+          // Descarga directa desde el aviso (PDF o DOCX), sin ir antes a Mis exámenes.
+          [['examVersionsSavedPdfBtn', data.download_pdf_url], ['examVersionsSavedDocxBtn', data.download_docx_url]].forEach(function (par) {
+            const b = document.getElementById(par[0]);
+            b.classList.toggle('d-none', !par[1]);
+            b.onclick = par[1] ? function () { EducaAppDescargar(par[1], b); } : null;
+          });
           if (data.redirect_url) postSaveRedirectUrl = data.redirect_url;
           document.getElementById('examVersionsSavedModalMessage').textContent = data.message || 'El examen se guardó correctamente.';
           getSavedModal().show();
