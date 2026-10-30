@@ -174,3 +174,14 @@ class FuentesPorTemaTests(TestCase):
         self.assertIn('Public+Sans', head)
         self.assertIn('Bricolage', head)
         self.assertNotIn('family=Montserrat', head)
+
+
+class RecorridoDeGenerarConIATests(TestCase):
+    """El recorrido de Generar con IA no apunta a elementos ocultos (2026-10-31)."""
+
+    def test_el_recorrido_muestra_el_encabezado_oculto_y_salta_lo_que_no_se_ve(self):
+        from pathlib import Path
+        js = (Path(__file__).resolve().parent.parent / 'static' / 'js' / 'page_tours' / 'doc_processor_tour.js').read_text(encoding='utf-8')
+        self.assertIn('revealStatusHeader', js)
+        self.assertIn('getBoundingClientRect', js)
+        self.assertIn("'docStatusHeader'", js)

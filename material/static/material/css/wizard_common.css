@@ -192,7 +192,22 @@
         background: var(--bs-body-bg);
         padding: .6rem 0;
         border-top: 1px solid var(--bs-border-color);
+        /* Atrás y el botón principal en la primera fila; "Empezar de nuevo" / "Salir" debajo. Con los tres en
+           una sola fila, "Crear cuestionario" (el último paso) se salía por el borde derecho. */
+        flex-wrap: wrap;
+        row-gap: .35rem;
     }
+    .wiz-nav > .btn { flex-shrink: 0; white-space: nowrap; }
+    .wiz-nav > .btn-primary { margin-left: auto; }
+    .wiz-nav > a,
+    .wiz-nav > span.small {
+        order: 3;
+        flex: 0 0 100%;
+        text-align: center;
+        white-space: nowrap;
+    }
+    /* El aviso de validación (toast) aparece abajo a la derecha y tapaba "Siguiente": se sube por encima de la botonera. */
+    body:has(.wiz-nav) #eduToastContainer { bottom: 6.5rem !important; }
 }
 
 /* ── Resumen final (revisión antes de enviar) ───────────────────────── */

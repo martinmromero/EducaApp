@@ -76,17 +76,54 @@
         },
       },
     ];
-    // Defensivo: descarta pasos cuyo elemento todavía no esté en el DOM (los
-    // últimos dos solo existen una vez que hay un documento procesado).
-    return steps.filter(function (s) { return document.querySelector(s.element); });
+    // Defensivo: descarta pasos cuyo elemento no esté en el DOM o no se vea (los
+    // últimos dos solo existen una vez que hay un documento procesado). Un elemento
+    // oculto tiene tamaño cero y driver.js ancla el globo en la esquina de la
+    // pantalla, que es lo que pasaba con el estado de la IA tras procesar un documento.
+    return steps.filter(function (s) {
+      var el = document.querySelector(s.element);
+      if (!el) return false;
+      var r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    });
+  }
+
+  // Tras procesar un documento, el encabezado con el estado de la IA y el botón de
+  // configuración se oculta (ver collapseUploadForm en el template). Para que esos
+  // pasos señalen algo real se lo muestra mientras dura el recorrido.
+  function revealStatusHeader() {
+    var ids = ['docStatusHeader', 'docStatusHr'];
+    var revealed = [];
+    ids.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && el.classList.contains('d-none')) {
+        el.classList.remove('d-none');
+        revealed.push(el);
+      }
+    });
+    return function restore() {
+      revealed.forEach(function (el) { el.classList.add('d-none'); });
+    };
   }
 
   function start() {
     if (!window.driver || !window.driver.js) return;
+    var restoreHeader = revealStatusHeader();
     var steps = buildSteps();
-    if (!steps.length) return;
+    if (!steps.length) { restoreHeader(); return; }
+    // driver.js no siempre llama a onDestroyed al cerrar con la X: además se vigila que el
+    // recorrido deje de estar activo (misma técnica que static/js/tour.js).
+    var restored = false;
+    function restoreOnce() { if (!restored) { restored = true; restoreHeader(); } }
+    var observer = new MutationObserver(function () {
+      if (document.body.classList.contains('driver-active')) return;
+      observer.disconnect();
+      restoreOnce();
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     try {
       window.driver.js.driver({
+        onDestroyed: restoreOnce,
         showProgress: true,
         progressText: '{{current}} de {{total}}',
         allowClose: true,

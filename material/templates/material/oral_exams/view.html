@@ -265,12 +265,20 @@
     <div id="roundRobinControls" class="mt-4" style="display: none;">
         <div class="card">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
+                <style>
+                    /* Celular: el título va arriba y Anterior / Siguiente debajo, cada uno en su mitad (en una sola fila "Siguiente" se salía por el borde). */
+                    @media (max-width: 575.98px) {
+                        .rr-controls { flex-wrap: wrap; row-gap: .75rem; }
+                        .rr-controls .rr-title { order: -1; flex: 0 0 100%; }
+                        .rr-controls .btn { flex: 1 1 0; }
+                    }
+                </style>
+                <div class="d-flex justify-content-between align-items-center rr-controls">
                     <button type="button" class="btn btn-outline-primary" id="prevQuestion">
                         <i class="bi bi-chevron-left"></i> Anterior
                     </button>
                     
-                    <div class="text-center">
+                    <div class="text-center rr-title">
                         <h5 class="mb-0"><span id="currentQuestionNumber">Grupo 1 - Pregunta 1</span></h5>
                         <small class="text-muted">de {{ oral_exam.num_groups }} grupos × {{ oral_exam.questions_per_student }} preguntas</small>
                     </div>

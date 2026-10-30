@@ -144,6 +144,10 @@
 .uqw-row > span:last-child { text-align: right; overflow-wrap: anywhere; }
 .uqw-sample { width: 100%; font-size: .82rem; }
 .uqw-sample td, .uqw-sample th { padding: .3rem .5rem; border-bottom: 1px solid var(--bs-border-color); vertical-align: top; }
+/* Celular: la tabla de muestra (4 columnas) se desplaza dentro de su recuadro en vez de salirse de él. */
+@media (max-width: 575.98px) {
+    .uqw-sample { display: block; max-width: 100%; overflow-x: auto; }
+}
 .uqw-issues { margin: .5rem 0 0; padding-left: 1.1rem; font-size: .85rem; }
 .uqw-done-icon { font-size: 3rem; color: var(--bs-success); line-height: 1; margin-bottom: .5rem; }
 
@@ -161,5 +165,14 @@
         background: var(--bs-body-bg);
         padding: .6rem 0;
         border-top: 1px solid var(--bs-border-color);
+        /* Atrás y el botón principal arriba; el enlace "Formulario completo" debajo (con "Importar N preguntas"
+           los tres en una fila se salían por el borde derecho). */
+        flex-wrap: wrap;
+        row-gap: .35rem;
     }
+    .uqw-page .uqw-nav > .btn { flex-shrink: 0; white-space: nowrap; }
+    .uqw-page .uqw-nav > .btn[data-role="action"] { margin-left: auto; }
+    .uqw-page .uqw-nav > .uqw-nav-links { order: 3; flex: 0 0 100%; text-align: center; }
+    /* El aviso de validación se sube por encima de la botonera. */
+    body:has(.uqw-page .uqw-nav) #eduToastContainer { bottom: 6.5rem !important; }
 }
