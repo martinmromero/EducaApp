@@ -399,11 +399,11 @@ _onDomReady(function () {
         // son de cada carrera-materia (ver get_visible_topics).
         var careerParam = CFG.isEmbedded && CFG.fwPrefill && CFG.fwPrefill.carrera_id
             ? '&career_id=' + encodeURIComponent(CFG.fwPrefill.carrera_id) : '';
-        var topicsPromise = fetch(CFG.urls.getTopics + '?subject_id=' + subjectId + '&for_exam=1&include_no_topic=1' + careerParam)
+        var topicsPromise = fetch(CFG.urls.getTopics + '?subject_id=' + subjectId + '&for_exam=1&include_no_topic=1' + careerParam, { cargando: '#wizTopicsList' })
             .then(function (r) { return r.json(); });
-        var questionsPromise = fetch(CFG.urls.getQuestionsByTopics + '?subject_id=' + subjectId + '&all=true')
+        var questionsPromise = fetch(CFG.urls.getQuestionsByTopics + '?subject_id=' + subjectId + '&all=true', { cargando: '#wizQuestionsGroups' })
             .then(function (r) { return r.json(); });
-        var outcomesPromise = fetch(CFG.urls.getLearningOutcomes + '?subject_id=' + subjectId)
+        var outcomesPromise = fetch(CFG.urls.getLearningOutcomes + '?subject_id=' + subjectId, { cargando: '#learning_outcomes_container' })
             .then(function (r) { return r.json(); });
 
         return Promise.all([topicsPromise, questionsPromise, outcomesPromise]).then(function (results) {

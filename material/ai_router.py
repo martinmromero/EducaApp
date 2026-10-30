@@ -705,8 +705,22 @@ class GlobalFallbackBackend(SharedDemoBackend):
     def is_available(self):
         return self._inner.is_available()
 
+    # get_status() le pregunta al proveedor si está conectado: es una llamada de red de 1 a 2 s que se hacía
+    # en cada apertura del procesador de documentos y en cada verificación de estado. La IA pública es la
+    # misma para todos, así que un resultado "conectado" se reusa unos segundos. Un "desconectado" no se
+    # guarda: se vuelve a consultar para enterarse apenas se recupera.
+    STATUS_CACHE_SEGUNDOS = 90
+
     def get_status(self):
-        return self._inner.get_status()
+        from django.core.cache import cache
+        clave = f'ai_status_compartido_{self._config_id}'
+        guardado = cache.get(clave)
+        if guardado is not None:
+            return guardado
+        estado = self._inner.get_status()
+        if isinstance(estado, dict) and estado.get('connected'):
+            cache.set(clave, estado, self.STATUS_CACHE_SEGUNDOS)
+        return estado
 
     def generate(self, *args, **kwargs):
         result = self._inner.generate(*args, **kwargs)

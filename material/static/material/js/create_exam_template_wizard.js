@@ -58,12 +58,12 @@ _onDomReady(function () {
         addCampusToggle.classList.add('d-none');
         if (!institutionId) return Promise.resolve();
 
-        var p1 = fetch(CFG.urls.getFacultiesByInstitutionBase + institutionId + '/')
+        var p1 = fetch(CFG.urls.getFacultiesByInstitutionBase + institutionId + '/', { cargando: facultySelect })
             .then(function (r) { return r.json(); })
             .then(function (data) { fillSelect(facultySelect, data.faculties || [], 'Seleccionar facultad'); })
             .catch(function () { resetSelect(facultySelect, 'Error al cargar facultades'); });
 
-        var p2 = fetch(CFG.urls.getCampusesByInstitutionBase + institutionId + '/')
+        var p2 = fetch(CFG.urls.getCampusesByInstitutionBase + institutionId + '/', { cargando: campusSelect })
             .then(function (r) { return r.json(); })
             .then(function (data) { fillSelect(campusSelect, data.campuses || [], 'Sin sede específica'); })
             .catch(function () { resetSelect(campusSelect, 'Sin sede específica'); });
@@ -79,7 +79,7 @@ _onDomReady(function () {
     function loadCareers(facultyId) {
         resetSelect(careerSelect, 'Elegir carrera primero');
         if (!facultyId) return Promise.resolve();
-        return fetch(CFG.urls.getCareersByFacultyBase + facultyId + '/')
+        return fetch(CFG.urls.getCareersByFacultyBase + facultyId + '/', { cargando: careerSelect })
             .then(function (r) { return r.json(); })
             .then(function (data) { fillSelect(careerSelect, data.careers || [], 'Seleccionar carrera'); })
             .catch(function () { resetSelect(careerSelect, 'Error al cargar carreras'); });
@@ -163,7 +163,7 @@ _onDomReady(function () {
             outcomesEmpty.classList.remove('d-none');
             return Promise.resolve();
         }
-        return fetch(CFG.urls.getLearningOutcomes + '?subject_id=' + subjectId)
+        return fetch(CFG.urls.getLearningOutcomes + '?subject_id=' + subjectId, { cargando: '#wizOutcomesList' })
             .then(function (r) { return r.json(); })
             .then(function (outcomes) {
                 if (!outcomes.length) {
@@ -197,7 +197,7 @@ _onDomReady(function () {
     var rubricsEmpty = document.getElementById('wizRubricsEmpty');
     var rubricsList = document.getElementById('wizRubricsList');
     function loadRubrics(checkedIds) {
-        return fetch(CFG.urls.getVisibleRubricsJson)
+        return fetch(CFG.urls.getVisibleRubricsJson, { cargando: '#wizRubricsList' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 var rubrics = data.rubrics || [];
@@ -241,7 +241,7 @@ _onDomReady(function () {
         var previousValue = subjectSelect.value;
         var allOptions = Array.from(subjectSelect.querySelectorAll('option[value]')).filter(function (o) { return o.value; });
 
-        return fetch(CFG.urls.getSubjectsByCareerBase + careerId + '/')
+        return fetch(CFG.urls.getSubjectsByCareerBase + careerId + '/', { cargando: subjectSelect })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 var careerIds = (data.subjects || []).map(function (s) { return String(s.id); });

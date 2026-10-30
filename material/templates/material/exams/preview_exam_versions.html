@@ -242,13 +242,21 @@
       const form = new FormData();
       Object.keys(payload).forEach(function(key) { form.append(key, payload[key]); });
 
-      const replaceRes = await fetch('{% url "material:preview_exam_replace_question" %}', {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCookie('csrftoken') },
-        body: form,
-      });
-      const replaceData = await replaceRes.json();
+      // Cambiar la pregunta puede tardar: la capa de espera también evita un segundo clic.
+      window.EducaAppLoading.show('Cambiando la pregunta…');
+      let replaceData;
+      try {
+        const replaceRes = await fetch('{% url "material:preview_exam_replace_question" %}', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCookie('csrftoken') },
+          body: form,
+        });
+        replaceData = await replaceRes.json();
+      } catch (err) {
+        replaceData = { success: false, error: 'No se pudo conectar con el servidor. Reintentar en unos segundos.' };
+      }
       if (!replaceData.success) {
+        window.EducaAppLoading.hide();
         window.EducaAppModal.alert(replaceData.error || 'No se pudo cambiar la pregunta.', { title: 'Error', variant: 'danger' });
         return;
       }
@@ -268,8 +276,16 @@
     btn.addEventListener('click', async function () {
       currentVersion = this.dataset.version;
       currentQuestionId = this.dataset.question;
-      const res = await fetch(`{% url 'material:preview_exam_available_questions' %}?version_number=${currentVersion}&question_id=${currentQuestionId}`);
-      const data = await res.json();
+      window.EducaAppLoading.show('Buscando alternativas…');
+      let data;
+      try {
+        const res = await fetch(`{% url 'material:preview_exam_available_questions' %}?version_number=${currentVersion}&question_id=${currentQuestionId}`);
+        data = await res.json();
+      } catch (err) {
+        data = { success: false, error: 'No se pudo conectar con el servidor. Reintentar en unos segundos.' };
+      } finally {
+        window.EducaAppLoading.hide();
+      }
       if (!data.success) {
         window.EducaAppModal.alert(data.error || 'No se pudieron cargar alternativas.', { title: 'Error', variant: 'danger' });
         return;

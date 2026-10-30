@@ -251,7 +251,7 @@ window.EducaAppLoadTemplateDependents = loadDependents;
         facultySelect.addEventListener('change', function () {
             const facultyId = this.value;
             if (!facultyId) return;
-            fetch(`/get-careers-by-faculty/${facultyId}/`)
+            fetch(`/get-careers-by-faculty/${facultyId}/`, { cargando: careerSelect })
                 .then(r => r.json())
                 .then(data => {
                     const previousValue = careerSelect.value;
@@ -275,7 +275,7 @@ window.EducaAppLoadTemplateDependents = loadDependents;
             const previousValue = subjectSelect.value;
             const allOptions = Array.from(subjectSelect.querySelectorAll('option[value]')).filter(o => o.value);
 
-            fetch(`/get-subjects-by-career/${careerId}/`)
+            fetch(`/get-subjects-by-career/${careerId}/`, { cargando: subjectSelect })
                 .then(r => r.json())
                 .then(data => {
                     const careerIds = (data.subjects || []).map(s => String(s.id));

@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var url = '/get-questions-by-topics/?topics=' + selectedTopics.join(',') + '&subject_id=' + subjectId;
 
-        fetch(url)
+        fetch(url, { cargando: '#questions_checkbox_container' })
             .then(function(response) {
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 return response.json();
@@ -549,7 +549,7 @@ document.addEventListener('DOMContentLoaded', function() {
             questionsSelect.innerHTML = '';
         }
         // Temas evaluados
-        var topicsPromise = fetch('/get-topics/?subject_id=' + subjectId + '&for_exam=1&include_no_topic=1')
+        var topicsPromise = fetch('/get-topics/?subject_id=' + subjectId + '&for_exam=1&include_no_topic=1', { cargando: '#topics_checkbox_container' })
             .then(function(response) {
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 return response.json();
@@ -573,7 +573,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         // Resultados de aprendizaje como checkboxes
-        var outcomesPromise = fetch('/get-learning-outcomes/?subject_id=' + subjectId)
+        var outcomesPromise = fetch('/get-learning-outcomes/?subject_id=' + subjectId, { cargando: '#learning_outcomes_container' })
             .then(function(response) {
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 return response.json();
@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('No se pudieron cargar los resultados de aprendizaje:', err);
             });
         // Unidades propias de la materia (atajo para tildar temas de una).
-        var unidadesPromise = fetch('/get-unidades/?subject_id=' + subjectId)
+        var unidadesPromise = fetch('/get-unidades/?subject_id=' + subjectId, { cargando: '#unidades_chip_container' })
             .then(function(response) {
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 return response.json();
@@ -676,7 +676,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         // Filtrar facultades por institución
-        var facultiesPromise = fetch('/get_faculties_by_institution/' + institucionId + '/')
+        var facultiesPromise = fetch('/get_faculties_by_institution/' + institucionId + '/', { cargando: '#facultad_dropdown' })
             .then(function(response) { return response.json(); })
             .then(function(data) {
                 facultadSelect.innerHTML = '<option value="">Seleccionar facultad</option><option value="otro">Otro</option>';
@@ -690,7 +690,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         // Filtrar sedes por institución
-        var campusesPromise = fetch('/get_campuses_by_institution/' + institucionId + '/')
+        var campusesPromise = fetch('/get_campuses_by_institution/' + institucionId + '/', { cargando: '#sede_dropdown' })
             .then(function(response) { return response.json(); })
             .then(function(data) {
                 sedeSelect.innerHTML = '<option value="">Seleccionar sede</option><option value="otro">Otro</option>';
@@ -714,7 +714,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         // Filtrar carreras por facultad
-        facultadDependentsPromise = fetch('/get-careers-by-faculty/' + facultadId + '/')
+        facultadDependentsPromise = fetch('/get-careers-by-faculty/' + facultadId + '/', { cargando: '#carrera_dropdown' })
             .then(function(response) { return response.json(); })
             .then(function(data) {
                 carreraSelect.innerHTML = '<option value="">Seleccionar carrera</option><option value="otro">Otro</option>';
@@ -748,7 +748,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // el 'change' de arriba no se dispara solo — sin esto, las Unidades
     // quedarían vacías hasta que el usuario tocara el select a mano.
     if (subjectSelect.value) {
-        fetch('/get-unidades/?subject_id=' + subjectSelect.value)
+        fetch('/get-unidades/?subject_id=' + subjectSelect.value, { cargando: '#unidades_chip_container' })
             .then(function(response) { return response.ok ? response.json() : []; })
             .then(function(data) {
                 renderUnidadesChips(data);

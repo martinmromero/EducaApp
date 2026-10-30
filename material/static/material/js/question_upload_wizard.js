@@ -271,7 +271,7 @@ window.EducaAppQuestionUpload = (function () {
         function loadSubjects() {
             var q = $('subject-search').value.trim();
             var url = URLS.subjects + (q ? '?q=' + encodeURIComponent(q) : '');
-            return fetch(url)
+            return fetch(url, { cargando: '#subject-chips' })
                 .then(function (r) { return r.json(); })
                 .then(function (data) { subjectItems = data.subjects || []; renderSubjectChips(); })
                 .catch(function () { subjectItems = []; renderSubjectChips(); });
@@ -420,7 +420,7 @@ window.EducaAppQuestionUpload = (function () {
         function loadTopics() {
             if (topicsLoadedFor === STATE.subject.id) { renderTopicChips(); loadSubtopics(); return; }
             fetch(URLS.getTopics + '?subject_id=' + encodeURIComponent(STATE.subject.id)
-                + (CAREER_ID ? '&career_id=' + encodeURIComponent(CAREER_ID) : ''))
+                + (CAREER_ID ? '&career_id=' + encodeURIComponent(CAREER_ID) : ''), { cargando: '#topic-chips' })
                 .then(function (r) { return r.json(); })
                 .then(function (data) { topicItems = data || []; topicsLoadedFor = STATE.subject.id; renderTopicChips(); loadSubtopics(); })
                 .catch(function () { topicItems = []; renderTopicChips(); });
@@ -450,7 +450,7 @@ window.EducaAppQuestionUpload = (function () {
             var box = $('subtopic-box');
             if (!STATE.topic) { box.style.display = 'none'; subtopicItems = []; return; }
             box.style.display = '';
-            fetch(URLS.getSubtopics + '?topic_id=' + encodeURIComponent(STATE.topic.id))
+            fetch(URLS.getSubtopics + '?topic_id=' + encodeURIComponent(STATE.topic.id), { cargando: '#subtopic-chips' })
                 .then(function (r) { return r.json(); })
                 .then(function (data) { subtopicItems = data || []; renderSubtopicChips(); })
                 .catch(function () { subtopicItems = []; renderSubtopicChips(); });
@@ -493,7 +493,7 @@ window.EducaAppQuestionUpload = (function () {
             if (contenidosLoadedFor === STATE.subject.id) return;
             var select = $('contenido');
             var keep = select.value;
-            fetch(URLS.contenidos + '?subject_id=' + encodeURIComponent(STATE.subject.id))
+            fetch(URLS.contenidos + '?subject_id=' + encodeURIComponent(STATE.subject.id), { cargando: '#contenido' })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     contenidosLoadedFor = STATE.subject.id;

@@ -4,7 +4,8 @@
    Escucha en document, o sea después de los manejadores propios de cada formulario:
    si alguno canceló el envío (validación, confirmación, guardado por AJAX) no se traba nada. */
 (function () {
-  var ESPERA_MAX_MS = 15000; // un POST que descarga un archivo no navega: el botón se libera solo
+  var ESPERA_MAX_MS = 60000; // un POST que descarga un archivo no navega: el botón se libera solo. Un guardado o una
+                             // generación lenta no tiene que dejar volver a tocar el botón antes de que responda
   var SIN_GUARDA = /(export|download|descargar|\bpdf\b|docx)/i; // respuestas que son archivos
 
   function botones(form) {
@@ -27,7 +28,16 @@
   function marcarGuardando(boton) {
     if (!boton || boton.tagName !== 'BUTTON') return;
     boton.dataset.guardaHtml = boton.innerHTML;
-    boton.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Guardando…';
+    // data-texto-espera en el botón (o en el formulario) cambia "Guardando…" por lo que realmente pasa: "Generando…".
+    var texto = boton.getAttribute('data-texto-espera')
+      || (boton.form && boton.form.getAttribute('data-texto-espera')) || 'Guardando…';
+    var rueda = document.createElement('span');
+    rueda.className = 'spinner-border spinner-border-sm me-1';
+    rueda.setAttribute('role', 'status');
+    rueda.setAttribute('aria-hidden', 'true');
+    boton.textContent = '';
+    boton.appendChild(rueda);
+    boton.appendChild(document.createTextNode(texto));
   }
 
   document.addEventListener('submit', function (e) {
