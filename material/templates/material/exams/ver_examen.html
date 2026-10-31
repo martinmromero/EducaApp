@@ -6,125 +6,180 @@
 {{ block.super }}
 {% endblock %}
 
-{% block bloom_sidebar %}
-{% if bloom_display %}
-<div class="bloom-sidebar no-print" id="bloomSidebar">
-
-  <button onclick="toggleBloom()"
-    style="width:100%;display:flex;justify-content:space-between;align-items:center;
-           background:none;border:none;cursor:pointer;padding:0;margin:0">
-    <span class="bloom-sidebar-title" style="margin:0">Distribución Cognitiva &middot; Bloom</span>
-    <span id="bloomToggleIcon" style="font-size:1.1rem;color:var(--edu-bloom-crear-text,#7d3c98)">&#9660;</span>
-  </button>
-
-  <div id="bloomContent" style="display:none;margin-top:12px">
-    <p style="color:#666;font-size:0.82rem;margin:0 0 10px">
-      {{ total_exam_questions }} pregunta{{ total_exam_questions|pluralize }} en este examen.
-    </p>
-
-    <p style="font-size:11px;color:#888;margin:0 0 6px;font-style:italic">Distribución de preguntas por nivel:</p>
-    {% for item in bloom_display %}
-    <div style="display:flex;align-items:center;margin-bottom:5px;gap:6px">
-      <span style="width:88px;font-size:11px;font-weight:600;color:{{ item.color }};text-align:right;flex-shrink:0">{{ item.name }}</span>
-      <div style="flex:1;background:#ebebeb;border-radius:3px;height:16px;overflow:hidden">
-        <div style="width:{{ item.pct }}%;height:100%;background:{{ item.color }};
-                    display:flex;align-items:center;justify-content:flex-end;
-                    padding-right:4px;box-sizing:border-box;min-width:{% if item.count %}16px{% else %}0{% endif %}">
-          {% if item.count %}<span style="font-size:10px;color:white;font-weight:bold">{{ item.count }}</span>{% endif %}
-        </div>
-      </div>
-    </div>
-    {% endfor %}
-
-    <div style="margin-top:14px;text-align:center">
-      <a href="{% url 'material:bloom_taxonomy' %}?popup=1"
-         onclick="window.open(this.href,'_bloom_ref','width=880,height=720,scrollbars=yes,resizable=yes');return false;"
-         style="font-size:0.8rem;color:var(--edu-bloom-crear-text,#7d3c98);text-decoration:underline">
-        &#128214; Ver pirámide completa con definiciones y verbos
-      </a>
-    </div>
-
-    <div class="bloom-disclaimer">Este resumen no es parte del guardado ni impresión del documento.</div>
-  </div>
-
-</div>
-
-<script>
-function toggleBloom() {
-  var c = document.getElementById('bloomContent');
-  var i = document.getElementById('bloomToggleIcon');
-  if (c.style.display === 'none') {
-    c.style.display = 'block';
-    i.innerHTML = '&#9650;';
-  } else {
-    c.style.display = 'none';
-    i.innerHTML = '&#9660;';
-  }
-}
-</script>
-{% endif %}
+{% block toolbar_left %}
+<a href="{{ back_url }}" class="exam-toolbar-back" id="examBackBtn" title="Volver">
+    <i class="bi bi-arrow-left"></i><span class="exam-toolbar-back-label"> Volver</span>
+</a>
 {% endblock %}
 
+{# La pantalla es la hoja del examen sola; todo lo demás (ver, descargar, rúbricas y Bloom) vive en el panel "Acciones". #}
 {% block action_buttons %}
-<div class="top-actions-row">
-    <a href="{% url 'material:exam_rubrics' exam.pk %}">
-        <button type="button" class="btn-accent-violet">
-            <i class="bi bi-card-checklist"></i> {% if has_rubrics %}Gestionar rúbricas{% else %}Agregar rúbricas{% endif %}
-        </button>
-    </a>
-    <a href="{{ back_url }}">
-        <button class="secondary">
-            <i class="bi bi-arrow-left"></i> Volver
-        </button>
-    </a>
-</div>
+<span hidden></span>
+<style>
+    .print-button { display: none; }
+    .exam-toolbar-back {
+        display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px;
+        border: 1px solid #ced4da; border-radius: 4px; background: #fff; color: #333;
+        text-decoration: none; font-size: .9rem; white-space: nowrap;
+    }
+    .exam-toolbar-back:hover { background: #f1f3f5; color: #111; }
+    @media (max-width: 480px) { .exam-toolbar-back-label { display: none; } .exam-toolbar-back { padding: 0 10px; } .exam-zoom-toolbar { padding: 6px; gap: 4px; } .exam-zoom-group { gap: 4px; } }
 
-<div class="option-panels-row">
-<div class="option-panel option-panel-view">
-    <h4 class="option-panel-title"><i class="bi bi-display"></i> Ver en pantalla</h4>
-    <div class="view-toggles">
-        <label class="view-toggle">
-            <input type="checkbox" id="viewShowAnswers" onchange="onViewToggleChange()">
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            <span class="toggle-label"><i class="bi bi-eye"></i> Mostrar respuestas</span>
-        </label>
-        {% if has_rubrics %}
-        <label class="view-toggle">
-            <input type="checkbox" id="viewShowRubrics" checked onchange="onViewToggleChange()">
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            <span class="toggle-label"><i class="bi bi-card-checklist"></i> Mostrar rúbricas</span>
-        </label>
-        {% endif %}
-    </div>
-</div>
+    /* Botón flotante y panel de acciones */
+    .acciones-fab {
+        position: fixed; right: 16px; bottom: 16px; z-index: 1040;
+        display: inline-flex; align-items: center; gap: 8px;
+        min-height: 48px; padding: 0 20px; border: 0; border-radius: 999px;
+        background: #3a5fcd; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, .3);
+    }
+    .acciones-fab:hover { background: #2f4fb0; }
+    .acciones-backdrop { display: none; position: fixed; inset: 0; z-index: 1045; background: rgba(0, 0, 0, .45); }
+    .acciones-panel {
+        display: none; position: fixed; z-index: 1050; flex-direction: column;
+        background: #fff; color: #222; font-size: 15px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, .35); overflow-y: auto;
+        right: 16px; bottom: 76px; width: 360px; max-height: calc(100vh - 100px); border-radius: 14px;
+    }
+    .acciones-panel.is-open { display: flex; }
+    .acciones-panel-head {
+        display: flex; align-items: center; justify-content: space-between; padding: 12px 16px;
+        border-bottom: 1px solid #e5e5e5; position: sticky; top: 0; background: #fff; z-index: 1;
+    }
+    .acciones-panel-head strong { font-size: 1.05rem; }
+    .acciones-close { border: 0; background: none; font-size: 1.5rem; line-height: 1; padding: 4px 8px; cursor: pointer; color: #555; }
+    .acc-seccion { padding: 14px 16px; border-bottom: 1px solid #eee; }
+    .acc-seccion:last-child { border-bottom: 0; }
+    .acc-titulo { margin: 0 0 10px; font-size: .8rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #555; display: flex; align-items: center; gap: 8px; }
+    .acc-seccion .view-toggles { justify-content: flex-start; flex-direction: column; align-items: flex-start; gap: 12px; }
+    .acc-seccion .view-toggle { font-size: 15px; }
+    .acc-checks { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .acc-checks label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; }
+    .acc-checks input { width: 20px; height: 20px; accent-color: #3a5fcd; }
+    .acc-botones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .acc-btn {
+        box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+        min-height: 46px; padding: 0 8px; border: 0; border-radius: 8px; color: #fff;
+        font-size: .95rem; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap;
+    }
+    .acc-btn i { font-size: 1.1rem; }
+    .acc-btn-verde { background: #2e9e57; } .acc-btn-verde:hover { background: #26864a; }
+    .acc-btn-rojo { background: #d94141; } .acc-btn-rojo:hover { background: #bd3535; }
+    .acc-btn-indigo { background: #2b579a; } .acc-btn-indigo:hover { background: #234781; }
+    .acc-btn-violeta { background: #7e4fb5; width: 100%; } .acc-btn-violeta:hover { background: #6a409b; color: #fff; }
 
-<div class="option-panel option-panel-export">
-    <h4 class="option-panel-title"><i class="bi bi-file-earmark-arrow-down"></i> Imprimir / Descargar</h4>
-    <div class="export-checkboxes">
-        <label>
-            <input type="checkbox" id="exportIncludeAnswers"> Incluir respuestas
-        </label>
-        {% if has_rubrics %}
-        <label>
-            <input type="checkbox" id="exportIncludeRubrics" checked> Incluir rúbricas
-        </label>
-        {% endif %}
+    /* Pirámide de Bloom: seis escalones con el nombre del nivel y la cantidad adentro. */
+    .bloom-pirami { display: flex; flex-direction: column; align-items: center; gap: 3px; margin: 4px 0 10px; }
+    .bloom-escalon {
+        width: var(--w); min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 8px;
+        padding: 0 14px; box-sizing: border-box; color: #fff; font-size: 14px; font-weight: 700; line-height: 1.1;
+        background: var(--c); clip-path: polygon(4% 0, 96% 0, 100% 100%, 0 100%); white-space: nowrap;
+    }
+    .bloom-escalon:nth-child(1) { --w: 38%; } .bloom-escalon:nth-child(2) { --w: 50%; } .bloom-escalon:nth-child(3) { --w: 62%; }
+    .bloom-escalon:nth-child(4) { --w: 74%; } .bloom-escalon:nth-child(5) { --w: 87%; } .bloom-escalon:nth-child(6) { --w: 100%; }
+    .bloom-escalon.is-vacio { background: #e4e4e8; color: #666; font-weight: 600; }
+    .bloom-escalon .bloom-n { background: rgba(0, 0, 0, .22); border-radius: 999px; padding: 2px 8px; font-size: 13px; }
+    .bloom-escalon.is-vacio .bloom-n { background: transparent; padding: 2px 0; }
+    .bloom-total { text-align: center; font-size: 14px; color: #444; margin: 0 0 6px; }
+    .bloom-enlace { display: block; text-align: center; font-size: 14px; color: #6b3fa0; text-decoration: underline; margin-top: 6px; }
+    .bloom-aviso { font-size: 12.5px; color: #777; font-style: italic; text-align: center; margin-top: 10px; }
+
+    /* Celular: el panel sube desde abajo, a todo el ancho. */
+    @media (max-width: 767.98px) {
+        .acciones-backdrop.is-open { display: block; }
+        .acciones-panel { left: 0; right: 0; bottom: 0; width: auto; max-height: 82vh; border-radius: 18px 18px 0 0; }
+        .acciones-fab { right: 14px; bottom: 14px; }
+    }
+    @media print { .acciones-fab, .acciones-panel, .acciones-backdrop { display: none !important; } }
+</style>
+{% endblock %}
+
+{% block bloom_sidebar %}
+<button type="button" class="acciones-fab no-print" id="examActionsBtn" aria-expanded="false" aria-controls="accionesPanel">
+    <i class="bi bi-sliders"></i> Acciones
+</button>
+<div class="acciones-backdrop no-print" id="accionesBackdrop"></div>
+<div class="acciones-panel no-print" id="accionesPanel" role="dialog" aria-label="Acciones del examen">
+    <div class="acciones-panel-head">
+        <strong>Acciones</strong>
+        <button type="button" class="acciones-close" id="accionesClose" aria-label="Cerrar">&times;</button>
     </div>
-    <div class="action-buttons-row">
-        <button onclick="doPrint()" class="btn-accent-green">
-            <i class="bi bi-printer"></i> Imprimir
-        </button>
-        <button onclick="doDownload('pdf', this)" class="btn-accent-red">
-            <i class="bi bi-file-earmark-pdf"></i> Descargar PDF
-        </button>
-        <button onclick="doDownload('docx', this)" class="btn-accent-indigo">
-            <i class="bi bi-file-earmark-word"></i> Descargar DOCX
-        </button>
-    </div>
-</div>
+
+    <section class="acc-seccion">
+        <h4 class="acc-titulo"><i class="bi bi-display"></i> Ver en pantalla</h4>
+        <div class="view-toggles">
+            <label class="view-toggle">
+                <input type="checkbox" id="viewShowAnswers" onchange="onViewToggleChange()">
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                <span class="toggle-label"><i class="bi bi-eye"></i> Mostrar respuestas</span>
+            </label>
+            {% if has_rubrics %}
+            <label class="view-toggle">
+                <input type="checkbox" id="viewShowRubrics" checked onchange="onViewToggleChange()">
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                <span class="toggle-label"><i class="bi bi-card-checklist"></i> Mostrar rúbricas</span>
+            </label>
+            {% endif %}
+        </div>
+        <div style="margin-top:14px">
+            <a href="{% url 'material:exam_rubrics' exam.pk %}" class="acc-btn acc-btn-violeta" id="examRubricsBtn">
+                <i class="bi bi-card-checklist"></i> {% if has_rubrics %}Gestionar rúbricas{% else %}Agregar rúbricas{% endif %}
+            </a>
+        </div>
+    </section>
+
+    <section class="acc-seccion" id="accExport">
+        <h4 class="acc-titulo"><i class="bi bi-file-earmark-arrow-down"></i> Imprimir / Descargar</h4>
+        <div class="acc-checks">
+            <label><input type="checkbox" id="exportIncludeAnswers"> Incluir respuestas</label>
+            {% if has_rubrics %}
+            <label><input type="checkbox" id="exportIncludeRubrics" checked> Incluir rúbricas</label>
+            {% endif %}
+        </div>
+        <div class="acc-botones">
+            <button type="button" onclick="doPrint()" class="acc-btn acc-btn-verde"><i class="bi bi-printer"></i> Imprimir</button>
+            <button type="button" onclick="doDownload('pdf', this)" class="acc-btn acc-btn-rojo"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+            <button type="button" onclick="doDownload('docx', this)" class="acc-btn acc-btn-indigo"><i class="bi bi-file-earmark-word"></i> DOCX</button>
+        </div>
+    </section>
+
+    {% if bloom_display %}
+    <section class="acc-seccion" id="bloomSidebar">
+        <h4 class="acc-titulo"><i class="bi bi-diagram-3"></i> Distribución cognitiva · Bloom</h4>
+        <p class="bloom-total">{{ total_exam_questions }} pregunta{{ total_exam_questions|pluralize }} en este examen</p>
+        <div class="bloom-pirami" role="img" aria-label="Pirámide de Bloom con la cantidad de preguntas por nivel">
+            {% for item in bloom_display %}
+            <div class="bloom-escalon{% if not item.count %} is-vacio{% endif %}" style="--c:{{ item.color }}">
+                <span>{{ item.name }}</span><span class="bloom-n">{{ item.count }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <a class="bloom-enlace" href="{% url 'material:bloom_taxonomy' %}?popup=1"
+           onclick="window.open(this.href,'_bloom_ref','width=880,height=720,scrollbars=yes,resizable=yes');return false;">
+            Ver la pirámide completa con definiciones y verbos
+        </a>
+        <div class="bloom-aviso">Este resumen no es parte del guardado ni de la impresión del documento.</div>
+    </section>
+    {% endif %}
 </div>
 
 <script>
+    (function () {
+        var btn = document.getElementById('examActionsBtn');
+        var panel = document.getElementById('accionesPanel');
+        var backdrop = document.getElementById('accionesBackdrop');
+        function abrir(si) {
+            panel.classList.toggle('is-open', si);
+            backdrop.classList.toggle('is-open', si);
+            btn.setAttribute('aria-expanded', String(si));
+        }
+        btn.addEventListener('click', function () { abrir(!panel.classList.contains('is-open')); });
+        document.getElementById('accionesClose').addEventListener('click', function () { abrir(false); });
+        backdrop.addEventListener('click', function () { abrir(false); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') abrir(false); });
+        window.EducaAppExamActions = { abrir: abrir };
+    })();
+
     function onViewToggleChange() {
         var withAnswers = document.getElementById('viewShowAnswers').checked;
         document.body.classList.toggle('show-answers', withAnswers);

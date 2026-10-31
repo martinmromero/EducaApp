@@ -896,3 +896,20 @@ html.embed-mode .main-content.test-panel-open {
 .btn-sm.btn-icon { min-width: 1.85rem; min-height: 1.85rem; padding-left: .4rem; padding-right: .4rem; }
 .btn-acciones { display: inline-flex; align-items: center; gap: .35rem; flex-wrap: nowrap; white-space: nowrap; }
 .btn-acciones .btn { display: inline-flex; align-items: center; justify-content: center; line-height: 1.2; }
+
+/* Motivo de descarte en el listado de preguntas: puede ser largo, así que baja de línea (máx. 2) dentro de su celda
+   en vez de salirse de ella y pisar las etiquetas y los botones de al lado (la columna "fit" no corta líneas). */
+.lc-table .lc-motivo {
+    white-space: normal;
+    min-width: 8rem;
+    max-width: 13rem;
+    margin-top: .2rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+

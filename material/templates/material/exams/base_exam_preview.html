@@ -94,6 +94,18 @@
         .exam-zoom-toolbar button:hover {
             background: #f1f3f5;
         }
+        .exam-zoom-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0 auto;
+        }
+        .exam-zoom-toolbar button.exam-zoom-fit {
+            width: auto;
+            padding: 0 10px;
+            font-size: .85rem;
+            white-space: nowrap;
+        }
         .exam-zoom-level {
             min-width: 3.4rem;
             text-align: center;
@@ -102,6 +114,16 @@
         }
         .exam-zoom-sizer {
             position: relative;
+        }
+        /* Celular, solo en pantalla: la hoja se angosta (y se achican sus márgenes laterales) para que al ajustarla al
+           ancho el texto quede ~35 % más grande. Lo que se imprime y se descarga no cambia. */
+        @media screen and (max-width: 767.98px) {
+            .exam-container {
+                width: 600px;
+                min-width: 600px;
+                padding-left: 28px;
+                padding-right: 28px;
+            }
         }
         .bloom-sidebar {
             max-width: 480px;
@@ -607,13 +629,16 @@
 <body>
 <div class="page-wrapper">
     <div class="exam-zoom-toolbar no-print">
-        <button type="button" id="examZoomOut" title="Alejar">&minus;</button>
-        <span class="exam-zoom-level" id="examZoomLevel">100%</span>
-        <button type="button" id="examZoomIn" title="Acercar">+</button>
-        <button type="button" id="examZoomFit" title="Ajustar a pantalla"><i class="bi bi-arrows-fullscreen"></i></button>
-        {% if not is_demo %}
-        <button type="button" id="examTourBtn" title="Recorrido guiado de esta pantalla"><i class="bi bi-question-circle-fill"></i></button>
-        {% endif %}
+        {% block toolbar_left %}{% endblock %}
+        <div class="exam-zoom-group">
+            <button type="button" id="examZoomOut" title="Alejar">&minus;</button>
+            <span class="exam-zoom-level" id="examZoomLevel">100%</span>
+            <button type="button" id="examZoomIn" title="Acercar">+</button>
+            <button type="button" id="examZoomFit" class="exam-zoom-fit" title="Ajustar el examen al ancho de la pantalla"><i class="bi bi-arrow-left-right"></i><span> Ajustar</span></button>
+            {% if not is_demo %}
+            <button type="button" id="examTourBtn" title="Recorrido guiado de esta pantalla"><i class="bi bi-question-circle-fill"></i></button>
+            {% endif %}
+        </div>
     </div>
     {% if questions_shortfall_warning %}
     <div class="no-print" role="alert" style="margin: 0.75rem 1rem 0; padding: 0.65rem 1rem; background: #fff3cd; border: 1px solid #ffe69c; color: #664d03; border-radius: 6px; font-size: 0.9rem;">

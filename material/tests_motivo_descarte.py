@@ -212,3 +212,40 @@ class AsistentesRetomarSinAvisosTests(TestCase):
         js = self._js('full_wizard.js')
         self.assertIn('function fitExamFrame', js)
         self.assertIn('scrollToStepper', js)
+
+
+class VerExamenAccionesTests(TestCase):
+    """Pantalla del examen guardado (2026-10-31): hoja sola, botón «Acciones» y Bloom como pirámide."""
+
+    def setUp(self):
+        from .models import Exam, Topic
+        self.user = _docente('vex_docente')
+        materia = Subject.objects.create(name='Materia VEX', created_by=self.user)
+        tema = Topic.objects.create(name='T', subject=materia)
+        self.exam = Exam.objects.create(title='Examen VEX', subject=materia, created_by=self.user)
+        for nivel in (1, 1, 4):
+            q = Question.objects.create(user=self.user, question_text=f'P{nivel}', answer_text='r', topic=tema, bloom_level=nivel)
+            q.subjects.add(materia)
+            self.exam.questions.add(q)
+        self.c = Client()
+        self.c.force_login(self.user)
+
+    def test_la_pantalla_trae_el_boton_acciones_con_ver_descargar_y_bloom(self):
+        html = self.c.get(reverse('material:ver_examen', kwargs={'pk': self.exam.pk})).content.decode()
+        for esperado in ('id="examActionsBtn"', 'id="accionesPanel"', 'id="viewShowAnswers"', 'id="exportIncludeAnswers"',
+                         'id="examRubricsBtn"', 'bloom-pirami', 'Ajustar'):
+            self.assertIn(esperado, html)
+        # los tres botones de descarga y la pirámide con seis escalones
+        self.assertEqual(html.count('class="bloom-escalon'), 6)
+        self.assertIn('doDownload(\'pdf\', this)', html)
+
+    def test_la_piramide_cuenta_las_preguntas_por_nivel(self):
+        html = self.c.get(reverse('material:ver_examen', kwargs={'pk': self.exam.pk})).content.decode()
+        recordar = html.split('Recordar</span>')[1][:80]
+        self.assertIn('>2<', recordar)
+        analizar = html.split('Analizar</span>')[1][:80]
+        self.assertIn('>1<', analizar)
+
+    def test_el_icono_de_pantalla_completa_ya_no_esta(self):
+        html = self.c.get(reverse('material:ver_examen', kwargs={'pk': self.exam.pk})).content.decode()
+        self.assertNotIn('bi-arrows-fullscreen', html)

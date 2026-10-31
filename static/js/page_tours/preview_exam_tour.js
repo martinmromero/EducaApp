@@ -53,26 +53,10 @@
         },
       },
       {
-        element: '#viewShowAnswers',
+        element: '#examActionsBtn',
         popover: {
-          title: 'Mostrar respuestas',
-          description: 'Muestra la respuesta correcta de cada pregunta en pantalla, sin que aparezca impresa a menos que se elija incluirla.',
-          side: 'top',
-        },
-      },
-      {
-        element: '#bloomSidebar',
-        popover: {
-          title: 'Distribución cognitiva (Bloom)',
-          description: 'Resumen del nivel de exigencia cognitiva de cada pregunta del examen — útil para balancear la dificultad general.',
-          side: 'left',
-        },
-      },
-      {
-        element: '.option-panel-export',
-        popover: {
-          title: 'Imprimir / Descargar',
-          description: 'Desde acá se puede imprimir el examen o descargarlo en PDF/DOCX, con o sin respuestas y rúbricas.',
+          title: 'Acciones',
+          description: 'Este botón abre el panel con todo lo demás: mostrar las respuestas y las rúbricas en pantalla, agregar o gestionar rúbricas, imprimir o descargar el examen en PDF o DOCX (con o sin respuestas y rúbricas) y ver la distribución de niveles de Bloom en forma de pirámide.',
           side: 'top',
         },
       },

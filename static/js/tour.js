@@ -78,7 +78,7 @@
       element: '#tourMenuAsistente',
       popover: {
         title: 'Asistente paso a paso',
-        description: 'El recorrido paso a paso: institución, carrera, materia, preguntas y examen, todo en un mismo lugar. Es el primer ítem del menú y la puerta de entrada.',
+        description: 'Aquí se pueden crear y aprovechar todos los elementos: institución, carrera, materia, preguntas y examen, todo en un mismo lugar. Es el primer ítem del menú y la puerta de entrada.',
         side: 'right',
       },
       onHighlightStarted: () => expandMenu('tourMenuAsistente'),
@@ -105,7 +105,7 @@
       element: '#tourMenuExamenes',
       popover: {
         title: 'Mis exámenes',
-        description: 'Aquí están los exámenes armados con el banco de preguntas — al elegir, solo aparecen las que fueron aprobadas. Se dividen en Escritos y Orales.',
+        description: 'Aquí están los exámenes armados con el banco de preguntas — al elegir, solo aparecen las que fueron aprobadas. Se dividen en Escritos y Orales. Pueden ser reutilizados y editados cuantas veces se desee.',
         side: 'right',
       },
       onHighlightStarted: () => expandMenu('tourMenuExamenes'),
