@@ -185,3 +185,30 @@ class RecorridoDeGenerarConIATests(TestCase):
         self.assertIn('revealStatusHeader', js)
         self.assertIn('getBoundingClientRect', js)
         self.assertIn("'docStatusHeader'", js)
+
+
+class AsistentesRetomarSinAvisosTests(TestCase):
+    """Al retomar un borrador los asistentes avanzan sin avisos apilados ni mover la página (2026-10-31)."""
+
+    def _js(self, nombre):
+        from pathlib import Path
+        return (Path(__file__).resolve().parent / 'static' / 'material' / 'js' / nombre).read_text(encoding='utf-8')
+
+    def test_el_motor_ofrece_runSilently_y_goNext_devuelve_si_avanzo(self):
+        js = self._js('wizard_engine.js')
+        self.assertIn('runSilently: runSilently', js)
+        self.assertIn('return false;', js)
+        self.assertIn('if (!silencio) scrollToStepper();', js)
+
+    def test_los_asistentes_retoman_con_runSilently_y_cortan_en_el_primer_paso_que_no_valida(self):
+        for nombre in ('create_exam_wizard.js', 'create_exam_template_wizard.js', 'create_institution_v2_wizard.js',
+                       'create_oral_exam_wizard.js', 'full_wizard.js'):
+            js = self._js(nombre)
+            self.assertIn('runSilently', js, nombre)
+        # ya no quedan cadenas de goNext() sueltas al retomar el borrador del examen
+        self.assertNotIn('wizardCtrl.goNext();\n                wizardCtrl.goNext();\n                wizardCtrl.goNext();', self._js('create_exam_wizard.js').replace('\r\n', '\n'))
+
+    def test_el_asistente_completo_ajusta_el_marco_al_alto_visible_en_celular(self):
+        js = self._js('full_wizard.js')
+        self.assertIn('function fitExamFrame', js)
+        self.assertIn('scrollToStepper', js)

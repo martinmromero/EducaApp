@@ -922,7 +922,24 @@
         examEl('fwExamDone').classList.toggle('d-none', which !== 'done');
         var hostNav = document.querySelector('.wiz-nav');
         if (hostNav) hostNav.classList.toggle('d-none', which === 'stage');
+        if (which === 'stage') { fitExamFrame(); setTimeout(fitExamFrame, 350); }
     }
+
+    // Celular: el asistente de adentro (un <iframe>) tiene sus botones Atrás / Siguiente fijos al pie del marco. Si el
+    // marco es más alto que lo que se ve de la pantalla, esos botones quedan debajo del borde y no se ven. El marco
+    // se ajusta para terminar justo en el borde de abajo de la pantalla cuando el indicador de pasos está arriba (que
+    // es donde lo deja el desplazamiento de los asistentes). En pantalla ancha vale el alto de la hoja de estilos.
+    function fitExamFrame() {
+        var frame = examEl('fwExamFrame');
+        if (!frame) return;
+        if (window.innerWidth > 767) { frame.style.height = ''; return; }
+        var stepper = document.getElementById('wizStepper');
+        var frameTop = frame.getBoundingClientRect().top + window.pageYOffset;
+        var pantallaTop = stepper ? Math.max(0, stepper.getBoundingClientRect().top + window.pageYOffset - 64) : 0;
+        var alto = Math.floor(pantallaTop + window.innerHeight - frameTop - 8);
+        frame.style.height = Math.max(380, alto) + 'px';
+    }
+    window.addEventListener('resize', function () { fitExamFrame(); });
 
     function examFrameUrl() {
         var params = new URLSearchParams({ fw: '1' });
@@ -1111,6 +1128,7 @@
         fresh.title = old.title;
         fresh.addEventListener('load', onExamFrameLoad);
         old.parentNode.replaceChild(fresh, old);
+        fitExamFrame();
         return fresh;
     }
 
@@ -1157,6 +1175,9 @@
                 var n = (d.step || 1) - (d.from || 1) + 1;
                 var total = (d.total || 1) - (d.from || 1) + 1;
                 examEl('fwKindProgress').textContent = 'Paso ' + n + ' de ' + total + (d.label ? ': ' + d.label : '');
+                // Cada cambio de paso del asistente de adentro deja la pantalla en el mismo lugar que los pasos del host.
+                fitExamFrame();
+                if (wizardCtrl && wizardCtrl.scrollToStepper) wizardCtrl.scrollToStepper();
             }
             // "Empezar de nuevo" / "Salir" del asistente de adentro: son los mismos enlaces
             // de la barra del host (que está oculta mientras el marco está a la vista).
@@ -1242,7 +1263,7 @@
         // wizardCtrl.goNext SÍ se puede envolver así porque este archivo lo
         // llama siempre por la propiedad (advance(), continueClick(),
         // requestSkip(), etc.) — nunca desde un listener nativo del engine.
-        wizardCtrl.goNext = function () { ORIGINAL_NEXT(); onEnterStep(wizardCtrl.current()); };
+        wizardCtrl.goNext = function () { var ok = ORIGINAL_NEXT(); onEnterStep(wizardCtrl.current()); return ok; };
         // goBack y goToStep NO se pueden envolver de la misma forma: el
         // engine ata #wizBackBtn y cada pill del stepper directo sobre sus
         // funciones internas (ver wizard_engine.js), no sobre wizardCtrl.*,
@@ -1275,7 +1296,10 @@
                 if (STATE[key] !== null) lastResolvedStep = idx + 1;
             });
             var target = Math.min(saved.currentStep || (lastResolvedStep + 1), 7);
-            for (var i = 1; i < target; i++) { wizardCtrl.goNext(); }
+            // Retomar el borrador: se camina hasta el paso guardado sin avisos y sin mover la página.
+            wizardCtrl.runSilently(function () {
+                for (var i = 1; i < target; i++) { if (wizardCtrl.goNext() === false) break; }
+            });
         }
 
         // Tras generar preguntas con IA en la otra pestaña, al volver a esta

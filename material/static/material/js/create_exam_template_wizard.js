@@ -456,9 +456,9 @@ _onDomReady(function () {
                 // "caminar" los 3 pasos para que se actualice como
                 // corresponde (los datos ya restaurados hacen que
                 // onValidateStep pase limpio en cada uno).
-                wizardCtrl.goNext();
-                wizardCtrl.goNext();
-                wizardCtrl.goNext();
+                wizardCtrl.runSilently(function () {
+                    for (var i = 0; i < 3; i++) { if (!wizardCtrl.goNext()) break; }
+                });
             });
         });
     }

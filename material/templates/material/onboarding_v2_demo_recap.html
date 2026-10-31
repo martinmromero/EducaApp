@@ -299,7 +299,22 @@
             },
         ];
         // Un paso solo vale si su ítem existe en el menú de este modo (ej. Contenidos no está en el modo simple).
-        return pasos.filter(function (paso) { return !!document.querySelector(paso.element); });
+        var visibles = pasos.filter(function (paso) { return !!document.querySelector(paso.element); });
+        // Celular: el menú (250 px de ~375) tapaba los botones del último paso, que no es del menú. Se abre solo en
+        // los pasos que apuntan a un ítem del menú y se cierra en los demás.
+        if (!isMobileViewport()) return visibles;
+        return visibles.map(function (paso) {
+            var enMenu = !!document.querySelector(paso.element).closest('#sidebar');
+            var original = paso.onHighlightStarted;
+            paso.onHighlightStarted = function () {
+                var sb = document.getElementById('sidebar');
+                var abierto = !!(sb && sb.classList.contains('mobile-open'));
+                if (enMenu && !abierto && typeof window.toggleSidebar === 'function') window.toggleSidebar();
+                if (!enMenu && abierto && typeof window.closeSidebarMobile === 'function') window.closeSidebarMobile();
+                if (original) original.apply(this, arguments);
+            };
+            return paso;
+        });
     }
 
     function startTour() {
@@ -314,6 +329,11 @@
             nextBtnText: 'Siguiente',
             prevBtnText: 'Anterior',
             doneBtnText: 'Listo',
+            // En el celular el menú se desliza al abrirse: se recalcula el recuadro cuando termina.
+            onHighlighted: function () {
+                if (!isMobileViewport()) return;
+                setTimeout(function () { if (tourDriver && tourDriver.isActive()) tourDriver.refresh(); }, 450);
+            },
             steps: [],
             onDestroyed: function () {
                 markAllChecked();

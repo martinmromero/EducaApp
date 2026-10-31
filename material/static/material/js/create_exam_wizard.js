@@ -1044,13 +1044,10 @@ _onDomReady(function () {
                 }
                 return Promise.resolve();
             }).then(function () {
-                wizardCtrl.goNext();
-                wizardCtrl.goNext();
-                wizardCtrl.goNext();
-                wizardCtrl.goNext();
-                wizardCtrl.goNext();
-                wizardCtrl.goNext();
-                wizardCtrl.goNext();
+                // Se avanza hasta donde el borrador valide, sin avisos; en el primer paso que no valida se corta.
+                wizardCtrl.runSilently(function () {
+                    for (var i = 0; i < 7; i++) { if (!wizardCtrl.goNext()) break; }
+                });
             });
         });
     }
@@ -1110,7 +1107,7 @@ _onDomReady(function () {
             document.getElementById('plantilla').value = String(plantillaId);
             return applyTemplate(plantillaId);
         }).then(function () {
-            if (subjectSelect.value) { wizardCtrl.goNext(); wizardCtrl.goNext(); }
+            if (subjectSelect.value) wizardCtrl.runSilently(function () { if (wizardCtrl.goNext()) wizardCtrl.goNext(); });
         }).then(signalContentReady, signalContentReady);
     }
 

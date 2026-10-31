@@ -180,9 +180,9 @@ _onDomReady(function () {
             // goToStep(4) no alcanza: el motor solo deja saltar a un paso
             // <= maxStepReached, que sigue en 1 sin haber pasado por
             // goNext() en esta carga (ver wizard_draft.js).
-            wizardCtrl.goNext();
-            wizardCtrl.goNext();
-            wizardCtrl.goNext();
+            wizardCtrl.runSilently(function () {
+                for (var i = 0; i < 3; i++) { if (!wizardCtrl.goNext()) break; }
+            });
         });
     }
 

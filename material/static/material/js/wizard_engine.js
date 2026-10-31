@@ -76,12 +76,27 @@ window.EducaAppWizard = (function () {
             }, 0);
         }
 
+        // Al retomar un borrador (o saltar pasos ya resueltos) los asistentes avanzan solos varias veces. Eso se hace
+        // dentro de runSilently: si un paso no valida (por ejemplo porque la lista de tópicos todavía no cargó), no
+        // aparecen avisos de "Elegir al menos un tópico…" apilados ni se mueve la página. goNext devuelve true si
+        // avanzó, para poder cortar la cadena en el primer paso que no valida.
+        var silencio = 0;
+        function runSilently(fn) {
+            silencio++;
+            try { return fn(); } finally { silencio--; }
+        }
         function goNext() {
-            if (!onValidateStep(currentStep)) return;
+            var T = window.EducaAppToast;
+            var original = T && T.show;
+            if (silencio && T) T.show = function () {};
+            var valido;
+            try { valido = onValidateStep(currentStep); } finally { if (silencio && T) T.show = original; }
+            if (!valido) return false;
             var next = Math.min(currentStep + 1, totalSteps);
             maxStepReached = Math.max(maxStepReached, next);
             showStep(next);
-            scrollToStepper();
+            if (!silencio) scrollToStepper();
+            return true;
         }
         function goBack() {
             if (keepBackOnFirst && currentStep <= firstVisibleStep()) { onBackFromFirst(); return; }
@@ -104,6 +119,8 @@ window.EducaAppWizard = (function () {
 
         return {
             goNext: goNext,
+            runSilently: runSilently,
+            scrollToStepper: scrollToStepper,
             goBack: goBack,
             goToStep: goToStep,
             current: function () { return currentStep; },

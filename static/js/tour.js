@@ -133,7 +133,7 @@
       element: '#tourMenuContenidos',
       popover: {
         title: 'Contenidos',
-        description: 'Biblioteca de todo lo que se subió: apuntes, PDFs y materiales de clase. Vive dentro de Mi espacio académico.',
+        description: 'Biblioteca de todo lo que se subió: apuntes, PDFs y materiales de clase.',
         side: 'right',
       },
       onHighlightStarted: () => expandMenu('tourMenuAcademico'),
@@ -353,9 +353,34 @@
   function start(opciones) {
     if (!window.driver || !window.driver.js) return;
     const primerIngreso = !!(opciones && opciones.primerIngreso);
-    const steps = buildSteps(primerIngreso);
+    let steps = buildSteps(primerIngreso);
     if (!steps.length) return;
-    const openedSidebar = ensureSidebarVisible();
+    const celular = isMobileViewport();
+    const sidebarEl = document.getElementById('sidebar');
+    const menuAbiertoAntes = !!(celular && sidebarEl && sidebarEl.classList.contains('mobile-open'));
+    // En escritorio el menú se abre una vez para todo el recorrido. En el celular el menú (250 px de ~375) tapa
+    // los controles de la barra de arriba (botón "?", modo simple/avanzado, ítems de Ayuda) y esos pasos
+    // quedaban señalando algo a medias tapado: ahí se abre solo en los pasos que apuntan a un ítem del menú y se
+    // cierra en los demás.
+    const openedSidebar = celular ? false : ensureSidebarVisible();
+    if (celular) {
+      steps = steps.map((step) => {
+        const enMenu = !!(document.querySelector(step.element) && document.querySelector(step.element).closest('#sidebar'));
+        const original = step.onHighlightStarted;
+        return Object.assign({}, step, {
+          onHighlightStarted: (el, st, opts) => {
+            const abierto = !!(sidebarEl && sidebarEl.classList.contains('mobile-open'));
+            if (enMenu && !abierto && typeof window.toggleSidebar === 'function') window.toggleSidebar();
+            if (!enMenu && abierto && typeof window.closeSidebarMobile === 'function') window.closeSidebarMobile();
+            if (original) original(el, st, opts);
+          },
+        });
+      });
+    }
+    const dejarMenuComoEstaba = () => {
+      if (celular && !menuAbiertoAntes && typeof window.closeSidebarMobile === 'function') window.closeSidebarMobile();
+      else restoreSidebar(openedSidebar);
+    };
     let tourDriver = null;
     tourDriver = window.driver.js.driver({
       showProgress: true,
@@ -381,7 +406,7 @@
       },
       onDestroyed: () => {
         try { localStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
-        restoreSidebar(openedSidebar);
+        dejarMenuComoEstaba();
         unhighlightHelpBtn();
         closeTourHelpDropdown();
       },
@@ -389,11 +414,11 @@
     tourDriver.drive();
     // driver.js no siempre llama a onDestroyed al cerrar con la X: se vigila también que el
     // recorrido deje de estar activo para dejar el menú como estaba.
-    if (openedSidebar) {
+    if (openedSidebar || celular) {
       const observer = new MutationObserver(() => {
         if (document.body.classList.contains('driver-active')) return;
         observer.disconnect();
-        restoreSidebar(openedSidebar);
+        dejarMenuComoEstaba();
       });
       observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     }
