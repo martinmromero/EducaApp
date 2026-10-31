@@ -34,8 +34,18 @@ despliegue instale lo mismo que se probó. **Todo corre también con Python 3.11
 3.11): aunque en el panel de Render siga `PYTHON_VERSION` en 3.11, el despliegue funciona. Subirla a 3.13.3 en el panel es
 una mejora opcional.
 
-Queda pendiente del punto 2: vendorizar Bootstrap, los iconos y las fuentes (o agregar SRI), y la revisión del aviso
-CVE-2024-47081 de requests (ya queda cubierto: se instaló 2.34.2).
+**Librerías de la pantalla (también aplicado el 31/10):** ya no se pide nada a un CDN ni a Google Fonts. Bootstrap 5.3.0,
+Bootstrap Icons 1.11.3, las cuatro fuentes (Inter, Montserrat, Public Sans y Bricolage Grotesque), PDF.js 3.11.174, JSZip,
+docx-preview 0.4.1 (antes sin versión fija: bajaba siempre la última) y jQuery 3.7.1 viven en `static/vendor/`
+(`VERSIONES.md` lista versión y origen). Se comprobó con todo el tráfico externo bloqueado: la app carga, los iconos y las
+fuentes de los tres temas se ven, el menú de Bootstrap funciona y el visor de documentos carga sus librerías.
+Además PDF.js se abre con `isEvalSupported:false`, la mitigación oficial de CVE-2024-4367 (PDF armado a propósito que ejecuta
+código en versiones < 4.2.67; no se pasa a la 4.x porque ya no se distribuye como script clásico).
+Para la tesis: la app ya no envía datos del navegador a terceros (Google, jsDelivr), lo que refuerza el argumento de
+soberanía y privacidad.
+
+Pendiente menor: cabeceras de seguridad adicionales (Content-Security-Policy) y el aviso CVE-2024-47081 de requests, que
+ya queda cubierto con 2.34.2.
 
 ## 1. Urgente
 

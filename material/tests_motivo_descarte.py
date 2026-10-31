@@ -147,33 +147,47 @@ class NivelesDeBloomEnElPromptTests(TestCase):
         self.assertNotIn('3=Aplicar,', prompt.split('priorizar estos niveles')[1][:60])
 
 
-class FuentesPorTemaTests(TestCase):
-    """Las fuentes de Google que no usa el tema activo no se piden (2026-10-31)."""
+class SinRecursosExternosTests(TestCase):
+    """Bootstrap, iconos, fuentes y librerías se sirven desde el propio servidor (2026-10-31): nada se pide a un CDN."""
 
-    def _head(self, tema):
-        u = _docente(f'ft_{tema}')
+    PROHIBIDOS = ('googleapis', 'gstatic', 'jsdelivr', 'cdnjs', 'unpkg', 'code.jquery.com', 'bootstrapcdn')
+
+    def _html(self, url_name, tema='default', **kw):
+        u = _docente(f'sre_{tema}_{url_name}')
         u.profile.visual_theme = tema
         u.profile.save()
         c = Client()
         c.force_login(u)
-        return c.get(reverse('material:index')).content.decode().split('</head>')[0]
+        return c.get(reverse(url_name, **kw)).content.decode()
 
-    def test_tema_comun_pide_solo_inter(self):
-        head = self._head('default')
-        self.assertIn('family=Inter', head)
-        for otra in ('Montserrat', 'Public+Sans', 'Bricolage'):
-            self.assertNotIn('family=' + otra, head)
+    def test_las_pantallas_principales_no_piden_nada_a_un_cdn(self):
+        for nombre in ('material:index', 'material:lista_preguntas', 'material:document_processor_dashboard'):
+            html = self._html(nombre)
+            for dominio in self.PROHIBIDOS:
+                self.assertNotIn(dominio, html, f'{nombre}: {dominio}')
+            self.assertIn('vendor/bootstrap/css/bootstrap.min.', html)
+            self.assertIn('vendor/fonts/fonts.', html)
 
-    def test_tema_uai_suma_montserrat(self):
-        head = self._head('uai')
-        self.assertIn('family=Montserrat', head)
-        self.assertNotIn('Public+Sans', head)
+    def test_las_pantallas_de_acceso_tampoco(self):
+        c = Client()
+        for url in ('/accounts/login/', '/404-prueba-inexistente/'):
+            html = c.get(url).content.decode()
+            for dominio in self.PROHIBIDOS:
+                self.assertNotIn(dominio, html, f'{url}: {dominio}')
 
-    def test_tema_lapiz_rojo_suma_public_sans_y_bricolage(self):
-        head = self._head('lapiz_rojo')
-        self.assertIn('Public+Sans', head)
-        self.assertIn('Bricolage', head)
-        self.assertNotIn('family=Montserrat', head)
+    def test_las_fuentes_de_todos_los_temas_estan_en_la_hoja_local(self):
+        from pathlib import Path
+        css = (Path(__file__).resolve().parent.parent / 'static' / 'vendor' / 'fonts' / 'fonts.css').read_text(encoding='utf-8')
+        for familia in ('Inter', 'Montserrat', 'Public Sans', 'Bricolage Grotesque'):
+            self.assertIn(f'font-family: "{familia}"', css)
+        carpeta = Path(__file__).resolve().parent.parent / 'static' / 'vendor' / 'fonts'
+        for archivo in carpeta.glob('*.woff2'):
+            self.assertIn(archivo.name, css)
+
+    def test_el_visor_de_documentos_usa_las_copias_locales(self):
+        html = self._html('material:document_processor_dashboard')
+        for ruta in ('vendor/pdfjs/pdf.min.', 'vendor/pdfjs/pdf.worker.min.', 'vendor/jszip/jszip.min.', 'vendor/docx-preview/docx-preview.min.'):  # el archivo lleva un hash en el nombre
+            self.assertIn(ruta, html)
 
 
 class RecorridoDeGenerarConIATests(TestCase):

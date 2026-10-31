@@ -3137,10 +3137,10 @@ let _pdfJsLoaded = false;
 function _loadPdfJs(callback) {
   if (_pdfJsLoaded) { callback(); return; }
   const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+  script.src = '{% static 'vendor/pdfjs/pdf.min.js' %}';
   script.onload = () => {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      '{% static 'vendor/pdfjs/pdf.worker.min.js' %}';
     _pdfJsLoaded = true;
     callback();
   };
@@ -3153,10 +3153,10 @@ function _loadDocxPreview(callback) {
   if (_docxPreviewLoaded) { callback(); return; }
   // Primero cargar JSZip (dependencia de docx-preview)
   const jszipScript = document.createElement('script');
-  jszipScript.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+  jszipScript.src = '{% static 'vendor/jszip/jszip.min.js' %}';
   jszipScript.onload = () => {
     const dpScript = document.createElement('script');
-    dpScript.src = 'https://cdn.jsdelivr.net/npm/docx-preview/dist/docx-preview.min.js';
+    dpScript.src = '{% static 'vendor/docx-preview/docx-preview.min.js' %}';
     dpScript.onload = () => { _docxPreviewLoaded = true; callback(); };
     dpScript.onerror = () => { callback(); };  // falla silenciosamente
     document.head.appendChild(dpScript);
@@ -3261,7 +3261,9 @@ async function _renderPdf(fileUrl, totalPages, allowedPages) {
 
   let pdfDoc;
   try {
-    pdfDoc = await pdfjsLib.getDocument(fileUrl).promise;
+    // isEvalSupported:false cierra CVE-2024-4367 (PDF.js < 4.2.67 ejecutaba código de un PDF armado a propósito): se usa la
+    // versión 3.11 porque es la última con script clásico, y esta opción es la mitigación oficial.
+    pdfDoc = await pdfjsLib.getDocument({ url: fileUrl, isEvalSupported: false }).promise;
   } catch (e) {
     grid.innerHTML = `<div class="col-12"><div class="alert alert-danger">No se pudo cargar el PDF: ${window.EducaAppEscape(e.message)}</div></div>`;
     return;
