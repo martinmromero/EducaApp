@@ -250,7 +250,13 @@ if not DEBUG:
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]  # Para archivos durante desarrollo
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Transición a Django 6: los campos URL sin esquema se completan con https (hoy completan con http).
+FORMS_URLFIELD_ASSUME_HTTPS = True
+# Django 5.1 retiró STATICFILES_STORAGE: el almacenamiento va en STORAGES.
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+}
 
 
 PASSWORD_HASHERS = [

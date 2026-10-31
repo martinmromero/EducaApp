@@ -3,7 +3,7 @@
 #
 # NO PROBADA: se escribió sin Docker disponible. Si falla algo en el primer build, el error va a estar en el paso
 # que se indica; el resto de la guía (Procfile + variables) sigue valiendo para hostings sin Docker.
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1

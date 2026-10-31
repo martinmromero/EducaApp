@@ -24,5 +24,5 @@ services:
           name: educaapp-db
           property: connectionString
       - key: PYTHON_VERSION
-        value: "3.11.0"
+        value: "3.13.3"
     healthCheckPath: /health/

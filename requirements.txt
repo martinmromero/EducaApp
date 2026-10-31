@@ -1,21 +1,25 @@
-Django==4.2.20
-python-docx==0.8.11
-python-pptx==0.6.23
-reportlab>=4.0,<5
-django-crispy-forms==2.4
-crispy-bootstrap5
-django-extensions==3.2.3
-requests==2.31.0
-cryptography>=42.0.0
+# Versiones probadas el 31/10/2026 (Python 3.13, 487 pruebas en verde). Las dependencias de estas están en requirements.lock.
+
+# Framework (5.2 es LTS: correcciones de seguridad hasta abril de 2028; la 4.2 dejó de recibirlas el 7/4/2026)
+Django==5.2.18
+
+python-docx==1.2.0
+python-pptx==1.0.2
+reportlab==5.1.0
+django-crispy-forms==2.7
+crispy-bootstrap5==2026.9
+django-extensions==4.1
+requests==2.34.2
+cryptography==50.0.2
 
 # Producción / Deploy
-gunicorn==21.2.0
-whitenoise==6.7.0
-psycopg2-binary==2.9.9
-dj-database-url==2.2.0
-python-dotenv==1.0.1
+gunicorn==26.2.0
+whitenoise==6.12.0
+psycopg2-binary==2.9.13
+dj-database-url==3.1.2
+python-dotenv==1.2.4
 
 # Document Processing Stack (optimizado para IA)
 PyMuPDF==1.26.5
-tiktoken==0.12.0
-pdf-inspector==1.14.1
+tiktoken==0.14.0
+pdf-inspector==1.25.2
