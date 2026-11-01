@@ -129,16 +129,19 @@
        los pasos largos. Este alto mínimo deja siempre lugar para que el indicador quede en el mismo lugar. */
     .wiz-wrap:not(.is-embedded) { min-height: calc(100vh + 12rem); }
     /* Indicador de pasos fijo arriba: siempre a la vista mientras se desplaza el medio (lo único que cambia entre
-       pasos). El hueco de la izquierda es el del botón ☰ flotante, igual que el título de la barra superior. */
+       pasos). Queda centrado en la pantalla, con un hueco simétrico de 56 px a cada lado (el de la izquierda es el del
+       botón ☰ flotante), y su fondo se extiende de borde a borde para que el contenido no se vea pasar por los costados. */
     .wiz-stepper {
         --wiz-chev: 9px;
         position: sticky;
         top: 0;
         z-index: 25;
         width: auto;
-        margin: 0 0 .5rem 56px;
+        margin: 0 calc(50% - 50vw + 56px) .5rem;
         padding: 6px 0;
         background: var(--bs-body-bg);
+        box-shadow: 0 0 0 100vmax var(--bs-body-bg);
+        clip-path: inset(0 -100vmax);
     }
     .wiz-step-pill { padding: 0 calc(var(--wiz-chev) + .1rem); height: 2.3rem; }
     .wiz-step-pill .wiz-step-label { display: none; }
@@ -326,4 +329,11 @@
         min-width: 1.5rem;
         min-height: 1.5rem;
     }
+}
+
+/* Asistente dentro del Asistente paso a paso, en el celular (ver full_wizard.css): sin tarjeta propia, el contenido de
+   cada paso usa todo el ancho que deja el asistente de afuera. */
+@media (max-width: 767.98px) {
+    html.embed-mode .wiz-step-card { border: 0; padding: .5rem .35rem; background: transparent; margin-bottom: .25rem; }
+    html.embed-mode .main-content > .container-fluid { padding-left: 0; padding-right: 0; }
 }

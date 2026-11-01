@@ -1,0 +1,19 @@
+{# Sección «Distribución cognitiva · Bloom» del panel Acciones (pirámide con conteos). #}
+    {% if bloom_display %}
+    <section class="acc-seccion" id="bloomSidebar">
+        <h4 class="acc-titulo"><i class="bi bi-diagram-3"></i> Distribución cognitiva · Bloom</h4>
+        <p class="bloom-total">{{ total_exam_questions }} pregunta{{ total_exam_questions|pluralize }} en este examen</p>
+        <div class="bloom-pirami" role="img" aria-label="Pirámide de Bloom con la cantidad de preguntas por nivel">
+            {% for item in bloom_display %}
+            <div class="bloom-escalon{% if not item.count %} is-vacio{% endif %}" style="--c:{{ item.color }}">
+                <span>{{ item.name }}</span><span class="bloom-n">{{ item.count }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <a class="bloom-enlace" href="{% url 'material:bloom_taxonomy' %}?popup=1"
+           onclick="window.open(this.href,'_bloom_ref','width=880,height=720,scrollbars=yes,resizable=yes');return false;">
+            Ver la pirámide completa con definiciones y verbos
+        </a>
+        <div class="bloom-aviso">Este resumen no es parte del guardado ni de la impresión del documento.</div>
+    </section>
+    {% endif %}

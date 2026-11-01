@@ -71,8 +71,18 @@ window.EducaAppWizard = (function () {
                 var rect = stepperEl.getBoundingClientRect();
                 // En pantalla ancha, si el indicador ya se ve entero no hace falta mover nada.
                 if (!movil && rect.top >= 0) return;
-                // En el celular el indicador queda fijo arriba (sticky): se lleva al borde de la pantalla (0), que es donde queda pegado.
-                var top = rect.top + window.pageYOffset - (movil ? 0 : 16);
+                var top;
+                if (movil) {
+                    // En el celular el indicador es sticky: estando pegado arriba su posición actual no dice dónde le
+                    // correspondería estar, así que se mide su lugar natural (sin el sticky) y se lleva ese lugar al
+                    // borde de la pantalla. Así cada paso arranca con su título justo debajo del indicador.
+                    var previo = stepperEl.style.position;
+                    stepperEl.style.position = 'static';
+                    top = stepperEl.getBoundingClientRect().top + window.pageYOffset;
+                    stepperEl.style.position = previo;
+                } else {
+                    top = rect.top + window.pageYOffset - 16;
+                }
                 window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
             }, 0);
         }

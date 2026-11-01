@@ -25,73 +25,8 @@
     .exam-toolbar-back:hover { background: #f1f3f5; color: #111; }
     @media (max-width: 480px) { .exam-toolbar-back-label { display: none; } .exam-toolbar-back { padding: 0 10px; } .exam-zoom-toolbar { padding: 6px; gap: 4px; } .exam-zoom-group { gap: 4px; } }
 
-    /* Botón flotante y panel de acciones */
-    .acciones-fab {
-        position: fixed; right: 16px; bottom: 16px; z-index: 1040;
-        display: inline-flex; align-items: center; gap: 8px;
-        min-height: 48px; padding: 0 20px; border: 0; border-radius: 999px;
-        background: #3a5fcd; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, .3);
-    }
-    .acciones-fab:hover { background: #2f4fb0; }
-    .acciones-backdrop { display: none; position: fixed; inset: 0; z-index: 1045; background: rgba(0, 0, 0, .45); }
-    .acciones-panel {
-        display: none; position: fixed; z-index: 1050; flex-direction: column;
-        background: #fff; color: #222; font-size: 15px;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, .35); overflow-y: auto;
-        right: 16px; bottom: 76px; width: 360px; max-height: calc(100vh - 100px); border-radius: 14px;
-    }
-    .acciones-panel.is-open { display: flex; }
-    .acciones-panel-head {
-        display: flex; align-items: center; justify-content: space-between; padding: 12px 16px;
-        border-bottom: 1px solid #e5e5e5; position: sticky; top: 0; background: #fff; z-index: 1;
-    }
-    .acciones-panel-head strong { font-size: 1.05rem; }
-    .acciones-close { border: 0; background: none; font-size: 1.5rem; line-height: 1; padding: 4px 8px; cursor: pointer; color: #555; }
-    .acc-seccion { padding: 14px 16px; border-bottom: 1px solid #eee; }
-    .acc-seccion:last-child { border-bottom: 0; }
-    .acc-titulo { margin: 0 0 10px; font-size: .8rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #555; display: flex; align-items: center; gap: 8px; }
-    .acc-seccion .view-toggles { justify-content: flex-start; flex-direction: column; align-items: flex-start; gap: 12px; }
-    .acc-seccion .view-toggle { font-size: 15px; }
-    .acc-checks { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-    .acc-checks label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; }
-    .acc-checks input { width: 20px; height: 20px; accent-color: #3a5fcd; }
-    .acc-botones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .acc-btn {
-        box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-        min-height: 46px; padding: 0 8px; border: 0; border-radius: 8px; color: #fff;
-        font-size: .95rem; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap;
-    }
-    .acc-btn i { font-size: 1.1rem; }
-    .acc-btn-verde { background: #2e9e57; } .acc-btn-verde:hover { background: #26864a; }
-    .acc-btn-rojo { background: #d94141; } .acc-btn-rojo:hover { background: #bd3535; }
-    .acc-btn-indigo { background: #2b579a; } .acc-btn-indigo:hover { background: #234781; }
-    .acc-btn-violeta { background: #7e4fb5; width: 100%; } .acc-btn-violeta:hover { background: #6a409b; color: #fff; }
-
-    /* Pirámide de Bloom: seis escalones con el nombre del nivel y la cantidad adentro. */
-    .bloom-pirami { display: flex; flex-direction: column; align-items: center; gap: 3px; margin: 4px 0 10px; }
-    .bloom-escalon {
-        width: var(--w); min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 8px;
-        padding: 0 14px; box-sizing: border-box; color: #fff; font-size: 14px; font-weight: 700; line-height: 1.1;
-        background: var(--c); clip-path: polygon(4% 0, 96% 0, 100% 100%, 0 100%); white-space: nowrap;
-    }
-    .bloom-escalon:nth-child(1) { --w: 38%; } .bloom-escalon:nth-child(2) { --w: 50%; } .bloom-escalon:nth-child(3) { --w: 62%; }
-    .bloom-escalon:nth-child(4) { --w: 74%; } .bloom-escalon:nth-child(5) { --w: 87%; } .bloom-escalon:nth-child(6) { --w: 100%; }
-    .bloom-escalon.is-vacio { background: #e4e4e8; color: #666; font-weight: 600; }
-    .bloom-escalon .bloom-n { background: rgba(0, 0, 0, .22); border-radius: 999px; padding: 2px 8px; font-size: 13px; }
-    .bloom-escalon.is-vacio .bloom-n { background: transparent; padding: 2px 0; }
-    .bloom-total { text-align: center; font-size: 14px; color: #444; margin: 0 0 6px; }
-    .bloom-enlace { display: block; text-align: center; font-size: 14px; color: #6b3fa0; text-decoration: underline; margin-top: 6px; }
-    .bloom-aviso { font-size: 12.5px; color: #777; font-style: italic; text-align: center; margin-top: 10px; }
-
-    /* Celular: el panel sube desde abajo, a todo el ancho. */
-    @media (max-width: 767.98px) {
-        .acciones-backdrop.is-open { display: block; }
-        .acciones-panel { left: 0; right: 0; bottom: 0; width: auto; max-height: 82vh; border-radius: 18px 18px 0 0; }
-        .acciones-fab { right: 14px; bottom: 14px; }
-    }
-    @media print { .acciones-fab, .acciones-panel, .acciones-backdrop { display: none !important; } }
 </style>
+{% include "material/exams/_acciones_estilos.html" %}
 {% endblock %}
 
 {% block bloom_sidebar %}
@@ -143,43 +78,11 @@
         </div>
     </section>
 
-    {% if bloom_display %}
-    <section class="acc-seccion" id="bloomSidebar">
-        <h4 class="acc-titulo"><i class="bi bi-diagram-3"></i> Distribución cognitiva · Bloom</h4>
-        <p class="bloom-total">{{ total_exam_questions }} pregunta{{ total_exam_questions|pluralize }} en este examen</p>
-        <div class="bloom-pirami" role="img" aria-label="Pirámide de Bloom con la cantidad de preguntas por nivel">
-            {% for item in bloom_display %}
-            <div class="bloom-escalon{% if not item.count %} is-vacio{% endif %}" style="--c:{{ item.color }}">
-                <span>{{ item.name }}</span><span class="bloom-n">{{ item.count }}</span>
-            </div>
-            {% endfor %}
-        </div>
-        <a class="bloom-enlace" href="{% url 'material:bloom_taxonomy' %}?popup=1"
-           onclick="window.open(this.href,'_bloom_ref','width=880,height=720,scrollbars=yes,resizable=yes');return false;">
-            Ver la pirámide completa con definiciones y verbos
-        </a>
-        <div class="bloom-aviso">Este resumen no es parte del guardado ni de la impresión del documento.</div>
-    </section>
-    {% endif %}
+    {% include "material/exams/_acciones_bloom.html" %}
 </div>
 
+{% include "material/exams/_acciones_script.html" %}
 <script>
-    (function () {
-        var btn = document.getElementById('examActionsBtn');
-        var panel = document.getElementById('accionesPanel');
-        var backdrop = document.getElementById('accionesBackdrop');
-        function abrir(si) {
-            panel.classList.toggle('is-open', si);
-            backdrop.classList.toggle('is-open', si);
-            btn.setAttribute('aria-expanded', String(si));
-        }
-        btn.addEventListener('click', function () { abrir(!panel.classList.contains('is-open')); });
-        document.getElementById('accionesClose').addEventListener('click', function () { abrir(false); });
-        backdrop.addEventListener('click', function () { abrir(false); });
-        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') abrir(false); });
-        window.EducaAppExamActions = { abrir: abrir };
-    })();
-
     function onViewToggleChange() {
         var withAnswers = document.getElementById('viewShowAnswers').checked;
         document.body.classList.toggle('show-answers', withAnswers);

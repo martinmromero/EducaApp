@@ -61,7 +61,7 @@
     .uqw-pill-label { display: none; }
     /* En la página propia, el indicador queda fijo arriba (a la derecha del botón ☰ flotante); embebido en el
        Asistente completo no se fija: ya está el del asistente de afuera. */
-    .uqw-page .uqw-stepper { position: sticky; top: 0; z-index: 25; width: auto; margin: 0 0 .5rem 56px; padding: 6px 0; background: var(--bs-body-bg); }
+    .uqw-page .uqw-stepper { position: sticky; top: 0; z-index: 25; width: auto; margin: 0 calc(50% - 50vw + 56px) .5rem; padding: 6px 0; background: var(--bs-body-bg); box-shadow: 0 0 0 100vmax var(--bs-body-bg); clip-path: inset(0 -100vmax); }
 }
 
 /* ── Pasos ───────────────────────────────────────────────────────────── */
@@ -175,10 +175,10 @@
 .uqw-nav { display: flex; justify-content: space-between; align-items: center; gap: .75rem; margin-top: 1rem; }
 .uqw-nav.is-hidden { display: none; }
 
-/* Celular, solo en la pantalla propia del asistente (dentro del Asistente paso a paso la botonera de arriba ya queda fija):
-   Atrás y Siguiente quedan abajo de la pantalla, siempre a la vista. */
+/* Celular, en la pantalla propia del asistente y también dentro del Asistente paso a paso (ahí la botonera de afuera se
+   oculta mientras tanto): Atrás y Siguiente quedan abajo de la pantalla, siempre a la vista. */
 @media (max-width: 575.98px) {
-    .uqw-page .uqw-nav {
+    :is(.uqw-page, #fwQEmbed) .uqw-nav {
         position: sticky;
         bottom: 0;
         z-index: 20;
@@ -190,15 +190,31 @@
         flex-wrap: nowrap;
         gap: .5rem;
     }
-    .uqw-page .uqw-nav > .btn { flex: 0 0 auto; white-space: nowrap; }
-    .uqw-page .uqw-nav > .btn[data-role="action"] { flex: 1 1 auto; min-width: 0; order: 3; }
-    .uqw-page .uqw-nav > .btn[data-role="back"] { order: 1; }
-    .uqw-page .uqw-nav > .uqw-nav-links { order: 2; flex: 0 0 auto; }
-    .uqw-page .uqw-nav-links a {
+    :is(.uqw-page, #fwQEmbed) .uqw-nav > .btn { flex: 0 0 auto; white-space: nowrap; }
+    :is(.uqw-page, #fwQEmbed) .uqw-nav > .btn[data-role="action"] { flex: 1 1 auto; min-width: 0; order: 3; white-space: normal; line-height: 1.15; }
+    :is(.uqw-page, #fwQEmbed) .uqw-nav > .btn[data-role="back"] { order: 1; }
+    :is(.uqw-page, #fwQEmbed) .uqw-nav > .uqw-nav-links { order: 2; flex: 0 0 auto; }
+    :is(.uqw-page, #fwQEmbed) .uqw-nav > .btn { font-size: .92rem; padding-left: .7rem; padding-right: .7rem; }
+    :is(.uqw-page, #fwQEmbed) .uqw-nav-links a, #fwQEmbed .fw-nav-links a {
         font-size: 0; width: 2.6rem; height: 2.6rem; display: inline-flex; align-items: center; justify-content: center;
         border: 1px solid var(--bs-border-color); border-radius: .5rem; color: var(--bs-secondary-color); text-decoration: none;
     }
-    .uqw-page .uqw-nav-links a::before { font-family: "bootstrap-icons"; font-size: 1.2rem; line-height: 1; content: "\f38b"; /* file-earmark-text: formulario completo */ }
+    .uqw-page .uqw-nav-links a::before,
+    #fwQEmbed .fw-nav-links a::before { font-family: "bootstrap-icons"; font-size: 1.2rem; line-height: 1; content: "\f38b"; /* file-earmark-text: formulario completo */ }
+    /* Embebido, los enlaces son los del asistente de afuera: «Empezar de nuevo» y «Salir» pasan a íconos. */
+    #fwQEmbed .fw-nav-links { display: inline-flex; align-items: center; gap: .25rem; }
+    #fwQEmbed .fw-nav-links a { width: 2.3rem; height: 2.5rem; }
+    #fwQEmbed .fw-nav-links a:first-child::before { content: "\f117"; /* arrow-counterclockwise */ }
+    #fwQEmbed .fw-nav-links a:last-child::before { content: "\f1c3"; /* box-arrow-right */ }
+    #fwQEmbed .fw-nav-sep { display: none; }
     /* El aviso de validación se sube por encima de la botonera. */
-    body:has(.uqw-page .uqw-nav) #eduToastContainer { bottom: 6.5rem !important; }
+    body:has(.uqw-nav) #eduToastContainer { bottom: 6.5rem !important; }
 }
+
+/* Dentro del Asistente paso a paso (#fwQEmbed) no hay un asistente dentro de otro: se oculta la fila de pasos propia y
+   queda solo el avance «Paso X de N»; el asistente de afuera sigue marcando el paso. */
+.uqw-progress { display: none; }
+#fwQEmbed .uqw-stepper { display: none; }
+#fwQEmbed .uqw-progress { display: block; font-size: .8rem; color: var(--bs-secondary-color); margin-bottom: .5rem; }
+#fwQEmbed .uqw { scroll-margin-top: 64px; }
+.uqw-chip .badge { white-space: nowrap; }

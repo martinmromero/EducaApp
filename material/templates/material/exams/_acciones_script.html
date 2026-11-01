@@ -1,0 +1,18 @@
+{# Abrir/cerrar el panel «Acciones» (botón #examActionsBtn, panel #accionesPanel). #}
+<script>
+    (function () {
+        var btn = document.getElementById('examActionsBtn');
+        var panel = document.getElementById('accionesPanel');
+        var backdrop = document.getElementById('accionesBackdrop');
+        function abrir(si) {
+            panel.classList.toggle('is-open', si);
+            backdrop.classList.toggle('is-open', si);
+            btn.setAttribute('aria-expanded', String(si));
+        }
+        btn.addEventListener('click', function () { abrir(!panel.classList.contains('is-open')); });
+        document.getElementById('accionesClose').addEventListener('click', function () { abrir(false); });
+        backdrop.addEventListener('click', function () { abrir(false); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') abrir(false); });
+        window.EducaAppExamActions = { abrir: abrir };
+    })();
+</script>

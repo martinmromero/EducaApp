@@ -20,8 +20,8 @@
  *
  * Las dos pantallas comparten #examHeaderBlock/#examQuestionsSection/
  * #bloomSidebar; el resto de los controles difiere (preview_exam.html usa
- * #toggleAnswersBtn y #examSaveBtn, ver_examen.html usa #viewShowAnswers y
- * el panel .option-panel-export) — los pasos de abajo cubren ambas
+ * #examSaveBtn y el panel Acciones (#examActionsBtn), ver_examen.html usa además
+ * #viewShowAnswers y las rúbricas dentro del mismo panel) — los pasos de abajo cubren ambas
  * variantes y el filtro por document.querySelector descarta los que no
  * apliquen a la pantalla actual.
  */
@@ -45,18 +45,12 @@
         },
       },
       {
-        element: '#toggleAnswersBtn',
-        popover: {
-          title: 'Mostrar respuestas',
-          description: 'Muestra la respuesta correcta de cada pregunta en pantalla, sin que aparezca impresa a menos que se elija incluirla.',
-          side: 'top',
-        },
-      },
-      {
         element: '#examActionsBtn',
         popover: {
           title: 'Acciones',
-          description: 'Este botón abre el panel con todo lo demás: mostrar las respuestas y las rúbricas en pantalla, agregar o gestionar rúbricas, imprimir o descargar el examen en PDF o DOCX (con o sin respuestas y rúbricas) y ver la distribución de niveles de Bloom en forma de pirámide.',
+          description: document.getElementById('accExport') && document.getElementById('examRubricsBtn')
+            ? 'Este botón abre el panel con todo lo demás: mostrar las respuestas y las rúbricas en pantalla, agregar o gestionar rúbricas, imprimir o descargar el examen en PDF o DOCX (con o sin respuestas y rúbricas) y ver la distribución de niveles de Bloom en forma de pirámide.'
+            : 'Este botón abre el panel con todo lo demás: mostrar las respuestas en pantalla, imprimir el examen (con o sin respuestas), volver a editarlo y ver la distribución de niveles de Bloom en forma de pirámide.',
           side: 'top',
         },
       },

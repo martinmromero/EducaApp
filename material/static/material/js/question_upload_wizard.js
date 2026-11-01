@@ -116,6 +116,12 @@ window.EducaAppQuestionUpload = (function () {
             var nav = $('stepper');
             nav.innerHTML = '';
             var finished = current === 'done';
+            var avance = $('progress');
+            if (avance) {
+                var lista = stepsList();
+                var pos = indexOfStep(current);
+                avance.textContent = (!finished && pos >= 0) ? 'Paso ' + (pos + 1) + ' de ' + lista.length : '';
+            }
             stepsList().forEach(function (s, i) {
                 var pill = el('div', 'uqw-pill');
                 var num = el('span', 'uqw-pill-num');

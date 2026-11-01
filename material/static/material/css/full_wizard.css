@@ -128,12 +128,13 @@
 @media (max-width: 575.98px) {
     /* Paso del examen: los dos botones de tipo en una fila a todo el ancho y "Paso X de N" debajo, sin el rótulo «Armar:»
        (se recuperan unos 55 px para el marco del examen). */
-    .fw-kind-bar { padding: .4rem .6rem !important; }
-    .fw-kind-bar > .d-flex { gap: .25rem !important; }
+    .fw-kind-bar { padding: .35rem .5rem !important; }
+    .fw-kind-bar > .d-flex { flex-wrap: nowrap !important; gap: .4rem !important; }
     .fw-kind-bar > .d-flex > span.small:first-child { display: none; }
-    .fw-kind-bar .btn-group { flex: 1 1 100%; }
-    .fw-kind-bar .btn-group .btn { flex: 1 1 0; font-size: .85rem; padding: .3rem .25rem; white-space: nowrap; }
-    .fw-kind-bar #fwKindProgress { flex: 1 1 100%; margin: 0 !important; font-size: .78rem; }
+    .fw-kind-bar .btn-group { flex: 1 1 0; min-width: 0; }
+    .fw-kind-bar .btn-group .btn { flex: 1 1 0; font-size: .8rem; padding: .3rem .2rem; white-space: nowrap; }
+    .fw-kind-bar #fwKindProgress { flex: 0 0 auto; margin: 0 !important; font-size: .75rem; white-space: nowrap; }
+    .fw-kp-label { display: none; }
     /* Misma botonera de una fila que los demás asistentes (ver wizard_common.css): Atrás, enlaces como ícono, botón principal. */
     .wiz-nav > #wizBackBtn { order: 1; flex: 0 0 auto; }
     .wiz-nav > .fw-nav-links { order: 2; flex: 0 0 auto; }
@@ -186,3 +187,15 @@
 }
 .fw-kind-bar { background: var(--bs-tertiary-bg, #f8f9fa); }
 .fw-exam-done-icon { font-size: 3rem; color: var(--bs-success); line-height: 1; margin-bottom: .5rem; }
+
+/* Celular: el asistente de examen de adentro es transparente. No se dibuja otro marco alrededor (el paso del examen
+   usa casi todo el ancho de la pantalla) y lo único que se suma al asistente de afuera es el selector de tipo y el
+   avance «Paso X de N» del asistente de adentro. */
+@media (max-width: 767.98px) {
+    .fw-exam-card {
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        margin: 0 calc(50% - 50vw + 6px) .5rem;
+    }
+}

@@ -85,102 +85,87 @@
 {% endif %}
 {% endblock %}
 
+{# Antes de guardar: a la vista queda solo "Guardar Examen"; todo lo demás (respuestas, imprimir, volver a editar y Bloom) vive en el panel "Acciones", igual que en el examen ya guardado. #}
 {% block bloom_sidebar %}
-{% if bloom_display %}
-<div class="bloom-sidebar no-print" id="bloomSidebar">
+<button type="button" class="acciones-fab no-print" id="examActionsBtn" aria-expanded="false" aria-controls="accionesPanel">
+    <i class="bi bi-sliders"></i> Acciones
+</button>
+<div class="acciones-backdrop no-print" id="accionesBackdrop"></div>
+<div class="acciones-panel no-print" id="accionesPanel" role="dialog" aria-label="Acciones del examen">
+    <div class="acciones-panel-head">
+        <strong>Acciones</strong>
+        <button type="button" class="acciones-close" id="accionesClose" aria-label="Cerrar">&times;</button>
+    </div>
 
-  <!-- Cabecera colapsable -->
-  <button onclick="toggleBloom()"
-    style="width:100%;display:flex;justify-content:space-between;align-items:center;
-           background:none;border:none;cursor:pointer;padding:0;margin:0">
-    <span class="bloom-sidebar-title" style="margin:0">Distribución Cognitiva &middot; Bloom</span>
-    <span id="bloomToggleIcon" style="font-size:1.1rem;color:var(--edu-bloom-crear-text,#7d3c98)">&#9660;</span>
-  </button>
-
-  <!-- Contenido colapsable -->
-  <div id="bloomContent" style="display:none;margin-top:12px">
-    <p style="color:#666;font-size:0.82rem;margin:0 0 10px">
-      {{ total_exam_questions }} pregunta{{ total_exam_questions|pluralize }} &mdash;
-      solo contabilizan las que tienen nivel de Bloom asignado.
-    </p>
-
-    <!-- Barras de distribución -->
-    <p style="font-size:11px;color:#888;margin:0 0 6px;font-style:italic">Distribución de preguntas por nivel:</p>
-    {% for item in bloom_display %}
-    <div style="display:flex;align-items:center;margin-bottom:5px;gap:6px">
-      <span style="width:88px;font-size:11px;font-weight:600;color:{{ item.color }};text-align:right;flex-shrink:0">{{ item.name }}</span>
-      <div style="flex:1;background:#ebebeb;border-radius:3px;height:16px;overflow:hidden">
-        <div style="width:{{ item.pct }}%;height:100%;background:{{ item.color }};
-                    display:flex;align-items:center;justify-content:flex-end;
-                    padding-right:4px;box-sizing:border-box;min-width:{% if item.count %}16px{% else %}0{% endif %}">
-          {% if item.count %}<span style="font-size:10px;color:white;font-weight:bold">{{ item.count }}</span>{% endif %}
+    <section class="acc-seccion">
+        <h4 class="acc-titulo"><i class="bi bi-display"></i> Ver en pantalla</h4>
+        <div class="view-toggles">
+            <label class="view-toggle">
+                <input type="checkbox" id="viewShowAnswers" onchange="document.body.classList.toggle('show-answers', this.checked)">
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                <span class="toggle-label"><i class="bi bi-eye"></i> Mostrar respuestas</span>
+            </label>
         </div>
-      </div>
-    </div>
-    {% endfor %}
+    </section>
 
-    <!-- Link pirámide genérica en popup -->
-    <div style="margin-top:14px;text-align:center">
-      <a href="{% url 'material:bloom_taxonomy' %}?popup=1"
-         onclick="window.open(this.href,'_bloom_ref','width=880,height=720,scrollbars=yes,resizable=yes');return false;"
-         style="font-size:0.8rem;color:var(--edu-bloom-crear-text,#7d3c98);text-decoration:underline">
-        &#128214; Ver pirámide completa con definiciones y verbos
-      </a>
-    </div>
+    <section class="acc-seccion" id="accExport">
+        <h4 class="acc-titulo"><i class="bi bi-printer"></i> Imprimir</h4>
+        <div class="acc-botones acc-botones-2">
+            <button type="button" onclick="window.print()" class="acc-btn acc-btn-verde" id="examPrintBtn"><i class="bi bi-printer"></i> Examen</button>
+            <button type="button" onclick="printWithAnswers()" class="acc-btn acc-btn-indigo"><i class="bi bi-printer"></i> Con respuestas</button>
+        </div>
+        <p class="acc-nota">Para descargar en PDF o DOCX, primero guardar el examen.</p>
+    </section>
 
-    <div class="bloom-disclaimer">Este resumen no es parte del guardado ni impresión del documento.</div>
-  </div>
+    <section class="acc-seccion">
+        <h4 class="acc-titulo"><i class="bi bi-arrow-left-circle"></i> Salir de la vista previa</h4>
+        <div class="acc-botones acc-botones-2">
+            {% if is_demo %}
+            <a href="{% url 'material:onboarding_v2_demo_recap' %}" class="acc-btn acc-btn-gris"><i class="bi bi-arrow-left"></i> Volver</a>
+            {% else %}
+            <button type="button" onclick="history.back()" class="acc-btn acc-btn-gris"><i class="bi bi-pencil-square"></i> Editar</button>
+            <button type="button" onclick="history.back()" class="acc-btn acc-btn-gris"><i class="bi bi-arrow-left"></i> Volver</button>
+            {% endif %}
+        </div>
+    </section>
 
+    {% include "material/exams/_acciones_bloom.html" %}
 </div>
-
-<script>
-function toggleBloom() {
-  var c = document.getElementById('bloomContent');
-  var i = document.getElementById('bloomToggleIcon');
-  if (c.style.display === 'none') {
-    c.style.display = 'block';
-    i.innerHTML = '&#9650;';
-  } else {
-    c.style.display = 'none';
-    i.innerHTML = '&#9660;';
-  }
-}
-</script>
-{% endif %}
+{% include "material/exams/_acciones_script.html" %}
 {% endblock %}
 
 {% block action_buttons %}
-<button onclick="window.print()" id="examPrintBtn">
-    <i class="bi bi-printer"></i> Imprimir examen
-</button>
-<button onclick="toggleAnswers()" id="toggleAnswersBtn" style="background:#6c757d;">
-    <i class="bi bi-eye"></i> Mostrar respuestas
-</button>
-<button onclick="printWithAnswers()" style="background:#17a2b8;">
-    <i class="bi bi-printer"></i> Imprimir con respuestas
-</button>
+<style>
+    .print-button.no-print { position: sticky; bottom: 0; z-index: 30; padding: 8px 0; }
+    .print-button .btn-guardar-examen { background: #28a745; font-size: 1.05rem; font-weight: 600; padding: 12px 28px; white-space: nowrap; }
+    .print-button .btn-guardar-examen:hover { background: #218838; }
+    @media (max-width: 767.98px) {
+        /* Celular: «Guardar Examen» queda fijo abajo, a la izquierda del botón flotante «Acciones». */
+        .print-button.no-print {
+            display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 6px;
+            padding: 8px 144px 8px 12px; background: linear-gradient(to top, #ececec 70%, rgba(236, 236, 236, 0));
+        }
+        .print-button.no-print button { margin: 0; flex: 1 1 auto; min-width: 0; padding: 12px 10px; font-size: .98rem; }
+        .acciones-panel .acc-botones-2 { grid-template-columns: repeat(2, 1fr); }
+    }
+    .acciones-panel .acc-botones-2 { grid-template-columns: repeat(2, 1fr); }
+    .acc-btn-gris { background: #666; } .acc-btn-gris:hover { background: #555; color: #fff; }
+    .acc-nota { margin: 10px 0 0; font-size: 13px; color: #777; }
+</style>
+{% include "material/exams/_acciones_estilos.html" %}
 {% if is_demo %}
-<button style="background:#28a745;" onclick="simulateSaveExam(this)" id="examSaveBtn">
+<button type="button" class="btn-guardar-examen" onclick="simulateSaveExam(this)" id="examSaveBtn">
     <i class="bi bi-save"></i> Guardar Examen
 </button>
-<a href="{% url 'material:onboarding_v2_demo_recap' %}" class="secondary">
-    <i class="bi bi-arrow-left"></i> Volver
-</a>
 {% else %}
-<button style="background:#28a745;" onclick="saveExamAndShowModal(this)" id="examSaveBtn">
+<button type="button" class="btn-guardar-examen" onclick="saveExamAndShowModal(this)" id="examSaveBtn">
     <i class="bi bi-save"></i> Guardar Examen
 </button>
 {% if is_editing_exam %}
-<button style="background:#0d6efd;" onclick="openSaveAsNewModal()" id="saveAsNewBtn">
+<button type="button" style="background:#0d6efd;" onclick="openSaveAsNewModal()" id="saveAsNewBtn">
     <i class="bi bi-files"></i> Guardar como nuevo examen
 </button>
 {% endif %}
-<button onclick="history.back()" class="secondary">
-  <i class="bi bi-pencil-square"></i> Editar
-</button>
-<button onclick="history.back()" class="secondary">
-    <i class="bi bi-arrow-left"></i> Volver
-</button>
 {% endif %}
 {% endblock %}
 

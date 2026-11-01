@@ -935,7 +935,14 @@
         if (window.innerWidth > 767) { frame.style.height = ''; return; }
         var stepper = document.getElementById('wizStepper');
         var frameTop = frame.getBoundingClientRect().top + window.pageYOffset;
-        var pantallaTop = stepper ? Math.max(0, stepper.getBoundingClientRect().top + window.pageYOffset) : 0;
+        // Lugar natural del indicador (es sticky: pegado arriba, su posición actual es la del desplazamiento).
+        var pantallaTop = 0;
+        if (stepper) {
+            var previo = stepper.style.position;
+            stepper.style.position = 'static';
+            pantallaTop = Math.max(0, stepper.getBoundingClientRect().top + window.pageYOffset);
+            stepper.style.position = previo;
+        }
         var alto = Math.floor(pantallaTop + window.innerHeight - frameTop - 8);
         frame.style.height = Math.max(380, alto) + 'px';
     }
@@ -1174,7 +1181,11 @@
                 // "Paso X de N" del asistente de adentro, contado desde su primer paso visible.
                 var n = (d.step || 1) - (d.from || 1) + 1;
                 var total = (d.total || 1) - (d.from || 1) + 1;
-                examEl('fwKindProgress').textContent = 'Paso ' + n + ' de ' + total + (d.label ? ': ' + d.label : '');
+                var prog = examEl('fwKindProgress');
+                prog.textContent = '';
+                var pn = document.createElement('span'); pn.className = 'fw-kp-n'; pn.textContent = 'Paso ' + n + ' de ' + total;
+                prog.appendChild(pn);
+                if (d.label) { var pl = document.createElement('span'); pl.className = 'fw-kp-label'; pl.textContent = ': ' + d.label; prog.appendChild(pl); }
                 // Cada cambio de paso del asistente de adentro deja la pantalla en el mismo lugar que los pasos del host.
                 fitExamFrame();
                 if (wizardCtrl && wizardCtrl.scrollToStepper) wizardCtrl.scrollToStepper();

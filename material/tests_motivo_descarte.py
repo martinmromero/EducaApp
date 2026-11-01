@@ -270,3 +270,52 @@ class VerExamenAccionesTests(TestCase):
     def test_el_icono_de_pantalla_completa_ya_no_esta(self):
         html = self.c.get(reverse('material:ver_examen', kwargs={'pk': self.exam.pk})).content.decode()
         self.assertNotIn('bi-arrows-fullscreen', html)
+
+
+class VistaPreviaAntesDeGuardarTests(TestCase):
+    """Vista previa del examen antes de guardar (2026-11-01): a la vista queda solo «Guardar Examen»; lo demás va en «Acciones»."""
+
+    def setUp(self):
+        from .models import Topic
+        self.user = _docente('vp_docente')
+        self.materia = Subject.objects.create(name='Materia VP', created_by=self.user)
+        tema = Topic.objects.create(name='T', subject=self.materia)
+        q = Question.objects.create(user=self.user, question_text='PreguntaVP', answer_text='r', topic=tema, bloom_level=2)
+        q.subjects.add(self.materia)
+        self.c = Client()
+        self.c.force_login(self.user)
+        session = self.c.session
+        session['preview_exam'] = {'subject': str(self.materia.id), 'topics': [str(tema.id)], 'questions': [str(q.id)], 'num_versions': '1'}
+        session.save()
+
+    def test_a_la_vista_solo_guardar_y_el_resto_en_acciones(self):
+        html = self.c.get(reverse('material:preview_exam')).content.decode()
+        zona = html[html.index('class="print-button no-print"'):]
+        zona = zona[:zona.index('</div>')]
+        self.assertIn('id="examSaveBtn"', zona)
+        for fuera in ('Imprimir', 'Mostrar respuestas', 'Editar', 'Volver'):
+            self.assertNotIn(fuera, zona)
+        self.assertIn('id="examActionsBtn"', html)
+        panel = html[html.index('id="accionesPanel"'):]
+        for dentro in ('Mostrar respuestas', 'Imprimir', 'Editar', 'Volver', 'Distribución cognitiva'):
+            self.assertIn(dentro, panel)
+
+    def test_varios_temas_dejan_guardar_a_la_vista_y_el_resto_en_acciones(self):
+        from .models import Topic
+        tema2 = Topic.objects.create(name='T2', subject=self.materia)
+        q2 = Question.objects.create(user=self.user, question_text='PreguntaVP2', answer_text='r', topic=tema2, bloom_level=1)
+        q2.subjects.add(self.materia)
+        q1 = Question.objects.get(question_text='PreguntaVP')
+        session = self.c.session
+        session['preview_exam'] = {
+            'subject': str(self.materia.id), 'topics': [str(q1.topic_id), str(tema2.id)],
+            'questions': [str(q1.id), str(q2.id)], 'num_versions': '2', 'questions_per_version': '1', 'balance_by_topic': '1',
+        }
+        session.save()
+        html = self.c.get(reverse('material:preview_exam')).content.decode()
+        self.assertIn('id="saveExamVersionsBtn"', html)
+        self.assertIn('id="examActionsBtn"', html)
+        menu = html[html.index('id="examActionsBtn"'):]
+        menu = menu[:menu.index('</ul>')]
+        for dentro in ('Vista previa de impresión', 'Editar selección', 'Volver'):
+            self.assertIn(dentro, menu)
