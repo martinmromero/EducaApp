@@ -935,7 +935,7 @@
         if (window.innerWidth > 767) { frame.style.height = ''; return; }
         var stepper = document.getElementById('wizStepper');
         var frameTop = frame.getBoundingClientRect().top + window.pageYOffset;
-        var pantallaTop = stepper ? Math.max(0, stepper.getBoundingClientRect().top + window.pageYOffset - 64) : 0;
+        var pantallaTop = stepper ? Math.max(0, stepper.getBoundingClientRect().top + window.pageYOffset) : 0;
         var alto = Math.floor(pantallaTop + window.innerHeight - frameTop - 8);
         frame.style.height = Math.max(380, alto) + 'px';
     }

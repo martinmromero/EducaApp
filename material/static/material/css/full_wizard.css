@@ -126,10 +126,18 @@
 /* Celular: Atrás y Continuar comparten la primera fila (nunca se salen de la pantalla) y los enlaces
    "Empezar de nuevo · Salir" pasan abajo, centrados. */
 @media (max-width: 575.98px) {
-    .wiz-nav { flex-wrap: wrap; }
-    .wiz-nav > #wizBackBtn { order: 1; flex: 1 1 0; min-width: 0; }
-    .wiz-nav > #fwActionBtn, .wiz-nav > #wizSubmitBtn { order: 2; flex: 1 1 0; min-width: 0; }
-    .wiz-nav > .fw-nav-links { order: 3; flex: 1 0 100%; justify-content: center; }
+    /* Paso del examen: los dos botones de tipo en una fila a todo el ancho y "Paso X de N" debajo, sin el rótulo «Armar:»
+       (se recuperan unos 55 px para el marco del examen). */
+    .fw-kind-bar { padding: .4rem .6rem !important; }
+    .fw-kind-bar > .d-flex { gap: .25rem !important; }
+    .fw-kind-bar > .d-flex > span.small:first-child { display: none; }
+    .fw-kind-bar .btn-group { flex: 1 1 100%; }
+    .fw-kind-bar .btn-group .btn { flex: 1 1 0; font-size: .85rem; padding: .3rem .25rem; white-space: nowrap; }
+    .fw-kind-bar #fwKindProgress { flex: 1 1 100%; margin: 0 !important; font-size: .78rem; }
+    /* Misma botonera de una fila que los demás asistentes (ver wizard_common.css): Atrás, enlaces como ícono, botón principal. */
+    .wiz-nav > #wizBackBtn { order: 1; flex: 0 0 auto; }
+    .wiz-nav > .fw-nav-links { order: 2; flex: 0 0 auto; }
+    .wiz-nav > #fwActionBtn, .wiz-nav > #wizSubmitBtn { order: 3; flex: 1 1 auto; min-width: 0; }
 }
 
 /* Pastilla de un paso salteado (full_wizard.js le suma .is-skipped a las

@@ -71,7 +71,8 @@ window.EducaAppWizard = (function () {
                 var rect = stepperEl.getBoundingClientRect();
                 // En pantalla ancha, si el indicador ya se ve entero no hace falta mover nada.
                 if (!movil && rect.top >= 0) return;
-                var top = rect.top + window.pageYOffset - (movil ? 64 : 16);
+                // En el celular el indicador queda fijo arriba (sticky): se lleva al borde de la pantalla (0), que es donde queda pegado.
+                var top = rect.top + window.pageYOffset - (movil ? 0 : 16);
                 window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
             }, 0);
         }
