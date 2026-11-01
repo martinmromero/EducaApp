@@ -897,8 +897,9 @@ html.embed-mode .main-content.test-panel-open {
 .btn-acciones { display: inline-flex; align-items: center; gap: .35rem; flex-wrap: nowrap; white-space: nowrap; }
 .btn-acciones .btn { display: inline-flex; align-items: center; justify-content: center; line-height: 1.2; }
 
-/* Motivo de descarte en el listado de preguntas: puede ser largo, así que baja de línea (máx. 2) dentro de su celda
-   en vez de salirse de ella y pisar las etiquetas y los botones de al lado (la columna "fit" no corta líneas). */
+/* Motivo de descarte en el listado de preguntas: solo se muestra el motivo elegido (el detalle completo, si se
+   agregó, se ve al pasar el mouse por encima). Baja de línea (máx. 2) dentro de su celda en vez de salirse de ella
+   y pisar las etiquetas y los botones de al lado (la columna "fit" no corta líneas). */
 .lc-table .lc-motivo {
     white-space: normal;
     min-width: 8rem;

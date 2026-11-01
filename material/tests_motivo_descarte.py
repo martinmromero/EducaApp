@@ -81,6 +81,13 @@ class MotivoDescarteTests(TestCase):
         html = self.c.get(reverse('material:lista_preguntas')).content.decode()
         self.assertIn('No se desprende del texto', html)
 
+    def test_el_listado_muestra_solo_el_motivo_y_el_detalle_va_en_el_tooltip(self):
+        self._guardar(rechazadas=[_pregunta('Con nota', motivo_descarte='otro', motivo_detalle='detalle largo de prueba')])
+        html = self.c.get(reverse('material:lista_preguntas')).content.decode()
+        self.assertIn('>Otro motivo</div>', html)
+        self.assertIn('title="Otro (detallar): detalle largo de prueba"', html)
+        self.assertNotIn('>Otro (detallar): detalle largo de prueba<', html)
+
     def test_las_opciones_incluyen_las_pedidas(self):
         etiquetas = [e for _, e in Question.DISCARD_REASON_CHOICES]
         for esperado in ('Demasiado simple', 'No es relevante', 'Muy parecida a otras preguntas', 'Otro (detallar)'):
