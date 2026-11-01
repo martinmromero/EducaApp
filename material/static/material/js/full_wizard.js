@@ -521,7 +521,8 @@
     function setNextButton(label, handler) {
         if (!nextBtn) return;
         nextBtn.classList.remove('d-none');
-        nextBtn.innerHTML = label + '<i class="bi bi-arrow-right ms-1"></i>';
+        // «Saltear» lleva el mismo ícono que la pastilla salteada del indicador de pasos (skip-forward).
+        nextBtn.innerHTML = label + '<i class="bi ' + (label === 'Saltear' ? 'bi-skip-forward-fill' : 'bi-arrow-right') + ' ms-1"></i>';
         nextBtn.disabled = false;
         nextBtn.onclick = handler;
     }

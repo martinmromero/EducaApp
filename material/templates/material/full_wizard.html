@@ -187,9 +187,9 @@
             <i class="bi bi-arrow-left me-1"></i>Atrás
         </button>
         <div class="fw-nav-links">
-            <a href="{% url 'material:full_wizard' %}">Empezar de nuevo</a>
+            <a href="{% url 'material:full_wizard' %}" title="Empezar de nuevo" aria-label="Empezar de nuevo">Empezar de nuevo</a>
             <span class="fw-nav-sep">·</span>
-            <a href="{% url 'material:index' %}" title="Lo ya cargado en este recorrido queda guardado igual">Salir</a>
+            <a href="{% url 'material:index' %}" title="Salir al inicio. Lo ya cargado queda guardado" aria-label="Salir al inicio">Salir</a>
         </div>
         <!-- id propio (no wizNextBtn): este wizard decide de forma asíncrona
              (POST, modal de confirmación) si el paso siguiente corresponde,

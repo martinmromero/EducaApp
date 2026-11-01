@@ -296,6 +296,7 @@ class VistaPreviaAntesDeGuardarTests(TestCase):
         for fuera in ('Imprimir', 'Mostrar respuestas', 'Editar', 'Volver'):
             self.assertNotIn(fuera, zona)
         self.assertIn('id="examActionsBtn"', html)
+        self.assertIn('css/skins', html)  # la forma de los botones sale del tema visual elegido
         panel = html[html.index('id="accionesPanel"'):]
         for dentro in ('Mostrar respuestas', 'Imprimir', 'Editar', 'Volver', 'Distribución cognitiva'):
             self.assertIn(dentro, panel)
@@ -319,3 +320,21 @@ class VistaPreviaAntesDeGuardarTests(TestCase):
         menu = menu[:menu.index('</ul>')]
         for dentro in ('Vista previa de impresión', 'Editar selección', 'Volver'):
             self.assertIn(dentro, menu)
+
+
+class AccionesUnificadasTests(TestCase):
+    """Panel «Acciones» (2026-11-01): «Incluir respuestas/rúbricas» son interruptores como «Mostrar respuestas», y los botones de la vista previa siguen la forma del tema."""
+
+    def test_incluir_respuestas_es_un_interruptor_no_una_casilla(self):
+        from .models import Exam
+        user = _docente('acc_docente')
+        materia = Subject.objects.create(name='Materia ACC', created_by=user)
+        exam = Exam.objects.create(title='Examen ACC', subject=materia, created_by=user)
+        c = Client()
+        c.force_login(user)
+        html = c.get(reverse('material:ver_examen', args=[exam.pk])).content.decode()
+        bloque = html[html.index('id="accExport"'):]
+        bloque = bloque[:bloque.index('</section>')]
+        self.assertIn('view-toggle', bloque)
+        self.assertIn('Incluir respuestas', bloque)
+        self.assertNotIn('acc-checks', bloque)

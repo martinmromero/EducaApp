@@ -292,7 +292,7 @@
         content: "\f117"; /* arrow-counterclockwise: empezar de nuevo */
     }
     .wiz-nav > span.small a[data-fw-action="exit"]::before,
-    .wiz-nav .fw-nav-links a:last-child::before { content: "\f1c3"; /* box-arrow-right: salir */ }
+    .wiz-nav .fw-nav-links a:last-child::before { content: "\f659"; /* x-lg: salir */ }
     .wiz-nav .fw-nav-sep, .wiz-nav > span.small .text-body-tertiary { display: none; }
     /* Dentro del examen embebido el ancho es menor: íconos más chicos para que "Siguiente" entre completo. */
     .wiz-wrap.is-embedded .wiz-nav > span.small { gap: .25rem; }
@@ -313,23 +313,21 @@
 .wiz-summary dt { color: var(--bs-secondary-color); font-weight: 500; }
 .wiz-summary dd { margin-bottom: .5rem; }
 
-/* Casillas y botones de opción de los pasos: nunca se achican (con un nombre largo al lado quedaba una rayita
-   en vez de la casilla) y en el celular son más grandes, fáciles de tocar. */
-.wiz-step input[type="checkbox"],
-.wiz-step input[type="radio"] {
-    flex-shrink: 0;
-    min-width: 1.15em;
-    min-height: 1.15em;
+/* Casillas y botones de opción de todos los asistentes: nunca se achican, se centran con la primera línea de su texto
+   (el texto no queda pegado al borde de arriba de la casilla) y llevan un espacio mínimo y parejo entre la casilla y el
+   texto. Vale igual en el celular y en pantalla ancha; el celular las agranda para tocarlas con el pulgar. */
+.wiz-step, .uqw { --wiz-ctl: 1.15rem; }
+@media (max-width: 767.98px) { .wiz-step, .uqw { --wiz-ctl: 1.5rem; } }
+:is(.wiz-step, .uqw) .form-check:not(.form-switch) { display: flex; align-items: flex-start; gap: .5rem; padding-left: 0; min-height: 0; }
+:is(.wiz-step, .uqw) .form-check-inline { display: inline-flex; margin-right: 1.25rem; }
+:is(.wiz-step, .uqw) .form-check:not(.form-switch) > .form-check-input {
+    float: none; flex: 0 0 auto; margin: calc((1.5em - var(--wiz-ctl)) / 2) 0 0;
+    width: var(--wiz-ctl); height: var(--wiz-ctl); min-width: var(--wiz-ctl); min-height: var(--wiz-ctl);
 }
-@media (max-width: 767.98px) {
-    .wiz-step input[type="checkbox"],
-    .wiz-step input[type="radio"] {
-        width: 1.5rem;
-        height: 1.5rem;
-        min-width: 1.5rem;
-        min-height: 1.5rem;
-    }
-}
+:is(.wiz-step, .uqw) .form-check > .form-check-label { margin: 0; line-height: 1.5; }
+:is(.wiz-step, .uqw) .form-switch { display: flex; align-items: center; gap: .6rem; padding-left: 0; }
+:is(.wiz-step, .uqw) .form-switch > .form-check-input { float: none; flex: 0 0 auto; margin: 0; }
+:is(.wiz-step, .uqw) .form-switch > .form-check-label { margin: 0; }
 
 /* Asistente dentro del Asistente paso a paso, en el celular (ver full_wizard.css): sin tarjeta propia, el contenido de
    cada paso usa todo el ancho que deja el asistente de afuera. */

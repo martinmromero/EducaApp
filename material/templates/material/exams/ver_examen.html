@@ -65,10 +65,18 @@
 
     <section class="acc-seccion" id="accExport">
         <h4 class="acc-titulo"><i class="bi bi-file-earmark-arrow-down"></i> Imprimir / Descargar</h4>
-        <div class="acc-checks">
-            <label><input type="checkbox" id="exportIncludeAnswers"> Incluir respuestas</label>
+        <div class="view-toggles acc-incluir">
+            <label class="view-toggle">
+                <input type="checkbox" id="exportIncludeAnswers">
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                <span class="toggle-label"><i class="bi bi-eye"></i> Incluir respuestas</span>
+            </label>
             {% if has_rubrics %}
-            <label><input type="checkbox" id="exportIncludeRubrics" checked> Incluir rúbricas</label>
+            <label class="view-toggle">
+                <input type="checkbox" id="exportIncludeRubrics" checked>
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                <span class="toggle-label"><i class="bi bi-card-checklist"></i> Incluir rúbricas</span>
+            </label>
             {% endif %}
         </div>
         <div class="acc-botones">

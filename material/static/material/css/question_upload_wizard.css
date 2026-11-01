@@ -205,7 +205,7 @@
     #fwQEmbed .fw-nav-links { display: inline-flex; align-items: center; gap: .25rem; }
     #fwQEmbed .fw-nav-links a { width: 2.3rem; height: 2.5rem; }
     #fwQEmbed .fw-nav-links a:first-child::before { content: "\f117"; /* arrow-counterclockwise */ }
-    #fwQEmbed .fw-nav-links a:last-child::before { content: "\f1c3"; /* box-arrow-right */ }
+    #fwQEmbed .fw-nav-links a:last-child::before { content: "\f659"; /* x-lg: salir */ }
     #fwQEmbed .fw-nav-sep { display: none; }
     /* El aviso de validación se sube por encima de la botonera. */
     body:has(.uqw-nav) #eduToastContainer { bottom: 6.5rem !important; }
@@ -218,3 +218,19 @@
 #fwQEmbed .uqw-progress { display: block; font-size: .8rem; color: var(--bs-secondary-color); margin-bottom: .5rem; }
 #fwQEmbed .uqw { scroll-margin-top: 64px; }
 .uqw-chip .badge { white-space: nowrap; }
+
+/* Casillas y botones de opción de todos los asistentes: nunca se achican, se centran con la primera línea de su texto
+   (el texto no queda pegado al borde de arriba de la casilla) y llevan un espacio mínimo y parejo entre la casilla y el
+   texto. Vale igual en el celular y en pantalla ancha; el celular las agranda para tocarlas con el pulgar. */
+.wiz-step, .uqw { --wiz-ctl: 1.15rem; }
+@media (max-width: 767.98px) { .wiz-step, .uqw { --wiz-ctl: 1.5rem; } }
+:is(.wiz-step, .uqw) .form-check:not(.form-switch) { display: flex; align-items: flex-start; gap: .5rem; padding-left: 0; min-height: 0; }
+:is(.wiz-step, .uqw) .form-check-inline { display: inline-flex; margin-right: 1.25rem; }
+:is(.wiz-step, .uqw) .form-check:not(.form-switch) > .form-check-input {
+    float: none; flex: 0 0 auto; margin: calc((1.5em - var(--wiz-ctl)) / 2) 0 0;
+    width: var(--wiz-ctl); height: var(--wiz-ctl); min-width: var(--wiz-ctl); min-height: var(--wiz-ctl);
+}
+:is(.wiz-step, .uqw) .form-check > .form-check-label { margin: 0; line-height: 1.5; }
+:is(.wiz-step, .uqw) .form-switch { display: flex; align-items: center; gap: .6rem; padding-left: 0; }
+:is(.wiz-step, .uqw) .form-switch > .form-check-input { float: none; flex: 0 0 auto; margin: 0; }
+:is(.wiz-step, .uqw) .form-switch > .form-check-label { margin: 0; }
