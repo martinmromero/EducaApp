@@ -64,7 +64,20 @@
     @media (max-width: 767.98px) {
         .acciones-backdrop.is-open { display: block; }
         .acciones-panel { left: 0; right: 0; bottom: 0; width: auto; max-height: 82vh; border-radius: 18px 18px 0 0; }
-        .acciones-fab { right: 14px; bottom: 14px; }
     }
-    @media print { .acciones-fab, .acciones-panel, .acciones-backdrop { display: none !important; } }
+    /* Barra inferior de las vistas previas: «Guardar» (o la acción principal) y el botón flotante «Acciones» comparten
+       fila y distancia al borde de abajo (16 px), en el celular y en pantalla ancha. En el examen ya guardado no hay barra
+       (esa pantalla oculta .print-button): solo queda el botón flotante. */
+    .acciones-fab { right: 16px; bottom: 16px; }
+    .print-button.no-print {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030; margin: 0; padding: 16px;
+        display: flex; justify-content: center; align-items: center; gap: 8px; pointer-events: none;
+    }
+    .print-button.no-print > * { pointer-events: auto; margin: 0; }
+    body { padding-bottom: 96px; }
+    @media (max-width: 767.98px) {
+        .print-button.no-print { justify-content: flex-start; padding-right: 160px; background: linear-gradient(to top, #ececec 65%, rgba(236, 236, 236, 0)); }
+        .print-button.no-print > * { flex: 1 1 auto; min-width: 0; }
+    }
+    @media print { .acciones-fab, .acciones-panel, .acciones-backdrop { display: none !important; } body { padding-bottom: 0; } }
 </style>

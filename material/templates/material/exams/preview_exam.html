@@ -136,18 +136,9 @@
 
 {% block action_buttons %}
 <style>
-    .print-button.no-print { position: sticky; bottom: 0; z-index: 30; padding: 8px 0; }
     .print-button .btn-guardar-examen { background: #28a745; white-space: nowrap; padding: 0 28px; }
     .print-button .btn-guardar-examen:hover { background: #218838; }
-    @media (max-width: 767.98px) {
-        /* Celular: «Guardar Examen» queda fijo abajo, a la izquierda del botón flotante «Acciones». */
-        .print-button.no-print {
-            display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 6px;
-            padding: 8px 144px 8px 12px; background: linear-gradient(to top, #ececec 70%, rgba(236, 236, 236, 0));
-        }
-        .print-button.no-print button { margin: 0; flex: 1 1 auto; min-width: 0; padding: 0 10px; }
-        .acciones-panel .acc-botones-2 { grid-template-columns: repeat(2, 1fr); }
-    }
+    @media (max-width: 767.98px) { .print-button .btn-guardar-examen { padding: 0 10px; } }
     .acciones-panel .acc-botones-2 { grid-template-columns: repeat(2, 1fr); }
     .acc-btn-gris { background: #666; } .acc-btn-gris:hover { background: #555; color: #fff; }
     .acc-nota { margin: 10px 0 0; font-size: 13px; color: #777; }
