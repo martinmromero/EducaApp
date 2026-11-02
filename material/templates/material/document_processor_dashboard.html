@@ -1128,7 +1128,16 @@ function displayDocumentResult(data) {
                 ${data.stats.removed_footers ? ` · Footers eliminados: ${data.stats.removed_footers}` : ''}
             </div>
             <hr class="mb-2">
-            <div class="d-flex justify-content-end mb-2">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                ${data.chapters.length > 1 ? `
+                <div class="btn-group btn-group-sm" role="group" aria-label="Elegir capítulos">
+                    <button type="button" id="selectAllChaptersBtn" class="btn btn-outline-primary" onclick="selectAllChapters(true)" title="Elegir todos los capítulos que entran en una tanda">
+                        <i class="bi bi-check2-all"></i> Seleccionar todo
+                    </button>
+                    <button type="button" id="selectNoChaptersBtn" class="btn btn-outline-secondary" onclick="selectAllChapters(false)" title="Quitar la selección">
+                        <i class="bi bi-x-lg"></i> Ninguno
+                    </button>
+                </div>` : '<span></span>'}
                 <div class="btn-group btn-group-sm" role="group" aria-label="Vista de capítulos">
                     <button type="button" id="chapterViewCardsBtn" class="btn btn-outline-secondary" onclick="setChapterView('cards')" title="Ver como tarjetas">
                         <i class="bi bi-grip-vertical"></i> Tarjetas
@@ -1138,6 +1147,7 @@ function displayDocumentResult(data) {
                     </button>
                 </div>
             </div>
+            <div id="selectAllNote" class="small text-warning-emphasis d-none" role="status"></div>
         </div>
         <div class="rt-chapter-grid${chapterView === 'list' ? ' rt-view-list' : ''}" id="chaptersGrid">
             ${renderChapterCardsHTML(data.chapters)}
@@ -1166,6 +1176,43 @@ function displayDocumentResult(data) {
     updateGenerateButton();
 
     offerRestoreGeneratedQuestionsBackup();
+}
+
+// «Seleccionar todo»: elige todos los capítulos, en orden, mientras entren en una sola tanda (mismo criterio que al tildar
+// uno por uno: el primero siempre se puede elegir; los siguientes, si sumados no pasan el tope). Si el documento es más
+// grande que una tanda, se avisa cuántos quedaron afuera para generarlos después. «Ninguno» limpia la selección.
+function selectAllChapters(on) {
+    const boxes = Array.from(document.querySelectorAll('.chapter-checkbox'));
+    const note = document.getElementById('selectAllNote');
+    if (!on) {
+        boxes.forEach(cb => { cb.checked = false; });
+        if (note) { note.classList.add('d-none'); note.textContent = ''; }
+        updateGenerateButton();
+        return;
+    }
+    boxes.forEach(cb => { cb.disabled = false; });
+    let acumulado = boxes.filter(cb => cb.checked).reduce((a, cb) => a + parseInt(cb.dataset.tokens || '0', 10), 0);
+    let afuera = 0;
+    boxes.forEach(cb => {
+        if (cb.checked) return;
+        const tk = parseInt(cb.dataset.tokens || '0', 10);
+        if (acumulado === 0 || acumulado + tk <= RUN_TOKEN_BUDGET) {
+            cb.checked = true;
+            acumulado += tk;
+        } else {
+            afuera += 1;
+        }
+    });
+    if (note) {
+        if (afuera > 0) {
+            note.textContent = afuera + (afuera === 1 ? ' capítulo no entra' : ' capítulos no entran') + ' en esta tanda (es más contenido del que se procesa de una vez). Generar esto primero y después elegir el resto.';
+            note.classList.remove('d-none');
+        } else {
+            note.classList.add('d-none');
+            note.textContent = '';
+        }
+    }
+    updateGenerateButton();
 }
 
 // Actualiza el botón de generar, la barra de tokens y bloquea capítulos

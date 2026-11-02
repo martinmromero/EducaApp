@@ -108,6 +108,9 @@ class PantallaGenerarConIATests(TestCase):
         self.assertIn('id="bloomModeHint"', html)
         # opciones del descarte disponibles para el JS
         self.assertIn('muy parecida a otras preguntas'.lower(), html.lower())
+        # «Seleccionar todo» de capítulos (2026-11-02)
+        self.assertIn('function selectAllChapters', html)
+        self.assertIn('id="selectAllChaptersBtn"', html)
 
     def test_el_texto_del_panel_no_usa_voseo(self):
         html = self.c.get(reverse('material:document_processor_dashboard')).content.decode()

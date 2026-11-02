@@ -63,7 +63,7 @@
         element: '#chaptersGrid',
         popover: {
           title: 'Capítulos detectados',
-          description: 'Elegir uno o más capítulos para generar preguntas — el color y el tamaño de cada tarjeta ayudan a estimar cuánto entra en una tanda.',
+          description: 'Elegir uno o más capítulos para generar preguntas — el color y el tamaño de cada tarjeta ayudan a estimar cuánto entra en una tanda. El botón «Seleccionar todo» elige todos los que entran juntos; si el documento es más grande que una tanda, avisa cuántos quedan para después.',
           side: 'top',
         },
       },
