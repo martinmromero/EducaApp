@@ -338,3 +338,39 @@ class AccionesUnificadasTests(TestCase):
         self.assertIn('view-toggle', bloque)
         self.assertIn('Incluir respuestas', bloque)
         self.assertNotIn('acc-checks', bloque)
+
+
+class VerPreguntaMotivoTests(TestCase):
+    """Detalle de una pregunta rechazada (2026-11-02): muestra el motivo del descarte y su detalle."""
+
+    def setUp(self):
+        from .models import Topic
+        self.user = _docente('vpm_docente')
+        self.materia = Subject.objects.create(name='Materia VPM', created_by=self.user)
+        self.tema = Topic.objects.create(name='T', subject=self.materia)
+        self.c = Client()
+        self.c.force_login(self.user)
+
+    def _pregunta(self, **kw):
+        q = Question.objects.create(user=self.user, question_text='PreguntaVPM', answer_text='r', topic=self.tema,
+                                    generated_by_ai=True, ai_approved=False, **kw)
+        q.subjects.add(self.materia)
+        return q
+
+    def test_muestra_motivo_y_detalle(self):
+        q = self._pregunta(discard_reason='otro', discard_note='no sirve para la unidad 3')
+        html = self.c.get(reverse('material:ver_pregunta', args=[q.pk])).content.decode()
+        self.assertIn('id="motivoRechazo"', html)
+        self.assertIn('Otro (detallar)', html)
+        self.assertIn('no sirve para la unidad 3', html)
+
+    def test_rechazada_sin_motivo_lo_aclara(self):
+        q = self._pregunta()
+        html = self.c.get(reverse('material:ver_pregunta', args=[q.pk])).content.decode()
+        self.assertIn('No se indicó un motivo', html)
+
+    def test_aprobada_no_muestra_el_aviso(self):
+        q = self._pregunta()
+        Question.objects.filter(pk=q.pk).update(ai_approved=True)
+        html = self.c.get(reverse('material:ver_pregunta', args=[q.pk])).content.decode()
+        self.assertNotIn('id="motivoRechazo"', html)

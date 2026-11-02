@@ -17,7 +17,32 @@
     {% if pregunta.question_type %}
       <span class="badge bg-secondary">{{ pregunta.get_question_type_display }}</span>
     {% endif %}
+    {% if pregunta.generated_by_ai %}
+      {% if pregunta.ai_approved is None %}
+        <span class="badge text-bg-warning">⏳ Sin revisar</span>
+      {% elif pregunta.ai_approved %}
+        <span class="badge text-bg-success">✅ Aprobada</span>
+      {% else %}
+        <span class="badge text-bg-danger">❌ Rechazada</span>
+      {% endif %}
+    {% endif %}
   </div>
+
+  {# Motivo con el que se descartó la pregunta generada (si se indicó) y, de haberlo, el detalle completo. #}
+  {% if pregunta.generated_by_ai and pregunta.ai_approved is False %}
+  <div class="alert alert-danger d-flex gap-2 align-items-start" role="status" id="motivoRechazo">
+    <i class="bi bi-x-octagon-fill mt-1"></i>
+    <div>
+      <div class="fw-semibold">Pregunta rechazada</div>
+      {% if pregunta.discard_reason %}
+        <div><span class="fw-semibold">Motivo:</span> {{ pregunta.get_discard_reason_display }}</div>
+        {% if pregunta.discard_note %}<div style="white-space:pre-wrap"><span class="fw-semibold">Detalle:</span> {{ pregunta.discard_note }}</div>{% endif %}
+      {% else %}
+        <div class="text-muted">No se indicó un motivo al descartarla.</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 
   <div class="row g-4">
 
