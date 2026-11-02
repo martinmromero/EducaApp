@@ -83,6 +83,14 @@ body.offcanvas-open .sidebar-toggle-external {
         flex: 1 1 0;
         white-space: normal;
         line-height: 1.2;
+        /* Una palabra larga ("configuración") que no entra se parte con guion en vez de quedar cortada. */
+        hyphens: auto;
+        overflow-wrap: break-word;
+    }
+    /* Celulares angostos (320 px): letra y separación del título un poco menores para que no se corte. */
+    @media (max-width: 380px) {
+        .edu-topbar .edu-topbar-title { font-size: .9rem; gap: .3rem; }
+        .edu-topbar .edu-topbar-title i { margin-right: 0 !important; }
     }
     .edu-topbar-tools {
         order: 3;
