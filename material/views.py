@@ -11188,108 +11188,149 @@ def _parsear_anio_cursada(valor):
     return int(match.group()) if match else None
 
 
-def _importar_fila_catalogo(fila, *, institucion, admin_user, cache):
-    """Crea o reutiliza facultad→carrera→materia para UNA fila del CSV
-    (una materia) y deja su CareerSubject al día. `cache` evita repetir la
-    misma búsqueda fila por fila cuando el archivo repite la misma
-    facultad/carrera en decenas de filas seguidas (el caso normal: una
-    carrera de ~30 materias son ~30 filas con la misma facultad/carrera) —
-    cada entrada guarda (objeto, creada_ahora) para poder armar la vista
-    previa de "esto es nuevo" vs. "esto ya existía" antes de confirmar.
-    Lanza ValueError con el motivo si la fila no se puede procesar —
-    nunca deja a medio crear: quien llama envuelve esto en su propio
-    transaction.atomic() por fila."""
+def _validar_fila_catalogo(fila):
+    """Motivo por el que una fila del CSV no se puede importar, o None si está bien. Se valida en Python ANTES de tocar la
+    base (largos máximos incluidos), así un dato malo se reporta con su número de fila sin tirar abajo la carga."""
     facultad_nombre = fila.get('facultad', '')
     carrera_nombre = fila.get('carrera', '')
     materia_nombre = fila.get('materia', '')
     if not facultad_nombre or not carrera_nombre or not materia_nombre:
-        raise ValueError('faltan facultad, carrera o materia')
-    if len(materia_nombre) > 100:
-        raise ValueError(f'el nombre de la materia supera 100 caracteres: "{materia_nombre[:40]}..."')
-
-    clave_facultad = facultad_nombre.lower()
-    entrada = cache['facultades'].get(clave_facultad)
-    if entrada is None:
-        facultad = FacultyV2.objects.filter(
-            institution=institucion, name__iexact=facultad_nombre, es_catalogo_institucional=True,
-        ).first()
-        creada = facultad is None
-        if creada:
-            facultad = FacultyV2.objects.create(
-                institution=institucion, name=facultad_nombre, created_by=admin_user,
-            )
-        cache['facultades'][clave_facultad] = (facultad, creada)
-    else:
-        facultad, _ = entrada
-
-    clave_carrera = (facultad.pk, carrera_nombre.lower())
-    entrada = cache['carreras'].get(clave_carrera)
-    if entrada is None:
-        # Reusa una carrera ya vinculada a ESTA facultad puntual — nunca
-        # una de otra institución/facultad por casualidad de nombre (mismo
-        # criterio que _validar_cadena_catalogo, para no repetir ahí el
-        # hueco que se cerró en Solicitar Alta).
-        carrera = Career.objects.filter(
-            faculties=facultad, name__iexact=carrera_nombre, es_catalogo_institucional=True,
-        ).first()
-        creada = carrera is None
-        if creada:
-            carrera = Career.objects.create(name=carrera_nombre, created_by=admin_user)
-            carrera.faculties.add(facultad)
-        cache['carreras'][clave_carrera] = (carrera, creada)
-    else:
-        carrera, _ = entrada
-
-    clave_materia = materia_nombre.lower()
-    entrada = cache['materias'].get(clave_materia)
-    if entrada is None:
-        # A diferencia de facultad/carrera, la materia SÍ se busca global
-        # (no acotada a esta carrera): es intencional que una materia como
-        # "Inglés I" se reutilice entre carreras distintas — cada una
-        # cuelga su propio CareerSubject/RA de la misma fila Subject.
-        materia = Subject.objects.filter(name__iexact=materia_nombre, es_catalogo_institucional=True).first()
-        creada = materia is None
-        if creada:
-            materia = Subject.objects.create(name=materia_nombre, created_by=admin_user)
-        cache['materias'][clave_materia] = (materia, creada)
-    else:
-        materia, _ = entrada
-
-    CareerSubject.objects.update_or_create(
-        career=carrera, subject=materia,
-        defaults={
-            'numero_materia': fila.get('numero de materia', '')[:20],
-            'anio_cursada': _parsear_anio_cursada(fila.get('ano de cursada')),
-            'cuatrimestre_cursada': fila.get('cuatrimestre de cursada', '')[:20],
-        },
-    )
+        return 'faltan facultad, carrera o materia'
+    if len(materia_nombre) > Subject._meta.get_field('name').max_length:
+        return f'el nombre de la materia supera {Subject._meta.get_field("name").max_length} caracteres: "{materia_nombre[:40]}..."'
+    if len(carrera_nombre) > Career._meta.get_field('name').max_length:
+        return f'el nombre de la carrera supera {Career._meta.get_field("name").max_length} caracteres: "{carrera_nombre[:40]}..."'
+    if len(facultad_nombre) > FacultyV2._meta.get_field('name').max_length:
+        return f'el nombre de la facultad supera {FacultyV2._meta.get_field("name").max_length} caracteres: "{facultad_nombre[:40]}..."'
+    return None
 
 
 def _procesar_carga_catalogo(texto, *, institucion, admin_user, dry_run):
-    """Corre el archivo entero fila por fila. Con dry_run=True arma
-    exactamente el mismo resultado que una corrida real (mismo código,
-    misma detección de "ya existe" contra la base real) pero deshace todo
-    al final — así la vista previa nunca puede mostrar algo distinto de
-    lo que la confirmación después va a guardar de verdad."""
+    """Corre el archivo entero. Con dry_run=True arma exactamente el mismo
+    resultado que una corrida real (mismo código, misma detección de "ya
+    existe" contra la base real) pero deshace todo al final — así la vista
+    previa nunca puede mostrar algo distinto de lo que la confirmación
+    después va a guardar de verdad.
+
+    Está hecha para planes de estudio grandes (miles de filas): en vez de
+    consultar y guardar fila por fila, lee de una vez lo que ya existe
+    (facultades de la institución, carreras de esas facultades, materias
+    del catálogo y los vínculos carrera-materia), crea lo nuevo (las materias
+    y los vínculos en bloque) y recién ahí escribe. Antes eran ~3 consultas
+    por fila: con una base remota (Neon) un archivo de 3000 filas pasaba el
+    tiempo máximo del servidor (120 s) y la carga fallaba."""
+    from .column_filters import invalidate_filter_options_cache
+
     reader = csv.DictReader(texto.splitlines())
-    cache = {'facultades': {}, 'carreras': {}, 'materias': {}}
     errores = []
-    filas_ok = 0
+    filas = []
+    for numero_fila, row in enumerate(reader, start=2):
+        fila = _normalizar_fila_csv(row)
+        if not any(fila.get(k) for k in ('facultad', 'carrera', 'materia')):
+            continue  # fila en blanco (común al final del archivo)
+        motivo = _validar_fila_catalogo(fila)
+        if motivo:
+            logger.warning(f'Carga masiva de catálogo — fila {numero_fila}: {motivo}')
+            errores.append(f'Fila {numero_fila}: {motivo}')
+            continue
+        filas.append(fila)
+
+    # cada entrada guarda (objeto, creada_ahora) para armar la vista previa de "esto es nuevo" vs. "esto ya existía"
+    cache = {'facultades': {}, 'carreras': {}, 'materias': {}}
     with transaction.atomic():
-        for numero_fila, row in enumerate(reader, start=2):
-            fila = _normalizar_fila_csv(row)
-            if not any(fila.get(k) for k in ('facultad', 'carrera', 'materia')):
-                continue  # fila en blanco (común al final del archivo)
-            try:
-                with transaction.atomic():
-                    _importar_fila_catalogo(fila, institucion=institucion, admin_user=admin_user, cache=cache)
-                filas_ok += 1
-            except Exception as e:
-                logger.warning(f'Carga masiva de catálogo — fila {numero_fila}: {e}')
-                errores.append(f'Fila {numero_fila}: {e}')
+        # Facultades: solo las de ESTA institución y del catálogo (nunca las de otra por casualidad de nombre).
+        existentes = {}
+        for facultad in FacultyV2.objects.filter(institution=institucion, es_catalogo_institucional=True).order_by('pk'):
+            existentes.setdefault(facultad.name.lower(), facultad)
+        for fila in filas:
+            clave = fila['facultad'].lower()
+            if clave in cache['facultades']:
+                continue
+            facultad = existentes.get(clave)
+            creada = facultad is None
+            if creada:
+                facultad = FacultyV2.objects.create(institution=institucion, name=fila['facultad'], created_by=admin_user)
+            cache['facultades'][clave] = (facultad, creada)
+
+        # Carreras: una carrera ya vinculada a ESTA facultad puntual — nunca una de otra institución/facultad por
+        # casualidad de nombre (mismo criterio que _validar_cadena_catalogo, para no repetir el hueco de Solicitar Alta).
+        pks_facultades = {facultad.pk for facultad, _ in cache['facultades'].values()}
+        existentes = {}
+        carreras_previas = (
+            Career.objects.filter(es_catalogo_institucional=True, faculties__in=pks_facultades)
+            .distinct().order_by('pk').prefetch_related('faculties')
+        )
+        for carrera in carreras_previas:
+            for facultad in carrera.faculties.all():
+                if facultad.pk in pks_facultades:
+                    existentes.setdefault((facultad.pk, carrera.name.lower()), carrera)
+        for fila in filas:
+            facultad = cache['facultades'][fila['facultad'].lower()][0]
+            clave = (facultad.pk, fila['carrera'].lower())
+            if clave in cache['carreras']:
+                continue
+            carrera = existentes.get(clave)
+            creada = carrera is None
+            if creada:
+                carrera = Career.objects.create(name=fila['carrera'], created_by=admin_user)
+                carrera.faculties.add(facultad)
+            cache['carreras'][clave] = (carrera, creada)
+
+        # Materias: a diferencia de facultad/carrera, la materia SÍ se busca global (no acotada a esta carrera): es
+        # intencional que una materia como "Inglés I" se reutilice entre carreras — cada una cuelga su propio
+        # CareerSubject/RA de la misma fila Subject. Las nuevas se crean todas juntas.
+        existentes = {}
+        for materia in Subject.objects.filter(es_catalogo_institucional=True).order_by('pk').only('id', 'name'):
+            existentes.setdefault(materia.name.lower(), materia)
+        nuevas = []
+        for fila in filas:
+            clave = fila['materia'].lower()
+            if clave in cache['materias']:
+                continue
+            materia = existentes.get(clave)
+            creada = materia is None
+            if creada:
+                materia = Subject(name=fila['materia'], created_by=admin_user)
+                nuevas.append(materia)
+            cache['materias'][clave] = (materia, creada)
+        if nuevas:
+            Subject.objects.bulk_create(nuevas, batch_size=500)  # en Postgres vuelven con su id
+
+        # Vínculo carrera-materia (N° de materia, año y cuatrimestre del plan): si el archivo repite el par, vale la última fila.
+        deseados = {}
+        for fila in filas:
+            facultad = cache['facultades'][fila['facultad'].lower()][0]
+            carrera = cache['carreras'][(facultad.pk, fila['carrera'].lower())][0]
+            materia = cache['materias'][fila['materia'].lower()][0]
+            deseados[(carrera.pk, materia.pk)] = {
+                'numero_materia': fila.get('numero de materia', '')[:20],
+                'anio_cursada': _parsear_anio_cursada(fila.get('ano de cursada')),
+                'cuatrimestre_cursada': fila.get('cuatrimestre de cursada', '')[:20],
+            }
+        previos = {
+            (cs.career_id, cs.subject_id): cs
+            for cs in CareerSubject.objects.filter(career_id__in={c for c, _ in deseados})
+        }
+        a_crear, a_actualizar = [], []
+        for (carrera_id, materia_id), valores in deseados.items():
+            existente = previos.get((carrera_id, materia_id))
+            if existente is None:
+                a_crear.append(CareerSubject(career_id=carrera_id, subject_id=materia_id, **valores))
+            else:
+                for campo, valor in valores.items():
+                    setattr(existente, campo, valor)
+                a_actualizar.append(existente)
+        if a_crear:
+            CareerSubject.objects.bulk_create(a_crear, batch_size=500)
+        if a_actualizar:
+            CareerSubject.objects.bulk_update(
+                a_actualizar, ['numero_materia', 'anio_cursada', 'cuatrimestre_cursada'], batch_size=500,
+            )
+        # El alta en bloque no dispara las señales de guardado: se descartan las opciones de filtro en caché a mano.
+        invalidate_filter_options_cache()
         if dry_run:
             transaction.set_rollback(True)
-    return filas_ok, errores, cache
+    return len(filas), errores, cache
 
 
 @login_required
@@ -11328,9 +11369,16 @@ def admin_bulk_catalog_upload(request):
             )
             form = BulkCatalogUploadForm()
         else:
-            filas_ok, errores, cache = _procesar_carga_catalogo(
-                texto, institucion=institucion, admin_user=request.user, dry_run=False,
-            )
+            try:
+                filas_ok, errores, cache = _procesar_carga_catalogo(
+                    texto, institucion=institucion, admin_user=request.user, dry_run=False,
+                )
+            except Exception as e:
+                logger.exception('Carga masiva de catálogo: falló al guardar')
+                messages.error(
+                    request, f'No se pudo guardar la carga (no se cambió nada): {e}', extra_tags='carga_catalogo',
+                )
+                return render(request, 'material/bulk_catalog_upload.html', {'form': BulkCatalogUploadForm()})
             resultado = {
                 'filas_ok': filas_ok,
                 'errores': errores,
@@ -11363,9 +11411,14 @@ def admin_bulk_catalog_upload(request):
                 messages.error(request, str(e), extra_tags='carga_catalogo')
                 return render(request, 'material/bulk_catalog_upload.html', {'form': form})
 
-            filas_ok, errores, cache = _procesar_carga_catalogo(
-                texto, institucion=institucion, admin_user=request.user, dry_run=True,
-            )
+            try:
+                filas_ok, errores, cache = _procesar_carga_catalogo(
+                    texto, institucion=institucion, admin_user=request.user, dry_run=True,
+                )
+            except Exception as e:
+                logger.exception('Carga masiva de catálogo: falló la vista previa')
+                messages.error(request, f'No se pudo analizar el archivo: {e}', extra_tags='carga_catalogo')
+                return render(request, 'material/bulk_catalog_upload.html', {'form': form})
             preview = {
                 'institucion': institucion,
                 'csv_text': texto,

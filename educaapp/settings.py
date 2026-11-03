@@ -266,3 +266,5 @@ PASSWORD_HASHERS = [
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
+# Carga masiva de catálogo: la vista previa confirma reenviando el texto del CSV (un plan grande pasa los 2,5 MB por defecto).
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024

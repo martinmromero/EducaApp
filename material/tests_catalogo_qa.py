@@ -587,6 +587,81 @@ class BulkCatalogUploadTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(FacultyV2.objects.filter(institution=self.institucion).exists())
 
+    def _confirmar(self, csv_text, institucion=None):
+        return self.client.post(reverse('material:admin_bulk_catalog_upload'), {
+            'confirmar': '1', 'institucion_id': (institucion or self.institucion).pk, 'csv_text': csv_text,
+        })
+
+    def test_misma_materia_en_dos_carreras_es_una_sola_fila_con_dos_vinculos(self):
+        self._confirmar(self.CSV + 'Ingenieria,Industrial,201,Algebra,2,1\r\n')
+        self.assertEqual(Subject.objects.filter(name='Algebra').count(), 1)
+        algebra = Subject.objects.get(name='Algebra')
+        self.assertEqual(CareerSubject.objects.filter(subject=algebra).count(), 2)
+        self.assertEqual(CareerSubject.objects.get(career__name='Industrial', subject=algebra).anio_cursada, 2)
+
+    def test_par_repetido_vale_la_ultima_fila_y_no_duplica(self):
+        self._confirmar(self.CSV + 'Ingenieria,Sistemas,999,Algebra,3,2\r\n')
+        vinculos = CareerSubject.objects.filter(career__name='Sistemas', subject__name='Algebra')
+        self.assertEqual(vinculos.count(), 1)
+        self.assertEqual(vinculos.get().numero_materia, '999')
+        self.assertEqual(vinculos.get().anio_cursada, 3)
+
+    def test_cargar_de_nuevo_actualiza_el_plan_y_no_duplica_nada(self):
+        self._confirmar(self.CSV)
+        self._confirmar(self.CSV.replace('Algebra,1,1', 'Algebra,2,2'))
+        self.assertEqual(CareerSubject.objects.filter(career__name='Sistemas').count(), 2)
+        self.assertEqual(Subject.objects.filter(name='Algebra').count(), 1)
+        self.assertEqual(CareerSubject.objects.get(subject__name='Algebra').anio_cursada, 2)
+
+    def test_reutiliza_sin_distinguir_mayusculas(self):
+        self._confirmar(self.CSV)
+        self._confirmar('facultad,carrera,numero de materia,materia,año de cursada,cuatrimestre de cursada\r\n'
+                        'INGENIERIA,sistemas,101,ALGEBRA,1,1\r\n')
+        self.assertEqual(FacultyV2.objects.filter(institution=self.institucion).count(), 1)
+        self.assertEqual(Career.objects.filter(name__iexact='sistemas').count(), 1)
+        self.assertEqual(Subject.objects.filter(name__iexact='algebra').count(), 1)
+
+    def test_no_reutiliza_la_facultad_de_otra_institucion(self):
+        otra = InstitutionV2.objects.create(name='Otra Institucion', es_catalogo_institucional=True)
+        FacultyV2.objects.create(institution=otra, name='Ingenieria')
+        self._confirmar(self.CSV)
+        self.assertEqual(FacultyV2.objects.filter(name='Ingenieria').count(), 2)
+        self.assertEqual(FacultyV2.objects.filter(name='Ingenieria', institution=self.institucion).count(), 1)
+
+    def test_nombres_demasiado_largos_se_reportan_por_fila(self):
+        largo = 'M' * 101
+        csv_largo = self.CSV + f'Ingenieria,Sistemas,103,{largo},1,1\r\n'
+        resp = self._confirmar(csv_largo)
+        self.assertContains(resp, 'Fila 4')
+        self.assertTrue(Subject.objects.filter(name='Algebra').exists())
+        self.assertFalse(Subject.objects.filter(name=largo).exists())
+
+    def test_la_vista_previa_distingue_lo_nuevo_de_lo_que_ya_existia(self):
+        self._confirmar(self.CSV)
+        resp = self.client.post(reverse('material:admin_bulk_catalog_upload'), {
+            'institucion': self.institucion.pk,
+            'archivo': __import__('django.core.files.uploadedfile', fromlist=['SimpleUploadedFile']).SimpleUploadedFile(
+                'plan.csv', (self.CSV + 'Ingenieria,Sistemas,103,Fisica,2,1\r\n').encode('utf-8'), content_type='text/csv'),
+        })
+        preview = resp.context['preview']
+        self.assertEqual(preview['materias_nuevas'], ['Fisica'])
+        self.assertEqual(sorted(preview['materias_existentes']), ['Algebra', 'Analisis Matematico'])
+        self.assertEqual(preview['carreras_nuevas'], [])
+
+    def test_un_plan_grande_se_carga_con_pocas_consultas(self):
+        filas = ['facultad,carrera,numero de materia,materia,año de cursada,cuatrimestre de cursada']
+        for c in range(1, 11):
+            for k in range(1, 61):
+                filas.append(f'Facultad {c % 3},Carrera {c},{k},Materia {(c * 7 + k) % 200},{(k - 1) // 12 + 1},{k % 2 + 1}')
+        texto = '\r\n'.join(filas) + '\r\n'
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        with CaptureQueriesContext(connection) as consultas:
+            self._confirmar(texto)
+        # 600 filas: antes eran ~3 consultas por fila (>1800); ahora solo las de lo que se crea de a uno (carreras y facultades)
+        self.assertLess(len(consultas), 150, f'{len(consultas)} consultas para 600 filas')
+        self.assertEqual(CareerSubject.objects.filter(career__name__startswith='Carrera ').count(), 600)
+
 
 class ExamWizardCatalogScopingTests(TestCase):
     """create_exam_wizard dejo de precargar TODAS las instituciones/carreras
