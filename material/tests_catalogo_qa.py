@@ -662,6 +662,27 @@ class BulkCatalogUploadTests(TestCase):
         self.assertLess(len(consultas), 150, f'{len(consultas)} consultas para 600 filas')
         self.assertEqual(CareerSubject.objects.filter(career__name__startswith='Carrera ').count(), 600)
 
+    def test_un_archivo_con_demasiadas_filas_se_rechaza_antes_de_empezar(self):
+        from material.views import MAX_FILAS_CARGA_CATALOGO
+        filas = ['facultad,carrera,numero de materia,materia,año de cursada,cuatrimestre de cursada']
+        filas += ['F,C,1,M%d,1,1' % i for i in range(MAX_FILAS_CARGA_CATALOGO + 1)]
+        resp = self._confirmar('\n'.join(filas))
+        self.assertContains(resp, 'el máximo por carga es 10.000')
+        self.assertFalse(FacultyV2.objects.filter(institution=self.institucion).exists())
+
+    def test_el_tope_justo_si_se_acepta(self):
+        from material.views import MAX_FILAS_CARGA_CATALOGO
+        filas = ['facultad,carrera,numero de materia,materia,año de cursada,cuatrimestre de cursada']
+        filas += ['F,C,1,M%d,1,1' % i for i in range(MAX_FILAS_CARGA_CATALOGO)]
+        self._confirmar('\n'.join(filas))
+        self.assertEqual(CareerSubject.objects.filter(career__name='C').count(), MAX_FILAS_CARGA_CATALOGO)
+
+    def test_un_archivo_de_mas_de_5_mb_se_rechaza_en_el_formulario(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        grande = SimpleUploadedFile('plan.csv', b'x' * (5 * 1024 * 1024 + 1), content_type='text/csv')
+        resp = self.client.post(reverse('material:admin_bulk_catalog_upload'), {'institucion': self.institucion.pk, 'archivo': grande})
+        self.assertContains(resp, 'pesa más de 5 MB')
+
 
 class ExamWizardCatalogScopingTests(TestCase):
     """create_exam_wizard dejo de precargar TODAS las instituciones/carreras

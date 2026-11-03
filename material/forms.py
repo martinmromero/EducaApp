@@ -983,6 +983,8 @@ class BulkCatalogUploadForm(forms.Form):
         archivo = self.cleaned_data['archivo']
         if not archivo.name.lower().endswith('.csv'):
             raise ValidationError('El archivo tiene que ser un .csv.')
+        if archivo.size > 5 * 1024 * 1024:
+            raise ValidationError('El archivo pesa más de 5 MB. Dividirlo (por ejemplo, un archivo por facultad) y subirlo en varias cargas.')
         return archivo
 
 

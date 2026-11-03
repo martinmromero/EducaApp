@@ -11188,6 +11188,11 @@ def _parsear_anio_cursada(valor):
     return int(match.group()) if match else None
 
 
+# Tope por carga: el trabajo crece con las carreras y materias DISTINTAS del archivo, no con las filas, pero conviene cortar
+# antes de empezar un archivo desmedido (el servidor corta a los 120 s y se perdería la carga entera). Se cuenta de entrada.
+MAX_FILAS_CARGA_CATALOGO = 10000
+
+
 def _validar_fila_catalogo(fila):
     """Motivo por el que una fila del CSV no se puede importar, o None si está bien. Se valida en Python ANTES de tocar la
     base (largos máximos incluidos), así un dato malo se reporta con su número de fila sin tirar abajo la carga."""
@@ -11221,7 +11226,13 @@ def _procesar_carga_catalogo(texto, *, institucion, admin_user, dry_run):
     tiempo máximo del servidor (120 s) y la carga fallaba."""
     from .column_filters import invalidate_filter_options_cache
 
-    reader = csv.DictReader(texto.splitlines())
+    lineas = texto.splitlines()
+    if len(lineas) - 1 > MAX_FILAS_CARGA_CATALOGO:
+        raise ValueError(
+            f'El archivo tiene {len(lineas) - 1:,} filas y el máximo por carga es {MAX_FILAS_CARGA_CATALOGO:,}. '.replace(',', '.')
+            + 'Dividirlo (por ejemplo, un archivo por facultad) y subirlo en varias cargas.'
+        )
+    reader = csv.DictReader(lineas)
     errores = []
     filas = []
     for numero_fila, row in enumerate(reader, start=2):
@@ -11374,7 +11385,8 @@ def admin_bulk_catalog_upload(request):
                     texto, institucion=institucion, admin_user=request.user, dry_run=False,
                 )
             except Exception as e:
-                logger.exception('Carga masiva de catálogo: falló al guardar')
+                if not isinstance(e, ValueError):
+                    logger.exception('Carga masiva de catálogo: falló al guardar')
                 messages.error(
                     request, f'No se pudo guardar la carga (no se cambió nada): {e}', extra_tags='carga_catalogo',
                 )
@@ -11416,7 +11428,8 @@ def admin_bulk_catalog_upload(request):
                     texto, institucion=institucion, admin_user=request.user, dry_run=True,
                 )
             except Exception as e:
-                logger.exception('Carga masiva de catálogo: falló la vista previa')
+                if not isinstance(e, ValueError):
+                    logger.exception('Carga masiva de catálogo: falló la vista previa')
                 messages.error(request, f'No se pudo analizar el archivo: {e}', extra_tags='carga_catalogo')
                 return render(request, 'material/bulk_catalog_upload.html', {'form': form})
             preview = {
