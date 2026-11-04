@@ -140,7 +140,31 @@ _onDomReady(function () {
         return '<div class="alert alert-success py-2 px-3 mb-0 small"><i class="bi bi-check-circle-fill me-1"></i>' + msg + '</div>';
     };
 
+    // Topes de los tres números (salen del atributo max de cada campo, que el servidor repite al validar). No se muestran
+    // como texto fijo del formulario: solo se avisa, al instante, cuando alguien carga una cifra que los pasa. Antes el
+    // navegador bloqueaba el envío sin decir nada (el campo ya no estaba a la vista en el último paso) y parecía que
+    // «Crear cuestionario» no respondía.
+    function excesos() {
+        var campos = [
+            [totalStudentsInput, 'alumnos por cuestionario'],
+            [numGroupsInput, 'grupos'],
+            [questionsPerStudentInput, 'preguntas por alumno'],
+        ];
+        var avisos = [];
+        campos.forEach(function (c) {
+            var max = parseInt(c[0].getAttribute('max'), 10);
+            var valor = parseInt(c[0].value, 10);
+            if (max && valor > max) avisos.push('El máximo es ' + max + ' ' + c[1] + ' (se ingresaron ' + valor + ').');
+        });
+        return avisos;
+    }
+
     var fetchValidation = debounce(function () {
+        var avisosExceso = excesos();
+        if (avisosExceso.length) {
+            renderValidation(warningHtml(avisosExceso.join(' ')));
+            return;
+        }
         var subjectId = subjectSelect.value;
         var topicIds = getSelectedTopicIds();
         var totalStudents = parseInt(totalStudentsInput.value, 10) || 0;
@@ -252,6 +276,12 @@ _onDomReady(function () {
             var questionsPerStudent = parseInt(questionsPerStudentInput.value, 10) || 0;
             if (!totalStudents || !numGroups || !questionsPerStudent) {
                 window.EducaAppToast.show('Completar alumnos, grupos y preguntas por alumno para continuar.', { variant: 'warning' });
+                return false;
+            }
+            var avisosExceso = excesos();
+            if (avisosExceso.length) {
+                window.EducaAppToast.show(avisosExceso[0], { variant: 'warning' });
+                renderValidation(warningHtml(avisosExceso.join(' ')));
                 return false;
             }
             if (numGroups > totalStudents) {

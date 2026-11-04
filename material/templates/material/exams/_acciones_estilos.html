@@ -77,7 +77,8 @@
     body { padding-bottom: 96px; }
     @media (max-width: 767.98px) {
         .print-button.no-print { justify-content: flex-start; padding-right: 160px; background: linear-gradient(to top, #ececec 65%, rgba(236, 236, 236, 0)); }
-        .print-button.no-print > * { flex: 1 1 auto; min-width: 0; }
+        /* Un texto largo pasa a dos renglones dentro del botón en vez de salirse por los costados. */
+        .print-button.no-print > * { flex: 1 1 auto; min-width: 0; white-space: normal !important; line-height: 1.15; text-align: center; }
     }
     @media print { .acciones-fab, .acciones-panel, .acciones-backdrop { display: none !important; } body { padding-bottom: 0; } }
 </style>

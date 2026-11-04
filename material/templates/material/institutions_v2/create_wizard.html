@@ -20,7 +20,7 @@
         <div class="wiz-step-pill" data-step-pill="4"><span class="wiz-step-num"><span>4</span></span><span class="wiz-step-label">Revisión</span></div>
     </nav>
 
-    <form method="post" action="{% url 'material:create_institution_v2' %}" enctype="multipart/form-data" id="institutionWizardForm">
+    <form method="post" action="{% url 'material:create_institution_v2' %}" enctype="multipart/form-data" id="institutionWizardForm" data-texto-espera="Creando la institución…">
         {% csrf_token %}
 
         <!-- PASO 1: Nombre, sigla, logo -->

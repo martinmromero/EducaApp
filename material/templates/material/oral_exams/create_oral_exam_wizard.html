@@ -39,7 +39,7 @@
     <div class="alert alert-danger py-2 px-3 small" role="alert">{{ oral_fw_error }}</div>
     {% endif %}
 
-    <form method="post" action="{% url 'material:create_oral_exam' %}" id="oralWizardForm">
+    <form method="post" action="{% url 'material:create_oral_exam' %}" id="oralWizardForm" data-texto-espera="Creando el cuestionario…">
         {% csrf_token %}
         <input type="hidden" name="students_per_group" id="id_students_per_group">
         {% if is_embedded %}<input type="hidden" name="fw" value="1">{% endif %}

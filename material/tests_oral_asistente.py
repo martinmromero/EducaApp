@@ -77,6 +77,14 @@ class OralEnElAsistenteTests(TestCase):
         self.assertContains(resp, 'Usar la pantalla completa de siempre')
         self.assertEqual({m.pk for m in resp.context['materias']}, {self.materia.pk, self.otra.pk})
 
+    def test_el_envio_avisa_que_esta_creando_y_los_topes_se_validan_al_cargar(self):
+        resp = self.client_ana.get(reverse('material:create_oral_exam_wizard'))
+        # el botón final dice qué pasa mientras el servidor trabaja (submit_guard.js), no un «Guardando…» genérico
+        self.assertContains(resp, 'data-texto-espera="Creando el cuestionario…"')
+        # los topes (alumnos, grupos, preguntas) los lee el JS del atributo max de cada campo: siguen estando en el HTML
+        for campo, tope in (('id_total_students', '100'), ('id_num_groups', '10'), ('id_questions_per_student', '10')):
+            self.assertRegex(resp.content.decode(), r'max="%s"[^>]*id="%s"' % (tope, campo))
+
     def test_una_materia_ajena_o_invisible_no_se_fija(self):
         resp = login('oa_beto').get(reverse('material:create_oral_exam_wizard'), {'fw': '1', 'subject_id': self.materia.pk})
         self.assertIsNone(resp.context['fw_subject'])
