@@ -143,3 +143,59 @@ class OralEnElAsistenteTests(TestCase):
         self.assertEqual(data['oral_units'], 1)  # un solo sub-tópico con preguntas
         sin_tema = self.client_ana.get(reverse('material:full_wizard_subject_progress'), {'subject_id': self.otra.pk}).json()
         self.assertEqual(sin_tema['oral_units'], 1)  # preguntas sin tópico: una sola unidad "sin tópico"
+
+
+class OralConMuchosAlumnosTests(TestCase):
+    """Cuestionario oral grande (2026-11-05): crear y ver 30 alumnos con una materia de 120 preguntas tarda pocas consultas.
+
+    Antes la creación hacía una consulta por alumno y por pregunta (144) y la pantalla del cuestionario más de 500
+    (cinco consultas por cada conteo de evaluaciones, tres conteos por alumno): con una base remota eran segundos de espera."""
+
+    def setUp(self):
+        self.user = make_user('oral_grande')
+        self.materia = Subject.objects.create(name='Materia grande', created_by=self.user)
+        self.temas = [Topic.objects.create(name=f'Tema {i}', subject=self.materia) for i in range(30)]
+        subtemas = [Subtopic.objects.create(name=f'Sub {i}', topic=self.temas[i % 30]) for i in range(60)]
+        for i in range(120):
+            q = Question.objects.create(
+                user=self.user, question_text=f'Pregunta {i}', answer_text='r', topic=self.temas[i % 30],
+                subtopic=subtemas[i % 60], question_type='desarrollo',
+            )
+            q.subjects.add(self.materia)
+        self.client = login('oral_grande')
+
+    def _crear(self):
+        return self.client.post(reverse('material:create_oral_exam'), {
+            'name': 'Oral grande', 'subject': self.materia.pk, 'topics': [t.pk for t in self.temas],
+            'total_students': 30, 'num_groups': 2, 'students_per_group': 15, 'questions_per_student': 3,
+        })
+
+    def test_crear_y_ver_30_alumnos_usa_pocas_consultas(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        with CaptureQueriesContext(connection) as creacion:
+            resp = self._crear()
+        self.assertEqual(resp.status_code, 302)
+        oral = OralExamSet.objects.get(name='Oral grande')
+        self.assertEqual(oral.groups.count(), 2)
+        self.assertEqual(sum(g.students.count() for g in oral.groups.all()), 30)
+        asignadas = sum(s.oralexamstudentquestion_set.count() for g in oral.groups.all() for s in g.students.all())
+        self.assertEqual(asignadas, 90)
+        self.assertLess(len(creacion), 60, f'{len(creacion)} consultas al crear')
+        with CaptureQueriesContext(connection) as pantalla:
+            vista = self.client.get(reverse('material:view_oral_exam', args=[oral.pk]))
+        self.assertEqual(vista.status_code, 200)
+        self.assertLess(len(pantalla), 25, f'{len(pantalla)} consultas al ver el cuestionario')
+
+    def test_los_conteos_de_evaluacion_siguen_bien(self):
+        self._crear()
+        oral = OralExamSet.objects.get(name='Oral grande')
+        alumno = oral.groups.first().students.first()
+        asignaciones = list(alumno.oralexamstudentquestion_set.all())
+        asignaciones[0].evaluation = 'bien'
+        asignaciones[1].evaluation = 'regular'
+        for a in asignaciones[:2]:
+            a.save()
+        self.assertEqual(alumno.get_evaluation_counts(), {'bien': 1, 'regular': 1, 'mal': 0, 'pendiente': 1, 'total': 3})
+        self.assertEqual(alumno.get_progress_percentage(), 66.7)
+        self.assertEqual(alumno.get_score_percentage(), 75.0)

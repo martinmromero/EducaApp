@@ -2118,14 +2118,13 @@ class OralExamStudent(models.Model):
     
     def get_evaluation_counts(self):
         """Retorna un diccionario con las evaluaciones del estudiante"""
-        evaluations = self.oralexamstudentquestion_set.all()
-        counts = {
-            'bien': evaluations.filter(evaluation='bien').count(),
-            'regular': evaluations.filter(evaluation='regular').count(),
-            'mal': evaluations.filter(evaluation='mal').count(),
-            'pendiente': evaluations.filter(evaluation='pendiente').count(),
-            'total': evaluations.count()
-        }
+        # Se cuenta en memoria sobre .all(): con prefetch_related (pantalla del cuestionario) no hace ninguna consulta
+        # y sin él hace una sola. Antes eran 5 consultas por llamada, y la pantalla llamaba 3 veces por alumno.
+        counts = {'bien': 0, 'regular': 0, 'mal': 0, 'pendiente': 0, 'total': 0}
+        for asignacion in self.oralexamstudentquestion_set.all():
+            if asignacion.evaluation in counts:
+                counts[asignacion.evaluation] += 1
+            counts['total'] += 1
         return counts
     
     def get_progress_percentage(self):

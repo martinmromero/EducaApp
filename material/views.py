@@ -8099,8 +8099,14 @@ def create_oral_exam(request):
 @login_required
 def view_oral_exam(request, exam_id):
     oral_exam = get_object_or_404(OralExamSet, id=exam_id, user=request.user)
+    from django.db.models import Prefetch
+    from .models import OralExamStudentQuestion
+    # Una consulta por nivel (grupos, alumnos, asignaciones con su pregunta, tópico y sub-tópico) en vez de varias por alumno.
     groups = oral_exam.groups.all().prefetch_related(
-        'students__oralexamstudentquestion_set__question'
+        Prefetch(
+            'students__oralexamstudentquestion_set',
+            queryset=OralExamStudentQuestion.objects.select_related('question', 'question__topic', 'question__subtopic'),
+        )
     )
     
     # Calcular total de estudiantes
@@ -8256,13 +8262,13 @@ def generate_oral_exam_questions(oral_exam):
         used_subtopics_by_round = defaultdict(set)  # Control de subtemas por ronda
         
         # Crear estudiantes en el grupo
-        students = []
-        for student_num in range(1, actual_students_in_group + 1):
-            student = OralExamStudent.objects.create(
-                group=group,
-                student_number=student_num
-            )
-            students.append(student)
+        # Los alumnos se crean todos juntos (una sola consulta; en Postgres vuelven con su id) y las asignaciones
+        # estudiante-pregunta se guardan juntas al terminar el grupo: antes era una consulta por alumno y por pregunta.
+        students = OralExamStudent.objects.bulk_create([
+            OralExamStudent(group=group, student_number=student_num)
+            for student_num in range(1, actual_students_in_group + 1)
+        ])
+        asignaciones = []
             
         students_assigned += actual_students_in_group
         
@@ -8332,13 +8338,14 @@ def generate_oral_exam_questions(oral_exam):
                 # Marcar pregunta como usada en este grupo
                 used_questions_in_group.add(selected_question.id)
                 
-                # Crear la asignación estudiante-pregunta
-                OralExamStudentQuestion.objects.create(
+                # Asignación estudiante-pregunta (se guardan todas juntas al terminar el grupo)
+                asignaciones.append(OralExamStudentQuestion(
                     student=student,
                     question=selected_question,
                     order=round_num
-                )
+                ))
         
+        OralExamStudentQuestion.objects.bulk_create(asignaciones)
         print(f"Grupo {group_num}: {len(used_questions_in_group)} preguntas únicas asignadas a {len(students)} estudiantes")
 
     return {
