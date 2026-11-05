@@ -31,12 +31,15 @@
       })();
     </script>
     <script>
-      // Modo simple: el menú lateral arranca colapsado en pantallas grandes (menos cosas a la vista);
-      // quien lo abre lo deja abierto la próxima vez. "sb-pre" lo esconde desde el primer pintado,
-      // sin la animación de deslizarse; base.html le pone después las clases reales y la saca.
+      // Menú lateral en pantallas grandes: se recuerda lo que eligió quien lo usa, en cualquier modo ("edu_sidebar":
+      // "open" o "closed"; antes solo se guardaba en modo simple, con la clave "edu_sidebar_simple"). Sin elección
+      // guardada, el modo simple arranca colapsado (menos cosas a la vista) y el avanzado abierto. "sb-pre" lo esconde
+      // desde el primer pintado, sin la animación de deslizarse; base.html le pone después las clases reales y la saca.
       (function () {
         try {
-          if ({{ ui_simple|yesno:"true,false" }} && window.innerWidth > 768 && localStorage.getItem('edu_sidebar_simple') !== 'open') {
+          var pref = localStorage.getItem('edu_sidebar') || ({{ ui_simple|yesno:"true,false" }} ? localStorage.getItem('edu_sidebar_simple') : null);
+          var cerrado = pref ? pref === 'closed' : {{ ui_simple|yesno:"true,false" }};
+          if (cerrado && window.innerWidth > 768) {
             document.documentElement.classList.add('sb-pre');
           }
         } catch (e) {}
@@ -890,8 +893,8 @@
                 // En desktop: colapsar/expandir
                 const collapsedNow = sidebar.classList.toggle('collapsed');
                 mainContent.classList.toggle('expanded', collapsedNow);
-                if (UI_SIMPLE && skipSave !== true) {
-                    try { localStorage.setItem('edu_sidebar_simple', collapsedNow ? 'closed' : 'open'); } catch (e) {}
+                if (skipSave !== true) {
+                    try { localStorage.setItem('edu_sidebar', collapsedNow ? 'closed' : 'open'); } catch (e) {}
                 }
             }
             syncToggleButton();
@@ -1013,7 +1016,7 @@
                 closeSidebarMobile();
               });
             }
-            // Modo simple: pasar del "colapsado de entrada" (sb-pre, solo CSS) al colapsado real.
+            // Pasar del "colapsado de entrada" (sb-pre, solo CSS) al colapsado real.
             const root = document.documentElement;
             if (root.classList.contains('sb-pre')) {
               if (!isMobile()) {

@@ -875,6 +875,12 @@ html.embed-mode .main-content.test-panel-open {
 .lc-table .lc-text.lc-more:hover { color: var(--bs-emphasis-color); }
 @media (min-width: 768px) {
     .lc-table td.lc-col-fit { white-space: nowrap; width: 1%; }
+    /* Si el usuario achicó una columna arrastrando su borde, el texto de las columnas «fit» baja de línea dentro de su celda en vez de pisar a la de al lado. */
+    .lc-table.lc-resized td.lc-col-fit { white-space: normal; overflow-wrap: anywhere; }
+    /* Etiquetas e imágenes de una columna achicada se ajustan a la celda (las etiquetas bajan de línea y el escudo se reduce) en vez de salirse. */
+    .lc-table.lc-resized td[data-col] .badge { white-space: normal; max-width: 100%; text-align: left; overflow-wrap: anywhere; }
+    .lc-table.lc-resized td[data-col] img { max-width: 100%; height: auto; object-fit: contain; }
+    .lc-table.lc-resized td[data-col] .lc-motivo { min-width: 0; max-width: 100%; }
     .lc-table th.lc-col-fit { width: 1%; }
     .lc-table td.lc-col-text, .lc-table th.lc-col-text { min-width: 5rem; max-width: 14rem; }
     .lc-table td.lc-col-text, .lc-table td.lc-col-name { overflow-wrap: anywhere; }

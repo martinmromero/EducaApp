@@ -115,10 +115,10 @@ class MenuTests(TestCase):
 
     def test_en_modo_simple_el_menu_lateral_arranca_colapsado_y_en_avanzado_no(self):
         simple = self.inicio('m_simple').content.decode()
-        self.assertIn('if (true && window.innerWidth > 768', simple)
+        self.assertIn("var cerrado = pref ? pref === 'closed' : true;", simple)
         self.assertIn('const UI_SIMPLE = true;', simple)
         avanzado = self.inicio('m_avanzado').content.decode()
-        self.assertIn('if (false && window.innerWidth > 768', avanzado)
+        self.assertIn("var cerrado = pref ? pref === 'closed' : false;", avanzado)
         self.assertIn('const UI_SIMPLE = false;', avanzado)
 
     def test_un_admin_en_modo_simple_conserva_administracion(self):
@@ -208,3 +208,19 @@ class EleccionDeModoEnElTutorialTests(TestCase):
         self.assertEqual(r.status_code, 400)
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.interface_mode, 'simple')
+
+
+class MenuLateralRecuerdaLaEleccionTests(TestCase):
+    """El menú lateral se acuerda de lo que eligió quien lo usa en cualquier modo (antes solo en el simple)."""
+
+    def test_en_modo_avanzado_tambien_se_guarda_y_se_lee_la_eleccion(self):
+        make_user('menu_avanzado', mode='avanzado')
+        html = login('menu_avanzado').get(reverse('material:index')).content.decode()
+        self.assertIn("localStorage.setItem('edu_sidebar'", html)
+        self.assertIn("localStorage.getItem('edu_sidebar')", html)
+        self.assertIn("var cerrado = pref ? pref === 'closed' : false;", html)
+
+    def test_en_modo_simple_sin_eleccion_guardada_arranca_cerrado(self):
+        make_user('menu_simple', mode='simple')
+        html = login('menu_simple').get(reverse('material:index')).content.decode()
+        self.assertIn("var cerrado = pref ? pref === 'closed' : true;", html)
